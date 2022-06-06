@@ -39,7 +39,7 @@ rule main = parse
 | "}" { RBRACE }
 | ";" { SEMICOLON }
 | ":" { COLON }
-| "::" { COLONDOUBLE }
+| "::" { DOUBLECOLON }
 | "," { COMMA }
 | "." { DOT }
 | "..." { TRIPLEDOT }

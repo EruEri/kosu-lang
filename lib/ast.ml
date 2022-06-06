@@ -7,6 +7,8 @@ type kstatement =
 | SExpression of kexpression
 and kexpression = 
 | Empty
+| True
+| False
 | EInteger of (signedness * isize * int64)
 | EString of string
 | EAdress of string
@@ -15,7 +17,7 @@ and kexpression =
 | EStruct of string * ((string * kexpression) list)
 | EEnum of (string option) * string * (kexpression list)
 | ETuple of kexpression list
-| EFunction_call of (string * (kexpression list))
+| EFunction_call of (string * (kexpression list)) * string list option (* Module resolve*)
 | EIf of kexpression * kstatement list * (kstatement list) option
 | EBin_op of kbin_op
 | EUn_op of kunary_op
@@ -30,6 +32,14 @@ and kbin_op =
 | BBitwiseXor of kexpression * kexpression
 | BShiftLeft of kexpression * kexpression
 | BShiftRight of kexpression * kexpression
+| BAnd of kexpression * kexpression
+| BOr of kexpression * kexpression
+| BSup of kexpression * kexpression
+| BSupEq of kexpression * kexpression
+| BInf of kexpression * kexpression
+| BInfEq of kexpression * kexpression
+| BEqual of kexpression * kexpression
+| BDif of kexpression * kexpression
 and kunary_op =
 | UMinus of kexpression
 | UNot of kexpression
