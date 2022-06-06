@@ -49,6 +49,7 @@ prog:
 
 prog_nodes:
     | enum_decl { NEnum $1 }
+    | struct_decl { NStruct $1 }
 ;;
 
 enum_decl:
@@ -72,6 +73,19 @@ enum_assoc:
         )
     }
 ;;
+
+struct_decl:
+    | STRUCT generics_opt=option( LPARENT l=separated_nonempty_list(COMMA, IDENT) RPARENT { l }) LBRACE
+    fields=separated_list(COMMA, id=IDENT COLON kt=ktype { id, kt  })
+    RBRACE name=IDENT SEMICOLON {
+        {
+            struct_name = name;
+            generics = generics_opt |> Option.value ~default: [];
+            fields;
+        }
+    }
+;;
+
 ktype:
     | id=IDENT { 
         match id with
@@ -90,4 +104,5 @@ ktype:
      }
     | MULT ktype { TPointer $2 }
     | LPARENT l=separated_nonempty_list(COMMA, ktype) RPARENT id=IDENT { TParametric_identifier (id, l)  }
+    | LPARENT l=separated_nonempty_list(COMMA, ktype) RPARENT { TTuple (l)  }
 ;;

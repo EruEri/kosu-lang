@@ -41,4 +41,12 @@ module PPEnum = struct
       (enum_decl.variants |> List.map string_of_enum_variant |> String.concat ", ")
 end
 
+module PPStruct = struct
+  type t = struct_decl
 
+  let string_of_struct_decl (struct_decl: t) = 
+    sprintf "(%s) %s := { %s }" 
+    (struct_decl.generics |> String.concat ", ")
+    (struct_decl.struct_name)
+    (struct_decl.fields |> List.map (fun (field, t) -> sprintf "%s : %s" (field) (string_of_ktype t)) |> String.concat ", " )
+end
