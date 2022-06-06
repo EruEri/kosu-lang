@@ -1,0 +1,12 @@
+(ocamllex 
+ (modules lexer)
+)
+
+(menhir
+ (modules parser) 
+(infer true)
+)
+
+(library
+ (name kosu_lang)
+)
