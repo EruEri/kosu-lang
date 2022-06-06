@@ -1,4 +1,4 @@
 (executable
- (public_name kosu_lang)
+ (public_name kosuc)
  (name kosuc)
  (libraries kosu_lang))

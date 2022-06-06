@@ -52,7 +52,7 @@ prog_nodes:
 ;;
 
 enum_decl:
-    | ENUM generics_opt=option( separated_nonempty_list(COMMA, IDENT) ) LBRACE 
+    | ENUM generics_opt=option( LPARENT l=separated_nonempty_list(COMMA, IDENT) RPARENT { l }) LBRACE 
     variants=separated_list(COMMA,enum_assoc) 
     RBRACE name=IDENT SEMICOLON { 
         let generics = generics_opt |> Option.value ~default: [] in
