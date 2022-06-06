@@ -50,6 +50,7 @@ prog:
 prog_nodes:
     | enum_decl { NEnum $1 }
     | struct_decl { NStruct $1 }
+    | external_func_decl { NExternFunc $1 }
 ;;
 
 enum_decl:
@@ -85,6 +86,36 @@ struct_decl:
         }
     }
 ;;
+
+external_func_decl:
+    | EXTERNAL id=IDENT LPARENT ctypes=separated_list(COMMA, ctype) varia=option( p=preceded(SEMICOLON, TRIPLEDOT { () }) { p } ) 
+    RPARENT r_type=ctype c_name=option(EQUAL s=String_lit { s }) SEMICOLON {
+        {
+            sig_name = id;
+            fn_parameters = ctypes;
+            is_variadic = varia |> Option.is_some;
+            r_type;
+            c_name;
+        }
+    }
+
+ctype:
+    | id=IDENT { 
+        match id with
+        | "float" -> TFloat
+        | "unit" -> TUnit
+        | "bool" -> TBool
+        | "s8" -> TInteger( Signed, I8)
+        | "u8" -> TInteger( Unsigned, I8)
+        | "s16" -> TInteger( Signed, I16)
+        | "u16" -> TInteger( Unsigned, I16)
+        | "s32" -> TInteger( Signed, I32)
+        | "u32" -> TInteger( Unsigned, I32)
+        | "s64" -> TInteger( Signed, I64)
+        | "u64" -> TInteger( Unsigned, I64)
+        | _ as s -> TType_Identifier s
+     }
+    | MULT ktype { TPointer $2 } 
 
 ktype:
     | id=IDENT { 

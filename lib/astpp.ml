@@ -50,3 +50,15 @@ module PPStruct = struct
     (struct_decl.struct_name)
     (struct_decl.fields |> List.map (fun (field, t) -> sprintf "%s : %s" (field) (string_of_ktype t)) |> String.concat ", " )
 end
+
+module PPExternalFunc = struct
+  type t = external_func_decl
+
+  let string_of_external_func_decl (efucn_decl: t) = 
+    sprintf "external %s(%s %s) %s %s"
+    (efucn_decl.sig_name)
+    (efucn_decl.fn_parameters |> List.map string_of_ktype |> String.concat ",")
+    (if efucn_decl.is_variadic then ",..." else "")
+    (efucn_decl.r_type |> string_of_ktype)
+    (efucn_decl.c_name |> Option.map (fun s -> sprintf " = %s" s) |> Option.value ~default: "")
+end

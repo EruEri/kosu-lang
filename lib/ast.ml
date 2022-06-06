@@ -70,7 +70,7 @@ type external_func_decl = {
   sig_name: string;
   fn_parameters: (ktype) list;
   r_type: ktype;
-  is_varadic: bool;
+  is_variadic: bool;
   c_name : string option;
 }
 

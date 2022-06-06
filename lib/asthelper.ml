@@ -16,4 +16,7 @@ module Program = struct
 
   let retrieve_struct_decl = function
   | Ast.Prog nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NStruct s -> Some s | _ -> None)
+
+  let retrieve_external_func_decl = function
+  | Ast.Prog nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NExternFunc s -> Some s | _ -> None)
 end
