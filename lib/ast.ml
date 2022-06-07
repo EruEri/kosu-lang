@@ -10,10 +10,11 @@ and kexpression =
 | True
 | False
 | EInteger of (signedness * isize * int64)
+| ESizeof of kexpression
 | EString of string
 | EAdress of string
 | EDeference of string
-| EIdentifier of string
+| EIdentifier of string * (string list option)
 | EStruct of string * ((string * kexpression) list)
 | EEnum of (string option) * string * (kexpression list)
 | ETuple of kexpression list

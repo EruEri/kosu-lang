@@ -7,9 +7,9 @@
     exception Unexpected_escaped_char of string
     exception Unclosed_string
 
-    let keywords = Hashtbl.create 14
+    let keywords = Hashtbl.create 15
     let _ = ["enum", ENUM; "external", EXTERNAL; "sig", SIG; "fn", FUNCTION; "struct", STRUCT;
-    "true", TRUE; "false", FALSE; "empty", EMPTY; "switch", SWITCH; "if", IF; "else", ELSE;
+    "true", TRUE; "false", FALSE; "empty", EMPTY; "switch", SWITCH; "sizeof", SIZEOF; "if", IF; "else", ELSE;
     "for", FOR; "const", CONST; "var", VAR; 
     ] |> List.iter (fun (s,t) -> Hashtbl.add keywords s t)
 }
@@ -32,7 +32,10 @@ let number = decimal_integer | hex_integer | octal_intger | binary_integer
 let whitespace = [' ' '\t' '\r' '\n']+
 
 rule main = parse
-| whitespace { main lexbuf }
+| whitespace {  
+    (* let _ = if ( String.contains s '\n') then (line := !line + 1) else () in  *)
+    main lexbuf 
+}
 | "(" { LPARENT }
 | ")" { RPARENT }
 | "{" { LBRACE }
@@ -51,6 +54,8 @@ rule main = parse
 | "||" { OR }
 | "|>" { PIPESUP }
 | "=>" { ARROWFUNC }
+| "->" { MINUSUP }
+| "$" { DOLLAR }
 | "==" { DOUBLEQUAL }
 | "!=" { DIF }
 | "!" { NOT }
@@ -78,6 +83,9 @@ rule main = parse
 }
 | (number as n) {
     Integer_lit(Ast.Signed, Ast.I32, Int64.of_string n)
+}
+| module_identifier as s {
+    Module_IDENT s
 }
 | identifiant as s {
     try 

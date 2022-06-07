@@ -6,8 +6,9 @@
 %token <Ast.signedness * Ast.isize * int64> Integer_lit
 %token <string> String_lit
 %token <string> IDENT
+%token <string> Module_IDENT 
 %token LPARENT RPARENT LBRACE RBRACE
-%token SEMICOLON COLON ARROWFUNC
+%token SEMICOLON ARROWFUNC MINUSUP
 %token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
 %token TRIPLEDOT
 %token COMMA
@@ -23,16 +24,16 @@
 %token SHIFTLEFT SHIFTRIGHT
 %token PLUS MINUS
 %token MULT DIV MOD
-%token NOT
+%token NOT SIZEOF DOLLAR
 %token DOT
-%token DOUBLECOLON
+%token DOUBLECOLON COLON
 %token EOF
 
-
+%right SIZEOF
 %left AMPERSAND XOR PIPE AND OR COMMA PIPESUP 
 %left DOUBLECOLON DOT MULT DIV MOD SHIFTLEFT SHIFTRIGHT SUP SUPEQ INF INFEQ DOUBLEQUAL DIF PLUS MINUS
 // %nonassoc EOF LPARENT RPARENT LBRACE RBRACE SEMICOLON COLON ARROWFUNC TRIPLEDOT EQUAL Integer_lit String_lit
-%nonassoc UMINUS NOT
+%nonassoc UMINUS NOT 
 // %nonassoc ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
 
 %start prog
@@ -109,14 +110,14 @@ declarer:
 statement:
     | declarer IDENT EQUAL expr SEMICOLON { SDeclaration ($2, $4, $1) }
     | IDENT EQUAL expr SEMICOLON { SAffection ($1, $3) }
-    | expr { SExpression $1 }
+    | DOLLAR expr { SExpression $2 }
 ;;
 
 
 function_decl:
     | FUNCTION name=IDENT generics_opt=option( d=delimited(SUP, separated_nonempty_list(COMMA, id=IDENT {id}), INF ) { d })
     parameters=delimited(LPARENT, separated_list(COMMA, id=IDENT COLON kt=ktype { id, kt  }), RPARENT )
-    r_type=ktype LBRACE body=nonempty_list(statement) RBRACE {
+    r_type=ktype LBRACE body=list(statement) RBRACE {
         {
             fn_name = name;
             generics = generics_opt |> Option.value ~default: [];
@@ -131,6 +132,7 @@ expr:
     | String_lit { EString $1 }
     | TRUE { True }
     | FALSE { False }
+    | SIZEOF delimited(LPARENT, expr, RPARENT) { ESizeof $2 }
     | expr PLUS expr { EBin_op (BAdd ($1, $3) ) }
     | expr MINUS expr { EBin_op (BMinus ($1, $3)) }
     | expr MULT expr { EBin_op (BMult ($1, $3)) }
@@ -149,25 +151,38 @@ expr:
     | expr INFEQ expr { EBin_op (BInfEq ($1, $3)) }
     | expr DOUBLEQUAL expr { EBin_op (BEqual ($1, $3)) }
     | expr DIF expr { EBin_op (BDif ($1, $3)) }
-    | expr PIPESUP calls=separated_nonempty_list(PIPESUP, function_call) {
-        calls |> List.fold_left (fun acc (fn_name, exprs, module_resolve) -> 
-            EFunction_call (
-                (fn_name, acc::exprs),
-                module_resolve
-            )
-        ) $1
+    | l=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT  LPARENT exprs=separated_list(COMMA, expr) RPARENT {
+        ignore l;
+        EFunction_call ((name, exprs), Some l)
     }
+    | l=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT {
+        ignore l;
+        EIdentifier (id, Some l)
+    }
+    // | function_call { 
+    //     let name, exprs, resolve = $1 in
+    //     
+    //  }
+    // | expr PIPESUP calls=separated_nonempty_list(PIPESUP, function_call) {
+    //     calls |> List.fold_left (fun acc (fn_name, exprs, module_resolve) -> 
+    //         EFunction_call (
+    //             (fn_name, acc::exprs),
+    //             module_resolve
+    //         )
+    //     ) $1
+    // }
     | d=delimited(LPARENT, expr, RPARENT ) { d }
 ;;
-function_call:
-    | option(module_resolve) IDENT delimited(LPARENT, list(expr) ,RPARENT) {
-        (
-            $2, $3, $1
-        )
-    }
-    ;;
-module_resolve:
-    | separated_list(DOUBLECOLON, IDENT) COLON { $1 }
+// function_call:
+//     | option(module_resolve) IDENT delimited(LPARENT, list(expr) ,RPARENT) {
+//         (
+//             $2, $3, $1
+//         )
+//     }
+//     ;;
+// module_resolve:
+//     | separated_nonempty_list(DOUBLECOLON, IDENT) COLON { $1 }
+// ;;
 ctype:
     | id=IDENT { 
         match id with
