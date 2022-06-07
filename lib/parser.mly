@@ -133,6 +133,8 @@ expr:
     | TRUE { True }
     | FALSE { False }
     | SIZEOF delimited(LPARENT, expr, RPARENT) { ESizeof $2 }
+    | MULT IDENT { EDeference $2 }
+    | AMPERSAND IDENT { EAdress $2 }
     | expr PLUS expr { EBin_op (BAdd ($1, $3) ) }
     | expr MINUS expr { EBin_op (BMinus ($1, $3)) }
     | expr MULT expr { EBin_op (BMult ($1, $3)) }
@@ -153,19 +155,29 @@ expr:
     | expr DIF expr { EBin_op (BDif ($1, $3)) }
     | l=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT  LPARENT exprs=separated_list(COMMA, expr) RPARENT {
         ignore l;
-        EFunction_call ((name, exprs), l)
+        EFunction_call { 
+            modules_path = l;
+            fn_name = name;
+            parameters = exprs;
+        }
     }
     | l=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT {
-        ignore l;
-        EIdentifier (id, l)
+        EIdentifier { 
+            modules_path = l;
+            identifier = id
+        }
     }
     | expr PIPESUP calls=separated_nonempty_list(PIPESUP, 
         modules=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT
          LPARENT exprs=separated_list(COMMA, expr) RPARENT { name, exprs , modules }) {
             calls |> List.fold_left (
                 fun acc value  -> 
-                    let fn_name, expressions, mods = value in
-                    EFunction_call( (fn_name, acc::expressions), mods)
+                    let fn_name, parameters, modules_path = value in
+                    EFunction_call { 
+                        modules_path;
+                        fn_name;
+                        parameters = acc::parameters;
+                    }
                 ) $1
         }
     | d=delimited(LPARENT, expr, RPARENT ) { d }
