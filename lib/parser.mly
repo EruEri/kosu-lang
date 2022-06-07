@@ -180,6 +180,13 @@ expr:
                     }
                 ) $1
         }
+    | modules_path=separated_list(DOUBLECOLON, Module_IDENT)  struct_name=IDENT fields=delimited(LBRACE, separated_list(COMMA, id=IDENT COLON expr=expr { id, expr } ) , RBRACE) {
+        EStruct {
+            modules_path;
+            struct_name;
+            fields
+        }
+    } 
     | d=delimited(LPARENT, expr, RPARENT ) { d }
 ;;
     // | function_call { 
