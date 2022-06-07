@@ -14,11 +14,11 @@ and kexpression =
 | EString of string
 | EAdress of string
 | EDeference of string
-| EIdentifier of string * (string list option)
+| EIdentifier of string * (string list)
 | EStruct of string * ((string * kexpression) list)
 | EEnum of (string option) * string * (kexpression list)
 | ETuple of kexpression list
-| EFunction_call of (string * (kexpression list)) * string list option (* Module resolve*)
+| EFunction_call of (string * (kexpression list)) * string list (* Module resolve*)
 | EIf of kexpression * kstatement list * (kstatement list) option
 | EBin_op of kbin_op
 | EUn_op of kunary_op

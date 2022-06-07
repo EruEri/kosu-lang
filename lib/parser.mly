@@ -153,12 +153,23 @@ expr:
     | expr DIF expr { EBin_op (BDif ($1, $3)) }
     | l=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT  LPARENT exprs=separated_list(COMMA, expr) RPARENT {
         ignore l;
-        EFunction_call ((name, exprs), Some l)
+        EFunction_call ((name, exprs), l)
     }
     | l=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT {
         ignore l;
-        EIdentifier (id, Some l)
+        EIdentifier (id, l)
     }
+    | expr PIPESUP calls=separated_nonempty_list(PIPESUP, 
+        modules=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT
+         LPARENT exprs=separated_list(COMMA, expr) RPARENT { name, exprs , modules }) {
+            calls |> List.fold_left (
+                fun acc value  -> 
+                    let fn_name, expressions, mods = value in
+                    EFunction_call( (fn_name, acc::expressions), mods)
+                ) $1
+        }
+    | d=delimited(LPARENT, expr, RPARENT ) { d }
+;;
     // | function_call { 
     //     let name, exprs, resolve = $1 in
     //     
@@ -171,8 +182,7 @@ expr:
     //         )
     //     ) $1
     // }
-    | d=delimited(LPARENT, expr, RPARENT ) { d }
-;;
+
 // function_call:
 //     | option(module_resolve) IDENT delimited(LPARENT, list(expr) ,RPARENT) {
 //         (
