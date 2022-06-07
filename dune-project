@@ -7,24 +7,23 @@
 (generate_opam_files true)
 
 (source
- (github username/reponame))
+ (github EruEri/kosu-lang))
 
-(authors "Author Name")
+(authors "EruEri")
 
-(maintainers "Maintainer Name")
+(maintainers "EruEri")
 
 (license LICENSE)
 
-(documentation https://url/to/documentation)
+; (documentation https://url/to/documentation)
 
 
 
 (package
  (name kosu_lang)
- (synopsis "A short synopsis")
- (description "A longer description")
- (depends ocaml dune)
- (tags
-  (topics "to describe" your project)))
+ (synopsis "A programming language project")
+ (description "A programming language that I hope will compile on arm64 and maybe one day on all platform through the LLVM")
+ (depends ocaml dune menhir)
+)
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project

@@ -7,10 +7,10 @@
     exception Unexpected_escaped_char of string
     exception Unclosed_string
 
-    let keywords = Hashtbl.create 15
-    let _ = ["enum", ENUM; "external", EXTERNAL; "sig", SIG; "fn", FUNCTION; "struct", STRUCT;
-    "true", TRUE; "false", FALSE; "empty", EMPTY; "switch", SWITCH; "sizeof", SIZEOF; "if", IF; "else", ELSE;
-    "for", FOR; "const", CONST; "var", VAR; 
+    let keywords = Hashtbl.create 17
+    let _ = ["case", CASE; "const", CONST; "enum", ENUM; "external", EXTERNAL; "empty", EMPTY; "sig", SIG; "else", ELSE; "fn", FUNCTION; 
+    "for", FOR; "false", FALSE; "struct", STRUCT; "of", OF; "true", TRUE; "switch", SWITCH; "sizeof", SIZEOF; "if", IF; 
+     "var", VAR; 
     ] |> List.iter (fun (s,t) -> Hashtbl.add keywords s t)
 }
 
@@ -46,6 +46,7 @@ rule main = parse
 | "," { COMMA }
 | "." { DOT }
 | "..." { TRIPLEDOT }
+| "_" { WILDCARD }
 | "=" { EQUAL }
 | "&"  { AMPERSAND }
 | "^" { XOR }

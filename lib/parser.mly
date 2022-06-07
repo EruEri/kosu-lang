@@ -7,9 +7,9 @@
 %token <string> String_lit
 %token <string> IDENT
 %token <string> Module_IDENT 
-%token LPARENT RPARENT LBRACE RBRACE
+%token LPARENT RPARENT LBRACE RBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
-%token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
+%token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASE
 %token TRIPLEDOT
 %token COMMA
 %token PIPESUP
@@ -153,6 +153,7 @@ expr:
     | expr INFEQ expr { EBin_op (BInfEq ($1, $3)) }
     | expr DOUBLEQUAL expr { EBin_op (BEqual ($1, $3)) }
     | expr DIF expr { EBin_op (BDif ($1, $3)) }
+    | NOT expr { EUn_op (UNot $2) }
     | l=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT  LPARENT exprs=separated_list(COMMA, expr) RPARENT {
         ignore l;
         EFunction_call { 
@@ -186,9 +187,29 @@ expr:
             struct_name;
             fields
         }
-    } 
+    }
+    | modules_path=separated_list(DOUBLECOLON, Module_IDENT) enum_name=option(IDENT) DOT variant=IDENT assoc_exprs=delimited(LPARENT, separated_nonempty_list(COMMA, expr) ,RPARENT) {
+        EEnum {
+            modules_path;
+            enum_name;
+            variant;
+            assoc_exprs
+        }
+    }
+    | IF expr delimited(LBRACE, list(statement), RBRACE) {
+        EIf (
+            $2, 
+            $3, 
+            None
+        )
+    }
     | d=delimited(LPARENT, expr, RPARENT ) { d }
 ;;
+
+// else_content:
+//     | ELSE expr { (SExpression $2)::[] }
+//     | ELSE delimited(LBRACE, list(statement) , RBRACE) { $2 }
+// ;; 
     // | function_call { 
     //     let name, exprs, resolve = $1 in
     //     
