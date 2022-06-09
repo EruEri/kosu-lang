@@ -7,7 +7,7 @@
 %token <string> String_lit
 %token <string> IDENT
 %token <string> Module_IDENT 
-%token LPARENT RPARENT LBRACE RBRACE WILDCARD
+%token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
 %token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASE
 %token TRIPLEDOT
@@ -115,7 +115,7 @@ statement:
 
 
 function_decl:
-    | FUNCTION name=IDENT generics_opt=option( d=delimited(SUP, separated_nonempty_list(COMMA, id=IDENT {id}), INF ) { d })
+    | FUNCTION name=IDENT generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=IDENT {id}), SUP ) { d })
     parameters=delimited(LPARENT, separated_list(COMMA, id=IDENT COLON kt=ktype { id, kt  }), RPARENT )
     r_type=ktype LBRACE body=list(statement) RBRACE {
         {
@@ -132,7 +132,8 @@ expr:
     | String_lit { EString $1 }
     | TRUE { True }
     | FALSE { False }
-    | SIZEOF delimited(LPARENT, expr, RPARENT) { ESizeof $2 }
+    | SIZEOF delimited(LPARENT, expr, RPARENT) { ESizeof ( Either.Right $2) }
+    | SIZEOF delimited(LPARENT, SEMICOLON t=ktype { t } , RPARENT) { ESizeof (Either.Left $2)  }
     | MULT IDENT { EDeference $2 }
     | AMPERSAND IDENT { EAdress $2 }
     | expr PLUS expr { EBin_op (BAdd ($1, $3) ) }
@@ -154,10 +155,10 @@ expr:
     | expr DOUBLEQUAL expr { EBin_op (BEqual ($1, $3)) }
     | expr DIF expr { EBin_op (BDif ($1, $3)) }
     | NOT expr { EUn_op (UNot $2) }
-    | l=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT  LPARENT exprs=separated_list(COMMA, expr) RPARENT {
-        ignore l;
+    | l=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, ktype) SUP { s } ) LPARENT exprs=separated_list(COMMA, expr) RPARENT {
         EFunction_call { 
             modules_path = l;
+            generics_resolver;
             fn_name = name;
             parameters = exprs;
         }
@@ -176,6 +177,7 @@ expr:
                     let fn_name, parameters, modules_path = value in
                     EFunction_call { 
                         modules_path;
+                        generics_resolver = None;
                         fn_name;
                         parameters = acc::parameters;
                     }

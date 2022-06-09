@@ -4,7 +4,7 @@
 
 (menhir
  (modules parser) 
- (flags --unused-tokens  --dump)
+ (flags --unused-tokens  --dump --dump-resolved)
 (infer true)
 )
 

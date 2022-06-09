@@ -35,7 +35,7 @@ module PPEnum = struct
     sprintf "%s (%s)" name (types |> List.map string_of_ktype |> String.concat ", ")
 
     let string_of_enum_decl (enum_decl: t) = 
-      sprintf "(%s) %s := { %s }"
+      sprintf "enum (%s) %s := { %s }"
       (enum_decl.generics |> String.concat ", ")
       (enum_decl.enum_name)
       (enum_decl.variants |> List.map string_of_enum_variant |> String.concat ", ")
@@ -45,7 +45,7 @@ module PPStruct = struct
   type t = struct_decl
 
   let string_of_struct_decl (struct_decl: t) = 
-    sprintf "(%s) %s := { %s }" 
+    sprintf "struct (%s) %s := { %s }" 
     (struct_decl.generics |> String.concat ", ")
     (struct_decl.struct_name)
     (struct_decl.fields |> List.map (fun (field, t) -> sprintf "%s : %s" (field) (string_of_ktype t)) |> String.concat ", " )
@@ -58,7 +58,7 @@ module PPExternalFunc = struct
     sprintf "external %s(%s %s) %s %s"
     (efucn_decl.sig_name)
     (efucn_decl.fn_parameters |> List.map string_of_ktype |> String.concat ",")
-    (if efucn_decl.is_variadic then ",..." else "")
+    (if efucn_decl.is_variadic then ";..." else "")
     (efucn_decl.r_type |> string_of_ktype)
     (efucn_decl.c_name |> Option.map (fun s -> sprintf " = %s" s) |> Option.value ~default: "")
 end

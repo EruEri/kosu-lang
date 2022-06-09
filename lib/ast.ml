@@ -1,6 +1,19 @@
 type signedness = Signed | Unsigned;;
 type isize = I8 | I16 | I32 | I64;;
 
+type ktype = 
+| TParametric_identifier of (string * (ktype list) )
+| TType_Identifier of string
+| TInteger of (signedness * isize)
+| TPointer of ktype
+| TTuple of ktype list
+| TFunction of (ktype list * ktype)
+| TUnknow
+| TFloat
+| TBool
+| TUnit
+;;
+
 type kstatement =
 | SDeclaration of string * kexpression * bool
 | SAffection of string * kexpression
@@ -10,7 +23,7 @@ and kexpression =
 | True
 | False
 | EInteger of (signedness * isize * int64)
-| ESizeof of kexpression
+| ESizeof of (ktype, kexpression) Either.t 
 | EString of string
 | EAdress of string
 | EDeference of string
@@ -32,9 +45,10 @@ and kexpression =
 | ETuple of kexpression list
 | EFunction_call of {
   modules_path: string list;
+  generics_resolver: ktype list option;
   fn_name: string;
   parameters: kexpression list;
-} (* Module resolve*)
+}
 | EIf of kexpression * kstatement list * (kstatement list) option
 | EBin_op of kbin_op
 | EUn_op of kunary_op
@@ -60,18 +74,6 @@ and kbin_op =
 and kunary_op =
 | UMinus of kexpression
 | UNot of kexpression
-
-type ktype = 
-| TParametric_identifier of (string * (ktype list) )
-| TType_Identifier of string
-| TInteger of (signedness * isize)
-| TPointer of ktype
-| TTuple of ktype list
-| TFunction of (ktype list * ktype)
-| TBool
-| TUnknow
-| TUnit
-| TFloat
 
 type struct_decl = {
   struct_name: string;

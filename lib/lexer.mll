@@ -65,11 +65,13 @@ rule main = parse
 | "*" { MULT } 
 | "/" { DIV }
 | "%" { MOD }
-| "<" { SUP }
+| "<" { INF }
+| "[" { LSQBRACE }
+| "]" { RSQBRACE }
 | "\"" { lexbuf |> read_string (Buffer.create 16) }
-| "<=" { SUPEQ }
-| ">=" { INFEQ }
-| ">" { INF }
+| "<=" { INFEQ }
+| ">=" { SUPEQ }
+| ">" { SUP }
 | "<<" { SHIFTLEFT }
 | ">>" { SHIFTRIGHT }
 | (number as n) (integer_sigdness as sign) (integer_size as size) {
