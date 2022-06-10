@@ -207,11 +207,11 @@ expr:
             else_case
         }
     }
-    | IF expr delimited(LBRACE, list(statement), RBRACE)  {
+    | IF expr delimited(LBRACE, list(statement), RBRACE) ELSE delimited(LBRACE, list(statement), RBRACE)  {
         EIf (
             $2, 
             $3, 
-            None
+            $5
             (* $4 |> Option.map (fun e -> (SExpression e)::[] ) *)
         )
     }

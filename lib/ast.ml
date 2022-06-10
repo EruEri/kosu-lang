@@ -49,7 +49,7 @@ and kexpression =
   fn_name: string;
   parameters: kexpression list;
 }
-| EIf of kexpression * kstatement list * (kstatement list) option
+| EIf of kexpression * (kstatement list) * (kstatement list)
 | ECases of {
   cases: (kexpression list * kstatement list) list;
   else_case: kstatement list 
