@@ -6,6 +6,7 @@
     exception Forbidden_char of char
     exception Unexpected_escaped_char of string
     exception Unclosed_string
+    exception Unclosed_comment
 
     let keywords = Hashtbl.create 17
     let _ = ["cases", CASES; "const", CONST; "enum", ENUM; "external", EXTERNAL; "empty", EMPTY; "sig", SIG; "else", ELSE; "fn", FUNCTION; 
@@ -69,6 +70,8 @@ rule main = parse
 | "[" { LSQBRACE }
 | "]" { RSQBRACE }
 | "\"" { lexbuf |> read_string (Buffer.create 16) }
+| "//" { lexbuf |> single_line_comment }
+| "/*" { lexbuf |> multiple_line_comment }
 | "<=" { INFEQ }
 | ">=" { SUPEQ }
 | ">" { SUP }
@@ -103,3 +106,11 @@ and read_string buffer = parse
 | '\\' { raise ( Unexpected_escaped_char (lexbuf |> lexeme) ) }
 | _ as s { Buffer.add_char buffer s; read_string buffer lexbuf }
 | eof { raise Unclosed_string }
+and single_line_comment = parse
+| '\n' { main lexbuf }
+| _ { single_line_comment lexbuf}
+| eof { EOF }
+and multiple_line_comment = parse 
+| "*/" { main lexbuf }
+| _ { multiple_line_comment lexbuf }
+| eof { raise  Unclosed_comment }
