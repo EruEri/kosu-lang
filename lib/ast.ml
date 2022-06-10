@@ -50,6 +50,10 @@ and kexpression =
   parameters: kexpression list;
 }
 | EIf of kexpression * kstatement list * (kstatement list) option
+| ECases of {
+  cases: (kexpression list * kstatement list) list;
+  else_case: kstatement list 
+}
 | EBin_op of kbin_op
 | EUn_op of kunary_op
 and kbin_op =

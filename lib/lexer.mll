@@ -8,7 +8,7 @@
     exception Unclosed_string
 
     let keywords = Hashtbl.create 17
-    let _ = ["case", CASE; "const", CONST; "enum", ENUM; "external", EXTERNAL; "empty", EMPTY; "sig", SIG; "else", ELSE; "fn", FUNCTION; 
+    let _ = ["cases", CASES; "const", CONST; "enum", ENUM; "external", EXTERNAL; "empty", EMPTY; "sig", SIG; "else", ELSE; "fn", FUNCTION; 
     "for", FOR; "false", FALSE; "struct", STRUCT; "of", OF; "true", TRUE; "switch", SWITCH; "sizeof", SIZEOF; "if", IF; 
      "var", VAR; 
     ] |> List.iter (fun (s,t) -> Hashtbl.add keywords s t)

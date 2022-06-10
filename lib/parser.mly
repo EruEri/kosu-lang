@@ -9,7 +9,7 @@
 %token <string> Module_IDENT 
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
-%token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASE
+%token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES
 %token TRIPLEDOT
 %token COMMA
 %token PIPESUP
@@ -198,11 +198,21 @@ expr:
             assoc_exprs
         }
     }
-    | IF expr delimited(LBRACE, list(statement), RBRACE) {
+    | CASES delimited(LBRACE, 
+        s=nonempty_list(OF conds=separated_nonempty_list(COMMA, expr) LBRACE stmts=nonempty_list(statement) RBRACE { conds, stmts } ) 
+        ELSE LBRACE else_case=nonempty_list(statement) RBRACE { s, else_case } , RBRACE) {
+            let cases, else_case = $2 in
+        ECases {
+            cases;
+            else_case
+        }
+    }
+    | IF expr delimited(LBRACE, list(statement), RBRACE)  {
         EIf (
             $2, 
             $3, 
             None
+            (* $4 |> Option.map (fun e -> (SExpression e)::[] ) *)
         )
     }
     | d=delimited(LPARENT, expr, RPARENT ) { d }
