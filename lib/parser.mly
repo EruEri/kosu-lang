@@ -199,7 +199,7 @@ expr:
         }
     }
     | CASES delimited(LBRACE, 
-        s=nonempty_list(OF conds=separated_nonempty_list(COMMA, expr) LBRACE stmts=nonempty_list(statement) RBRACE { conds, stmts } ) 
+        s=nonempty_list(OF conds=separated_nonempty_list(COMMA, expr) ARROWFUNC LBRACE stmts=nonempty_list(statement) RBRACE { conds, stmts } ) 
         ELSE LBRACE else_case=nonempty_list(statement) RBRACE { s, else_case } , RBRACE) {
             let cases, else_case = $2 in
         ECases {
@@ -215,8 +215,29 @@ expr:
             (* $4 |> Option.map (fun e -> (SExpression e)::[] ) *)
         )
     }
+    | SWITCH expr LBRACE nonempty_list(PIPE cases=separated_nonempty_list(COMMA, s_case) ARROWFUNC LBRACE stmts=nonempty_list(statement) RBRACE { cases, stmts } )  RBRACE { 
+        ESwitch {
+            expression = $2;
+            cases = $4;
+            else_case = None
+        }
+    }
     | d=delimited(LPARENT, expr, RPARENT ) { d }
 ;;
+s_case:
+    | DOT IDENT { SC_Enum_Identifier { variant = $2 } }
+    | DOT IDENT delimited(LPARENT, separated_nonempty_list(COMMA, IDENT { Some $1 } | WILDCARD { None } ), RPARENT) {
+        SC_Enum_Identifier_Assoc {
+            variant = $2;
+            assoc_ids = $3
+        }
+    }
+    | IDENT {
+        SC_Identifier $1
+    }
+    | Integer_lit {
+        SC_Integer_Literal $1
+    }
 
 // else_content:
 //     | ELSE expr { (SExpression $2)::[] }

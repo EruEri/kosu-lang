@@ -1,6 +1,18 @@
 type signedness = Signed | Unsigned;;
 type isize = I8 | I16 | I32 | I64;;
 
+type switch_case =
+| SC_Enum_Identifier of {
+  variant: string
+}
+| SC_Enum_Identifier_Assoc of {
+  variant: string;
+  assoc_ids: string option list
+}
+| SC_Integer_Literal of (signedness * isize * int64)
+| SC_Identifier of string
+
+
 type ktype = 
 | TParametric_identifier of (string * (ktype list) )
 | TType_Identifier of string
@@ -53,6 +65,11 @@ and kexpression =
 | ECases of {
   cases: (kexpression list * kstatement list) list;
   else_case: kstatement list 
+}
+| ESwitch of {
+  expression: kexpression;
+  cases: (switch_case list * kstatement list) list;
+  else_case: kstatement list option
 }
 | EBin_op of kbin_op
 | EUn_op of kunary_op
