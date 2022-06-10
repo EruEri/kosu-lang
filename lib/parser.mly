@@ -5,7 +5,9 @@
 
 %token <Ast.signedness * Ast.isize * int64> Integer_lit
 %token <string> String_lit
+%token <float> Float_lit
 %token <string> IDENT
+%token <string> Constant
 %token <string> Module_IDENT 
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
@@ -54,6 +56,7 @@ prog_nodes:
     | struct_decl { NStruct $1 }
     | external_func_decl { NExternFunc $1 }
     | function_decl { NFunction $1 }
+    | const_decl { NConst $1 }
 ;;
 
 enum_decl:
@@ -127,9 +130,33 @@ function_decl:
         }
     }
 ;;
+const_decl:
+    | CONST Constant EQUAL Integer_lit SEMICOLON {
+        let sign, size, value = $4 in
+        {
+            const_name = $2;
+            explicit_type = TInteger (sign, size);
+            value = EInteger (sign, size, value);
+        }
+    }
+    | CONST Constant EQUAL String_lit SEMICOLON {
+        {
+            const_name = $2;
+            explicit_type = TString_lit;
+            value = EString $4
+        }
+    }
+    | CONST Constant EQUAL Float_lit SEMICOLON {
+        {
+            const_name = $2;
+            explicit_type = TFloat;
+            value = EFloat $4
+        }
+    }
 expr:
     | Integer_lit { EInteger $1 }
     | String_lit { EString $1 }
+    | Float_lit { EFloat $1 }
     | TRUE { True }
     | FALSE { False }
     | SIZEOF delimited(LPARENT, expr, RPARENT) { ESizeof ( Either.Right $2) }
@@ -165,6 +192,12 @@ expr:
     }
     | l=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT {
         EIdentifier { 
+            modules_path = l;
+            identifier = id
+        }
+    }
+    | l=separated_list(DOUBLECOLON, Module_IDENT) id=Constant {
+        EConst_Identifier {
             modules_path = l;
             identifier = id
         }
@@ -240,37 +273,10 @@ s_case:
         SC_Integer_Literal $1
     }
 
-// else_content:
-//     | ELSE expr { (SExpression $2)::[] }
-//     | ELSE delimited(LBRACE, list(statement) , RBRACE) { $2 }
-// ;; 
-    // | function_call { 
-    //     let name, exprs, resolve = $1 in
-    //     
-    //  }
-    // | expr PIPESUP calls=separated_nonempty_list(PIPESUP, function_call) {
-    //     calls |> List.fold_left (fun acc (fn_name, exprs, module_resolve) -> 
-    //         EFunction_call (
-    //             (fn_name, acc::exprs),
-    //             module_resolve
-    //         )
-    //     ) $1
-    // }
-
-// function_call:
-//     | option(module_resolve) IDENT delimited(LPARENT, list(expr) ,RPARENT) {
-//         (
-//             $2, $3, $1
-//         )
-//     }
-//     ;;
-// module_resolve:
-//     | separated_nonempty_list(DOUBLECOLON, IDENT) COLON { $1 }
-// ;;
 ctype:
     | id=IDENT { 
         match id with
-        | "float" -> TFloat
+        | "f64" -> TFloat
         | "unit" -> TUnit
         | "bool" -> TBool
         | "s8" -> TInteger( Signed, I8)
@@ -288,7 +294,7 @@ ctype:
 ktype:
     | id=IDENT { 
         match id with
-        | "float" -> TFloat
+        | "f64" -> TFloat
         | "unit" -> TUnit
         | "bool" -> TBool
         | "s8" -> TInteger( Signed, I8)
@@ -299,6 +305,7 @@ ktype:
         | "u32" -> TInteger( Unsigned, I32)
         | "s64" -> TInteger( Signed, I64)
         | "u64" -> TInteger( Unsigned, I64)
+        | "stringl" -> TString_lit
         | _ as s -> TType_Identifier s
      }
     | MULT ktype { TPointer $2 }

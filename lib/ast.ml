@@ -23,6 +23,7 @@ type ktype =
 | TPointer of ktype
 | TTuple of ktype list
 | TFunction of (ktype list * ktype)
+| TString_lit
 | TUnknow
 | TFloat
 | TBool
@@ -38,11 +39,16 @@ and kexpression =
 | True
 | False
 | EInteger of (signedness * isize * int64)
+| EFloat of float
 | ESizeof of (ktype, kexpression) Either.t 
 | EString of string
 | EAdress of string
 | EDeference of string
 | EIdentifier of {
+  modules_path: string list;
+  identifier: string
+}
+| EConst_Identifier of {
   modules_path: string list;
   identifier: string
 }
@@ -127,6 +133,12 @@ type external_func_decl = {
   c_name : string option;
 }
 
+type const_decl = {
+  const_name: string;
+  explicit_type: ktype;
+  value: kexpression
+}
+
 type sig_decl = {
   sig_name: string;
   generics: string list;
@@ -139,5 +151,6 @@ type prog_node =
 | NFunction of function_decl
 | NStruct of struct_decl
 | NEnum of enum_decl
+| NConst of const_decl
 
 type program = Prog of prog_node list

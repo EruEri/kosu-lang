@@ -21,10 +21,11 @@ let rec string_of_ktype = function
 | TPointer ktype -> sprintf "*%s" (string_of_ktype ktype)
 | TTuple ktypes -> sprintf "(%s)" (ktypes |> List.map string_of_ktype |> String.concat ", ")
 | TFunction (parameters, r_type) -> sprintf "(%s) -> %s" (parameters |> List.map string_of_ktype |> String.concat ", ") (string_of_ktype r_type)
+| TString_lit -> "stringl"
 | TBool -> "bool"
 | TUnit -> "unit"
 | TUnknow -> "unknow"
-| TFloat -> "float"
+| TFloat -> "f64"
 
 
 module PPEnum = struct

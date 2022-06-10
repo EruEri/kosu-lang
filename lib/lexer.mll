@@ -21,8 +21,10 @@ let digit = ['0'-'9']
 let loLetter = ['a'-'z']
 let upLetter = ['A'-'Z']
 let identifiant = (loLetter | '_') (loLetter | upLetter | digit | "_")*
-let module_identifier = (upLetter) (loLetter | loLetter | digit | "_")*
+let module_identifier = (upLetter) (loLetter | digit | "_")*
+let constante = upLetter (upLetter | "_")*
 let escaped_char =  ['n' 'r' 't' '\\' '0' '\'' '\"']
+let float_literal = (digit) (digit | "_" )* (('.') (digit | "_")*  | ('e' | 'E')  ('+' | '-') digit (digit | '_')*)
 
 let decimal_integer = digit (digit | '_')*
 let hex_integer = '0' ('x' | 'X') (digit | ['a'-'f'] | ['A'-'F']) (digit | ['a'-'f'] | ['A'-'F'] | '_')*
@@ -77,6 +79,9 @@ rule main = parse
 | ">" { SUP }
 | "<<" { SHIFTLEFT }
 | ">>" { SHIFTRIGHT }
+| float_literal as f {
+    Float_lit ( float_of_string f)
+}
 | (number as n) (integer_sigdness as sign) (integer_size as size) {
     let signdess = if sign = 'u' then Ast.Unsigned else Ast.Signed in
     let isize = match size with
@@ -92,6 +97,9 @@ rule main = parse
 }
 | module_identifier as s {
     Module_IDENT s
+}
+| constante as s {
+    Constant s
 }
 | identifiant as s {
     try 
