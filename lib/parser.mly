@@ -215,11 +215,12 @@ expr:
             (* $4 |> Option.map (fun e -> (SExpression e)::[] ) *)
         )
     }
-    | SWITCH expr LBRACE nonempty_list(PIPE cases=separated_nonempty_list(COMMA, s_case) ARROWFUNC LBRACE stmts=nonempty_list(statement) RBRACE { cases, stmts } )  RBRACE { 
+    | SWITCH expr LBRACE nonempty_list(cases=separated_nonempty_list(COMMA, s_case) ARROWFUNC LBRACE stmts=nonempty_list(statement) RBRACE { cases, stmts } ) 
+        wildcard_case=option(WILDCARD ARROWFUNC d=delimited(LBRACE, nonempty_list(statement), RBRACE) { d } ) RBRACE { 
         ESwitch {
             expression = $2;
             cases = $4;
-            else_case = None
+            wildcard_case
         }
     }
     | d=delimited(LPARENT, expr, RPARENT ) { d }

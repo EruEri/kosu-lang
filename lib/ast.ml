@@ -2,6 +2,8 @@ type signedness = Signed | Unsigned;;
 type isize = I8 | I16 | I32 | I64;;
 
 type switch_case =
+| SC_Identifier of string
+| SC_Integer_Literal of (signedness * isize * int64)
 | SC_Enum_Identifier of {
   variant: string
 }
@@ -9,8 +11,9 @@ type switch_case =
   variant: string;
   assoc_ids: string option list
 }
-| SC_Integer_Literal of (signedness * isize * int64)
-| SC_Identifier of string
+
+
+
 
 
 type ktype = 
@@ -69,7 +72,7 @@ and kexpression =
 | ESwitch of {
   expression: kexpression;
   cases: (switch_case list * kstatement list) list;
-  else_case: kstatement list option
+  wildcard_case: kstatement list option
 }
 | EBin_op of kbin_op
 | EUn_op of kunary_op
