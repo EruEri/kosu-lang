@@ -160,7 +160,7 @@ expr:
     | TRUE { True }
     | FALSE { False }
     | SIZEOF delimited(LPARENT, expr, RPARENT) { ESizeof ( Either.Right $2) }
-    | SIZEOF delimited(LPARENT, SEMICOLON t=ktype { t } , RPARENT) { ESizeof (Either.Left $2)  }
+    | SIZEOF delimited(LPARENT, COLON t=ktype { t } , RPARENT) { ESizeof (Either.Left $2)  }
     | MULT IDENT { EDeference $2 }
     | AMPERSAND IDENT { EAdress $2 }
     | expr PLUS expr { EBin_op (BAdd ($1, $3) ) }
