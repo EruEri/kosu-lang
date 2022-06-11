@@ -149,6 +149,7 @@ type sig_decl = {
 type prog_node = 
 | NExternFunc of external_func_decl
 | NFunction of function_decl
+| NSigFun of sig_decl
 | NStruct of struct_decl
 | NEnum of enum_decl
 | NConst of const_decl

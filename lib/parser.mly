@@ -35,10 +35,8 @@
 // %left AMPERSAND XOR PIPE AND OR COMMA PIPESUP 
 // %left DOUBLECOLON DOT MULT DIV MOD SHIFTLEFT SHIFTRIGHT SUP SUPEQ INF INFEQ DOUBLEQUAL DIF PLUS MINUS
 // %nonassoc EOF LPARENT RPARENT LBRACE RBRACE SEMICOLON COLON ARROWFUNC TRIPLEDOT EQUAL Integer_lit String_lit
-%left TRIPLEDOT
 %left COMMA
 %left PIPESUP
-%left EQUAL
 %left PIPE
 %left OR
 %left AND
@@ -49,8 +47,7 @@
 %left SHIFTLEFT SHIFTRIGHT
 %left PLUS MINUS
 %left MULT DIV MOD
-%right SIZEOF DOLLAR
-%nonassoc UMINUS NOT 
+%nonassoc UMINUS NOT SIZEOF DOLLAR
 %left DOUBLECOLON
 // %nonassoc ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
 
@@ -72,6 +69,7 @@ prog_nodes:
     | struct_decl { NStruct $1 }
     | external_func_decl { NExternFunc $1 }
     | function_decl { NFunction $1 }
+    | sig_decl { NSigFun $1 }
     | const_decl { NConst $1 }
 ;;
 
@@ -146,6 +144,16 @@ function_decl:
         }
     }
 ;;
+sig_decl:
+    | SIG name=IDENT generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=IDENT {id}), SUP ) { d })  
+    parameters=delimited(LPARENT, separated_list(COMMA, ktype ), RPARENT ) return_type=ktype SEMICOLON {
+        {
+            sig_name = name;
+            generics = generics_opt |> Option.value ~default: [];
+            parameters;
+            return_type;
+        }
+    }
 const_decl:
     | CONST Constant EQUAL Integer_lit SEMICOLON {
         let sign, size, value = $4 in
