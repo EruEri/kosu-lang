@@ -43,10 +43,14 @@ and kexpression =
 | ESizeof of (ktype, kexpression) Either.t 
 | EString of string
 | EAdress of string
-| EDeference of string
+| EDeference of int*string
 | EIdentifier of {
   modules_path: string list;
   identifier: string
+}
+| EFieldAcces of {
+  first_expr: kexpression;
+  fields: string list
 }
 | EConst_Identifier of {
   modules_path: string list;

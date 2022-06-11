@@ -48,7 +48,7 @@
 %left PLUS MINUS
 %left MULT DIV MOD
 %nonassoc UMINUS NOT SIZEOF DOLLAR
-%left DOUBLECOLON
+%left DOUBLECOLON MINUSUP
 // %nonassoc ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
 
 %start prog
@@ -185,7 +185,9 @@ expr:
     | FALSE { False }
     | SIZEOF delimited(LPARENT, expr, RPARENT) { ESizeof ( Either.Right $2) }
     | SIZEOF delimited(LPARENT, COLON t=ktype { t } , RPARENT) { ESizeof (Either.Left $2)  }
-    | MULT IDENT { EDeference $2 }
+    | nonempty_list(MULT) IDENT { 
+        EDeference ( $1 |> List.length , $2 )
+    }
     | AMPERSAND IDENT { EAdress $2 }
     | expr PLUS expr { EBin_op (BAdd ($1, $3) ) }
     | expr MINUS expr { EBin_op (BMinus ($1, $3)) }
@@ -205,7 +207,14 @@ expr:
     | expr INFEQ expr { EBin_op (BInfEq ($1, $3)) }
     | expr DOUBLEQUAL expr { EBin_op (BEqual ($1, $3)) }
     | expr DIF expr { EBin_op (BDif ($1, $3)) }
+    | expr MINUSUP separated_nonempty_list(MINUSUP, IDENT) {
+        EFieldAcces {
+            first_expr = $1;
+            fields = $3
+        }
+    }
     | NOT expr { EUn_op (UNot $2) }
+    | MINUS expr %prec UMINUS { EUn_op (UMinus $2) }
     | l=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, ktype) SUP { s } ) LPARENT exprs=separated_list(COMMA, expr) RPARENT {
         EFunction_call { 
             modules_path = l;
@@ -219,6 +228,7 @@ expr:
             modules_path = l;
             identifier = id
         }
+
     }
     | l=separated_list(DOUBLECOLON, Module_IDENT) id=Constant {
         EConst_Identifier {
