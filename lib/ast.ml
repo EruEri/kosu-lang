@@ -45,7 +45,7 @@ and kexpression =
 | EAdress of string
 | EDeference of int*string
 | EIdentifier of {
-  modules_path: string list;
+  modules_path: string;
   identifier: string
 }
 | EFieldAcces of {
@@ -53,23 +53,23 @@ and kexpression =
   fields: string list
 }
 | EConst_Identifier of {
-  modules_path: string list;
+  modules_path: string;
   identifier: string
 }
 | EStruct of {
-  modules_path: string list;
+  modules_path: string;
   struct_name: string;
   fields: (string * kexpression) list
 }
 | EEnum of { 
-  modules_path: string list;
+  modules_path: string;
   enum_name: string option;
   variant: string;
   assoc_exprs: kexpression list
 }
 | ETuple of kexpression list
 | EFunction_call of {
-  modules_path: string list;
+  modules_path: string;
   generics_resolver: ktype list option;
   fn_name: string;
   parameters: kexpression list;
@@ -150,7 +150,7 @@ type sig_decl = {
   return_type: ktype
 }
 
-type prog_node = 
+type module_node = 
 | NExternFunc of external_func_decl
 | NFunction of function_decl
 | NSigFun of sig_decl
@@ -158,4 +158,11 @@ type prog_node =
 | NEnum of enum_decl
 | NConst of const_decl
 
-type program = Prog of prog_node list
+type _module = Mod of module_node list
+
+type module_path = {
+  path: string;
+  _module: _module
+}
+
+type program = module_path list

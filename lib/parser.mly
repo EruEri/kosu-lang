@@ -51,20 +51,20 @@
 %left DOUBLECOLON MINUSUP
 // %nonassoc ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
 
-%start prog
+%start modul
 
 
 %type <Ast.ktype> ktype
-%type <Ast.program> prog
+%type <Ast._module> modul
 %type <Ast.kexpression> expr
 
 %%
 
-prog:
-    | pns = list(prog_nodes) EOF { Prog pns }
+modul:
+    | pns = list(module_nodes) EOF { Mod pns }
 ;;
 
-prog_nodes:
+module_nodes:
     | enum_decl { NEnum $1 }
     | struct_decl { NStruct $1 }
     | external_func_decl { NExternFunc $1 }
@@ -217,7 +217,7 @@ expr:
     | MINUS expr %prec UMINUS { EUn_op (UMinus $2) }
     | l=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, ktype) SUP { s } ) LPARENT exprs=separated_list(COMMA, expr) RPARENT {
         EFunction_call { 
-            modules_path = l;
+            modules_path = l |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
             generics_resolver;
             fn_name = name;
             parameters = exprs;
@@ -225,14 +225,14 @@ expr:
     }
     | l=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT {
         EIdentifier { 
-            modules_path = l;
+            modules_path = l |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
             identifier = id
         }
 
     }
     | l=separated_list(DOUBLECOLON, Module_IDENT) id=Constant {
         EConst_Identifier {
-            modules_path = l;
+            modules_path = l |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
             identifier = id
         }
     }
@@ -243,7 +243,7 @@ expr:
                 fun acc value  -> 
                     let fn_name, parameters, modules_path = value in
                     EFunction_call { 
-                        modules_path;
+                        modules_path = modules_path |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
                         generics_resolver = None;
                         fn_name;
                         parameters = acc::parameters;
@@ -252,14 +252,14 @@ expr:
         }
     | modules_path=separated_list(DOUBLECOLON, Module_IDENT)  struct_name=IDENT fields=delimited(LBRACE, separated_list(COMMA, id=IDENT COLON expr=expr { id, expr } ) , RBRACE) {
         EStruct {
-            modules_path;
+            modules_path = modules_path |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
             struct_name;
             fields
         }
     }
     | modules_path=separated_list(DOUBLECOLON, Module_IDENT) enum_name=option(IDENT) DOT variant=IDENT assoc_exprs=delimited(LPARENT, separated_nonempty_list(COMMA, expr) ,RPARENT) {
         EEnum {
-            modules_path;
+            modules_path = modules_path |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
             enum_name;
             variant;
             assoc_exprs
