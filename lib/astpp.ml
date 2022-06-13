@@ -15,8 +15,8 @@ let string_of_isize = function
 | I64 -> "64"
 
 let rec string_of_ktype = function
-| TParametric_identifier (name, parameters) -> sprintf "(%s) %s" (parameters |> List.map string_of_ktype |> String.concat ", ") (name)
-| TType_Identifier s -> s
+| TParametric_identifier {module_path; parametrics_type; type_name} -> sprintf "(%s) %s %s" (parametrics_type |> List.map string_of_ktype |> String.concat ", ") (module_path) (type_name)
+| TType_Identifier {module_path; name} -> sprintf "%s::%s" module_path name
 | TInteger (sign, size) -> sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
 | TPointer ktype -> sprintf "*%s" (string_of_ktype ktype)
 | TTuple ktypes -> sprintf "(%s)" (ktypes |> List.map string_of_ktype |> String.concat ", ")

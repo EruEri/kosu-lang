@@ -86,7 +86,7 @@ let rec typeof_expected (env : Env.t) (current_mod_name: string) (prog : program
       match structs |> List.find_opt (fun s -> s.struct_name = struct_name) with
       | None -> Error (Undefined_Struct struct_name)
       | Some _struct -> (
-        _struct |> validate_struct_initialisation env current_mod_name prog fields 
+        _struct |> validate_struct_initialisation env current_mod_name prog modules_path fields 
       )
     end
   end
@@ -94,8 +94,8 @@ let rec typeof_expected (env : Env.t) (current_mod_name: string) (prog : program
 
   end *)
   | _ -> failwith ""
-and validate_struct_initialisation env (current_mod_name: string) program (fields: (string * Ast.kexpression) list) struct_decl =         
-  if struct_decl |> Asthelper.Struct.contains_generics  then Ok( TType_Identifier struct_decl.struct_name )
+and validate_struct_initialisation env (current_mod_name: string) program struct_module_path (fields: (string * Ast.kexpression) list) struct_decl =         
+  if struct_decl |> Asthelper.Struct.contains_generics  then Ok( TType_Identifier { module_path = struct_module_path;  name = struct_decl.struct_name} )
   else begin
     let parameters_lenght = fields |> List.length in
     let expected_lenght = struct_decl.fields |> List.length in

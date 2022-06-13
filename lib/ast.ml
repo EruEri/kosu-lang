@@ -17,12 +17,19 @@ type switch_case =
 
 
 type ktype = 
-| TParametric_identifier of (string * (ktype list) )
-| TType_Identifier of string
+| TParametric_identifier of {
+  module_path: string;
+  parametrics_type: ktype list;
+  type_name: string;
+}
+| TType_Identifier of {
+  module_path: string;
+  name: string
+}
 | TInteger of (signedness * isize)
 | TPointer of ktype
-| TTuple of ktype list
-| TFunction of (ktype list * ktype)
+| TTuple of  ktype list
+| TFunction of ktype list * ktype
 | TString_lit
 | TUnknow
 | TFloat

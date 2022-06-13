@@ -308,7 +308,7 @@ s_case:
     }
 
 ctype:
-    | id=IDENT { 
+    | modules_path=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT { 
         match id with
         | "f64" -> TFloat
         | "unit" -> TUnit
@@ -321,12 +321,15 @@ ctype:
         | "u32" -> TInteger( Unsigned, I32)
         | "s64" -> TInteger( Signed, I64)
         | "u64" -> TInteger( Unsigned, I64)
-        | _ as s -> TType_Identifier s
+        | _ as s -> TType_Identifier {
+            module_path = modules_path |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
+            name = s
+        }
      }
     | MULT ktype { TPointer $2 } 
 
 ktype:
-    | id=IDENT { 
+    | modules_path=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT { 
         match id with
         | "f64" -> TFloat
         | "unit" -> TUnit
@@ -340,9 +343,19 @@ ktype:
         | "s64" -> TInteger( Signed, I64)
         | "u64" -> TInteger( Unsigned, I64)
         | "stringl" -> TString_lit
-        | _ as s -> TType_Identifier s
+        | _ as s -> TType_Identifier {
+            module_path = modules_path |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
+            name = s
+        }
      }
     | MULT ktype { TPointer $2 }
-    | LPARENT l=separated_nonempty_list(COMMA, ktype) RPARENT id=IDENT { TParametric_identifier (id, l)  }
+    | LPARENT l=separated_nonempty_list(COMMA, ktype) RPARENT 
+    modules_path=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT { 
+        TParametric_identifier {
+            module_path = modules_path |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
+            parametrics_type = l;
+            type_name = id
+        }
+    }
     | LPARENT l=separated_nonempty_list(COMMA, ktype) RPARENT { TTuple (l)  }
 ;;
