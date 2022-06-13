@@ -95,7 +95,7 @@ let rec typeof_expected (env : Env.t) (current_mod_name: string) (prog : program
   end *)
   | _ -> failwith ""
 and validate_struct_initialisation env (current_mod_name: string) program struct_module_path (fields: (string * Ast.kexpression) list) struct_decl =         
-  if struct_decl |> Asthelper.Struct.contains_generics  then Ok( TType_Identifier { module_path = struct_module_path;  name = struct_decl.struct_name} )
+  if not (struct_decl |> Asthelper.Struct.contains_generics)  then Ok( TType_Identifier { module_path = struct_module_path;  name = struct_decl.struct_name} )
   else begin
     let parameters_lenght = fields |> List.length in
     let expected_lenght = struct_decl.fields |> List.length in
