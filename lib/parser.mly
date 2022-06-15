@@ -11,7 +11,7 @@
 %token <string> Module_IDENT 
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
-%token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES
+%token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD
 %token TRIPLEDOT
 %token COMMA
 %token PIPESUP
@@ -53,7 +53,7 @@
 
 %start modul
 
-
+%type <Ast.kbody> kbody
 %type <Ast.ktype> ktype
 %type <Ast._module> modul
 %type <Ast.kexpression> expr
@@ -124,17 +124,26 @@ declarer:
     | CONST { true }
     | VAR { false }
 ;;
+
+kbody:
+    | delimited(LBRACE, l=list(statement) DOLLAR e=expr { l , e } , RBRACE)  { $1 }
 statement:
-    | declarer IDENT EQUAL expr SEMICOLON { SDeclaration ($2, $4, $1) }
+    | declarer IDENT EQUAL expr SEMICOLON { 
+        SDeclaration { 
+            is_const = $1;
+            variable_name = $2;
+            expression = $4
+        }
+    }
     | IDENT EQUAL expr SEMICOLON { SAffection ($1, $3) }
-    | DOLLAR expr { SExpression $2 }
+    | DISCARD expr SEMICOLON { SDiscard $2 }
 ;;
 
 
 function_decl:
     | FUNCTION name=IDENT generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=IDENT {id}), SUP ) { d })
     parameters=delimited(LPARENT, separated_list(COMMA, id=IDENT COLON kt=ktype { id, kt  }), RPARENT )
-    r_type=ktype LBRACE body=list(statement) RBRACE {
+    r_type=ktype body=kbody {
         {
             fn_name = name;
             generics = generics_opt |> Option.value ~default: [];
@@ -266,15 +275,15 @@ expr:
         }
     }
     | CASES delimited(LBRACE, 
-        s=nonempty_list(OF conds=separated_nonempty_list(COMMA, expr) ARROWFUNC LBRACE stmts=nonempty_list(statement) RBRACE { conds, stmts } ) 
-        ELSE LBRACE else_case=nonempty_list(statement) RBRACE { s, else_case } , RBRACE) {
+        s=nonempty_list(OF conds=separated_nonempty_list(COMMA, expr) ARROWFUNC body=kbody { conds, body } ) 
+        ELSE else_case=kbody { s, else_case } , RBRACE) {
             let cases, else_case = $2 in
         ECases {
             cases;
             else_case
         }
     }
-    | IF expr delimited(LBRACE, list(statement), RBRACE) ELSE delimited(LBRACE, list(statement), RBRACE)  {
+    | IF expr kbody ELSE kbody  {
         EIf (
             $2, 
             $3, 
@@ -282,8 +291,8 @@ expr:
             (* $4 |> Option.map (fun e -> (SExpression e)::[] ) *)
         )
     }
-    | SWITCH expr LBRACE nonempty_list(cases=separated_nonempty_list(COMMA, s_case) ARROWFUNC LBRACE stmts=nonempty_list(statement) RBRACE { cases, stmts } ) 
-        wildcard_case=option(WILDCARD ARROWFUNC d=delimited(LBRACE, nonempty_list(statement), RBRACE) { d } ) RBRACE { 
+    | SWITCH expr LBRACE nonempty_list(cases=separated_nonempty_list(COMMA, s_case) ARROWFUNC stmts=kbody RBRACE { cases, stmts } ) 
+        wildcard_case=option(WILDCARD ARROWFUNC d=kbody { d } ) RBRACE { 
         ESwitch {
             expression = $2;
             cases = $4;

@@ -37,10 +37,15 @@ type ktype =
 | TUnit
 ;;
 
-type kstatement =
-| SDeclaration of string * kexpression * bool
+type kbody = kstatement list * kexpression
+and kstatement =
+| SDeclaration of  {
+  is_const: bool;
+  variable_name : string;
+  expression: kexpression
+}
 | SAffection of string * kexpression
-| SExpression of kexpression
+| SDiscard of kexpression
 and kexpression = 
 | Empty
 | True
@@ -81,15 +86,15 @@ and kexpression =
   fn_name: string;
   parameters: kexpression list;
 }
-| EIf of kexpression * (kstatement list) * (kstatement list)
+| EIf of kexpression * kbody * kbody
 | ECases of {
-  cases: (kexpression list * kstatement list) list;
-  else_case: kstatement list 
+  cases: (kexpression list * kbody) list;
+  else_case: kbody
 }
 | ESwitch of {
   expression: kexpression;
-  cases: (switch_case list * kstatement list) list;
-  wildcard_case: kstatement list option
+  cases: (switch_case list * kbody) list;
+  wildcard_case: kbody option
 }
 | EBin_op of kbin_op
 | EUn_op of kunary_op
@@ -133,7 +138,7 @@ type function_decl = {
   generics: string list;
   parameters: (string * ktype) list;
   return_type: ktype;
-  body: kstatement list;
+  body: kbody;
 }
 
 type external_func_decl = {

@@ -14,7 +14,7 @@ let string_of_isize = function
 
 let rec string_of_ktype = function
 | TParametric_identifier {module_path; parametrics_type; type_name} -> sprintf "(%s) %s %s" (parametrics_type |> List.map string_of_ktype |> String.concat ", ") (module_path) (type_name)
-| TType_Identifier {module_path; name} -> sprintf "%s::%s" module_path name
+| TType_Identifier {module_path; name} -> sprintf "%s%s" (if module_path = "" then "" else sprintf "%s::" module_path) name
 | TInteger (sign, size) -> sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
 | TPointer ktype -> sprintf "*%s" (string_of_ktype ktype)
 | TTuple ktypes -> sprintf "(%s)" (ktypes |> List.map string_of_ktype |> String.concat ", ")
@@ -62,7 +62,7 @@ module ExternalFunc = struct
   type t = external_func_decl
 
   let string_of_external_func_decl (efucn_decl: t) = 
-    sprintf "external %s(%s %s) %s %s"
+    sprintf "external %s(%s%s) %s %s"
     (efucn_decl.sig_name)
     (efucn_decl.fn_parameters |> List.map string_of_ktype |> String.concat ",")
     (if efucn_decl.is_variadic then ";..." else "")
@@ -98,7 +98,7 @@ module Program = struct
   let module_of_string_opt mod_name (program: t) = 
     program 
     |> List.filter_map ( fun (mp: Ast.module_path) -> if mod_name = mp.path then Some mp._module else None) 
-    |> (fun l -> match l with [] -> None | t::_ -> Some t)
+    |> function [] -> None | t::_ -> Some t
   let module_of_string mod_name (program: t) = 
     program 
     |> List.filter_map ( fun (mp: Ast.module_path) -> if mod_name = mp.path then Some mp._module else None) 
