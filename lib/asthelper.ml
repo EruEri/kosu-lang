@@ -56,6 +56,42 @@ module Struct = struct
     (struct_decl.fields |> List.map (fun (field, t) -> sprintf "%s : %s" (field) (string_of_ktype t)) |> String.concat ", " )
   let contains_generics (struct_decl: t) = struct_decl.generics = []
 
+  let rec resolve_single_generics (generic_name: string) (mapped_type: ktype) (expected_type: ktype) =
+    match expected_type with
+    | TType_Identifier { module_path = _ ; name} -> if name = generic_name then mapped_type else expected_type
+    | TParametric_identifier { module_path; parametrics_type; type_name } -> begin 
+      TParametric_identifier { 
+        module_path; 
+        parametrics_type = parametrics_type |> List.map (resolve_single_generics generic_name mapped_type); 
+        type_name 
+      }
+    end
+    | t -> t
+  let rec is_type_generic ktype (struct_decl: t) = 
+    match ktype with
+    | TType_Identifier { module_path = _; name} -> struct_decl.generics |> List.mem name
+    | TParametric_identifier { module_path = _; parametrics_type ; type_name = _ } -> parametrics_type |> List.exists ( fun kt -> is_type_generic kt struct_decl)
+    | _ -> false
+  let is_field_generic field (struct_decl : t) =
+    struct_decl.fields |> List.assoc_opt field |> Option.map ( fun kt -> is_type_generic kt struct_decl)
+  let bind_generic (generic_name) (new_type: ktype) (struct_decl: t) = 
+    {
+      struct_name = struct_decl.struct_name;
+      generics = struct_decl.generics |> List.filter ( (<>) generic_name ) ;
+      fields = struct_decl.fields |> List.map ( fun (f,t) -> (f, resolve_single_generics generic_name new_type t))    ;
+    }
+  let rec is_type_compatible (init_type: ktype) (expected_type: ktype) (struct_decl: t) = 
+    match init_type, expected_type with
+    | TType_Identifier {module_path = init_path; name = init_name}, TType_Identifier {module_path = exp_path; name = exp_name } -> begin
+      struct_decl.generics |> List.mem exp_name || (init_path = exp_path && init_name = exp_name)
+    end
+    | TParametric_identifier {module_path = init_path; parametrics_type = init_pt; type_name = init_name}, 
+      TParametric_identifier {module_path = exp_path; parametrics_type = exp_pt; type_name = exp_name} -> 
+        if init_path <> exp_path || init_name <> exp_name || List.compare_lengths init_pt exp_pt <> 0 then false
+        else begin
+          List.combine init_pt exp_pt |> List.for_all (fun (i,e) -> is_type_compatible i e struct_decl)
+        end
+    | lhs, rhs -> lhs = rhs
 end
 
 module ExternalFunc = struct 

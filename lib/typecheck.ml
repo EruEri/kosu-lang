@@ -20,6 +20,7 @@ type type_error =
   | Undefined_Struct of string
   | Unbound_Module of string
   | Struct_Error of struct_error
+  | Uncompatible_type of { expected: ktype; found : ktype }
   | Unvalid_Deference
 
 let rec typeof_expected (env : Env.t) (current_mod_name: string) (prog : program) (expression: kexpression) = 
@@ -36,7 +37,7 @@ let rec typeof_expected (env : Env.t) (current_mod_name: string) (prog : program
     | BOr (lhs, rhs) | BAnd (lhs, rhs) | BEqual (lhs, rhs) | BDif (lhs, rhs) | BSup (lhs, rhs) 
     | BSupEq (lhs, rhs) | BInf (lhs, rhs) | BInfEq (lhs, rhs) -> if lhs = rhs then Ok TBool else Error Bin_operator_Different_type
   end
-  | EInteger (sign, size, _ )-> Ok (TInteger (sign, size) ) 
+  | EInteger (sign, size, _ ) -> Ok (TInteger (sign, size) ) 
   | EFloat _ -> Ok TFloat
   | ESizeof _ -> Ok (TInteger (Unsigned, I64))
   | EString _ -> Ok TString_lit
