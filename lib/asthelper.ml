@@ -56,6 +56,13 @@ module Struct = struct
     (struct_decl.fields |> List.map (fun (field, t) -> sprintf "%s : %s" (field) (string_of_ktype t)) |> String.concat ", " )
   let contains_generics (struct_decl: t) = struct_decl.generics = []
 
+  let find_field_type_opt (field: string) (struct_decl: t) = struct_decl.fields |> List.assoc_opt field
+
+  (** 
+  @raise Not_found    
+  *)
+  let find_field_type (field: string) (struct_decl: t) = struct_decl.fields |> List.assoc field
+
   let rec resolve_single_generics (generic_name: string) (mapped_type: ktype) (expected_type: ktype) =
     match expected_type with
     | TType_Identifier { module_path = _ ; name} -> if name = generic_name then mapped_type else expected_type
@@ -69,11 +76,17 @@ module Struct = struct
     | t -> t
   let rec is_type_generic ktype (struct_decl: t) = 
     match ktype with
-    | TType_Identifier { module_path = _; name} -> struct_decl.generics |> List.mem name
+    | TType_Identifier { module_path ; name} ->  module_path = "" && struct_decl.generics |> List.mem name
     | TParametric_identifier { module_path = _; parametrics_type ; type_name = _ } -> parametrics_type |> List.exists ( fun kt -> is_type_generic kt struct_decl)
     | _ -> false
-  let is_field_generic field (struct_decl : t) =
+  let is_field_generic_opt field (struct_decl : t) =
     struct_decl.fields |> List.assoc_opt field |> Option.map ( fun kt -> is_type_generic kt struct_decl)
+
+  (**
+  @raise Not_found 
+  *)
+  let is_field_generic field (struct_decl : t) =
+    struct_decl.fields |> List.assoc field |> fun kt -> is_type_generic kt struct_decl
   let bind_generic (generic_name) (new_type: ktype) (struct_decl: t) = 
     {
       struct_name = struct_decl.struct_name;
@@ -91,7 +104,32 @@ module Struct = struct
         else begin
           List.combine init_pt exp_pt |> List.for_all (fun (i,e) -> is_type_compatible i e struct_decl)
         end
+    | TUnknow, _ -> true
     | lhs, rhs -> lhs = rhs
+  let rec find_generic_name_from_ktype (ktype: ktype) (struct_decl: t) = 
+    match ktype with
+    | TType_Identifier { module_path = _ ; name } as tti -> if struct_decl |> is_type_generic tti then Some name else None
+    | TParametric_identifier { module_path = _; parametrics_type; type_name = _ } -> begin 
+      parametrics_type |> List.filter_map (fun k -> find_generic_name_from_ktype k struct_decl) |> function [] -> None | t::_ -> Some t
+    end
+    | _ -> None
+  let retrieve_generic_name_from_field_opt (field: string) (struct_decl: t) =
+    match struct_decl.fields |> List.assoc_opt field with None -> None | Some kt -> find_generic_name_from_ktype kt struct_decl
+  let to_ktype module_def_path (struct_decl: t) = 
+    if not (struct_decl |> contains_generics) then TType_Identifier { module_path = module_def_path; name = struct_decl.struct_name }
+    else begin 
+    TParametric_identifier {
+      module_path = module_def_path;
+      parametrics_type = struct_decl.generics |> List.map (fun _ -> TUnknow);
+      type_name = struct_decl.struct_name
+    }
+    end
+  let rec is_cyclic_aux ktype_to_test module_def_path (struct_decl: t) =
+    match ktype_to_test with
+    | TType_Identifier _ as tti -> tti = (struct_decl |> to_ktype module_def_path)
+    | TParametric_identifier { module_path; parametrics_type; type_name } -> (module_path = module_def_path && type_name = struct_decl.struct_name) || parametrics_type |> List.exists (fun k -> is_cyclic_aux k module_def_path struct_decl)
+    | _ -> false
+  let is_cyclic module_def_path (struct_decl: t) = struct_decl.fields |> List.exists ( fun (_, ktype) -> is_cyclic_aux ktype module_def_path struct_decl )
 end
 
 module ExternalFunc = struct 

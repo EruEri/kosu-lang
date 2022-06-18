@@ -226,7 +226,7 @@ expr:
     | MINUS expr %prec UMINUS { EUn_op (UMinus $2) }
     | l=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, ktype) SUP { s } ) LPARENT exprs=separated_list(COMMA, expr) RPARENT {
         EFunction_call { 
-            modules_path = l |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
+            modules_path = l |> String.concat "/";
             generics_resolver;
             fn_name = name;
             parameters = exprs;
@@ -234,14 +234,14 @@ expr:
     }
     | l=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT {
         EIdentifier { 
-            modules_path = l |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
+            modules_path = l |> String.concat "/";
             identifier = id
         }
 
     }
     | l=separated_list(DOUBLECOLON, Module_IDENT) id=Constant {
         EConst_Identifier {
-            modules_path = l |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
+            modules_path = l |> String.concat "/";
             identifier = id
         }
     }
@@ -252,7 +252,7 @@ expr:
                 fun acc value  -> 
                     let fn_name, parameters, modules_path = value in
                     EFunction_call { 
-                        modules_path = modules_path |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
+                        modules_path = modules_path |> String.concat "/";
                         generics_resolver = None;
                         fn_name;
                         parameters = acc::parameters;
@@ -261,14 +261,14 @@ expr:
         }
     | modules_path=separated_list(DOUBLECOLON, Module_IDENT)  struct_name=IDENT fields=delimited(LBRACE, separated_list(COMMA, id=IDENT COLON expr=expr { id, expr } ) , RBRACE) {
         EStruct {
-            modules_path = modules_path |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
+            modules_path = modules_path |> String.concat "/";
             struct_name;
             fields
         }
     }
     | modules_path=separated_list(DOUBLECOLON, Module_IDENT) enum_name=option(IDENT) DOT variant=IDENT assoc_exprs=delimited(LPARENT, separated_nonempty_list(COMMA, expr) ,RPARENT) {
         EEnum {
-            modules_path = modules_path |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
+            modules_path = modules_path |> String.concat "/";
             enum_name;
             variant;
             assoc_exprs
@@ -331,7 +331,7 @@ ctype:
         | "s64" -> TInteger( Signed, I64)
         | "u64" -> TInteger( Unsigned, I64)
         | _ as s -> TType_Identifier {
-            module_path = modules_path |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
+            module_path = modules_path |> String.concat "/";
             name = s
         }
      }
@@ -353,7 +353,7 @@ ktype:
         | "u64" -> TInteger( Unsigned, I64)
         | "stringl" -> TString_lit
         | _ as s -> TType_Identifier {
-            module_path = modules_path |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
+            module_path = modules_path |> String.concat "/";
             name = s
         }
      }
@@ -361,7 +361,7 @@ ktype:
     | LPARENT l=separated_nonempty_list(COMMA, ktype) RPARENT 
     modules_path=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT { 
         TParametric_identifier {
-            module_path = modules_path |> List.fold_left (fun acc value -> Printf.sprintf "%s/%s" (acc) (value)) "";
+            module_path = modules_path |> String.concat "/";
             parametrics_type = l;
             type_name = id
         }
