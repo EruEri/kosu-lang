@@ -30,7 +30,7 @@ module Statement = struct
 
   let rec string_of_kbody = function
   | (statements: kstatement list), (expr: kexpression) -> begin 
-  sprintf "{ %s\n  %s}"
+  sprintf "{\n  %s  %s\n}"
   (statements |> List.map string_of_kstatement |> String.concat "\n  ")
   (string_of_kexpression expr)
   end
@@ -40,8 +40,8 @@ module Statement = struct
     (if is_const then "const" else "var")
     (variable_name)
     (expression |> string_of_kexpression)
-  | SAffection (id, expression) -> sprintf "%s = %s" (id) (expression |> string_of_kexpression)
-  | SDiscard (expr) -> sprintf "discard %s" (string_of_kexpression expr)
+  | SAffection (id, expression) -> sprintf "%s = %s;" (id) (expression |> string_of_kexpression)
+  | SDiscard (expr) -> sprintf "discard %s;" (string_of_kexpression expr)
   and string_of_kexpression = function
   | Empty -> "empty"
   | True -> "true"
@@ -50,7 +50,8 @@ module Statement = struct
   | EFloat f -> string_of_float f
   | EBin_op bin -> string_of_kbin_op bin
   | EUn_op un -> string_of_kunary_op un
-  | ESizeof e -> begin match e with Either.Left t -> string_of_ktype t | Either.Right expr -> string_of_kexpression expr end
+  | ESizeof e -> let s = begin match e with Either.Left t -> string_of_ktype t | Either.Right expr -> string_of_kexpression expr end in
+  sprintf "sizeof(%s)" s
   | EString s -> s
   | EAdress x -> sprintf "&%s" x
   | EDeference (indirection, id) -> sprintf "%s%s" (Util.string_of_chars indirection '*') id
@@ -235,6 +236,20 @@ module ExternalFunc = struct
     (if efucn_decl.is_variadic then ";..." else "")
     (efucn_decl.r_type |> string_of_ktype)
     (efucn_decl.c_name |> Option.map (fun s -> sprintf " = %s" s) |> Option.value ~default: "")
+end
+
+module Function = struct
+  type t = function_decl
+
+  let string_of_func_decl (function_decl: t) = 
+    sprintf "fn %s%s(%s)%s%s"
+    (function_decl.fn_name)
+    (if function_decl.generics = [] then "" else sprintf "<%s>" (function_decl.generics |> String.concat ", "))
+    (function_decl.parameters |> List.map (fun (id, ktype) -> sprintf "%s: %s" (id) (string_of_ktype ktype)) |> String.concat ", ")
+    (function_decl.return_type |> string_of_ktype)
+    (function_decl.body |> Statement.string_of_kbody)
+
+  let iter_statement fn (function_decl: t) = let statements, _  = function_decl.body in statements |> List.iter fn
 end
 
 
