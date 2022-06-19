@@ -20,7 +20,7 @@ type ktype =
 | TParametric_identifier of {
   module_path: string;
   parametrics_type: ktype list;
-  type_name: string;
+  name: string;
 }
 | TType_Identifier of {
   module_path: string;

@@ -25,6 +25,7 @@ end
 
 type struct_error = 
 | Unexpected_field of { expected: string ; found : string }
+| Unexisting_field of string
 | Wrong_field_count of { expected: int ; found : int }
 
 type type_error = 
@@ -35,8 +36,18 @@ type type_error =
   | Unbound_Module of string
   | Struct_Error of struct_error
   | Uncompatible_type of { expected: ktype; found : ktype }
+  | Impossible_field_Access of ktype
   | Unvalid_Deference
 
+let find_struct_decl_from_name (current_module_name: string) (prog : program) (module_path: string) (struct_name: string) = 
+  let structs_opt = (if module_path = "" then Some (prog |> Asthelper.Program.module_of_string current_module_name) else prog |> Asthelper.Program.module_of_string_opt current_module_name)
+  |> Option.map Asthelper.Module.retrieve_struct_decl in
+  
+  match structs_opt with
+  | None -> Error (Unbound_Module module_path)
+  | Some structs ->
+    structs |> List.find_opt (fun s -> s.struct_name = struct_name) |> Option.to_result ~none:(Undefined_Struct struct_name)
+;;
 let rec typeof_expected (env : Env.t) (current_mod_name: string) (prog : program) (expression: kexpression) = 
   match expression with
   | Empty -> Ok TUnit
@@ -102,9 +113,14 @@ let rec typeof_expected (env : Env.t) (current_mod_name: string) (prog : program
       )
     end
   end
+  | EFieldAcces { first_expr; fields } -> begin
+    match typeof_expected env current_mod_name prog first_expr with
+    | Error e -> Error e
+    | Ok kt -> typeof_field_acces_not_generic env current_mod_name prog fields kt
   (* | EStruct { modules_path; struct_name; fields } -> begin
 
   end *)
+  end
   | _ -> failwith ""
 and validate_struct_initialisation env (current_mod_name: string) program struct_module_path (fields: (string * Ast.kexpression) list) struct_decl =         
   if not (struct_decl |> Asthelper.Struct.contains_generics) then Ok( TType_Identifier { module_path = struct_module_path;  name = struct_decl.struct_name} )
@@ -138,3 +154,28 @@ and validate_struct_type_initialisation (field_searched: string) (given_type: kt
     let generic_name = struct_decl |> Asthelper.Struct.retrieve_generic_name_from_field_opt field_searched |> Option.get in
     struct_decl |> Asthelper.Struct.bind_generic generic_name given_type
     )
+and typeof_field_acces_not_generic (env: Env.t) (current_mod_name: string) program (fields: string list) (ktype: ktype) =
+  match fields with
+  | [] -> failwith "Unreachable"
+  | t::[] -> begin 
+    match ktype with
+    | TType_Identifier {module_path; name} -> (
+      match find_struct_decl_from_name current_mod_name program module_path name with
+      | Error e -> Error e
+      | Ok struct_decl -> struct_decl.fields |> List.assoc_opt t |> Option.to_result ~none:(Struct_Error ( Unexisting_field t) )
+    )
+    | _ -> Error (Impossible_field_Access ktype)
+  end
+  | t::q -> begin 
+    match ktype with
+    | TType_Identifier {module_path; name} -> (
+      match find_struct_decl_from_name current_mod_name program module_path name with
+      | Error e -> Error e
+      | Ok struct_decl -> (
+        match struct_decl.fields |> List.assoc_opt t with
+        | None -> Error (Struct_Error ( Unexisting_field t) )
+        | Some kt -> typeof_field_acces_not_generic env current_mod_name program q kt
+      )
+    )
+    | _ -> Error (Impossible_field_Access ktype)
+  end

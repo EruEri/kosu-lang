@@ -363,7 +363,7 @@ ktype:
         TParametric_identifier {
             module_path = modules_path |> String.concat "/";
             parametrics_type = l;
-            type_name = id
+            name = id
         }
     }
     | LPARENT l=separated_nonempty_list(COMMA, ktype) RPARENT { TTuple (l)  }
