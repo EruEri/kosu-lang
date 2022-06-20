@@ -159,3 +159,13 @@ type prog_node =
 | NConst of const_decl
 
 type program = Prog of prog_node list
+
+type module_node = prog_node
+type _module = Mod of module_node list
+
+type module_path = {
+  path: string;
+  _module: _module
+}
+
+type cprogram = module_path list (* Tmp name waiting the merge of feature/type_check *)
