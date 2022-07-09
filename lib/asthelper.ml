@@ -26,6 +26,78 @@ let rec string_of_ktype = function
 | TUnknow -> "unknow"
 | TFloat -> "f64"
 
+module Module = struct
+
+  let retrieve_enum_decl = function
+  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NEnum e -> Some e | _ -> None)
+
+  let retrieve_struct_decl = function
+  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NStruct s -> Some s | _ -> None)
+
+  let retrieve_external_func_decl = function
+  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NExternFunc s -> Some s | _ -> None)
+
+  let retrieve_func_decl = function
+  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NFunction s -> Some s | _ -> None)
+
+  let retrieve_const_decl = function
+  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NConst s -> Some s | _ -> None)
+
+  let retrieve_sig_decl = function
+  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NSigFun s -> Some s | _ -> None)
+
+  let retrieve_type_decl = function
+  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NEnum e -> Some (Ast.Type_Decl.decl_enum e) | Ast.NStruct s -> Some (Ast.Type_Decl.decl_struct s) | _ -> None)
+
+
+  let type_decl_occurence (type_name: string) (module_definition: Ast._module) = 
+    module_definition |> retrieve_type_decl |> Util.Occurence.find_occurence (function
+    | Ast.Type_Decl.Decl_Enum e -> e.enum_name = type_name
+    | Ast.Type_Decl.Decl_Struct s -> s.struct_name = type_name
+    )
+end
+
+module Program = struct
+  type t = Ast.program
+
+  let module_of_string_opt mod_name (program: t) = 
+    program 
+    |> List.filter_map ( fun (mp: Ast.module_path) -> if mod_name = mp.path then Some mp._module else None) 
+    |> function [] -> None | t::_ -> Some t
+  let module_of_string mod_name (program: t) = 
+    program 
+    |> List.filter_map ( fun (mp: Ast.module_path) -> if mod_name = mp.path then Some mp._module else None) 
+    |> List.hd
+
+  let find_struct_decl_opt (current_module_name: string) (module_path: string) (struct_name: string) (program: t) = 
+    Result.bind (
+    (if module_path = "" then Some (program |> module_of_string current_module_name) else program |> module_of_string_opt current_module_name)
+    |> Option.map Module.retrieve_struct_decl 
+    |> Option.to_result ~none:(Ast.Error.Unbound_Module module_path)
+    )
+    (fun structs -> 
+      structs |> List.find_opt (fun s -> s.struct_name = struct_name) |> Option.to_result ~none:(Ast.Error.Undefined_Struct struct_name)
+    )
+
+    let find_module_of_ktype ktype_def_path current_module program = 
+      match ktype_def_path with
+      | "" -> program |> Util.Occurence.find_occurence (fun module_path -> module_path.path = current_module)
+      | s  -> program |> Util.Occurence.find_occurence (fun module_path -> module_path.path = s)
+
+    (**
+    Find type declaration from ktype
+    @raise Not_found : if no type declaration was found
+    @raise Too_Many_Occurence: if several type declaration matching was found
+    *)
+    let find_type_decl_from_ktype ktype_def_path ktype_name current_module program = 
+      find_module_of_ktype ktype_def_path current_module program
+      |> Util.Occurence.one 
+      |> fun m -> m._module
+      |> Module.type_decl_occurence ktype_name
+      |> Util.Occurence.one
+
+end
+
 module Statement = struct
 
   let rec string_of_kbody = function
@@ -119,6 +191,15 @@ module Statement = struct
     sprintf "%s(%s)"
     variant
     (assoc_ids |> List.map (Option.value ~default: "_") |> String.concat "," )
+
+  module BinOp = struct
+    type t = kbin_op
+    let is_boolean = function
+    | BAnd _  | BOr _ | BInf _ | BInfEq _ | BSup _ | BSupEq _ | BEqual _ | BDif _ -> true
+    | _ -> false
+
+    let is_arithmetic bin = bin |> is_boolean |> not
+  end
 end 
 module Enum = struct
   type t = enum_decl
@@ -143,12 +224,51 @@ end
 module Struct = struct
   type t = struct_decl
 
+  let find_struct_decl_from_name (current_module_name: string) (prog : program) (module_path: string) (struct_name: string) = 
+    let structs_opt = (if module_path = "" then Some (prog |> Program.module_of_string current_module_name) else prog |> Program.module_of_string_opt current_module_name)
+    |> Option.map Module.retrieve_struct_decl in
+    
+    match structs_opt with
+    | None -> Error (Ast.Error.Unbound_Module module_path)
+    | Some structs ->
+      structs |> List.find_opt (fun s -> s.struct_name = struct_name) |> Option.to_result ~none:(Ast.Error.Undefined_Struct struct_name)
+  ;;
+
   let string_of_struct_decl (struct_decl: t) = 
     sprintf "struct (%s) %s := { %s }" 
     (struct_decl.generics |> String.concat ", ")
     (struct_decl.struct_name)
     (struct_decl.fields |> List.map (fun (field, t) -> sprintf "%s : %s" (field) (string_of_ktype t)) |> String.concat ", " )
   let contains_generics (struct_decl: t) = struct_decl.generics = []
+
+  (**
+  @raise Type_Error: 
+  @raise Not_found: raised if field or struct declaration not found
+  *)
+  let rec resolve_fields_access (current_mod_name: string) (program: program) (fields: string list) (ktype: ktype) = 
+    match fields with
+    | [] -> failwith "Not supposed to be reached"
+    | t::[] -> begin 
+      match ktype with
+      | TType_Identifier { module_path; name } -> (
+        match find_struct_decl_from_name current_mod_name program module_path name with
+        | Error e -> e |> Error.ast_error |> raise
+        | Ok _struct -> _struct.fields |> List.assoc t
+        )
+      | _ -> raise (Ast.Error.ast_error (Impossible_field_Access ktype))
+    end
+    | t::q -> begin 
+      match ktype with
+      | TType_Identifier { module_path; name } ->  begin
+        match find_struct_decl_from_name current_mod_name program module_path name with
+        | Error e -> e |> Error.ast_error |> raise
+        | Ok _struct -> resolve_fields_access current_mod_name program q (_struct.fields |> List.assoc t)
+      end
+      | _ -> raise (Ast.Error.ast_error (Impossible_field_Access ktype))
+    end
+
+  
+  
 
   let find_field_type_opt (field: string) (struct_decl: t) = struct_decl.fields |> List.assoc_opt field
 
@@ -211,7 +331,7 @@ module Struct = struct
     match struct_decl.fields |> List.assoc_opt field with None -> None | Some kt -> find_generic_name_from_ktype kt struct_decl
   let to_ktype module_def_path (struct_decl: t) = 
     if not (struct_decl |> contains_generics) then TType_Identifier { module_path = module_def_path; name = struct_decl.struct_name }
-    else begin 
+    else begin
     TParametric_identifier {
       module_path = module_def_path;
       parametrics_type = struct_decl.generics |> List.map (fun _ -> TUnknow);
@@ -224,6 +344,39 @@ module Struct = struct
     | TParametric_identifier { module_path; parametrics_type; name } -> (module_path = module_def_path && name = struct_decl.struct_name) || parametrics_type |> List.exists (fun k -> is_cyclic_aux k module_def_path struct_decl)
     | _ -> false
   let is_cyclic module_def_path (struct_decl: t) = struct_decl.fields |> List.exists ( fun (_, ktype) -> is_cyclic_aux ktype module_def_path struct_decl )
+
+  
+  (**
+  @raise Failure: if type in last parameters aren't TType_Identfier
+  *)
+  let rec to_ktype_help_aux zip_new_old_fields old_struct_decl (generics: (ktype * bool) list) = 
+    match zip_new_old_fields with
+    | [] -> generics
+    | ((_, new_type), (old_field, old_type))::q -> 
+      match old_struct_decl |> retrieve_generic_name_from_field_opt old_field with
+      | None -> to_ktype_help_aux q old_struct_decl generics
+      | Some generic_name -> to_ktype_help_aux q old_struct_decl (generics |> List.map (fun (ktype, true_type) ->
+        match ktype with
+        | TType_Identifier { module_path = _; name } ->
+          if not (Ast.Type.are_compatible_type old_type new_type) then (Ast.Error.Uncompatible_type { expected = old_type; found = new_type } |> Ast.Error.ast_error |> raise) 
+          else
+          if name = generic_name then (new_type, true) else (ktype, true_type)
+        | _ -> raise (Failure "Generics cannot have a different type than TIdentifier" )
+        )
+      )
+
+  let to_ktype_help module_def_path ~new_struct_decl old_struct_decl = 
+    if old_struct_decl |> contains_generics |> not then TType_Identifier { module_path = module_def_path; name = old_struct_decl.struct_name }
+    else TParametric_identifier {
+      module_path = module_def_path;
+      parametrics_type = 
+      (to_ktype_help_aux 
+        (List.combine new_struct_decl.fields old_struct_decl.fields) 
+        old_struct_decl 
+        (old_struct_decl.generics |> List.map (fun kt -> (TType_Identifier { module_path = ""; name = kt }, false)))) 
+      |> List.map (fun (kt, true_type) -> if true_type then kt else TUnknow);
+      name = old_struct_decl.struct_name
+    } 
 end
 
 module ExternalFunc = struct 
@@ -250,39 +403,4 @@ module Function = struct
     (function_decl.body |> Statement.string_of_kbody)
 
   let iter_statement fn (function_decl: t) = let statements, _  = function_decl.body in statements |> List.iter fn
-end
-
-
-module Module = struct
-
-  let retrieve_enum_decl = function
-  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NEnum e -> Some e | _ -> None)
-
-  let retrieve_struct_decl = function
-  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NStruct s -> Some s | _ -> None)
-
-  let retrieve_external_func_decl = function
-  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NExternFunc s -> Some s | _ -> None)
-
-  let retrieve_func_decl = function
-  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NFunction s -> Some s | _ -> None)
-
-  let retrieve_const_decl = function
-  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NConst s -> Some s | _ -> None)
-
-  let retrieve_sig_decl = function
-  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NSigFun s -> Some s | _ -> None)
-end
-
-module Program = struct
-  type t = Ast.program
-
-  let module_of_string_opt mod_name (program: t) = 
-    program 
-    |> List.filter_map ( fun (mp: Ast.module_path) -> if mod_name = mp.path then Some mp._module else None) 
-    |> function [] -> None | t::_ -> Some t
-  let module_of_string mod_name (program: t) = 
-    program 
-    |> List.filter_map ( fun (mp: Ast.module_path) -> if mod_name = mp.path then Some mp._module else None) 
-    |> List.hd
 end

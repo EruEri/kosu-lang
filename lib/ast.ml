@@ -178,3 +178,80 @@ type module_path = {
 }
 
 type program = module_path list
+
+module Env = struct
+
+  type variable_info = {
+    is_const: bool;
+    ktype: ktype
+  }
+
+  type t = {
+    contexts : ((string * variable_info) list) list
+  }
+
+  let flat_context env = env.contexts |> List.flatten
+
+  let push_context (context: (string * variable_info) list) (env: t) = {
+    contexts = context::env.contexts
+  }
+  let find_identifier_opt (identifier: string) (env: t) = 
+    env |> flat_context |> List.assoc_opt identifier
+  let add_variable couple (env: t) =
+    match env.contexts with
+    | [] -> env |> push_context (couple::[])
+    | t::q -> {
+      contexts = (couple::t)::q
+    }
+  let pop_context env = 
+    match env.contexts with
+    | [] -> env
+    | _::q -> { contexts = q }
+end
+
+module Error = struct
+  type struct_error = 
+  | Unexpected_field of { expected: string ; found : string }
+  | Unexisting_field of string
+  | Wrong_field_count of { expected: int ; found : int }
+  
+  type ast_error = 
+    | Bin_operator_Different_type
+    | Undefined_Identifier of string
+    | Undefined_Const of string
+    | Undefined_Struct of string
+    | Unbound_Module of string
+    | Struct_Error of struct_error
+    | Uncompatible_type of { expected: ktype; found : ktype }
+    | Impossible_field_Access of ktype
+    | Unvalid_Deference
+  
+  exception Ast_error of ast_error
+
+  let ast_error e = Ast_error e
+  let struct_error e = ast_error (Struct_Error e)
+end
+
+module Type = struct
+  
+  let rec are_compatible_type (lhs: ktype) (rhs: ktype) = 
+    match lhs, rhs with
+    | TParametric_identifier {module_path = mp1 ; parametrics_type = pt1; name = n1}
+      , TParametric_identifier {module_path = mp2; parametrics_type = pt2; name = n2 } -> 
+        n1 = n2 && mp1 = mp2 && (pt1 |> Util.are_same_lenght pt2) && (List.for_all2 are_compatible_type pt1 pt2)
+    | TUnknow, _ | _ , TUnknow -> true
+    | _, _ -> lhs =  rhs
+end
+
+
+module Type_Decl = struct
+  type type_decl = 
+  | Decl_Enum of enum_decl
+  | Decl_Struct of struct_decl
+
+  let decl_enum e = Decl_Enum e
+  let decl_struct s = Decl_Struct s
+
+  let is_enum = function Decl_Enum _ -> true | _ -> false
+  let is_struct = function Decl_Struct _ -> true | _ -> false
+end
