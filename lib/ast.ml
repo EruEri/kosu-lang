@@ -214,6 +214,10 @@ module Error = struct
   | Unexpected_field of { expected: string ; found : string }
   | Unexisting_field of string
   | Wrong_field_count of { expected: int ; found : int }
+
+  type enum_error = 
+  | Wrong_length_assoc_type of { expected: int; found: int }
+  | Uncompatible_type_in_variant of { variant_name: string }
   
   type ast_error = 
     | Bin_operator_Different_type
@@ -222,6 +226,7 @@ module Error = struct
     | Undefined_Struct of string
     | Unbound_Module of string
     | Struct_Error of struct_error
+    | Enum_Error of enum_error
     | Uncompatible_type of { expected: ktype; found : ktype }
     | Impossible_field_Access of ktype
     | Unvalid_Deference
@@ -230,6 +235,7 @@ module Error = struct
 
   let ast_error e = Ast_error e
   let struct_error e = ast_error (Struct_Error e)
+  let enum_error e = ast_error (Enum_Error e)
 end
 
 module Type = struct

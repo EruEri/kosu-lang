@@ -22,3 +22,7 @@ end
 module ListHelper = struct
   
 end
+
+module OptionHelper = struct
+  let (>>=) o f = Option.bind o f
+end

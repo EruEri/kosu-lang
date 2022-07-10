@@ -208,7 +208,7 @@ end
 (**
   Return the type of the given expression
   @raise Ast_error
-  @raise Not_found : if a type declartion wasn't found
+  @raise Not_found : if a type declartion wasn't found or a variant is not in enum variants
   @raise Too_Many_Occurence: if several type declarations matching was found
 *)
 and typeof (env : Env.t) (current_mod_name: string) (prog : program) (expression: kexpression) = 
@@ -262,7 +262,25 @@ and typeof (env : Env.t) (current_mod_name: string) (prog : program) (expression
     | Ok str -> str
     | Error e -> e |> ast_error |> raise in
   validate_and_type_struct_initialisation ~env ~current_mod_name ~program:prog ~struct_module_path:modules_path ~fields: fields ~struct_decl
-  
-    
+  | EEnum { modules_path; enum_name; variant; assoc_exprs } -> begin 
+    let enum_decl = match Asthelper.Program.find_enum_decl_opt current_mod_name modules_path enum_name variant assoc_exprs prog with
+    | Error( Either.Right e ) -> raise e
+    | Error (Left e ) -> raise (Ast.Error.ast_error e)
+    | Ok e -> e in
+    let init_types = assoc_exprs |> List.map (typeof env current_mod_name prog) in
+    let parametrics = enum_decl.variants 
+    |> List.find_map (fun (var, assoc_types) -> if var = variant then Some assoc_types else None )
+    |> Option.value ~default: (raise Not_found)
+    |> fun assoc_types -> if Util.are_diff_lenght assoc_exprs assoc_types then raise (Ast.Error.enum_error (Ast.Error.Wrong_length_assoc_type { expected = assoc_types |> List.length; found = assoc_exprs |> List.length })) else assoc_types
+    |> fun expected_types -> if not (Asthelper.Enum.is_valide_assoc_type_init ~init_types ~expected_types) then raise (Ast.Error.enum_error (Ast.Error.Uncompatible_type_in_variant { variant_name = variant})) else expected_types
+    |> fun expected_types -> Asthelper.Enum.infer_generics ~assoc_position: 0 (List.combine init_types expected_types) (enum_decl.generics |> List.map (fun s -> (TType_Identifier { module_path = ""; name = s}, false) )) enum_decl 
+    |> List.map (fun (kt, true_type) -> if true_type then kt else TUnknow) in
+    if not (Asthelper.Enum.contains_generics enum_decl) then TType_Identifier { module_path = if modules_path = "" then current_mod_name else modules_path; name = enum_decl.enum_name }
+    else TParametric_identifier {
+      module_path = if modules_path = "" then current_mod_name else modules_path;
+      parametrics_type = parametrics;
+      name = enum_decl.enum_name
+  }
+  end
 
 
