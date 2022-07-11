@@ -168,9 +168,9 @@ module Statement = struct
     (string_of_kexpression expression)
     (string_of_kbody if_body)
     (string_of_kbody else_body)  
-  | ECases { cases; else_case } -> 
+  | ECases { cases ; else_case } -> 
     sprintf "cases {\n %s else => %s}"
-    ( cases |> List.map (fun (exprs, kbody) -> sprintf "%s => %s" (exprs |> List.map string_of_kexpression |> String.concat ", ") (string_of_kbody kbody)) |> String.concat "\n")
+    ( cases |> List.map (fun (expr, kbody) -> sprintf "%s => %s" (expr |> string_of_kexpression) (string_of_kbody kbody)) |> String.concat "\n")
     (string_of_kbody else_case)
   | ESwitch { expression; cases; wildcard_case } -> 
     sprintf "switch %s {%s\n%s}"

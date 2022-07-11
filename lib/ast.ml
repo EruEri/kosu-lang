@@ -88,7 +88,7 @@ and kexpression =
 }
 | EIf of kexpression * kbody * kbody
 | ECases of {
-  cases: (kexpression list * kbody) list;
+  cases: (kexpression * kbody) list;
   else_case: kbody
 }
 | ESwitch of {

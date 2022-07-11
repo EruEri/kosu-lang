@@ -276,7 +276,7 @@ expr:
         }
     }
     | CASES delimited(LBRACE, 
-        s=nonempty_list(OF conds=separated_nonempty_list(COMMA, expr) ARROWFUNC body=kbody { conds, body } ) 
+        s=nonempty_list(OF conds=expr ARROWFUNC body=kbody { conds, body } ) 
         ELSE else_case=kbody { s, else_case } , RBRACE) {
             let cases, else_case = $2 in
         ECases {
