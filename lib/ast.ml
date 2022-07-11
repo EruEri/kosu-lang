@@ -205,6 +205,8 @@ module Error = struct
     | Enum_Error of enum_error
     | Statement_Error of statement_error
     | Uncompatible_type of { expected: ktype; found : ktype }
+    | Uncompatible_type_If_Else of { if_type: ktype; else_type: ktype }
+    | Not_Boolean_Type_Condition of { found: ktype }
     | Impossible_field_Access of ktype
     | Unvalid_Deference
   

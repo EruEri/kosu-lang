@@ -313,7 +313,14 @@ and typeof (env : Env.t) (current_mod_name: string) (prog : program) (expression
   }
   end
   | ETuple expected_types -> TTuple (expected_types |> List.map (typeof env current_mod_name prog) )
-  | EIf ( )
+  | EIf (expression, if_block, else_block ) -> 
+    let if_condition = typeof env current_mod_name prog expression in
+    if if_condition <> TBool then (raise (ast_error (Not_Boolean_Type_Condition { found = if_condition }) ))
+    else
+      let if_type = typeof_kbody (env |> Env.push_context []) current_mod_name prog if_block in
+      let else_type = typeof_kbody (env |> Env.push_context []) current_mod_name prog else_block in
+      if not (Type.are_compatible_type if_type else_type) then raise (ast_error (Ast.Error.Uncompatible_type_If_Else { if_type; else_type} ))
+      else Type.restrict_type else_type if_type
 
 
 
