@@ -206,11 +206,41 @@ end
         | None -> resolve_struct_type env current_mod_name program struct_module_path q struct_decl ~old_struct_decl
         | Some generic_name -> resolve_struct_type env current_mod_name program struct_module_path q (Asthelper.Struct.bind_generic generic_name init_type struct_decl) ~old_struct_decl
 (**
-  Return the type of the given expression
+  Return the type of the code block expression
   @raise Ast_error
   @raise Not_found : if a type declartion wasn't found or a variant is not in enum variants
   @raise Too_Many_Occurence: if several type declarations matching was found
 *)
+and typeof_kbody (env: Env.t) (current_mod_name: string) (program: program) ?(return_type = None) (kbody: kbody) = 
+  let statements, final_expr = kbody in
+  match statements with
+  | stamement::q -> begin 
+    match stamement with
+    | SDiscard expr -> ignore (typeof env current_mod_name program expr); typeof_kbody env current_mod_name program ~return_type (q, final_expr)
+    | SDeclaration { is_const; variable_name; expression } -> 
+      let type_init = typeof env current_mod_name program expression in
+      if env |> Env.is_identifier_exists variable_name then raise (stmt_error (Ast.Error.Already_Define_Identifier { name = variable_name}))
+      else
+        typeof_kbody (env |> Env.add_variable ( variable_name , {is_const; ktype = type_init})) current_mod_name program ~return_type (q, final_expr) 
+    | SAffection (variable, expr) -> (
+      match env |> Env.find_identifier_opt variable with
+      | None -> raise (stmt_error (Ast.Error.Undefine_Identifier { name = variable}))
+      | Some { is_const; ktype } -> 
+        if is_const then raise (stmt_error (Ast.Error.Reassign_Constante { name = variable}))
+        else
+          let new_type = typeof env current_mod_name program expr in
+          if not (Ast.Type.are_compatible_type new_type ktype) then raise (stmt_error (Ast.Error.Uncompatible_type_Assign { expected = ktype; found = new_type}))
+          else
+            typeof_kbody (env |> Env.restrict_variable_type variable new_type) current_mod_name program ~return_type (q, final_expr)
+    )
+  end
+  | [] -> 
+    let final_expr_type = typeof env current_mod_name program final_expr in
+    match return_type with
+    | None -> final_expr_type
+    | Some kt -> if not (Type.are_compatible_type kt final_expr_type) 
+      then raise (stmt_error (Ast.Error.Uncompatible_type_Assign { expected = kt; found = final_expr_type}))
+      else kt
 and typeof (env : Env.t) (current_mod_name: string) (prog : program) (expression: kexpression) = 
   match expression with
   | Empty -> TUnit
@@ -265,14 +295,14 @@ and typeof (env : Env.t) (current_mod_name: string) (prog : program) (expression
   | EEnum { modules_path; enum_name; variant; assoc_exprs } -> begin 
     let enum_decl = match Asthelper.Program.find_enum_decl_opt current_mod_name modules_path enum_name variant assoc_exprs prog with
     | Error( Either.Right e ) -> raise e
-    | Error (Left e ) -> raise (Ast.Error.ast_error e)
+    | Error (Left e) -> raise (Ast.Error.ast_error e)
     | Ok e -> e in
     let init_types = assoc_exprs |> List.map (typeof env current_mod_name prog) in
     let parametrics = enum_decl.variants 
     |> List.find_map (fun (var, assoc_types) -> if var = variant then Some assoc_types else None )
     |> Option.value ~default: (raise Not_found)
     |> fun assoc_types -> if Util.are_diff_lenght assoc_exprs assoc_types then raise (Ast.Error.enum_error (Ast.Error.Wrong_length_assoc_type { expected = assoc_types |> List.length; found = assoc_exprs |> List.length })) else assoc_types
-    |> fun expected_types -> if not (Asthelper.Enum.is_valide_assoc_type_init ~init_types ~expected_types) then raise (Ast.Error.enum_error (Ast.Error.Uncompatible_type_in_variant { variant_name = variant})) else expected_types
+    |> fun expected_types -> if not (Asthelper.Enum.is_valide_assoc_type_init ~init_types ~expected_types enum_decl) then raise (Ast.Error.enum_error (Ast.Error.Uncompatible_type_in_variant { variant_name = variant})) else expected_types
     |> fun expected_types -> Asthelper.Enum.infer_generics ~assoc_position: 0 (List.combine init_types expected_types) (enum_decl.generics |> List.map (fun s -> (TType_Identifier { module_path = ""; name = s}, false) )) enum_decl 
     |> List.map (fun (kt, true_type) -> if true_type then kt else TUnknow) in
     if not (Asthelper.Enum.contains_generics enum_decl) then TType_Identifier { module_path = if modules_path = "" then current_mod_name else modules_path; name = enum_decl.enum_name }
@@ -282,5 +312,8 @@ and typeof (env : Env.t) (current_mod_name: string) (prog : program) (expression
       name = enum_decl.enum_name
   }
   end
+  | ETuple expected_types -> TTuple (expected_types |> List.map (typeof env current_mod_name prog) )
+  | EIf ( )
+
 
 

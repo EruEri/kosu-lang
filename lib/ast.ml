@@ -179,6 +179,85 @@ type module_path = {
 
 type program = module_path list
 
+module Error = struct
+  type struct_error = 
+  | Unexpected_field of { expected: string ; found : string }
+  | Unexisting_field of string
+  | Wrong_field_count of { expected: int ; found : int }
+
+  type enum_error = 
+  | Wrong_length_assoc_type of { expected: int; found: int }
+  | Uncompatible_type_in_variant of { variant_name: string }
+
+  type statement_error = 
+  | Undefine_Identifier of { name: string }
+  | Already_Define_Identifier of { name: string }
+  | Reassign_Constante of { name: string }
+  | Uncompatible_type_Assign of { expected: ktype; found: ktype}
+  
+  type ast_error = 
+    | Bin_operator_Different_type
+    | Undefined_Identifier of string
+    | Undefined_Const of string
+    | Undefined_Struct of string
+    | Unbound_Module of string
+    | Struct_Error of struct_error
+    | Enum_Error of enum_error
+    | Statement_Error of statement_error
+    | Uncompatible_type of { expected: ktype; found : ktype }
+    | Impossible_field_Access of ktype
+    | Unvalid_Deference
+  
+  exception Ast_error of ast_error
+
+  let ast_error e = Ast_error e
+  let struct_error e = ast_error (Struct_Error e)
+  let enum_error e = ast_error (Enum_Error e)
+  let stmt_error e = ast_error (Statement_Error e)
+end
+
+module Type = struct
+  
+  let rec are_compatible_type (lhs: ktype) (rhs: ktype) = 
+    match lhs, rhs with
+    | TParametric_identifier {module_path = mp1 ; parametrics_type = pt1; name = n1}
+      , TParametric_identifier {module_path = mp2; parametrics_type = pt2; name = n2 } -> 
+        n1 = n2 && mp1 = mp2 && (pt1 |> Util.are_same_lenght pt2) && (List.for_all2 are_compatible_type pt1 pt2)
+    | TUnknow, _ | _ , TUnknow -> true
+    | _, _ -> lhs =  rhs
+
+  (**
+  Returns the restricted version of the left type.
+  this function returns the left type if [not (are_compatible_type to_restrict_type restrict_type)]
+  *)
+  let rec restrict_type (to_restrict_type: ktype) (restricted_type: ktype) = 
+    if not (are_compatible_type to_restrict_type restricted_type) then to_restrict_type
+    else
+      match to_restrict_type, restricted_type with
+      | TParametric_identifier {module_path = mp1 ; parametrics_type = pt1; name = n1}
+      , TParametric_identifier {module_path = mp2; parametrics_type = pt2; name = n2 } -> 
+        if (n1 <> n2 || mp1 <> mp2 || Util.are_diff_lenght pt1 pt2) then to_restrict_type else TParametric_identifier {
+          module_path = mp1;
+          parametrics_type = (List.combine pt1 pt2 |> List.map (fun (lhs, rhs) -> restrict_type lhs rhs));
+          name = n1
+        } 
+      | TUnknow, t -> t
+      | _, _ -> to_restrict_type
+end
+
+
+module Type_Decl = struct
+  type type_decl = 
+  | Decl_Enum of enum_decl
+  | Decl_Struct of struct_decl
+
+  let decl_enum e = Decl_Enum e
+  let decl_struct s = Decl_Struct s
+
+  let is_enum = function Decl_Enum _ -> true | _ -> false
+  let is_struct = function Decl_Struct _ -> true | _ -> false
+end
+
 module Env = struct
 
   type variable_info = {
@@ -197,6 +276,27 @@ module Env = struct
   }
   let find_identifier_opt (identifier: string) (env: t) = 
     env |> flat_context |> List.assoc_opt identifier
+  let is_identifier_exists identifier (env: t) = 
+    env |> flat_context |> List.assoc_opt identifier |> Option.is_some
+
+  let rec restrict_variable_type_context identifier ktype (context: (string * variable_info) list ) =
+    match context with
+    | [] -> []
+    | t::q -> 
+      let ctx_id, ctx_variable_info = t in
+      if ctx_id <> identifier then t::(restrict_variable_type_context identifier ktype q)
+      else 
+        let { is_const = ctx_is_const; ktype = ctx_ktype } = ctx_variable_info in 
+        let new_variable_info = { is_const = ctx_is_const; ktype = Type.restrict_type ctx_ktype ktype } in
+        (ctx_id, new_variable_info)::q
+      
+
+  let restrict_variable_type identifier ktype (env: t) = 
+    {
+      contexts = env.contexts |> List.map (restrict_variable_type_context identifier ktype)
+    }
+
+  
   let add_variable couple (env: t) =
     match env.contexts with
     | [] -> env |> push_context (couple::[])
@@ -207,57 +307,4 @@ module Env = struct
     match env.contexts with
     | [] -> env
     | _::q -> { contexts = q }
-end
-
-module Error = struct
-  type struct_error = 
-  | Unexpected_field of { expected: string ; found : string }
-  | Unexisting_field of string
-  | Wrong_field_count of { expected: int ; found : int }
-
-  type enum_error = 
-  | Wrong_length_assoc_type of { expected: int; found: int }
-  | Uncompatible_type_in_variant of { variant_name: string }
-  
-  type ast_error = 
-    | Bin_operator_Different_type
-    | Undefined_Identifier of string
-    | Undefined_Const of string
-    | Undefined_Struct of string
-    | Unbound_Module of string
-    | Struct_Error of struct_error
-    | Enum_Error of enum_error
-    | Uncompatible_type of { expected: ktype; found : ktype }
-    | Impossible_field_Access of ktype
-    | Unvalid_Deference
-  
-  exception Ast_error of ast_error
-
-  let ast_error e = Ast_error e
-  let struct_error e = ast_error (Struct_Error e)
-  let enum_error e = ast_error (Enum_Error e)
-end
-
-module Type = struct
-  
-  let rec are_compatible_type (lhs: ktype) (rhs: ktype) = 
-    match lhs, rhs with
-    | TParametric_identifier {module_path = mp1 ; parametrics_type = pt1; name = n1}
-      , TParametric_identifier {module_path = mp2; parametrics_type = pt2; name = n2 } -> 
-        n1 = n2 && mp1 = mp2 && (pt1 |> Util.are_same_lenght pt2) && (List.for_all2 are_compatible_type pt1 pt2)
-    | TUnknow, _ | _ , TUnknow -> true
-    | _, _ -> lhs =  rhs
-end
-
-
-module Type_Decl = struct
-  type type_decl = 
-  | Decl_Enum of enum_decl
-  | Decl_Struct of struct_decl
-
-  let decl_enum e = Decl_Enum e
-  let decl_struct s = Decl_Struct s
-
-  let is_enum = function Decl_Enum _ -> true | _ -> false
-  let is_struct = function Decl_Struct _ -> true | _ -> false
 end
