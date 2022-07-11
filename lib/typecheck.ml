@@ -23,12 +23,12 @@ let find_struct_decl_from_name (current_module_name: string) (prog : program) (m
   else
     let zipped = List.combine fields struct_decl.fields in
     resolve_struct_type env current_mod_name program struct_module_path zipped struct_decl ~old_struct_decl:struct_decl
-  (**
+(*(**
   Check and validate the type of the struct initialisation
   @raise Ast_error
   @raise Not_found : if a type declartion wasn't found
   @raise Too_Many_Occurence: if several type declarations matching was found
-*)
+*)*)
   and resolve_struct_type env (current_mod_name) (program) (struct_module_path) (fields_zipped) (struct_decl) ~old_struct_decl = 
   match fields_zipped with
   | [] -> Asthelper.Struct.to_ktype_help struct_module_path ~new_struct_decl:struct_decl old_struct_decl
@@ -41,12 +41,12 @@ let find_struct_decl_from_name (current_module_name: string) (prog : program) (m
         match Asthelper.Struct.retrieve_generic_name_from_field_opt struct_field old_struct_decl with
         | None -> resolve_struct_type env current_mod_name program struct_module_path q struct_decl ~old_struct_decl
         | Some generic_name -> resolve_struct_type env current_mod_name program struct_module_path q (Asthelper.Struct.bind_generic generic_name init_type struct_decl) ~old_struct_decl
-(**
+(*(**
   Return the type of the code block expression
   @raise Ast_error
   @raise Not_found : if a type declartion wasn't found or a variant is not in enum variants
   @raise Too_Many_Occurence: if several type declarations matching was found
-*)
+*)*)
 and typeof_kbody (env: Env.t) (current_mod_name: string) (program: program) ?(return_type = None) (kbody: kbody) = 
   let statements, final_expr = kbody in
   match statements with
@@ -157,6 +157,17 @@ and typeof (env : Env.t) (current_mod_name: string) (prog : program) (expression
       let else_type = typeof_kbody (env |> Env.push_context []) current_mod_name prog else_block in
       if not (Type.are_compatible_type if_type else_type) then raise (ast_error (Ast.Error.Uncompatible_type_If_Else { if_type; else_type} ))
       else Type.restrict_type else_type if_type
+  | ECases { cases; else_case } -> 
+    cases 
+    |> List.map (fun (expr, kbody) ->
+      let expr_type = typeof env current_mod_name prog expr in
+      if expr_type <> TBool then raise (ast_error (Not_Boolean_Type_Condition { found = expr_type }))
+      else typeof_kbody (env |> Env.push_context []) current_mod_name prog kbody
+    )
+    |> List.fold_left (fun acc new_type -> 
+      if not (Type.are_compatible_type acc new_type) then raise (ast_error (Uncompatible_type { expected = acc; found = new_type}))
+      else Type.restrict_type acc new_type
+    ) (typeof_kbody (env |> Env.push_context []) current_mod_name prog else_case)
 
 
 
