@@ -47,7 +47,7 @@ let find_struct_decl_from_name (current_module_name: string) (prog : program) (m
   @raise Not_found : if a type declartion wasn't found or a variant is not in enum variants
   @raise Too_Many_Occurence: if several type declarations matching was found
 *)*)
-and typeof_kbody (env: Env.t) (current_mod_name: string) (program: program) ?(return_type = None) (kbody: kbody) = 
+and typeof_kbody ?(generics_resolver) (env: Env.t) (current_mod_name: string) (program: program) ?(return_type = None) (kbody: kbody) = 
   let statements, final_expr = kbody in
   match statements with
   | stamement::q -> begin 
@@ -77,7 +77,7 @@ and typeof_kbody (env: Env.t) (current_mod_name: string) (program: program) ?(re
     | Some kt -> if not (Type.are_compatible_type kt final_expr_type) 
       then raise (stmt_error (Ast.Error.Uncompatible_type_Assign { expected = kt; found = final_expr_type}))
       else kt
-and typeof (env : Env.t) (current_mod_name: string) (prog : program) (expression: kexpression) = 
+and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name: string) (prog : program) (expression: kexpression) = 
   match expression with
   | Empty -> TUnit
   | True | False -> TBool
@@ -88,7 +88,13 @@ and typeof (env : Env.t) (current_mod_name: string) (prog : program) (expression
     | Left ktype -> ignore ( 
       match ktype with
       | TParametric_identifier { module_path; parametrics_type = _ ; name} | TType_Identifier { module_path; name } -> 
+        try 
         ignore (Asthelper.Program.find_type_decl_from_ktype module_path name current_mod_name prog)
+      with e -> begin 
+        match generics_resolver with
+        | None -> raise e
+        | Some tbl -> Hashtbl.find_opt tbl name |> Option.fold ~none: (raise e) ~some:(Fun.id)
+      end
       | _ -> ignore ()
   )
     | Right expr -> ignore (typeof env current_mod_name prog expr));
@@ -168,6 +174,44 @@ and typeof (env : Env.t) (current_mod_name: string) (prog : program) (expression
       if not (Type.are_compatible_type acc new_type) then raise (ast_error (Uncompatible_type { expected = acc; found = new_type}))
       else Type.restrict_type acc new_type
     ) (typeof_kbody (env |> Env.push_context []) current_mod_name prog else_case)
+  | EFunction_call { modules_path; generics_resolver = grc ; fn_name; parameters } -> 
+    let fn_decl = Asthelper.Program.find_function_decl_from_fn_name modules_path fn_name current_mod_name prog in
+    match fn_decl with
+    | Ast.Function_Decl.Decl_Kosu_Function e -> failwith ""
+    | Ast.Function_Decl.Decl_External external_func_decl ->
+      if external_func_decl.is_variadic then 
+        parameters 
+      |> List.map ( typeof ~generics_resolver env current_mod_name prog )
+      |> List.map (fun t -> if Asthelper.Program.is_c_type_from_ktype current_mod_name t prog then t else Ast.Error.Uncompatible_type_for_C_Function { external_func_decl } |> func_error |> raise)
+      |> fun types -> if (types |> List.length) < (external_func_decl.fn_parameters |> List.length) then Unmatched_Parameters_length { expected = external_func_decl.fn_parameters |> List.length; found = parameters |> List.length } |> func_error |> raise else types
+      |> List.mapi (fun i t -> (i,t))
+      |> List.partition (fun (i,_) -> i <= (external_func_decl.fn_parameters |> List.length) )
+      |> fun (lhs, _ ) -> lhs
+      |> List.map (fun (i,t) -> t)
+      |> List.combine external_func_decl.fn_parameters
+      |> (List.for_all (fun (para_type, init_type) -> 
+        match Asthelper.Program.is_c_type_from_ktype current_mod_name para_type prog, Asthelper.Program.is_c_type_from_ktype current_mod_name init_type prog with
+        | true, true -> 
+          if para_type <> init_type then Uncompatible_type_Assign { expected = para_type; found = init_type } |> stmt_error |> raise else true
+        | _ -> Ast.Error.Uncompatible_type_for_C_Function { external_func_decl } |> func_error |> raise
+      ) )
+      |> fun b -> if b then external_func_decl.r_type
+      else Unknow_Function_Error |> func_error |> raise
+
+      else
+        match (Util.are_same_lenght external_func_decl.fn_parameters parameters) with
+        | false -> Unmatched_Parameters_length { expected = external_func_decl.fn_parameters |> List.length; found = parameters |> List.length } |> func_error |> raise
+        | true -> 
+          let mapped_type = parameters |> List.map ( typeof ~generics_resolver env current_mod_name prog ) in
+          let zipped = List.combine external_func_decl.fn_parameters mapped_type in
+          if (zipped |> List.for_all (fun (para_type, init_type) -> 
+              match Asthelper.Program.is_c_type_from_ktype current_mod_name para_type prog, Asthelper.Program.is_c_type_from_ktype current_mod_name init_type prog with
+              | true, true -> 
+                if para_type <> init_type then Uncompatible_type_Assign { expected = para_type; found = init_type } |> stmt_error |> raise else true
+              | _ -> Ast.Error.Uncompatible_type_for_C_Function { external_func_decl } |> func_error |> raise
+            )) then external_func_decl.r_type
+              else Unknow_Function_Error |> func_error |> raise
+
 
 
 

@@ -49,11 +49,19 @@ module Module = struct
   let retrieve_type_decl = function
   | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NEnum e -> Some (Ast.Type_Decl.decl_enum e) | Ast.NStruct s -> Some (Ast.Type_Decl.decl_struct s) | _ -> None)
 
+  let retrieve_functions_decl = function
+  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NExternFunc e -> Some (Ast.Function_Decl.Decl_External e) | Ast.NFunction e -> Some (Ast.Function_Decl.decl_kosu_function e) | _ -> None)
 
   let type_decl_occurence (type_name: string) (module_definition: Ast._module) = 
     module_definition |> retrieve_type_decl |> Util.Occurence.find_occurence (function
     | Ast.Type_Decl.Decl_Enum e -> e.enum_name = type_name
     | Ast.Type_Decl.Decl_Struct s -> s.struct_name = type_name
+    )
+
+  let function_decl_occurence (fn_name: string) (module_definition: Ast._module) = 
+    module_definition |> retrieve_functions_decl |> Util.Occurence.find_occurence (function
+    | Ast.Function_Decl.Decl_External e -> fn_name = e.sig_name
+    | Ast.Function_Decl.Decl_Kosu_Function e -> fn_name = e.fn_name
     )
 end
 
@@ -100,6 +108,11 @@ module Program = struct
       | "" -> program |> Util.Occurence.find_occurence (fun module_path -> module_path.path = current_module)
       | s  -> program |> Util.Occurence.find_occurence (fun module_path -> module_path.path = s)
 
+    let find_module_of_function fn_def_path current_module program = 
+      match fn_def_path with
+      | "" -> program |> Util.Occurence.find_occurence (fun module_path -> module_path.path = current_module)
+      | s  -> program |> Util.Occurence.find_occurence (fun module_path -> module_path.path = s)
+
     (**
     Find type declaration from ktype
     @raise Not_found : if no type declaration was found
@@ -111,6 +124,51 @@ module Program = struct
       |> fun m -> m._module
       |> Module.type_decl_occurence ktype_name
       |> Util.Occurence.one
+
+    (**
+    Find function declaration from function name
+    @raise Not_found : if no function declaration was found
+    @raise Too_Many_Occurence: if several function declaration matching was found
+    *)
+    let find_function_decl_from_fn_name fn_def_path fn_name current_module program =
+      program 
+      |> find_module_of_function fn_def_path current_module
+      |> Util.Occurence.one
+      |> fun m -> m._module
+      |> Module.function_decl_occurence fn_name
+      |> Util.Occurence.one
+
+    let rec is_c_type (current_mod_name) (type_decl: Ast.Type_Decl.type_decl) program = 
+      match type_decl with
+      | Decl_Enum e -> e.generics = [] && e.variants |> List.for_all (fun (_, assoc) -> assoc = [] )
+      | Decl_Struct s -> 
+        if s.generics = [] then false 
+        else s.fields |> List.for_all (fun (_, ktype) -> 
+          match ktype with
+          | TParametric_identifier _ -> false
+          | TType_Identifier { module_path; name } -> begin
+            try 
+              let type_decl =  (find_type_decl_from_ktype module_path name current_mod_name program) in 
+              is_c_type current_mod_name type_decl program
+            with _ -> false
+          end
+          | TFunction _ -> false
+          | TTuple _ -> false
+          | _ -> true
+        )
+  
+    let is_c_type_from_ktype (current_mod_name) (ktype: ktype) program = 
+      match ktype with
+      | TParametric_identifier _ -> false
+      | TType_Identifier { module_path; name } -> begin
+        try 
+          let type_decl =  (find_type_decl_from_ktype module_path name current_mod_name program) in 
+          is_c_type current_mod_name type_decl program
+        with _ -> false
+      end
+      | TFunction _ -> false
+      | TTuple _ -> false
+      | _ -> true
 
 end
 
@@ -446,8 +504,8 @@ module Struct = struct
     | TType_Identifier _ as tti -> tti = (struct_decl |> to_ktype module_def_path)
     | TParametric_identifier { module_path; parametrics_type; name } -> (module_path = module_def_path && name = struct_decl.struct_name) || parametrics_type |> List.exists (fun k -> is_cyclic_aux k module_def_path struct_decl)
     | _ -> false
-  let is_cyclic module_def_path (struct_decl: t) = struct_decl.fields |> List.exists ( fun (_, ktype) -> is_cyclic_aux ktype module_def_path struct_decl )
-
+  let is_cyclic module_def_path (struct_decl: t) = 
+    struct_decl.fields |> List.exists ( fun (_, ktype) -> is_cyclic_aux ktype module_def_path struct_decl )
   
   (**
   @raise Failure: if type in last parameters aren't TType_Identfier

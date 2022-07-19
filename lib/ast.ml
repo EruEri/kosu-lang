@@ -194,6 +194,11 @@ module Error = struct
   | Already_Define_Identifier of { name: string }
   | Reassign_Constante of { name: string }
   | Uncompatible_type_Assign of { expected: ktype; found: ktype}
+
+  type func_error =
+  | Unmatched_Parameters_length of { expected: int; found: int }
+  | Uncompatible_type_for_C_Function of { external_func_decl: external_func_decl }
+  | Unknow_Function_Error
   
   type ast_error = 
     | Bin_operator_Different_type
@@ -204,6 +209,7 @@ module Error = struct
     | Struct_Error of struct_error
     | Enum_Error of enum_error
     | Statement_Error of statement_error
+    | Func_Error of func_error
     | Uncompatible_type of { expected: ktype; found : ktype }
     | Uncompatible_type_If_Else of { if_type: ktype; else_type: ktype }
     | Not_Boolean_Type_Condition of { found: ktype }
@@ -216,6 +222,7 @@ module Error = struct
   let struct_error e = ast_error (Struct_Error e)
   let enum_error e = ast_error (Enum_Error e)
   let stmt_error e = ast_error (Statement_Error e)
+  let func_error e = ast_error (Func_Error e )
 end
 
 module Type = struct
@@ -258,6 +265,19 @@ module Type_Decl = struct
 
   let is_enum = function Decl_Enum _ -> true | _ -> false
   let is_struct = function Decl_Struct _ -> true | _ -> false
+end
+
+module Function_Decl = struct
+  type t = 
+  | Decl_External of external_func_decl
+  | Decl_Kosu_Function of function_decl
+
+  let decl_external e = Decl_External e
+  let decl_kosu_function e = Decl_Kosu_Function e
+
+  let is_external = function Decl_External _ -> true | _ -> false
+
+  let is_kosu_func = function Decl_Kosu_Function _ -> true | _ -> false
 end
 
 module Env = struct
