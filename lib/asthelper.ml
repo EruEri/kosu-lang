@@ -87,7 +87,8 @@ module Program = struct
       structs |> List.find_opt (fun s -> s.struct_name = struct_name) |> Option.to_result ~none:(Ast.Error.Undefined_Struct struct_name)
     )
   
-  let find_enum_decl_opt (current_module_name) (module_enum_path) (enum_name_opt: string option) (variant: string) (assoc_exprs: kexpression list) (program: t) = 
+  let find_enum_decl_opt (current_module_name) (module_enum_path) (enum_name_opt: string option) (variant: string) (assoc_exprs: kexpression list) (program: t) =
+    let () = Printf.printf "current module : %s\n" current_module_name in
     match (if module_enum_path = "" then Some (program |> module_of_string current_module_name) else program |> module_of_string_opt current_module_name) with
     | None -> (Ast.Error.Unbound_Module module_enum_path) |> Either.left |> Result.error
     | Some _module -> 
@@ -296,6 +297,7 @@ module Enum = struct
     | _ -> false
     )
   let rec are_type_compatible (init_type: ktype) (expected_type: ktype) (enum_decl: t) = 
+    (* let () = Printf.printf "expected : %s :: found : %s\n" (string_of_ktype expected_type) (string_of_ktype init_type) in *)
     match init_type, expected_type with
     | TType_Identifier {module_path = init_path; name = init_name}, TType_Identifier {module_path = exp_path; name = exp_name } -> begin
       enum_decl.generics |> List.mem exp_name || (init_path = exp_path && init_name = exp_name)
@@ -307,6 +309,7 @@ module Enum = struct
           List.combine init_pt exp_pt |> List.for_all (fun (i,e) -> are_type_compatible i e enum_decl)
         end
     | TUnknow, _ -> true
+    | _ , TType_Identifier { module_path; name } when module_path = "" && enum_decl.generics |> List.mem name ->  true
     | lhs, rhs -> lhs = rhs
 
   let rec bind_generic_ktype generic_name new_type expected_type (enum_decl: t) = 
@@ -380,7 +383,7 @@ module Enum = struct
     enum_decl.variants |> List.for_all (fun (_, assoc) -> assoc = [])
   let is_tagged_union (enum_decl: t) = 
     enum_decl.variants |> List.exists (fun (_, assoc_type) -> assoc_type <> [] )
-  let contains_generics (enum_decl: t) = enum_decl.generics = []
+  let contains_generics (enum_decl: t) = enum_decl.generics <> []
 end
 
 module Struct = struct
@@ -401,7 +404,7 @@ module Struct = struct
     (struct_decl.generics |> String.concat ", ")
     (struct_decl.struct_name)
     (struct_decl.fields |> List.map (fun (field, t) -> sprintf "%s : %s" (field) (string_of_ktype t)) |> String.concat ", " )
-  let contains_generics (struct_decl: t) = struct_decl.generics = []
+  let contains_generics (struct_decl: t) = struct_decl.generics <> []
 
   (**
   @raise Type_Error: 
@@ -594,3 +597,45 @@ module Function = struct
 
   let iter_statement fn (function_decl: t) = let statements, _  = function_decl.body in statements |> List.iter fn
 end
+
+let string_of_found_expected = function
+| `int(expected, found ) -> Printf.sprintf "-- expected : %d, found : %d --" expected found
+| `str(expected, found) -> Printf.sprintf "-- expected : %s, found : %s --" expected found
+| `ktype(expected, found ) -> Printf.sprintf "-- expected : %s, found : %s --" (expected |> string_of_ktype) (found  |> string_of_ktype)
+
+let string_of_struct_error = let open Ast.Error in let open Printf in function
+| Unexpected_field { expected; found } -> sprintf "Unexpected_field -- expected : %s, found : %s --" expected found
+| Unexisting_field s -> sprintf "Unexisting_field %s" s
+| Wrong_field_count record -> sprintf "Wrong_field_count -- expected : %d, found : %d" record.expected record.found
+
+let string_of_enum_error = let open Ast.Error in let open Printf in function
+| Wrong_length_assoc_type record -> sprintf "Wrong_length_assoc_type -- expected : %d, found : %d --" record.expected record.found
+| Uncompatible_type_in_variant { variant_name } -> sprintf "Uncompatible_type_in_variant : %s" variant_name
+
+let string_of_statement_error = let open Ast.Error in let open Printf in function
+| Undefine_Identifier s -> sprintf "Undefine_Identifier : %s" s.name
+| Already_Define_Identifier s -> sprintf "Already_Define_Identifier : %s" s.name
+| Reassign_Constante s -> sprintf "Reassign_Constante : %s" s.name
+| Uncompatible_type_Assign s -> sprintf "Uncompatible_type_Assign -- expected: %s, found: %s --" (s.expected |> string_of_ktype)  (s.found |> string_of_ktype) 
+
+let string_of_function_error = let open Ast.Error in let open Printf in function
+| Unmatched_Parameters_length record -> sprintf "Unmatched_Parameters_length %s " (string_of_found_expected (`int(record.expected, record.found)))
+| Unmatched_Generics_Resolver_length record -> sprintf "Unmatched_Generics_Resolver_length : %s" (string_of_found_expected (`int(record.expected, record.expected)) )
+| Uncompatible_type_for_C_Function recod -> sprintf "Uncompatible_type_for_C_Function for %s " (ExternalFunc.string_of_external_func_decl recod.external_func_decl)
+| Mismatched_Parameters_Type record -> sprintf "Mismatched_Parameters_Type : %s" (string_of_found_expected (`ktype(record.expected, record.found)))
+| Unknow_Function_Error -> "Unknow_Function_Error"
+let string_of_ast_error = let open Ast.Error in let open Printf in function
+| Bin_operator_Different_type -> "Bin_operator_Different_type"
+| Undefined_Identifier s -> sprintf "Undefined_Identifier : %s" s
+| Undefined_Const s -> sprintf "Undefined_Const : %s" s
+| Undefined_Struct s -> sprintf "Undefined_Struct : %s" s
+| Unbound_Module s -> sprintf "Unbound_Module : %s" s
+| Struct_Error s -> string_of_struct_error s
+| Enum_Error e -> string_of_enum_error e
+| Statement_Error e -> string_of_statement_error e
+| Func_Error e -> string_of_function_error e
+| Uncompatible_type e -> sprintf "Uncompatible_type %s" (string_of_found_expected (`ktype(e.expected, e.found)))
+| Uncompatible_type_If_Else e -> sprintf "Uncompatible_type_If_Else %s" (string_of_found_expected (`ktype(e.if_type, e.else_type)))
+| Not_Boolean_Type_Condition e -> sprintf "Uncompatible_type_If_Else : %s" (string_of_ktype e.found)
+| Impossible_field_Access e -> sprintf "Impossible_field_Access : %s" (string_of_ktype e)
+| Unvalid_Deference -> sprintf "Unvalid_Deference"

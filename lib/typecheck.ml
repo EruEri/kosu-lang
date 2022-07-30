@@ -57,7 +57,8 @@ and typeof_kbody ?(generics_resolver = None) (env: Env.t) (current_mod_name: str
       let type_init = typeof env current_mod_name program expression in
       if env |> Env.is_identifier_exists variable_name then raise (stmt_error (Ast.Error.Already_Define_Identifier { name = variable_name}))
       else
-        if not (Type.are_compatible_type explicit_type type_init) then raise (Ast.Error.Uncompatible_type_Assign {expected = explicit_type; found = type_init } |> stmt_error |> raise )
+        Printf.printf "%s : %s\n" (variable_name) (Asthelper.string_of_ktype type_init); 
+        if not (Type.are_compatible_type explicit_type type_init) then let () = print_endline "Otosan" in raise (Ast.Error.Uncompatible_type_Assign {expected = explicit_type; found = type_init } |> stmt_error |> raise )
         else
         typeof_kbody ~generics_resolver (env |> Env.add_variable ( variable_name , {is_const; ktype = explicit_type})) current_mod_name program ~return_type (q, final_expr) 
     | SAffection (variable, expr) -> (
@@ -73,6 +74,7 @@ and typeof_kbody ?(generics_resolver = None) (env: Env.t) (current_mod_name: str
     )
   end
   | [] -> 
+    Printf.printf "Final expr\n"; 
     let final_expr_type = typeof env current_mod_name program final_expr in
     match return_type with
     | None -> final_expr_type
@@ -145,14 +147,17 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
     let init_types = assoc_exprs |> List.map (typeof env current_mod_name prog) in
     let parametrics = enum_decl.variants 
     |> List.find_map (fun (var, assoc_types) -> if var = variant then Some assoc_types else None )
-    |> Option.value ~default: (raise Not_found)
+    (* |> Option.map (fun k -> print_endline (k |> List.map Asthelper.string_of_ktype |> String.concat ", "); k ) *)
+    (* |> function Some s -> s | None -> (raise Not_found) *)
+    |> Option.get
+    (* |> (fun k -> print_endline (k |> List.map Asthelper.string_of_ktype |> String.concat ", "); k ) *)
     |> fun assoc_types -> if Util.are_diff_lenght assoc_exprs assoc_types then raise (Ast.Error.enum_error (Ast.Error.Wrong_length_assoc_type { expected = assoc_types |> List.length; found = assoc_exprs |> List.length })) else assoc_types
     |> fun expected_types -> if not (Asthelper.Enum.is_valide_assoc_type_init ~init_types ~expected_types enum_decl) then raise (Ast.Error.enum_error (Ast.Error.Uncompatible_type_in_variant { variant_name = variant})) else expected_types
     |> fun expected_types -> Asthelper.Enum.infer_generics ~assoc_position: 0 (List.combine init_types expected_types) (enum_decl.generics |> List.map (fun s -> (TType_Identifier { module_path = ""; name = s}, false) )) enum_decl 
     |> List.map (fun (kt, true_type) -> if true_type then kt else TUnknow) in
-    if not (Asthelper.Enum.contains_generics enum_decl) then TType_Identifier { module_path = if modules_path = "" then current_mod_name else modules_path; name = enum_decl.enum_name }
+    if not (Asthelper.Enum.contains_generics enum_decl) then TType_Identifier { module_path = modules_path; name = enum_decl.enum_name }
     else TParametric_identifier {
-      module_path = if modules_path = "" then current_mod_name else modules_path;
+      module_path =  modules_path;
       parametrics_type = parametrics;
       name = enum_decl.enum_name
   }

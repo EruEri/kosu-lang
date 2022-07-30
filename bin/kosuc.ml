@@ -1,3 +1,7 @@
+open Kosu_lang
+open Ast
+open Typecheck
+
 let () = 
   Clap.description "kosuc - The Kosu compiler";
 
@@ -9,7 +13,23 @@ let () =
 
   let _files = Clap.list_string () in
 
-  Clap.close ()
+  Clap.close ();
+
+  let modules_opt = Kosu_lang.Cli.files_to_ast_program _files in
+
+  match modules_opt with
+  | Error e -> (match e with No_input_file -> raise (Invalid_argument "no Input file") | Cli.File_error (s, exn) -> Printf.printf "%s\n" (s); raise exn)
+  | Ok modules -> 
+    let { path; _module } = modules |> List.hd in
+    let main =  _module 
+    |> Kosu_lang.Asthelper.Module.retrieve_func_decl 
+    |> List.find ( fun fn -> fn.fn_name = "main")
+  in 
+  print_endline path;
+  (try
+    typeof_kbody Env.create_empty_env path modules main.body
+  with Ast.Error.Ast_error e -> Printf.printf "%s\n" (Asthelper.string_of_ast_error e);  failwith "" ) |> ignore
+   
 
 (* let _ = 
   let file = open_in "test.kosu" in

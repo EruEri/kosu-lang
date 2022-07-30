@@ -7,7 +7,8 @@ let module_path_of_file filename =
   try
     let file = open_in filename in
     let source = Lexing.from_channel file in
-    let Prog (module_node) = Parser.prog  Lexer.main source in
+    let Mod (module_node) = Parser.modul  Lexer.main source in
+    let () = close_in file in
     Ok ({
       path = filename;
       _module = Mod (module_node)
