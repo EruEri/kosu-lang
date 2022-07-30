@@ -42,6 +42,7 @@ and kstatement =
 | SDeclaration of  {
   is_const: bool;
   variable_name : string;
+  explicit_type: ktype;
   expression: kexpression
 }
 | SAffection of string * kexpression
@@ -179,6 +180,9 @@ type module_path = {
 
 type program = module_path list
 
+module OperatorFunction = struct
+end
+
 module Error = struct
   type struct_error = 
   | Unexpected_field of { expected: string ; found : string }
@@ -197,7 +201,9 @@ module Error = struct
 
   type func_error =
   | Unmatched_Parameters_length of { expected: int; found: int }
+  | Unmatched_Generics_Resolver_length of { expected: int; found: int }
   | Uncompatible_type_for_C_Function of { external_func_decl: external_func_decl }
+  | Mismatched_Parameters_Type of { expected : ktype; found : ktype }
   | Unknow_Function_Error
   
   type ast_error = 
@@ -291,6 +297,13 @@ module Env = struct
     contexts : ((string * variable_info) list) list
   }
 
+  let create_empty_env : t = {
+    contexts = []
+  }
+
+  let create_env first_context = {
+    contexts = first_context::[]
+  }
   let flat_context env = env.contexts |> List.flatten
 
   let push_context (context: (string * variable_info) list) (env: t) = {

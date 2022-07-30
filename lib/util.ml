@@ -23,6 +23,6 @@ module ListHelper = struct
   
 end
 
-module OptionHelper = struct
+module OperatorHelper = struct
   let (>>=) o f = Option.bind o f
 end

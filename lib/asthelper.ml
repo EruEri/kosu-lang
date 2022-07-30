@@ -169,7 +169,7 @@ module Program = struct
       | TFunction _ -> false
       | TTuple _ -> false
       | _ -> true
-
+      
 end
 
 module Statement = struct
@@ -181,10 +181,11 @@ module Statement = struct
   (string_of_kexpression expr)
   end
   and string_of_kstatement = function
-  | SDeclaration { is_const; variable_name; expression } -> 
-    sprintf "%s %s = %s;"
+  | SDeclaration { is_const; variable_name; explicit_type ; expression } -> 
+    sprintf "%s %s : %s = %s;"
     (if is_const then "const" else "var")
     (variable_name)
+    (string_of_ktype explicit_type)
     (expression |> string_of_kexpression)
   | SAffection (id, expression) -> sprintf "%s = %s;" (id) (expression |> string_of_kexpression)
   | SDiscard (expr) -> sprintf "discard %s;" (string_of_kexpression expr)
@@ -562,6 +563,34 @@ module Function = struct
     (function_decl.parameters |> List.map (fun (id, ktype) -> sprintf "%s: %s" (id) (string_of_ktype ktype)) |> String.concat ", ")
     (function_decl.return_type |> string_of_ktype)
     (function_decl.body |> Statement.string_of_kbody)
+
+  let rec is_ktype_generic ktype (fn_decl: t) = 
+    match ktype with
+    | TParametric_identifier { module_path = _; parametrics_type ; name = _ } -> parametrics_type |> List.exists (fun kt -> is_ktype_generic kt fn_decl)
+    | TType_Identifier { module_path = _; name } -> fn_decl.generics |> List.mem name
+    | _ -> false
+
+  (**
+    @return true if parameter contains generics, false if not and None if paramater name doesn't exist
+  *)
+  let is_parameter_generic (para_name: string) (fn_decl: t) = 
+    fn_decl.parameters
+    |> List.assoc_opt para_name
+    |> Option.map ( fun kt -> is_ktype_generic kt fn_decl)
+
+  let is_no_nested_generic ktype (fn_decl: t) = 
+    match ktype with
+    | TType_Identifier { module_path = _; name } -> fn_decl.generics |> List.mem name
+    | _ -> false
+
+  let rec are_ktypes_compatible ~para_type ~init_type (fn_decl: t) =
+    if is_no_nested_generic para_type fn_decl then true 
+    else match para_type, init_type with 
+    | TType_Identifier {module_path = l_module_path; name = lname}, TType_Identifier {module_path = r_module_path; name = r_name} -> l_module_path = r_module_path && lname = r_name
+    | TParametric_identifier { module_path = lmp; parametrics_type = lpt ; name = ln }, TParametric_identifier { module_path = rmp ; parametrics_type = rpt; name = rn } -> 
+      rn = ln && lmp = rmp && (Util.are_same_lenght lpt rpt) && (List.combine lpt rpt |> List.for_all (fun (l, r) -> are_ktypes_compatible ~para_type: l ~init_type: r fn_decl))
+    | lhs, rhs -> lhs = rhs
+
 
   let iter_statement fn (function_decl: t) = let statements, _  = function_decl.body in statements |> List.iter fn
 end

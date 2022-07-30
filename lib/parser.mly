@@ -128,11 +128,12 @@ declarer:
 kbody:
     | delimited(LBRACE, l=list(statement) DOLLAR e=expr { l , e } , RBRACE)  { $1 }
 statement:
-    | declarer IDENT EQUAL expr SEMICOLON { 
+    | declarer IDENT COLON ktype EQUAL expr SEMICOLON { 
         SDeclaration { 
             is_const = $1;
             variable_name = $2;
-            expression = $4
+            explicit_type = $4; 
+            expression = $6
         }
     }
     | IDENT EQUAL expr SEMICOLON { SAffection ($1, $3) }
