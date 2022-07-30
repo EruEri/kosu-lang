@@ -1,6 +1,17 @@
-open Kosu_lang
+let () = 
+  Clap.description "kosuc - The Kosu compiler";
 
-let _ = 
+  let _output = Clap.optional_string ~long: "output" ~short: 'o' () in
+
+  let _is_target_asm = Clap.flag ~set_short: 'S' ~description: "Produce an assembly file" false in
+
+  let _is_without_link = Clap.flag ~set_short: 'c' ~description: "Produce an object file" false in
+
+  let _files = Clap.list_string () in
+
+  Clap.close ()
+
+(* let _ = 
   let file = open_in "test.kosu" in
   let source = file |> Lexing.from_channel in
 
@@ -15,4 +26,5 @@ let _ =
   external_fn_decls |> List.iter (fun s -> Printf.printf "%s\n" (Asthelper.ExternalFunc.string_of_external_func_decl s));
   func_decls |> List.iter (fun s -> Printf.printf "%s\n" (Asthelper.Function.string_of_func_decl s));
   close_in file
+*)
 ;;
