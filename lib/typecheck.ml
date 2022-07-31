@@ -38,6 +38,7 @@ let find_struct_decl_from_name (current_module_name: string) (prog : program) (m
       let init_type = typeof env current_mod_name program init_expression in
       if not (Asthelper.Struct.is_type_compatible init_type struct_ktype old_struct_decl) then raise ( ast_error (Uncompatible_type { expected = struct_ktype; found = init_type}))
       else
+         
         match Asthelper.Struct.retrieve_generic_name_from_field_opt struct_field old_struct_decl with
         | None -> resolve_struct_type env current_mod_name program struct_module_path q struct_decl ~old_struct_decl
         | Some generic_name -> resolve_struct_type env current_mod_name program struct_module_path q (Asthelper.Struct.bind_generic generic_name init_type struct_decl) ~old_struct_decl
@@ -48,6 +49,7 @@ let find_struct_decl_from_name (current_module_name: string) (prog : program) (m
   @raise Too_Many_Occurence: if several type declarations matching was found
 *)*)
 and typeof_kbody ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (program: program) ?(return_type = None) (kbody: kbody) = 
+let () = Printf.printf "env %s\n" ( Asthelper.string_of_env env) in
   let statements, final_expr = kbody in
   match statements with
   | stamement::q -> begin 
@@ -56,9 +58,8 @@ and typeof_kbody ?(generics_resolver = None) (env: Env.t) (current_mod_name: str
     | SDeclaration { is_const; variable_name; explicit_type ; expression } -> 
       let type_init = typeof env current_mod_name program expression in
       if env |> Env.is_identifier_exists variable_name then raise (stmt_error (Ast.Error.Already_Define_Identifier { name = variable_name}))
-      else
-        Printf.printf "%s : %s\n" (variable_name) (Asthelper.string_of_ktype type_init); 
-        if not (Type.are_compatible_type explicit_type type_init) then let () = print_endline "Otosan" in raise (Ast.Error.Uncompatible_type_Assign {expected = explicit_type; found = type_init } |> stmt_error |> raise )
+      else 
+        if not (Type.are_compatible_type explicit_type type_init) then raise (Ast.Error.Uncompatible_type_Assign {expected = explicit_type; found = type_init } |> stmt_error |> raise )
         else
         typeof_kbody ~generics_resolver (env |> Env.add_variable ( variable_name , {is_const; ktype = explicit_type})) current_mod_name program ~return_type (q, final_expr) 
     | SAffection (variable, expr) -> (
@@ -134,11 +135,27 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       |> Option.fold ~none: (raise (Ast_error (Unbound_Module modules_path))) ~some:(Fun.id)
     end
   | EFieldAcces { first_expr; fields } -> Asthelper.Struct.resolve_fields_access current_mod_name prog fields (typeof env current_mod_name prog first_expr)
-  | EStruct { modules_path; struct_name; fields } -> 
+  | EStruct { modules_path; struct_name; fields } -> begin
+   
     let struct_decl = match Asthelper.Program.find_struct_decl_opt current_mod_name modules_path struct_name prog with
     | Ok str -> str
     | Error e -> e |> ast_error |> raise in
-  validate_and_type_struct_initialisation ~env ~current_mod_name ~program:prog ~struct_module_path:modules_path ~fields: fields ~struct_decl
+
+    let parameters_length = fields |> List.length in
+    let expected_length = struct_decl.fields |> List.length in
+    if parameters_length <> expected_length then raise (Ast.Error.struct_error (Wrong_field_count { expected = expected_length; found = parameters_length }));
+
+    let generic_table = Hashtbl.create (struct_decl.generics |> List.length) in 
+    let init_types = (fields |> List.map (fun (s, expr ) -> s, typeof env current_mod_name prog expr)) in
+    List.combine init_types (struct_decl.fields)
+    |> List.iter (fun ((init_field_name, init_type), (struct_field_name, expected_typed)) -> 
+        if init_field_name <> struct_field_name then raise (struct_error (Unexpected_field { expected = struct_field_name ; found = init_field_name }));
+        if (Asthelper.Struct.is_type_compatible_hashgen generic_table init_type expected_typed struct_decl) |> not then (Ast.Error.Uncompatible_type { expected = expected_typed; found = init_type } |> Ast.Error.ast_error |> raise);
+      );
+
+      Asthelper.Struct.to_ktype_hash generic_table modules_path struct_decl 
+    end
+  (* validate_and_type_struct_initialisation ~env ~current_mod_name ~program:prog ~struct_module_path:modules_path ~fields: fields ~struct_decl *)
   | EEnum { modules_path; enum_name; variant; assoc_exprs } -> begin 
     let enum_decl = match Asthelper.Program.find_enum_decl_opt current_mod_name modules_path enum_name variant assoc_exprs prog with
     | Error( Either.Right e ) -> raise e

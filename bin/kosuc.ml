@@ -25,7 +25,6 @@ let () =
     |> Kosu_lang.Asthelper.Module.retrieve_func_decl 
     |> List.find ( fun fn -> fn.fn_name = "main")
   in 
-  print_endline path;
   (try
     typeof_kbody Env.create_empty_env path modules main.body
   with Ast.Error.Ast_error e -> Printf.printf "%s\n" (Asthelper.string_of_ast_error e);  failwith "" ) |> ignore

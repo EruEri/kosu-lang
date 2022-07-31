@@ -20,7 +20,11 @@ module Occurence = struct
 end
 
 module ListHelper = struct
-  
+  let rec index_of_aux f index  = function
+  | [] -> raise Not_found
+  | t::q -> if f t then index else index_of_aux f (index + 1) q
+
+  let index_of f = index_of_aux f 0
 end
 
 module OperatorHelper = struct

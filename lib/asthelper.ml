@@ -14,7 +14,7 @@ let string_of_isize = function
 
 let f = sprintf "%Ld"
 let rec string_of_ktype = function
-| TParametric_identifier {module_path; parametrics_type; name} -> sprintf "(%s) %s %s" (parametrics_type |> List.map string_of_ktype |> String.concat ", ") (module_path) (name)
+| TParametric_identifier {module_path; parametrics_type; name} -> sprintf "(%s)%s %s" (parametrics_type |> List.map string_of_ktype |> String.concat ", ") (module_path) (name)
 | TType_Identifier {module_path; name} -> sprintf "%s%s" (if module_path = "" then "" else sprintf "%s::" module_path) name
 | TInteger (sign, size) -> sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
 | TPointer ktype -> sprintf "*%s" (string_of_ktype ktype)
@@ -88,7 +88,6 @@ module Program = struct
     )
   
   let find_enum_decl_opt (current_module_name) (module_enum_path) (enum_name_opt: string option) (variant: string) (assoc_exprs: kexpression list) (program: t) =
-    let () = Printf.printf "current module : %s\n" current_module_name in
     match (if module_enum_path = "" then Some (program |> module_of_string current_module_name) else program |> module_of_string_opt current_module_name) with
     | None -> (Ast.Error.Unbound_Module module_enum_path) |> Either.left |> Result.error
     | Some _module -> 
@@ -472,8 +471,32 @@ module Struct = struct
       generics = struct_decl.generics |> List.filter ( (<>) generic_name ) ;
       fields = struct_decl.fields |> List.map ( fun (f,t) -> (f, resolve_single_generics generic_name new_type t))    ;
     }
+
+  let rec is_type_compatible_hashgen (generic_table) (init_type: ktype) (expected_type: ktype) (struct_decl: t) = 
+    match init_type, expected_type with
+    | kt , TType_Identifier { module_path; name } when begin   
+    match Hashtbl.find_opt generic_table name with
+    | None -> if module_path = "" && struct_decl.generics |> List.mem name 
+        then let () = Hashtbl.replace generic_table name (struct_decl.generics |> Util.ListHelper.index_of (( = ) name ), kt ) in true
+        else false 
+    | Some (_, find_kt) -> find_kt = kt
+    end -> true
+    
+    | TType_Identifier {module_path = init_path; name = init_name}, TType_Identifier {module_path = exp_path; name = exp_name } -> begin
+      struct_decl.generics |> List.mem exp_name || (init_path = exp_path && init_name = exp_name)
+    end
+    | TParametric_identifier {module_path = init_path; parametrics_type = init_pt; name = init_name}, 
+      TParametric_identifier {module_path = exp_path; parametrics_type = exp_pt; name = exp_name} -> 
+        if init_path <> exp_path || init_name <> exp_name || List.compare_lengths init_pt exp_pt <> 0 then false
+        else begin
+          List.combine init_pt exp_pt |> List.for_all (fun (i,e) -> is_type_compatible_hashgen generic_table i e struct_decl)
+        end
+    | TUnknow, _ -> true
+    | lhs, rhs -> lhs = rhs
+
   let rec is_type_compatible (init_type: ktype) (expected_type: ktype) (struct_decl: t) = 
     match init_type, expected_type with
+    | _ , TType_Identifier { module_path; name } when module_path = "" && struct_decl.generics |> List.mem name -> true
     | TType_Identifier {module_path = init_path; name = init_name}, TType_Identifier {module_path = exp_path; name = exp_name } -> begin
       struct_decl.generics |> List.mem exp_name || (init_path = exp_path && init_name = exp_name)
     end
@@ -520,7 +543,7 @@ module Struct = struct
     | ((_, new_type), (old_field, old_type))::q -> 
       match old_struct_decl |> retrieve_generic_name_from_field_opt old_field with
       | None -> to_ktype_help_aux q old_struct_decl generics
-      | Some generic_name -> to_ktype_help_aux q old_struct_decl (generics |> List.map (fun (ktype, true_type) ->
+      | Some generic_name -> let _ = print_endline "Some gene" in to_ktype_help_aux q old_struct_decl (generics |> List.map (fun (ktype, true_type) ->
         match ktype with
         | TType_Identifier { module_path = _; name } ->
           if not (Ast.Type.are_compatible_type old_type new_type) then (Ast.Error.Uncompatible_type { expected = old_type; found = new_type } |> Ast.Error.ast_error |> raise) 
@@ -530,9 +553,9 @@ module Struct = struct
         )
       )
 
-  let to_ktype_help module_def_path ~new_struct_decl old_struct_decl = 
+  let to_ktype_help module_def_path ~new_struct_decl old_struct_decl =
     if old_struct_decl |> contains_generics |> not then TType_Identifier { module_path = module_def_path; name = old_struct_decl.struct_name }
-    else TParametric_identifier {
+    else let _ = Printf.printf "before\n"; in let s = TParametric_identifier {
       module_path = module_def_path;
       parametrics_type = 
       (to_ktype_help_aux 
@@ -541,7 +564,20 @@ module Struct = struct
         (old_struct_decl.generics |> List.map (fun kt -> (TType_Identifier { module_path = ""; name = kt }, false)))) 
       |> List.map (fun (kt, true_type) -> if true_type then kt else TUnknow);
       name = old_struct_decl.struct_name
-    } 
+    } in
+    Printf.printf "%s" (string_of_ktype s);
+    s
+
+  let to_ktype_hash generics module_def_path (struct_decl: t) = 
+    if struct_decl.generics = [] then TType_Identifier { module_path = module_def_path; name = struct_decl.struct_name }
+    else TParametric_identifier {
+      module_path = module_def_path;
+      parametrics_type = (
+        generics |> Hashtbl.to_seq |> List.of_seq |> List.sort ( fun ( _, (i, _)) ( _, (b, _)) -> compare i b) |> List.map (fun ( _, (_, kt)) -> kt)
+      );
+      name = struct_decl.struct_name
+    }
+
 end
 
 module ExternalFunc = struct 
@@ -597,6 +633,15 @@ module Function = struct
 
   let iter_statement fn (function_decl: t) = let statements, _  = function_decl.body in statements |> List.iter fn
 end
+
+let string_of_variable_info (variable_info: Env.variable_info) = 
+  Printf.sprintf "(%s, %s)" (if variable_info.is_const then "const" else "var") (string_of_ktype variable_info.ktype)
+let string_of_env (env: Env.t) = let open Printf in
+sprintf "[ %s ]" (env.contexts |> List.map (fun context -> 
+  sprintf "{ %s }" (context |> List.map (fun (variable_name, variable_info) -> 
+    sprintf "%s = %s" (variable_name) (string_of_variable_info variable_info)) |> String.concat ", ") 
+  ) |> String.concat " ; "
+  )
 
 let string_of_found_expected = function
 | `int(expected, found ) -> Printf.sprintf "-- expected : %d, found : %d --" expected found
