@@ -301,7 +301,12 @@ expr:
             wildcard_case
         }
     }
-    | d=delimited(LPARENT, expr, RPARENT ) { d }
+    | d=delimited(LPARENT, separated_list(COMMA, expr), RPARENT) {
+        match d with
+        | [] -> Empty
+        | t::[] -> t
+        | tuple -> ETuple tuple
+    }
 ;;
 s_case:
     | DOT IDENT { SC_Enum_Identifier { variant = $2 } }

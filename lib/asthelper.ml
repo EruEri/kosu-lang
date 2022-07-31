@@ -533,40 +533,6 @@ module Struct = struct
     | _ -> false
   let is_cyclic module_def_path (struct_decl: t) = 
     struct_decl.fields |> List.exists ( fun (_, ktype) -> is_cyclic_aux ktype module_def_path struct_decl )
-  
-  (**
-  @raise Failure: if type in last parameters aren't TType_Identfier
-  *)
-  let rec to_ktype_help_aux zip_new_old_fields old_struct_decl (generics: (ktype * bool) list) = 
-    match zip_new_old_fields with
-    | [] -> generics
-    | ((_, new_type), (old_field, old_type))::q -> 
-      match old_struct_decl |> retrieve_generic_name_from_field_opt old_field with
-      | None -> to_ktype_help_aux q old_struct_decl generics
-      | Some generic_name -> let _ = print_endline "Some gene" in to_ktype_help_aux q old_struct_decl (generics |> List.map (fun (ktype, true_type) ->
-        match ktype with
-        | TType_Identifier { module_path = _; name } ->
-          if not (Ast.Type.are_compatible_type old_type new_type) then (Ast.Error.Uncompatible_type { expected = old_type; found = new_type } |> Ast.Error.ast_error |> raise) 
-          else
-          if name = generic_name then (new_type, true) else (ktype, true_type)
-        | _ -> raise (Failure "Generics cannot have a different type than TIdentifier" )
-        )
-      )
-
-  let to_ktype_help module_def_path ~new_struct_decl old_struct_decl =
-    if old_struct_decl |> contains_generics |> not then TType_Identifier { module_path = module_def_path; name = old_struct_decl.struct_name }
-    else let _ = Printf.printf "before\n"; in let s = TParametric_identifier {
-      module_path = module_def_path;
-      parametrics_type = 
-      (to_ktype_help_aux 
-        (List.combine new_struct_decl.fields old_struct_decl.fields) 
-        old_struct_decl 
-        (old_struct_decl.generics |> List.map (fun kt -> (TType_Identifier { module_path = ""; name = kt }, false)))) 
-      |> List.map (fun (kt, true_type) -> if true_type then kt else TUnknow);
-      name = old_struct_decl.struct_name
-    } in
-    Printf.printf "%s" (string_of_ktype s);
-    s
 
   let to_ktype_hash generics module_def_path (struct_decl: t) = 
     if struct_decl.generics = [] then TType_Identifier { module_path = module_def_path; name = struct_decl.struct_name }

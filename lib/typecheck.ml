@@ -11,44 +11,14 @@ let find_struct_decl_from_name (current_module_name: string) (prog : program) (m
     structs |> List.find_opt (fun s -> s.struct_name = struct_name) |> Option.to_result ~none:(Undefined_Struct struct_name)
 ;;
 
- (**
-  @raise Ast_error
-  @raise Not_found : if a type declartion wasn't found
-  @raise Too_Many_Occurence: if several type declarations matching was found
-*)
- let rec validate_and_type_struct_initialisation ~env ~current_mod_name ~program ~struct_module_path ~fields ~struct_decl = 
-  let parameters_length = fields |> List.length in
-  let expected_length = struct_decl.fields |> List.length in
-  if parameters_length <> expected_length then raise (Ast.Error.struct_error (Wrong_field_count { expected = expected_length; found = parameters_length }))
-  else
-    let zipped = List.combine fields struct_decl.fields in
-    resolve_struct_type env current_mod_name program struct_module_path zipped struct_decl ~old_struct_decl:struct_decl
-(*(**
-  Check and validate the type of the struct initialisation
-  @raise Ast_error
-  @raise Not_found : if a type declartion wasn't found
-  @raise Too_Many_Occurence: if several type declarations matching was found
-*)*)
-  and resolve_struct_type env (current_mod_name) (program) (struct_module_path) (fields_zipped) (struct_decl) ~old_struct_decl = 
-  match fields_zipped with
-  | [] -> Asthelper.Struct.to_ktype_help struct_module_path ~new_struct_decl:struct_decl old_struct_decl
-  | ((init_field, init_expression), (struct_field, struct_ktype))::q -> 
-    if init_field <> struct_field then raise (struct_error (Unexpected_field { expected = struct_field ; found = init_field }))
-    else 
-      let init_type = typeof env current_mod_name program init_expression in
-      if not (Asthelper.Struct.is_type_compatible init_type struct_ktype old_struct_decl) then raise ( ast_error (Uncompatible_type { expected = struct_ktype; found = init_type}))
-      else
-         
-        match Asthelper.Struct.retrieve_generic_name_from_field_opt struct_field old_struct_decl with
-        | None -> resolve_struct_type env current_mod_name program struct_module_path q struct_decl ~old_struct_decl
-        | Some generic_name -> resolve_struct_type env current_mod_name program struct_module_path q (Asthelper.Struct.bind_generic generic_name init_type struct_decl) ~old_struct_decl
+
 (*(**
   Return the type of the code block expression
   @raise Ast_error
   @raise Not_found : if a type declartion wasn't found or a variant is not in enum variants
   @raise Too_Many_Occurence: if several type declarations matching was found
 *)*)
-and typeof_kbody ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (program: program) ?(return_type = None) (kbody: kbody) = 
+let rec typeof_kbody ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (program: program) ?(return_type = None) (kbody: kbody) = 
 let () = Printf.printf "env %s\n" ( Asthelper.string_of_env env) in
   let statements, final_expr = kbody in
   match statements with
@@ -98,7 +68,7 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       with e -> begin 
         match generics_resolver with
         | None -> raise e
-        | Some tbl -> ignore (Hashtbl.find_opt tbl name |> Option.fold ~none: (raise e) ~some:(Fun.id))
+        | Some tbl -> ignore (Hashtbl.find_opt tbl name |> function | None -> raise e | Some s -> s)
       end
       )
       | _ -> ignore ()
@@ -107,7 +77,7 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
     TInteger (Unsigned, I64)
   end 
   | EString _ ->  TString_lit
-  | EAdress s -> env |> Env.flat_context |> List.assoc_opt s |> Option.map (fun (t: Env.variable_info) -> TPointer t.ktype) |> Option.fold ~none:(raise (ast_error (Undefined_Identifier s))) ~some:(Fun.id)
+  | EAdress s -> env |> Env.flat_context |> List.assoc_opt s |> Option.map (fun (t: Env.variable_info) -> TPointer t.ktype) |> ( function | None -> (raise (ast_error (Undefined_Identifier s))) | Some s -> s )
   | EDeference (indirection_count, id) -> begin
     let rec loop count ktype = 
       match count with
