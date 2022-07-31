@@ -268,12 +268,12 @@ expr:
             fields
         }
     }
-    | modules_path=separated_list(DOUBLECOLON, Module_IDENT) enum_name=option(IDENT) DOT variant=IDENT assoc_exprs=delimited(LPARENT, separated_nonempty_list(COMMA, expr) ,RPARENT) {
+    | modules_path=separated_list(DOUBLECOLON, Module_IDENT) enum_name=option(IDENT) DOT variant=IDENT assoc_exprs=option(delimited(LPARENT, separated_nonempty_list(COMMA, expr) ,RPARENT)) {
         EEnum {
             modules_path = modules_path |> String.concat "/";
             enum_name;
             variant;
-            assoc_exprs
+            assoc_exprs = assoc_exprs |> Option.value ~default: []
         }
     }
     | CASES delimited(LBRACE, 
