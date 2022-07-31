@@ -122,7 +122,7 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       env |> Env.flat_context 
       |> List.assoc_opt identifier 
       |> Option.map (fun (var_info: Env.variable_info) -> var_info.ktype)
-      |> Option.fold ~none:(raise (ast_error (Undefined_Identifier identifier))) ~some:(Fun.id)
+      |> (function | None -> (raise (ast_error (Undefined_Identifier identifier))) | Some s -> s)
   | EConst_Identifier { modules_path ; identifier } -> begin
     let consts_opt = (if modules_path = "" then Some (prog |> Asthelper.Program.module_of_string current_mod_name) else prog |> Asthelper.Program.module_of_string_opt current_mod_name)
     |> Option.map Asthelper.Module.retrieve_const_decl in 
@@ -132,7 +132,7 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
     | Some consts -> 
       consts 
       |> List.find_map (fun c -> if c.const_name = identifier then Some c.explicit_type else None)
-      |> Option.fold ~none: (raise (Ast_error (Unbound_Module modules_path))) ~some:(Fun.id)
+      |> (function | None -> (raise (ast_error (Unbound_Module modules_path))) | Some s -> s)
     end
   | EFieldAcces { first_expr; fields } -> Asthelper.Struct.resolve_fields_access current_mod_name prog fields (typeof env current_mod_name prog first_expr)
   | EStruct { modules_path; struct_name; fields } -> begin
