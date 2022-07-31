@@ -29,9 +29,10 @@ let () = Printf.printf "env %s\n" ( Asthelper.string_of_env env) in
       let type_init = typeof env current_mod_name program expression in
       if env |> Env.is_identifier_exists variable_name then raise (stmt_error (Ast.Error.Already_Define_Identifier { name = variable_name}))
       else 
-        if not (Type.are_compatible_type explicit_type type_init) then raise (Ast.Error.Uncompatible_type_Assign {expected = explicit_type; found = type_init } |> stmt_error |> raise )
-        else
-        typeof_kbody ~generics_resolver (env |> Env.add_variable ( variable_name , {is_const; ktype = explicit_type})) current_mod_name program ~return_type (q, final_expr) 
+        let kt = match explicit_type with
+        | None -> if Ast.Type.is_type_full_known type_init |> not then Neead_explicit_type_declaration {variable_name; infer_type = type_init } |> stmt_error |> raise else type_init
+        | Some explicit_type_sure ->  if not (Type.are_compatible_type explicit_type_sure type_init) then raise (Ast.Error.Uncompatible_type_Assign {expected = explicit_type_sure; found = type_init } |> stmt_error |> raise ) else explicit_type_sure in
+        typeof_kbody ~generics_resolver (env |> Env.add_variable ( variable_name , {is_const; ktype = kt})) current_mod_name program ~return_type (q, final_expr) 
     | SAffection (variable, expr) -> (
       match env |> Env.find_identifier_opt variable with
       | None -> raise (stmt_error (Ast.Error.Undefine_Identifier { name = variable}))

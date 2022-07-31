@@ -42,7 +42,7 @@ and kstatement =
 | SDeclaration of  {
   is_const: bool;
   variable_name : string;
-  explicit_type: ktype;
+  explicit_type: ktype option;
   expression: kexpression
 }
 | SAffection of string * kexpression
@@ -198,6 +198,7 @@ module Error = struct
   | Already_Define_Identifier of { name: string }
   | Reassign_Constante of { name: string }
   | Uncompatible_type_Assign of { expected: ktype; found: ktype}
+  | Neead_explicit_type_declaration of { variable_name: string; infer_type: ktype }
 
   type func_error =
   | Unmatched_Parameters_length of { expected: int; found: int }
@@ -233,6 +234,13 @@ end
 
 module Type = struct
   
+  let rec is_type_full_known ktype = 
+    match ktype with
+    | TUnknow -> false
+    | TParametric_identifier { module_path = _; parametrics_type = kts; name = _ } | TTuple (kts)  -> kts |> List.for_all (is_type_full_known)
+    | TPointer kt -> is_type_full_known kt
+    | _ -> true
+
   let rec are_compatible_type (lhs: ktype) (rhs: ktype) = 
     match lhs, rhs with
     | TParametric_identifier {module_path = mp1 ; parametrics_type = pt1; name = n1}

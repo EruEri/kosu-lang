@@ -185,7 +185,7 @@ module Statement = struct
     sprintf "%s %s : %s = %s;"
     (if is_const then "const" else "var")
     (variable_name)
-    (string_of_ktype explicit_type)
+    (explicit_type |> Option.map (string_of_ktype) |> Option.value ~default: "")
     (expression |> string_of_kexpression)
   | SAffection (id, expression) -> sprintf "%s = %s;" (id) (expression |> string_of_kexpression)
   | SDiscard (expr) -> sprintf "discard %s;" (string_of_kexpression expr)
@@ -700,7 +700,8 @@ let string_of_statement_error = let open Ast.Error in let open Printf in functio
 | Undefine_Identifier s -> sprintf "Undefine_Identifier : %s" s.name
 | Already_Define_Identifier s -> sprintf "Already_Define_Identifier : %s" s.name
 | Reassign_Constante s -> sprintf "Reassign_Constante : %s" s.name
-| Uncompatible_type_Assign s -> sprintf "Uncompatible_type_Assign -- expected: %s, found: %s --" (s.expected |> string_of_ktype)  (s.found |> string_of_ktype) 
+| Uncompatible_type_Assign s -> sprintf "Uncompatible_type_Assign -- expected: %s, found: %s --" (s.expected |> string_of_ktype)  (s.found |> string_of_ktype)
+| Neead_explicit_type_declaration s -> sprintf "Neead_explicit_type_declaration for : %s : type = %s" s.variable_name (string_of_ktype s.infer_type)
 
 let string_of_function_error = let open Ast.Error in let open Printf in function
 | Unmatched_Parameters_length record -> sprintf "Unmatched_Parameters_length %s " (string_of_found_expected (`int(record.expected, record.found)))

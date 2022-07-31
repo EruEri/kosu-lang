@@ -35,7 +35,7 @@
 // %left AMPERSAND XOR PIPE AND OR COMMA PIPESUP 
 // %left DOUBLECOLON DOT MULT DIV MOD SHIFTLEFT SHIFTRIGHT SUP SUPEQ INF INFEQ DOUBLEQUAL DIF PLUS MINUS
 // %nonassoc EOF LPARENT RPARENT LBRACE RBRACE SEMICOLON COLON ARROWFUNC TRIPLEDOT EQUAL Integer_lit String_lit
-%left COMMA
+// %left COMMA
 %left PIPESUP
 %left PIPE
 %left OR
@@ -47,8 +47,8 @@
 %left SHIFTLEFT SHIFTRIGHT
 %left PLUS MINUS
 %left MULT DIV MOD
-%nonassoc UMINUS NOT SIZEOF DOLLAR
-%left DOUBLECOLON MINUSUP
+%nonassoc UMINUS NOT
+%left MINUSUP
 // %nonassoc ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
 
 %start modul
@@ -128,12 +128,12 @@ declarer:
 kbody:
     | delimited(LBRACE, l=list(statement) DOLLAR e=expr { l , e } , RBRACE)  { $1 }
 statement:
-    | declarer IDENT COLON ktype EQUAL expr SEMICOLON { 
+    | declarer IDENT explicit_type=option(COLON k=ktype {k} ) EQUAL expression=expr SEMICOLON { 
         SDeclaration { 
             is_const = $1;
             variable_name = $2;
-            explicit_type = $4; 
-            expression = $6
+            explicit_type; 
+            expression
         }
     }
     | IDENT EQUAL expr SEMICOLON { SAffection ($1, $3) }
