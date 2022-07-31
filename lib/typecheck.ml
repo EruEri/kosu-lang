@@ -131,15 +131,26 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
     | Error( Either.Right e ) -> raise e
     | Error (Left e) -> raise (Ast.Error.ast_error e)
     | Ok e -> e in
+
+    let hashtbl = Hashtbl.create (enum_decl.generics |> List.length) in
+    enum_decl.generics |> List.iteri (fun i generic_name -> Hashtbl.add hashtbl generic_name (i, TUnknow));
     let init_types = assoc_exprs |> List.map (typeof env current_mod_name prog) in
-    let parametrics = enum_decl.variants 
+    let () = enum_decl.variants 
     |> List.find_map (fun (var, assoc_types) -> if var = variant then Some assoc_types else None )
     (* |> Option.map (fun k -> print_endline (k |> List.map Asthelper.string_of_ktype |> String.concat ", "); k ) *)
     (* |> function Some s -> s | None -> (raise Not_found) *)
     |> Option.get
     (* |> (fun k -> print_endline (k |> List.map Asthelper.string_of_ktype |> String.concat ", "); k ) *)
-    |> fun assoc_types -> if Util.are_diff_lenght assoc_exprs assoc_types then raise (Ast.Error.enum_error (Ast.Error.Wrong_length_assoc_type { expected = assoc_types |> List.length; found = assoc_exprs |> List.length })) else assoc_types
-    |> fun expected_types -> if not (Asthelper.Enum.is_valide_assoc_type_init ~init_types ~expected_types enum_decl) then raise (Ast.Error.enum_error (Ast.Error.Uncompatible_type_in_variant { variant_name = variant})) else expected_types
+    |> fun assoc_types -> if Util.are_diff_lenght init_types assoc_types then raise (Ast.Error.enum_error (Ast.Error.Wrong_length_assoc_type { expected = assoc_types |> List.length; found = assoc_exprs |> List.length })) else assoc_types
+    |> List.combine init_types
+    |> List.iter (fun (init, expected) -> 
+      match Asthelper.Enum.is_type_compatible_hashgen hashtbl init expected enum_decl with
+      | false -> Uncompatible_type { expected; found = init} |> ast_error |> raise
+      | true -> ()
+      ) in
+
+      Asthelper.Enum.to_ktype_hash hashtbl modules_path enum_decl
+    (* |> fun expected_types -> if not (Asthelper.Enum.is_valide_assoc_type_init ~init_types ~expected_types enum_decl) then raise (Ast.Error.enum_error (Ast.Error.Uncompatible_type_in_variant { variant_name = variant})) else expected_types
     |> fun expected_types -> Asthelper.Enum.infer_generics ~assoc_position: 0 (List.combine init_types expected_types) (enum_decl.generics |> List.map (fun s -> (TType_Identifier { module_path = ""; name = s}, false) )) enum_decl 
     |> List.map (fun (kt, true_type) -> if true_type then kt else TUnknow) in
     if not (Asthelper.Enum.contains_generics enum_decl) then TType_Identifier { module_path = modules_path; name = enum_decl.enum_name }
@@ -147,7 +158,7 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       module_path =  modules_path;
       parametrics_type = parametrics;
       name = enum_decl.enum_name
-  }
+  } *)
   end
   | ETuple expected_types -> TTuple (expected_types |> List.map (typeof env current_mod_name prog) )
   | EIf (expression, if_block, else_block ) -> 

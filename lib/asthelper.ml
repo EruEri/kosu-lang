@@ -332,6 +332,38 @@ module Enum = struct
       )
     }
 
+    let rec is_type_compatible_hashgen (generic_table) (init_type: ktype) (expected_type: ktype) (enum_decl: t) = 
+      match init_type, expected_type with
+      | kt , TType_Identifier { module_path = "" ; name } when begin   
+      match Hashtbl.find_opt generic_table name with
+      | None -> false
+      | Some (_, find_kt) -> 
+          if find_kt = TUnknow then let () = Hashtbl.replace generic_table name (enum_decl.generics |> Util.ListHelper.index_of (( = ) name ), kt ) in true
+          else false
+      end -> true
+      
+      | TType_Identifier {module_path = init_path; name = init_name}, TType_Identifier {module_path = exp_path; name = exp_name } -> begin
+        enum_decl.generics |> List.mem exp_name || (init_path = exp_path && init_name = exp_name)
+      end
+      | TParametric_identifier {module_path = init_path; parametrics_type = init_pt; name = init_name}, 
+        TParametric_identifier {module_path = exp_path; parametrics_type = exp_pt; name = exp_name} -> 
+          if init_path <> exp_path || init_name <> exp_name || List.compare_lengths init_pt exp_pt <> 0 then false
+          else begin
+            List.combine init_pt exp_pt |> List.for_all (fun (i,e) -> is_type_compatible_hashgen generic_table i e enum_decl)
+          end
+      | TUnknow, _ -> true
+      | lhs, rhs -> lhs = rhs
+
+    let to_ktype_hash generics module_def_path (enum_decl: t) = 
+      if enum_decl.generics = [] then TType_Identifier { module_path = module_def_path; name = enum_decl.enum_name }
+      else TParametric_identifier {
+        module_path = module_def_path;
+        parametrics_type = (
+          generics |> Hashtbl.to_seq |> List.of_seq |> List.sort ( fun ( _, (i, _)) ( _, (b, _)) -> compare i b) |> List.map (fun ( _, (_, kt)) -> kt)
+        );
+        name = enum_decl.enum_name
+      }
+
   let rec find_generic_name_from_ktype ~generics_result ktype (enum_decl: t) =
     match ktype with
     | TType_Identifier { module_path; name } -> if module_path = "" && enum_decl.generics |> List.mem name then name::generics_result else generics_result
