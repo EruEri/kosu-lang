@@ -140,7 +140,6 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
     (* |> Option.map (fun k -> print_endline (k |> List.map Asthelper.string_of_ktype |> String.concat ", "); k ) *)
     (* |> function Some s -> s | None -> (raise Not_found) *)
     |> Option.get
-    (* |> (fun k -> print_endline (k |> List.map Asthelper.string_of_ktype |> String.concat ", "); k ) *)
     |> fun assoc_types -> if Util.are_diff_lenght init_types assoc_types then raise (Ast.Error.enum_error (Ast.Error.Wrong_length_assoc_type { expected = assoc_types |> List.length; found = assoc_exprs |> List.length })) else assoc_types
     |> List.combine init_types
     |> List.iter (fun (init, expected) -> 
@@ -150,15 +149,6 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       ) in
 
       Asthelper.Enum.to_ktype_hash hashtbl modules_path enum_decl
-    (* |> fun expected_types -> if not (Asthelper.Enum.is_valide_assoc_type_init ~init_types ~expected_types enum_decl) then raise (Ast.Error.enum_error (Ast.Error.Uncompatible_type_in_variant { variant_name = variant})) else expected_types
-    |> fun expected_types -> Asthelper.Enum.infer_generics ~assoc_position: 0 (List.combine init_types expected_types) (enum_decl.generics |> List.map (fun s -> (TType_Identifier { module_path = ""; name = s}, false) )) enum_decl 
-    |> List.map (fun (kt, true_type) -> if true_type then kt else TUnknow) in
-    if not (Asthelper.Enum.contains_generics enum_decl) then TType_Identifier { module_path = modules_path; name = enum_decl.enum_name }
-    else TParametric_identifier {
-      module_path =  modules_path;
-      parametrics_type = parametrics;
-      name = enum_decl.enum_name
-  } *)
   end
   | ETuple expected_types -> TTuple (expected_types |> List.map (typeof env current_mod_name prog) )
   | EIf (expression, if_block, else_block ) -> 
@@ -183,20 +173,31 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
   | EFunction_call { modules_path; generics_resolver = grc ; fn_name; parameters } -> begin
     let fn_decl = Asthelper.Program.find_function_decl_from_fn_name modules_path fn_name current_mod_name prog in
     match fn_decl with
-    | Ast.Function_Decl.Decl_Kosu_Function e -> (
-      if Util.are_diff_lenght (grc |> Option.value ~default:[]) e.generics then Unmatched_Generics_Resolver_length { expected = e.generics |> List.length; found = (grc |> Option.value ~default:[] |> List.length) } |> func_error |> raise;
-      if Util.are_diff_lenght (parameters) (e.parameters) then Unmatched_Parameters_length { expected = e.parameters |> List.length; found = parameters |> List.length } |> func_error |> raise;
 
+
+    | Ast.Function_Decl.Decl_Kosu_Function e -> (
+      if Util.are_diff_lenght (parameters) (e.parameters) then Unmatched_Parameters_length { expected = e.parameters |> List.length; found = parameters |> List.length } |> func_error |> raise;
       let init_type_parameters = parameters |> List.map ( typeof ~generics_resolver env current_mod_name prog ) in
+      let hashtal = Hashtbl.create (e.generics |> List.length) in
+      let () = match Asthelper.Function.does_need_generic_resolver e with
+      | true -> 
+        if Util.are_diff_lenght (grc |> Option.value ~default:[]) e.generics then Unmatched_Generics_Resolver_length { expected = e.generics |> List.length; found = (grc |> Option.value ~default:[] |> List.length) } |> func_error |> raise
+        else ()
+      | false -> begin 
+        ()
+      end in
+    
       init_type_parameters
       |> List.combine e.parameters
-      |> List.iter (fun ((_, para_type), init_type)  -> if e |> Asthelper.Function.are_ktypes_compatible ~para_type ~init_type |> not then Mismatched_Parameters_Type { expected = para_type; found = init_type}  |> func_error |> raise);
-      
+      |> List.iter (fun ((_, para_type), init_type)  -> if e |> Asthelper.Function.is_type_compatible_hashgen hashtal init_type para_type |> not then Mismatched_Parameters_Type { expected = para_type; found = init_type}  |> func_error |> raise);
+
+      Asthelper.Function.to_return_ktype_hashtab hashtal e
+(*       
       let combine_generics = List.combine e.generics (grc |> Option.value ~default:[]) in
       let hashtal = Hashtbl.create (combine_generics |> List.length) in
       combine_generics |> List.iter ( fun ( name, assoc ) -> Hashtbl.add hashtal name assoc);
 
-      typeof_kbody ~generics_resolver: (Some hashtal) (Env.create_env (e.parameters |> List.map (fun (name, ktype) -> (name, ({ is_const = true; ktype}: Env.variable_info ) )))) current_mod_name prog e.body
+      typeof_kbody ~generics_resolver: (Some hashtal) (Env.create_env (e.parameters |> List.map (fun (name, ktype) -> (name, ({ is_const = true; ktype}: Env.variable_info ) )))) current_mod_name prog e.body *)
     )
     | Ast.Function_Decl.Decl_External external_func_decl -> begin
       if external_func_decl.is_variadic then 

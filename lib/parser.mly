@@ -248,14 +248,15 @@ expr:
         }
     }
     | expr PIPESUP calls=separated_nonempty_list(PIPESUP, 
-        modules=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT
-         LPARENT exprs=separated_list(COMMA, expr) RPARENT { name, exprs , modules }) {
+        modules=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT 
+        generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, ktype) SUP { s } )
+         LPARENT exprs=separated_list(COMMA, expr) RPARENT { name, generics_resolver, exprs, modules }) {
             calls |> List.fold_left (
                 fun acc value  -> 
-                    let fn_name, parameters, modules_path = value in
+                    let fn_name, generics_resolver, parameters, modules_path = value in
                     EFunction_call { 
                         modules_path = modules_path |> String.concat "/";
-                        generics_resolver = None;
+                        generics_resolver;
                         fn_name;
                         parameters = acc::parameters;
                     }

@@ -293,6 +293,8 @@ module Enum = struct
     enum_decl.generics |> List.exists (fun g -> match ktype with
     | TType_Identifier { module_path; name } -> module_path = "" && name = g
     | TParametric_identifier { module_path = _ ; parametrics_type; name = _ } -> parametrics_type |> List.exists (fun kt -> is_assoc_type_contains_generic kt enum_decl)
+    | TPointer kt -> is_assoc_type_contains_generic kt enum_decl
+    | TTuple kts -> kts |> List.exists (fun kt -> is_assoc_type_contains_generic kt enum_decl)
     | _ -> false
     )
   let rec are_type_compatible (init_type: ktype) (expected_type: ktype) (enum_decl: t) = 
@@ -307,6 +309,8 @@ module Enum = struct
         else begin
           List.combine init_pt exp_pt |> List.for_all (fun (i,e) -> are_type_compatible i e enum_decl)
         end
+    | TPointer (l_type), TPointer (r_type) -> are_type_compatible l_type r_type enum_decl
+    | TTuple (lhs), TTuple (rhs) -> Util.are_same_lenght lhs rhs && (List.combine lhs rhs |> List.for_all (fun (lhs_type, rhs_type) -> are_type_compatible lhs_type rhs_type enum_decl))
     | TUnknow, _ -> true
     | _ , TType_Identifier { module_path; name } when module_path = "" && enum_decl.generics |> List.mem name ->  true
     | lhs, rhs -> lhs = rhs
@@ -352,6 +356,8 @@ module Enum = struct
             List.combine init_pt exp_pt |> List.for_all (fun (i,e) -> is_type_compatible_hashgen generic_table i e enum_decl)
           end
       | TUnknow, _ -> true
+      | TPointer (l_type), TPointer (r_type) -> is_type_compatible_hashgen generic_table l_type r_type enum_decl
+      | TTuple (lhs), TTuple (rhs) -> Util.are_same_lenght lhs rhs && (List.combine lhs rhs |> List.for_all (fun (lhs_type, rhs_type) -> is_type_compatible_hashgen generic_table lhs_type rhs_type enum_decl))
       | lhs, rhs -> lhs = rhs
 
     let to_ktype_hash generics module_def_path (enum_decl: t) = 
@@ -601,11 +607,18 @@ module Function = struct
     (function_decl.return_type |> string_of_ktype)
     (function_decl.body |> Statement.string_of_kbody)
 
+
+
   let rec is_ktype_generic ktype (fn_decl: t) = 
     match ktype with
     | TParametric_identifier { module_path = _; parametrics_type ; name = _ } -> parametrics_type |> List.exists (fun kt -> is_ktype_generic kt fn_decl)
-    | TType_Identifier { module_path = _; name } -> fn_decl.generics |> List.mem name
+    | TType_Identifier { module_path = "" ; name } -> fn_decl.generics |> List.mem name
     | _ -> false
+
+    let does_need_generic_resolver (function_decl : t) = 
+      if function_decl.generics = [] then false
+      else if function_decl.parameters |> List.length = 0 then true
+      else function_decl |> is_ktype_generic function_decl.return_type
 
   (**
     @return true if parameter contains generics, false if not and None if paramater name doesn't exist
@@ -619,6 +632,34 @@ module Function = struct
     match ktype with
     | TType_Identifier { module_path = _; name } -> fn_decl.generics |> List.mem name
     | _ -> false
+
+  let rec is_type_compatible_hashgen (generic_table) (init_type: ktype) (expected_type: ktype) (function_decl: t) = 
+    match init_type, expected_type with
+    | kt , TType_Identifier { module_path = ""; name } when begin   
+    match Hashtbl.find_opt generic_table name with
+    | None -> if function_decl.generics |> List.mem name 
+        then let () = Hashtbl.replace generic_table name (function_decl.generics |> Util.ListHelper.index_of (( = ) name ), kt ) in true
+        else false 
+    | Some (_, find_kt) -> find_kt = kt
+    end -> true
+    | TType_Identifier {module_path = init_path; name = init_name}, TType_Identifier {module_path = exp_path; name = exp_name } -> begin
+      function_decl.generics |> List.mem exp_name || (init_path = exp_path && init_name = exp_name)
+    end
+    | TParametric_identifier {module_path = init_path; parametrics_type = init_pt; name = init_name}, 
+      TParametric_identifier {module_path = exp_path; parametrics_type = exp_pt; name = exp_name} -> 
+        if init_path <> exp_path || init_name <> exp_name || List.compare_lengths init_pt exp_pt <> 0 then false
+        else begin
+          List.combine init_pt exp_pt |> List.for_all (fun (i,e) -> is_type_compatible_hashgen generic_table i e function_decl)
+        end
+    | TUnknow, _ -> true
+    | lhs, rhs -> lhs = rhs
+
+
+
+    let to_return_ktype_hashtab (generic_table) (function_decl: t) = 
+      if function_decl.generics = []  || function_decl |> is_ktype_generic function_decl.return_type |> not then function_decl.return_type
+      else Ast.Type.remap_generic_ktype generic_table
+       function_decl.return_type
 
   let rec are_ktypes_compatible ~para_type ~init_type (fn_decl: t) =
     if is_no_nested_generic para_type fn_decl then true 

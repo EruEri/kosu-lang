@@ -241,6 +241,18 @@ module Type = struct
     | TUnknow, _ | _ , TUnknow -> true
     | _, _ -> lhs =  rhs
 
+  let rec remap_generic_ktype (generics_table) (ktype) = 
+    match ktype with
+    | TType_Identifier { module_path = ""; name } as kt -> ( match Hashtbl.find_opt generics_table name with None -> kt | Some (_, typ) -> typ)
+    | TParametric_identifier { module_path; parametrics_type; name } -> TParametric_identifier {
+      module_path;
+      parametrics_type = parametrics_type |> List.map ( remap_generic_ktype generics_table);
+      name
+    }
+    | TTuple kts -> TTuple ( kts |> List.map (remap_generic_ktype generics_table))
+    | TPointer kt -> TPointer (remap_generic_ktype generics_table kt)
+    | _ as kt -> kt 
+
   (**
   Returns the restricted version of the left type.
   this function returns the left type if [not (are_compatible_type to_restrict_type restrict_type)]
