@@ -52,6 +52,14 @@ module Module = struct
   let retrieve_functions_decl = function
   | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NExternFunc e -> Some (Ast.Function_Decl.Decl_External e) | Ast.NFunction e -> Some (Ast.Function_Decl.decl_kosu_function e) | _ -> None)
 
+  let retrieve_function_decl_from_name_and_types fn_name parameters_types r_types _module = 
+  _module
+  |> retrieve_func_decl
+  |> Util.Occurence.find_occurence (fun fn_decl -> 
+    fn_decl.fn_name = fn_name && Ast.Type.are_compatible_type r_types fn_decl.return_type && Util.are_same_lenght fn_decl.parameters parameters_types &&
+    List.for_all2 (Ast.Type.are_compatible_type) (fn_decl.parameters |> List.map (fun (_, kt) -> kt) ) parameters_types
+  )
+
   let type_decl_occurence (type_name: string) (module_definition: Ast._module) = 
     module_definition |> retrieve_type_decl |> Util.Occurence.find_occurence (function
     | Ast.Type_Decl.Decl_Enum e -> e.enum_name = type_name
@@ -169,7 +177,32 @@ module Program = struct
       | TFunction _ -> false
       | TTuple _ -> false
       | _ -> true
+
+      let find_function_exact fn_name ktypes_parameters return_type (program: module_path list) = 
+        let open Util.Occurence in
+        program
+        |> List.map (fun t -> t._module)
+        |> List.map (Module.retrieve_function_decl_from_name_and_types fn_name ktypes_parameters return_type)
+        |> List.filter (function | One _ -> true | _ -> false)
+
+    let is_valid_add_operation (lhs) (rhs) program = 
+      let open Util.Occurence in
+      match lhs with
+      | TPointer _ -> (match rhs with TInteger _ -> `built_in_ptr_valid | _ -> `invalid_add_pointer)
+      | _ -> begin 
+        if lhs <> rhs then `diff_types
+        else match lhs with
+          | TType_Identifier _ as kt -> (
+            match program |> find_function_exact "add" [kt;kt] kt with
+            [] -> `no_function_found
+            | t::[] -> `valid (t |> one)
+            | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+          )
+          | TInteger _ | TFloat -> `built_in_valid
+          | _ -> `no_add_for_built_in
+      end
       
+
 end
 
 module Statement = struct
@@ -709,6 +742,15 @@ let string_of_function_error = let open Ast.Error in let open Printf in function
 | Uncompatible_type_for_C_Function recod -> sprintf "Uncompatible_type_for_C_Function for %s " (ExternalFunc.string_of_external_func_decl recod.external_func_decl)
 | Mismatched_Parameters_Type record -> sprintf "Mismatched_Parameters_Type : %s" (string_of_found_expected (`ktype(record.expected, record.found)))
 | Unknow_Function_Error -> "Unknow_Function_Error"
+
+let string_of_operator_error = let open Ast.Error in let open Printf in let open Ast.OperatorFunction in function
+| Invalid_pointer_arithmetic kt -> sprintf "Invalid_pointer_arithmetic with %s" (string_of_ktype kt)
+| No_built_in_op record -> sprintf "No_built \" %s \" for -- %s --" (name_of_bin_op record.bin_op ) (record.ktype |> string_of_ktype)
+| Incompatible_Type record -> sprintf "Incompatible_Type for \" %s \" -- lhs = %s : rhs = %s" (record.bin_op |> name_of_bin_op) (record.lhs |> string_of_ktype) (record.rhs |> string_of_ktype)
+| Operator_not_found record -> sprintf "No operator \" %s \" for -- %s --" (name_of_bin_op record.bin_op ) (record.ktype |> string_of_ktype)
+| Too_many_operator_declaration record -> sprintf "Too many \" %s \" declaration for %s " (name_of_bin_op record.bin_op ) (record.ktype |> string_of_ktype)
+
+
 let string_of_ast_error = let open Ast.Error in let open Printf in function
 | Bin_operator_Different_type -> "Bin_operator_Different_type"
 | Undefined_Identifier s -> sprintf "Undefined_Identifier : %s" s
@@ -719,6 +761,7 @@ let string_of_ast_error = let open Ast.Error in let open Printf in function
 | Enum_Error e -> string_of_enum_error e
 | Statement_Error e -> string_of_statement_error e
 | Func_Error e -> string_of_function_error e
+| Operator_Error e -> string_of_operator_error e
 | Uncompatible_type e -> sprintf "Uncompatible_type %s" (string_of_found_expected (`ktype(e.expected, e.found)))
 | Uncompatible_type_If_Else e -> sprintf "Uncompatible_type_If_Else %s" (string_of_found_expected (`ktype(e.if_type, e.else_type)))
 | Not_Boolean_Type_Condition e -> sprintf "Uncompatible_type_If_Else : %s" (string_of_ktype e.found)

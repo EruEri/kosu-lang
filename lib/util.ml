@@ -10,6 +10,11 @@ module Occurence = struct
   type ('a) occurence = Empty | One of 'a | Multiple of 'a list
 
   exception Too_Many_Occurence
+  exception No_Occurence
+
+  let is_one = function
+  | One _ -> true
+  | _ -> false
 
   let one = function
   | Empty -> raise Not_found

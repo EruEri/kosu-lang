@@ -12,12 +12,12 @@ let find_struct_decl_from_name (current_module_name: string) (prog : program) (m
 ;;
 
 
-(*(**
+(**
   Return the type of the code block expression
   @raise Ast_error
   @raise Not_found : if a type declartion wasn't found or a variant is not in enum variants
   @raise Too_Many_Occurence: if several type declarations matching was found
-*)*)
+*)
 let rec typeof_kbody ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (program: program) ?(return_type = None) (kbody: kbody) = 
 let () = Printf.printf "env %s\n" ( Asthelper.string_of_env env) in
   let statements, final_expr = kbody in
@@ -233,6 +233,20 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
               else Unknow_Function_Error |> func_error |> raise
         end
       end
+    | EBin_op (BAdd (lhs, rhs)) -> (
+      let l_type = typeof env current_mod_name prog lhs in
+      let r_type = typeof env current_mod_name prog rhs in
+      match Asthelper.Program.is_valid_add_operation l_type r_type prog with
+      | `built_in_ptr_valid -> l_type
+      | `invalid_add_pointer -> (Invalid_pointer_arithmetic r_type) |> operator_error |> raise
+      | `diff_types -> (Incompatible_Type {bin_op = Ast.OperatorFunction.Add; lhs = l_type; rhs = r_type}) |> operator_error |> raise
+      | `no_function_found -> (Operator_not_found {bin_op = Ast.OperatorFunction.Add; ktype = l_type }) |> operator_error |> raise
+      | `valid _ -> l_type
+      | `to_many_declaration _ -> (Too_many_operator_declaration { bin_op = Ast.OperatorFunction.Add; ktype = l_type }) |> operator_error |> raise
+      | `built_in_valid -> l_type
+      | `no_add_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.Add ; ktype = l_type}) |> operator_error |> raise
+
+    )
     | _ -> failwith ""
 
 

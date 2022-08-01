@@ -181,6 +181,57 @@ type module_path = {
 type program = module_path list
 
 module OperatorFunction = struct
+  type bin_op =
+  | Add 
+  | Minus 
+  | Mult | Div 
+  | Modulo | BitwiseOr 
+  | BitwiseAnd | BitwiseXor 
+  | ShiftLeft | ShiftRight 
+  | And | Or 
+  | Sup | SupEq
+  | Inf | InfEq
+  | Equal | Diff
+
+  let name_of_bin_op = function
+  | Add -> "add"
+  | Minus -> "minus"
+  | Mult -> "mult"
+  | Div -> "div"
+  | Modulo -> "modulo"
+  | BitwiseAnd -> "bitwiseand"
+  | BitwiseOr -> "bitwiseor"
+  | BitwiseXor -> "bitwisexor"
+  | ShiftLeft -> "shiftleft"
+  | ShiftRight -> "shiftright"
+  | And -> "and"
+  | Or -> "or"
+  | Sup -> "sup"
+  | SupEq -> "supeq"
+  | Inf -> "inf"
+  | InfEq -> "infeq"
+  | Equal -> "equal"
+  | Diff -> "diff"
+
+  let symbole_of_bin_op = function
+  | Add -> "+"
+  | Minus -> "-"
+  | Mult -> "*"
+  | Div -> "/"
+  | Modulo -> "%"
+  | BitwiseAnd -> "&"
+  | BitwiseOr -> "|"
+  | BitwiseXor -> "^"
+  | ShiftLeft -> "<<"
+  | ShiftRight -> ">>"
+  | And -> "&&"
+  | Or -> "||"
+  | Sup -> ">"
+  | SupEq -> ">="
+  | Inf -> "<"
+  | InfEq -> "<="
+  | Equal -> "=="
+  | Diff -> "!="
 end
 
 module Error = struct
@@ -206,7 +257,15 @@ module Error = struct
   | Uncompatible_type_for_C_Function of { external_func_decl: external_func_decl }
   | Mismatched_Parameters_Type of { expected : ktype; found : ktype }
   | Unknow_Function_Error
-  
+
+  type operator_error =
+  | Invalid_pointer_arithmetic of ktype
+  | No_built_in_op of {bin_op: OperatorFunction.bin_op; ktype: ktype}
+  | Incompatible_Type of { bin_op: OperatorFunction.bin_op; lhs: ktype; rhs: ktype }
+  | Operator_not_found of {bin_op: OperatorFunction.bin_op; ktype: ktype}
+  | Too_many_operator_declaration of {bin_op: OperatorFunction.bin_op; ktype: ktype}
+
+
   type ast_error = 
     | Bin_operator_Different_type
     | Undefined_Identifier of string
@@ -217,6 +276,7 @@ module Error = struct
     | Enum_Error of enum_error
     | Statement_Error of statement_error
     | Func_Error of func_error
+    | Operator_Error of operator_error
     | Uncompatible_type of { expected: ktype; found : ktype }
     | Uncompatible_type_If_Else of { if_type: ktype; else_type: ktype }
     | Not_Boolean_Type_Condition of { found: ktype }
@@ -229,7 +289,8 @@ module Error = struct
   let struct_error e = ast_error (Struct_Error e)
   let enum_error e = ast_error (Enum_Error e)
   let stmt_error e = ast_error (Statement_Error e)
-  let func_error e = ast_error (Func_Error e )
+  let func_error e = ast_error (Func_Error e)
+  let operator_error e = ast_error (Operator_Error e)
 end
 
 module Type = struct
