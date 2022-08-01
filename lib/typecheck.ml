@@ -207,7 +207,7 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       |> List.map (fun t -> if Asthelper.Program.is_c_type_from_ktype current_mod_name t prog then t else Ast.Error.Uncompatible_type_for_C_Function { external_func_decl } |> func_error |> raise)
       |> fun types -> if (types |> List.length) < (external_func_decl.fn_parameters |> List.length) then Unmatched_Parameters_length { expected = external_func_decl.fn_parameters |> List.length; found = parameters |> List.length } |> func_error |> raise else types
       |> List.mapi (fun i t -> (i,t))
-      |> List.partition (fun (i,_) -> i <= (external_func_decl.fn_parameters |> List.length) )
+      |> List.partition (fun (i,_) -> i < (external_func_decl.fn_parameters |> List.length) )
       |> fun (lhs, _ ) -> lhs
       |> List.map (fun (_,t) -> t)
       |> List.combine external_func_decl.fn_parameters
