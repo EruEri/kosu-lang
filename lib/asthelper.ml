@@ -201,6 +201,23 @@ module Program = struct
           | TInteger _ | TFloat -> `built_in_valid
           | _ -> `no_add_for_built_in
       end
+
+    let is_valid_minus_operation (lhs) (rhs) program = 
+      let open Util.Occurence in
+      match lhs with
+      | TPointer _ -> (match rhs with TInteger _ -> `built_in_ptr_valid | _ -> `invalid_add_pointer)
+      | _ -> begin 
+        if lhs <> rhs then `diff_types
+        else match lhs with
+          | TType_Identifier _ as kt -> (
+            match program |> find_function_exact "minus" [kt;kt] kt with
+            [] -> `no_function_found
+            | t::[] -> `valid (t |> one)
+            | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+          )
+          | TInteger _ | TFloat -> `built_in_valid
+          | _ -> `no_add_for_built_in
+      end
       
 
 end
