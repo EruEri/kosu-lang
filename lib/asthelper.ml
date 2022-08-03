@@ -216,8 +216,38 @@ module Program = struct
             | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
           )
           | TInteger _ | TFloat -> `built_in_valid
-          | _ -> `no_add_for_built_in
+          | _ -> `no_minus_for_built_in
       end
+
+    let is_valid_mult_operation (lhs) (rhs) program = 
+      let open Util.Occurence in
+      begin 
+        if lhs <> rhs then `diff_types
+        else match lhs with
+          | TType_Identifier _ as kt -> (
+            match program |> find_function_exact "mult" [kt;kt] kt with
+            [] -> `no_function_found
+            | t::[] -> `valid (t |> one)
+            | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+          )
+          | TInteger _ | TFloat -> `built_in_valid
+          | _ -> `no_mult_for_built_in
+      end
+
+      let is_valid_div_operation (lhs) (rhs) program = 
+        let open Util.Occurence in
+        begin 
+          if lhs <> rhs then `diff_types
+          else match lhs with
+            | TType_Identifier _ as kt -> (
+              match program |> find_function_exact "div" [kt;kt] kt with
+              [] -> `no_function_found
+              | t::[] -> `valid (t |> one)
+              | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+            )
+            | TInteger _ | TFloat -> `built_in_valid
+            | _ -> `no_div_for_built_in
+        end
       
 
 end
