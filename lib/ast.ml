@@ -181,7 +181,7 @@ type module_path = {
 type program = module_path list
 
 module OperatorFunction = struct
-  type bin_op =
+  type operator =
   | Add 
   | Minus 
   | Mult | Div 
@@ -192,8 +192,9 @@ module OperatorFunction = struct
   | Sup | SupEq
   | Inf | InfEq
   | Equal | Diff
+  | Not | UMinus
 
-  let name_of_bin_op = function
+  let name_of_operator = function
   | Add -> "add"
   | Minus -> "minus"
   | Mult -> "mult"
@@ -212,8 +213,10 @@ module OperatorFunction = struct
   | InfEq -> "infeq"
   | Equal -> "equal"
   | Diff -> "diff"
+  | UMinus -> "uminus"
+  | Not -> "not"
 
-  let symbole_of_bin_op = function
+  let symbole_of_operator = function
   | Add -> "+"
   | Minus -> "-"
   | Mult -> "*"
@@ -232,6 +235,8 @@ module OperatorFunction = struct
   | InfEq -> "<="
   | Equal -> "=="
   | Diff -> "!="
+  | Not -> "!"
+  | UMinus -> "(-)"
 end
 
 module Error = struct
@@ -260,12 +265,13 @@ module Error = struct
 
   type operator_error =
   | Invalid_pointer_arithmetic of ktype
-  | No_built_in_op of {bin_op: OperatorFunction.bin_op; ktype: ktype}
-  | Incompatible_Type of { bin_op: OperatorFunction.bin_op; lhs: ktype; rhs: ktype }
-  | Operator_not_found of {bin_op: OperatorFunction.bin_op; ktype: ktype}
-  | Too_many_operator_declaration of {bin_op: OperatorFunction.bin_op; ktype: ktype}
+  | No_built_in_op of {bin_op: OperatorFunction.operator; ktype: ktype}
+  | Incompatible_Type of { bin_op: OperatorFunction.operator; lhs: ktype; rhs: ktype }
+  | Operator_not_found of {bin_op: OperatorFunction.operator; ktype: ktype}
+  | Too_many_operator_declaration of {bin_op: OperatorFunction.operator; ktype: ktype}
   | Not_Boolean_operand_in_And
   | Not_Boolean_operand_in_Or
+  | Invalid_Uminus_for_Unsigned_integer of isize
 
 
   type ast_error = 

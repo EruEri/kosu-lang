@@ -432,6 +432,27 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       | `no_infeq_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.InfEq ; ktype = l_type}) |> operator_error |> raise
     )
 
+    | EUn_op( UNot (lhs) ) -> (
+      let l_type = typeof env current_mod_name prog lhs in
+      match Asthelper.Program.is_valid_not_operation l_type prog with
+      | `no_function_found -> (Operator_not_found {bin_op = Ast.OperatorFunction.Not; ktype = l_type }) |> operator_error |> raise
+      | `valid _ -> l_type
+      | `to_many_declaration _ -> (Too_many_operator_declaration { bin_op = Ast.OperatorFunction.Not; ktype = l_type }) |> operator_error |> raise
+      | `built_in_valid -> l_type
+      | `no_not_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.Not ; ktype = l_type}) |> operator_error |> raise
+    )
+
+    | EUn_op( UMinus (lhs) ) -> (
+      let l_type = typeof env current_mod_name prog lhs in
+      match Asthelper.Program.is_valid_uminus_operation l_type prog with
+      | `no_function_found -> (Operator_not_found {bin_op = Ast.OperatorFunction.UMinus; ktype = l_type }) |> operator_error |> raise
+      | `valid _ -> l_type
+      | `to_many_declaration _ -> (Too_many_operator_declaration { bin_op = Ast.OperatorFunction.UMinus; ktype = l_type }) |> operator_error |> raise
+      | `built_in_valid -> l_type
+      | `invalid_unsigned_op size -> (Invalid_Uminus_for_Unsigned_integer size) |> operator_error |> raise
+      | `no_uminus_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.UMinus ; ktype = l_type}) |> operator_error |> raise
+    )
+
     | _ -> failwith ""
 
 

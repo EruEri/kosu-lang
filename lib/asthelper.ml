@@ -411,7 +411,32 @@ module Program = struct
           | TInteger _ | TFloat -> `built_in_valid
           | _ -> `no_infeq_for_built_in
       end
-      
+
+    
+    let is_valid_not_operation (ktype) program = 
+      let open Util.Occurence in
+        match ktype with
+          | TType_Identifier _ as kt -> (
+            match program |> find_function_exact "not" [kt] ktype with
+            [] -> `no_function_found
+            | t::[] -> `valid (t |> one)
+            | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+          )
+          | TInteger _ | TBool -> `built_in_valid
+          | _ -> `no_not_for_built_in
+  let is_valid_uminus_operation (ktype) program = 
+    let open Util.Occurence in
+      match ktype with
+        | TType_Identifier _ as kt -> (
+          match program |> find_function_exact "uminus" [kt] ktype with
+          [] -> `no_function_found
+          | t::[] -> `valid (t |> one)
+          | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+        )
+        | TInteger (Signed, _) | TFloat -> `built_in_valid
+        | TInteger (Unsigned, size) -> `invalid_unsigned_op size
+        | _ -> `no_uminus_for_built_in
+            
 
 end
 
@@ -957,12 +982,13 @@ let string_of_function_error = let open Ast.Error in let open Printf in function
 
 let string_of_operator_error = let open Ast.Error in let open Printf in let open Ast.OperatorFunction in function
 | Invalid_pointer_arithmetic kt -> sprintf "Invalid_pointer_arithmetic with %s" (string_of_ktype kt)
-| No_built_in_op record -> sprintf "No_built \" %s \" for -- %s --" (name_of_bin_op record.bin_op ) (record.ktype |> string_of_ktype)
-| Incompatible_Type record -> sprintf "Incompatible_Type for \" %s \" -- lhs = %s : rhs = %s" (record.bin_op |> name_of_bin_op) (record.lhs |> string_of_ktype) (record.rhs |> string_of_ktype)
-| Operator_not_found record -> sprintf "No operator \" %s \" for -- %s --" (name_of_bin_op record.bin_op ) (record.ktype |> string_of_ktype)
-| Too_many_operator_declaration record -> sprintf "Too many \" %s \" declaration for %s " (name_of_bin_op record.bin_op ) (record.ktype |> string_of_ktype)
+| No_built_in_op record -> sprintf "No_built \" %s \" for -- %s --" (name_of_operator record.bin_op ) (record.ktype |> string_of_ktype)
+| Incompatible_Type record -> sprintf "Incompatible_Type for \" %s \" -- lhs = %s : rhs = %s" (record.bin_op |> name_of_operator) (record.lhs |> string_of_ktype) (record.rhs |> string_of_ktype)
+| Operator_not_found record -> sprintf "No operator \" %s \" for -- %s --" (name_of_operator record.bin_op ) (record.ktype |> string_of_ktype)
+| Too_many_operator_declaration record -> sprintf "Too many \" %s \" declaration for %s " (name_of_operator record.bin_op ) (record.ktype |> string_of_ktype)
 | Not_Boolean_operand_in_And -> sprintf "Not_Boolean_operand_in_And"
 | Not_Boolean_operand_in_Or -> sprintf "Not_Boolean_operand_in_Or"
+| Invalid_Uminus_for_Unsigned_integer size -> sprintf "Invalid_Uminus_for_Unsigned_integer for u%s" (string_of_isize size)
 
 
 let string_of_ast_error = let open Ast.Error in let open Printf in function
