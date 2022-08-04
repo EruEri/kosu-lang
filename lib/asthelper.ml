@@ -322,20 +322,96 @@ module Program = struct
           | _ -> `no_shiftleft_for_built_in
       end
 
-    let is_valid_shiftright_operation (lhs) (rhs) program = 
+  let is_valid_shiftright_operation (lhs) (rhs) program = 
+    let open Util.Occurence in
+    begin 
+      if lhs <> rhs then `diff_types
+      else match lhs with
+        | TType_Identifier _ as kt -> (
+          match program |> find_function_exact "shiftright" [kt;kt] kt with
+          [] -> `no_function_found
+          | t::[] -> `valid (t |> one)
+          | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+        )
+        | TInteger _ -> `built_in_valid
+        | _ -> `no_shiftright_for_built_in
+    end
+  let is_valid_equal_operation (lhs) (rhs) program = 
+    let open Util.Occurence in
+    begin 
+      if lhs <> rhs then `diff_types
+      else match lhs with
+        | TType_Identifier _ as kt -> (
+          match program |> find_function_exact "equal" [kt;kt] TBool with
+          [] -> `no_function_found
+          | t::[] -> `valid (t |> one)
+          | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+        )
+        | TInteger _ | TBool | TFloat | TPointer _ -> `built_in_valid
+        | _ -> `no_equal_for_built_in
+        (* Better handle the tuple *)
+    end
+
+    let is_valid_sup_operation (lhs) (rhs) program = 
       let open Util.Occurence in
       begin 
         if lhs <> rhs then `diff_types
         else match lhs with
           | TType_Identifier _ as kt -> (
-            match program |> find_function_exact "shiftright" [kt;kt] kt with
+            match program |> find_function_exact "sup" [kt;kt] TBool with
             [] -> `no_function_found
             | t::[] -> `valid (t |> one)
             | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
           )
-          | TInteger _ -> `built_in_valid
-          | _ -> `no_shiftright_for_built_in
+          | TInteger _ | TFloat -> `built_in_valid
+          | _ -> `no_sup_for_built_in
       end
+
+    let is_valid_supeq_operation (lhs) (rhs) program = 
+      let open Util.Occurence in
+      begin 
+        if lhs <> rhs then `diff_types
+        else match lhs with
+          | TType_Identifier _ as kt -> (
+            match program |> find_function_exact "sup_eq" [kt;kt] TBool with
+            [] -> `no_function_found
+            | t::[] -> `valid (t |> one)
+            | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+          )
+          | TInteger _ | TFloat -> `built_in_valid
+          | _ -> `no_supeq_for_built_in
+      end
+
+    let is_valid_inf_operation (lhs) (rhs) program = 
+      let open Util.Occurence in
+      begin 
+        if lhs <> rhs then `diff_types
+        else match lhs with
+          | TType_Identifier _ as kt -> (
+            match program |> find_function_exact "inf" [kt;kt] TBool with
+            [] -> `no_function_found
+            | t::[] -> `valid (t |> one)
+            | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+          )
+          | TInteger _ | TFloat -> `built_in_valid
+          | _ -> `no_inf_for_built_in
+      end
+
+    let is_valid_infeq_operation (lhs) (rhs) program = 
+      let open Util.Occurence in
+      begin 
+        if lhs <> rhs then `diff_types
+        else match lhs with
+          | TType_Identifier _ as kt -> (
+            match program |> find_function_exact "inf_eq" [kt;kt] TBool with
+            [] -> `no_function_found
+            | t::[] -> `valid (t |> one)
+            | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+          )
+          | TInteger _ | TFloat -> `built_in_valid
+          | _ -> `no_infeq_for_built_in
+      end
+      
 
 end
 
