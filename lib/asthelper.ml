@@ -461,6 +461,7 @@ module Statement = struct
   | Empty -> "empty"
   | True -> "true"
   | False -> "false"
+  | ENullptr -> "nullptr"
   | EInteger (sign, _, value) -> (match sign with Signed -> sprintf "%Ld" value | Unsigned -> sprintf "%Lu" value)
   | EFloat f -> string_of_float f
   | EBin_op bin -> string_of_kbin_op bin
@@ -922,12 +923,15 @@ module Function = struct
           List.combine init_pt exp_pt |> List.for_all (fun (i,e) -> is_type_compatible_hashgen generic_table i e function_decl)
         end
     | TUnknow, _ -> true
+    | TPointer(TUnknow), TPointer _ -> true
+    | TPointer lhs, TPointer rhs -> is_type_compatible_hashgen generic_table lhs rhs function_decl
+    | TTuple lhs, TTuple rhs -> Util.are_same_lenght lhs rhs && List.for_all2 (fun lkt rkt -> is_type_compatible_hashgen generic_table lkt rkt function_decl) lhs rhs
     | lhs, rhs -> lhs = rhs
 
 
 
     let to_return_ktype_hashtab (generic_table) (function_decl: t) = 
-      if function_decl.generics = []  || function_decl |> is_ktype_generic function_decl.return_type |> not then function_decl.return_type
+      if function_decl.generics = [] || function_decl |> is_ktype_generic function_decl.return_type |> not then function_decl.return_type
       else Ast.Type.remap_generic_ktype generic_table
        function_decl.return_type
 

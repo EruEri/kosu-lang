@@ -57,6 +57,7 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
   match expression with
   | Empty -> TUnit
   | True | False -> TBool
+  | ENullptr -> TPointer TUnknow
   | EInteger (sign, size, _ ) -> TInteger (sign, size) 
   | EFloat _ -> TFloat
   | ESizeof either -> begin 
@@ -187,7 +188,15 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       | false -> begin 
         ()
       end in
-    
+      
+      let () = match grc with
+      | Some grc_safe -> (
+        List.combine e.generics grc_safe
+        |> List.iteri (fun index (generic_name, (field_ktype)) -> Hashtbl.add hashtal generic_name (index, field_ktype));
+      )
+      | None -> () in
+      
+
       init_type_parameters
       |> List.combine e.parameters
       |> List.iter (fun ((_, para_type), init_type)  -> if e |> Asthelper.Function.is_type_compatible_hashgen hashtal init_type para_type |> not then Mismatched_Parameters_Type { expected = para_type; found = init_type}  |> func_error |> raise);
@@ -453,7 +462,7 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       | `no_uminus_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.UMinus ; ktype = l_type}) |> operator_error |> raise
     )
 
-    | _ -> failwith ""
+    | ESwitch {expression = _; cases = _; wildcard_case = _} -> failwith "Not implemented Yet ... "
 
 
 

@@ -51,6 +51,7 @@ and kexpression =
 | Empty
 | True
 | False
+| ENullptr
 | EInteger of (signedness * isize * int64)
 | EFloat of float
 | ESizeof of (ktype, kexpression) Either.t 
@@ -316,6 +317,7 @@ module Type = struct
       , TParametric_identifier {module_path = mp2; parametrics_type = pt2; name = n2 } -> 
         n1 = n2 && mp1 = mp2 && (pt1 |> Util.are_same_lenght pt2) && (List.for_all2 are_compatible_type pt1 pt2)
     | TUnknow, _ | _ , TUnknow -> true
+    | TPointer _, TPointer TUnknow -> true
     | _, _ -> lhs =  rhs
 
   let rec remap_generic_ktype (generics_table) (ktype) = 
@@ -346,6 +348,7 @@ module Type = struct
           name = n1
         } 
       | TUnknow, t -> t
+      | (TPointer _) as kt , TPointer TUnknow -> kt
       | _, _ -> to_restrict_type
 end
 
