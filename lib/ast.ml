@@ -264,6 +264,8 @@ module Error = struct
   | Incompatible_Type of { bin_op: OperatorFunction.bin_op; lhs: ktype; rhs: ktype }
   | Operator_not_found of {bin_op: OperatorFunction.bin_op; ktype: ktype}
   | Too_many_operator_declaration of {bin_op: OperatorFunction.bin_op; ktype: ktype}
+  | Not_Boolean_operand_in_And
+  | Not_Boolean_operand_in_Or
 
 
   type ast_error = 

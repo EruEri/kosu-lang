@@ -286,8 +286,100 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       | `to_many_declaration _ -> (Too_many_operator_declaration { bin_op = Ast.OperatorFunction.Div; ktype = l_type }) |> operator_error |> raise
       | `built_in_valid -> l_type
       | `no_div_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.Div ; ktype = l_type}) |> operator_error |> raise
-
     )
+
+    | EBin_op (BMod (lhs, rhs)) -> (
+      let l_type = typeof env current_mod_name prog lhs in
+      let r_type = typeof env current_mod_name prog rhs in
+      match Asthelper.Program.is_valid_mod_operation l_type r_type prog with
+      | `built_in_ptr_valid -> l_type
+      | `diff_types -> (Incompatible_Type {bin_op = Ast.OperatorFunction.Modulo; lhs = l_type; rhs = r_type}) |> operator_error |> raise
+      | `no_function_found -> (Operator_not_found {bin_op = Ast.OperatorFunction.Modulo; ktype = l_type }) |> operator_error |> raise
+      | `valid _ -> l_type
+      | `to_many_declaration _ -> (Too_many_operator_declaration { bin_op = Ast.OperatorFunction.Modulo; ktype = l_type }) |> operator_error |> raise
+      | `built_in_valid -> l_type
+      | `no_mod_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.Modulo ; ktype = l_type}) |> operator_error |> raise
+    )
+    | EBin_op (BBitwiseOr (lhs, rhs)) -> (
+      let l_type = typeof env current_mod_name prog lhs in
+      let r_type = typeof env current_mod_name prog rhs in
+      match Asthelper.Program.is_valid_bitwiseor_operation l_type r_type prog with
+      | `built_in_ptr_valid -> l_type
+      | `diff_types -> (Incompatible_Type {bin_op = Ast.OperatorFunction.BitwiseOr; lhs = l_type; rhs = r_type}) |> operator_error |> raise
+      | `no_function_found -> (Operator_not_found {bin_op = Ast.OperatorFunction.BitwiseOr; ktype = l_type }) |> operator_error |> raise
+      | `valid _ -> l_type
+      | `to_many_declaration _ -> (Too_many_operator_declaration { bin_op = Ast.OperatorFunction.BitwiseOr; ktype = l_type }) |> operator_error |> raise
+      | `built_in_valid -> l_type
+      | `no_bitwiseor_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.BitwiseOr ; ktype = l_type}) |> operator_error |> raise
+    )
+
+    | EBin_op (BBitwiseAnd (lhs, rhs)) -> (
+      let l_type = typeof env current_mod_name prog lhs in
+      let r_type = typeof env current_mod_name prog rhs in
+      match Asthelper.Program.is_valid_bitwiseand_operation l_type r_type prog with
+      | `built_in_ptr_valid -> l_type
+      | `diff_types -> (Incompatible_Type {bin_op = Ast.OperatorFunction.BitwiseAnd; lhs = l_type; rhs = r_type}) |> operator_error |> raise
+      | `no_function_found -> (Operator_not_found {bin_op = Ast.OperatorFunction.BitwiseAnd; ktype = l_type }) |> operator_error |> raise
+      | `valid _ -> l_type
+      | `to_many_declaration _ -> (Too_many_operator_declaration { bin_op = Ast.OperatorFunction.BitwiseAnd; ktype = l_type }) |> operator_error |> raise
+      | `built_in_valid -> l_type
+      | `no_bitwiseand_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.BitwiseAnd ; ktype = l_type}) |> operator_error |> raise
+    )
+    | EBin_op (BBitwiseXor (lhs, rhs)) -> (
+      let l_type = typeof env current_mod_name prog lhs in
+      let r_type = typeof env current_mod_name prog rhs in
+      match Asthelper.Program.is_valid_bitwisexor_operation l_type r_type prog with
+      | `built_in_ptr_valid -> l_type
+      | `diff_types -> (Incompatible_Type {bin_op = Ast.OperatorFunction.BitwiseXor; lhs = l_type; rhs = r_type}) |> operator_error |> raise
+      | `no_function_found -> (Operator_not_found {bin_op = Ast.OperatorFunction.BitwiseXor; ktype = l_type }) |> operator_error |> raise
+      | `valid _ -> l_type
+      | `to_many_declaration _ -> (Too_many_operator_declaration { bin_op = Ast.OperatorFunction.BitwiseXor; ktype = l_type }) |> operator_error |> raise
+      | `built_in_valid -> l_type
+      | `no_bitwisexor_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.BitwiseXor ; ktype = l_type}) |> operator_error |> raise
+    )
+
+    | EBin_op (BShiftLeft (lhs, rhs)) -> (
+      let l_type = typeof env current_mod_name prog lhs in
+      let r_type = typeof env current_mod_name prog rhs in
+      match Asthelper.Program.is_valid_shiftleft_operation l_type r_type prog with
+      | `built_in_ptr_valid -> l_type
+      | `diff_types -> (Incompatible_Type {bin_op = Ast.OperatorFunction.ShiftLeft; lhs = l_type; rhs = r_type}) |> operator_error |> raise
+      | `no_function_found -> (Operator_not_found {bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }) |> operator_error |> raise
+      | `valid _ -> l_type
+      | `to_many_declaration _ -> (Too_many_operator_declaration { bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }) |> operator_error |> raise
+      | `built_in_valid -> l_type
+      | `no_shiftleft_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.ShiftLeft ; ktype = l_type}) |> operator_error |> raise
+    )
+
+    | EBin_op (BShiftRight (lhs, rhs)) -> (
+      let l_type = typeof env current_mod_name prog lhs in
+      let r_type = typeof env current_mod_name prog rhs in
+      match Asthelper.Program.is_valid_shiftright_operation l_type r_type prog with
+      | `built_in_ptr_valid -> l_type
+      | `diff_types -> (Incompatible_Type {bin_op = Ast.OperatorFunction.ShiftLeft; lhs = l_type; rhs = r_type}) |> operator_error |> raise
+      | `no_function_found -> (Operator_not_found {bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }) |> operator_error |> raise
+      | `valid _ -> l_type
+      | `to_many_declaration _ -> (Too_many_operator_declaration { bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }) |> operator_error |> raise
+      | `built_in_valid -> l_type
+      | `no_shiftright_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.ShiftLeft ; ktype = l_type}) |> operator_error |> raise
+    )
+
+    | EBin_op (BAnd (lhs, rhs)) -> (
+      let l_type = typeof env current_mod_name prog lhs in
+      let r_type = typeof env current_mod_name prog rhs in
+      match l_type, r_type with
+      | TBool, TBool -> TBool
+      | _, _ -> Not_Boolean_operand_in_And |> operator_error |> raise
+    )
+
+    | EBin_op (BOr (lhs, rhs)) -> (
+      let l_type = typeof env current_mod_name prog lhs in
+      let r_type = typeof env current_mod_name prog rhs in
+      match l_type, r_type with
+      | TBool, TBool -> TBool
+      | _, _ -> Not_Boolean_operand_in_Or |> operator_error |> raise
+    )
+
     | _ -> failwith ""
 
 

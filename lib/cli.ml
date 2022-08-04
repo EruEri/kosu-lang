@@ -2,6 +2,20 @@ type cli_error =
 | No_input_file
 | File_error of string*exn
 
+type filename_error =
+| Mutiple_dot_in_filename
+| No_extension
+| Unknow_error
+
+let (>>=) o f = Result.bind o f
+
+let f s = String.concat "/" @@ (List.map (String.capitalize_ascii)) @@ (String.split_on_char '/' s)
+let convert_filename_to_path filename = 
+  filename 
+  |> String.split_on_char '.'
+  |> (function | t::_::[] -> Ok t | _::[] -> Error No_extension | _::_::_ -> Error Mutiple_dot_in_filename | _ -> Error Unknow_error)
+  |> Result.map ( f )
+
 let module_path_of_file filename = 
   let open Ast in
   try

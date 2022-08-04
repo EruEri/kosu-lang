@@ -234,21 +234,108 @@ module Program = struct
           | _ -> `no_mult_for_built_in
       end
 
-      let is_valid_div_operation (lhs) (rhs) program = 
-        let open Util.Occurence in
-        begin 
-          if lhs <> rhs then `diff_types
-          else match lhs with
-            | TType_Identifier _ as kt -> (
-              match program |> find_function_exact "div" [kt;kt] kt with
-              [] -> `no_function_found
-              | t::[] -> `valid (t |> one)
-              | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
-            )
-            | TInteger _ | TFloat -> `built_in_valid
-            | _ -> `no_div_for_built_in
-        end
-      
+    let is_valid_div_operation (lhs) (rhs) program = 
+      let open Util.Occurence in
+      begin 
+        if lhs <> rhs then `diff_types
+        else match lhs with
+          | TType_Identifier _ as kt -> (
+            match program |> find_function_exact "div" [kt;kt] kt with
+            [] -> `no_function_found
+            | t::[] -> `valid (t |> one)
+            | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+          )
+          | TInteger _ | TFloat -> `built_in_valid
+          | _ -> `no_div_for_built_in
+      end
+
+  let is_valid_mod_operation (lhs) (rhs) program = 
+    let open Util.Occurence in
+    begin 
+      if lhs <> rhs then `diff_types
+      else match lhs with
+        | TType_Identifier _ as kt -> (
+          match program |> find_function_exact "mod" [kt;kt] kt with
+          [] -> `no_function_found
+          | t::[] -> `valid (t |> one)
+          | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+        )
+        | TInteger _ -> `built_in_valid
+        | _ -> `no_mod_for_built_in
+    end
+
+    let is_valid_bitwiseor_operation (lhs) (rhs) program = 
+      let open Util.Occurence in
+      begin 
+        if lhs <> rhs then `diff_types
+        else match lhs with
+          | TType_Identifier _ as kt -> (
+            match program |> find_function_exact "bitwiseor" [kt;kt] kt with
+            [] -> `no_function_found
+            | t::[] -> `valid (t |> one)
+            | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+          )
+          | TInteger _ -> `built_in_valid
+          | _ -> `no_bitwiseor_for_built_in
+      end
+    let is_valid_bitwiseand_operation (lhs) (rhs) program = 
+      let open Util.Occurence in
+      begin 
+        if lhs <> rhs then `diff_types
+        else match lhs with
+          | TType_Identifier _ as kt -> (
+            match program |> find_function_exact "bitwiseand" [kt;kt] kt with
+            [] -> `no_function_found
+            | t::[] -> `valid (t |> one)
+            | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+          )
+          | TInteger _ -> `built_in_valid
+          | _ -> `no_bitwiseand_for_built_in
+      end
+    let is_valid_bitwisexor_operation (lhs) (rhs) program = 
+      let open Util.Occurence in
+      begin 
+        if lhs <> rhs then `diff_types
+        else match lhs with
+          | TType_Identifier _ as kt -> (
+            match program |> find_function_exact "bitwisexor" [kt;kt] kt with
+            [] -> `no_function_found
+            | t::[] -> `valid (t |> one)
+            | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+          )
+          | TInteger _ -> `built_in_valid
+          | _ -> `no_bitwisexor_for_built_in
+      end
+
+    let is_valid_shiftleft_operation (lhs) (rhs) program = 
+      let open Util.Occurence in
+      begin 
+        if lhs <> rhs then `diff_types
+        else match lhs with
+          | TType_Identifier _ as kt -> (
+            match program |> find_function_exact "shiftleft" [kt;kt] kt with
+            [] -> `no_function_found
+            | t::[] -> `valid (t |> one)
+            | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+          )
+          | TInteger _ -> `built_in_valid
+          | _ -> `no_shiftleft_for_built_in
+      end
+
+    let is_valid_shiftright_operation (lhs) (rhs) program = 
+      let open Util.Occurence in
+      begin 
+        if lhs <> rhs then `diff_types
+        else match lhs with
+          | TType_Identifier _ as kt -> (
+            match program |> find_function_exact "shiftright" [kt;kt] kt with
+            [] -> `no_function_found
+            | t::[] -> `valid (t |> one)
+            | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+          )
+          | TInteger _ -> `built_in_valid
+          | _ -> `no_shiftright_for_built_in
+      end
 
 end
 
@@ -609,6 +696,8 @@ module Struct = struct
         else begin
           List.combine init_pt exp_pt |> List.for_all (fun (i,e) -> is_type_compatible_hashgen generic_table i e struct_decl)
         end
+    | TPointer lhs, TPointer rhs -> is_type_compatible_hashgen generic_table lhs rhs struct_decl
+    | TTuple lhs, TTuple rhs -> Util.are_same_lenght lhs rhs && List.for_all2 (fun init exptected -> is_type_compatible_hashgen generic_table init exptected struct_decl) lhs rhs
     | TUnknow, _ -> true
     | lhs, rhs -> lhs = rhs
 
@@ -796,6 +885,8 @@ let string_of_operator_error = let open Ast.Error in let open Printf in let open
 | Incompatible_Type record -> sprintf "Incompatible_Type for \" %s \" -- lhs = %s : rhs = %s" (record.bin_op |> name_of_bin_op) (record.lhs |> string_of_ktype) (record.rhs |> string_of_ktype)
 | Operator_not_found record -> sprintf "No operator \" %s \" for -- %s --" (name_of_bin_op record.bin_op ) (record.ktype |> string_of_ktype)
 | Too_many_operator_declaration record -> sprintf "Too many \" %s \" declaration for %s " (name_of_bin_op record.bin_op ) (record.ktype |> string_of_ktype)
+| Not_Boolean_operand_in_And -> sprintf "Not_Boolean_operand_in_And"
+| Not_Boolean_operand_in_Or -> sprintf "Not_Boolean_operand_in_Or"
 
 
 let string_of_ast_error = let open Ast.Error in let open Printf in function
@@ -811,6 +902,6 @@ let string_of_ast_error = let open Ast.Error in let open Printf in function
 | Operator_Error e -> string_of_operator_error e
 | Uncompatible_type e -> sprintf "Uncompatible_type %s" (string_of_found_expected (`ktype(e.expected, e.found)))
 | Uncompatible_type_If_Else e -> sprintf "Uncompatible_type_If_Else %s" (string_of_found_expected (`ktype(e.if_type, e.else_type)))
-| Not_Boolean_Type_Condition e -> sprintf "Uncompatible_type_If_Else : %s" (string_of_ktype e.found)
+| Not_Boolean_Type_Condition e -> sprintf "Not_Boolean_Type_Condition -- found : %s : expected : bool --" (string_of_ktype e.found)
 | Impossible_field_Access e -> sprintf "Impossible_field_Access : %s" (string_of_ktype e)
 | Unvalid_Deference -> sprintf "Unvalid_Deference"
