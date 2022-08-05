@@ -500,7 +500,11 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
               if acc <> reduced_binding then (Incompatible_Binding(acc, reduced_binding) |> switch_error |> raise)
               else acc
             ) (reduce_binded_variable_combine ass_bin) 
-          |> List.map (fun (variable_name, ktype) -> (variable_name, ({is_const = true; ktype}: Env.variable_info) )   )
+          |> List.map (fun (variable_name, ktype) -> (variable_name, ({is_const = true; ktype}: Env.variable_info) ))
+          |> List.map (fun (binding_name, var_info) -> 
+            if env |> Env.is_identifier_exists binding_name then (Binded_identifier_already_exist binding_name) |> switch_error |> raise
+            else (binding_name, var_info)
+            )
           in
             typeof_kbody (env |> Env.push_context (new_context)) current_mod_name prog kb
         )

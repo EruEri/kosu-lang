@@ -279,6 +279,7 @@ module Error = struct
   | Variant_not_found of {enum_decl: enum_decl; variant: string}
   | Mismatched_Assoc_length of { variant: string; expected: int; found: int}
   | Incompatible_Binding of ((string * ktype) list) * ((string * ktype) list)
+  | Binded_identifier_already_exist of string
 
 
   type ast_error = 

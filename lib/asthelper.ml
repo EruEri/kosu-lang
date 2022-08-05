@@ -1071,6 +1071,7 @@ let string_of_switch_error = let open Ast.Error in let open Printf in function
 | Incompatible_Binding (lhs, rhs) -> sprintf "Incompatible_Binding between: \n-> %s\n-> %s" 
  (lhs |> List.map (fun (id, ktype) -> sprintf "%s: %s" (id) (string_of_ktype ktype)) |> String.concat ", ")
  (rhs |> List.map (fun (id, ktype) -> sprintf "%s: %s" (id) (string_of_ktype ktype)) |> String.concat ", ")
+ | Binded_identifier_already_exist s -> sprintf "Binded_identifier_already_exist_in_env : %s" s
 
 
 let string_of_ast_error = let open Ast.Error in let open Printf in function
