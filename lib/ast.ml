@@ -278,7 +278,7 @@ module Error = struct
   | Duplicated_case of string
   | Variant_not_found of {enum_decl: enum_decl; variant: string}
   | Mismatched_Assoc_length of { variant: string; expected: int; found: int}
-  | Incompatible_Binding of (ktype list) * (ktype list)
+  | Incompatible_Binding of ((string * ktype) list) * ((string * ktype) list)
 
 
   type ast_error = 

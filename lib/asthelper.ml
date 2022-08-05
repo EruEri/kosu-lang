@@ -1068,9 +1068,9 @@ let string_of_switch_error = let open Ast.Error in let open Printf in function
   )
 | Variant_not_found { enum_decl; variant} -> sprintf "Variant_not_found %s in %s" (variant) (enum_decl.enum_name)
 | Mismatched_Assoc_length { variant; expected; found} -> sprintf "Mismatched_Assoc_length variant %s %s" variant (string_of_found_expected (`int(expected, found)))
-| Incompatible_Binding (lhs, rhs) -> sprintf "Incompatible_Binding between: \n  %s\n  %s" 
- (lhs |> List.map string_of_ktype |> String.concat ", ")
- (rhs |> List.map string_of_ktype |> String.concat ", ")
+| Incompatible_Binding (lhs, rhs) -> sprintf "Incompatible_Binding between: \n-> %s\n-> %s" 
+ (lhs |> List.map (fun (id, ktype) -> sprintf "%s: %s" (id) (string_of_ktype ktype)) |> String.concat ", ")
+ (rhs |> List.map (fun (id, ktype) -> sprintf "%s: %s" (id) (string_of_ktype ktype)) |> String.concat ", ")
 
 
 let string_of_ast_error = let open Ast.Error in let open Printf in function
