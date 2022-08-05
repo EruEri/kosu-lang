@@ -550,6 +550,8 @@ end
 
 module Switch_case = struct
   type t = switch_case
+  let variant_name = function
+  | SC_Enum_Identifier { variant } | SC_Enum_Identifier_Assoc { variant; assoc_ids = _} -> variant
 
   let is_case_matched (variant, (assoc_types: ktype list)) (switch_case: t) = 
     match switch_case with
@@ -558,6 +560,11 @@ module Switch_case = struct
 
   let is_cases_matched (variant) (switch_cases: t list) = 
     switch_cases |> List.exists (is_case_matched variant)
+
+  let is_cases_duplicated (variant) (switch_cases : t list) = let open Util.Occurence in 
+    switch_cases 
+    |> find_occurence (fun sc -> sc |> variant_name |> (=) variant )
+    |> function | Multiple _ -> true | _ -> false
 end
 module Enum = struct
   type t = enum_decl
@@ -1036,6 +1043,7 @@ let string_of_operator_error = let open Ast.Error in let open Printf in let open
 | Invalid_Uminus_for_Unsigned_integer size -> sprintf "Invalid_Uminus_for_Unsigned_integer for u%s" (string_of_isize size)
 
 let string_of_switch_error = let open Ast.Error in let open Printf in function
+| Duplicated_case name -> sprintf "Duplicated_case -- variant : %s --" name
 | Not_enum_type_in_switch_Expression e -> sprintf "Not_enum_type_in_switch_Expression -- found : %s --" (string_of_ktype e)
 | Not_all_cases_handled missing_cases -> sprintf "Not_all_cases_handled : missing cases :\n  %s" 
   (missing_cases |> 

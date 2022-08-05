@@ -472,6 +472,11 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
         | Type_Decl.Decl_Enum e -> e
         | _ -> Not_enum_type_in_switch_Expression (expr_type) |> switch_error |> raise in
 
+      let () = enum_decl.variants 
+        |> List.iter (fun (variant_name, _) -> 
+          if Asthelper.Switch_case.is_cases_duplicated variant_name variant_cases then (Ast.Error.Duplicated_case variant_name) |> switch_error |> raise
+            ) in
+
       match wildcard_case with
       | Some kbody -> kbodys 
       |> List.map (typeof_kbody (env |> Env.push_context []) current_mod_name prog)
