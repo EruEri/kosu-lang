@@ -278,6 +278,7 @@ module Error = struct
   | Duplicated_case of string
   | Variant_not_found of {enum_decl: enum_decl; variant: string}
   | Mismatched_Assoc_length of { variant: string; expected: int; found: int}
+  | Incompatible_Binding of (ktype list) * (ktype list)
 
 
   type ast_error = 
@@ -317,6 +318,11 @@ module Type = struct
     | TParametric_identifier { module_path = _; parametrics_type = kts; name = _ } | TTuple (kts)  -> kts |> List.for_all (is_type_full_known)
     | TPointer kt -> is_type_full_known kt
     | _ -> true
+
+  let extract_parametrics_ktype ktype = 
+    match ktype with
+    | TParametric_identifier {module_path = _; parametrics_type; name = _ } -> parametrics_type
+    | _ -> []
 
   let rec are_compatible_type (lhs: ktype) (rhs: ktype) = 
     match lhs, rhs with

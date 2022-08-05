@@ -33,5 +33,5 @@ module ListHelper = struct
 end
 
 module OperatorHelper = struct
-  let (>>=) o f = Option.bind o f
+  let (>>=) = Option.bind
 end

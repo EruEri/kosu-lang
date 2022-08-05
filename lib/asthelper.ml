@@ -551,7 +551,11 @@ end
 module Switch_case = struct
   type t = switch_case
   let variant_name = function
-  | SC_Enum_Identifier { variant } | SC_Enum_Identifier_Assoc { variant; assoc_ids = _} -> variant
+  | SC_Enum_Identifier { variant } | SC_Enum_Identifier_Assoc { variant; assoc_ids = _ } -> variant
+
+  let assoc_binding = function
+  | SC_Enum_Identifier _ -> []
+  | SC_Enum_Identifier_Assoc e -> e.assoc_ids
 
   let is_case_matched (variant, (assoc_types: ktype list)) (switch_case: t) = 
     match switch_case with
@@ -737,7 +741,20 @@ module Enum = struct
   )
   | t -> Error (Not_all_cases_handled t)
 
+  let extract_assoc_type_variant (generics) variant (enum_decl: t) = 
+    enum_decl.variants 
+    |> List.find_map (fun (case, assoc_type) -> if case = variant then Some assoc_type else None)
+    |> Option.map (fun assoc_ktypes -> 
+      assoc_ktypes |> List.map (fun kt -> generics |> List.assoc_opt kt |> Option.value ~default: kt)
+    )
 
+  let reduce_binded_variable (assoc_binded: string option list) (ktype_list: ktype list) = 
+    ktype_list
+    |> List.combine assoc_binded
+    |> List.filter_map (fun (name, ktypes) -> match name with | None -> None | Some s -> Some (s, ktypes))
+
+  let reduce_binded_variable_combine (assoc) = 
+    assoc |> List.filter_map (fun (name, (ktype: ktype)) -> match (name: string option) with | None -> None | Some s -> Some (s, ktype))
   end
 
 module Struct = struct
@@ -1051,6 +1068,9 @@ let string_of_switch_error = let open Ast.Error in let open Printf in function
   )
 | Variant_not_found { enum_decl; variant} -> sprintf "Variant_not_found %s in %s" (variant) (enum_decl.enum_name)
 | Mismatched_Assoc_length { variant; expected; found} -> sprintf "Mismatched_Assoc_length variant %s %s" variant (string_of_found_expected (`int(expected, found)))
+| Incompatible_Binding (lhs, rhs) -> sprintf "Incompatible_Binding between: \n  %s\n  %s" 
+ (lhs |> List.map string_of_ktype |> String.concat ", ")
+ (rhs |> List.map string_of_ktype |> String.concat ", ")
 
 
 let string_of_ast_error = let open Ast.Error in let open Printf in function
