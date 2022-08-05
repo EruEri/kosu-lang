@@ -295,7 +295,7 @@ expr:
             (* $4 |> Option.map (fun e -> (SExpression e)::[] ) *)
         )
     }
-    | SWITCH expr LBRACE nonempty_list(cases=separated_nonempty_list(COMMA, s_case) ARROWFUNC stmts=kbody { cases, stmts } ) 
+    | SWITCH delimited(LPARENT, expr, RPARENT) LBRACE nonempty_list(cases=separated_nonempty_list(COMMA, s_case) ARROWFUNC stmts=kbody { cases, stmts } ) 
         wildcard_case=option(WILDCARD ARROWFUNC d=kbody { d } ) RBRACE { 
         ESwitch {
             expression = $2;

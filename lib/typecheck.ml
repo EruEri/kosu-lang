@@ -462,7 +462,29 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       | `no_uminus_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.UMinus ; ktype = l_type}) |> operator_error |> raise
     )
 
-    | ESwitch {expression = _; cases = _; wildcard_case = _} -> failwith "Not implemented Yet ... "
+    | ESwitch {expression = expr; cases; wildcard_case} -> 
+      let variant_cases = cases |> List.map (fun (v, _) -> v) |> List.flatten in
+      let kbodys = cases |> List.map (fun (_, kb) -> kb) in
+      let expr_type = typeof env current_mod_name prog expr in
+      let (module_path, name) = expr_type |> Asthelper.module_path_of_ktype_opt |> (function | None -> Not_enum_type_in_switch_Expression (expr_type) |> switch_error |> raise | Some s -> s) in 
+      let enum_decl = 
+        match Asthelper.Program.find_type_decl_from_ktype module_path name current_mod_name prog with
+        | Type_Decl.Decl_Enum e -> e
+        | _ -> Not_enum_type_in_switch_Expression (expr_type) |> switch_error |> raise in
+
+      match wildcard_case with
+      | Some kbody -> kbodys 
+      |> List.map (typeof_kbody (env |> Env.push_context []) current_mod_name prog)
+      |> List.fold_left (fun acc new_type -> 
+        if not (Type.are_compatible_type acc new_type) then raise (ast_error (Uncompatible_type { expected = acc; found = new_type}))
+        else Type.restrict_type acc new_type
+      ) (typeof_kbody (env |> Env.push_context []) current_mod_name prog kbody)
+      | None -> (
+        match Asthelper.Enum.is_all_cases_handled variant_cases enum_decl with
+        | Error e -> e |> switch_error |> raise
+        | Ok _ -> failwith ""
+      )
+
 
 
 

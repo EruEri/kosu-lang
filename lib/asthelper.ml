@@ -26,6 +26,10 @@ let rec string_of_ktype = function
 | TUnknow -> "unknow"
 | TFloat -> "f64"
 
+let module_path_of_ktype_opt = function
+| TType_Identifier {module_path; name } | TParametric_identifier {module_path; parametrics_type = _; name} -> Some (module_path, name)
+| _ -> None
+
 module Module = struct
 
   let retrieve_enum_decl = function
@@ -123,7 +127,7 @@ module Program = struct
 
     (**
     Find type declaration from ktype
-    @raise Not_found : if no type declaration was found
+    @raise No_occuence : if no type declaration was found
     @raise Too_Many_Occurence: if several type declaration matching was found
     *)
     let find_type_decl_from_ktype ktype_def_path ktype_name current_module program = 
@@ -1032,7 +1036,7 @@ let string_of_operator_error = let open Ast.Error in let open Printf in let open
 | Invalid_Uminus_for_Unsigned_integer size -> sprintf "Invalid_Uminus_for_Unsigned_integer for u%s" (string_of_isize size)
 
 let string_of_switch_error = let open Ast.Error in let open Printf in function
-| Not_enum_type_in_switch_Expression -> "Not_enum_type_in_switch_Expression"
+| Not_enum_type_in_switch_Expression e -> sprintf "Not_enum_type_in_switch_Expression -- found : %s --" (string_of_ktype e)
 | Not_all_cases_handled missing_cases -> sprintf "Not_all_cases_handled : missing cases :\n  %s" 
   (missing_cases |> 
     List.map ( fun (variant, kts) -> sprintf "%s(%s)" variant ( kts |> List.map string_of_ktype |> String.concat ", ")) |> String.concat "\n  "
