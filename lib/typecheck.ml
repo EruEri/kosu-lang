@@ -15,7 +15,7 @@ let find_struct_decl_from_name (current_module_name: string) (prog : program) (m
 (**
   Return the type of the code block expression
   @raise Ast_error
-  @raise Not_found : if a type declartion wasn't found or a variant is not in enum variants
+  @raise No_Occurence : if a type declartion wasn't found or a variant is not in enum variants
   @raise Too_Many_Occurence: if several type declarations matching was found
 *)
 let rec typeof_kbody ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (program: program) ?(return_type = None) (kbody: kbody) = 

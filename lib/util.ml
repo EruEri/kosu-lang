@@ -17,7 +17,7 @@ module Occurence = struct
   | _ -> false
 
   let one = function
-  | Empty -> raise Not_found
+  | Empty -> raise No_Occurence
   | Multiple _ -> raise Too_Many_Occurence
   | One f -> f 
 

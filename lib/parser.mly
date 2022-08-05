@@ -318,12 +318,6 @@ s_case:
             assoc_ids = $3
         }
     }
-    | IDENT {
-        SC_Identifier $1
-    }
-    | Integer_lit {
-        SC_Integer_Literal $1
-    }
 
 ctype:
     | modules_path=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT { 

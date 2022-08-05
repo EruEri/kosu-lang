@@ -528,8 +528,6 @@ module Statement = struct
   | UMinus expr -> sprintf "-(%s)" (string_of_kexpression expr)
   | UNot expr -> sprintf "!(%s)" (string_of_kexpression expr)
   and string_of_switch_case = function
-  | SC_Identifier s -> s
-  | SC_Integer_Literal (sign, size, value) -> string_of_kexpression (EInteger (sign, size, value))
   | SC_Enum_Identifier { variant } -> "."^variant
   | SC_Enum_Identifier_Assoc { variant; assoc_ids } -> 
     sprintf "%s(%s)"
@@ -544,7 +542,19 @@ module Statement = struct
 
     let is_arithmetic bin = bin |> is_boolean |> not
   end
-end 
+end
+
+module Switch_case = struct
+  type t = switch_case
+
+  let is_case_matched (variant, (assoc_types: ktype list)) (switch_case: t) = 
+    match switch_case with
+    | SC_Enum_Identifier { variant = matched_variant } -> matched_variant = variant && assoc_types |> List.length = 0
+    | SC_Enum_Identifier_Assoc { variant = matched_variant; assoc_ids} -> matched_variant = variant && Util.are_same_lenght assoc_ids assoc_types
+
+  let is_cases_matched (variant) (switch_cases: t list) = 
+    switch_cases |> List.exists (is_case_matched variant)
+end
 module Enum = struct
   type t = enum_decl
 
@@ -690,7 +700,34 @@ module Enum = struct
   let is_tagged_union (enum_decl: t) = 
     enum_decl.variants |> List.exists (fun (_, assoc_type) -> assoc_type <> [] )
   let contains_generics (enum_decl: t) = enum_decl.generics <> []
-end
+
+  let is_valid_case_match (switch_case: switch_case) (enum_decl: t) = let open Ast.Error in
+    let (>>=) = Result.bind in
+    let variant, given_len = match switch_case with
+    | SC_Enum_Identifier {variant} -> variant, 0
+    | SC_Enum_Identifier_Assoc { variant; assoc_ids } -> variant, (assoc_ids |> List.length) in
+    enum_decl.variants 
+    |> List.find_map (fun (variant_enum, assoc_types) -> if variant = variant_enum then Some (variant, assoc_types) else None)
+    |> Option.to_result ~none:(Variant_not_found {enum_decl; variant})
+    >>= (fun (_, assoc_types) -> 
+      let assoc_len = assoc_types |> List.length in 
+      if assoc_len = given_len then Ok () else Error (Mismatched_Assoc_length { variant; expected = assoc_len ; found = given_len })
+    )
+
+  let is_all_cases_handled (switch_cases: switch_case list) (enum_decl: t) = let open Ast.Error in
+  let _, missing = enum_decl.variants 
+    |> List.partition_map (fun enum_variant -> 
+      if Switch_case.is_cases_matched enum_variant switch_cases then Either.left enum_variant
+      else Either.right enum_variant) in
+
+  match missing with
+  | [] -> (
+    switch_cases |> List.fold_left (fun acc sc -> if acc |> Result.is_error then acc else is_valid_case_match sc enum_decl) (Result.ok ())
+  )
+  | t -> Error (Not_all_cases_handled t)
+
+
+  end
 
 module Struct = struct
   type t = struct_decl
@@ -990,9 +1027,18 @@ let string_of_operator_error = let open Ast.Error in let open Printf in let open
 | Incompatible_Type record -> sprintf "Incompatible_Type for \" %s \" -- lhs = %s : rhs = %s" (record.bin_op |> name_of_operator) (record.lhs |> string_of_ktype) (record.rhs |> string_of_ktype)
 | Operator_not_found record -> sprintf "No operator \" %s \" for -- %s --" (name_of_operator record.bin_op ) (record.ktype |> string_of_ktype)
 | Too_many_operator_declaration record -> sprintf "Too many \" %s \" declaration for %s " (name_of_operator record.bin_op ) (record.ktype |> string_of_ktype)
-| Not_Boolean_operand_in_And -> sprintf "Not_Boolean_operand_in_And"
-| Not_Boolean_operand_in_Or -> sprintf "Not_Boolean_operand_in_Or"
+| Not_Boolean_operand_in_And -> "Not_Boolean_operand_in_And"
+| Not_Boolean_operand_in_Or -> "Not_Boolean_operand_in_Or"
 | Invalid_Uminus_for_Unsigned_integer size -> sprintf "Invalid_Uminus_for_Unsigned_integer for u%s" (string_of_isize size)
+
+let string_of_switch_error = let open Ast.Error in let open Printf in function
+| Not_enum_type_in_switch_Expression -> "Not_enum_type_in_switch_Expression"
+| Not_all_cases_handled missing_cases -> sprintf "Not_all_cases_handled : missing cases :\n  %s" 
+  (missing_cases |> 
+    List.map ( fun (variant, kts) -> sprintf "%s(%s)" variant ( kts |> List.map string_of_ktype |> String.concat ", ")) |> String.concat "\n  "
+  )
+| Variant_not_found { enum_decl; variant} -> sprintf "Variant_not_found %s in %s" (variant) (enum_decl.enum_name)
+| Mismatched_Assoc_length { variant; expected; found} -> sprintf "Mismatched_Assoc_length variant %s %s" variant (string_of_found_expected (`int(expected, found)))
 
 
 let string_of_ast_error = let open Ast.Error in let open Printf in function
@@ -1006,6 +1052,7 @@ let string_of_ast_error = let open Ast.Error in let open Printf in function
 | Statement_Error e -> string_of_statement_error e
 | Func_Error e -> string_of_function_error e
 | Operator_Error e -> string_of_operator_error e
+| Switch_error e -> string_of_switch_error e
 | Uncompatible_type e -> sprintf "Uncompatible_type %s" (string_of_found_expected (`ktype(e.expected, e.found)))
 | Uncompatible_type_If_Else e -> sprintf "Uncompatible_type_If_Else %s" (string_of_found_expected (`ktype(e.if_type, e.else_type)))
 | Not_Boolean_Type_Condition e -> sprintf "Not_Boolean_Type_Condition -- found : %s : expected : bool --" (string_of_ktype e.found)

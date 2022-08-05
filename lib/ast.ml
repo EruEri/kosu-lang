@@ -2,8 +2,6 @@ type signedness = Signed | Unsigned;;
 type isize = I8 | I16 | I32 | I64;;
 
 type switch_case =
-| SC_Identifier of string
-| SC_Integer_Literal of (signedness * isize * int64)
 | SC_Enum_Identifier of {
   variant: string
 }
@@ -274,6 +272,12 @@ module Error = struct
   | Not_Boolean_operand_in_Or
   | Invalid_Uminus_for_Unsigned_integer of isize
 
+  type switch_error =
+  | Not_enum_type_in_switch_Expression
+  | Not_all_cases_handled of (string* (ktype list)) list
+  | Variant_not_found of {enum_decl: enum_decl; variant: string}
+  | Mismatched_Assoc_length of { variant: string; expected: int; found: int}
+
 
   type ast_error = 
     | Bin_operator_Different_type
@@ -286,6 +290,7 @@ module Error = struct
     | Statement_Error of statement_error
     | Func_Error of func_error
     | Operator_Error of operator_error
+    | Switch_error of switch_error
     | Uncompatible_type of { expected: ktype; found : ktype }
     | Uncompatible_type_If_Else of { if_type: ktype; else_type: ktype }
     | Not_Boolean_Type_Condition of { found: ktype }
@@ -300,6 +305,7 @@ module Error = struct
   let stmt_error e = ast_error (Statement_Error e)
   let func_error e = ast_error (Func_Error e)
   let operator_error e = ast_error (Operator_Error e)
+  let switch_error e = ast_error (Switch_error e)
 end
 
 module Type = struct
