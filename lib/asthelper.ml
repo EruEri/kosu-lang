@@ -583,14 +583,6 @@ module Enum = struct
     (enum_decl.enum_name)
     (enum_decl.variants |> List.map string_of_enum_variant |> String.concat ", ")
 
-  let rec is_assoc_type_contains_generic (ktype: ktype) (enum_decl: t) = 
-    enum_decl.generics |> List.exists (fun g -> match ktype with
-    | TType_Identifier { module_path; name } -> module_path = "" && name = g
-    | TParametric_identifier { module_path = _ ; parametrics_type; name = _ } -> parametrics_type |> List.exists (fun kt -> is_assoc_type_contains_generic kt enum_decl)
-    | TPointer kt -> is_assoc_type_contains_generic kt enum_decl
-    | TTuple kts -> kts |> List.exists (fun kt -> is_assoc_type_contains_generic kt enum_decl)
-    | _ -> false
-    )
   let rec are_type_compatible (init_type: ktype) (expected_type: ktype) (enum_decl: t) = 
     (* let () = Printf.printf "expected : %s :: found : %s\n" (string_of_ktype expected_type) (string_of_ktype init_type) in *)
     match init_type, expected_type with
@@ -608,27 +600,6 @@ module Enum = struct
     | TUnknow, _ -> true
     | _ , TType_Identifier { module_path; name } when module_path = "" && enum_decl.generics |> List.mem name ->  true
     | lhs, rhs -> lhs = rhs
-
-  let rec bind_generic_ktype generic_name new_type expected_type (enum_decl: t) = 
-    match expected_type with
-    | TType_Identifier { module_path; name } -> if module_path = "" && generic_name = name && enum_decl.generics |> List.mem generic_name then new_type else expected_type
-    | TParametric_identifier { module_path; parametrics_type; name } -> TParametric_identifier {
-      module_path;
-      parametrics_type = parametrics_type |> List.map (fun kt -> bind_generic_ktype generic_name new_type kt enum_decl);
-      name
-    }
-    | _ as t -> t
-
-  let bind_single_generic (generic_name) (new_type) (enum_decl: t) = 
-    {
-      enum_name = enum_decl.enum_name;
-      generics = enum_decl.generics |> List.filter ((<>) generic_name);
-      variants = enum_decl.variants |> List.map (fun (variant, assoc_type) -> 
-        (variant, 
-        assoc_type |> List.map (fun kt -> bind_generic_ktype generic_name new_type kt enum_decl)
-        )
-      )
-    }
 
     let rec is_type_compatible_hashgen (generic_table) (init_type: ktype) (expected_type: ktype) (enum_decl: t) = 
       match init_type, expected_type with
@@ -662,49 +633,7 @@ module Enum = struct
           generics |> Hashtbl.to_seq |> List.of_seq |> List.sort ( fun ( _, (i, _)) ( _, (b, _)) -> compare i b) |> List.map (fun ( _, (_, kt)) -> kt)
         );
         name = enum_decl.enum_name
-      }
-
-  let rec find_generic_name_from_ktype ~generics_result ktype (enum_decl: t) =
-    match ktype with
-    | TType_Identifier { module_path; name } -> if module_path = "" && enum_decl.generics |> List.mem name then name::generics_result else generics_result
-    | TParametric_identifier { module_path = _; parametrics_type; name = _ } -> 
-      parametrics_type 
-      |> List.map (fun kt -> find_generic_name_from_ktype ~generics_result kt enum_decl)
-      |> List.concat
-      |> List.fold_left (fun acc value -> if acc |> List.mem value then acc else value::acc) []
-    | _ -> generics_result
-
-  (**
-    Returns the generic name for the associated type of an variant at a given position
-    Returns [None] if [variant_name] not in the list of enum variant or [assoc_position > lenght of variant assoc type] or type found isn't generic
-  *)
-  let find_generic_name_from_positon ~assoc_position (variant_name: string) (enum_decl: t) = 
-    enum_decl.variants
-    |> List.find_map (fun (v, assoc_types) -> if v = variant_name then Some assoc_types else None)
-    |> function
-    | None -> None
-    | Some assoc_types -> assoc_position |> List.nth_opt assoc_types
-    |> function
-    | None -> None
-    | Some kt -> Some (find_generic_name_from_ktype ~generics_result:[] kt enum_decl) 
-  
-  let rec infer_generics ~assoc_position (variant_zipped: (ktype * ktype) list) (generics: (ktype * bool) list) enum_decl = 
-    match variant_zipped with
-    | [] -> generics
-    | (init_ktype, expected_ktype)::q -> 
-      if is_assoc_type_contains_generic expected_ktype enum_decl then 
-        if are_type_compatible init_ktype expected_ktype enum_decl then
-        enum_decl
-        |> infer_generics ~assoc_position:(assoc_position + 1) q ( generics |> List.map (fun (kt, true_type) -> 
-          match kt with
-          | TType_Identifier { module_path = _; name } -> if enum_decl.generics |> List.mem name && not true_type
-            then (bind_generic_ktype name init_ktype expected_ktype enum_decl, true) 
-            else (kt, true_type)
-          | _ -> raise (Failure "Generics cannot have a different type than TIdentifier" )
-          ))
-        else failwith ""
-      else
-      infer_generics ~assoc_position:(assoc_position + 1) q generics enum_decl
+      }  
 
   let is_valide_assoc_type_init ~init_types ~expected_types enum_decl = 
     Util.are_same_lenght init_types expected_types 
