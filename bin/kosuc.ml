@@ -18,8 +18,13 @@ let () =
   let modules_opt = Kosu_lang.Cli.files_to_ast_program _files in
 
   match modules_opt with
-  | Error e -> (match e with No_input_file -> raise (Invalid_argument "no Input file") | Cli.File_error (s, exn) -> Printf.printf "%s\n" (s); raise exn)
+  | Error e -> (match e with 
+    | No_input_file -> raise (Invalid_argument "no Input file") 
+    | Cli.File_error (s, exn)  -> Printf.printf "%s\n" (s); raise exn
+    | Cli.Filename_error _ -> raise (Invalid_argument "Filename Error")
+    )
   | Ok modules -> 
+    let () = modules |> List.iter (fun record -> Printf.printf "module name : %s\n" record.path) in
     let { path; _module } = modules |> List.hd in
     let main =  _module 
     |> Kosu_lang.Asthelper.Module.retrieve_func_decl 
