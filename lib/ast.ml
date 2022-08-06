@@ -350,6 +350,7 @@ module Type = struct
         n1 = n2 && mp1 = mp2 && (pt1 |> Util.are_same_lenght pt2) && (List.for_all2 are_compatible_type pt1 pt2)
     | TUnknow, _ | _ , TUnknow -> true
     | TPointer _, TPointer TUnknow -> true
+    | TPointer TUnknow, TPointer _ -> true
     | _, _ -> lhs =  rhs
 
   let rec remap_generic_ktype (generics_table) (ktype) = 

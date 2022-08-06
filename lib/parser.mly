@@ -338,6 +338,7 @@ ctype:
         | "unit" -> TUnit
         | "bool" -> TBool
         | "stringl" -> TString_lit
+        | "anyptr" -> TPointer (TUnknow)
         | "s8" -> TInteger( Signed, I8)
         | "u8" -> TInteger( Unsigned, I8)
         | "s16" -> TInteger( Signed, I16)
