@@ -813,8 +813,6 @@ module Function = struct
     (function_decl.return_type |> string_of_ktype)
     (function_decl.body |> Statement.string_of_kbody)
 
-
-
   let rec is_ktype_generic ktype (fn_decl: t) = 
     match ktype with
     | TParametric_identifier { module_path = _; parametrics_type ; name = _ } -> parametrics_type |> List.exists (fun kt -> is_ktype_generic kt fn_decl)
@@ -833,19 +831,6 @@ module Function = struct
       if function_decl.generics = [] then false
       else if function_decl.parameters |> List.length = 0 then true
       else function_decl |> is_ktype_generic_level_zero function_decl.return_type
-
-  (**
-    @return true if parameter contains generics, false if not and None if paramater name doesn't exist
-  *)
-  let is_parameter_generic (para_name: string) (fn_decl: t) = 
-    fn_decl.parameters
-    |> List.assoc_opt para_name
-    |> Option.map ( fun kt -> is_ktype_generic kt fn_decl)
-
-  let is_no_nested_generic ktype (fn_decl: t) = 
-    match ktype with
-    | TType_Identifier { module_path = _; name } -> fn_decl.generics |> List.mem name
-    | _ -> false
 
   let rec is_type_compatible_hashgen (generic_table) (init_type: ktype) (expected_type: ktype) (function_decl: t) = 
     match init_type, expected_type with
@@ -871,21 +856,10 @@ module Function = struct
     | TTuple lhs, TTuple rhs -> Util.are_same_lenght lhs rhs && List.for_all2 (fun lkt rkt -> is_type_compatible_hashgen generic_table lkt rkt function_decl) lhs rhs
     | lhs, rhs -> lhs = rhs
 
-
-
-    let to_return_ktype_hashtab (generic_table) (function_decl: t) = 
-      if function_decl.generics = [] || function_decl |> is_ktype_generic function_decl.return_type |> not then function_decl.return_type
-      else Ast.Type.remap_generic_ktype generic_table
-       function_decl.return_type
-
-  let rec are_ktypes_compatible ~para_type ~init_type (fn_decl: t) =
-    if is_no_nested_generic para_type fn_decl then true 
-    else match para_type, init_type with 
-    | TType_Identifier {module_path = l_module_path; name = lname}, TType_Identifier {module_path = r_module_path; name = r_name} -> l_module_path = r_module_path && lname = r_name
-    | TParametric_identifier { module_path = lmp; parametrics_type = lpt ; name = ln }, TParametric_identifier { module_path = rmp ; parametrics_type = rpt; name = rn } -> 
-      rn = ln && lmp = rmp && (Util.are_same_lenght lpt rpt) && (List.combine lpt rpt |> List.for_all (fun (l, r) -> are_ktypes_compatible ~para_type: l ~init_type: r fn_decl))
-    | lhs, rhs -> lhs = rhs
-
+  let to_return_ktype_hashtab (generic_table) (function_decl: t) = 
+    if function_decl.generics = [] || function_decl |> is_ktype_generic function_decl.return_type |> not then function_decl.return_type
+    else Ast.Type.remap_generic_ktype generic_table
+      function_decl.return_type
 
   let iter_statement fn (function_decl: t) = let statements, _  = function_decl.body in statements |> List.iter fn
 end
