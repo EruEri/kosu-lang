@@ -8,9 +8,9 @@
     exception Unclosed_string
     exception Unclosed_comment
 
-    let keywords = Hashtbl.create 17
+    let keywords = Hashtbl.create 19
     let _ = ["cases", CASES; "const", CONST; "enum", ENUM; "external", EXTERNAL; "empty", EMPTY; "sig", SIG; "discard", DISCARD ; "else", ELSE; "fn", FUNCTION; 
-    "for", FOR; "false", FALSE; "nullptr", NULLPTR ;"struct", STRUCT; "of", OF; "true", TRUE; "switch", SWITCH; "sizeof", SIZEOF; "if", IF; 
+    "for", FOR; "false", FALSE; "nullptr", NULLPTR ;"struct", STRUCT; "syscall", SYSCALL ;"of", OF; "true", TRUE; "switch", SWITCH; "sizeof", SIZEOF; "if", IF; 
      "var", VAR; 
     ] |> List.iter (fun (s,t) -> Hashtbl.add keywords s t)
 }

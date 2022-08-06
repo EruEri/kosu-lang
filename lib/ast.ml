@@ -141,6 +141,13 @@ type function_decl = {
   body: kbody;
 }
 
+type syscall_decl = {
+  syscall_name: string;
+  parameters: (string * ktype) list;
+  return_type: ktype;
+  opcode: int64
+}
+
 type external_func_decl = {
   sig_name: string;
   fn_parameters: ktype list;
@@ -165,6 +172,7 @@ type sig_decl = {
 type module_node = 
 | NExternFunc of external_func_decl
 | NFunction of function_decl
+| NSyscall of syscall_decl
 | NSigFun of sig_decl
 | NStruct of struct_decl
 | NEnum of enum_decl
