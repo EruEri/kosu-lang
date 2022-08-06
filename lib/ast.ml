@@ -298,6 +298,7 @@ module Error = struct
     | Uncompatible_type_If_Else of { if_type: ktype; else_type: ktype }
     | Not_Boolean_Type_Condition of { found: ktype }
     | Impossible_field_Access of ktype
+    | Enum_Access_field of {field: string; enum_decl: enum_decl}
     | Unvalid_Deference
   
   exception Ast_error of ast_error
@@ -316,7 +317,7 @@ module Type = struct
   let rec is_type_full_known ktype = 
     match ktype with
     | TUnknow -> false
-    | TParametric_identifier { module_path = _; parametrics_type = kts; name = _ } | TTuple (kts)  -> kts |> List.for_all (is_type_full_known)
+    | TParametric_identifier { module_path = _; parametrics_type = kts; name = _ } | TTuple (kts) -> kts |> List.for_all (is_type_full_known)
     | TPointer kt -> is_type_full_known kt
     | _ -> true
 
@@ -324,6 +325,14 @@ module Type = struct
     match ktype with
     | TParametric_identifier {module_path = _; parametrics_type; name = _ } -> parametrics_type
     | _ -> []
+
+  let type_name_opt = function
+  | TType_Identifier {module_path = _ ; name} | TParametric_identifier {module_path = _; parametrics_type = _; name} -> Some name
+  | _ -> None
+
+  let module_path_opt = function
+  | TType_Identifier {module_path; name = _ } | TParametric_identifier {module_path; parametrics_type = _; name = _} -> Some module_path
+  | _ -> None
 
   let rec are_compatible_type (lhs: ktype) (rhs: ktype) = 
     match lhs, rhs with

@@ -130,7 +130,7 @@ module Program = struct
     @raise No_occuence : if no type declaration was found
     @raise Too_Many_Occurence: if several type declaration matching was found
     *)
-    let find_type_decl_from_ktype ktype_def_path ktype_name current_module program = 
+    let find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program = 
       find_module_of_ktype ktype_def_path current_module program
       |> Util.Occurence.one 
       |> fun m -> m._module
@@ -160,7 +160,7 @@ module Program = struct
           | TParametric_identifier _ -> false
           | TType_Identifier { module_path; name } -> begin
             try 
-              let type_decl =  (find_type_decl_from_ktype module_path name current_mod_name program) in 
+              let type_decl =  (find_type_decl_from_ktype ~ktype_def_path:module_path ~ktype_name:name ~current_module:current_mod_name program) in 
               is_c_type current_mod_name type_decl program
             with _ -> false
           end
@@ -174,7 +174,7 @@ module Program = struct
       | TParametric_identifier _ -> false
       | TType_Identifier { module_path; name } -> begin
         try 
-          let type_decl =  (find_type_decl_from_ktype module_path name current_mod_name program) in 
+          let type_decl = find_type_decl_from_ktype ~ktype_def_path:module_path ~ktype_name:name ~current_module:current_mod_name program in 
           is_c_type current_mod_name type_decl program
         with _ -> false
       end
@@ -803,8 +803,64 @@ module Struct = struct
       | _ -> raise (Ast.Error.ast_error (Impossible_field_Access ktype))
     end
 
-  
-  
+    let rec is_type_generic ktype (struct_decl: t) = 
+      match ktype with
+      | TType_Identifier { module_path = ""; name} ->  struct_decl.generics |> List.mem name
+      | TParametric_identifier { module_path = _; parametrics_type ; name = _ } -> parametrics_type |> List.exists ( fun kt -> is_type_generic kt struct_decl)
+      | TPointer kt -> is_type_generic kt struct_decl
+      | TTuple kts -> kts |> List.exists ( fun kt -> is_type_generic kt struct_decl)
+      | _ -> false
+
+    let to_ktype module_def_path (struct_decl: t) = 
+      if not (struct_decl |> contains_generics) then TType_Identifier { module_path = module_def_path; name = struct_decl.struct_name }
+      else begin
+      TParametric_identifier {
+        module_path = module_def_path;
+        parametrics_type = struct_decl.generics |> List.map (fun _ -> TUnknow);
+        name = struct_decl.struct_name
+      }
+      end
+
+  let ktype_of_field_gen (parametrics_types: ktype list) (field: string) (struct_decl: t) =
+    let list_len = parametrics_types |> List.length in
+    let dummy_list = List.init list_len (fun _ -> ()) in
+    let dummy_parametrics = List.combine dummy_list parametrics_types in
+    let generics_mapped = List.combine struct_decl.generics dummy_parametrics in 
+    let hashtbl = Hashtbl.of_seq (generics_mapped |> List.to_seq) in
+    struct_decl.fields 
+    |> List.assoc_opt field
+    |> Option.map (fun kt -> 
+        if not (is_type_generic kt struct_decl) then kt 
+        else Type.remap_generic_ktype hashtbl kt
+      )
+
+  let rec resolve_fields_access_gen (parametrics_types: ktype list) (fields: string list) (type_decl: Ast.Type_Decl.type_decl) (current_mod_name: string) (program: program) = let open Ast.Type_Decl in let open Ast.Error in
+    match fields with
+    | [] -> failwith "Unreachable: Empty field access"
+    | t::[] -> (
+      match type_decl  with
+      | Decl_Enum enum_decl -> (Enum_Access_field {field = t; enum_decl}) |> ast_error |> raise
+      | Decl_Struct struct_decl -> begin 
+          match ktype_of_field_gen parametrics_types t struct_decl with
+          | None -> (Impossible_field_Access (to_ktype current_mod_name struct_decl)) |> ast_error |> raise
+          | Some kt -> kt
+        end
+    )
+    | t::q -> ( 
+      match type_decl  with
+    | Decl_Enum enum_decl -> (Enum_Access_field {field = t; enum_decl}) |> ast_error |> raise
+    | Decl_Struct struct_decl -> begin 
+        match ktype_of_field_gen parametrics_types t struct_decl with
+        | None -> (Impossible_field_Access (to_ktype current_mod_name struct_decl)) |> ast_error |> raise
+        | Some kt -> (
+          let parametrics_types_two = Type.extract_parametrics_ktype kt in
+          let ktype_def_path = Type.module_path_opt kt |> Option.get in
+          let ktype_name = Type.type_name_opt kt |> Option.get in
+          let type_decl_two = Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module:current_mod_name program in
+          resolve_fields_access_gen parametrics_types_two q type_decl_two current_mod_name program
+        )
+      end
+    )
 
   let find_field_type_opt (field: string) (struct_decl: t) = struct_decl.fields |> List.assoc_opt field
 
@@ -824,11 +880,7 @@ module Struct = struct
       }
     end
     | t -> t
-  let rec is_type_generic ktype (struct_decl: t) = 
-    match ktype with
-    | TType_Identifier { module_path ; name} ->  module_path = "" && struct_decl.generics |> List.mem name
-    | TParametric_identifier { module_path = _; parametrics_type ; name = _ } -> parametrics_type |> List.exists ( fun kt -> is_type_generic kt struct_decl)
-    | _ -> false
+
   let is_field_generic_opt field (struct_decl : t) =
     struct_decl.fields |> List.assoc_opt field |> Option.map ( fun kt -> is_type_generic kt struct_decl)
 
@@ -891,15 +943,6 @@ module Struct = struct
     | _ -> None
   let retrieve_generic_name_from_field_opt (field: string) (struct_decl: t) =
     match struct_decl.fields |> List.assoc_opt field with None -> None | Some kt -> find_generic_name_from_ktype kt struct_decl
-  let to_ktype module_def_path (struct_decl: t) = 
-    if not (struct_decl |> contains_generics) then TType_Identifier { module_path = module_def_path; name = struct_decl.struct_name }
-    else begin
-    TParametric_identifier {
-      module_path = module_def_path;
-      parametrics_type = struct_decl.generics |> List.map (fun _ -> TUnknow);
-      name = struct_decl.struct_name
-    }
-    end
   let rec is_cyclic_aux ktype_to_test module_def_path (struct_decl: t) =
     match ktype_to_test with
     | TType_Identifier _ as tti -> tti = (struct_decl |> to_ktype module_def_path)
@@ -951,10 +994,18 @@ module Function = struct
     | TType_Identifier { module_path = "" ; name } -> fn_decl.generics |> List.mem name
     | _ -> false
 
+  (**
+    @return true if the generics is the immediat type and not nested into a parametric type
+  *)
+  let is_ktype_generic_level_zero ktype (fn_decl: t) = 
+    match ktype with
+    | TType_Identifier { module_path = "" ; name } -> fn_decl.generics |> List.mem name
+    | _ -> false
+
     let does_need_generic_resolver (function_decl : t) = 
       if function_decl.generics = [] then false
       else if function_decl.parameters |> List.length = 0 then true
-      else function_decl |> is_ktype_generic function_decl.return_type
+      else function_decl |> is_ktype_generic_level_zero function_decl.return_type
 
   (**
     @return true if parameter contains generics, false if not and None if paramater name doesn't exist
@@ -1090,4 +1141,5 @@ let string_of_ast_error = let open Ast.Error in let open Printf in function
 | Uncompatible_type_If_Else e -> sprintf "Uncompatible_type_If_Else %s" (string_of_found_expected (`ktype(e.if_type, e.else_type)))
 | Not_Boolean_Type_Condition e -> sprintf "Not_Boolean_Type_Condition -- found : %s : expected : bool --" (string_of_ktype e.found)
 | Impossible_field_Access e -> sprintf "Impossible_field_Access : %s" (string_of_ktype e)
+| Enum_Access_field record -> sprintf "Enum doesn't have field : %s for enum : %s" record.field (record.enum_decl.enum_name)
 | Unvalid_Deference -> sprintf "Unvalid_Deference"

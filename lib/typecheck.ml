@@ -66,7 +66,7 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       match ktype with
       | TParametric_identifier { module_path; parametrics_type = _ ; name} | TType_Identifier { module_path; name } -> (
         try 
-        ignore (Asthelper.Program.find_type_decl_from_ktype module_path name current_mod_name prog)
+        ignore (Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path:module_path ~ktype_name:name ~current_module:current_mod_name prog)
       with e -> begin 
         match generics_resolver with
         | None -> raise e
@@ -106,7 +106,14 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       |> List.find_map (fun c -> if c.const_name = identifier then Some c.explicit_type else None)
       |> (function | None -> (raise (ast_error (Unbound_Module modules_path))) | Some s -> s)
     end
-  | EFieldAcces { first_expr; fields } -> Asthelper.Struct.resolve_fields_access current_mod_name prog fields (typeof env current_mod_name prog first_expr)
+  | EFieldAcces { first_expr; fields } -> (
+    let first_type = typeof env current_mod_name prog first_expr in
+    let parametrics_types = Type.extract_parametrics_ktype first_type in
+    let ktype_def_path = Type.module_path_opt first_type |> Option.get in
+    let ktype_name = Type.type_name_opt first_type |> Option.get in
+    let type_decl = Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module:current_mod_name prog in
+    Asthelper.Struct.resolve_fields_access_gen parametrics_types fields type_decl current_mod_name prog
+  )
   | EStruct { modules_path; struct_name; fields } -> begin
    
     let struct_decl = match Asthelper.Program.find_struct_decl_opt current_mod_name modules_path struct_name prog with
@@ -467,7 +474,7 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       let expr_type = typeof env current_mod_name prog expr in
       let (module_path, name) = expr_type |> Asthelper.module_path_of_ktype_opt |> (function | None -> Not_enum_type_in_switch_Expression (expr_type) |> switch_error |> raise | Some s -> s) in 
       let enum_decl = 
-        match Asthelper.Program.find_type_decl_from_ktype module_path name current_mod_name prog with
+        match Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path:module_path ~ktype_name:name ~current_module:current_mod_name prog with
         | Type_Decl.Decl_Enum e -> e
         | _ -> Not_enum_type_in_switch_Expression (expr_type) |> switch_error |> raise in
 
