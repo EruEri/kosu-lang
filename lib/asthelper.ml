@@ -896,7 +896,7 @@ let string_of_statement_error = let open Ast.Error in let open Printf in functio
 
 let string_of_function_error = let open Ast.Error in let open Printf in function
 | Unmatched_Parameters_length record -> sprintf "Unmatched_Parameters_length %s " (string_of_found_expected (`int(record.expected, record.found)))
-| Unmatched_Generics_Resolver_length record -> sprintf "Unmatched_Generics_Resolver_length : %s" (string_of_found_expected (`int(record.expected, record.expected)) )
+| Unmatched_Generics_Resolver_length record -> sprintf "Unmatched_Generics_Resolver_length : %s" (string_of_found_expected (`int(record.expected, record.found)) )
 | Uncompatible_type_for_C_Function recod -> sprintf "Uncompatible_type_for_C_Function for %s " (ExternalFunc.string_of_external_func_decl recod.external_func_decl)
 | Mismatched_Parameters_Type record -> sprintf "Mismatched_Parameters_Type : %s" (string_of_found_expected (`ktype(record.expected, record.found)))
 | Unknow_Function_Error -> "Unknow_Function_Error"
