@@ -31,7 +31,3 @@ module ListHelper = struct
 
   let index_of f = index_of_aux f 0
 end
-
-module OperatorHelper = struct
-  let (>>=) = Option.bind
-end
