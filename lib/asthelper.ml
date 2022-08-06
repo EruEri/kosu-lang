@@ -537,15 +537,6 @@ module Statement = struct
     sprintf "%s(%s)"
     variant
     (assoc_ids |> List.map (Option.value ~default: "_") |> String.concat "," )
-
-  module BinOp = struct
-    type t = kbin_op
-    let is_boolean = function
-    | BAnd _  | BOr _ | BInf _ | BInfEq _ | BSup _ | BSupEq _ | BEqual _ | BDif _ -> true
-    | _ -> false
-
-    let is_arithmetic bin = bin |> is_boolean |> not
-  end
 end
 
 module Switch_case = struct
@@ -689,48 +680,12 @@ module Enum = struct
 module Struct = struct
   type t = struct_decl
 
-  let find_struct_decl_from_name (current_module_name: string) (prog : program) (module_path: string) (struct_name: string) = 
-    let structs_opt = (if module_path = "" then Some (prog |> Program.module_of_string current_module_name) else prog |> Program.module_of_string_opt current_module_name)
-    |> Option.map Module.retrieve_struct_decl in
-    
-    match structs_opt with
-    | None -> Error (Ast.Error.Unbound_Module module_path)
-    | Some structs ->
-      structs |> List.find_opt (fun s -> s.struct_name = struct_name) |> Option.to_result ~none:(Ast.Error.Undefined_Struct struct_name)
-  ;;
-
   let string_of_struct_decl (struct_decl: t) = 
     sprintf "struct (%s) %s := { %s }" 
     (struct_decl.generics |> String.concat ", ")
     (struct_decl.struct_name)
     (struct_decl.fields |> List.map (fun (field, t) -> sprintf "%s : %s" (field) (string_of_ktype t)) |> String.concat ", " )
   let contains_generics (struct_decl: t) = struct_decl.generics <> []
-
-  (**
-  @raise Type_Error: 
-  @raise Not_found: raised if field or struct declaration not found
-  *)
-  let rec resolve_fields_access (current_mod_name: string) (program: program) (fields: string list) (ktype: ktype) = 
-    match fields with
-    | [] -> failwith "Not supposed to be reached"
-    | t::[] -> begin 
-      match ktype with
-      | TType_Identifier { module_path; name } -> (
-        match find_struct_decl_from_name current_mod_name program module_path name with
-        | Error e -> e |> Error.ast_error |> raise
-        | Ok _struct -> _struct.fields |> List.assoc t
-        )
-      | _ -> raise (Ast.Error.ast_error (Impossible_field_Access ktype))
-    end
-    | t::q -> begin 
-      match ktype with
-      | TType_Identifier { module_path; name } ->  begin
-        match find_struct_decl_from_name current_mod_name program module_path name with
-        | Error e -> e |> Error.ast_error |> raise
-        | Ok _struct -> resolve_fields_access current_mod_name program q (_struct.fields |> List.assoc t)
-      end
-      | _ -> raise (Ast.Error.ast_error (Impossible_field_Access ktype))
-    end
 
     let rec is_type_generic ktype (struct_decl: t) = 
       match ktype with
@@ -791,40 +746,6 @@ module Struct = struct
       end
     )
 
-  let find_field_type_opt (field: string) (struct_decl: t) = struct_decl.fields |> List.assoc_opt field
-
-  (** 
-  @raise Not_found    
-  *)
-  let find_field_type (field: string) (struct_decl: t) = struct_decl.fields |> List.assoc field
-
-  let rec resolve_single_generics (generic_name: string) (mapped_type: ktype) (expected_type: ktype) =
-    match expected_type with
-    | TType_Identifier { module_path = _ ; name} -> if name = generic_name then mapped_type else expected_type
-    | TParametric_identifier { module_path; parametrics_type; name } -> begin 
-      TParametric_identifier { 
-        module_path; 
-        parametrics_type = parametrics_type |> List.map (resolve_single_generics generic_name mapped_type); 
-        name 
-      }
-    end
-    | t -> t
-
-  let is_field_generic_opt field (struct_decl : t) =
-    struct_decl.fields |> List.assoc_opt field |> Option.map ( fun kt -> is_type_generic kt struct_decl)
-
-  (**
-  @raise Not_found 
-  *)
-  let is_field_generic field (struct_decl : t) =
-    struct_decl.fields |> List.assoc field |> fun kt -> is_type_generic kt struct_decl
-  let bind_generic (generic_name) (new_type: ktype) (struct_decl: t) = 
-    {
-      struct_name = struct_decl.struct_name;
-      generics = struct_decl.generics |> List.filter ( (<>) generic_name ) ;
-      fields = struct_decl.fields |> List.map ( fun (f,t) -> (f, resolve_single_generics generic_name new_type t))    ;
-    }
-
   let rec is_type_compatible_hashgen (generic_table) (init_type: ktype) (expected_type: ktype) (struct_decl: t) = 
     match init_type, expected_type with
     | kt , TType_Identifier { module_path; name } when begin   
@@ -849,29 +770,6 @@ module Struct = struct
     | TUnknow, _ -> true
     | lhs, rhs -> lhs = rhs
 
-  let rec is_type_compatible (init_type: ktype) (expected_type: ktype) (struct_decl: t) = 
-    match init_type, expected_type with
-    | _ , TType_Identifier { module_path; name } when module_path = "" && struct_decl.generics |> List.mem name -> true
-    | TType_Identifier {module_path = init_path; name = init_name}, TType_Identifier {module_path = exp_path; name = exp_name } -> begin
-      struct_decl.generics |> List.mem exp_name || (init_path = exp_path && init_name = exp_name)
-    end
-    | TParametric_identifier {module_path = init_path; parametrics_type = init_pt; name = init_name}, 
-      TParametric_identifier {module_path = exp_path; parametrics_type = exp_pt; name = exp_name} -> 
-        if init_path <> exp_path || init_name <> exp_name || List.compare_lengths init_pt exp_pt <> 0 then false
-        else begin
-          List.combine init_pt exp_pt |> List.for_all (fun (i,e) -> is_type_compatible i e struct_decl)
-        end
-    | TUnknow, _ -> true
-    | lhs, rhs -> lhs = rhs
-  let rec find_generic_name_from_ktype (ktype: ktype) (struct_decl: t) = 
-    match ktype with
-    | TType_Identifier { module_path = _ ; name } as tti -> if struct_decl |> is_type_generic tti then Some name else None
-    | TParametric_identifier { module_path = _; parametrics_type; name = _ } -> begin 
-      parametrics_type |> List.filter_map (fun k -> find_generic_name_from_ktype k struct_decl) |> function [] -> None | t::_ -> Some t
-    end
-    | _ -> None
-  let retrieve_generic_name_from_field_opt (field: string) (struct_decl: t) =
-    match struct_decl.fields |> List.assoc_opt field with None -> None | Some kt -> find_generic_name_from_ktype kt struct_decl
   let rec is_cyclic_aux ktype_to_test module_def_path (struct_decl: t) =
     match ktype_to_test with
     | TType_Identifier _ as tti -> tti = (struct_decl |> to_ktype module_def_path)
