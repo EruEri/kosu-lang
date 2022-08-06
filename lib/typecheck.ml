@@ -209,12 +209,6 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       |> List.iter (fun ((_, para_type), init_type)  -> if e |> Asthelper.Function.is_type_compatible_hashgen hashtal init_type para_type |> not then Mismatched_Parameters_Type { expected = para_type; found = init_type}  |> func_error |> raise);
 
       Asthelper.Function.to_return_ktype_hashtab hashtal e
-(*       
-      let combine_generics = List.combine e.generics (grc |> Option.value ~default:[]) in
-      let hashtal = Hashtbl.create (combine_generics |> List.length) in
-      combine_generics |> List.iter ( fun ( name, assoc ) -> Hashtbl.add hashtal name assoc);
-
-      typeof_kbody ~generics_resolver: (Some hashtal) (Env.create_env (e.parameters |> List.map (fun (name, ktype) -> (name, ({ is_const = true; ktype}: Env.variable_info ) )))) current_mod_name prog e.body *)
     )
     | Ast.Function_Decl.Decl_External external_func_decl -> begin
       if external_func_decl.is_variadic then 
@@ -230,7 +224,7 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       |> (List.for_all (fun (para_type, init_type) -> 
         match Asthelper.Program.is_c_type_from_ktype current_mod_name para_type prog, Asthelper.Program.is_c_type_from_ktype current_mod_name init_type prog with
         | true, true -> 
-          if para_type <> init_type then Uncompatible_type_Assign { expected = para_type; found = init_type } |> stmt_error |> raise else true
+          if not (Ast.Type.are_compatible_type para_type init_type) then Uncompatible_type_Assign { expected = para_type; found = init_type } |> stmt_error |> raise else true
         | _ -> Ast.Error.Uncompatible_type_for_C_Function { external_func_decl } |> func_error |> raise
       ) )
       |> fun b -> (if b then external_func_decl.r_type else Unknow_Function_Error |> func_error |> raise)
@@ -243,11 +237,25 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
           if (zipped |> List.for_all (fun (para_type, init_type) -> 
               match Asthelper.Program.is_c_type_from_ktype current_mod_name para_type prog, Asthelper.Program.is_c_type_from_ktype current_mod_name init_type prog with
               | true, true -> 
-                if para_type <> init_type then Uncompatible_type_Assign { expected = para_type; found = init_type } |> stmt_error |> raise else true
+                if not (Ast.Type.are_compatible_type para_type init_type) then Uncompatible_type_Assign { expected = para_type; found = init_type } |> stmt_error |> raise else true
               | _ -> Ast.Error.Uncompatible_type_for_C_Function { external_func_decl } |> func_error |> raise
             )) then external_func_decl.r_type
               else Unknow_Function_Error |> func_error |> raise
         end
+      | Ast.Function_Decl.Decl_Syscall syscall_decl -> (
+        match (Util.are_same_lenght syscall_decl.parameters parameters) with
+        | false -> Unmatched_Parameters_length { expected = syscall_decl.parameters |> List.length; found = parameters |> List.length } |> func_error |> raise
+        | true -> 
+          let mapped_type = parameters |> List.map ( typeof ~generics_resolver env current_mod_name prog ) in
+          let zipped = List.combine syscall_decl.parameters mapped_type in
+          if (zipped |> List.for_all (fun (para_type, init_type) -> 
+              match Asthelper.Program.is_c_type_from_ktype current_mod_name para_type prog, Asthelper.Program.is_c_type_from_ktype current_mod_name init_type prog with
+              | true, true -> 
+                if not (Ast.Type.are_compatible_type para_type init_type) then Uncompatible_type_Assign { expected = para_type; found = init_type } |> stmt_error |> raise else true
+              | _ -> Ast.Error.Uncompatible_type_for_Syscall { syscall_decl } |> func_error |> raise
+            )) then syscall_decl.return_type
+              else Unknow_Function_Error |> func_error |> raise
+      )
       end
     | EBin_op (BAdd (lhs, rhs)) -> (
       let l_type = typeof env current_mod_name prog lhs in

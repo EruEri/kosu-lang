@@ -11,7 +11,7 @@
 %token <string> Module_IDENT 
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
-%token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR
+%token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL
 %token TRIPLEDOT
 %token COMMA
 %token PIPESUP
@@ -68,6 +68,7 @@ module_nodes:
     | enum_decl { NEnum $1 }
     | struct_decl { NStruct $1 }
     | external_func_decl { NExternFunc $1 }
+    | syscall_decl { NSyscall $1 }
     | function_decl { NFunction $1 }
     | sig_decl { NSigFun $1 }
     | const_decl { NConst $1 }
@@ -140,6 +141,17 @@ statement:
     | DISCARD expr SEMICOLON { SDiscard $2 }
 ;;
 
+syscall_decl:
+    | SYSCALL syscall_name=IDENT parameters=delimited(LPARENT, separated_list(COMMA, ct=ctype { ct  }), RPARENT ) return_type=ctype 
+       LBRACE SYSCALL LPARENT opcode=Integer_lit RPARENT RBRACE {
+        let _, _, value = opcode in
+        {
+            syscall_name;
+            parameters;
+            return_type;
+            opcode = value
+        }
+    }
 
 function_decl:
     | FUNCTION name=IDENT generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=IDENT {id}), SUP ) { d })
@@ -326,6 +338,7 @@ ctype:
         | "unit" -> TUnit
         | "bool" -> TBool
         | "stringl" -> TString_lit
+        | "anyptr" -> TPointer (TUnknow)
         | "s8" -> TInteger( Signed, I8)
         | "u8" -> TInteger( Unsigned, I8)
         | "s16" -> TInteger( Signed, I16)

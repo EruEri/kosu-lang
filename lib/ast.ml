@@ -141,6 +141,13 @@ type function_decl = {
   body: kbody;
 }
 
+type syscall_decl = {
+  syscall_name: string;
+  parameters: ktype list;
+  return_type: ktype;
+  opcode: int64
+}
+
 type external_func_decl = {
   sig_name: string;
   fn_parameters: ktype list;
@@ -165,6 +172,7 @@ type sig_decl = {
 type module_node = 
 | NExternFunc of external_func_decl
 | NFunction of function_decl
+| NSyscall of syscall_decl
 | NSigFun of sig_decl
 | NStruct of struct_decl
 | NEnum of enum_decl
@@ -259,6 +267,7 @@ module Error = struct
   | Unmatched_Parameters_length of { expected: int; found: int }
   | Unmatched_Generics_Resolver_length of { expected: int; found: int }
   | Uncompatible_type_for_C_Function of { external_func_decl: external_func_decl }
+  | Uncompatible_type_for_Syscall of { syscall_decl: syscall_decl}
   | Mismatched_Parameters_Type of { expected : ktype; found : ktype }
   | Unknow_Function_Error
 
@@ -341,6 +350,7 @@ module Type = struct
         n1 = n2 && mp1 = mp2 && (pt1 |> Util.are_same_lenght pt2) && (List.for_all2 are_compatible_type pt1 pt2)
     | TUnknow, _ | _ , TUnknow -> true
     | TPointer _, TPointer TUnknow -> true
+    | TPointer TUnknow, TPointer _ -> true
     | _, _ -> lhs =  rhs
 
   let rec remap_generic_ktype (generics_table) (ktype) = 
@@ -392,12 +402,13 @@ module Function_Decl = struct
   type t = 
   | Decl_External of external_func_decl
   | Decl_Kosu_Function of function_decl
+  | Decl_Syscall of syscall_decl
 
   let decl_external e = Decl_External e
   let decl_kosu_function e = Decl_Kosu_Function e
-
+  let decl_syscall e = Decl_Syscall e
   let is_external = function Decl_External _ -> true | _ -> false
-
+  let is_syscall = function Decl_Syscall _ -> true | _ -> false
   let is_kosu_func = function Decl_Kosu_Function _ -> true | _ -> false
 end
 
