@@ -1,15 +1,18 @@
-type cli_error = 
-| No_input_file
-| File_error of string*exn
-
 type filename_error =
 | Mutiple_dot_in_filename
 | No_extension
 | Unknow_error
 
+type cli_error = 
+| No_input_file
+| File_error of string*exn
+| Filename_error of filename_error
+
+
+
 let (>>=) o f = Result.bind o f
 
-let f s = String.concat "/" @@ (List.map (String.capitalize_ascii)) @@ (String.split_on_char '/' s)
+let f s = String.concat "::" @@ (List.map (String.capitalize_ascii)) @@ (String.split_on_char '/' s)
 let convert_filename_to_path filename = 
   filename 
   |> String.split_on_char '.'
@@ -23,10 +26,13 @@ let module_path_of_file filename =
     let source = Lexing.from_channel file in
     let Mod (module_node) = Parser.modul  Lexer.main source in
     let () = close_in file in
-    Ok ({
-      path = filename;
+    filename 
+    |> convert_filename_to_path
+    |> Result.map (fun path -> {
+      path = path;
       _module = Mod (module_node)
     })
+    |> Result.map_error (fun e -> Filename_error e)
   with e -> Error (File_error (filename, e))
 let files_to_ast_program (files: string list) = 
   files 
