@@ -44,6 +44,9 @@ module Module = struct
   let retrieve_func_decl = function
   | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NFunction s -> Some s | _ -> None)
 
+  let retrieve_syscall_decl = function
+  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NSyscall s -> Some s | _ -> None)
+
   let retrieve_const_decl = function
   | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NConst s -> Some s | _ -> None)
 
@@ -54,7 +57,12 @@ module Module = struct
   | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NEnum e -> Some (Ast.Type_Decl.decl_enum e) | Ast.NStruct s -> Some (Ast.Type_Decl.decl_struct s) | _ -> None)
 
   let retrieve_functions_decl = function
-  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NExternFunc e -> Some (Ast.Function_Decl.Decl_External e) | Ast.NFunction e -> Some (Ast.Function_Decl.decl_kosu_function e) | _ -> None)
+  | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> 
+    match node with 
+    | Ast.NExternFunc e -> Some (Ast.Function_Decl.Decl_External e) 
+    | Ast.NFunction e -> Some (Ast.Function_Decl.decl_kosu_function e) 
+    | Ast.NSyscall e -> Some (Ast.Function_Decl.decl_syscall e)
+    | _ -> None)
 
   let retrieve_function_decl_from_name_and_types fn_name parameters_types r_types _module = 
   _module
@@ -74,6 +82,7 @@ module Module = struct
     module_definition |> retrieve_functions_decl |> Util.Occurence.find_occurence (function
     | Ast.Function_Decl.Decl_External e -> fn_name = e.sig_name
     | Ast.Function_Decl.Decl_Kosu_Function e -> fn_name = e.fn_name
+    | Ast.Function_Decl.Decl_Syscall e -> fn_name = e.syscall_name
     )
 end
 
@@ -796,10 +805,20 @@ module ExternalFunc = struct
   let string_of_external_func_decl (efucn_decl: t) = 
     sprintf "external %s(%s%s) %s %s"
     (efucn_decl.sig_name)
-    (efucn_decl.fn_parameters |> List.map string_of_ktype |> String.concat ",")
+    (efucn_decl.fn_parameters |> List.map string_of_ktype |> String.concat ", ")
     (if efucn_decl.is_variadic then ";..." else "")
     (efucn_decl.r_type |> string_of_ktype)
     (efucn_decl.c_name |> Option.map (fun s -> sprintf " = %s" s) |> Option.value ~default: "")
+end
+
+module Syscall = struct
+  type t = syscall_decl
+
+  let string_of_syscall (syscall_decl: t) = 
+    sprintf "syscall %s(%s) %s"
+    (syscall_decl.syscall_name)
+    (syscall_decl.parameters |> List.map string_of_ktype |> String.concat ", ")
+    (syscall_decl.return_type |> string_of_ktype)
 end
 
 module Function = struct
@@ -898,6 +917,7 @@ let string_of_function_error = let open Ast.Error in let open Printf in function
 | Unmatched_Parameters_length record -> sprintf "Unmatched_Parameters_length %s " (string_of_found_expected (`int(record.expected, record.found)))
 | Unmatched_Generics_Resolver_length record -> sprintf "Unmatched_Generics_Resolver_length : %s" (string_of_found_expected (`int(record.expected, record.found)) )
 | Uncompatible_type_for_C_Function recod -> sprintf "Uncompatible_type_for_C_Function for %s " (ExternalFunc.string_of_external_func_decl recod.external_func_decl)
+| Uncompatible_type_for_Syscall record -> sprintf "Uncompatible_type_for_Syscall for %s" (Syscall.string_of_syscall record.syscall_decl)
 | Mismatched_Parameters_Type record -> sprintf "Mismatched_Parameters_Type : %s" (string_of_found_expected (`ktype(record.expected, record.found)))
 | Unknow_Function_Error -> "Unknow_Function_Error"
 

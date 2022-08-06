@@ -143,7 +143,7 @@ type function_decl = {
 
 type syscall_decl = {
   syscall_name: string;
-  parameters: (string * ktype) list;
+  parameters: ktype list;
   return_type: ktype;
   opcode: int64
 }
@@ -267,6 +267,7 @@ module Error = struct
   | Unmatched_Parameters_length of { expected: int; found: int }
   | Unmatched_Generics_Resolver_length of { expected: int; found: int }
   | Uncompatible_type_for_C_Function of { external_func_decl: external_func_decl }
+  | Uncompatible_type_for_Syscall of { syscall_decl: syscall_decl}
   | Mismatched_Parameters_Type of { expected : ktype; found : ktype }
   | Unknow_Function_Error
 
@@ -400,12 +401,13 @@ module Function_Decl = struct
   type t = 
   | Decl_External of external_func_decl
   | Decl_Kosu_Function of function_decl
+  | Decl_Syscall of syscall_decl
 
   let decl_external e = Decl_External e
   let decl_kosu_function e = Decl_Kosu_Function e
-
+  let decl_syscall e = Decl_Syscall e
   let is_external = function Decl_External _ -> true | _ -> false
-
+  let is_syscall = function Decl_Syscall _ -> true | _ -> false
   let is_kosu_func = function Decl_Kosu_Function _ -> true | _ -> false
 end
 

@@ -142,7 +142,7 @@ statement:
 ;;
 
 syscall_decl:
-    | SYSCALL syscall_name=IDENT parameters=delimited(LPARENT, separated_list(COMMA, id=IDENT COLON ct=ctype { id, ct  }), RPARENT ) return_type=ctype 
+    | SYSCALL syscall_name=IDENT parameters=delimited(LPARENT, separated_list(COMMA, ct=ctype { ct  }), RPARENT ) return_type=ctype 
        LBRACE SYSCALL LPARENT opcode=Integer_lit RPARENT RBRACE {
         let _, _, value = opcode in
         {
