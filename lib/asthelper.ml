@@ -537,15 +537,6 @@ module Statement = struct
     sprintf "%s(%s)"
     variant
     (assoc_ids |> List.map (Option.value ~default: "_") |> String.concat "," )
-
-  module BinOp = struct
-    type t = kbin_op
-    let is_boolean = function
-    | BAnd _  | BOr _ | BInf _ | BInfEq _ | BSup _ | BSupEq _ | BEqual _ | BDif _ -> true
-    | _ -> false
-
-    let is_arithmetic bin = bin |> is_boolean |> not
-  end
 end
 
 module Switch_case = struct
@@ -583,14 +574,6 @@ module Enum = struct
     (enum_decl.enum_name)
     (enum_decl.variants |> List.map string_of_enum_variant |> String.concat ", ")
 
-  let rec is_assoc_type_contains_generic (ktype: ktype) (enum_decl: t) = 
-    enum_decl.generics |> List.exists (fun g -> match ktype with
-    | TType_Identifier { module_path; name } -> module_path = "" && name = g
-    | TParametric_identifier { module_path = _ ; parametrics_type; name = _ } -> parametrics_type |> List.exists (fun kt -> is_assoc_type_contains_generic kt enum_decl)
-    | TPointer kt -> is_assoc_type_contains_generic kt enum_decl
-    | TTuple kts -> kts |> List.exists (fun kt -> is_assoc_type_contains_generic kt enum_decl)
-    | _ -> false
-    )
   let rec are_type_compatible (init_type: ktype) (expected_type: ktype) (enum_decl: t) = 
     (* let () = Printf.printf "expected : %s :: found : %s\n" (string_of_ktype expected_type) (string_of_ktype init_type) in *)
     match init_type, expected_type with
@@ -608,27 +591,6 @@ module Enum = struct
     | TUnknow, _ -> true
     | _ , TType_Identifier { module_path; name } when module_path = "" && enum_decl.generics |> List.mem name ->  true
     | lhs, rhs -> lhs = rhs
-
-  let rec bind_generic_ktype generic_name new_type expected_type (enum_decl: t) = 
-    match expected_type with
-    | TType_Identifier { module_path; name } -> if module_path = "" && generic_name = name && enum_decl.generics |> List.mem generic_name then new_type else expected_type
-    | TParametric_identifier { module_path; parametrics_type; name } -> TParametric_identifier {
-      module_path;
-      parametrics_type = parametrics_type |> List.map (fun kt -> bind_generic_ktype generic_name new_type kt enum_decl);
-      name
-    }
-    | _ as t -> t
-
-  let bind_single_generic (generic_name) (new_type) (enum_decl: t) = 
-    {
-      enum_name = enum_decl.enum_name;
-      generics = enum_decl.generics |> List.filter ((<>) generic_name);
-      variants = enum_decl.variants |> List.map (fun (variant, assoc_type) -> 
-        (variant, 
-        assoc_type |> List.map (fun kt -> bind_generic_ktype generic_name new_type kt enum_decl)
-        )
-      )
-    }
 
     let rec is_type_compatible_hashgen (generic_table) (init_type: ktype) (expected_type: ktype) (enum_decl: t) = 
       match init_type, expected_type with
@@ -662,49 +624,7 @@ module Enum = struct
           generics |> Hashtbl.to_seq |> List.of_seq |> List.sort ( fun ( _, (i, _)) ( _, (b, _)) -> compare i b) |> List.map (fun ( _, (_, kt)) -> kt)
         );
         name = enum_decl.enum_name
-      }
-
-  let rec find_generic_name_from_ktype ~generics_result ktype (enum_decl: t) =
-    match ktype with
-    | TType_Identifier { module_path; name } -> if module_path = "" && enum_decl.generics |> List.mem name then name::generics_result else generics_result
-    | TParametric_identifier { module_path = _; parametrics_type; name = _ } -> 
-      parametrics_type 
-      |> List.map (fun kt -> find_generic_name_from_ktype ~generics_result kt enum_decl)
-      |> List.concat
-      |> List.fold_left (fun acc value -> if acc |> List.mem value then acc else value::acc) []
-    | _ -> generics_result
-
-  (**
-    Returns the generic name for the associated type of an variant at a given position
-    Returns [None] if [variant_name] not in the list of enum variant or [assoc_position > lenght of variant assoc type] or type found isn't generic
-  *)
-  let find_generic_name_from_positon ~assoc_position (variant_name: string) (enum_decl: t) = 
-    enum_decl.variants
-    |> List.find_map (fun (v, assoc_types) -> if v = variant_name then Some assoc_types else None)
-    |> function
-    | None -> None
-    | Some assoc_types -> assoc_position |> List.nth_opt assoc_types
-    |> function
-    | None -> None
-    | Some kt -> Some (find_generic_name_from_ktype ~generics_result:[] kt enum_decl) 
-  
-  let rec infer_generics ~assoc_position (variant_zipped: (ktype * ktype) list) (generics: (ktype * bool) list) enum_decl = 
-    match variant_zipped with
-    | [] -> generics
-    | (init_ktype, expected_ktype)::q -> 
-      if is_assoc_type_contains_generic expected_ktype enum_decl then 
-        if are_type_compatible init_ktype expected_ktype enum_decl then
-        enum_decl
-        |> infer_generics ~assoc_position:(assoc_position + 1) q ( generics |> List.map (fun (kt, true_type) -> 
-          match kt with
-          | TType_Identifier { module_path = _; name } -> if enum_decl.generics |> List.mem name && not true_type
-            then (bind_generic_ktype name init_ktype expected_ktype enum_decl, true) 
-            else (kt, true_type)
-          | _ -> raise (Failure "Generics cannot have a different type than TIdentifier" )
-          ))
-        else failwith ""
-      else
-      infer_generics ~assoc_position:(assoc_position + 1) q generics enum_decl
+      }  
 
   let is_valide_assoc_type_init ~init_types ~expected_types enum_decl = 
     Util.are_same_lenght init_types expected_types 
@@ -760,48 +680,12 @@ module Enum = struct
 module Struct = struct
   type t = struct_decl
 
-  let find_struct_decl_from_name (current_module_name: string) (prog : program) (module_path: string) (struct_name: string) = 
-    let structs_opt = (if module_path = "" then Some (prog |> Program.module_of_string current_module_name) else prog |> Program.module_of_string_opt current_module_name)
-    |> Option.map Module.retrieve_struct_decl in
-    
-    match structs_opt with
-    | None -> Error (Ast.Error.Unbound_Module module_path)
-    | Some structs ->
-      structs |> List.find_opt (fun s -> s.struct_name = struct_name) |> Option.to_result ~none:(Ast.Error.Undefined_Struct struct_name)
-  ;;
-
   let string_of_struct_decl (struct_decl: t) = 
     sprintf "struct (%s) %s := { %s }" 
     (struct_decl.generics |> String.concat ", ")
     (struct_decl.struct_name)
     (struct_decl.fields |> List.map (fun (field, t) -> sprintf "%s : %s" (field) (string_of_ktype t)) |> String.concat ", " )
   let contains_generics (struct_decl: t) = struct_decl.generics <> []
-
-  (**
-  @raise Type_Error: 
-  @raise Not_found: raised if field or struct declaration not found
-  *)
-  let rec resolve_fields_access (current_mod_name: string) (program: program) (fields: string list) (ktype: ktype) = 
-    match fields with
-    | [] -> failwith "Not supposed to be reached"
-    | t::[] -> begin 
-      match ktype with
-      | TType_Identifier { module_path; name } -> (
-        match find_struct_decl_from_name current_mod_name program module_path name with
-        | Error e -> e |> Error.ast_error |> raise
-        | Ok _struct -> _struct.fields |> List.assoc t
-        )
-      | _ -> raise (Ast.Error.ast_error (Impossible_field_Access ktype))
-    end
-    | t::q -> begin 
-      match ktype with
-      | TType_Identifier { module_path; name } ->  begin
-        match find_struct_decl_from_name current_mod_name program module_path name with
-        | Error e -> e |> Error.ast_error |> raise
-        | Ok _struct -> resolve_fields_access current_mod_name program q (_struct.fields |> List.assoc t)
-      end
-      | _ -> raise (Ast.Error.ast_error (Impossible_field_Access ktype))
-    end
 
     let rec is_type_generic ktype (struct_decl: t) = 
       match ktype with
@@ -862,40 +746,6 @@ module Struct = struct
       end
     )
 
-  let find_field_type_opt (field: string) (struct_decl: t) = struct_decl.fields |> List.assoc_opt field
-
-  (** 
-  @raise Not_found    
-  *)
-  let find_field_type (field: string) (struct_decl: t) = struct_decl.fields |> List.assoc field
-
-  let rec resolve_single_generics (generic_name: string) (mapped_type: ktype) (expected_type: ktype) =
-    match expected_type with
-    | TType_Identifier { module_path = _ ; name} -> if name = generic_name then mapped_type else expected_type
-    | TParametric_identifier { module_path; parametrics_type; name } -> begin 
-      TParametric_identifier { 
-        module_path; 
-        parametrics_type = parametrics_type |> List.map (resolve_single_generics generic_name mapped_type); 
-        name 
-      }
-    end
-    | t -> t
-
-  let is_field_generic_opt field (struct_decl : t) =
-    struct_decl.fields |> List.assoc_opt field |> Option.map ( fun kt -> is_type_generic kt struct_decl)
-
-  (**
-  @raise Not_found 
-  *)
-  let is_field_generic field (struct_decl : t) =
-    struct_decl.fields |> List.assoc field |> fun kt -> is_type_generic kt struct_decl
-  let bind_generic (generic_name) (new_type: ktype) (struct_decl: t) = 
-    {
-      struct_name = struct_decl.struct_name;
-      generics = struct_decl.generics |> List.filter ( (<>) generic_name ) ;
-      fields = struct_decl.fields |> List.map ( fun (f,t) -> (f, resolve_single_generics generic_name new_type t))    ;
-    }
-
   let rec is_type_compatible_hashgen (generic_table) (init_type: ktype) (expected_type: ktype) (struct_decl: t) = 
     match init_type, expected_type with
     | kt , TType_Identifier { module_path; name } when begin   
@@ -920,29 +770,6 @@ module Struct = struct
     | TUnknow, _ -> true
     | lhs, rhs -> lhs = rhs
 
-  let rec is_type_compatible (init_type: ktype) (expected_type: ktype) (struct_decl: t) = 
-    match init_type, expected_type with
-    | _ , TType_Identifier { module_path; name } when module_path = "" && struct_decl.generics |> List.mem name -> true
-    | TType_Identifier {module_path = init_path; name = init_name}, TType_Identifier {module_path = exp_path; name = exp_name } -> begin
-      struct_decl.generics |> List.mem exp_name || (init_path = exp_path && init_name = exp_name)
-    end
-    | TParametric_identifier {module_path = init_path; parametrics_type = init_pt; name = init_name}, 
-      TParametric_identifier {module_path = exp_path; parametrics_type = exp_pt; name = exp_name} -> 
-        if init_path <> exp_path || init_name <> exp_name || List.compare_lengths init_pt exp_pt <> 0 then false
-        else begin
-          List.combine init_pt exp_pt |> List.for_all (fun (i,e) -> is_type_compatible i e struct_decl)
-        end
-    | TUnknow, _ -> true
-    | lhs, rhs -> lhs = rhs
-  let rec find_generic_name_from_ktype (ktype: ktype) (struct_decl: t) = 
-    match ktype with
-    | TType_Identifier { module_path = _ ; name } as tti -> if struct_decl |> is_type_generic tti then Some name else None
-    | TParametric_identifier { module_path = _; parametrics_type; name = _ } -> begin 
-      parametrics_type |> List.filter_map (fun k -> find_generic_name_from_ktype k struct_decl) |> function [] -> None | t::_ -> Some t
-    end
-    | _ -> None
-  let retrieve_generic_name_from_field_opt (field: string) (struct_decl: t) =
-    match struct_decl.fields |> List.assoc_opt field with None -> None | Some kt -> find_generic_name_from_ktype kt struct_decl
   let rec is_cyclic_aux ktype_to_test module_def_path (struct_decl: t) =
     match ktype_to_test with
     | TType_Identifier _ as tti -> tti = (struct_decl |> to_ktype module_def_path)
@@ -986,8 +813,6 @@ module Function = struct
     (function_decl.return_type |> string_of_ktype)
     (function_decl.body |> Statement.string_of_kbody)
 
-
-
   let rec is_ktype_generic ktype (fn_decl: t) = 
     match ktype with
     | TParametric_identifier { module_path = _; parametrics_type ; name = _ } -> parametrics_type |> List.exists (fun kt -> is_ktype_generic kt fn_decl)
@@ -1006,19 +831,6 @@ module Function = struct
       if function_decl.generics = [] then false
       else if function_decl.parameters |> List.length = 0 then true
       else function_decl |> is_ktype_generic_level_zero function_decl.return_type
-
-  (**
-    @return true if parameter contains generics, false if not and None if paramater name doesn't exist
-  *)
-  let is_parameter_generic (para_name: string) (fn_decl: t) = 
-    fn_decl.parameters
-    |> List.assoc_opt para_name
-    |> Option.map ( fun kt -> is_ktype_generic kt fn_decl)
-
-  let is_no_nested_generic ktype (fn_decl: t) = 
-    match ktype with
-    | TType_Identifier { module_path = _; name } -> fn_decl.generics |> List.mem name
-    | _ -> false
 
   let rec is_type_compatible_hashgen (generic_table) (init_type: ktype) (expected_type: ktype) (function_decl: t) = 
     match init_type, expected_type with
@@ -1044,21 +856,10 @@ module Function = struct
     | TTuple lhs, TTuple rhs -> Util.are_same_lenght lhs rhs && List.for_all2 (fun lkt rkt -> is_type_compatible_hashgen generic_table lkt rkt function_decl) lhs rhs
     | lhs, rhs -> lhs = rhs
 
-
-
-    let to_return_ktype_hashtab (generic_table) (function_decl: t) = 
-      if function_decl.generics = [] || function_decl |> is_ktype_generic function_decl.return_type |> not then function_decl.return_type
-      else Ast.Type.remap_generic_ktype generic_table
-       function_decl.return_type
-
-  let rec are_ktypes_compatible ~para_type ~init_type (fn_decl: t) =
-    if is_no_nested_generic para_type fn_decl then true 
-    else match para_type, init_type with 
-    | TType_Identifier {module_path = l_module_path; name = lname}, TType_Identifier {module_path = r_module_path; name = r_name} -> l_module_path = r_module_path && lname = r_name
-    | TParametric_identifier { module_path = lmp; parametrics_type = lpt ; name = ln }, TParametric_identifier { module_path = rmp ; parametrics_type = rpt; name = rn } -> 
-      rn = ln && lmp = rmp && (Util.are_same_lenght lpt rpt) && (List.combine lpt rpt |> List.for_all (fun (l, r) -> are_ktypes_compatible ~para_type: l ~init_type: r fn_decl))
-    | lhs, rhs -> lhs = rhs
-
+  let to_return_ktype_hashtab (generic_table) (function_decl: t) = 
+    if function_decl.generics = [] || function_decl |> is_ktype_generic function_decl.return_type |> not then function_decl.return_type
+    else Ast.Type.remap_generic_ktype generic_table
+      function_decl.return_type
 
   let iter_statement fn (function_decl: t) = let statements, _  = function_decl.body in statements |> List.iter fn
 end
