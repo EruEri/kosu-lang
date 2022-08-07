@@ -12,6 +12,12 @@ let string_of_isize = function
 | I32 -> "32"
 | I64 -> "64"
 
+let size_of_isize = function
+| I8 -> 8
+| I16 -> 16
+| I32 -> 32
+| I64 -> 64
+
 let f = sprintf "%Ld"
 let rec string_of_ktype = function
 | TParametric_identifier {module_path; parametrics_type; name} -> sprintf "(%s)%s %s" (parametrics_type |> List.map string_of_ktype |> String.concat ", ") (module_path) (name)
@@ -881,6 +887,60 @@ module Function = struct
       function_decl.return_type
 
   let iter_statement fn (function_decl: t) = let statements, _  = function_decl.body in statements |> List.iter fn
+end
+
+module Sizeof = struct
+  let (++) = Int64.add
+  let (--) = Int64.min
+  let rec size calcul current_module (program: Program.t) ktype  = 
+    match ktype with
+    | TUnit | TBool | TUnknow -> 1L
+    | TInteger (_, isize) -> ((size_of_isize isize) / 8) |> Int64.of_int
+    | TFloat | TPointer _ | TString_lit | TFunction _ -> 8L
+    | TTuple kts -> ( kts |> function
+      | [] -> failwith "unreachable: Empty Tuple"
+      | t::q -> let (size, alignment) =  q |> List.fold_left (fun (acc_size, acc_align) kt ->
+        let comming_size = kt |> size `size current_module program in
+        let comming_align = kt |> size `align current_module program in
+        let padding = Int64.abs @@ (--) acc_align comming_align in
+
+        (comming_size ++ acc_size ++ padding, max comming_align acc_align)
+        ) ( (size `size current_module program t), (size `align current_module program t) ) in
+        match calcul with
+        | `size -> size
+        | `align -> alignment
+    ) 
+    | kt -> (
+      let ktype_def_path = Type.module_path_opt kt |> Option.get in
+      let ktype_name = Type.type_name_opt kt |> Option.get in
+      let type_decl = Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
+      match type_decl with
+      | Type_Decl.Decl_Enum enum_decl -> size_enum calcul current_module program (Util.dummy_generic_map enum_decl.generics (Type.extract_parametrics_ktype kt)) enum_decl
+      | Type_Decl.Decl_Struct struct_decl -> size_struct calcul current_module program (Util.dummy_generic_map struct_decl.generics (Type.extract_parametrics_ktype kt)) struct_decl
+    )
+  and size_struct calcul current_module program generics struct_decl = 
+    struct_decl.fields 
+    |> List.map ( fun (_, kt) -> Ast.Type.remap_generic_ktype generics kt)     
+    |> function
+    | list -> let (size, align) = list |> List.fold_left (fun (acc_size, acc_align) kt ->
+      (* let () = Printf.printf "sizeof acc %Lu\nalignement acc : %Lu\n" (acc_size) (acc_align) in *)
+      let comming_size = kt |> size `size current_module program in
+      let comming_align = kt |> size `align current_module program in
+      let padding = Int64.abs @@ (--) acc_align comming_align in
+      let accum_size = comming_size ++ acc_size ++ padding in
+      let () = printf "Accu size = %Lu\n" acc_size in
+      ( accum_size , max comming_align acc_align)
+      ) ( (0L), (0L) ) in
+      let () = printf "struct size : %Lu\n" size in
+      let () = printf "struct align : %Lu\n" align in
+      match calcul with
+      | `size -> size
+      | `align -> align
+  and size_enum _calcul _current_module _program _generics _enum_decl = 
+    failwith "Not implemented yet ..."
+
+  let sizeof current_module program ktype = size `size current_module program ktype
+  let alignmentof current_module program ktype = size `align current_module program ktype 
 end
 
 let string_of_variable_info (variable_info: Env.variable_info) = 

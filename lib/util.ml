@@ -6,6 +6,13 @@ let string_of_module_path path = if path = "" then "" else Printf.sprintf "%s::"
 let are_same_lenght l1 l2 = ( = ) 0 (List.compare_lengths l1 l2)
 
 let are_diff_lenght l1 l2 = not (are_same_lenght l1 l2)
+
+let dummy_generic_map (generic_names) (parametrics_types) =
+  let list_len = parametrics_types |> List.length in
+  let dummy_list = List.init list_len (fun _ -> ()) in
+  let dummy_parametrics = List.combine dummy_list parametrics_types in
+  let generics_mapped = List.combine generic_names dummy_parametrics in 
+  Hashtbl.of_seq (generics_mapped |> List.to_seq)
 module Occurence = struct
   type ('a) occurence = Empty | One of 'a | Multiple of 'a list
 

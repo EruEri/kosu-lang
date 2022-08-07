@@ -27,6 +27,8 @@ let () = Printf.printf "env %s\n" ( Asthelper.string_of_env env) in
     | SDiscard expr -> ignore (typeof ~generics_resolver env current_mod_name program expr); typeof_kbody  env current_mod_name program ~return_type (q, final_expr)
     | SDeclaration { is_const; variable_name; explicit_type ; expression } -> 
       let type_init = typeof env current_mod_name program expression in
+      let _ = Asthelper.Sizeof.sizeof current_mod_name program type_init in
+      (* let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Asthelper.string_of_ktype type_init) (Asthelper.Sizeof.sizeof current_mod_name program type_init) (Asthelper.Sizeof.alignmentof current_mod_name program type_init) in *)
       if env |> Env.is_identifier_exists variable_name then raise (stmt_error (Ast.Error.Already_Define_Identifier { name = variable_name}))
       else 
         let kt = match explicit_type with
