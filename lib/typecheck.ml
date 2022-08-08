@@ -27,7 +27,6 @@ let () = Printf.printf "env %s\n" ( Asthelper.string_of_env env) in
     | SDiscard expr -> ignore (typeof ~generics_resolver env current_mod_name program expr); typeof_kbody  env current_mod_name program ~return_type (q, final_expr)
     | SDeclaration { is_const; variable_name; explicit_type ; expression } -> 
       let type_init = typeof env current_mod_name program expression in
-      let _ = Asthelper.Sizeof.sizeof current_mod_name program type_init in
       (* let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Asthelper.string_of_ktype type_init) (Asthelper.Sizeof.sizeof current_mod_name program type_init) (Asthelper.Sizeof.alignmentof current_mod_name program type_init) in *)
       if env |> Env.is_identifier_exists variable_name then raise (stmt_error (Ast.Error.Already_Define_Identifier { name = variable_name}))
       else 
@@ -63,8 +62,10 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
   | EInteger (sign, size, _ ) -> TInteger (sign, size) 
   | EFloat _ -> TFloat
   | ESizeof either -> begin 
-    ignore (match either with
+    let () = (match either with
     | Left ktype -> ignore ( 
+      let sizeof = Asthelper.Sizeof.sizeof current_mod_name prog ktype in
+      let () = Printf.printf "%s :\n  size : %Lu\n" (Asthelper.string_of_ktype ktype) sizeof in
       match ktype with
       | TParametric_identifier { module_path; parametrics_type = _ ; name} | TType_Identifier { module_path; name } -> (
         try 
@@ -77,7 +78,7 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       )
       | _ -> ignore ()
   )
-    | Right expr -> ignore (typeof env current_mod_name prog expr));
+    | Right expr -> ignore (typeof env current_mod_name prog expr)) in
     TInteger (Unsigned, I64)
   end 
   | EString _ ->  TString_lit

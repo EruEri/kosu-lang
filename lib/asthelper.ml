@@ -891,24 +891,36 @@ end
 
 module Sizeof = struct
   let (++) = Int64.add
-  let (--) = Int64.min
+  let (--) = Int64.sub
   let rec size calcul current_module (program: Program.t) ktype  = 
     match ktype with
     | TUnit | TBool | TUnknow -> 1L
     | TInteger (_, isize) -> ((size_of_isize isize) / 8) |> Int64.of_int
     | TFloat | TPointer _ | TString_lit | TFunction _ -> 8L
     | TTuple kts -> ( kts |> function
-      | [] -> failwith "unreachable: Empty Tuple"
-      | t::q -> let (size, alignment) =  q |> List.fold_left (fun (acc_size, acc_align) kt ->
-        let comming_size = kt |> size `size current_module program in
-        let comming_align = kt |> size `align current_module program in
-        let padding = Int64.abs @@ (--) acc_align comming_align in
+    | list -> let (size, align) = list |> List.fold_left (fun (acc_size, acc_align) kt ->
+      (* let () = Printf.printf "sizeof acc %Lu\nalignement acc : %Lu\n" (acc_size) (acc_align) in *)
+      
+      let comming_size = kt |> size `size current_module program in
+      let comming_align = kt |> size `align current_module program in
 
-        (comming_size ++ acc_size ++ padding, max comming_align acc_align)
-        ) ( (size `size current_module program t), (size `align current_module program t) ) in
+      (* let need_padding = (<>) 0L @@ (Int64.rem) (acc_size) (comming_size) in *)
+      let quotient = Int64.unsigned_div acc_size comming_align in
+      let reminder = Int64.unsigned_rem acc_size comming_align in
+
+      let padded_size = if reminder = 0L || acc_size = 0L then acc_size else Int64.mul (comming_align) ( quotient ++ 1L) in
+      (* let diff = 1L -- 4L in *)
+      (* let padding = if comming_align = acc_align || acc_align = 0L || not need_padding then 0L else Int64.abs @@ (--) acc_align comming_align in
+      let _accum_size = comming_size ++ acc_size ++ padding in
+      let () = printf "Accu aligment = %Lu\n" acc_align in
+      let () = printf "Comming aligment = %Lu\n" comming_align in
+      let () = printf "Accu size = %Lu\n" acc_size in
+      let () = printf "Comming size = %Lu\n" comming_size in
+      let () = printf "Padding = %Ld\n\n" padded_size in *)
+      ( padded_size ++ comming_size , max comming_align acc_align) ) ( (0L), (0L) ) in
         match calcul with
         | `size -> size
-        | `align -> alignment
+        | `align -> align
     ) 
     | kt -> (
       let ktype_def_path = Type.module_path_opt kt |> Option.get in
@@ -923,16 +935,14 @@ module Sizeof = struct
     |> List.map ( fun (_, kt) -> Ast.Type.remap_generic_ktype generics kt)     
     |> function
     | list -> let (size, align) = list |> List.fold_left (fun (acc_size, acc_align) kt ->
-      (* let () = Printf.printf "sizeof acc %Lu\nalignement acc : %Lu\n" (acc_size) (acc_align) in *)
+
       let comming_size = kt |> size `size current_module program in
       let comming_align = kt |> size `align current_module program in
-      let padding = Int64.abs @@ (--) acc_align comming_align in
-      let accum_size = comming_size ++ acc_size ++ padding in
-      let () = printf "Accu size = %Lu\n" acc_size in
-      ( accum_size , max comming_align acc_align)
-      ) ( (0L), (0L) ) in
-      let () = printf "struct size : %Lu\n" size in
-      let () = printf "struct align : %Lu\n" align in
+      let quotient = Int64.unsigned_div acc_size comming_align in
+      let reminder = Int64.unsigned_rem acc_size comming_align in
+
+      let padded_size = if reminder = 0L || acc_size = 0L then acc_size else Int64.mul (comming_align) ( quotient ++ 1L) in
+      ( padded_size ++ comming_size , max comming_align acc_align) ) ( (0L), (0L) ) in
       match calcul with
       | `size -> size
       | `align -> align
