@@ -182,6 +182,18 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       if not (Type.are_compatible_type acc new_type) then raise (ast_error (Uncompatible_type { expected = acc; found = new_type}))
       else Type.restrict_type acc new_type
     ) (typeof_kbody (env |> Env.push_context []) current_mod_name prog else_case)
+  | EBuiltin_Function_call { fn_name; parameters } -> (
+    let (>>=) = Result.bind in
+    let parameters_type = parameters |> List.map (typeof env current_mod_name prog) in
+
+    fn_name 
+    |> Asthelper.Builtin_Function.builtin_fn_of_fn_name
+    >>= (fun builtin -> 
+      Asthelper.Builtin_Function.is_valide_parameters_type parameters_type builtin
+      )
+    |> Result.map (Asthelper.Builtin_Function.builtin_return_type)
+    |> (function Ok kt -> kt | Error e -> e |> built_in_func_error |> raise )
+  )
   | EFunction_call { modules_path; generics_resolver = grc ; fn_name; parameters } -> begin
     let fn_decl = Asthelper.Program.find_function_decl_from_fn_name modules_path fn_name current_mod_name prog in
     match fn_decl with

@@ -7,6 +7,7 @@
 %token <string> String_lit
 %token <float> Float_lit
 %token <string> IDENT
+%token <string> BUILTIN
 %token <string> Constant
 %token <string> Module_IDENT 
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
@@ -239,6 +240,12 @@ expr:
     }
     | NOT expr { EUn_op (UNot $2) }
     | MINUS expr %prec UMINUS { EUn_op (UMinus $2) }
+    | BUILTIN parameters=delimited(LPARENT, separated_list(COMMA, expr) ,RPARENT) {
+        EBuiltin_Function_call {
+            fn_name = $1;
+            parameters
+        }
+    }
     | l=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, ktype) SUP { s } ) LPARENT exprs=separated_list(COMMA, expr) RPARENT {
         EFunction_call { 
             modules_path = l |> String.concat "/";
