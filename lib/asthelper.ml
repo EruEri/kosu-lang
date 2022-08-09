@@ -857,6 +857,16 @@ module Function = struct
       else if function_decl.parameters |> List.length = 0 then true
       else function_decl |> is_ktype_generic_level_zero function_decl.return_type
 
+  (* (**
+    @return : Returns [Some name] if the associated type with the field is generics else [None] if not or the field name doesn't exist 
+  *)    
+  let assoc_generics_name_of_field field (fn_decl: function_decl) = 
+    let (>>:) = Option.bind in
+    fn_decl.parameters
+    |> List.find_map (fun (field_name, ktype ) -> if field_name = field then Some ktype else None)
+    >>: (Type.type_name_opt)
+    >>: (fun s -> if fn_decl.generics |> List.mem s then Some s else None) *)
+
   let rec is_type_compatible_hashgen (generic_table) (init_type: ktype) (expected_type: ktype) (function_decl: t) = 
     match init_type, expected_type with
     | kt , TType_Identifier { module_path = ""; name } when begin   
@@ -876,7 +886,7 @@ module Function = struct
           List.combine init_pt exp_pt |> List.for_all (fun (i,e) -> is_type_compatible_hashgen generic_table i e function_decl)
         end
     | TUnknow, _ -> true
-    | TPointer(TUnknow), TPointer _ -> true
+    | TPointer _, TPointer(TUnknow) -> true
     | TPointer lhs, TPointer rhs -> is_type_compatible_hashgen generic_table lhs rhs function_decl
     | TTuple lhs, TTuple rhs -> Util.are_same_lenght lhs rhs && List.for_all2 (fun lkt rkt -> is_type_compatible_hashgen generic_table lkt rkt function_decl) lhs rhs
     | lhs, rhs -> lhs = rhs
