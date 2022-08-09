@@ -12,6 +12,12 @@ let string_of_isize = function
 | I32 -> "32"
 | I64 -> "64"
 
+let size_of_isize = function
+| I8 -> 8
+| I16 -> 16
+| I32 -> 32
+| I64 -> 64
+
 let f = sprintf "%Ld"
 let rec string_of_ktype = function
 | TParametric_identifier {module_path; parametrics_type; name} -> sprintf "(%s)%s %s" (parametrics_type |> List.map string_of_ktype |> String.concat ", ") (module_path) (name)
@@ -851,6 +857,16 @@ module Function = struct
       else if function_decl.parameters |> List.length = 0 then true
       else function_decl |> is_ktype_generic_level_zero function_decl.return_type
 
+  (* (**
+    @return : Returns [Some name] if the associated type with the field is generics else [None] if not or the field name doesn't exist 
+  *)    
+  let assoc_generics_name_of_field field (fn_decl: function_decl) = 
+    let (>>:) = Option.bind in
+    fn_decl.parameters
+    |> List.find_map (fun (field_name, ktype ) -> if field_name = field then Some ktype else None)
+    >>: (Type.type_name_opt)
+    >>: (fun s -> if fn_decl.generics |> List.mem s then Some s else None) *)
+
   let rec is_type_compatible_hashgen (generic_table) (init_type: ktype) (expected_type: ktype) (function_decl: t) = 
     match init_type, expected_type with
     | kt , TType_Identifier { module_path = ""; name } when begin   
@@ -870,7 +886,7 @@ module Function = struct
           List.combine init_pt exp_pt |> List.for_all (fun (i,e) -> is_type_compatible_hashgen generic_table i e function_decl)
         end
     | TUnknow, _ -> true
-    | TPointer(TUnknow), TPointer _ -> true
+    | TPointer _, TPointer(TUnknow) -> true
     | TPointer lhs, TPointer rhs -> is_type_compatible_hashgen generic_table lhs rhs function_decl
     | TTuple lhs, TTuple rhs -> Util.are_same_lenght lhs rhs && List.for_all2 (fun lkt rkt -> is_type_compatible_hashgen generic_table lkt rkt function_decl) lhs rhs
     | lhs, rhs -> lhs = rhs
@@ -881,6 +897,69 @@ module Function = struct
       function_decl.return_type
 
   let iter_statement fn (function_decl: t) = let statements, _  = function_decl.body in statements |> List.iter fn
+end
+
+module Sizeof = struct
+  let (++) = Int64.add
+  let (--) = Int64.sub
+  let rec size calcul current_module (program: Program.t) ktype  = 
+    match ktype with
+    | TUnit | TBool | TUnknow -> 1L
+    | TInteger (_, isize) -> ((size_of_isize isize) / 8) |> Int64.of_int
+    | TFloat | TPointer _ | TString_lit | TFunction _ -> 8L
+    | TTuple kts -> ( kts |> function
+    | list -> let (size, align, _packed_size) = list |> List.fold_left (fun (acc_size, acc_align, acc_packed_size) kt ->
+
+      let comming_size = kt |> size `size current_module program in
+      let comming_align = kt |> size `align current_module program in
+      let quotient = Int64.unsigned_div acc_size comming_align in
+      let reminder = Int64.unsigned_rem acc_size comming_align in
+      let new_pacced_size = comming_size ++ acc_packed_size in
+
+      let add_size = if new_pacced_size < acc_size then 0L else if comming_size < acc_align then acc_align else comming_size in
+
+      
+      let padded_size = if (reminder = 0L || acc_size = 0L) then acc_size else Int64.mul (comming_align) ( quotient ++ 1L) in
+      ( padded_size ++ add_size , max comming_align acc_align, new_pacced_size) ) ( (0L), (0L), 0L ) in
+        match calcul with
+        | `size -> size
+        | `align -> align
+    ) 
+    | kt -> (
+      let ktype_def_path = Type.module_path_opt kt |> Option.get in
+      let ktype_name = Type.type_name_opt kt |> Option.get in
+      let type_decl = Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
+      match type_decl with
+      | Type_Decl.Decl_Enum enum_decl -> size_enum calcul current_module program (Util.dummy_generic_map enum_decl.generics (Type.extract_parametrics_ktype kt)) enum_decl
+      | Type_Decl.Decl_Struct struct_decl -> size_struct calcul current_module program (Util.dummy_generic_map struct_decl.generics (Type.extract_parametrics_ktype kt)) struct_decl
+    )
+  and size_struct calcul current_module program generics struct_decl = 
+    struct_decl.fields 
+    |> List.map ( fun (_, kt) -> Ast.Type.remap_generic_ktype generics kt)     
+    |> function
+    | list -> let (size, align, _packed_size) = list |> List.fold_left (fun (acc_size, acc_align, acc_packed_size) kt ->
+
+      let comming_size = kt |> size `size current_module program in
+      let comming_align = kt |> size `align current_module program in
+      let quotient = Int64.unsigned_div acc_size comming_align in
+      let reminder = Int64.unsigned_rem acc_size comming_align in
+      let new_pacced_size = comming_size ++ acc_packed_size in
+
+      let add_size = if new_pacced_size < acc_size then 0L else if comming_size < acc_align then acc_align else comming_size in
+
+      
+      let padded_size = if (reminder = 0L || acc_size = 0L) then acc_size else Int64.mul (comming_align) ( quotient ++ 1L) in
+      ( padded_size ++ add_size , max comming_align acc_align, new_pacced_size) ) ( (0L), (0L), 0L ) in
+      match calcul with
+      | `size -> size
+      | `align -> align
+  and size_enum calcul current_module program generics enum_decl = 
+      enum_decl.variants
+      |> List.map ( fun (_, kts) -> kts |> List.map (Type.remap_generic_ktype generics) |> List.cons (TInteger (Unsigned, I32)) |> Type.ktuple |> size calcul current_module program )
+      |> List.fold_left max 0L
+
+  let sizeof current_module program ktype = size `size current_module program ktype
+  let alignmentof current_module program ktype = size `align current_module program ktype 
 end
 
 let string_of_variable_info (variable_info: Env.variable_info) = 

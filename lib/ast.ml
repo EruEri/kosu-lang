@@ -322,6 +322,8 @@ module Error = struct
 end
 
 module Type = struct
+
+  let ktuple kts = TTuple kts 
   
   let rec is_type_full_known ktype = 
     match ktype with
