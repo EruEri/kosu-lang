@@ -64,8 +64,8 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
   | ESizeof either -> begin 
     let () = (match either with
     | Left ktype -> ignore ( 
-      let sizeof = Asthelper.Sizeof.sizeof current_mod_name prog ktype in
-      let () = Printf.printf "%s :\n  size : %Lu\n" (Asthelper.string_of_ktype ktype) sizeof in
+      (* let sizeof = Asthelper.Sizeof.sizeof current_mod_name prog ktype in
+      let () = Printf.printf "%s :\n  size : %Lu\n" (Asthelper.string_of_ktype ktype) sizeof in *)
       match ktype with
       | TParametric_identifier { module_path; parametrics_type = _ ; name} | TType_Identifier { module_path; name } -> (
         try 
