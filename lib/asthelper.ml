@@ -898,17 +898,19 @@ module Sizeof = struct
     | TInteger (_, isize) -> ((size_of_isize isize) / 8) |> Int64.of_int
     | TFloat | TPointer _ | TString_lit | TFunction _ -> 8L
     | TTuple kts -> ( kts |> function
-    | list -> let (size, align) = list |> List.fold_left (fun (acc_size, acc_align) kt ->
+    | list -> let (size, align, _packed_size) = list |> List.fold_left (fun (acc_size, acc_align, acc_packed_size) kt ->
 
       let comming_size = kt |> size `size current_module program in
       let comming_align = kt |> size `align current_module program in
       let quotient = Int64.unsigned_div acc_size comming_align in
       let reminder = Int64.unsigned_rem acc_size comming_align in
+      let new_pacced_size = comming_size ++ acc_packed_size in
 
-      let add_size = if comming_size < acc_align then acc_align else comming_size in
+      let add_size = if new_pacced_size < acc_size then 0L else if comming_size < acc_align then acc_align else comming_size in
 
+      
       let padded_size = if (reminder = 0L || acc_size = 0L) then acc_size else Int64.mul (comming_align) ( quotient ++ 1L) in
-      ( padded_size ++ add_size , max comming_align acc_align) ) ( (0L), (0L) ) in
+      ( padded_size ++ add_size , max comming_align acc_align, new_pacced_size) ) ( (0L), (0L), 0L ) in
         match calcul with
         | `size -> size
         | `align -> align
@@ -925,17 +927,19 @@ module Sizeof = struct
     struct_decl.fields 
     |> List.map ( fun (_, kt) -> Ast.Type.remap_generic_ktype generics kt)     
     |> function
-    | list -> let (size, align) = list |> List.fold_left (fun (acc_size, acc_align) kt ->
-            
+    | list -> let (size, align, _packed_size) = list |> List.fold_left (fun (acc_size, acc_align, acc_packed_size) kt ->
+
       let comming_size = kt |> size `size current_module program in
       let comming_align = kt |> size `align current_module program in
       let quotient = Int64.unsigned_div acc_size comming_align in
       let reminder = Int64.unsigned_rem acc_size comming_align in
+      let new_pacced_size = comming_size ++ acc_packed_size in
 
-      let add_size = if comming_size < acc_align then acc_align else comming_size in
+      let add_size = if new_pacced_size < acc_size then 0L else if comming_size < acc_align then acc_align else comming_size in
 
+      
       let padded_size = if (reminder = 0L || acc_size = 0L) then acc_size else Int64.mul (comming_align) ( quotient ++ 1L) in
-      ( padded_size ++ add_size , max comming_align acc_align) ) ( (0L), (0L) ) in
+      ( padded_size ++ add_size , max comming_align acc_align, new_pacced_size) ) ( (0L), (0L), 0L ) in
       match calcul with
       | `size -> size
       | `align -> align
