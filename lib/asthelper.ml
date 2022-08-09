@@ -939,8 +939,10 @@ module Sizeof = struct
       match calcul with
       | `size -> size
       | `align -> align
-  and size_enum _calcul _current_module _program _generics _enum_decl = 
-    failwith "Not implemented yet ..."
+  and size_enum calcul current_module program generics enum_decl = 
+      enum_decl.variants
+      |> List.map ( fun (_, kts) -> kts |> List.map (Type.remap_generic_ktype generics) |> List.cons (TInteger (Unsigned, I32)) |> Type.ktuple |> size calcul current_module program )
+      |> List.fold_left max 0L
 
   let sizeof current_module program ktype = size `size current_module program ktype
   let alignmentof current_module program ktype = size `align current_module program ktype 
