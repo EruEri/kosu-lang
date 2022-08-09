@@ -80,6 +80,10 @@ and kexpression =
   assoc_exprs: kexpression list
 }
 | ETuple of kexpression list
+| EBuiltin_Function_call of {
+  fn_name: string;
+  parameters: kexpression list
+}
 | EFunction_call of {
   modules_path: string;
   generics_resolver: ktype list option;
@@ -281,6 +285,12 @@ module Error = struct
   | Not_Boolean_operand_in_Or
   | Invalid_Uminus_for_Unsigned_integer of isize
 
+  type builtin_func_error = 
+  | Unknow_built_function of string
+  | Wrong_parameters of { fn_name: string; expected: ktype; found: ktype }
+  | Mismatched_Parameters_Length of { fn_name: string; expected: int; found: int }
+  | Found_no_Integer of { fn_name: string; found: ktype}
+
   type switch_error =
   | Not_enum_type_in_switch_Expression of ktype
   | Not_all_cases_handled of (string* (ktype list)) list
@@ -303,6 +313,7 @@ module Error = struct
     | Func_Error of func_error
     | Operator_Error of operator_error
     | Switch_error of switch_error
+    | Builtin_Func_Error of builtin_func_error
     | Uncompatible_type of { expected: ktype; found : ktype }
     | Uncompatible_type_If_Else of { if_type: ktype; else_type: ktype }
     | Not_Boolean_Type_Condition of { found: ktype }
@@ -319,11 +330,20 @@ module Error = struct
   let func_error e = ast_error (Func_Error e)
   let operator_error e = ast_error (Operator_Error e)
   let switch_error e = ast_error (Switch_error e)
+  let built_in_func_error e = ast_error (Builtin_Func_Error e)  
 end
 
 module Type = struct
 
-  let ktuple kts = TTuple kts 
+  let ktuple kts = TTuple kts
+
+  let is_any_integer = function
+  | TInteger _ -> true
+  | _ -> false
+
+  let is_string_litteral = function
+  | TString_lit -> true
+  | _ -> false
   
   let rec is_type_full_known ktype = 
     match ktype with
@@ -412,6 +432,19 @@ module Function_Decl = struct
   let is_external = function Decl_External _ -> true | _ -> false
   let is_syscall = function Decl_Syscall _ -> true | _ -> false
   let is_kosu_func = function Decl_Kosu_Function _ -> true | _ -> false
+end
+
+module Builtin_Function = struct
+  type functions = 
+  | Tos8 
+  | Tou8 
+  | Tos16
+  | Tou16
+  | Tos32
+  | Tou32
+  | Tos64
+  | Tou64
+  | Stringl_ptr 
 end
 
 module Env = struct

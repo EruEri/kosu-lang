@@ -524,6 +524,7 @@ module Statement = struct
     (string_of_kexpression expression)
     (cases |> List.map (fun (sc, kbody) -> sprintf "%s => %s" (sc |> List.map string_of_switch_case |> String.concat ", ") (string_of_kbody kbody)) |> String.concat "\n")
     (match wildcard_case with None -> "" | Some kbody -> sprintf "_ => %s" (string_of_kbody kbody))
+  | EBuiltin_Function_call { fn_name; parameters } -> sprintf "@%s(%s)" fn_name (parameters |> List.map string_of_kexpression |> String.concat ", ")
   and string_of_kbin_op = function
   | BAdd (lhs, rhs) -> sprintf "(%s + %s)" (string_of_kexpression lhs) (string_of_kexpression rhs)
   | BMinus (lhs, rhs) -> sprintf "(%s - %s)" (string_of_kexpression lhs) (string_of_kexpression rhs)
@@ -827,6 +828,56 @@ module Syscall = struct
     (syscall_decl.return_type |> string_of_ktype)
 end
 
+module Builtin_Function = struct
+  type t = Ast.Builtin_Function.functions
+
+
+  let fn_name_of_built_in_fn = let open Ast.Builtin_Function in function
+  | Tos8 -> "tos8" 
+  | Tou8 -> "tou8" 
+  | Tos16 -> "tos16"
+  | Tou16 -> "tou16"
+  | Tos32 -> "tos32"
+  | Tou32 -> "tou32"
+  | Tos64 -> "tos64"
+  | Tou64 -> "tou64"
+  | Stringl_ptr -> "stringlptr"
+  let builtin_fn_of_fn_name = let open Ast.Builtin_Function in function
+  | "tos8" -> Tos8 |> Result.ok
+  | "tou8" -> Tou8 |> Result.ok
+  | "tos16" -> Tos16 |> Result.ok
+  | "tou16" -> Tou16 |> Result.ok
+  | "tos32" -> Tos32 |> Result.ok
+  | "tou32" -> Tou32 |> Result.ok
+  | "tos64" -> Tos64 |> Result.ok
+  | "tou64" -> Tou64 |> Result.ok
+  | "stringlptr" -> Stringl_ptr |> Result.ok
+  | _ as fn_name -> (Ast.Error.Unknow_built_function fn_name) |> Result.error
+
+  let is_valide_parameters_type parameters = let open Ast.Builtin_Function in function
+  | Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64 as fn -> begin
+    match parameters with
+    | t::[] -> if t |> Type.is_any_integer then Result.ok fn else Ast.Error.Found_no_Integer {fn_name = fn |> fn_name_of_built_in_fn; found = t} |> Result.error
+    | list -> Ast.Error.Mismatched_Parameters_Length {fn_name = fn |> fn_name_of_built_in_fn ; expected = 1; found = list |> List.length } |> Result.error
+  end
+  | Stringl_ptr -> begin
+    match parameters with
+    | t::[] -> if t |> Type.is_string_litteral then Result.ok Stringl_ptr else Ast.Error.Wrong_parameters { fn_name = Stringl_ptr |> fn_name_of_built_in_fn; expected = TString_lit; found = t} |> Result.error 
+    | list -> Ast.Error.Mismatched_Parameters_Length {fn_name = Stringl_ptr |> fn_name_of_built_in_fn; expected = 1; found = list |> List.length } |> Result.error
+  end
+
+  let builtin_return_type = let open Ast.Builtin_Function in function
+  | Stringl_ptr -> TPointer (TInteger (Signed, I8))
+  | Tos8 -> (TInteger (Signed, I8))
+  | Tou8 ->  (TInteger (Unsigned, I8))
+  | Tos16 -> (TInteger (Signed, I16))
+  | Tou16 -> (TInteger (Unsigned, I16))
+  | Tos32 -> (TInteger (Signed, I32))
+  | Tou32 -> (TInteger (Unsigned, I32))
+  | Tos64 -> (TInteger (Signed, I64))
+  | Tou64 -> (TInteger (Unsigned, I64))
+end
+
 module Function = struct
   type t = function_decl
 
@@ -1024,7 +1075,11 @@ let string_of_switch_error = let open Ast.Error in let open Printf in function
  (rhs |> List.map (fun (id, ktype) -> sprintf "%s: %s" (id) (string_of_ktype ktype)) |> String.concat ", ")
  | Binded_identifier_already_exist s -> sprintf "Binded_identifier_already_exist_in_env : %s" s
 
-
+let string_of_built_in_func_error = let open Ast.Error in let open Printf in function
+| Unknow_built_function fn_name -> sprintf "Unknow_built_function : %s" fn_name
+| Wrong_parameters { fn_name; expected; found } -> sprintf "Wrong_parameters for %s : %s" (fn_name) (string_of_found_expected (`ktype(expected, found)))
+| Mismatched_Parameters_Length { fn_name; expected; found } -> sprintf "Mismatched_Parameters_Length for %s : %s" fn_name  (string_of_found_expected (`int(expected, found)))
+| Found_no_Integer { fn_name; found } -> sprintf "Found_no_Integer for %s : expected -- any Integer : found %s --" (fn_name) (string_of_ktype found)
 let string_of_ast_error = let open Ast.Error in let open Printf in function
 | Bin_operator_Different_type -> "Bin_operator_Different_type"
 | Undefined_Identifier s -> sprintf "Undefined_Identifier : %s" s
@@ -1037,6 +1092,7 @@ let string_of_ast_error = let open Ast.Error in let open Printf in function
 | Func_Error e -> string_of_function_error e
 | Operator_Error e -> string_of_operator_error e
 | Switch_error e -> string_of_switch_error e
+| Builtin_Func_Error e -> string_of_built_in_func_error e
 | Uncompatible_type e -> sprintf "Uncompatible_type %s" (string_of_found_expected (`ktype(e.expected, e.found)))
 | Uncompatible_type_If_Else e -> sprintf "Uncompatible_type_If_Else %s" (string_of_found_expected (`ktype(e.if_type, e.else_type)))
 | Not_Boolean_Type_Condition e -> sprintf "Not_Boolean_Type_Condition -- found : %s : expected : bool --" (string_of_ktype e.found)

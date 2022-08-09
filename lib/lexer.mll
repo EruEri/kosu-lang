@@ -5,6 +5,9 @@
     exception Lexical_error of string
     exception Forbidden_char of char
     exception Unexpected_escaped_char of string
+    exception Invalid_keyword_for_build_in_function of string
+    exception Invalid_litteral_for_build_in_function of char
+    exception Not_finished_built_in_function
     exception Unclosed_string
     exception Unclosed_comment
 
@@ -50,6 +53,7 @@ rule main = parse
 | "." { DOT }
 | "..." { TRIPLEDOT }
 | "_" { WILDCARD }
+| "@" { built_in_function lexbuf }
 | "=" { EQUAL }
 | "&"  { AMPERSAND }
 | "^" { XOR }
@@ -108,6 +112,16 @@ rule main = parse
 }
 | _ as c { raise (Forbidden_char c) }
 | eof { EOF }
+and built_in_function = parse
+| identifiant as s {
+    match Hashtbl.find_opt keywords s with
+    | None -> BUILTIN s
+    | Some _ -> raise (Invalid_keyword_for_build_in_function s)
+}
+| _ as lit {
+    raise (Invalid_litteral_for_build_in_function lit)
+}
+| eof { raise Not_finished_built_in_function }
 and read_string buffer = parse
 | '"' { String_lit (Buffer.contents buffer) }
 | '\\' ( escaped_char as c ){ Buffer.add_string buffer ( (if c = '\\' then "" else "\\")^( lexbuf |> lexeme)); read_string buffer lexbuf }
