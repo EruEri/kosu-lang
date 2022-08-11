@@ -3,8 +3,18 @@ type filename_error =
 | No_extension
 | Unknow_error
 
+
+type location = int * int
+
+let get_lexing_position lexbuf =
+  let p = Lexing.lexeme_start_p lexbuf in
+  let line_number = p.Lexing.pos_lnum in
+  let column = p.Lexing.pos_cnum - p.Lexing.pos_bol + 1 in
+  (line_number, column)
+
 type cli_error = 
 | No_input_file
+| Syntax_error of location
 | File_error of string*exn
 | Filename_error of filename_error
 
@@ -21,19 +31,26 @@ let convert_filename_to_path filename =
 
 let module_path_of_file filename = 
   let open Kosu_frontend in let open Kosu_frontend.Ast in
-  try
+  let (>>=) = Result.bind in
+  (try
     let file = open_in filename in
-    let source = Lexing.from_channel file in
-    let Mod (module_node) = Parser.modul  Lexer.main source in
-    let () = close_in file in
-    filename 
-    |> convert_filename_to_path
-    |> Result.map (fun path -> {
-      path = path;
-      _module = Mod (module_node)
-    })
-    |> Result.map_error (fun e -> Filename_error e)
+    let source =  Lexing.from_channel file in
+    at_exit (fun () -> print_endline "At end closed"; close_in file);
+    source |> Result.ok
+
   with e -> Error (File_error (filename, e))
+  )
+  >>= (fun lexbuf ->
+    try
+      (Parser.modul  Lexer.main lexbuf) |> Result.ok
+    with _ -> (Syntax_error (get_lexing_position lexbuf)) |> Result.error 
+    ) 
+  >>= ( fun _module -> filename |> convert_filename_to_path
+    |> Result.map (fun path -> { path = path; _module}
+    )
+    |> Result.map_error (fun e -> Filename_error e)
+    )
+
 let files_to_ast_program (files: string list) = 
   files 
   |> List.map module_path_of_file 

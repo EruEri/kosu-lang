@@ -23,6 +23,7 @@ let () =
     | No_input_file -> raise (Invalid_argument "no Input file") 
     | File_error (s, exn)  -> Printf.printf "%s\n" (s); raise exn
     | Filename_error _ -> raise (Invalid_argument "Filename Error")
+    | Syntax_error (line, column) -> Printf.printf "SyntaxError near -- line : %d, column : %d --" line column; raise (Invalid_argument "")
     )
   | Ok modules -> 
     let () = modules |> List.iter (fun record -> Printf.printf "module name : %s\n" record.path) in

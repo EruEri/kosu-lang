@@ -4,10 +4,16 @@
 
 (menhir
  (modules parser) 
- (flags --unused-tokens  --dump --dump-resolved)
+ (flags --table)
 (infer true)
 )
 
+(rule
+ (targets kosu_parser_messages.ml)
+ (deps parser.messages parser.mly)
+ (action  (with-stdout-to %{targets} (run menhir --compile-errors %{deps}))))
+
 (library
  (name kosu_frontend)
+ (libraries menhirLib)
 )
