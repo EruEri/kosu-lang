@@ -337,6 +337,14 @@ module Type = struct
 
   let ktuple kts = TTuple kts
 
+  let is_any_ptr = function
+  | TPointer _ -> true
+  | _ -> false
+
+  let is_unknown_ptr = function
+  | TPointer TUnknow -> true
+  | _ -> false
+
   let is_any_integer = function
   | TInteger _ -> true
   | _ -> false

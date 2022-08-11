@@ -36,6 +36,13 @@ let module_path_of_ktype_opt = function
 | TType_Identifier {module_path; name } | TParametric_identifier {module_path; parametrics_type = _; name} -> Some (module_path, name)
 | _ -> None
 
+module Module_Node = struct
+  type t = Ast.module_node
+
+  (* let validate_module_node (program: Ast.program) (current_module_name: string) (node: t) = failwith "" *)
+  
+end
+
 module Module = struct
 
   let retrieve_enum_decl = function
@@ -90,6 +97,8 @@ module Module = struct
     | Ast.Function_Decl.Decl_Kosu_Function e -> fn_name = e.fn_name
     | Ast.Function_Decl.Decl_Syscall e -> fn_name = e.syscall_name
     )
+
+  (* let validate_module (program: Ast.program) {path; _module: Ast._module} = failwith "" *)
 end
 
 module Program = struct
@@ -142,7 +151,7 @@ module Program = struct
 
     (**
     Find type declaration from ktype
-    @raise No_occuence : if no type declaration was found
+    @raise No_Occurence : if no type declaration was found
     @raise Too_Many_Occurence: if several type declaration matching was found
     *)
     let find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program = 
@@ -154,7 +163,7 @@ module Program = struct
 
     (**
     Find function declaration from function name
-    @raise Not_found : if no function declaration was found
+    @raise No_Occurence : if no function declaration was found
     @raise Too_Many_Occurence: if several function declaration matching was found
     *)
     let find_function_decl_from_fn_name fn_def_path fn_name current_module program =
@@ -455,8 +464,9 @@ module Program = struct
         | TInteger (Signed, _) | TFloat -> `built_in_valid
         | TInteger (Unsigned, size) -> `invalid_unsigned_op size
         | _ -> `no_uminus_for_built_in
-            
-
+  
+  let valide_program (_program: program) = failwith ""
+    
 end
 
 module Statement = struct

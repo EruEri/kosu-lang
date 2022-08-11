@@ -1,6 +1,7 @@
-open Kosu_lang
-open Ast
-open Typecheck
+open Kosu_frontend
+open Kosu_frontend.Ast
+open Kosu_frontend.Typecheck
+open Kosu_cli.Cli
 
 let () = 
   Clap.description "kosuc - The Kosu compiler";
@@ -15,19 +16,19 @@ let () =
 
   Clap.close ();
 
-  let modules_opt = Kosu_lang.Cli.files_to_ast_program _files in
+  let modules_opt = Kosu_cli.Cli.files_to_ast_program _files in
 
   match modules_opt with
   | Error e -> (match e with 
     | No_input_file -> raise (Invalid_argument "no Input file") 
-    | Cli.File_error (s, exn)  -> Printf.printf "%s\n" (s); raise exn
-    | Cli.Filename_error _ -> raise (Invalid_argument "Filename Error")
+    | File_error (s, exn)  -> Printf.printf "%s\n" (s); raise exn
+    | Filename_error _ -> raise (Invalid_argument "Filename Error")
     )
   | Ok modules -> 
     let () = modules |> List.iter (fun record -> Printf.printf "module name : %s\n" record.path) in
     let { path; _module } = modules |> List.hd in
     let main =  _module 
-    |> Kosu_lang.Asthelper.Module.retrieve_func_decl 
+    |> Kosu_frontend.Asthelper.Module.retrieve_func_decl 
     |> List.find ( fun fn -> fn.fn_name = "main")
   in 
   (try

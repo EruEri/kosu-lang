@@ -1,0 +1,4 @@
+(library
+ (name kosu_cli)
+ (libraries kosu_frontend)
+)

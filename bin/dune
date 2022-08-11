@@ -1,4 +1,4 @@
 (executable
  (public_name kosuc)
  (name kosuc)
- (libraries kosu_lang clap))
+ (libraries kosu_frontend kosu_backend kosu_cli clap))

@@ -20,7 +20,7 @@ let convert_filename_to_path filename =
   |> Result.map ( f )
 
 let module_path_of_file filename = 
-  let open Ast in
+  let open Kosu_frontend in let open Kosu_frontend.Ast in
   try
     let file = open_in filename in
     let source = Lexing.from_channel file in

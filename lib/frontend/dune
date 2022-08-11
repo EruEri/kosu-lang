@@ -9,5 +9,5 @@
 )
 
 (library
- (name kosu_lang)
+ (name kosu_frontend)
 )
