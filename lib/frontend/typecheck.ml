@@ -240,7 +240,7 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
         match Asthelper.Program.is_c_type_from_ktype current_mod_name para_type prog, Asthelper.Program.is_c_type_from_ktype current_mod_name init_type prog with
         | true, true -> 
           if not (Ast.Type.are_compatible_type para_type init_type) then Uncompatible_type_Assign { expected = para_type; found = init_type } |> stmt_error |> raise else true
-        | _ -> Ast.Error.Uncompatible_type_for_C_Function { external_func_decl } |> func_error |> raise
+        | _ -> Ast.Error.Uncompatible_type_for_C_Function { external_func_decl; } |> func_error |> raise
       ) )
       |> fun b -> (if b then external_func_decl.r_type else Unknow_Function_Error |> func_error |> raise)
       else
