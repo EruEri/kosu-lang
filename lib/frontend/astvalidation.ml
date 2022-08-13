@@ -1,6 +1,5 @@
 open Ast
-
-
+open Asthelper
 
 module Error = struct
 
@@ -36,6 +35,35 @@ module Error = struct
   let syscall_error e = Syscall_Error e
   let struct_error e = Struct_Error e
   let enum_error e = Enum_Error e
+
+  exception Validation_error of validation_error
+
+  let string_of_external_func_error = let open Printf in function
+  | Unit_parameter external_func_decl -> sprintf "Unit parameter in %s" external_func_decl.sig_name
+  | Not_C_compatible_type (external_func_decl, ktype) -> sprintf "Not_C_compatible_type in %s -- %s --" (external_func_decl.sig_name) (string_of_ktype ktype)
+  | Too_much_parameters record -> sprintf "Too_much_parameters -- limit: %d, found: %d --" record.limit record.found
+
+  let string_of_sycall_error = let open Printf in function
+  | Syscall_Unit_parameter syscall_decl -> sprintf "Unit parameter in %s" syscall_decl.syscall_name
+  | Syscall_Not_C_compatible_type (syscall_decl, ktype) -> sprintf "Not_C_compatible_type in %s -- %s --" (syscall_decl.syscall_name) (string_of_ktype ktype)
+  | Syscall_Too_much_parameters record -> sprintf "Too_much_parameters -- limit: %d, found: %d --" record.limit record.found
+
+  let string_of_struct_error = let open Printf in function
+  | Unknown_type_for_field (field, ktype) -> sprintf "Unknown_type_for_field : %s -> %s" field (string_of_ktype ktype)
+  | SCyclic_Declaration struct_decl -> sprintf "Struct Cyclic_Declaration for %s" struct_decl.struct_name
+  | SDuplicated_field struct_decl -> sprintf "Struct Duplicated_field for %s" struct_decl.struct_name
+
+  let string_of_enum_error = let open Printf in function
+  | ECyclic_Declaration enum_decl -> sprintf " Enum_Cyclic_Declaration for %s" enum_decl.enum_name
+  | EDuplicated_variant_name enum_decl -> sprintf "Enum_Duplicated_variant_name for %s" enum_decl.enum_name
+
+  let string_of_validation_error = let open Printf in function
+  | External_Func_Error e -> string_of_external_func_error e
+  | Syscall_Error e -> string_of_sycall_error e
+  | Struct_Error e -> string_of_struct_error e
+  | Enum_Error e -> string_of_enum_error e
+  | No_Type_decl_found kt -> sprintf "No_Type_decl_found : %s" (string_of_ktype kt)
+  | Too_many_type_decl kt -> sprintf "Too_many_type_decl : %s" (string_of_ktype kt)
 end
 
 module Help = struct

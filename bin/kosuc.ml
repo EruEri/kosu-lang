@@ -1,6 +1,7 @@
-open Kosu_frontend
-open Kosu_frontend.Ast
-open Kosu_frontend.Typecheck
+(* open Kosu_frontend *)
+(* open Kosu_frontend.Ast *)
+(* open Kosu_frontend.Typecheck *)
+open Kosu_frontend.Astvalidation
 open Kosu_cli.Cli
 
 let () = 
@@ -26,7 +27,10 @@ let () =
     | Syntax_error (line, column) -> Printf.printf "SyntaxError near -- line : %d, column : %d --" line column; raise (Invalid_argument "")
     )
   | Ok modules -> 
-    let () = modules |> List.iter (fun record -> Printf.printf "module name : %s\n" record.path) in
+    match valide_program modules with
+    | Error e -> Printf.printf "%s\n" (Error.string_of_validation_error e); raise (Error.Validation_error e)
+    | Ok () -> ()
+    (* let () = modules |> List.iter (fun record -> Printf.printf "module name : %s\n" record.path) in
     let { path; _module } = modules |> List.hd in
     let main =  _module 
     |> Kosu_frontend.Asthelper.Module.retrieve_func_decl 
@@ -34,7 +38,7 @@ let () =
   in 
   (try
     typeof_kbody Env.create_empty_env path modules main.body
-  with Ast.Error.Ast_error e -> Printf.printf "%s\n" (Asthelper.string_of_ast_error e);  failwith "" ) |> ignore
+  with Ast.Error.Ast_error e -> Printf.printf "%s\n" (Asthelper.string_of_ast_error e);  failwith "" ) |> ignore *)
    
 
 (* let _ = 
