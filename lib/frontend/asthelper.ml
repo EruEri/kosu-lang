@@ -165,6 +165,28 @@ module Program = struct
       |> Module.function_decl_occurence fn_name
       |> Util.Occurence.one
 
+      let rec does_ktype_exist ktype current_module program = 
+        match ktype with
+        | TType_Identifier { module_path = ktype_def_path; name = ktype_name} -> (
+          try 
+          let _ = find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
+          `exist
+        with Util.Occurence.No_Occurence -> `not_exist
+        | Util.Occurence.Too_Many_Occurence -> `not_unique
+        )
+        | TParametric_identifier { module_path = ktype_def_path; parametrics_type; name = ktype_name} -> (
+        let exist = try 
+          let _ = find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
+          `exist
+        with Util.Occurence.No_Occurence -> `not_exist
+        | Util.Occurence.Too_Many_Occurence -> `not_unique in
+        parametrics_type |> List.fold_left (fun acc value -> 
+          if acc <> `exist then acc else does_ktype_exist value current_module program
+          ) exist 
+        
+        )
+        | _ -> `exist
+
     let rec is_c_type (current_mod_name) (type_decl: Ast.Type_Decl.type_decl) program = 
       match type_decl with
       | Decl_Enum e -> e.generics = [] && e.variants |> List.for_all (fun (_, assoc) -> assoc = [] )
@@ -676,6 +698,14 @@ module Enum = struct
   )
   | t -> Error (Not_all_cases_handled t)
 
+  let rec is_type_generic ktype (enum_decl: t) = 
+    match ktype with
+    | TType_Identifier { module_path = ""; name} ->  enum_decl.generics |> List.mem name
+    | TParametric_identifier { module_path = _; parametrics_type ; name = _ } -> parametrics_type |> List.exists ( fun kt -> is_type_generic kt enum_decl)
+    | TPointer kt -> is_type_generic kt enum_decl
+    | TTuple kts -> kts |> List.exists ( fun kt -> is_type_generic kt enum_decl)
+    | _ -> false
+
   let extract_assoc_type_variant (generics) variant (enum_decl: t) = 
     enum_decl.variants 
     |> List.find_map (fun (case, assoc_type) -> if case = variant then Some assoc_type else None)
@@ -784,14 +814,6 @@ module Struct = struct
     | TTuple lhs, TTuple rhs -> Util.are_same_lenght lhs rhs && List.for_all2 (fun init exptected -> is_type_compatible_hashgen generic_table init exptected struct_decl) lhs rhs
     | TUnknow, _ -> true
     | lhs, rhs -> lhs = rhs
-
-  let rec is_cyclic_aux ktype_to_test module_def_path (struct_decl: t) =
-    match ktype_to_test with
-    | TType_Identifier _ as tti -> tti = (struct_decl |> to_ktype module_def_path)
-    | TParametric_identifier { module_path; parametrics_type; name } -> (module_path = module_def_path && name = struct_decl.struct_name) || parametrics_type |> List.exists (fun k -> is_cyclic_aux k module_def_path struct_decl)
-    | _ -> false
-  let is_cyclic module_def_path (struct_decl: t) = 
-    struct_decl.fields |> List.exists ( fun (_, ktype) -> is_cyclic_aux ktype module_def_path struct_decl )
 
   let to_ktype_hash generics module_def_path (struct_decl: t) = 
     if struct_decl.generics = [] then TType_Identifier { module_path = module_def_path; name = struct_decl.struct_name }

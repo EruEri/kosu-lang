@@ -37,5 +37,14 @@ module ListHelper = struct
   | t::q -> if f t then index else index_of_aux f (index + 1) q
 
   let index_of f = index_of_aux f 0
+
+  let rec duplicate_aux hashmap list = 
+    match list with
+    | [] -> hashmap |> Hashtbl.to_seq |> List.of_seq |> List.filter_map (fun (key, value) -> if value > 1 then Some key else None )
+    | t::q -> let () = match Hashtbl.find_opt hashmap t with
+      | Some value -> Hashtbl.replace hashmap t (value + 1)
+      | None -> Hashtbl.add hashmap t 0 in
+      duplicate_aux hashmap q
+  let duplicate l = duplicate_aux (Hashtbl.create (l |> List.length)) l
 end
 
