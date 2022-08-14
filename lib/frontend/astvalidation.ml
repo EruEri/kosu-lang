@@ -78,51 +78,53 @@ module Help = struct
          Util.Occurence.No_Occurence -> Error.No_Type_decl_found ktype |> Result.error
        | Util.Occurence.Too_Many_Occurence -> Error.Too_many_type_decl ktype |> Result.error
     )
-    | _, _ -> Ok ()       
-  let rec does_contains_type_decl current_module program type_decl =
-    match type_decl with
-    | Ast.Type_Decl.Decl_Struct struct_decl -> does_contains_type_decl_struct current_module program type_decl struct_decl
-    | Ast.Type_Decl.Decl_Enum enum_decl -> does_contains_type_decl_enum current_module program type_decl enum_decl
-  and does_contains_type_decl_struct current_module program type_decl struct_decl = let open Asthelper in
-    struct_decl.fields
+    | _, _ -> Ok ()         
+    
+  let rec does_ktype_contains_type_decl current_module program ktype type_decl_to_check = 
+      match ktype with
+      | TType_Identifier {module_path = ktype_def_path; name = ktype_name} | TParametric_identifier {module_path = ktype_def_path; parametrics_type = _; name = ktype_name} -> (
+        match Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program with
+        | Ast.Type_Decl.Decl_Struct struct_decl -> does_contains_type_decl_struct current_module program struct_decl type_decl_to_check
+        | Ast.Type_Decl.Decl_Enum enum_decl -> does_contains_type_decl_enum current_module program enum_decl type_decl_to_check
+      )
+      | TTuple kts -> kts |> List.for_all (fun kt -> does_ktype_contains_type_decl current_module program kt type_decl_to_check)
+      | _ -> false
+  and does_contains_type_decl_struct current_module program struct_decl type_decl_to_check  = let open Asthelper in
+  Type_Decl.decl_struct struct_decl = type_decl_to_check || struct_decl.fields
     |> List.exists (fun (_, kt) -> 
       match kt with
-      | TType_Identifier {module_path = ktype_def_path; name = ktype_name} when not (Struct.is_type_generic kt struct_decl) -> (
-        let t_decl = Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
-        t_decl = type_decl || does_contains_type_decl current_module program t_decl
-      )
+      | TType_Identifier _ when (Struct.is_type_generic kt struct_decl) -> false 
       | TParametric_identifier {module_path = ktype_def_path; parametrics_type; name = ktype_name} -> (
         let t_decl = Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
-        t_decl = type_decl 
-        || parametrics_type |> List.exists (fun kt -> 
-          if struct_decl |> Struct.is_type_generic kt then false 
-          else does_contains_type_decl_struct current_module program t_decl struct_decl
+        t_decl = type_decl_to_check 
+        || parametrics_type |> List.exists (fun ikt -> 
+          if struct_decl |> Struct.is_type_generic ikt then false 
+          else does_ktype_contains_type_decl current_module program ikt type_decl_to_check 
           )
-        || does_contains_type_decl current_module program t_decl
+        || does_ktype_contains_type_decl current_module program kt type_decl_to_check
       )
-      | _ -> false
+      | _ -> does_ktype_contains_type_decl current_module program kt type_decl_to_check
       )
-  and does_contains_type_decl_enum current_module program type_decl (enum_decl: Ast.enum_decl) = let open Asthelper in
-  enum_decl.variants
+  and does_contains_type_decl_enum current_module program (enum_decl: Ast.enum_decl) type_decl_to_check = let open Asthelper in
+  (Type_Decl.decl_enum enum_decl) = type_decl_to_check || enum_decl.variants
   |> List.exists (fun (_, kts ) -> 
       kts |> List.exists (fun (kt) -> 
         match kt with
-        | TType_Identifier {module_path = ktype_def_path; name = ktype_name} when not (Enum.is_type_generic kt enum_decl) -> (
-          let t_decl = Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
-          t_decl = type_decl || does_contains_type_decl current_module program t_decl
-        )
+        | TType_Identifier _ when (Enum.is_type_generic kt enum_decl) -> false 
         | TParametric_identifier {module_path = ktype_def_path; parametrics_type; name = ktype_name} -> (
           let t_decl = Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
-          t_decl = type_decl 
-          || parametrics_type |> List.exists (fun kt -> 
-            if enum_decl |> Enum.is_type_generic kt then false 
-            else does_contains_type_decl_enum current_module program t_decl enum_decl
+          t_decl = type_decl_to_check 
+          || parametrics_type |> List.exists (fun ikt -> 
+            if enum_decl |> Enum.is_type_generic ikt then false 
+            else does_ktype_contains_type_decl current_module program ikt type_decl_to_check 
             )
-          || does_contains_type_decl current_module program t_decl
+          || does_ktype_contains_type_decl current_module program kt type_decl_to_check
         )
-        | _ -> false 
+        | _ -> does_ktype_contains_type_decl current_module program kt type_decl_to_check
     )
   )
+
+
 end
 
 module ExternalFunction = struct
@@ -195,27 +197,9 @@ module Struct = struct
       | Ok () -> None
       | Error e -> Some e
     )
-
-  (* let rec is_cyclic_aux (ktype) current_module program struct_decl = 
-    match ktype with
-    | TType_Identifier {module_path = ktype_def_path; name = ktype_name} when not (Asthelper.Struct.is_type_generic ktype struct_decl) -> (
-      let t_decl = Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
-      t_decl = type_decl || does_contains_type_decl current_module program t_decl
-    )
-    | TParametric_identifier {module_path = ktype_def_path; parametrics_type; name = ktype_name} -> (
-      let t_decl = Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
-      t_decl = type_decl 
-      || parametrics_type |> List.exists (fun kt -> 
-        if struct_decl |> Struct.is_type_generic kt then false 
-        else does_contains_type_decl_struct current_module program t_decl struct_decl
-        )
-      || does_contains_type_decl current_module program t_decl
-    )
-    | _ -> false
-  let is_cyclic  current_module program struct_decl = 
+  let is_cyclic current_module program struct_decl = 
     struct_decl.fields
-    |> List.exists (fun (_, kt) -> is_cyclic_aux kt current_module program struct_decl) *)
-
+    |> List.exists (fun (_, kt) -> Help.does_ktype_contains_type_decl current_module program kt (Type_Decl.decl_struct struct_decl) )
 
   let is_field_duplicate struct_decl = struct_decl.fields 
   |> List.map (fun (field, _) -> field) 
@@ -227,7 +211,7 @@ module Struct = struct
     is_all_type_exist current_module_name program struct_decl 
     |> (function None -> Ok () | Some e -> Error e)
     >>= (fun () ->     
-      if Help.does_contains_type_decl current_module_name program (Ast.Type_Decl.decl_struct struct_decl) then Error.SCyclic_Declaration struct_decl |> Error.struct_error |> Result.error
+      if is_cyclic current_module_name program struct_decl then Error.SCyclic_Declaration struct_decl |> Error.struct_error |> Result.error
       else (Ok ()) 
     )
     >>= (fun () -> 
@@ -254,12 +238,18 @@ module Enum = struct
     |> Util.ListHelper.duplicate
     |> Util.are_diff_lenght []
 
+  let is_cyclic current_module program enum_decl = 
+    enum_decl.variants
+    |> List.map (fun (_, kts) -> kts)
+    |> List.flatten
+    |> List.exists (fun kt -> Help.does_ktype_contains_type_decl current_module program kt (Type_Decl.decl_enum enum_decl))
+
     let is_valid_enum_decl (program: Ast.program) (current_module_name: string) (enum_decl: enum_decl) = 
       let (>>=) = Result.bind in
       is_all_type_exist current_module_name program enum_decl 
       |> (function None -> Ok () | Some e -> Error e)
       >>= (fun () ->     
-        if Help.does_contains_type_decl current_module_name program (Ast.Type_Decl.decl_enum enum_decl) then Error.ECyclic_Declaration enum_decl |> Error.enum_error |> Result.error
+        if is_cyclic current_module_name program (enum_decl) then Error.ECyclic_Declaration enum_decl |> Error.enum_error |> Result.error
         else (Ok ()) 
       )
       >>= (fun () -> 

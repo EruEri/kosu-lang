@@ -352,6 +352,11 @@ module Type = struct
   let is_string_litteral = function
   | TString_lit -> true
   | _ -> false
+
+  let rec is_builtin_type = function
+  | TParametric_identifier _ | TType_Identifier _ -> false
+  | TTuple kts -> kts |> List.for_all is_builtin_type
+  | _ -> true
   
   let rec is_type_full_known ktype = 
     match ktype with
