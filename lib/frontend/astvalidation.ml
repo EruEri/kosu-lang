@@ -133,12 +133,12 @@ module Help = struct
   )
   and is_cyclic_struct current_module program struct_decl = 
     struct_decl.fields
-    |> List.exists (fun (_, kt) -> does_ktype_contains_type_decl current_module program kt (Type_Decl.decl_struct struct_decl) )
+    |> List.exists (fun (_, kt) -> not (Asthelper.Struct.is_type_generic kt struct_decl) && does_ktype_contains_type_decl current_module program kt (Type_Decl.decl_struct struct_decl) )
   and is_cyclic_enum current_module program enum_decl = 
     enum_decl.variants
     |> List.map (fun (_, kts) -> kts)
     |> List.flatten
-    |> List.exists (fun kt -> does_ktype_contains_type_decl current_module program kt (Type_Decl.decl_enum enum_decl))
+    |> List.exists (fun kt -> not (Asthelper.Enum.is_type_generic kt enum_decl) && does_ktype_contains_type_decl current_module program kt (Type_Decl.decl_enum enum_decl))
 
 end
 
