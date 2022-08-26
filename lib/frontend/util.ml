@@ -38,6 +38,10 @@ module ListHelper = struct
 
   let index_of f = index_of_aux f 0
 
+  let head_opt = function
+  | [] -> None
+  | t::_ -> Some t
+
   let rec duplicate_aux hashmap list = 
     match list with
     | [] -> hashmap |> Hashtbl.to_seq |> List.of_seq |> List.filter_map (fun (key, value) -> if value > 1 then Some key else None )

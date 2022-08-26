@@ -303,6 +303,7 @@ module Error = struct
 
   type ast_error = 
     | Bin_operator_Different_type
+    | Wrong_Assoc_Length_for_Parametrics of { expected: int; found: int; ktype: ktype} 
     | Undefined_Identifier of string
     | Undefined_Const of string
     | Undefined_Struct of string
@@ -357,6 +358,10 @@ module Type = struct
   | TParametric_identifier _ | TType_Identifier _ -> false
   | TTuple kts -> kts |> List.for_all is_builtin_type
   | _ -> true
+
+  let is_parametric = function
+  | TParametric_identifier _ -> true
+  | _ -> false
   
   let rec is_type_full_known ktype = 
     match ktype with
@@ -428,9 +433,6 @@ module Type_Decl = struct
 
   let decl_enum e = Decl_Enum e
   let decl_struct s = Decl_Struct s
-
-  let is_enum = function Decl_Enum _ -> true | _ -> false
-  let is_struct = function Decl_Struct _ -> true | _ -> false
 end
 
 module Function_Decl = struct

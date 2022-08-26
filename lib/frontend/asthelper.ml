@@ -153,6 +153,34 @@ module Program = struct
       |> Util.Occurence.one
 
     (**
+      Find type declaration from ktype
+      @return type_decl if ktype came from a type declaration, [None] if ktype is a builtin type
+      @raise No_Occurence : if no type declaration was found
+      @raise Too_Many_Occurence: if several type declaration matching was found
+      @raise Ast_error: if length of assoc_type is not the same as the length of the generic of the type declaration found
+    *)
+    let find_type_decl_from_true_ktype ktype current_module program = 
+      let type_generics = function
+      | Ast.Type_Decl.Decl_Enum e -> e.generics
+      | Ast.Type_Decl.Decl_Struct s -> s.generics
+    in
+      match ktype with
+      | TType_Identifier {module_path = ktype_def_path; name = ktype_name } -> (
+        let type_decl = find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
+        let generics_len = type_decl |> type_generics |> List.length in
+        if generics_len <> 0 then Wrong_Assoc_Length_for_Parametrics {expected = generics_len; found = 0; ktype} |> Ast.Error.ast_error |> raise else
+        type_decl |> Option.some
+      )
+      | TParametric_identifier {module_path = ktype_def_path; parametrics_type; name = ktype_name } -> (
+        let type_decl = find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
+        let generics_len = type_decl |> type_generics |> List.length in
+        let assoc_type = parametrics_type |> List.length in
+        if generics_len <> assoc_type then Wrong_Assoc_Length_for_Parametrics {expected = generics_len; found = assoc_type; ktype} |> Ast.Error.ast_error |> raise else
+        type_decl |> Option.some
+      )
+      | _ -> None
+
+    (**
     Find function declaration from function name
     @raise No_Occurence : if no function declaration was found
     @raise Too_Many_Occurence: if several function declaration matching was found
@@ -713,6 +741,14 @@ module Enum = struct
       assoc_ktypes |> List.map (fun kt -> generics |> List.assoc_opt kt |> Option.value ~default: kt)
     )
 
+    let is_ktype_generic_level_zero ktype (enum_decl: t) = 
+      match ktype with
+      | TType_Identifier { module_path = "" ; name } -> enum_decl.generics |> List.mem name
+      | _ -> false
+
+    let remove_level_zero_genenics ktypes (enum_decl: t) = 
+      ktypes |> List.filter (fun kt -> is_ktype_generic_level_zero kt enum_decl |> not)
+
   let reduce_binded_variable (assoc_binded: string option list) (ktype_list: ktype list) = 
     ktype_list
     |> List.combine assoc_binded
@@ -730,6 +766,22 @@ module Struct = struct
     (struct_decl.generics |> String.concat ", ")
     (struct_decl.struct_name)
     (struct_decl.fields |> List.map (fun (field, t) -> sprintf "%s : %s" (field) (string_of_ktype t)) |> String.concat ", " )
+
+  let rec map_generics_type (generics_combined: (string*ktype) list) ktype = 
+    match ktype with
+    | TType_Identifier { module_path = ""; name} -> generics_combined |> List.assoc_opt name |> Option.value ~default:ktype
+    | TParametric_identifier {module_path; parametrics_type; name} -> TParametric_identifier {
+      module_path;
+      parametrics_type = parametrics_type |> List.map (map_generics_type generics_combined);
+      name
+    }
+    | _ -> ktype
+
+  let bind_struct_decl (new_generics) (generics_combined: (string*ktype) list)  (struct_decl: struct_decl) = {
+    struct_name = struct_decl.struct_name;
+    generics = new_generics;
+    fields = struct_decl.fields |> List.map (fun (field, kt) -> (field, map_generics_type generics_combined kt) )
+  }
   let contains_generics (struct_decl: t) = struct_decl.generics <> []
 
     let rec is_type_generic ktype (struct_decl: t) = 
@@ -791,12 +843,23 @@ module Struct = struct
       end
     )
 
+
+    let is_ktype_generic_level_zero ktype (struct_decl: t) = 
+      match ktype with
+      | TType_Identifier { module_path = "" ; name } -> struct_decl.generics |> List.mem name
+      | _ -> false
+
+    let remove_level_zero_genenics ktypes (struct_decl: t) = 
+      ktypes |> List.filter (fun kt -> is_ktype_generic_level_zero kt struct_decl |> not)
+
+
   let rec is_type_compatible_hashgen (generic_table) (init_type: ktype) (expected_type: ktype) (struct_decl: t) = 
     match init_type, expected_type with
     | kt , TType_Identifier { module_path; name } when begin   
     match Hashtbl.find_opt generic_table name with
     | None -> if module_path = "" && struct_decl.generics |> List.mem name 
-        then let () = Hashtbl.replace generic_table name (struct_decl.generics |> Util.ListHelper.index_of (( = ) name ), kt ) in true
+        then let () = Hashtbl.replace generic_table name (struct_decl.generics |> Util.ListHelper.index_of (( = ) name ), kt ) in 
+          true
         else false 
     | Some (_, find_kt) -> find_kt = kt
     end -> true
@@ -825,6 +888,33 @@ module Struct = struct
       name = struct_decl.struct_name
     }
 
+end
+
+module Type_Decl = struct
+
+  type t = Ast.Type_Decl.type_decl
+
+  let is_enum = function Ast.Type_Decl.Decl_Enum _ -> true | _ -> false
+  let is_struct = function Ast.Type_Decl.Decl_Struct _ -> true | _ -> false
+  let type_name = function
+  | Ast.Type_Decl.Decl_Enum e -> e.enum_name
+  | Ast.Type_Decl.Decl_Struct s -> s.struct_name
+
+  let generics = function
+  | Ast.Type_Decl.Decl_Enum e -> e.generics
+  | Ast.Type_Decl.Decl_Struct s -> s.generics
+
+  let is_ktype_generic kt = function
+  | Ast.Type_Decl.Decl_Enum e -> e |> Enum.is_type_generic kt
+  | Ast.Type_Decl.Decl_Struct s -> s |> Struct.is_type_generic kt
+
+  let is_ktype_generic_level_zero kt = function
+  | Ast.Type_Decl.Decl_Enum e -> e |> Enum.is_ktype_generic_level_zero kt
+  | Ast.Type_Decl.Decl_Struct s -> s |> Struct.is_ktype_generic_level_zero kt
+
+  let remove_level_zero_genenics kts = function
+  | Ast.Type_Decl.Decl_Enum e -> e |> Enum.remove_level_zero_genenics kts
+  | Ast.Type_Decl.Decl_Struct s -> s |> Struct.remove_level_zero_genenics kts
 end
 
 module ExternalFunc = struct 
@@ -1002,8 +1092,8 @@ module Sizeof = struct
       let ktype_name = Type.type_name_opt kt |> Option.get in
       let type_decl = Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
       match type_decl with
-      | Type_Decl.Decl_Enum enum_decl -> size_enum calcul current_module program (Util.dummy_generic_map enum_decl.generics (Type.extract_parametrics_ktype kt)) enum_decl
-      | Type_Decl.Decl_Struct struct_decl -> size_struct calcul current_module program (Util.dummy_generic_map struct_decl.generics (Type.extract_parametrics_ktype kt)) struct_decl
+      | Ast.Type_Decl.Decl_Enum enum_decl -> size_enum calcul current_module program (Util.dummy_generic_map enum_decl.generics (Type.extract_parametrics_ktype kt)) enum_decl
+      | Ast.Type_Decl.Decl_Struct struct_decl -> size_struct calcul current_module program (Util.dummy_generic_map struct_decl.generics (Type.extract_parametrics_ktype kt)) struct_decl
     )
   and size_struct calcul current_module program generics struct_decl = 
     struct_decl.fields 
@@ -1103,6 +1193,7 @@ let string_of_built_in_func_error = let open Ast.Error in let open Printf in fun
 | Found_no_Integer { fn_name; found } -> sprintf "Found_no_Integer for %s : expected -- any Integer : found %s --" (fn_name) (string_of_ktype found)
 let string_of_ast_error = let open Ast.Error in let open Printf in function
 | Bin_operator_Different_type -> "Bin_operator_Different_type"
+| Wrong_Assoc_Length_for_Parametrics record -> sprintf "Wrong_Assoc_Length_for_Parametrics for %s -> %s" (string_of_ktype record.ktype) (string_of_found_expected (`int(record.expected, record.found)))
 | Undefined_Identifier s -> sprintf "Undefined_Identifier : %s" s
 | Undefined_Const s -> sprintf "Undefined_Const : %s" s
 | Undefined_Struct s -> sprintf "Undefined_Struct : %s" s
