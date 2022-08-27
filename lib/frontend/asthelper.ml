@@ -814,9 +814,11 @@ module Struct = struct
     )
     |> List.flatten
   in 
+  new_generics |> List.iter print_endline;
+  print_endline "stop";
   {
     struct_decl with
-      generics = new_generics;
+      generics = primitive_generics;
       fields = struct_decl.fields |> List.map (fun(name, kt) -> name, Ast.Type.map_generics_type combined primitive_generics kt)
   }
 
@@ -857,7 +859,7 @@ module Struct = struct
     match fields with
     | [] -> failwith "Unreachable: Empty field access"
     | t::[] -> (
-      match type_decl  with
+      match type_decl with
       | Decl_Enum enum_decl -> (Enum_Access_field {field = t; enum_decl}) |> ast_error |> raise
       | Decl_Struct struct_decl -> begin 
           match ktype_of_field_gen parametrics_types t struct_decl with
@@ -953,6 +955,10 @@ module Type_Decl = struct
   let remove_level_zero_genenics kts = function
   | Ast.Type_Decl.Decl_Enum e -> e |> Enum.remove_level_zero_genenics kts
   | Ast.Type_Decl.Decl_Struct s -> s |> Struct.remove_level_zero_genenics kts
+
+  let string_of_type_decl = function
+  | Ast.Type_Decl.Decl_Enum e -> Enum.string_of_enum_decl e
+  | Ast.Type_Decl.Decl_Struct s -> Struct.string_of_struct_decl s 
 end
 
 module ExternalFunc = struct 

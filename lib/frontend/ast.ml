@@ -407,7 +407,7 @@ module Type = struct
 
     let rec map_generics_type (generics_combined: (string*ktype) list) (primitive_generics: string list) ktype = 
       match ktype with
-      | TType_Identifier {module_path = ""; name} when primitive_generics |> List.mem name -> ktype
+      (* | TType_Identifier {module_path = ""; name} when primitive_generics |> List.mem name -> ktype *)
       | TType_Identifier { module_path = ""; name} -> generics_combined |> List.assoc_opt name |> Option.value ~default:ktype
       | TParametric_identifier {module_path; parametrics_type; name} -> TParametric_identifier {
         module_path;

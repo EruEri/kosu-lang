@@ -91,6 +91,7 @@ module Help = struct
         match type_decl_found with
         | Ast.Type_Decl.Decl_Struct struct_decl -> (
           let new_struct = Asthelper.Struct.bind_struct_decl parametrics_type (ktype_type_decl_origin |> Asthelper.Type_Decl.generics) current_module program struct_decl in
+          print_endline (Struct.string_of_struct_decl new_struct);
           does_contains_type_decl_struct current_module program new_struct type_decl_to_check
         )
         | Ast.Type_Decl.Decl_Enum enum_decl -> ( 
@@ -101,10 +102,8 @@ module Help = struct
       | TTuple kts -> kts |> List.for_all (fun kt -> does_ktype_contains_type_decl current_module program kt ktype_type_decl_origin type_decl_to_check)
       | _ -> false
   and does_contains_type_decl_struct current_module program struct_decl type_decl_to_check  = let open Asthelper in
-  Printf.printf "struct ktype called: \n";
   Ast.Type_Decl.decl_struct struct_decl = type_decl_to_check || struct_decl.fields
     |> List.exists (fun (_, kt) -> 
-      Printf.printf "struct ktype : %s\n" (string_of_ktype kt);
       match kt with
       | TType_Identifier _ when (Struct.is_type_generic kt struct_decl) -> false 
       | TType_Identifier {module_path = ktype_def_path; name = ktype_name} -> (
@@ -126,7 +125,6 @@ module Help = struct
   (Ast.Type_Decl.decl_enum enum_decl) = type_decl_to_check || enum_decl.variants
   |> List.exists (fun (_, kts ) -> 
       kts |> List.exists (fun (kt) -> 
-        Printf.printf "enum ktype : %s\n" (string_of_ktype kt);
         match kt with
         | TType_Identifier _ when (Enum.is_type_generic kt enum_decl) -> false 
         | TParametric_identifier {module_path = ktype_def_path; parametrics_type; name = ktype_name} -> (
