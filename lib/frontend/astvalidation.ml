@@ -1,6 +1,5 @@
 open Ast
 open Asthelper
-
 module Error = struct
 
   type external_func_error = 
@@ -88,23 +87,13 @@ module Help = struct
         | Ast.Type_Decl.Decl_Enum enum_decl -> does_contains_type_decl_enum current_module program enum_decl type_decl_to_check
       )
       | TParametric_identifier {module_path = ktype_def_path; parametrics_type; name = ktype_name} -> (
-        Printf.printf "%s\n" (string_of_ktype ktype) ;
-        let _ = begin 
-          parametrics_type
-          |> List.map ( fun kt ->
-            match kt with
-            | TParametric_identifier {module_path; parametrics_type; name} -> (
-              let inner_type_decl = Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path:module_path ~ktype_name: name ~current_module program in
-              inner_type_decl |> Asthelper.Type_Decl.remove_level_zero_genenics parametrics_type
-            )
-            | _ -> []
-          )
-          |> List.flatten
-        end in
-        let _type_decl_found = Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
-        failwith "Parametrics not implemented yet ..."
-        (* | Ast.Type_Decl.Decl_Struct struct_decl -> does_contains_type_decl_struct current_module program struct_decl type_decl_to_check
-        | Ast.Type_Decl.Decl_Enum enum_decl -> does_contains_type_decl_enum current_module program enum_decl type_decl_to_check *)
+        let type_decl_found = Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
+        match type_decl_found with
+        | Ast.Type_Decl.Decl_Struct struct_decl -> (
+          let new_struct = Asthelper.Struct.bind_struct_decl parametrics_type current_module program struct_decl in
+          does_contains_type_decl_struct current_module program new_struct type_decl_to_check
+        )
+        | Ast.Type_Decl.Decl_Enum enum_decl -> does_contains_type_decl_enum current_module program enum_decl type_decl_to_check
       )
       | TTuple kts -> kts |> List.for_all (fun kt -> does_ktype_contains_type_decl current_module program kt ktype_type_decl_origin type_decl_to_check)
       | _ -> false

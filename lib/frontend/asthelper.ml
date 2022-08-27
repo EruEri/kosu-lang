@@ -777,11 +777,30 @@ module Struct = struct
     }
     | _ -> ktype
 
-  let bind_struct_decl (new_generics) (generics_combined: (string*ktype) list)  (struct_decl: struct_decl) = {
+  (* let bind_struct_decl (new_generics) (generics_combined: (string*ktype) list)  (struct_decl: struct_decl) = {
     struct_name = struct_decl.struct_name;
     generics = new_generics;
     fields = struct_decl.fields |> List.map (fun (field, kt) -> (field, map_generics_type generics_combined kt) )
+  } *)
+
+  let bind_struct_decl (ktypes: ktype list) current_module program (struct_decl: t) = 
+    let type_generics = function
+    | Ast.Type_Decl.Decl_Enum e -> e.generics
+    | Ast.Type_Decl.Decl_Struct s -> s.generics in
+    let combined = List.combine struct_decl.generics ktypes in
+    let new_generics = ktypes |> List.map (fun kt -> 
+      Program.find_type_decl_from_true_ktype kt current_module program
+      |> Option.map (type_generics)
+      |> Option.value ~default: []
+    )
+    |> List.flatten
+  in 
+  {
+    struct_decl with
+      generics = new_generics;
+      fields = struct_decl.fields |> List.map (fun(name, kt) -> name, map_generics_type combined kt)
   }
+
   let contains_generics (struct_decl: t) = struct_decl.generics <> []
 
     let rec is_type_generic ktype (struct_decl: t) = 
