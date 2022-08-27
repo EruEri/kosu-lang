@@ -757,15 +757,19 @@ module Enum = struct
   let reduce_binded_variable_combine (assoc) = 
     assoc |> List.filter_map (fun (name, (ktype: ktype)) -> match (name: string option) with | None -> None | Some s -> Some (s, ktype))
 
-  let bind_struct_decl (ktypes: ktype list) current_module program (enum_decl: t) = 
+  let bind_enum_decl (ktypes: ktype list) (primitive_generics) current_module program (enum_decl: t) = 
     let type_generics = function
     | Ast.Type_Decl.Decl_Enum e -> e.generics
     | Ast.Type_Decl.Decl_Struct s -> s.generics in
     let combined = List.combine enum_decl.generics ktypes in
     let new_generics = ktypes |> List.map (fun kt -> 
-      Program.find_type_decl_from_true_ktype kt current_module program
-      |> Option.map (type_generics)
-      |> Option.value ~default: []
+      match kt with
+      | TType_Identifier {module_path = ""; name} when primitive_generics |> List.mem name -> [name]
+      | _ -> begin
+        Program.find_type_decl_from_true_ktype kt current_module program
+        |> Option.map (type_generics)
+        |> Option.value ~default: []
+      end
     )
     |> List.flatten
   in 
@@ -773,7 +777,7 @@ module Enum = struct
     enum_decl with
       generics = new_generics;
       variants = enum_decl.variants |> List.map (fun(name, kts) -> 
-        name, (kts |> List.map (Ast.Type.map_generics_type combined))
+        name, (kts |> List.map (Ast.Type.map_generics_type combined primitive_generics))
       )
   }
   
@@ -794,22 +798,26 @@ module Struct = struct
     fields = struct_decl.fields |> List.map (fun (field, kt) -> (field, map_generics_type generics_combined kt) )
   } *)
 
-  let bind_struct_decl (ktypes: ktype list) current_module program (struct_decl: t) = 
+  let bind_struct_decl (ktypes: ktype list) (primitive_generics) current_module program (struct_decl: t) = 
     let type_generics = function
     | Ast.Type_Decl.Decl_Enum e -> e.generics
     | Ast.Type_Decl.Decl_Struct s -> s.generics in
     let combined = List.combine struct_decl.generics ktypes in
     let new_generics = ktypes |> List.map (fun kt -> 
-      Program.find_type_decl_from_true_ktype kt current_module program
-      |> Option.map (type_generics)
-      |> Option.value ~default: []
+      match kt with
+      | TType_Identifier {module_path = ""; name} when primitive_generics |> List.mem name -> [name]
+      | _ -> begin
+        Program.find_type_decl_from_true_ktype kt current_module program
+        |> Option.map (type_generics)
+        |> Option.value ~default: []
+      end
     )
     |> List.flatten
   in 
   {
     struct_decl with
       generics = new_generics;
-      fields = struct_decl.fields |> List.map (fun(name, kt) -> name, Ast.Type.map_generics_type combined kt)
+      fields = struct_decl.fields |> List.map (fun(name, kt) -> name, Ast.Type.map_generics_type combined primitive_generics kt)
   }
 
   let contains_generics (struct_decl: t) = struct_decl.generics <> []

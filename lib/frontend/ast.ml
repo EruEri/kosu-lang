@@ -405,16 +405,17 @@ module Type = struct
     | TPointer kt -> TPointer (remap_generic_ktype generics_table kt)
     | _ as kt -> kt 
 
-    let rec map_generics_type (generics_combined: (string*ktype) list) ktype = 
+    let rec map_generics_type (generics_combined: (string*ktype) list) (primitive_generics: string list) ktype = 
       match ktype with
+      | TType_Identifier {module_path = ""; name} when primitive_generics |> List.mem name -> ktype
       | TType_Identifier { module_path = ""; name} -> generics_combined |> List.assoc_opt name |> Option.value ~default:ktype
       | TParametric_identifier {module_path; parametrics_type; name} -> TParametric_identifier {
         module_path;
-        parametrics_type = parametrics_type |> List.map (map_generics_type generics_combined);
+        parametrics_type = parametrics_type |> List.map (map_generics_type generics_combined primitive_generics);
         name
       }
-      | TTuple kts -> TTuple (kts |> List.map (map_generics_type generics_combined))
-      | TPointer kt -> map_generics_type generics_combined kt
+      | TTuple kts -> TTuple (kts |> List.map (map_generics_type generics_combined primitive_generics))
+      | TPointer kt -> map_generics_type generics_combined primitive_generics kt
       | _ -> ktype
 
   (**
