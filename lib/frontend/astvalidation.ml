@@ -90,12 +90,12 @@ module Help = struct
         let type_decl_found = Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
         match type_decl_found with
         | Ast.Type_Decl.Decl_Struct struct_decl -> (
-          let new_struct = Asthelper.Struct.bind_struct_decl parametrics_type (ktype_type_decl_origin |> Asthelper.Type_Decl.generics) current_module program struct_decl in
+          let new_struct = Asthelper.Struct.bind_struct_decl parametrics_type (ktype_type_decl_origin |> Asthelper.Type_Decl.generics) struct_decl in
           print_endline (Struct.string_of_struct_decl new_struct);
           does_contains_type_decl_struct current_module program new_struct type_decl_to_check
         )
         | Ast.Type_Decl.Decl_Enum enum_decl -> ( 
-          let new_enum_decl = Asthelper.Enum.bind_enum_decl parametrics_type (ktype_type_decl_origin |> Asthelper.Type_Decl.generics) current_module program enum_decl in
+          let new_enum_decl = Asthelper.Enum.bind_enum_decl parametrics_type (ktype_type_decl_origin |> Asthelper.Type_Decl.generics) enum_decl in
           does_contains_type_decl_enum current_module program new_enum_decl type_decl_to_check
         )
       )

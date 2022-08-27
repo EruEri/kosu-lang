@@ -415,7 +415,7 @@ module Type = struct
         name
       }
       | TTuple kts -> TTuple (kts |> List.map (map_generics_type generics_combined primitive_generics))
-      | TPointer kt -> map_generics_type generics_combined primitive_generics kt
+      | TPointer kt -> TPointer(map_generics_type generics_combined primitive_generics kt)
       | _ -> ktype
 
   (**
