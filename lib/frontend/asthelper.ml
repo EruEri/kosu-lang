@@ -756,6 +756,27 @@ module Enum = struct
 
   let reduce_binded_variable_combine (assoc) = 
     assoc |> List.filter_map (fun (name, (ktype: ktype)) -> match (name: string option) with | None -> None | Some s -> Some (s, ktype))
+
+  let bind_struct_decl (ktypes: ktype list) current_module program (enum_decl: t) = 
+    let type_generics = function
+    | Ast.Type_Decl.Decl_Enum e -> e.generics
+    | Ast.Type_Decl.Decl_Struct s -> s.generics in
+    let combined = List.combine enum_decl.generics ktypes in
+    let new_generics = ktypes |> List.map (fun kt -> 
+      Program.find_type_decl_from_true_ktype kt current_module program
+      |> Option.map (type_generics)
+      |> Option.value ~default: []
+    )
+    |> List.flatten
+  in 
+  {
+    enum_decl with
+      generics = new_generics;
+      variants = enum_decl.variants |> List.map (fun(name, kts) -> 
+        name, (kts |> List.map (Ast.Type.map_generics_type combined))
+      )
+  }
+  
   end
 
 module Struct = struct
@@ -766,16 +787,6 @@ module Struct = struct
     (struct_decl.generics |> String.concat ", ")
     (struct_decl.struct_name)
     (struct_decl.fields |> List.map (fun (field, t) -> sprintf "%s : %s" (field) (string_of_ktype t)) |> String.concat ", " )
-
-  let rec map_generics_type (generics_combined: (string*ktype) list) ktype = 
-    match ktype with
-    | TType_Identifier { module_path = ""; name} -> generics_combined |> List.assoc_opt name |> Option.value ~default:ktype
-    | TParametric_identifier {module_path; parametrics_type; name} -> TParametric_identifier {
-      module_path;
-      parametrics_type = parametrics_type |> List.map (map_generics_type generics_combined);
-      name
-    }
-    | _ -> ktype
 
   (* let bind_struct_decl (new_generics) (generics_combined: (string*ktype) list)  (struct_decl: struct_decl) = {
     struct_name = struct_decl.struct_name;
@@ -798,7 +809,7 @@ module Struct = struct
   {
     struct_decl with
       generics = new_generics;
-      fields = struct_decl.fields |> List.map (fun(name, kt) -> name, map_generics_type combined kt)
+      fields = struct_decl.fields |> List.map (fun(name, kt) -> name, Ast.Type.map_generics_type combined kt)
   }
 
   let contains_generics (struct_decl: t) = struct_decl.generics <> []

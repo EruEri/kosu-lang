@@ -93,7 +93,10 @@ module Help = struct
           let new_struct = Asthelper.Struct.bind_struct_decl parametrics_type current_module program struct_decl in
           does_contains_type_decl_struct current_module program new_struct type_decl_to_check
         )
-        | Ast.Type_Decl.Decl_Enum enum_decl -> does_contains_type_decl_enum current_module program enum_decl type_decl_to_check
+        | Ast.Type_Decl.Decl_Enum enum_decl -> ( 
+          let new_enum_decl = Asthelper.Enum.bind_struct_decl parametrics_type current_module program enum_decl in
+          does_contains_type_decl_enum current_module program new_enum_decl type_decl_to_check
+        )
       )
       | TTuple kts -> kts |> List.for_all (fun kt -> does_ktype_contains_type_decl current_module program kt ktype_type_decl_origin type_decl_to_check)
       | _ -> false

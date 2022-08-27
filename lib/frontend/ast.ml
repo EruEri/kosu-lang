@@ -405,6 +405,18 @@ module Type = struct
     | TPointer kt -> TPointer (remap_generic_ktype generics_table kt)
     | _ as kt -> kt 
 
+    let rec map_generics_type (generics_combined: (string*ktype) list) ktype = 
+      match ktype with
+      | TType_Identifier { module_path = ""; name} -> generics_combined |> List.assoc_opt name |> Option.value ~default:ktype
+      | TParametric_identifier {module_path; parametrics_type; name} -> TParametric_identifier {
+        module_path;
+        parametrics_type = parametrics_type |> List.map (map_generics_type generics_combined);
+        name
+      }
+      | TTuple kts -> TTuple (kts |> List.map (map_generics_type generics_combined))
+      | TPointer kt -> map_generics_type generics_combined kt
+      | _ -> ktype
+
   (**
   Returns the restricted version of the left type.
   this function returns the left type if [not (are_compatible_type to_restrict_type restrict_type)]
