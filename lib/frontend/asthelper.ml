@@ -49,6 +49,9 @@ module Module = struct
   let retrieve_func_decl = function
   | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NFunction s -> Some s | _ -> None)
 
+  let retrieve_operator_decl = function
+  | Ast.Mod nodes -> nodes |> List.filter_map (function | Ast.NOperator s -> Some s | _ -> None)
+
   let retrieve_syscall_decl = function
   | Ast.Mod nodes -> nodes |> List.filter_map (fun node -> match node with Ast.NSyscall s -> Some s | _ -> None)
 
@@ -247,6 +250,20 @@ module Program = struct
       | TTuple _ -> false
       | _ -> true
 
+      let find_binary_operator (op: Ast.parser_binary_op) (lhs,rhs) r_type program = 
+        program
+        |> List.map ( fun t -> Module.retrieve_operator_decl t._module)
+        |> List.flatten
+        |> List.filter (fun op_decl -> 
+          match op_decl with
+            | Unary _ -> false
+            | Binary record -> (
+              let (_, kt1), (_, kt2) = record.fields in
+              record.return_type = r_type && kt1 = lhs && kt2 = rhs && record.op = op
+            ) 
+          )
+
+        
       let find_function_exact fn_name ktypes_parameters return_type (program: module_path list) = 
         let open Util.Occurence in
         program
@@ -255,17 +272,16 @@ module Program = struct
         |> List.filter (function | One _ -> true | _ -> false)
 
     let is_valid_add_operation (lhs) (rhs) program = 
-      let open Util.Occurence in
       match lhs with
       | TPointer _ -> (match rhs with TInteger _ -> `built_in_ptr_valid | _ -> `invalid_add_pointer)
       | _ -> begin 
         if lhs <> rhs then `diff_types
         else match lhs with
           | TType_Identifier _ as kt -> (
-            match program |> find_function_exact "add" [kt;kt] kt with
-            [] -> `no_function_found
-            | t::[] -> `valid (t |> one)
-            | list -> `to_many_declaration (list |> List.filter_map (function | Multiple s -> Some s | _ -> None))
+            match program |> find_binary_operator Ast.Add (kt, kt) kt with
+            | [] -> `no_function_found
+            | t::[] -> `valid (t)
+            | list -> `to_many_declaration (list)
           )
           | TInteger _ | TFloat -> `built_in_valid
           | _ -> `no_add_for_built_in

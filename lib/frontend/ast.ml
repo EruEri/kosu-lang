@@ -10,9 +10,21 @@ type switch_case =
   assoc_ids: string option list
 }
 
+type parser_unary_op = 
+| PNot
+| PUMinus
 
-
-
+type parser_binary_op = 
+| Add 
+| Minus 
+| Mult | Div 
+| Modulo | BitwiseOr 
+| BitwiseAnd | BitwiseXor 
+| ShiftLeft | ShiftRight 
+| And | Or 
+| Sup 
+| Inf
+| Equal | Diff
 
 type ktype = 
 | TParametric_identifier of {
@@ -145,6 +157,20 @@ type function_decl = {
   body: kbody;
 }
 
+type operator_decl = 
+| Unary of  {
+  op: parser_unary_op;
+  field: (string * ktype);
+  return_type: ktype;
+  kbody: kbody
+}
+| Binary of {
+  op: parser_binary_op;
+  fields: (string * ktype) * (string * ktype);
+  return_type: ktype;
+  kbody: kbody
+}
+
 type syscall_decl = {
   syscall_name: string;
   parameters: ktype list;
@@ -176,6 +202,7 @@ type sig_decl = {
 type module_node = 
 | NExternFunc of external_func_decl
 | NFunction of function_decl
+| NOperator of operator_decl
 | NSyscall of syscall_decl
 | NSigFun of sig_decl
 | NStruct of struct_decl
@@ -190,39 +217,6 @@ type module_path = {
 }
 
 type program = module_path list
-
-type parser_unary_op = 
-| Not
-| UMinus
-
-type parser_binary_op = 
-| Add 
-| Minus 
-| Mult | Div 
-| Modulo | BitwiseOr 
-| BitwiseAnd | BitwiseXor 
-| ShiftLeft | ShiftRight 
-| And | Or 
-| Sup 
-| Inf
-| Equal | Diff
-
-type operator = 
-| Unary of parser_unary_op
-| Binary of parser_binary_op
-type operator_decl = 
-| Unary of  {
-  op: parser_unary_op;
-  field: (string * ktype);
-  return_type: ktype;
-  kbody: kbody
-}
-| Binary of {
-  op: parser_binary_op;
-  fields: (string * ktype) * (string * ktype);
-  return_type: ktype;
-  kbody: kbody
-}
 
 module OperatorFunction = struct
   type operator =
@@ -552,14 +546,22 @@ module Env = struct
     {
       contexts = env.contexts |> List.map (restrict_variable_type_context identifier ktype)
     }
-
-  
+    
   let add_variable couple (env: t) =
     match env.contexts with
     | [] -> env |> push_context (couple::[])
     | t::q -> {
       contexts = (couple::t)::q
     }
+
+    let add_fn_parameters ~const (name, ktype) (env: t) = 
+      let is_const = const in
+      let variable_info = {
+        is_const;
+        ktype
+      } in
+      env |> add_variable (name, variable_info) 
+
   let pop_context env = 
     match env.contexts with
     | [] -> env

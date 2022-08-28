@@ -69,6 +69,7 @@ module_nodes:
     | enum_decl { NEnum $1 }
     | struct_decl { NStruct $1 }
     | external_func_decl { NExternFunc $1 }
+    | operator_decl { NOperator $1 }
     | syscall_decl { NSyscall $1 }
     | function_decl { NFunction $1 }
     | sig_decl { NSigFun $1 }
@@ -123,8 +124,8 @@ external_func_decl:
 ;;
 
 unary_operator_symbol:
-    | DOT NOT { Not }
-    | DOT MINUS { UMinus }
+    | DOT NOT { PNot }
+    | DOT MINUS { PUMinus }
 ;;
 
 binary_operator_symbol:
@@ -135,7 +136,7 @@ binary_operator_symbol:
     | MOD { Modulo }
     | AMPERSAND { BitwiseAnd }
     | PIPE { BitwiseOr }
-    | XOR { XOR }
+    | XOR { BitwiseXor }
     | SHIFTLEFT { ShiftLeft }
     | SHIFTRIGHT { ShiftRight }
     | DOUBLEQUAL { Equal }
@@ -145,7 +146,7 @@ binary_operator_symbol:
 ;;
 
 operator_decl:
-    | OPERATOR op=binary_operator_symbol fields=delimited(LPARENT, id1=IDENT SEMICOLON kt1=ktype COMMA id2=IDENT SEMICOLON kt2=ktype { (id1,kt1), (id2, kt2) } ,RPARENT) return_type=ktype kbody=kbody {
+    | OPERATOR op=binary_operator_symbol fields=delimited(LPARENT, id1=IDENT COLON kt1=ktype COMMA id2=IDENT COLON kt2=ktype { (id1,kt1), (id2, kt2) } , RPARENT) return_type=ktype kbody=kbody {
         Binary {
             op;
             fields;
@@ -153,7 +154,7 @@ operator_decl:
             kbody
         }
     }
-    | OPERATOR op=delimited(LPARENT, unary_operator_symbol, RPARENT) field=delimited(LPARENT, id=IDENT SEMICOLON kt=ktype { id, kt} ,RPARENT) return_type=ktype kbody=kbody {
+    | OPERATOR op=delimited(LPARENT, unary_operator_symbol, RPARENT) field=delimited(LPARENT, id=IDENT COLON kt=ktype { id, kt} ,RPARENT) return_type=ktype kbody=kbody {
         Unary {
             op;
             field;
@@ -161,6 +162,7 @@ operator_decl:
             kbody
         }
     }
+;;
 
 declarer:
     | CONST { true }

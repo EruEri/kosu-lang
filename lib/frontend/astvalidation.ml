@@ -301,7 +301,13 @@ let validate_module_node (program: Ast.program) (current_module_name: string) (n
   | NSyscall syscall_decl -> Syscall.is_valid_syscall_declaration program current_module_name syscall_decl
   | NStruct struct_decl -> Printf.printf "start checking %s\n" (Asthelper.Struct.string_of_struct_decl struct_decl); Struct.is_valid_struct_decl program current_module_name struct_decl
   | NEnum enum_decl -> Printf.printf "start checking %s\n" (Asthelper.Enum.string_of_enum_decl enum_decl); Enum.is_valid_enum_decl program current_module_name enum_decl
-  | NFunction function_decl -> failwith "Not implemented yet..."
+  | NFunction f -> (
+    try
+      let _ = Typecheck.typeof_kbody (f.parameters |> List.fold_left (fun acc_env para -> acc_env |> Env.add_fn_parameters ~const: false para) Env.create_empty_env ) current_module_name program ~return_type:(Some f.return_type) f.body in
+      Ok ()
+    with Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error
+  )
+  | NOperator _ -> Ok ()
   
 
 let validate_module (program: Ast.program) {path; _module = Mod (_module)} = 
