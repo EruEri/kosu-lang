@@ -140,7 +140,6 @@ binary_operator_symbol:
     | SHIFTLEFT { ShiftLeft }
     | SHIFTRIGHT { ShiftRight }
     | DOUBLEQUAL { Equal }
-    | DIF { Diff }
     | SUP { Sup }
     | INF { Inf }
 ;;

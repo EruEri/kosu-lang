@@ -444,7 +444,8 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       | `valid _ -> TBool
       | `to_many_declaration _ -> (Too_many_operator_declaration { bin_op = Ast.OperatorFunction.SupEq; ktype = l_type }) |> operator_error |> raise
       | `built_in_valid -> TBool
-      | `no_supeq_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.SupEq ; ktype = l_type}) |> operator_error |> raise
+      | `no_equal_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.Equal; ktype = l_type}) |> operator_error |> raise
+      | `no_sup_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.Sup ; ktype = l_type}) |> operator_error |> raise
     )
 
     | EBin_op (BInf (lhs, rhs)) -> (
@@ -468,7 +469,8 @@ and typeof ?(generics_resolver = None) (env: Env.t) (current_mod_name: string) (
       | `valid _ -> TBool
       | `to_many_declaration _ -> (Too_many_operator_declaration { bin_op = Ast.OperatorFunction.InfEq; ktype = l_type }) |> operator_error |> raise
       | `built_in_valid -> TBool
-      | `no_infeq_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.InfEq ; ktype = l_type}) |> operator_error |> raise
+      | `no_equal_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.Equal; ktype = l_type}) |> operator_error |> raise
+      | `no_inf_for_built_in -> (No_built_in_op {bin_op = Ast.OperatorFunction.Inf ; ktype = l_type}) |> operator_error |> raise
     )
 
     | EUn_op( UNot (lhs) ) -> (

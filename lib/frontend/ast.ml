@@ -21,10 +21,9 @@ type parser_binary_op =
 | Modulo | BitwiseOr 
 | BitwiseAnd | BitwiseXor 
 | ShiftLeft | ShiftRight 
-| And | Or 
 | Sup 
 | Inf
-| Equal | Diff
+| Equal
 
 type ktype = 
 | TParametric_identifier of {
