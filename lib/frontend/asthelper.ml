@@ -922,7 +922,9 @@ module Type_Decl = struct
 
   let string_of_type_decl = function
   | Ast.Type_Decl.Decl_Enum e -> Enum.string_of_enum_decl e
-  | Ast.Type_Decl.Decl_Struct s -> Struct.string_of_struct_decl s 
+  | Ast.Type_Decl.Decl_Struct s -> Struct.string_of_struct_decl s
+
+  let are_same_type_decl lhs rhs = (type_name lhs = type_name rhs)
 end
 
 module ExternalFunc = struct 

@@ -79,12 +79,13 @@ module Help = struct
     | Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error
        
     
-  let rec does_ktype_contains_type_decl current_module program ktype ktype_type_decl_origin type_decl_to_check = 
+  let rec does_ktype_contains_type_decl current_module program  ktype ktype_type_decl_origin already_visited type_decl_to_check = 
+  (* already_visited |> List.map (Type_Decl.string_of_type_decl) |> List.iter (print_endline); *)
       match ktype with
       | TType_Identifier {module_path = ktype_def_path; name = ktype_name} -> (
         match Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program with
-        | Ast.Type_Decl.Decl_Struct struct_decl -> does_contains_type_decl_struct current_module program struct_decl type_decl_to_check
-        | Ast.Type_Decl.Decl_Enum enum_decl -> does_contains_type_decl_enum current_module program enum_decl type_decl_to_check
+        | Ast.Type_Decl.Decl_Struct struct_decl -> does_contains_type_decl_struct current_module program struct_decl already_visited type_decl_to_check
+        | Ast.Type_Decl.Decl_Enum enum_decl -> does_contains_type_decl_enum current_module program enum_decl already_visited type_decl_to_check
       )
       | TParametric_identifier {module_path = ktype_def_path; parametrics_type; name = ktype_name} -> (
         let type_decl_found = Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
@@ -92,36 +93,40 @@ module Help = struct
         | Ast.Type_Decl.Decl_Struct struct_decl -> (
           let new_struct = Asthelper.Struct.bind_struct_decl parametrics_type (ktype_type_decl_origin |> Asthelper.Type_Decl.generics) struct_decl in
           print_endline (Struct.string_of_struct_decl new_struct);
-          does_contains_type_decl_struct current_module program new_struct type_decl_to_check
+          does_contains_type_decl_struct current_module program new_struct already_visited type_decl_to_check
         )
         | Ast.Type_Decl.Decl_Enum enum_decl -> ( 
           let new_enum_decl = Asthelper.Enum.bind_enum_decl parametrics_type (ktype_type_decl_origin |> Asthelper.Type_Decl.generics) enum_decl in
-          does_contains_type_decl_enum current_module program new_enum_decl type_decl_to_check
+          does_contains_type_decl_enum current_module program new_enum_decl already_visited type_decl_to_check
         )
       )
-      | TTuple kts -> kts |> List.for_all (fun kt -> does_ktype_contains_type_decl current_module program kt ktype_type_decl_origin type_decl_to_check)
+      | TTuple kts -> kts |> List.for_all (fun kt -> does_ktype_contains_type_decl current_module program kt ktype_type_decl_origin already_visited type_decl_to_check)
       | _ -> false
-  and does_contains_type_decl_struct current_module program struct_decl type_decl_to_check  = let open Asthelper in
+  and does_contains_type_decl_struct current_module program struct_decl already_visited type_decl_to_check  = let open Asthelper in
+  if already_visited |> List.exists (fun ty_decl -> Type_Decl.are_same_type_decl ty_decl (Ast.Type_Decl.Decl_Struct struct_decl)
+    ) then false else
   Ast.Type_Decl.decl_struct struct_decl = type_decl_to_check || struct_decl.fields
     |> List.exists (fun (_, kt) -> 
       match kt with
       | TType_Identifier _ when (Struct.is_type_generic kt struct_decl) -> false 
       | TType_Identifier {module_path = ktype_def_path; name = ktype_name} -> (
         let t_decl = Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
-        t_decl = type_decl_to_check || t_decl = (Ast.Type_Decl.decl_struct struct_decl) || does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.Decl_Struct struct_decl) type_decl_to_check
+        t_decl = type_decl_to_check || t_decl = (Ast.Type_Decl.decl_struct struct_decl) || does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.Decl_Struct struct_decl) (Ast.Type_Decl.Decl_Struct struct_decl ::already_visited) type_decl_to_check
       )
       | TParametric_identifier {module_path = ktype_def_path; parametrics_type; name = ktype_name} -> (
         let t_decl = Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
         t_decl = type_decl_to_check 
         || parametrics_type |> List.exists (fun ikt -> 
           if struct_decl |> Struct.is_ktype_generic_level_zero ikt then false 
-          else does_ktype_contains_type_decl current_module program ikt (Ast.Type_Decl.Decl_Struct struct_decl) type_decl_to_check 
+          else does_ktype_contains_type_decl current_module program ikt (Ast.Type_Decl.Decl_Struct struct_decl) (Ast.Type_Decl.Decl_Struct struct_decl::already_visited) type_decl_to_check 
           )
-        || does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.Decl_Struct struct_decl) type_decl_to_check
+        || does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.Decl_Struct struct_decl) (Ast.Type_Decl.Decl_Struct struct_decl ::already_visited) type_decl_to_check
       )
-      | _ -> does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.Decl_Struct struct_decl) type_decl_to_check
+      | _ -> does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.Decl_Struct struct_decl) (already_visited) type_decl_to_check
   )
-  and does_contains_type_decl_enum current_module program (enum_decl: Ast.enum_decl) type_decl_to_check = let open Asthelper in
+  and does_contains_type_decl_enum current_module program (enum_decl: Ast.enum_decl) already_visited type_decl_to_check = let open Asthelper in
+  if already_visited |> List.exists (fun ty_decl -> Type_Decl.are_same_type_decl ty_decl (Ast.Type_Decl.Decl_Enum enum_decl)
+    ) then false else
   (Ast.Type_Decl.decl_enum enum_decl) = type_decl_to_check || enum_decl.variants
   |> List.exists (fun (_, kts ) -> 
       kts |> List.exists (fun (kt) -> 
@@ -132,26 +137,25 @@ module Help = struct
           t_decl = type_decl_to_check || t_decl = (Ast.Type_Decl.decl_enum enum_decl)
           || parametrics_type |> List.exists (fun ikt -> 
             if enum_decl |> Enum.is_ktype_generic_level_zero ikt then false 
-            else does_ktype_contains_type_decl current_module program ikt (Ast.Type_Decl.Decl_Enum enum_decl) type_decl_to_check 
+            else does_ktype_contains_type_decl current_module program ikt (Ast.Type_Decl.Decl_Enum enum_decl) (Ast.Type_Decl.Decl_Enum enum_decl ::already_visited) type_decl_to_check 
             )
-          || does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.Decl_Enum enum_decl) type_decl_to_check
+          || does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.Decl_Enum enum_decl) (Ast.Type_Decl.Decl_Enum enum_decl ::already_visited) type_decl_to_check
         )
         | TType_Identifier {module_path = ktype_def_path; name = ktype_name} -> (
           let t_decl = Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module program in
-          t_decl = type_decl_to_check || t_decl = (Ast.Type_Decl.decl_enum enum_decl) || does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.Decl_Enum enum_decl) type_decl_to_check
+          t_decl = type_decl_to_check || t_decl = (Ast.Type_Decl.decl_enum enum_decl) || does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.Decl_Enum enum_decl) (Ast.Type_Decl.Decl_Enum enum_decl ::already_visited) type_decl_to_check
         )
-        | _ -> does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.Decl_Enum enum_decl) type_decl_to_check
+        | _ -> does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.Decl_Enum enum_decl) already_visited type_decl_to_check
     )
   )
   and is_cyclic_struct current_module program struct_decl = 
     struct_decl.fields
-    |> List.exists (fun (_, kt) -> if (Asthelper.Struct.is_ktype_generic_level_zero kt struct_decl) then false else does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.decl_struct struct_decl) (Ast.Type_Decl.decl_struct struct_decl) )
+    |> List.exists (fun (_, kt) -> if (Asthelper.Struct.is_ktype_generic_level_zero kt struct_decl) then false else does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.decl_struct struct_decl) [] (Ast.Type_Decl.decl_struct struct_decl) )
   and is_cyclic_enum current_module program enum_decl = 
     enum_decl.variants
     |> List.map (fun (_, kts) -> kts)
     |> List.flatten
-    |> List.exists (fun kt -> if (Asthelper.Enum.is_ktype_generic_level_zero kt enum_decl) then false else does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.decl_enum enum_decl) (Ast.Type_Decl.decl_enum enum_decl))
-
+    |> List.exists (fun kt -> if (Asthelper.Enum.is_ktype_generic_level_zero kt enum_decl) then false else does_ktype_contains_type_decl current_module program kt (Ast.Type_Decl.decl_enum enum_decl) [] (Ast.Type_Decl.decl_enum enum_decl))
 end
 
 module ExternalFunction = struct
@@ -219,6 +223,7 @@ module Struct = struct
   let is_all_type_exist current_module program struct_decl =
     struct_decl.fields
     |> List.find_map (fun (_, kt) -> 
+      "kt = "^(string_of_ktype kt) |> print_endline;
       if Asthelper.Struct.is_ktype_generic_level_zero kt struct_decl then None 
       else match Help.is_ktype_exist current_module program kt with
       | Ok () -> None
@@ -283,8 +288,8 @@ let validate_module_node (program: Ast.program) (current_module_name: string) (n
   | NExternFunc external_func_decl -> 
     ExternalFunction.is_valid_external_function_declaration program current_module_name external_func_decl 
   | NSyscall syscall_decl -> Syscall.is_valid_syscall_declaration program current_module_name syscall_decl
-  | NStruct struct_decl -> Struct.is_valid_struct_decl program current_module_name struct_decl
-  | NEnum enum_decl -> Enum.is_valid_enum_decl program current_module_name enum_decl
+  | NStruct struct_decl -> print_endline (Asthelper.Struct.string_of_struct_decl struct_decl); Struct.is_valid_struct_decl program current_module_name struct_decl
+  | NEnum enum_decl -> Printf.printf "start checking %s\n" (Asthelper.Enum.string_of_enum_decl enum_decl); Enum.is_valid_enum_decl program current_module_name enum_decl
   | _ -> failwith "Not implemented yet ..."
   
 
