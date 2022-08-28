@@ -191,6 +191,39 @@ type module_path = {
 
 type program = module_path list
 
+type parser_unary_op = 
+| Not
+| UMinus
+
+type parser_binary_op = 
+| Add 
+| Minus 
+| Mult | Div 
+| Modulo | BitwiseOr 
+| BitwiseAnd | BitwiseXor 
+| ShiftLeft | ShiftRight 
+| And | Or 
+| Sup 
+| Inf
+| Equal | Diff
+
+type operator = 
+| Unary of parser_unary_op
+| Binary of parser_binary_op
+type operator_decl = 
+| Unary of  {
+  op: parser_unary_op;
+  field: (string * ktype);
+  return_type: ktype;
+  kbody: kbody
+}
+| Binary of {
+  op: parser_binary_op;
+  fields: (string * ktype) * (string * ktype);
+  return_type: ktype;
+  kbody: kbody
+}
+
 module OperatorFunction = struct
   type operator =
   | Add 

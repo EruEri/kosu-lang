@@ -12,7 +12,7 @@
 %token <string> Module_IDENT 
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
-%token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL
+%token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR
 %token TRIPLEDOT
 %token COMMA
 %token PIPESUP
@@ -121,6 +121,46 @@ external_func_decl:
         }
     }
 ;;
+
+unary_operator_symbol:
+    | DOT NOT { Not }
+    | DOT MINUS { UMinus }
+;;
+
+binary_operator_symbol:
+    | PLUS { Add }
+    | MINUS { Minus }
+    | MULT { Mult }
+    | DIV { Div }
+    | MOD { Modulo }
+    | AMPERSAND { BitwiseAnd }
+    | PIPE { BitwiseOr }
+    | XOR { XOR }
+    | SHIFTLEFT { ShiftLeft }
+    | SHIFTRIGHT { ShiftRight }
+    | DOUBLEQUAL { Equal }
+    | DIF { Diff }
+    | SUP { Sup }
+    | INF { Inf }
+;;
+
+operator_decl:
+    | OPERATOR op=binary_operator_symbol fields=delimited(LPARENT, id1=IDENT SEMICOLON kt1=ktype COMMA id2=IDENT SEMICOLON kt2=ktype { (id1,kt1), (id2, kt2) } ,RPARENT) return_type=ktype kbody=kbody {
+        Binary {
+            op;
+            fields;
+            return_type;
+            kbody
+        }
+    }
+    | OPERATOR op=delimited(LPARENT, unary_operator_symbol, RPARENT) field=delimited(LPARENT, id=IDENT SEMICOLON kt=ktype { id, kt} ,RPARENT) return_type=ktype kbody=kbody {
+        Unary {
+            op;
+            field;
+            return_type;
+            kbody
+        }
+    }
 
 declarer:
     | CONST { true }

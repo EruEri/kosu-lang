@@ -282,15 +282,26 @@ module Enum = struct
         else Ok ()
       )
 end
+
+module VFunction_Decl = struct
+  let is_main_function function_decl = function_decl.fn_name = "main"
+
+  let is_valid_main_sig function_decl = 
+    function_decl.fn_name = "main" && 
+    function_decl.return_type = TInteger(Signed, I32) && 
+    function_decl.parameters = []  && 
+    function_decl.generics = []
+end 
+
 let validate_module_node (program: Ast.program) (current_module_name: string) (node: Ast.module_node) = 
   match node with
-  | NConst _ -> Ok ()
+  | NConst _ | NSigFun _ -> Ok ()
   | NExternFunc external_func_decl -> 
     ExternalFunction.is_valid_external_function_declaration program current_module_name external_func_decl 
   | NSyscall syscall_decl -> Syscall.is_valid_syscall_declaration program current_module_name syscall_decl
-  | NStruct struct_decl -> print_endline (Asthelper.Struct.string_of_struct_decl struct_decl); Struct.is_valid_struct_decl program current_module_name struct_decl
+  | NStruct struct_decl -> Printf.printf "start checking %s\n" (Asthelper.Struct.string_of_struct_decl struct_decl); Struct.is_valid_struct_decl program current_module_name struct_decl
   | NEnum enum_decl -> Printf.printf "start checking %s\n" (Asthelper.Enum.string_of_enum_decl enum_decl); Enum.is_valid_enum_decl program current_module_name enum_decl
-  | _ -> failwith "Not implemented yet ..."
+  | NFunction function_decl -> failwith "Not implemented yet..."
   
 
 let validate_module (program: Ast.program) {path; _module = Mod (_module)} = 
