@@ -1,24 +1,8 @@
 open Ast
 open Ast.Error
 
-let find_struct_decl_from_name (current_module_name : string) (prog : program)
-    (module_path : string) (struct_name : string) =
-  let structs_opt =
-    (if module_path = "" then
-     Some (prog |> Asthelper.Program.module_of_string current_module_name)
-    else prog |> Asthelper.Program.module_of_string_opt current_module_name)
-    |> Option.map Asthelper.Module.retrieve_struct_decl
-  in
-
-  match structs_opt with
-  | None -> Error (Unbound_Module module_path)
-  | Some structs ->
-      structs
-      |> List.find_opt (fun s -> s.struct_name = struct_name)
-      |> Option.to_result ~none:(Undefined_Struct struct_name)
-
 (**
-  Return the type of the code block expression
+  Return the type of the code block expression by checking each expression in this one
   @raise Ast_error
   @raise No_Occurence : if a type declartion wasn't found or a variant is not in enum variants
   @raise Too_Many_Occurence: if several type declarations matching was found
@@ -73,7 +57,9 @@ let rec typeof_kbody ?(generics_resolver = None) (env : Env.t)
                   (stmt_error
                      (Ast.Error.Reassign_Constante { name = variable }))
               else
-                let new_type = typeof ~generics_resolver env current_mod_name program expr in
+                let new_type =
+                  typeof ~generics_resolver env current_mod_name program expr
+                in
                 if not (Ast.Type.are_compatible_type new_type ktype) then
                   raise
                     (stmt_error
@@ -85,7 +71,9 @@ let rec typeof_kbody ?(generics_resolver = None) (env : Env.t)
                     current_mod_name program ~return_type (q, final_expr)))
   | [] -> (
       Printf.printf "Final expr\n";
-      let final_expr_type = typeof env current_mod_name program final_expr in
+      let final_expr_type =
+        typeof ~generics_resolver env current_mod_name program final_expr
+      in
       match return_type with
       | None -> final_expr_type
       | Some kt ->
@@ -96,6 +84,12 @@ let rec typeof_kbody ?(generics_resolver = None) (env : Env.t)
                     { expected = kt; found = final_expr_type }))
           else kt)
 
+(**
+  Return the type of an expression
+  @raise Ast_error
+  @raise No_Occurence : if a type declartion wasn't found or a variant is not in enum variants
+  @raise Too_Many_Occurence: if several type declarations matching was found
+*)
 and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
     (prog : program) (expression : kexpression) =
   match expression with
@@ -127,7 +121,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
                            | None -> raise e
                            | Some s -> s)))
               | _ -> ignore ())
-        | Right expr -> ignore (typeof ~generics_resolver env current_mod_name prog expr)
+        | Right expr ->
+            ignore (typeof ~generics_resolver env current_mod_name prog expr)
       in
       TInteger (Unsigned, I64)
   | EString _ -> TString_lit
@@ -174,7 +169,9 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
           | None -> raise (ast_error (Unbound_Module modules_path))
           | Some s -> s))
   | EFieldAcces { first_expr; fields } ->
-      let first_type = typeof env current_mod_name prog first_expr in
+      let first_type =
+        typeof ~generics_resolver env current_mod_name prog first_expr
+      in
       let parametrics_types = Type.extract_parametrics_ktype first_type in
       let ktype_def_path = Type.module_path_opt first_type |> Option.get in
       let ktype_name = Type.type_name_opt first_type |> Option.get in
@@ -208,7 +205,7 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
       let init_types =
         fields
         |> List.map (fun (s, expr) ->
-               (s, typeof env current_mod_name prog expr))
+               (s, typeof ~generics_resolver env current_mod_name prog expr))
       in
       List.combine init_types struct_decl.fields
       |> List.iter
@@ -247,7 +244,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
       |> List.iteri (fun i generic_name ->
              Hashtbl.add hashtbl generic_name (i, TUnknow));
       let init_types =
-        assoc_exprs |> List.map (typeof env current_mod_name prog)
+        assoc_exprs
+        |> List.map (typeof ~generics_resolver env current_mod_name prog)
       in
       let () =
         enum_decl.variants
@@ -280,19 +278,23 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
 
       Asthelper.Enum.to_ktype_hash hashtbl modules_path enum_decl
   | ETuple expected_types ->
-      TTuple (expected_types |> List.map (typeof env current_mod_name prog))
+      TTuple
+        (expected_types
+        |> List.map (typeof ~generics_resolver env current_mod_name prog))
   | EIf (expression, if_block, else_block) ->
-      let if_condition = typeof env current_mod_name prog expression in
+      let if_condition =
+        typeof ~generics_resolver env current_mod_name prog expression
+      in
       if if_condition <> TBool then
         raise (ast_error (Not_Boolean_Type_Condition { found = if_condition }))
       else
         let if_type =
-          typeof_kbody
+          typeof_kbody ~generics_resolver
             (env |> Env.push_context [])
             current_mod_name prog if_block
         in
         let else_type =
-          typeof_kbody
+          typeof_kbody ~generics_resolver
             (env |> Env.push_context [])
             current_mod_name prog else_block
         in
@@ -304,12 +306,14 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
   | ECases { cases; else_case } ->
       cases
       |> List.map (fun (expr, kbody) ->
-             let expr_type = typeof env current_mod_name prog expr in
+             let expr_type =
+               typeof ~generics_resolver env current_mod_name prog expr
+             in
              if expr_type <> TBool then
                raise
                  (ast_error (Not_Boolean_Type_Condition { found = expr_type }))
              else
-               typeof_kbody
+               typeof_kbody ~generics_resolver
                  (env |> Env.push_context [])
                  current_mod_name prog kbody)
       |> List.fold_left
@@ -319,13 +323,14 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
                  (ast_error
                     (Uncompatible_type { expected = acc; found = new_type }))
              else Type.restrict_type acc new_type)
-           (typeof_kbody
+           (typeof_kbody ~generics_resolver
               (env |> Env.push_context [])
               current_mod_name prog else_case)
   | EBuiltin_Function_call { fn_name; parameters } -> (
       let ( >>= ) = Result.bind in
       let parameters_type =
-        parameters |> List.map (typeof env current_mod_name prog)
+        parameters
+        |> List.map (typeof ~generics_resolver env current_mod_name prog)
       in
 
       fn_name |> Asthelper.Builtin_Function.builtin_fn_of_fn_name
@@ -351,9 +356,15 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
                 found = parameters |> List.length;
               }
             |> func_error |> raise;
+          let new_map_generics =
+            Hashtbl.of_seq
+              (e.generics |> List.map (fun k -> (k, ())) |> List.to_seq)
+          in
           let init_type_parameters =
             parameters
-            |> List.map (typeof ~generics_resolver env current_mod_name prog)
+            |> List.map
+                 (typeof ~generics_resolver:(Some new_map_generics) env
+                    current_mod_name prog)
           in
           let hashtal = Hashtbl.create (e.generics |> List.length) in
           let () =
@@ -538,8 +549,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
               then syscall_decl.return_type
               else Unknow_Function_Error |> func_error |> raise))
   | EBin_op (BAdd (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match Asthelper.Program.is_valid_add_operation l_type r_type prog with
       | `built_in_ptr_valid -> l_type
       | `invalid_add_pointer ->
@@ -562,8 +573,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
           No_built_in_op { bin_op = Ast.OperatorFunction.Add; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BMinus (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match Asthelper.Program.is_valid_minus_operation l_type r_type prog with
       | `built_in_ptr_valid -> l_type
       | `invalid_add_pointer ->
@@ -586,8 +597,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
           No_built_in_op { bin_op = Ast.OperatorFunction.Minus; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BMult (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match Asthelper.Program.is_valid_mult_operation l_type r_type prog with
       | `diff_types ->
           Incompatible_Type
@@ -607,8 +618,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
           No_built_in_op { bin_op = Ast.OperatorFunction.Mult; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BDiv (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match Asthelper.Program.is_valid_div_operation l_type r_type prog with
       | `diff_types ->
           Incompatible_Type
@@ -628,8 +639,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
           No_built_in_op { bin_op = Ast.OperatorFunction.Div; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BMod (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match Asthelper.Program.is_valid_mod_operation l_type r_type prog with
       | `diff_types ->
           Incompatible_Type
@@ -650,8 +661,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
             { bin_op = Ast.OperatorFunction.Modulo; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BBitwiseOr (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match
         Asthelper.Program.is_valid_bitwiseor_operation l_type r_type prog
       with
@@ -678,8 +689,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
             { bin_op = Ast.OperatorFunction.BitwiseOr; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BBitwiseAnd (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match
         Asthelper.Program.is_valid_bitwiseand_operation l_type r_type prog
       with
@@ -706,8 +717,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
             { bin_op = Ast.OperatorFunction.BitwiseAnd; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BBitwiseXor (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match
         Asthelper.Program.is_valid_bitwisexor_operation l_type r_type prog
       with
@@ -734,8 +745,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
             { bin_op = Ast.OperatorFunction.BitwiseXor; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BShiftLeft (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match
         Asthelper.Program.is_valid_shiftleft_operation l_type r_type prog
       with
@@ -762,8 +773,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
             { bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BShiftRight (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match
         Asthelper.Program.is_valid_shiftright_operation l_type r_type prog
       with
@@ -790,20 +801,20 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
             { bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BAnd (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match (l_type, r_type) with
       | TBool, TBool -> TBool
       | _, _ -> Not_Boolean_operand_in_And |> operator_error |> raise)
   | EBin_op (BOr (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match (l_type, r_type) with
       | TBool, TBool -> TBool
       | _, _ -> Not_Boolean_operand_in_Or |> operator_error |> raise)
   | EBin_op (BEqual (lhs, rhs) | BDif (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match Asthelper.Program.is_valid_equal_operation l_type r_type prog with
       | `diff_types ->
           Incompatible_Type
@@ -823,8 +834,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
           No_built_in_op { bin_op = Ast.OperatorFunction.Equal; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BSup (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match Asthelper.Program.is_valid_sup_operation l_type r_type prog with
       | `diff_types ->
           Incompatible_Type
@@ -844,8 +855,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
           No_built_in_op { bin_op = Ast.OperatorFunction.Sup; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BSupEq (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match Asthelper.Program.is_valid_supeq_operation l_type r_type prog with
       | `diff_types ->
           Incompatible_Type
@@ -868,8 +879,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
           No_built_in_op { bin_op = Ast.OperatorFunction.Sup; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BInf (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match Asthelper.Program.is_valid_inf_operation l_type r_type prog with
       | `diff_types ->
           Incompatible_Type
@@ -889,8 +900,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
           No_built_in_op { bin_op = Ast.OperatorFunction.Inf; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BInfEq (lhs, rhs)) -> (
-      let l_type = typeof env current_mod_name prog lhs in
-      let r_type = typeof env current_mod_name prog rhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
+      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
       match Asthelper.Program.is_valid_infeq_operation l_type r_type prog with
       | `diff_types ->
           Incompatible_Type
@@ -913,7 +924,7 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
           No_built_in_op { bin_op = Ast.OperatorFunction.Inf; ktype = l_type }
           |> operator_error |> raise)
   | EUn_op (UNot lhs) -> (
-      let l_type = typeof env current_mod_name prog lhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
       match Asthelper.Program.is_valid_not_operation l_type prog with
       | `no_function_found ->
           Operator_not_found
@@ -929,7 +940,7 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
           No_built_in_op { bin_op = Ast.OperatorFunction.Not; ktype = l_type }
           |> operator_error |> raise)
   | EUn_op (UMinus lhs) -> (
-      let l_type = typeof env current_mod_name prog lhs in
+      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
       match Asthelper.Program.is_valid_uminus_operation l_type prog with
       | `no_function_found ->
           Operator_not_found
@@ -949,7 +960,9 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
           |> operator_error |> raise)
   | ESwitch { expression = expr; cases; wildcard_case } -> (
       let variant_cases = cases |> List.map (fun (v, _) -> v) |> List.flatten in
-      let expr_type = typeof env current_mod_name prog expr in
+      let expr_type =
+        typeof ~generics_resolver env current_mod_name prog expr
+      in
       let module_path, name =
         expr_type |> Asthelper.module_path_of_ktype_opt |> function
         | None ->
@@ -1033,14 +1046,16 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
                             |> switch_error |> raise
                           else (binding_name, var_info))
                  in
-                 typeof_kbody
+                 typeof_kbody ~generics_resolver
                    (env |> Env.push_context new_context)
                    current_mod_name prog kb)
       |> fun l ->
         match wildcard_case with
         | None -> l
         | Some wild ->
-            let wildcard_type = typeof_kbody env current_mod_name prog wild in
+            let wildcard_type =
+              typeof_kbody ~generics_resolver env current_mod_name prog wild
+            in
             wildcard_type :: l )
       |> function
       | [] -> failwith "unreachable case: empty kbody"

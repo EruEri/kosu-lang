@@ -25,10 +25,11 @@ module Error = struct
     | Op_built_overload of ktype
     | Op_binary_op_diff_type of (ktype * ktype)
     | Op_wrong_return_type_error of {
-      op: [ `binary of Ast.parser_binary_op | `unary of Ast.parser_unary_op ];
-      expected: ktype;
-      found: ktype
-    }
+        op :
+          [ `binary of Ast.parser_binary_op | `unary of Ast.parser_unary_op ];
+        expected : ktype;
+        found : ktype;
+      }
 
   type validation_error =
     | External_Func_Error of external_func_error
@@ -99,12 +100,13 @@ module Error = struct
     | Op_binary_op_diff_type (lkt, rkt) ->
         sprintf "Binary operator different type : -- %s | %s --"
           (string_of_ktype lkt) (string_of_ktype rkt)
-    | Op_wrong_return_type_error {op; expected; found} ->
+    | Op_wrong_return_type_error { op; expected; found } ->
         sprintf "Op_wrong_return_type_error for ( %s ) %s"
           (Asthelper.ParserOperator.string_of_parser_operator op)
           (Asthelper.string_of_expected_found
              (`ktype
-               (Asthelper.ParserOperator.expected_op_return_type expected op, found)))
+               ( Asthelper.ParserOperator.expected_op_return_type expected op,
+                 found )))
 
   let string_of_validation_error =
     let open Printf in
@@ -555,7 +557,8 @@ module VOperator_Decl = struct
         in
         if u.return_type = expected then Ok ()
         else
-          Op_wrong_return_type_error {op = `unary u.op; expected; found = u.return_type}
+          Op_wrong_return_type_error
+            { op = `unary u.op; expected; found = u.return_type }
           |> Error.operator_error |> Result.error
     | Binary b ->
         let expected =
@@ -565,7 +568,8 @@ module VOperator_Decl = struct
         in
         if b.return_type = expected then Ok ()
         else
-          Op_wrong_return_type_error {op = `binary b.op; expected; found = b.return_type}
+          Op_wrong_return_type_error
+            { op = `binary b.op; expected; found = b.return_type }
           |> Error.operator_error |> Result.error
 
   let check_kbody current_module program operator_decl =
@@ -619,10 +623,12 @@ let validate_module_node (program : Ast.program) (current_module_name : string)
         (Asthelper.Enum.string_of_enum_decl enum_decl);
       Enum.is_valid_enum_decl program current_module_name enum_decl
   | NFunction f -> (
-    let hashtbl = Hashtbl.of_seq (f.generics |> List.map (fun k -> k,() )|> List.to_seq) in
+      let hashtbl =
+        Hashtbl.of_seq (f.generics |> List.map (fun k -> (k, ())) |> List.to_seq)
+      in
       try
         let _ =
-          Typecheck.typeof_kbody ~generics_resolver: (Some hashtbl)
+          Typecheck.typeof_kbody ~generics_resolver:(Some hashtbl)
             (f.parameters
             |> List.fold_left
                  (fun acc_env para ->
