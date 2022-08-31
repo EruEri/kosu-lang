@@ -619,9 +619,10 @@ let validate_module_node (program : Ast.program) (current_module_name : string)
         (Asthelper.Enum.string_of_enum_decl enum_decl);
       Enum.is_valid_enum_decl program current_module_name enum_decl
   | NFunction f -> (
+    let hashtbl = Hashtbl.of_seq (f.generics |> List.map (fun k -> k,() )|> List.to_seq) in
       try
         let _ =
-          Typecheck.typeof_kbody
+          Typecheck.typeof_kbody ~generics_resolver: (Some hashtbl)
             (f.parameters
             |> List.fold_left
                  (fun acc_env para ->

@@ -73,7 +73,7 @@ let rec typeof_kbody ?(generics_resolver = None) (env : Env.t)
                   (stmt_error
                      (Ast.Error.Reassign_Constante { name = variable }))
               else
-                let new_type = typeof env current_mod_name program expr in
+                let new_type = typeof ~generics_resolver env current_mod_name program expr in
                 if not (Ast.Type.are_compatible_type new_type ktype) then
                   raise
                     (stmt_error
@@ -109,8 +109,6 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
         match either with
         | Left ktype ->
             ignore
-              (* let sizeof = Asthelper.Sizeof.sizeof current_mod_name prog ktype in
-                 let () = Printf.printf "%s :\n  size : %Lu\n" (Asthelper.string_of_ktype ktype) sizeof in *)
               (match ktype with
               | TParametric_identifier
                   { module_path; parametrics_type = _; name }
@@ -129,7 +127,7 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
                            | None -> raise e
                            | Some s -> s)))
               | _ -> ignore ())
-        | Right expr -> ignore (typeof env current_mod_name prog expr)
+        | Right expr -> ignore (typeof ~generics_resolver env current_mod_name prog expr)
       in
       TInteger (Unsigned, I64)
   | EString _ -> TString_lit
