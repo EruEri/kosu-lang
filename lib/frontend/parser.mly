@@ -38,9 +38,9 @@
 // %nonassoc EOF LPARENT RPARENT LBRACE RBRACE SEMICOLON COLON ARROWFUNC TRIPLEDOT EQUAL Integer_lit String_lit
 // %left COMMA
 %left PIPESUP
-%left PIPE
 %left OR
 %left AND
+%left PIPE
 %left XOR
 %left AMPERSAND
 %left DOUBLEQUAL DIF
