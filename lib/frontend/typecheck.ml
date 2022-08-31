@@ -91,8 +91,8 @@ let rec typeof_kbody ?(generics_resolver = None) (env : Env.t)
       | Some kt ->
           if not (Type.are_compatible_type kt final_expr_type) then
             raise
-              (stmt_error
-                 (Ast.Error.Uncompatible_type_Assign
+              (ast_error
+                 (Ast.Error.Uncompatible_type
                     { expected = kt; found = final_expr_type }))
           else kt)
 

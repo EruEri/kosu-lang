@@ -5,13 +5,14 @@ description:
   "A programming language that I hope will compile on arm64 and maybe one day on all platform through the LLVM"
 maintainer: ["EruEri"]
 authors: ["EruEri"]
-license: "LICENSE"
+license: "GPL-3.0"
 homepage: "https://github.com/EruEri/kosu-lang"
 bug-reports: "https://github.com/EruEri/kosu-lang/issues"
 depends: [
   "ocaml"
   "dune" {>= "3.1"}
   "menhir"
+  "clap"
   "odoc" {with-doc}
 ]
 build: [
