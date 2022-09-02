@@ -1101,7 +1101,7 @@ module Struct = struct
           name = struct_decl.struct_name;
         }
 
-  let ktype_of_field_gen (parametrics_types : ktype list) (field : string)
+  let ktype_of_field_gen ~current_module (parametrics_types : ktype list) (field : string)
       (struct_decl : t) =
     let list_len = parametrics_types |> List.length in
     let dummy_list = List.init list_len (fun _ -> ()) in
@@ -1111,7 +1111,7 @@ module Struct = struct
     struct_decl.fields |> List.assoc_opt field
     |> Option.map (fun kt ->
            if not (is_type_generic kt struct_decl) then kt
-           else Type.remap_generic_ktype hashtbl kt)
+           else Type.remap_generic_ktype ~current_module hashtbl kt)
 
   let rec resolve_fields_access_gen (parametrics_types : ktype list)
       (fields : string list) (type_decl : Ast.Type_Decl.type_decl)
@@ -1125,7 +1125,7 @@ module Struct = struct
         | Decl_Enum enum_decl ->
             Enum_Access_field { field = t; enum_decl } |> ast_error |> raise
         | Decl_Struct struct_decl -> (
-            match ktype_of_field_gen parametrics_types t struct_decl with
+            match ktype_of_field_gen ~current_module:current_mod_name parametrics_types t struct_decl with
             | None ->
                 Impossible_field_Access (to_ktype current_mod_name struct_decl)
                 |> ast_error |> raise
@@ -1135,7 +1135,7 @@ module Struct = struct
         | Decl_Enum enum_decl ->
             Enum_Access_field { field = t; enum_decl } |> ast_error |> raise
         | Decl_Struct struct_decl -> (
-            match ktype_of_field_gen parametrics_types t struct_decl with
+            match ktype_of_field_gen  ~current_module:current_mod_name parametrics_types t struct_decl with
             | None ->
                 Impossible_field_Access (to_ktype current_mod_name struct_decl)
                 |> ast_error |> raise
@@ -1462,12 +1462,12 @@ module Function = struct
              lhs rhs
     | lhs, rhs -> lhs = rhs
 
-  let to_return_ktype_hashtab generic_table (function_decl : t) =
+  let to_return_ktype_hashtab ~current_module ~module_type_path generic_table (function_decl : t) =
     if
       function_decl.generics = []
       || function_decl |> is_ktype_generic function_decl.return_type |> not
-    then function_decl.return_type
-    else Ast.Type.remap_generic_ktype generic_table function_decl.return_type
+    then Ast.Type.module_path_return_type ~current_module ~module_type_path function_decl.return_type
+    else Ast.Type.remap_generic_ktype ~current_module generic_table function_decl.return_type
 
   let iter_statement fn (function_decl : t) =
     let statements, _ = function_decl.body in
@@ -1536,6 +1536,11 @@ module ParserOperator = struct
     match op with
     | `unary u -> u |> expected_unary_return_type ktype
     | `binary b -> b |> expected_binary_return_type ktype
+
+  let signature =  function
+    | Unary { op; field; return_type; kbody = _ } -> (`unary op, field::[], return_type)
+    | Binary { op; fields = (t1, t2); return_type; kbody = _ } -> (`binary op, t1::t2::[], return_type)
+
 end
 
 module Sizeof = struct
@@ -1601,7 +1606,7 @@ module Sizeof = struct
 
   and size_struct calcul current_module program generics struct_decl =
     struct_decl.fields
-    |> List.map (fun (_, kt) -> Ast.Type.remap_generic_ktype generics kt)
+    |> List.map (fun (_, kt) -> Ast.Type.remap_generic_ktype ~current_module generics kt)
     |> function
     | list -> (
         let size, align, _packed_size =
@@ -1635,7 +1640,7 @@ module Sizeof = struct
     enum_decl.variants
     |> List.map (fun (_, kts) ->
            kts
-           |> List.map (Type.remap_generic_ktype generics)
+           |> List.map (Type.remap_generic_ktype ~current_module generics)
            |> List.cons (TInteger (Unsigned, I32))
            |> Type.ktuple
            |> size calcul current_module program)
@@ -1753,7 +1758,7 @@ let string_of_operator_error =
         (record.rhs |> string_of_ktype)
   | Operator_not_found record ->
       sprintf "No operator \" %s \" for -- %s --"
-        (name_of_operator record.bin_op)
+        (symbole_of_operator record.bin_op)
         (record.ktype |> string_of_ktype)
   | Too_many_operator_declaration record ->
       sprintf "Too many \" %s \" declaration for %s "
