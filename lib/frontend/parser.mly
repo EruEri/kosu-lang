@@ -252,8 +252,8 @@ expr:
     | FALSE { False }
     | EMPTY { Empty }
     | NULLPTR { ENullptr }
-    | SIZEOF delimited(LPARENT, expr, RPARENT) { ESizeof ( Either.Right $2) }
-    | SIZEOF delimited(LPARENT, COLON t=ktype { t } , RPARENT) { ESizeof (Either.Left $2)  }
+    | SIZEOF delimited(LPARENT, preceded(COLON, expr) , RPARENT) { ESizeof ( Either.Right $2) }
+    | SIZEOF delimited(LPARENT, t=ktype { t } , RPARENT) { ESizeof (Either.Left $2)  }
     | nonempty_list(MULT) IDENT { 
         EDeference ( $1 |> List.length , $2 )
     }
