@@ -451,22 +451,44 @@ module Type = struct
     | TPointer TUnknow, TPointer _ -> true
     | _, _ -> lhs = rhs
 
-  let rec remap_generic_ktype generics_table ktype =
+  
+  let rec module_path_return_type ~current_module ~module_type_path return_type = 
+    match return_type with
+    | TType_Identifier { module_path ; name } -> (
+      TType_Identifier { module_path = if current_module = module_path then "" else module_type_path; name}
+    )
+    | TParametric_identifier { module_path; parametrics_type; name } -> (
+        TParametric_identifier
+          {
+            module_path = if current_module = module_path then "" else module_type_path;
+            parametrics_type = parametrics_type |> List.map (module_path_return_type ~current_module ~module_type_path);
+            name;
+          }
+      )
+  | TTuple kts -> TTuple (kts |> List.map (module_path_return_type ~current_module ~module_type_path))
+  | TPointer kt -> TPointer (module_path_return_type ~current_module ~module_type_path kt)
+  | _ as kt -> kt
+
+  let rec remap_generic_ktype ~current_module  generics_table ktype =
     match ktype with
-    | TType_Identifier { module_path = ""; name } as kt -> (
+    | TType_Identifier { module_path = ""; name } -> (
         match Hashtbl.find_opt generics_table name with
-        | None -> kt
+        | None -> TType_Identifier { module_path =  "" ; name}
+        | Some (_, typ) -> typ)
+    | TType_Identifier { module_path; name } -> (
+        match Hashtbl.find_opt generics_table name with
+        | None -> TType_Identifier { module_path = if current_module = module_path then "" else module_path; name}
         | Some (_, typ) -> typ)
     | TParametric_identifier { module_path; parametrics_type; name } ->
         TParametric_identifier
           {
             module_path;
             parametrics_type =
-              parametrics_type |> List.map (remap_generic_ktype generics_table);
+              parametrics_type |> List.map (remap_generic_ktype ~current_module generics_table);
             name;
           }
-    | TTuple kts -> TTuple (kts |> List.map (remap_generic_ktype generics_table))
-    | TPointer kt -> TPointer (remap_generic_ktype generics_table kt)
+    | TTuple kts -> TTuple (kts |> List.map (remap_generic_ktype ~current_module generics_table))
+    | TPointer kt -> TPointer (remap_generic_ktype ~current_module generics_table kt)
     | _ as kt -> kt
 
   let rec map_generics_type (generics_combined : (string * ktype) list)
@@ -541,6 +563,11 @@ module Function_Decl = struct
   let is_external = function Decl_External _ -> true | _ -> false
   let is_syscall = function Decl_Syscall _ -> true | _ -> false
   let is_kosu_func = function Decl_Kosu_Function _ -> true | _ -> false
+
+  let calling_name = function
+  | Decl_External { sig_name = name; _ } 
+  | Decl_Kosu_Function { fn_name = name; _ } 
+  | Decl_Syscall { syscall_name = name; _ } -> name
 end
 
 module Builtin_Function = struct
