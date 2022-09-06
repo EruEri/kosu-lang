@@ -31,7 +31,10 @@ module Error = struct
         found : ktype;
       }
 
-  type function_error = Wrong_signature_for_main
+  type function_error = 
+    | Wrong_signature_for_main
+    | Duplicated_parameters of function_decl
+    | Function_Unit_parameter of function_decl
 
   type module_error =
     | Duplicate_function_name of string
@@ -125,7 +128,10 @@ module Error = struct
 
   let string_of_function_error =
     let open Printf in
-    function Wrong_signature_for_main -> sprintf "Wrong_signature_for_main"
+    function 
+    | Wrong_signature_for_main -> sprintf "Wrong_signature_for_main"
+    | Duplicated_parameters function_decl -> sprintf "Duplicate name parameters for %s" function_decl.fn_name
+    | Function_Unit_parameter function_decl -> sprintf "Function_Unit_parameter : %s" function_decl.fn_name
 
   let string_of_module_error =
     let open Printf in
@@ -560,7 +566,43 @@ module ValidateEnum = struct
 end
 
 module ValidateFunction_Decl = struct
-  let check_statement_list current_module program
+
+  let is_main_function function_decl = function_decl.fn_name = "main"
+
+  let is_valid_main_sig function_decl =
+    function_decl.fn_name = "main"
+    && function_decl.return_type = TInteger (Signed, I32)
+    && function_decl.parameters = []
+    && function_decl.generics = []
+
+  let check_parameters_duplicate (function_decl: function_decl) =
+    if function_decl.parameters
+    |> List.map (fun (field, _) -> field)
+    |> Util.ListHelper.duplicate |> Util.are_diff_lenght [] then 
+      Error.Duplicated_parameters function_decl |> Error.function_error |> Result.error
+    else Ok ()
+  let check_unit_parameters (function_decl: function_decl) = 
+    if function_decl.parameters
+    |> List.exists (fun (_, kt) -> kt = TUnit) then Error.Function_Unit_parameter function_decl |> Error.function_error |> Result.error
+    else Ok ()
+
+  let is_all_type_exist current_module program function_decl = 
+    function_decl.parameters
+    |> List.find_map (fun (_, kt) -> 
+        if Asthelper.Function.is_ktype_generic_level_zero kt function_decl then None
+        else
+          match Help.is_ktype_exist current_module program kt with
+          | Ok () -> None
+          | Error e -> Some e
+      )
+    
+  let check_main_sig function_decl = 
+    if not (is_main_function function_decl) then Ok ()
+    else if is_valid_main_sig function_decl then Ok ()
+    else  Wrong_signature_for_main |> Error.function_error |> Result.error
+
+
+  let check_kbody current_module program
       (function_decl : function_decl) =
     let hashtbl =
       Hashtbl.of_seq
@@ -580,13 +622,17 @@ module ValidateFunction_Decl = struct
       Ok ()
     with Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error
 
-  let is_main_function function_decl = function_decl.fn_name = "main"
 
-  let is_valid_main_sig function_decl =
-    function_decl.fn_name = "main"
-    && function_decl.return_type = TInteger (Signed, I32)
-    && function_decl.parameters = []
-    && function_decl.generics = []
+  let check_function program current_module  function_decl = 
+    let ( >>= ) = Result.bind in
+
+    (is_all_type_exist current_module program function_decl)
+    |> ( Option.fold ~none:(Ok ()) ~some:(Result.error))
+    >>= fun () -> check_main_sig function_decl
+    >>= fun () -> check_unit_parameters function_decl
+    >>= fun () -> check_parameters_duplicate function_decl
+    >>= fun () -> check_kbody current_module program function_decl
+
 end
 
 module ValidateOperator_Decl = struct
@@ -771,22 +817,8 @@ let validate_module_node (program : Ast.program) (current_module_name : string)
         struct_decl
   | NEnum enum_decl ->
       ValidateEnum.is_valid_enum_decl program current_module_name enum_decl
-  | NFunction f -> (
-      let hashtbl =
-        Hashtbl.of_seq (f.generics |> List.map (fun k -> (k, ())) |> List.to_seq)
-      in
-      try
-        let _ =
-          Typecheck.typeof_kbody ~generics_resolver:(Some hashtbl)
-            (f.parameters
-            |> List.fold_left
-                 (fun acc_env para ->
-                   acc_env |> Env.add_fn_parameters ~const:false para)
-                 Env.create_empty_env)
-            current_module_name program ~return_type:(Some f.return_type) f.body
-        in
-        Ok ()
-      with Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error)
+  | NFunction function_decl -> 
+    ValidateFunction_Decl.check_function program current_module_name function_decl
   | NOperator operator_decl ->
       ValidateOperator_Decl.is_valid_operator_decl current_module_name program
         operator_decl
@@ -794,6 +826,7 @@ let validate_module_node (program : Ast.program) (current_module_name : string)
 let validate_module (program : Ast.program)
     ({ path; _module = Mod _module } as package) =
   let ( >>= ) = Result.bind in
+  (* Printf.printf "Module = %s\n" path; *)
   ValidateModule.check_validate_module package >>= fun () ->
   _module
   |> List.fold_left
@@ -804,8 +837,8 @@ let validate_module (program : Ast.program)
 
 let valide_program (program : program) =
   let ( >>= ) = Result.bind in
-  program |> Validate_Program.check_main_in_program >>= fun () ->
-  program |> Help.program_remove_implicit_type_path
+  program |> Validate_Program.check_main_in_program 
+  >>= fun () -> program |> Help.program_remove_implicit_type_path
   |> List.fold_left
        (fun acc value ->
          if acc |> Result.is_error then acc else validate_module program value)

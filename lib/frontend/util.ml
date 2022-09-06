@@ -55,7 +55,7 @@ module ListHelper = struct
         let () =
           match Hashtbl.find_opt hashmap t with
           | Some value -> Hashtbl.replace hashmap t (value + 1)
-          | None -> Hashtbl.add hashmap t 0
+          | None -> Hashtbl.add hashmap t 1
         in
         duplicate_aux hashmap q
 
