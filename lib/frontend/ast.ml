@@ -346,6 +346,8 @@ module Error = struct
         found : int;
         ktype : ktype;
       }
+    | No_Occurence_found of string
+    | Too_Many_occurence_found of string
     | Undefined_Identifier of string
     | Undefined_Const of string
     | Undefined_Struct of string

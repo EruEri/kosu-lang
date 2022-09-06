@@ -241,6 +241,9 @@ const_decl:
             value = EFloat $4
         }
     }
+either_color_equal:
+    | COLON {}
+    | EQUAL {}
 expr:
     | Integer_lit { EInteger $1 }
     | String_lit { EString $1 }
@@ -323,7 +326,7 @@ expr:
                     }
                 ) $1
         }
-    | modules_path=separated_list(DOUBLECOLON, Module_IDENT)  struct_name=IDENT fields=delimited(LBRACE, separated_list(COMMA, id=IDENT COLON expr=expr { id, expr } ) , RBRACE) {
+    | modules_path=separated_list(DOUBLECOLON, Module_IDENT)  struct_name=IDENT fields=delimited(LBRACE, separated_list(COMMA, id=IDENT either_color_equal  expr=expr { id, expr } ) , RBRACE) {
         EStruct {
             modules_path = modules_path |> String.concat "/";
             struct_name;

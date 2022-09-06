@@ -176,7 +176,7 @@ module Program = struct
       else program |> module_of_string_opt module_enum_path
     with
     | None ->
-        Ast.Error.Unbound_Module module_enum_path |> Either.left |> Result.error
+        Ast.Error.Unbound_Module module_enum_path |> Result.error
     | Some _module -> (
         _module |> Module.retrieve_enum_decl
         |> Util.Occurence.find_occurence (fun enum_decl ->
@@ -193,9 +193,15 @@ module Program = struct
                              variant_decl = variant
                              && Util.are_same_lenght assoc_exprs assoc_type))
         |> function
-        | Empty -> Not_found |> Either.right |> Result.error
-        | Util.Occurence.Multiple _ ->
-            Util.Occurence.Too_Many_Occurence |> Either.right |> Result.error
+        | Empty -> (
+          Ast.Error.No_Occurence_found ("Enum with variant "^ variant)
+          ) |> Result.error
+        | Util.Occurence.Multiple enum_decls ->
+            Ast.Error.Too_Many_occurence_found ( Printf.sprintf "Need explicit enum name : Too many enum with variant : %s -- conflicts -- %s -- " 
+            (variant)
+            (enum_decls |> List.map (fun decl -> decl.enum_name) |> String.concat ", " )
+            ) 
+            |> Result.error
         | One enum_decl -> enum_decl |> Result.ok)
 
   let find_module_of_ktype ktype_def_path current_module program =
@@ -1856,7 +1862,7 @@ let string_of_operator_error =
         (name_of_operator record.bin_op)
         (record.ktype |> string_of_ktype)
   | Incompatible_Type record ->
-      sprintf "Incompatible_Type for \" %s \" -- lhs = %s : rhs = %s"
+      sprintf "Incompatible_Type for \" %s \" -- lhs = %s : rhs = %s --"
         (record.bin_op |> name_of_operator)
         (record.lhs |> string_of_ktype)
         (record.rhs |> string_of_ktype)
@@ -1932,6 +1938,8 @@ let string_of_ast_error =
       sprintf "Wrong_Assoc_Length_for_Parametrics for %s -> %s"
         (string_of_ktype record.ktype)
         (string_of_expected_found (`int (record.expected, record.found)))
+  | No_Occurence_found s -> sprintf "No Occurence found for %s" s
+  | Too_Many_occurence_found s -> sprintf "Too_Many_occurence_found : %s" s
   | Undefined_Identifier s -> sprintf "Undefined_Identifier : %s" s
   | Undefined_Const s -> sprintf "Undefined_Const : %s" s
   | Undefined_Struct s -> sprintf "Undefined_Struct : %s" s

@@ -236,8 +236,7 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
           Asthelper.Program.find_enum_decl_opt current_mod_name modules_path
             enum_name variant assoc_exprs prog
         with
-        | Error (Either.Right e) -> raise e
-        | Error (Left e) -> raise (Ast.Error.ast_error e)
+        | Error e -> raise (Ast.Error.ast_error e)
         | Ok e -> e
       in
 
