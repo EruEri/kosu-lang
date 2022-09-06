@@ -175,8 +175,7 @@ module Program = struct
         Some (program |> module_of_string current_module_name)
       else program |> module_of_string_opt module_enum_path
     with
-    | None ->
-        Ast.Error.Unbound_Module module_enum_path |> Result.error
+    | None -> Ast.Error.Unbound_Module module_enum_path |> Result.error
     | Some _module -> (
         _module |> Module.retrieve_enum_decl
         |> Util.Occurence.find_occurence (fun enum_decl ->
@@ -193,14 +192,18 @@ module Program = struct
                              variant_decl = variant
                              && Util.are_same_lenght assoc_exprs assoc_type))
         |> function
-        | Empty -> (
-          Ast.Error.No_Occurence_found ("Enum with variant "^ variant)
-          ) |> Result.error
+        | Empty ->
+            Ast.Error.No_Occurence_found ("Enum with variant " ^ variant)
+            |> Result.error
         | Util.Occurence.Multiple enum_decls ->
-            Ast.Error.Too_Many_occurence_found ( Printf.sprintf "Need explicit enum name : Too many enum with variant : %s -- conflicts -- %s -- " 
-            (variant)
-            (enum_decls |> List.map (fun decl -> decl.enum_name) |> String.concat ", " )
-            ) 
+            Ast.Error.Too_Many_occurence_found
+              (Printf.sprintf
+                 "Need explicit enum name : Too many enum with variant : %s -- \
+                  conflicts -- %s -- "
+                 variant
+                 (enum_decls
+                 |> List.map (fun decl -> decl.enum_name)
+                 |> String.concat ", "))
             |> Result.error
         | One enum_decl -> enum_decl |> Result.ok)
 
@@ -1120,8 +1123,8 @@ module Struct = struct
           name = struct_decl.struct_name;
         }
 
-  let ktype_of_field_gen ~current_module (parametrics_types : ktype list) (field : string)
-      (struct_decl : t) =
+  let ktype_of_field_gen ~current_module (parametrics_types : ktype list)
+      (field : string) (struct_decl : t) =
     let list_len = parametrics_types |> List.length in
     let dummy_list = List.init list_len (fun _ -> ()) in
     let dummy_parametrics = List.combine dummy_list parametrics_types in
@@ -1144,7 +1147,10 @@ module Struct = struct
         | Decl_Enum enum_decl ->
             Enum_Access_field { field = t; enum_decl } |> ast_error |> raise
         | Decl_Struct struct_decl -> (
-            match ktype_of_field_gen ~current_module:current_mod_name parametrics_types t struct_decl with
+            match
+              ktype_of_field_gen ~current_module:current_mod_name
+                parametrics_types t struct_decl
+            with
             | None ->
                 Impossible_field_Access (to_ktype current_mod_name struct_decl)
                 |> ast_error |> raise
@@ -1154,7 +1160,10 @@ module Struct = struct
         | Decl_Enum enum_decl ->
             Enum_Access_field { field = t; enum_decl } |> ast_error |> raise
         | Decl_Struct struct_decl -> (
-            match ktype_of_field_gen  ~current_module:current_mod_name parametrics_types t struct_decl with
+            match
+              ktype_of_field_gen ~current_module:current_mod_name
+                parametrics_types t struct_decl
+            with
             | None ->
                 Impossible_field_Access (to_ktype current_mod_name struct_decl)
                 |> ast_error |> raise
@@ -1247,7 +1256,12 @@ module Struct = struct
   let rename_parameter_explicit_module new_module_path (struct_decl : t) =
     {
       struct_decl with
-      fields = struct_decl.fields |> List.map (fun (field, ktype) -> field, Ast.Type.set_module_path struct_decl.generics new_module_path ktype)
+      fields =
+        struct_decl.fields
+        |> List.map (fun (field, ktype) ->
+               ( field,
+                 Ast.Type.set_module_path struct_decl.generics new_module_path
+                   ktype ));
     }
 end
 
@@ -1316,15 +1330,15 @@ module Syscall = struct
       (syscall_decl.parameters |> List.map string_of_ktype |> String.concat ", ")
       (syscall_decl.return_type |> string_of_ktype)
 
-    let rename_parameter_explicit_module current_module (syscall_decl : t) =
-      {
-        syscall_decl with
-        parameters =
-          syscall_decl.parameters
-          |> List.map (Ast.Type.set_module_path [] current_module);
-        return_type =
-          syscall_decl.return_type |> Ast.Type.set_module_path [] current_module;
-      }
+  let rename_parameter_explicit_module current_module (syscall_decl : t) =
+    {
+      syscall_decl with
+      parameters =
+        syscall_decl.parameters
+        |> List.map (Ast.Type.set_module_path [] current_module);
+      return_type =
+        syscall_decl.return_type |> Ast.Type.set_module_path [] current_module;
+    }
 end
 
 module Builtin_Function = struct
@@ -1521,12 +1535,17 @@ module Function = struct
              lhs rhs
     | lhs, rhs -> lhs = rhs
 
-  let to_return_ktype_hashtab ~current_module ~module_type_path generic_table (function_decl : t) =
+  let to_return_ktype_hashtab ~current_module ~module_type_path generic_table
+      (function_decl : t) =
     if
       function_decl.generics = []
       || function_decl |> is_ktype_generic function_decl.return_type |> not
-    then Ast.Type.module_path_return_type ~current_module ~module_type_path function_decl.return_type
-    else Ast.Type.remap_generic_ktype ~current_module generic_table function_decl.return_type
+    then
+      Ast.Type.module_path_return_type ~current_module ~module_type_path
+        function_decl.return_type
+    else
+      Ast.Type.remap_generic_ktype ~current_module generic_table
+        function_decl.return_type
 
   let iter_statement fn (function_decl : t) =
     let statements, _ = function_decl.body in
@@ -1596,31 +1615,33 @@ module ParserOperator = struct
     | `unary u -> u |> expected_unary_return_type ktype
     | `binary b -> b |> expected_binary_return_type ktype
 
-  let signature =  function
-  | Unary { op; field; return_type; kbody = _ } -> (`unary op, field::[], return_type)
-  | Binary { op; fields = (t1, t2); return_type; kbody = _ } -> (`binary op, t1::t2::[], return_type)
+  let signature = function
+    | Unary { op; field; return_type; kbody = _ } ->
+        (`unary op, field :: [], return_type)
+    | Binary { op; fields = t1, t2; return_type; kbody = _ } ->
+        (`binary op, [ t1; t2 ], return_type)
 
   let rename_parameter_explicit_module new_module_path = function
-  | Unary unary ->
-      let p1, k1 = unary.field in
-      Unary
-        {
-          unary with
-          field = (p1, k1 |> Type.set_module_path [] new_module_path);
-          return_type =
-            unary.return_type |> Type.set_module_path [] new_module_path;
-        }
-  | Binary binary ->
-      let (p1, k1), (p2, k2) = binary.fields in
-      Binary
-        {
-          binary with
-          fields =
-            ( (p1, k1 |> Type.set_module_path [] new_module_path),
-              (p2, k2 |> Type.set_module_path [] new_module_path) );
-          return_type =
-            binary.return_type |> Type.set_module_path [] new_module_path;
-        }
+    | Unary unary ->
+        let p1, k1 = unary.field in
+        Unary
+          {
+            unary with
+            field = (p1, k1 |> Type.set_module_path [] new_module_path);
+            return_type =
+              unary.return_type |> Type.set_module_path [] new_module_path;
+          }
+    | Binary binary ->
+        let (p1, k1), (p2, k2) = binary.fields in
+        Binary
+          {
+            binary with
+            fields =
+              ( (p1, k1 |> Type.set_module_path [] new_module_path),
+                (p2, k2 |> Type.set_module_path [] new_module_path) );
+            return_type =
+              binary.return_type |> Type.set_module_path [] new_module_path;
+          }
 end
 
 module AstModif = struct
@@ -1630,7 +1651,7 @@ module AstModif = struct
           (ExternalFunc.rename_parameter_explicit_module new_module_path exf)
     | NSyscall syscall_decl ->
         NSyscall
-          (Syscall.rename_parameter_explicit_module new_module_path syscall_decl)   
+          (Syscall.rename_parameter_explicit_module new_module_path syscall_decl)
     | NFunction function_decl ->
         NFunction
           (Function.rename_parameter_explicit_module new_module_path
@@ -1640,18 +1661,13 @@ module AstModif = struct
           (ParserOperator.rename_parameter_explicit_module new_module_path
              operator_decl)
     | NEnum enum_decl ->
-        NEnum
-          (Enum.rename_parameter_explicit_module new_module_path
-          enum_decl)
-    | NStruct struct_decl -> 
-        NStruct 
-          (Struct.rename_parameter_explicit_module new_module_path
-          struct_decl)
+        NEnum (Enum.rename_parameter_explicit_module new_module_path enum_decl)
+    | NStruct struct_decl ->
+        NStruct
+          (Struct.rename_parameter_explicit_module new_module_path struct_decl)
     | NConst c -> NConst c
     | NSigFun s -> NSigFun s
 end
-
-
 
 module Sizeof = struct
   let ( ++ ) = Int64.add
@@ -1716,7 +1732,8 @@ module Sizeof = struct
 
   and size_struct calcul current_module program generics struct_decl =
     struct_decl.fields
-    |> List.map (fun (_, kt) -> Ast.Type.remap_generic_ktype ~current_module generics kt)
+    |> List.map (fun (_, kt) ->
+           Ast.Type.remap_generic_ktype ~current_module generics kt)
     |> function
     | list -> (
         let size, align, _packed_size =

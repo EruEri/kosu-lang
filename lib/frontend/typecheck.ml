@@ -358,57 +358,59 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
                 expected = e.parameters |> List.length;
                 found = parameters |> List.length;
               }
-            |> func_error |> raise 
+            |> func_error |> raise
           else
-          let new_map_generics =
-            Hashtbl.of_seq
-              (e.generics |> List.map (fun k -> (k, ())) |> List.to_seq)
-          in
-          let init_type_parameters =
-            parameters
-            |> List.map
-                 (typeof ~generics_resolver:(Some new_map_generics) env
-                    current_mod_name prog)
-          in
-          let hashtal = Hashtbl.create (e.generics |> List.length) in
-          let () =
-            match Asthelper.Function.does_need_generic_resolver e with
-            | true ->
-                if
-                  Util.are_diff_lenght
-                    (grc |> Option.value ~default:[])
-                    e.generics
-                then
-                  Unmatched_Generics_Resolver_length
-                    {
-                      expected = e.generics |> List.length;
-                      found = grc |> Option.value ~default:[] |> List.length;
-                    }
-                  |> func_error |> raise
-                else ()
-            | false -> ()
-          in
-          let () =
-            match grc with
-            | Some grc_safe ->
-                List.combine e.generics grc_safe
-                |> List.iteri (fun index (generic_name, field_ktype) ->
-                       Hashtbl.add hashtal generic_name (index, field_ktype))
-            | None -> ()
-          in
-          init_type_parameters |> List.combine e.parameters
-          |> List.iter (fun ((_, para_type), init_type) ->
-                 if
-                   e
-                   |> Asthelper.Function.is_type_compatible_hashgen hashtal
-                        init_type para_type
-                   |> not
-                 then
-                   Mismatched_Parameters_Type
-                     { expected = para_type; found = init_type }
-                   |> func_error |> raise);
+            let new_map_generics =
+              Hashtbl.of_seq
+                (e.generics |> List.map (fun k -> (k, ())) |> List.to_seq)
+            in
+            let init_type_parameters =
+              parameters
+              |> List.map
+                   (typeof ~generics_resolver:(Some new_map_generics) env
+                      current_mod_name prog)
+            in
+            let hashtal = Hashtbl.create (e.generics |> List.length) in
+            let () =
+              match Asthelper.Function.does_need_generic_resolver e with
+              | true ->
+                  if
+                    Util.are_diff_lenght
+                      (grc |> Option.value ~default:[])
+                      e.generics
+                  then
+                    Unmatched_Generics_Resolver_length
+                      {
+                        expected = e.generics |> List.length;
+                        found = grc |> Option.value ~default:[] |> List.length;
+                      }
+                    |> func_error |> raise
+                  else ()
+              | false -> ()
+            in
+            let () =
+              match grc with
+              | Some grc_safe ->
+                  List.combine e.generics grc_safe
+                  |> List.iteri (fun index (generic_name, field_ktype) ->
+                         Hashtbl.add hashtal generic_name (index, field_ktype))
+              | None -> ()
+            in
+            init_type_parameters |> List.combine e.parameters
+            |> List.iter (fun ((_, para_type), init_type) ->
+                   if
+                     e
+                     |> Asthelper.Function.is_type_compatible_hashgen hashtal
+                          init_type para_type
+                     |> not
+                   then
+                     Mismatched_Parameters_Type
+                       { expected = para_type; found = init_type }
+                     |> func_error |> raise);
 
-          Asthelper.Function.to_return_ktype_hashtab ~current_module:current_mod_name ~module_type_path:modules_path hashtal e
+            Asthelper.Function.to_return_ktype_hashtab
+              ~current_module:current_mod_name ~module_type_path:modules_path
+              hashtal e
       | Ast.Function_Decl.Decl_External external_func_decl -> (
           if external_func_decl.is_variadic then
             parameters
