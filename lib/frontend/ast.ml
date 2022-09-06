@@ -390,6 +390,25 @@ module Type = struct
 
   let is_parametric = function TParametric_identifier _ -> true | _ -> false
 
+  let rec set_module_path generics new_module_name = function
+    | TType_Identifier { module_path = ""; name }
+      when generics |> List.mem name |> not ->
+        TType_Identifier { module_path = new_module_name; name }
+    | TParametric_identifier { module_path; parametrics_type; name } ->
+        TParametric_identifier
+          {
+            module_path =
+              (if module_path = "" then new_module_name else module_path);
+            parametrics_type =
+              parametrics_type
+              |> List.map (set_module_path generics new_module_name);
+            name;
+          }
+    | TPointer t -> TPointer (set_module_path generics new_module_name t)
+    | TTuple kts ->
+        TTuple (kts |> List.map (set_module_path generics new_module_name))
+    | _ as kt -> kt
+
   let rec is_type_full_known ktype =
     match ktype with
     | TUnknow -> false

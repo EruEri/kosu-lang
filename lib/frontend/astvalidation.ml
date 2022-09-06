@@ -353,6 +353,17 @@ module Help = struct
                (Ast.Type_Decl.decl_enum enum_decl)
                []
                (Ast.Type_Decl.decl_enum enum_decl))
+
+  let program_remove_implicit_type_path (program: program) = 
+    program |> List.map ( fun {path; _module = Mod _module} -> 
+      let new_module =  _module |> List.map (fun node -> 
+        Asthelper.AstModif.module_node_remove_implicit_type_path path node) in
+      {
+        path;
+        _module = Mod new_module
+      }
+     
+    )
 end
 
 module ExternalFunction = struct
@@ -652,6 +663,7 @@ let validate_module (program : Ast.program) { path; _module = Mod _module } =
 
 let valide_program (program : program) =
   program
+  |> Help.program_remove_implicit_type_path
   |> List.fold_left
        (fun acc value ->
          if acc |> Result.is_error then acc else validate_module program value)

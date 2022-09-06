@@ -225,7 +225,9 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
                Ast.Error.Uncompatible_type
                  { expected = expected_typed; found = init_type }
                |> Ast.Error.ast_error |> raise);
-
+      let modules_path =
+        if modules_path = "" then current_mod_name else modules_path
+      in
       Asthelper.Struct.to_ktype_hash generic_table modules_path struct_decl
   (* validate_and_type_struct_initialisation ~env ~current_mod_name ~program:prog ~struct_module_path:modules_path ~fields: fields ~struct_decl *)
   | EEnum { modules_path; enum_name; variant; assoc_exprs } ->
@@ -275,7 +277,9 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
                      |> ast_error |> raise
                  | true -> ())
       in
-
+      let modules_path =
+        if modules_path = "" then current_mod_name else modules_path
+      in
       Asthelper.Enum.to_ktype_hash hashtbl modules_path enum_decl
   | ETuple expected_types ->
       TTuple
