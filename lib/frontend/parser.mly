@@ -12,7 +12,7 @@
 %token <string> Module_IDENT 
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
-%token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL
+%token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR
 %token TRIPLEDOT
 %token COMMA
 %token PIPESUP
@@ -38,9 +38,9 @@
 // %nonassoc EOF LPARENT RPARENT LBRACE RBRACE SEMICOLON COLON ARROWFUNC TRIPLEDOT EQUAL Integer_lit String_lit
 // %left COMMA
 %left PIPESUP
-%left PIPE
 %left OR
 %left AND
+%left PIPE
 %left XOR
 %left AMPERSAND
 %left DOUBLEQUAL DIF
@@ -69,6 +69,7 @@ module_nodes:
     | enum_decl { NEnum $1 }
     | struct_decl { NStruct $1 }
     | external_func_decl { NExternFunc $1 }
+    | operator_decl { NOperator $1 }
     | syscall_decl { NSyscall $1 }
     | function_decl { NFunction $1 }
     | sig_decl { NSigFun $1 }
@@ -118,6 +119,46 @@ external_func_decl:
             is_variadic = varia |> Option.is_some;
             r_type;
             c_name;
+        }
+    }
+;;
+
+unary_operator_symbol:
+    | DOT NOT { PNot }
+    | DOT MINUS { PUMinus }
+;;
+
+binary_operator_symbol:
+    | PLUS { Add }
+    | MINUS { Minus }
+    | MULT { Mult }
+    | DIV { Div }
+    | MOD { Modulo }
+    | AMPERSAND { BitwiseAnd }
+    | PIPE { BitwiseOr }
+    | XOR { BitwiseXor }
+    | SHIFTLEFT { ShiftLeft }
+    | SHIFTRIGHT { ShiftRight }
+    | DOUBLEQUAL { Equal }
+    | SUP { Sup }
+    | INF { Inf }
+;;
+
+operator_decl:
+    | OPERATOR op=binary_operator_symbol fields=delimited(LPARENT, id1=IDENT COLON kt1=ktype COMMA id2=IDENT COLON kt2=ktype { (id1,kt1), (id2, kt2) } , RPARENT) return_type=ktype kbody=kbody {
+        Binary {
+            op;
+            fields;
+            return_type;
+            kbody
+        }
+    }
+    | OPERATOR op=delimited(LPARENT, unary_operator_symbol, RPARENT) field=delimited(LPARENT, id=IDENT COLON kt=ktype { id, kt} ,RPARENT) return_type=ktype kbody=kbody {
+        Unary {
+            op;
+            field;
+            return_type;
+            kbody
         }
     }
 ;;
@@ -200,6 +241,9 @@ const_decl:
             value = EFloat $4
         }
     }
+either_color_equal:
+    | COLON {}
+    | EQUAL {}
 expr:
     | Integer_lit { EInteger $1 }
     | String_lit { EString $1 }
@@ -208,8 +252,8 @@ expr:
     | FALSE { False }
     | EMPTY { Empty }
     | NULLPTR { ENullptr }
-    | SIZEOF delimited(LPARENT, expr, RPARENT) { ESizeof ( Either.Right $2) }
-    | SIZEOF delimited(LPARENT, COLON t=ktype { t } , RPARENT) { ESizeof (Either.Left $2)  }
+    | SIZEOF delimited(LPARENT, preceded(COLON, expr) , RPARENT) { ESizeof ( Either.Right $2) }
+    | SIZEOF delimited(LPARENT, t=ktype { t } , RPARENT) { ESizeof (Either.Left $2)  }
     | nonempty_list(MULT) IDENT { 
         EDeference ( $1 |> List.length , $2 )
     }
@@ -282,7 +326,7 @@ expr:
                     }
                 ) $1
         }
-    | modules_path=separated_list(DOUBLECOLON, Module_IDENT)  struct_name=IDENT fields=delimited(LBRACE, separated_list(COMMA, id=IDENT COLON expr=expr { id, expr } ) , RBRACE) {
+    | modules_path=separated_list(DOUBLECOLON, Module_IDENT)  struct_name=IDENT fields=delimited(LBRACE, separated_list(COMMA, id=IDENT either_color_equal  expr=expr { id, expr } ) , RBRACE) {
         EStruct {
             modules_path = modules_path |> String.concat "/";
             struct_name;

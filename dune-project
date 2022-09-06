@@ -13,7 +13,7 @@
 
 (maintainers "EruEri")
 
-(license LICENSE)
+(license GPL-3.0)
 
 ; (documentation https://url/to/documentation)
 
@@ -23,7 +23,7 @@
  (name kosu_lang)
  (synopsis "A programming language project")
  (description "A programming language that I hope will compile on arm64 and maybe one day on all platform through the LLVM")
- (depends ocaml dune menhir)
+ (depends ocaml dune menhir clap)
 )
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
