@@ -1589,7 +1589,63 @@ module ParserOperator = struct
     match op with
     | `unary u -> u |> expected_unary_return_type ktype
     | `binary b -> b |> expected_binary_return_type ktype
+
+  let signature =  function
+  | Unary { op; field; return_type; kbody = _ } -> (`unary op, field::[], return_type)
+  | Binary { op; fields = (t1, t2); return_type; kbody = _ } -> (`binary op, t1::t2::[], return_type)
+
+  let rename_parameter_explicit_module new_module_path = function
+  | Unary unary ->
+      let p1, k1 = unary.field in
+      Unary
+        {
+          unary with
+          field = (p1, k1 |> Type.set_module_path [] new_module_path);
+          return_type =
+            unary.return_type |> Type.set_module_path [] new_module_path;
+        }
+  | Binary binary ->
+      let (p1, k1), (p2, k2) = binary.fields in
+      Binary
+        {
+          binary with
+          fields =
+            ( (p1, k1 |> Type.set_module_path [] new_module_path),
+              (p2, k2 |> Type.set_module_path [] new_module_path) );
+          return_type =
+            binary.return_type |> Type.set_module_path [] new_module_path;
+        }
 end
+
+module AstModif = struct
+  let module_node_remove_implicit_type_path new_module_path = function
+    | NExternFunc exf ->
+        NExternFunc
+          (ExternalFunc.rename_parameter_explicit_module new_module_path exf)
+    | NSyscall syscall_decl ->
+        NSyscall
+          (Syscall.rename_parameter_explicit_module new_module_path syscall_decl)   
+    | NFunction function_decl ->
+        NFunction
+          (Function.rename_parameter_explicit_module new_module_path
+             function_decl)
+    | NOperator operator_decl ->
+        NOperator
+          (ParserOperator.rename_parameter_explicit_module new_module_path
+             operator_decl)
+    | NEnum enum_decl ->
+        NEnum
+          (Enum.rename_parameter_explicit_module new_module_path
+          enum_decl)
+    | NStruct struct_decl -> 
+        NStruct 
+          (Struct.rename_parameter_explicit_module new_module_path
+          struct_decl)
+    | NConst c -> NConst c
+    | NSigFun s -> NSigFun s
+end
+
+
 
 module Sizeof = struct
   let ( ++ ) = Int64.add
