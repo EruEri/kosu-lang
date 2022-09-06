@@ -967,108 +967,113 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
       let expr_type =
         typeof ~generics_resolver env current_mod_name prog expr
       in
-      let module_path, name =
-        expr_type |> Asthelper.module_path_of_ktype_opt |> function
-        | None ->
-            Not_enum_type_in_switch_Expression expr_type |> switch_error
-            |> raise
-        | Some s -> s
-      in
-      let enum_decl =
-        match
-          Asthelper.Program.find_type_decl_from_ktype
-            ~ktype_def_path:module_path ~ktype_name:name
-            ~current_module:current_mod_name prog
-        with
-        | Type_Decl.Decl_Enum e -> e
-        | _ ->
-            Not_enum_type_in_switch_Expression expr_type |> switch_error
-            |> raise
-      in
+      if expr_type |> Ast.Type.is_type_full_known |> not then
+        Not_fully_known_ktype expr_type |> switch_error |> raise
+      else
+        let module_path, name =
+          expr_type |> Asthelper.module_path_of_ktype_opt |> function
+          | None ->
+              Not_enum_type_in_switch_Expression expr_type |> switch_error
+              |> raise
+          | Some s -> s
+        in
+        let enum_decl =
+          match
+            Asthelper.Program.find_type_decl_from_ktype
+              ~ktype_def_path:module_path ~ktype_name:name
+              ~current_module:current_mod_name prog
+          with
+          | Type_Decl.Decl_Enum e -> e
+          | _ ->
+              Not_enum_type_in_switch_Expression expr_type |> switch_error
+              |> raise
+        in
 
-      let () =
-        enum_decl.variants
-        |> List.iter (fun (variant_name, _) ->
-               if
-                 Asthelper.Switch_case.is_cases_duplicated variant_name
-                   variant_cases
-               then
-                 Ast.Error.Duplicated_case variant_name |> switch_error |> raise)
-      in
+        let () =
+          enum_decl.variants
+          |> List.iter (fun (variant_name, _) ->
+                 if
+                   Asthelper.Switch_case.is_cases_duplicated variant_name
+                     variant_cases
+                 then
+                   Ast.Error.Duplicated_case variant_name |> switch_error
+                   |> raise)
+        in
 
-      let generics_mapped =
-        Ast.Type.extract_parametrics_ktype expr_type
-        |> List.combine
-             (enum_decl.generics
-             |> List.map (fun name ->
-                    TType_Identifier { module_path = ""; name }))
-      in
+        let generics_mapped =
+          Ast.Type.extract_parametrics_ktype expr_type
+          |> List.combine
+               (enum_decl.generics
+               |> List.map (fun name ->
+                      TType_Identifier { module_path = ""; name }))
+        in
 
-      let open Asthelper.Enum in
-      let open Asthelper.Switch_case in
-      let () =
-        if wildcard_case |> Option.is_none then
-          match is_all_cases_handled variant_cases enum_decl with
-          | Error e -> e |> switch_error |> raise
-          | Ok _ -> ()
-      in
+        let open Asthelper.Enum in
+        let open Asthelper.Switch_case in
+        let () =
+          if wildcard_case |> Option.is_none then
+            match is_all_cases_handled variant_cases enum_decl with
+            | Error e -> e |> switch_error |> raise
+            | Ok _ -> ()
+        in
 
-      ( cases
-      |> List.map (fun (sc_list, kb) ->
-             let combine_binding_type =
-               sc_list
-               |> List.map (fun sc ->
-                      let assoc_types =
-                        extract_assoc_type_variant generics_mapped
-                          (sc |> variant_name) enum_decl
-                        |> Option.get
-                      in
-                      let assoc_binding = assoc_binding sc in
-                      List.combine assoc_binding assoc_types)
-             in
-             match combine_binding_type with
-             | [] -> failwith "Unreachable case: empty case"
-             | ass_bin :: q ->
-                 let new_context =
-                   q
-                   |> List.fold_left
-                        (fun acc value ->
-                          let reduced_binding =
-                            reduce_binded_variable_combine value
-                          in
-                          if acc <> reduced_binding then
-                            Incompatible_Binding (acc, reduced_binding)
-                            |> switch_error |> raise
-                          else acc)
-                        (reduce_binded_variable_combine ass_bin)
-                   |> List.map (fun (variable_name, ktype) ->
-                          ( variable_name,
-                            ({ is_const = true; ktype } : Env.variable_info) ))
-                   |> List.map (fun (binding_name, var_info) ->
-                          if env |> Env.is_identifier_exists binding_name then
-                            Binded_identifier_already_exist binding_name
-                            |> switch_error |> raise
-                          else (binding_name, var_info))
-                 in
-                 typeof_kbody ~generics_resolver
-                   (env |> Env.push_context new_context)
-                   current_mod_name prog kb)
-      |> fun l ->
-        match wildcard_case with
-        | None -> l
-        | Some wild ->
-            let wildcard_type =
-              typeof_kbody ~generics_resolver env current_mod_name prog wild
-            in
-            wildcard_type :: l )
-      |> function
-      | [] -> failwith "unreachable case: empty kbody"
-      | t :: q ->
-          q
-          |> List.fold_left
-               (fun acc case_type ->
-                 if not (Type.are_compatible_type acc case_type) then
-                   Uncompatible_type { expected = acc; found = case_type }
-                   |> ast_error |> raise
-                 else Type.restrict_type acc case_type)
-               t)
+        ( cases
+        |> List.map (fun (sc_list, kb) ->
+               let combine_binding_type =
+                 sc_list
+                 |> List.map (fun sc ->
+                        let assoc_types =
+                          extract_assoc_type_variant generics_mapped
+                            (sc |> variant_name) enum_decl
+                          |> Option.get
+                        in
+                        let assoc_binding = assoc_binding sc in
+                        List.combine assoc_binding assoc_types)
+               in
+               match combine_binding_type with
+               | [] -> failwith "Unreachable case: empty case"
+               | ass_bin :: q ->
+                   let new_context =
+                     q
+                     |> List.fold_left
+                          (fun acc value ->
+                            let reduced_binding =
+                              reduce_binded_variable_combine value
+                            in
+                            if acc <> reduced_binding then
+                              Incompatible_Binding (acc, reduced_binding)
+                              |> switch_error |> raise
+                            else acc)
+                          (reduce_binded_variable_combine ass_bin)
+                     |> List.map (fun (variable_name, ktype) ->
+                            ( variable_name,
+                              ({ is_const = true; ktype } : Env.variable_info)
+                            ))
+                     |> List.map (fun (binding_name, var_info) ->
+                            if env |> Env.is_identifier_exists binding_name then
+                              Binded_identifier_already_exist binding_name
+                              |> switch_error |> raise
+                            else (binding_name, var_info))
+                   in
+                   typeof_kbody ~generics_resolver
+                     (env |> Env.push_context new_context)
+                     current_mod_name prog kb)
+        |> fun l ->
+          match wildcard_case with
+          | None -> l
+          | Some wild ->
+              let wildcard_type =
+                typeof_kbody ~generics_resolver env current_mod_name prog wild
+              in
+              wildcard_type :: l )
+        |> function
+        | [] -> failwith "unreachable case: empty kbody"
+        | t :: q ->
+            q
+            |> List.fold_left
+                 (fun acc case_type ->
+                   if not (Type.are_compatible_type acc case_type) then
+                     Uncompatible_type { expected = acc; found = case_type }
+                     |> ast_error |> raise
+                   else Type.restrict_type acc case_type)
+                 t)

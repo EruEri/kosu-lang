@@ -1902,6 +1902,9 @@ let string_of_switch_error =
   let open Printf in
   function
   | Duplicated_case name -> sprintf "Duplicated_case -- variant : %s --" name
+  | Not_fully_known_ktype ktype ->
+      sprintf "Type of switch expr cannot be fully infered -- %s --"
+        (string_of_ktype ktype)
   | Not_enum_type_in_switch_Expression e ->
       sprintf "Not_enum_type_in_switch_Expression -- found : %s --"
         (string_of_ktype e)

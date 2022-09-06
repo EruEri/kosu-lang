@@ -328,6 +328,7 @@ module Error = struct
 
   type switch_error =
     | Not_enum_type_in_switch_Expression of ktype
+    | Not_fully_known_ktype of ktype
     | Not_all_cases_handled of (string * ktype list) list
     | Duplicated_case of string
     | Variant_not_found of { enum_decl : enum_decl; variant : string }
