@@ -830,7 +830,6 @@ let validate_module_node (program : Ast.program) (current_module_name : string)
 let validate_module (program : Ast.program)
     ({ path; _module = Mod _module } as package) =
   let ( >>= ) = Result.bind in
-  (* Printf.printf "Module = %s\n" path; *)
   ValidateModule.check_validate_module package >>= fun () ->
   _module
   |> List.fold_left
@@ -841,9 +840,11 @@ let validate_module (program : Ast.program)
 
 let valide_program (program : program) =
   let ( >>= ) = Result.bind in
-  program |> Validate_Program.check_main_in_program >>= fun () ->
-  program |> Help.program_remove_implicit_type_path
+  program 
+  |> Validate_Program.check_main_in_program >>= fun () ->
+  let remove_program = program |> Help.program_remove_implicit_type_path in
+  remove_program
   |> List.fold_left
        (fun acc value ->
-         if acc |> Result.is_error then acc else validate_module program value)
+         if acc |> Result.is_error then acc else validate_module remove_program value)
        (Ok ())
