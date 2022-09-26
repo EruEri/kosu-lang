@@ -7,7 +7,7 @@ open Ast.Error
   @raise No_Occurence : if a type declartion wasn't found or a variant is not in enum variants
   @raise Too_Many_Occurence: if several type declarations matching was found
 *)
-let rec typeof_kbody ?(generics_resolver = None) (env : Env.t)
+let rec typeof_kbody ~generics_resolver (env : Env.t)
     (current_mod_name : string) (program : program) ?(return_type = None)
     (kbody : kbody) =
   let () = Printf.printf "env %s\n" (Asthelper.string_of_env env) in
@@ -17,7 +17,7 @@ let rec typeof_kbody ?(generics_resolver = None) (env : Env.t)
       match stamement with
       | SDiscard expr ->
           ignore (typeof ~generics_resolver env current_mod_name program expr);
-          typeof_kbody env current_mod_name program ~return_type (q, final_expr)
+          typeof_kbody ~generics_resolver env current_mod_name program ~return_type (q, final_expr)
       | SDeclaration { is_const; variable_name; explicit_type; expression } ->
           let type_init = typeof ~generics_resolver env current_mod_name program expression in
           (* let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Asthelper.string_of_ktype type_init) (Asthelper.Sizeof.sizeof current_mod_name program type_init) (Asthelper.Sizeof.alignmentof current_mod_name program type_init) in *)
@@ -90,7 +90,7 @@ let rec typeof_kbody ?(generics_resolver = None) (env : Env.t)
   @raise No_Occurence : if a type declartion wasn't found or a variant is not in enum variants
   @raise Too_Many_Occurence: if several type declarations matching was found
 *)
-and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
+and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
     (prog : program) (expression : kexpression) =
   match expression with
   | Empty -> TUnit
@@ -113,11 +113,8 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
                          ~ktype_def_path:module_path ~ktype_name:name
                          ~current_module:current_mod_name prog)
                   with e -> (
-                    match generics_resolver with
-                    | None -> raise e
-                    | Some tbl ->
                         ignore
-                          (Hashtbl.find_opt tbl name |> function
+                          (Hashtbl.find_opt generics_resolver name |> function
                            | None -> raise e
                            | Some s -> s)))
               | _ -> ignore ())
@@ -367,7 +364,7 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
             let init_type_parameters =
               parameters
               |> List.map
-                   (typeof ~generics_resolver:(Some new_map_generics) env
+                   (typeof ~generics_resolver:new_map_generics env
                       current_mod_name prog)
             in
             let hashtal = Hashtbl.create (e.generics |> List.length) in
