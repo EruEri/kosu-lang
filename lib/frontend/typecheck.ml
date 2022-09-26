@@ -19,7 +19,7 @@ let rec typeof_kbody ?(generics_resolver = None) (env : Env.t)
           ignore (typeof ~generics_resolver env current_mod_name program expr);
           typeof_kbody env current_mod_name program ~return_type (q, final_expr)
       | SDeclaration { is_const; variable_name; explicit_type; expression } ->
-          let type_init = typeof env current_mod_name program expression in
+          let type_init = typeof ~generics_resolver env current_mod_name program expression in
           (* let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Asthelper.string_of_ktype type_init) (Asthelper.Sizeof.sizeof current_mod_name program type_init) (Asthelper.Sizeof.alignmentof current_mod_name program type_init) in *)
           if env |> Env.is_identifier_exists variable_name then
             raise
@@ -247,6 +247,7 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
       let init_types =
         assoc_exprs
         |> List.map (typeof ~generics_resolver env current_mod_name prog)
+        (* |> List.map (fun t -> Printf.printf "assoc type %s\n" (Asthelper.string_of_ktype t); t) *)
       in
       let () =
         enum_decl.variants
