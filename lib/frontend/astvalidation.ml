@@ -614,7 +614,7 @@ module ValidateFunction_Decl = struct
     in
     try
       let _ =
-        Typecheck.typeof_kbody ~generics_resolver:(Some hashtbl)
+        Typecheck.typeof_kbody ~generics_resolver:hashtbl
           (function_decl.parameters
           |> List.fold_left
                (fun acc_env para ->
@@ -698,7 +698,7 @@ module ValidateOperator_Decl = struct
     in
     try
       let _ =
-        Typecheck.typeof_kbody
+        Typecheck.typeof_kbody ~generics_resolver:(Hashtbl.create 0)
           (fields
           |> List.fold_left
                (fun acc_env para ->
