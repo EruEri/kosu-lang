@@ -898,7 +898,7 @@ module Enum = struct
                        kt )
                  in
                  true
-               else false ->
+               else find_kt = kt ->
         true
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
