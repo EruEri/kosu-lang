@@ -247,7 +247,6 @@ and typeof ?(generics_resolver = None) (env : Env.t) (current_mod_name : string)
       let init_types =
         assoc_exprs
         |> List.map (typeof ~generics_resolver env current_mod_name prog)
-        (* |> List.map (fun t -> Printf.printf "assoc type %s\n" (Asthelper.string_of_ktype t); t) *)
       in
       let () =
         enum_decl.variants
