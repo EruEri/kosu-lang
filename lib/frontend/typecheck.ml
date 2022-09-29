@@ -91,8 +91,8 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
   @raise Too_Many_Occurence: if several type declarations matching was found
 *)
 and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
-    (prog : program) (expression : kexpression) =
-  match expression with
+    (prog : program) (expression : kexpression location) =
+  match expression.value with
   | Empty -> TUnit
   | True | False -> TBool
   | ENullptr -> TPointer TUnknow

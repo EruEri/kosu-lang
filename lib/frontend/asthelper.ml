@@ -615,7 +615,7 @@ module Statement = struct
           variable_name
           (explicit_type |> Option.map string_of_ktype
          |> Option.value ~default:"")
-          (expression |> string_of_kexpression)
+          (expression.value |> string_of_kexpression)
     | SAffection (id, expression) ->
         sprintf "%s = %s;" id (expression |> string_of_kexpression)
     | SDiscard expr -> sprintf "discard %s;" (string_of_kexpression expr)

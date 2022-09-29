@@ -65,6 +65,10 @@ modul:
     | pns = list(module_nodes) EOF { Mod pns }
 ;;
 
+%inline located(X): x=X {
+  Ast.located_value $startpos $endpos x
+};;
+
 module_nodes:
     | enum_decl { NEnum $1 }
     | struct_decl { NStruct $1 }
@@ -169,9 +173,9 @@ declarer:
 ;;
 
 kbody:
-    | delimited(LBRACE, l=list(statement) DOLLAR e=expr { l , e } , RBRACE)  { $1 }
+    | delimited(LBRACE, l=list(statement) DOLLAR e=located(expr) { l , e } , RBRACE)  { $1 }
 statement:
-    | declarer IDENT explicit_type=option(COLON k=ktype {k} ) EQUAL expression=expr SEMICOLON { 
+    | declarer located(IDENT) explicit_type=option(COLON k=ktype {k} ) EQUAL expression=located(expr) SEMICOLON { 
         SDeclaration { 
             is_const = $1;
             variable_name = $2;
@@ -179,8 +183,8 @@ statement:
             expression
         }
     }
-    | IDENT EQUAL expr SEMICOLON { SAffection ($1, $3) }
-    | DISCARD expr SEMICOLON { SDiscard $2 }
+    | located(IDENT) EQUAL located(expr) SEMICOLON { SAffection ($1, $3 ) }
+    | DISCARD located(expr) SEMICOLON { SDiscard ($2) }
 ;;
 
 syscall_decl:
@@ -252,12 +256,12 @@ expr:
     | FALSE { False }
     | EMPTY { Empty }
     | NULLPTR { ENullptr }
-    | SIZEOF delimited(LPARENT, preceded(COLON, expr) , RPARENT) { ESizeof ( Either.Right $2) }
-    | SIZEOF delimited(LPARENT, t=ktype { t } , RPARENT) { ESizeof (Either.Left $2)  }
-    | nonempty_list(MULT) IDENT { 
-        EDeference ( $1 |> List.length , $2 )
+    | SIZEOF delimited(LPARENT, preceded(COLON, located(expr)) , RPARENT) { ESizeof ( Either.Right( $2) ) }
+    | SIZEOF delimited(LPARENT, t=located(ktype) { t } , RPARENT) { ESizeof (Either.Left $2)  }
+    | nonempty_list(MULT) located(IDENT) { 
+        EDeference ( $1 |> List.length , $2)
     }
-    | AMPERSAND IDENT { EAdress $2 }
+    | AMPERSAND located(IDENT) { EAdress $2 }
     | expr PLUS expr { EBin_op (BAdd ($1, $3) ) }
     | expr MINUS expr { EBin_op (BMinus ($1, $3)) }
     | expr MULT expr { EBin_op (BMult ($1, $3)) }
@@ -276,7 +280,7 @@ expr:
     | expr INFEQ expr { EBin_op (BInfEq ($1, $3)) }
     | expr DOUBLEQUAL expr { EBin_op (BEqual ($1, $3)) }
     | expr DIF expr { EBin_op (BDif ($1, $3)) }
-    | expr MINUSUP separated_nonempty_list(MINUSUP, IDENT) {
+    | located(expr) MINUSUP separated_nonempty_list(MINUSUP, IDENT) {
         EFieldAcces {
             first_expr = $1;
             fields = $3
@@ -298,14 +302,14 @@ expr:
             parameters = exprs;
         }
     }
-    | l=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT {
+    | l=separated_list(DOUBLECOLON, Module_IDENT) id=located(IDENT) {
         EIdentifier { 
             modules_path = l |> String.concat "/";
             identifier = id
         }
 
     }
-    | l=separated_list(DOUBLECOLON, Module_IDENT) id=Constant {
+    | l=separated_list(DOUBLECOLON, Module_IDENT) id=located(Constant) {
         EConst_Identifier {
             modules_path = l |> String.concat "/";
             identifier = id
@@ -326,7 +330,7 @@ expr:
                     }
                 ) $1
         }
-    | modules_path=separated_list(DOUBLECOLON, Module_IDENT)  struct_name=IDENT fields=delimited(LBRACE, separated_list(COMMA, id=IDENT either_color_equal  expr=expr { id, expr } ) , RBRACE) {
+    | modules_path=separated_list(DOUBLECOLON, Module_IDENT)  struct_name=located(IDENT) fields=delimited(LBRACE, separated_list(COMMA, located(id=IDENT either_color_equal  expr=expr { id, expr } ) ) , RBRACE) {
         EStruct {
             modules_path = modules_path |> String.concat "/";
             struct_name;

@@ -1,3 +1,23 @@
+type position = {
+  start_position: Lexing.position;
+  end_position: Lexing.position
+}
+
+
+type 'a location = {
+  value: 'a;
+  position: position
+}
+
+let located_value start_position end_position value = {
+  value;
+  position = {
+    start_position;
+    end_position
+  }
+}
+  
+
 type signedness = Signed | Unsigned
 type isize = I8 | I16 | I32 | I64
 
@@ -42,17 +62,17 @@ type ktype =
   | TBool
   | TUnit
 
-type kbody = kstatement list * kexpression
+type kbody = kstatement list * (kexpression location)
 
 and kstatement =
   | SDeclaration of {
       is_const : bool;
-      variable_name : string;
+      variable_name : string location;
       explicit_type : ktype option;
-      expression : kexpression;
+      expression : (kexpression location);
     }
-  | SAffection of string * kexpression
-  | SDiscard of kexpression
+  | SAffection of (string location) * (kexpression location)
+  | SDiscard of (kexpression location)
 
 and kexpression =
   | Empty
@@ -61,17 +81,17 @@ and kexpression =
   | ENullptr
   | EInteger of (signedness * isize * int64)
   | EFloat of float
-  | ESizeof of (ktype, kexpression) Either.t
+  | ESizeof of (ktype location, kexpression location) Either.t
   | EString of string
-  | EAdress of string
-  | EDeference of int * string
-  | EIdentifier of { modules_path : string; identifier : string }
-  | EFieldAcces of { first_expr : kexpression; fields : string list }
-  | EConst_Identifier of { modules_path : string; identifier : string }
+  | EAdress of string location
+  | EDeference of int * (string location)
+  | EIdentifier of { modules_path : string; identifier : string location }
+  | EFieldAcces of { first_expr : kexpression location; fields : string list }
+  | EConst_Identifier of { modules_path : string; identifier : string location }
   | EStruct of {
-      modules_path : string;
-      struct_name : string;
-      fields : (string * kexpression) list;
+      modules_path : string location;
+      struct_name : string location;
+      fields : (string * kexpression) location list;
     }
   | EEnum of {
       modules_path : string;
