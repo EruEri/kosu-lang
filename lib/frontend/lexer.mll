@@ -11,6 +11,11 @@
     exception Unclosed_string
     exception Unclosed_comment
 
+
+  let next_line_and f lexbuf  =
+    Lexing.new_line lexbuf;
+    f lexbuf
+
     let keywords = Hashtbl.create 19
     let _ = ["cases", CASES; "const", CONST; "enum", ENUM; "external", EXTERNAL; "empty", EMPTY; "sig", SIG; "discard", DISCARD ; "else", ELSE; "fn", FUNCTION; 
     "for", FOR; "false", FALSE; "nullptr", NULLPTR ;"struct", STRUCT; "syscall", SYSCALL ;"of", OF; "operator", OPERATOR; "true", TRUE; "switch", SWITCH; "sizeof", SIZEOF; "if", IF; 
@@ -35,13 +40,18 @@ let octal_intger = '0' ('o' | 'O') (['0'-'7']) (['0'-'7'] | '_')*
 let binary_integer = '0' ('b' | 'B') ('0' | '1') ('0' | '1' | '_')*
 let number = decimal_integer | hex_integer | octal_intger | binary_integer
 
+
+let newline = ('\010' | '\013' | "\013\010")
+let blank   = [' ' '\009' '\012']
+
 let whitespace = [' ' '\t' '\r' '\n']+
 
 rule main = parse
-| whitespace {  
+| newline {  
     (* let _ = if ( String.contains s '\n') then (line := !line + 1) else () in  *)
-    main lexbuf 
+    next_line_and main lexbuf 
 }
+| blank+ { main lexbuf }
 | "(" { LPARENT }
 | ")" { RPARENT }
 | "{" { LBRACE }
