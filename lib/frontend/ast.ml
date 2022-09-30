@@ -68,35 +68,35 @@ and kexpression =
   | EString of string
   | EAdress of string location
   | EDeference of int * (string location)
-  | EIdentifier of { modules_path : string; identifier : string location }
-  | EFieldAcces of { first_expr : kexpression location; fields : string list }
-  | EConst_Identifier of { modules_path : string; identifier : string location }
+  | EIdentifier of { modules_path : string location; identifier : string location }
+  | EFieldAcces of { first_expr : kexpression location; fields : string location list }
+  | EConst_Identifier of { modules_path : string location; identifier : string location }
   | EStruct of {
       modules_path : string location;
       struct_name : string location;
-      fields : (string * kexpression) location list;
+      fields : ((string location) * (kexpression location)) list;
     }
   | EEnum of {
-      modules_path : string;
-      enum_name : string option;
-      variant : string;
-      assoc_exprs : kexpression list;
+      modules_path : string location;
+      enum_name : string location option;
+      variant : string location;
+      assoc_exprs : kexpression location list;
     }
-  | ETuple of kexpression list
+  | ETuple of kexpression location list
   | EBuiltin_Function_call of {
-      fn_name : string;
-      parameters : kexpression list;
+      fn_name : string location;
+      parameters : kexpression location list;
     }
   | EFunction_call of {
-      modules_path : string;
-      generics_resolver : ktype list option;
-      fn_name : string;
-      parameters : kexpression list;
+      modules_path : string location;
+      generics_resolver : ktype location list option;
+      fn_name : string location;
+      parameters : kexpression location list;
     }
-  | EIf of kexpression * kbody * kbody
-  | ECases of { cases : (kexpression * kbody) list; else_case : kbody }
+  | EIf of (kexpression location) * kbody * kbody
+  | ECases of { cases : ( (kexpression location) * kbody) list; else_case : kbody }
   | ESwitch of {
-      expression : kexpression;
+      expression : kexpression location;
       cases : (switch_case list * kbody) list;
       wildcard_case : kbody option;
     }
@@ -104,26 +104,26 @@ and kexpression =
   | EUn_op of kunary_op
 
 and kbin_op =
-  | BAdd of kexpression * kexpression
-  | BMinus of kexpression * kexpression
-  | BMult of kexpression * kexpression
-  | BDiv of kexpression * kexpression
-  | BMod of kexpression * kexpression
-  | BBitwiseOr of kexpression * kexpression
-  | BBitwiseAnd of kexpression * kexpression
-  | BBitwiseXor of kexpression * kexpression
-  | BShiftLeft of kexpression * kexpression
-  | BShiftRight of kexpression * kexpression
-  | BAnd of kexpression * kexpression
-  | BOr of kexpression * kexpression
-  | BSup of kexpression * kexpression
-  | BSupEq of kexpression * kexpression
-  | BInf of kexpression * kexpression
-  | BInfEq of kexpression * kexpression
-  | BEqual of kexpression * kexpression
-  | BDif of kexpression * kexpression
+  | BAdd of (kexpression location) * (kexpression location)
+  | BMinus of (kexpression location) * (kexpression location)
+  | BMult of (kexpression location) * (kexpression location)
+  | BDiv of (kexpression location) * (kexpression location)
+  | BMod of (kexpression location) * (kexpression location)
+  | BBitwiseOr of (kexpression location) * (kexpression location)
+  | BBitwiseAnd of (kexpression location) * (kexpression location)
+  | BBitwiseXor of (kexpression location) * (kexpression location)
+  | BShiftLeft of (kexpression location) * (kexpression location)
+  | BShiftRight of (kexpression location) * (kexpression location)
+  | BAnd of (kexpression location) * (kexpression location)
+  | BOr of (kexpression location) * (kexpression location)
+  | BSup of (kexpression location) * (kexpression location)
+  | BSupEq of (kexpression location) * (kexpression location)
+  | BInf of (kexpression location) * (kexpression location)
+  | BInfEq of (kexpression location) * (kexpression location)
+  | BEqual of (kexpression location) * (kexpression location)
+  | BDif of (kexpression location) * (kexpression location)
 
-and kunary_op = UMinus of kexpression | UNot of kexpression
+and kunary_op = UMinus of kexpression location | UNot of kexpression location
 
 type struct_decl = {
   struct_name : string location;

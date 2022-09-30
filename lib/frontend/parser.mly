@@ -263,91 +263,91 @@ expr:
         EDeference ( $1 |> List.length , $2)
     }
     | AMPERSAND located(IDENT) { EAdress $2 }
-    | expr PLUS expr { EBin_op (BAdd ($1, $3) ) }
-    | expr MINUS expr { EBin_op (BMinus ($1, $3)) }
-    | expr MULT expr { EBin_op (BMult ($1, $3)) }
-    | expr DIV expr { EBin_op (BDiv ($1, $3)) }
-    | expr MOD expr { EBin_op (BMod ($1, $3)) }
-    | expr PIPE expr {  EBin_op (BBitwiseOr ($1, $3)) }
-    | expr XOR expr {  EBin_op (BBitwiseXor ($1, $3)) }
-    | expr AMPERSAND expr {  EBin_op (BBitwiseAnd ($1, $3)) }
-    | expr SHIFTLEFT expr { EBin_op (BShiftLeft ($1, $3)) }
-    | expr SHIFTRIGHT expr { EBin_op (BShiftRight ($1, $3)) }
-    | expr AND expr { EBin_op (BAnd ($1, $3)) }
-    | expr OR expr { EBin_op (BOr ($1, $3)) }
-    | expr SUP expr { EBin_op (BSup ($1, $3)) }
-    | expr SUPEQ expr { EBin_op (BSupEq ($1, $3)) }
-    | expr INF expr { EBin_op (BInf ($1, $3)) }
-    | expr INFEQ expr { EBin_op (BInfEq ($1, $3)) }
-    | expr DOUBLEQUAL expr { EBin_op (BEqual ($1, $3)) }
-    | expr DIF expr { EBin_op (BDif ($1, $3)) }
-    | located(expr) MINUSUP separated_nonempty_list(MINUSUP, IDENT) {
+    | located(expr) PLUS located(expr) { EBin_op (BAdd ($1, $3) ) }
+    | located(expr) MINUS located(expr) { EBin_op (BMinus ($1, $3)) }
+    | located(expr) MULT located(expr) { EBin_op (BMult ($1, $3)) }
+    | located(expr) DIV located(expr) { EBin_op (BDiv ($1, $3)) }
+    | located(expr) MOD located(expr) { EBin_op (BMod ($1, $3)) }
+    | located(expr) PIPE located(expr) { EBin_op (BBitwiseOr ($1, $3)) }
+    | located(expr) XOR located(expr) {  EBin_op (BBitwiseXor ($1, $3)) }
+    | located(expr) AMPERSAND located(expr) {  EBin_op (BBitwiseAnd ($1, $3)) }
+    | located(expr) SHIFTLEFT located(expr) { EBin_op (BShiftLeft ($1, $3)) }
+    | located(expr) SHIFTRIGHT located(expr) { EBin_op (BShiftRight ($1, $3)) }
+    | located(expr) AND located(expr) { EBin_op (BAnd ($1, $3)) }
+    | located(expr) OR located(expr) { EBin_op (BOr ($1, $3)) }
+    | located(expr) SUP located(expr) { EBin_op (BSup ($1, $3)) }
+    | located(expr) SUPEQ located(expr) { EBin_op (BSupEq ($1, $3)) }
+    | located(expr) INF located(expr) { EBin_op (BInf ($1, $3)) }
+    | located(expr) INFEQ located(expr) { EBin_op (BInfEq ($1, $3)) }
+    | located(expr) DOUBLEQUAL located(expr) { EBin_op (BEqual ($1, $3)) }
+    | located(expr) DIF located(expr) { EBin_op (BDif ($1, $3)) }
+    | located(expr) MINUSUP separated_nonempty_list(MINUSUP, located(IDENT)) {
         EFieldAcces {
             first_expr = $1;
             fields = $3
         }
     }
-    | NOT expr { EUn_op (UNot $2) }
-    | MINUS expr %prec UMINUS { EUn_op (UMinus $2) }
-    | BUILTIN parameters=delimited(LPARENT, separated_list(COMMA, expr) ,RPARENT) {
+    | NOT located(expr) { EUn_op (UNot $2) }
+    | MINUS located(expr) %prec UMINUS { EUn_op (UMinus $2) }
+    | located(BUILTIN) parameters=delimited(LPARENT, separated_list(COMMA, located(expr)) ,RPARENT) {
         EBuiltin_Function_call {
             fn_name = $1;
             parameters
         }
     }
-    | l=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, ktype) SUP { s } ) LPARENT exprs=separated_list(COMMA, expr) RPARENT {
+    | l=separated_list(DOUBLECOLON, located(Module_IDENT) ) name=located(IDENT) generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, located(ktype)) SUP { s } ) LPARENT exprs=separated_list(COMMA, located(expr) ) RPARENT {
         EFunction_call { 
-            modules_path = l |> String.concat "/";
+            modules_path = l |> Position.map( String.concat "/" ) ;
             generics_resolver;
             fn_name = name;
             parameters = exprs;
         }
     }
-    | l=separated_list(DOUBLECOLON, Module_IDENT) id=located(IDENT) {
+    | l=separated_list(DOUBLECOLON, located(Module_IDENT)) id=located(IDENT) {
         EIdentifier { 
-            modules_path = l |> String.concat "/";
+            modules_path = l |> Position.map( String.concat "/" ) ;
             identifier = id
         }
 
     }
-    | l=separated_list(DOUBLECOLON, Module_IDENT) id=located(Constant) {
+    | l=separated_list(DOUBLECOLON, located(Module_IDENT)) id=located(Constant) {
         EConst_Identifier {
-            modules_path = l |> String.concat "/";
+            modules_path = l |> Position.map( String.concat "/" ) ;
             identifier = id
         }
     }
-    | expr PIPESUP calls=separated_nonempty_list(PIPESUP, 
-        modules=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT 
-        generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, ktype) SUP { s } )
-         LPARENT exprs=separated_list(COMMA, expr) RPARENT { name, generics_resolver, exprs, modules }) {
+    | located(expr) PIPESUP calls=separated_nonempty_list(PIPESUP, 
+        modules=separated_list(DOUBLECOLON, located(Module_IDENT)) name=located(IDENT) 
+        generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, located(ktype)) SUP { s } )
+         LPARENT exprs=separated_list(COMMA, located(expr)) RPARENT { name, generics_resolver, exprs, modules }) {
             calls |> List.fold_left (
                 fun acc value  -> 
                     let fn_name, generics_resolver, parameters, modules_path = value in
                     EFunction_call { 
-                        modules_path = modules_path |> String.concat "/";
+                        modules_path = modules_path |> Position.map( String.concat "/" );
                         generics_resolver;
                         fn_name;
                         parameters = acc::parameters;
                     }
                 ) $1
         }
-    | modules_path=separated_list(DOUBLECOLON, Module_IDENT)  struct_name=located(IDENT) fields=delimited(LBRACE, separated_list(COMMA, located(id=IDENT either_color_equal  expr=expr { id, expr } ) ) , RBRACE) {
+    | modules_path=separated_list(DOUBLECOLON, located(Module_IDENT)) struct_name=located(IDENT) fields=delimited(LBRACE, separated_list(COMMA, id=located(IDEN)T either_color_equal  expr=located(expr) { id, expr } ) , RBRACE) {
         EStruct {
-            modules_path = modules_path |> String.concat "/";
+            modules_path = modules_path |> Position.map( String.concat "/" );
             struct_name;
             fields
         }
     }
-    | modules_path=separated_list(DOUBLECOLON, Module_IDENT) enum_name=option(IDENT) DOT variant=IDENT assoc_exprs=option(delimited(LPARENT, separated_nonempty_list(COMMA, expr) ,RPARENT)) {
+    | modules_path=separated_list(DOUBLECOLON, located(Module_IDENT)) enum_name=option(located(IDENT)) DOT variant=located(IDENT) assoc_exprs=option(delimited(LPARENT, separated_nonempty_list(COMMA, located(expr)) ,RPARENT)) {
         EEnum {
-            modules_path = modules_path |> String.concat "/";
+            modules_path = modules_path |> Position.map( String.concat "/" );
             enum_name;
             variant;
             assoc_exprs = assoc_exprs |> Option.value ~default: []
         }
     }
     | CASES delimited(LBRACE, 
-        s=nonempty_list(OF conds=expr ARROWFUNC body=kbody { conds, body } ) 
+        s=nonempty_list(OF conds=located(expr) ARROWFUNC body=kbody { conds, body } ) 
         ELSE else_case=kbody { s, else_case } , RBRACE) {
             let cases, else_case = $2 in
         ECases {
@@ -355,7 +355,7 @@ expr:
             else_case
         }
     }
-    | IF expr kbody ELSE kbody  {
+    | IF located(expr) kbody ELSE kbody  {
         EIf (
             $2, 
             $3, 
@@ -363,7 +363,7 @@ expr:
             (* $4 |> Option.map (fun e -> (SExpression e)::[] ) *)
         )
     }
-    | SWITCH delimited(LPARENT, expr, RPARENT) LBRACE nonempty_list(cases=separated_nonempty_list(COMMA, s_case) ARROWFUNC stmts=kbody { cases, stmts } ) 
+    | SWITCH delimited(LPARENT, located(expr), RPARENT) LBRACE nonempty_list(cases=separated_nonempty_list(COMMA, s_case) ARROWFUNC stmts=kbody { cases, stmts } ) 
         wildcard_case=option(WILDCARD ARROWFUNC d=kbody { d } ) RBRACE { 
         ESwitch {
             expression = $2;
@@ -371,16 +371,16 @@ expr:
             wildcard_case
         }
     }
-    | d=delimited(LPARENT, separated_list(COMMA, expr), RPARENT) {
+    | d=delimited(LPARENT, separated_list(COMMA, located(expr)), RPARENT) {
         match d with
         | [] -> Empty
-        | t::[] -> t
+        | t::[] -> t.value
         | tuple -> ETuple tuple
     }
 ;;
 s_case:
-    | DOT IDENT { SC_Enum_Identifier { variant = $2 } }
-    | DOT IDENT delimited(LPARENT, separated_nonempty_list(COMMA, IDENT { Some $1 } | WILDCARD { None } ), RPARENT) {
+    | DOT located(IDENT) { SC_Enum_Identifier { variant = $2 } }
+    | DOT IDENT delimited(LPARENT, separated_nonempty_list(COMMA, located(IDENT) { Some $1 } | WILDCARD { None } ), RPARENT) {
         SC_Enum_Identifier_Assoc {
             variant = $2;
             assoc_ids = $3
