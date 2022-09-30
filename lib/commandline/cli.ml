@@ -4,7 +4,7 @@ type filename_error = Mutiple_dot_in_filename | No_extension | Unknow_error
 
 type cli_error =
   | No_input_file
-  | Parser_Error of position
+  | Parser_Error of string*position
   | Lexer_Error of exn
   | File_error of string * exn
   | Filename_error of filename_error
@@ -26,6 +26,7 @@ let convert_filename_to_path filename =
   |> Result.map f
 
 let module_path_of_file filename =
+  let () = Kosu_frontend.Pprint.register_kosu_error filename () in
   let open Kosu_frontend in
   let open Kosu_frontend.Ast in
   let ( >>= ) = Result.bind in
@@ -40,7 +41,7 @@ let module_path_of_file filename =
   >>= fun lexbuf ->
     try Parser.modul Lexer.main lexbuf |> Result.ok
     with 
-    | Parser.Error -> Parser_Error (Position.current_position lexbuf) |> Result.error
+    | Parser.Error -> Parser_Error (filename, (Position.current_position lexbuf)) |> Result.error
     | e -> Lexer_Error e |> Result.error )
   >>= fun _module ->
   filename |> convert_filename_to_path

@@ -4,8 +4,6 @@
 open Kosu_frontend.Astvalidation
 open Kosu_cli.Cli
 
-let () = Kosu_frontend.Pprint.register_kosu_error () 
-
 let () =
   Clap.description "kosuc - The Kosu compiler";
 
@@ -33,7 +31,7 @@ let () =
           Printf.eprintf "%s\n" s;
           raise exn
       | Filename_error _ -> raise (Invalid_argument "Filename Error")
-      | Parser_Error position -> position |> Kosu_frontend.Pprint.string_of_position_error |> Printf.eprintf "%s: Parser Error\n"; raise (Invalid_argument "Parser Error")
+      | Parser_Error (filename, position) -> position |> Kosu_frontend.Pprint.string_of_position_error |> Printf.eprintf "File \"%s\"%s: Parser Error\n" filename; raise (Invalid_argument "Parser Error")
       | Lexer_Error e -> raise e)
   | Ok modules -> (
       match valide_program modules with
