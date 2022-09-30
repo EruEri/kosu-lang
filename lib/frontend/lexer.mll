@@ -1,6 +1,7 @@
 {
     open Parser
     open Lexing
+    open Position
 
     exception Lexical_error of string
     exception Forbidden_char of char
@@ -8,8 +9,8 @@
     exception Invalid_keyword_for_build_in_function of string
     exception Invalid_litteral_for_build_in_function of char
     exception Not_finished_built_in_function
-    exception Unclosed_string
-    exception Unclosed_comment
+    exception Unclosed_string of int * int
+    exception Unclosed_comment of position
 
 
   let next_line_and f lexbuf  =
@@ -137,12 +138,21 @@ and read_string buffer = parse
 | '\\' ( escaped_char as c ){ Buffer.add_string buffer ( (if c = '\\' then "" else "\\")^( lexbuf |> lexeme)); read_string buffer lexbuf }
 | '\\' { raise ( Unexpected_escaped_char (lexbuf |> lexeme) ) }
 | _ as s { Buffer.add_char buffer s; read_string buffer lexbuf }
-| eof { raise Unclosed_string }
+| eof { 
+    let line, column = get_lexing_position lexbuf in
+    raise (Unclosed_string (line, column) )  
+}
 and single_line_comment = parse
-| '\n' { main lexbuf }
+| newline { next_line_and main lexbuf }
 | _ { single_line_comment lexbuf}
 | eof { EOF }
 and multiple_line_comment = parse 
 | "*/" { main lexbuf }
+| newline { next_line_and multiple_line_comment lexbuf}
 | _ { multiple_line_comment lexbuf }
-| eof { raise  Unclosed_comment }
+| eof {
+    raise  ( Unclosed_comment {
+        start_position = lexbuf.lex_start_p;
+        end_position = lexbuf.lex_curr_p
+    } )
+}

@@ -4,6 +4,8 @@
 open Kosu_frontend.Astvalidation
 open Kosu_cli.Cli
 
+let () = Kosu_frontend.Pprint.register_kosu_error () 
+
 let () =
   Clap.description "kosuc - The Kosu compiler";
 
@@ -31,10 +33,7 @@ let () =
           Printf.printf "%s\n" s;
           raise exn
       | Filename_error _ -> raise (Invalid_argument "Filename Error")
-      | Syntax_error (line, column) ->
-          Printf.printf "SyntaxError near -- line : %d, column : %d --" line
-            column;
-          raise (Invalid_argument ""))
+      | Lexer_Error e -> raise e)
   | Ok modules -> (
       match valide_program modules with
       | Error e ->
