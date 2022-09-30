@@ -1,31 +1,14 @@
-type position = {
-  start_position: Lexing.position;
-  end_position: Lexing.position
-}
-
-
-type 'a location = {
-  value: 'a;
-  position: position
-}
-
-let located_value start_position end_position value = {
-  value;
-  position = {
-    start_position;
-    end_position
-  }
-}
+open Position
   
 
 type signedness = Signed | Unsigned
 type isize = I8 | I16 | I32 | I64
 
 type switch_case =
-  | SC_Enum_Identifier of { variant : string }
+  | SC_Enum_Identifier of { variant : string location }
   | SC_Enum_Identifier_Assoc of {
-      variant : string;
-      assoc_ids : string option list;
+      variant : string location;
+      assoc_ids : string location option list;
     }
 
 type parser_unary_op = PNot | PUMinus
@@ -47,28 +30,28 @@ type parser_binary_op =
 
 type ktype =
   | TParametric_identifier of {
-      module_path : string;
-      parametrics_type : ktype list;
+      module_path : string location;
+      parametrics_type : ktype location list;
       name : string;
     }
-  | TType_Identifier of { module_path : string; name : string }
+  | TType_Identifier of { module_path : string location; name : string location}
   | TInteger of (signedness * isize)
-  | TPointer of ktype
-  | TTuple of ktype list
-  | TFunction of ktype list * ktype
+  | TPointer of ktype location
+  | TTuple of ktype location list
+  | TFunction of ktype location list * ktype location
   | TString_lit
   | TUnknow
   | TFloat
   | TBool
   | TUnit
 
-type kbody = kstatement list * (kexpression location)
+type kbody = kstatement location list * (kexpression location)
 
 and kstatement =
   | SDeclaration of {
       is_const : bool;
       variable_name : string location;
-      explicit_type : ktype option;
+      explicit_type : ktype location option;
       expression : (kexpression location);
     }
   | SAffection of (string location) * (kexpression location)
@@ -143,50 +126,50 @@ and kbin_op =
 and kunary_op = UMinus of kexpression | UNot of kexpression
 
 type struct_decl = {
-  struct_name : string;
-  generics : string list;
-  fields : (string * ktype) list;
+  struct_name : string location;
+  generics : string location list;
+  fields : ((string location) * (ktype location) ) list;
 }
 
 type enum_decl = {
-  enum_name : string;
-  generics : string list;
-  variants : (string * ktype list) list;
+  enum_name : string location;
+  generics : string location list;
+  variants : ( (string location)  * (ktype location list) ) list;
 }
 
 type function_decl = {
-  fn_name : string;
-  generics : string list;
-  parameters : (string * ktype) list;
-  return_type : ktype;
+  fn_name : string location;
+  generics : string location list;
+  parameters : (string location * ktype location) list;
+  return_type : ktype location;
   body : kbody;
 }
 
 type operator_decl =
   | Unary of {
-      op : parser_unary_op;
-      field : string * ktype;
-      return_type : ktype;
+      op : parser_unary_op location;
+      field : (string location) * (ktype location);
+      return_type : ktype location;
       kbody : kbody;
     }
   | Binary of {
-      op : parser_binary_op;
-      fields : (string * ktype) * (string * ktype);
-      return_type : ktype;
+      op : parser_binary_op location;
+      fields : ((string location) * (ktype location)) * ((string location) * (ktype location));
+      return_type : ktype location;
       kbody : kbody;
     }
 
 type syscall_decl = {
-  syscall_name : string;
-  parameters : ktype list;
-  return_type : ktype;
-  opcode : int64;
+  syscall_name : string location;
+  parameters : ktype location list;
+  return_type : ktype location;
+  opcode : int64 location;
 }
 
 type external_func_decl = {
-  sig_name : string;
-  fn_parameters : ktype list;
-  r_type : ktype;
+  sig_name : string location;
+  fn_parameters : ktype location list;
+  r_type : ktype location;
   is_variadic : bool;
   c_name : string option;
 }
@@ -194,7 +177,7 @@ type external_func_decl = {
 type const_decl = {
   const_name : string;
   explicit_type : ktype;
-  value : kexpression;
+  value : kexpression location;
 }
 
 type sig_decl = {

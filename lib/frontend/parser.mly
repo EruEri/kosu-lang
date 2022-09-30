@@ -1,5 +1,6 @@
 %{
     open Ast
+    open Position
 %}
 
 
@@ -66,7 +67,7 @@ modul:
 ;;
 
 %inline located(X): x=X {
-  Ast.located_value $startpos $endpos x
+  Position.located_value $startpos $endpos x
 };;
 
 module_nodes:
@@ -81,9 +82,9 @@ module_nodes:
 ;;
 
 enum_decl:
-    | ENUM generics_opt=option( LPARENT l=separated_nonempty_list(COMMA, IDENT) RPARENT { l }) LBRACE 
+    | ENUM generics_opt=option( LPARENT l=separated_nonempty_list(COMMA, located(IDENT)) RPARENT { l }) LBRACE 
     variants=separated_list(COMMA,enum_assoc) 
-    RBRACE name=IDENT SEMICOLON { 
+    RBRACE name=located(IDENT) SEMICOLON { 
         let generics = generics_opt |> Option.value ~default: [] in
         {
             enum_name = name;
@@ -94,7 +95,7 @@ enum_decl:
 ;;
 
 enum_assoc:
-    | id=IDENT opt=option(LPARENT l=separated_nonempty_list(COMMA, ktype) RPARENT {l} ) {
+    | id=located(IDENT) opt=option(LPARENT l=separated_nonempty_list(COMMA, located(ktype) ) RPARENT {l} ) {
         (
             id,
             opt |> Option.value ~default: []
@@ -103,9 +104,9 @@ enum_assoc:
 ;;
 
 struct_decl:
-    | STRUCT generics_opt=option( LPARENT l=separated_nonempty_list(COMMA, IDENT) RPARENT { l }) LBRACE
-    fields=separated_list(COMMA, id=IDENT COLON kt=ktype { id, kt  })
-    RBRACE name=IDENT SEMICOLON {
+    | STRUCT generics_opt=option( LPARENT l=separated_nonempty_list(COMMA, located(IDENT) ) RPARENT { l }) LBRACE
+    fields=separated_list(COMMA, id=located(IDENT) COLON kt=located(ktype) { id, kt  })
+    RBRACE name=located(IDENT) SEMICOLON {
         {
             struct_name = name;
             generics = generics_opt |> Option.value ~default: [];
@@ -115,8 +116,8 @@ struct_decl:
 ;;
 
 external_func_decl:
-    | EXTERNAL id=IDENT LPARENT ctypes=separated_list(COMMA, ctype) varia=option( p=preceded(SEMICOLON, TRIPLEDOT { () }) { p } ) 
-    RPARENT r_type=ctype c_name=option(EQUAL s=String_lit { s }) SEMICOLON {
+    | EXTERNAL id=located(IDENT) LPARENT ctypes=separated_list(COMMA, located(ctype)) varia=option( p=preceded(SEMICOLON, TRIPLEDOT { () }) { p } ) 
+    RPARENT r_type=located(ctype) c_name=option(EQUAL s=String_lit { s }) SEMICOLON {
         {
             sig_name = id;
             fn_parameters = ctypes;
@@ -149,7 +150,7 @@ binary_operator_symbol:
 ;;
 
 operator_decl:
-    | OPERATOR op=binary_operator_symbol fields=delimited(LPARENT, id1=IDENT COLON kt1=ktype COMMA id2=IDENT COLON kt2=ktype { (id1,kt1), (id2, kt2) } , RPARENT) return_type=ktype kbody=kbody {
+    | OPERATOR op=located(binary_operator_symbol) fields=delimited(LPARENT, id1=located(IDENT) COLON kt1=located(ktype) COMMA id2=located(IDENT) COLON kt2=located(ktype) { (id1,kt1), (id2, kt2) } , RPARENT) return_type=located(ktype) kbody=kbody {
         Binary {
             op;
             fields;
@@ -157,7 +158,7 @@ operator_decl:
             kbody
         }
     }
-    | OPERATOR op=delimited(LPARENT, unary_operator_symbol, RPARENT) field=delimited(LPARENT, id=IDENT COLON kt=ktype { id, kt} ,RPARENT) return_type=ktype kbody=kbody {
+    | OPERATOR op=delimited(LPARENT, located(unary_operator_symbol), RPARENT) field=delimited(LPARENT, id=located(IDENT) COLON kt=located(ktype) { id, kt} ,RPARENT) return_type=located(ktype) kbody=kbody {
         Unary {
             op;
             field;
@@ -173,9 +174,9 @@ declarer:
 ;;
 
 kbody:
-    | delimited(LBRACE, l=list(statement) DOLLAR e=located(expr) { l , e } , RBRACE)  { $1 }
+    | delimited(LBRACE, l=list(located(statement)) DOLLAR e=located(expr) { l , e } , RBRACE)  { $1 }
 statement:
-    | declarer located(IDENT) explicit_type=option(COLON k=ktype {k} ) EQUAL expression=located(expr) SEMICOLON { 
+    | declarer located(IDENT) explicit_type=option(COLON k=located(ktype) {k} ) EQUAL expression=located(expr) SEMICOLON { 
         SDeclaration { 
             is_const = $1;
             variable_name = $2;
@@ -188,8 +189,8 @@ statement:
 ;;
 
 syscall_decl:
-    | SYSCALL syscall_name=IDENT parameters=delimited(LPARENT, separated_list(COMMA, ct=ctype { ct  }), RPARENT ) return_type=ctype 
-       LBRACE SYSCALL LPARENT opcode=Integer_lit RPARENT RBRACE {
+    | SYSCALL syscall_name=located(IDENT) parameters=delimited(LPARENT, separated_list(COMMA, ct=located(ctype) { ct  }), RPARENT ) return_type=located(ctype) 
+       LBRACE SYSCALL LPARENT opcode=located(Integer_lit) RPARENT RBRACE {
         let _, _, value = opcode in
         {
             syscall_name;
@@ -200,9 +201,9 @@ syscall_decl:
     }
 
 function_decl:
-    | FUNCTION name=IDENT generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=IDENT {id}), SUP ) { d })
-    parameters=delimited(LPARENT, separated_list(COMMA, id=IDENT COLON kt=ktype { id, kt  }), RPARENT )
-    r_type=ktype body=kbody {
+    | FUNCTION name=located(IDENT) generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=located(IDENT) {id}), SUP ) { d })
+    parameters=delimited(LPARENT, separated_list(COMMA, id=located(IDENT) COLON kt=located(ktype) { id, kt  }), RPARENT )
+    r_type=located(ktype) body=kbody {
         {
             fn_name = name;
             generics = generics_opt |> Option.value ~default: [];
@@ -223,7 +224,7 @@ sig_decl:
         }
     }
 const_decl:
-    | CONST Constant EQUAL Integer_lit SEMICOLON {
+    | CONST Constant EQUAL located(Integer_lit) SEMICOLON {
         let sign, size, value = $4 in
         {
             const_name = $2;
@@ -231,14 +232,14 @@ const_decl:
             value = EInteger (sign, size, value);
         }
     }
-    | CONST Constant EQUAL String_lit SEMICOLON {
+    | CONST Constant EQUAL located(String_lit) SEMICOLON {
         {
             const_name = $2;
             explicit_type = TString_lit;
             value = EString $4
         }
     }
-    | CONST Constant EQUAL Float_lit SEMICOLON {
+    | CONST Constant EQUAL located(Float_lit) SEMICOLON {
         {
             const_name = $2;
             explicit_type = TFloat;
@@ -387,8 +388,9 @@ s_case:
     }
 
 ctype:
-    | modules_path=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT { 
-        match id with
+    | modules_path=separated_list(DOUBLECOLON, located(Module_IDENT) ) id=located(IDENT) { 
+        id |> Position.map (
+        function
         | "f64" -> TFloat
         | "unit" -> TUnit
         | "bool" -> TBool
@@ -403,15 +405,18 @@ ctype:
         | "s64" -> TInteger( Signed, I64)
         | "u64" -> TInteger( Unsigned, I64)
         | _ as s -> TType_Identifier {
-            module_path = modules_path |> String.concat "/";
+            module_path = modules_path |> Position.map( String.concat "/" ) ;
             name = s
         }
+        )
+
      }
-    | MULT ktype { TPointer $2 } 
+    | MULT located(ktype) { TPointer $2 } 
 
 ktype:
-    | modules_path=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT { 
-        match id with
+    | modules_path=separated_list(DOUBLECOLON, located(Module_IDENT)) id=located(IDENT) { 
+        id |> Position.map (
+        function
         | "f64" -> TFloat
         | "unit" -> TUnit
         | "bool" -> TBool
@@ -425,18 +430,19 @@ ktype:
         | "u64" -> TInteger( Unsigned, I64)
         | "stringl" -> TString_lit
         | _ as s -> TType_Identifier {
-            module_path = modules_path |> String.concat "/";
+            module_path = modules_path |> Position.map( String.concat "/" ) ;
             name = s
-        }
+        } 
+        )
      }
-    | MULT ktype { TPointer $2 }
-    | LPARENT l=separated_nonempty_list(COMMA, ktype) RPARENT 
-    modules_path=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT { 
+    | MULT located(ktype) { TPointer $2 }
+    | LPARENT l=separated_nonempty_list(COMMA, located(ktype)) RPARENT 
+    modules_path=separated_list(DOUBLECOLON, located(Module_IDENT)) id=located(IDENT) { 
         TParametric_identifier {
-            module_path = modules_path |> String.concat "/";
+            module_path = modules_path |> Position.map( String.concat "/" ) ;
             parametrics_type = l;
             name = id
         }
     }
-    | LPARENT l=separated_nonempty_list(COMMA, ktype) RPARENT { TTuple (l)  }
+    | LPARENT l=separated_nonempty_list(COMMA, located(ktype) ) RPARENT { TTuple (l)  }
 ;;
