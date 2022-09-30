@@ -32,7 +32,7 @@ type ktype =
   | TParametric_identifier of {
       module_path : string location;
       parametrics_type : ktype location list;
-      name : string;
+      name : string location;
     }
   | TType_Identifier of { module_path : string location; name : string location}
   | TInteger of (signedness * isize)
@@ -384,35 +384,37 @@ end
 
 module Type = struct
   let ktuple kts = TTuple kts
+  let pointer kt = TPointer kt
   let is_any_ptr = function TPointer _ -> true | _ -> false
-  let is_unknown_ptr = function TPointer TUnknow -> true | _ -> false
+  let is_unknown_ptr = function TPointer {v = TUnknow; _} -> true | _ -> false
   let is_any_integer = function TInteger _ -> true | _ -> false
   let is_string_litteral = function TString_lit -> true | _ -> false
 
   let rec is_builtin_type = function
     | TParametric_identifier _ | TType_Identifier _ -> false
-    | TTuple kts -> kts |> List.for_all is_builtin_type
+    | TTuple kts -> kts |> List.for_all (fun kt -> is_builtin_type kt.v)
     | _ -> true
 
   let is_parametric = function TParametric_identifier _ -> true | _ -> false
 
   let rec set_module_path generics new_module_name = function
-    | TType_Identifier { module_path = ""; name }
+    | TType_Identifier { module_path = {v = ""; _}; name }
       when generics |> List.mem name |> not ->
         TType_Identifier { module_path = new_module_name; name }
     | TParametric_identifier { module_path; parametrics_type; name } ->
         TParametric_identifier
           {
             module_path =
-              (if module_path = "" then new_module_name else module_path);
+              (if module_path.v = "" then {v = new_module_name.v; position = module_path.position} else module_path);
             parametrics_type =
               parametrics_type
-              |> List.map (set_module_path generics new_module_name);
+              |> List.map( Position.map (set_module_path generics new_module_name));
+              
             name;
           }
-    | TPointer t -> TPointer (set_module_path generics new_module_name t)
+    | TPointer t -> t |> Position.map (set_module_path generics new_module_name) |> pointer
     | TTuple kts ->
-        TTuple (kts |> List.map (set_module_path generics new_module_name))
+        TTuple (kts |> List.map (fun kt -> {v = set_module_path generics new_module_name kt.v; position = kt.position}))
     | _ as kt -> kt
 
   let rec is_type_full_known ktype =
@@ -421,8 +423,8 @@ module Type = struct
     | TParametric_identifier
         { module_path = _; parametrics_type = kts; name = _ }
     | TTuple kts ->
-        kts |> List.for_all is_type_full_known
-    | TPointer kt -> is_type_full_known kt
+        kts |> List.for_all (fun kt -> is_type_full_known kt.v)
+    | TPointer kt -> is_type_full_known kt.v
     | _ -> true
 
   let extract_parametrics_ktype ktype =
@@ -451,55 +453,57 @@ module Type = struct
           { module_path = mp2; parametrics_type = pt2; name = n2 } ) ->
         n1 = n2 && mp1 = mp2
         && pt1 |> Util.are_same_lenght pt2
-        && List.for_all2 are_compatible_type pt1 pt2
+        && List.for_all2 (fun kt1 kt2 -> are_compatible_type kt1.v kt2.v) pt1 pt2
     | TUnknow, _ | _, TUnknow -> true
-    | TPointer _, TPointer TUnknow -> true
-    | TPointer TUnknow, TPointer _ -> true
+    | TPointer _, TPointer { v = TUnknow; _} -> true
+    | TPointer { v= TUnknow; _}, TPointer _ -> true
     | _, _ -> lhs = rhs
 
-  let rec module_path_return_type ~current_module ~module_type_path return_type
+  let rec module_path_return_type ~(current_module: string) ~(module_type_path: string) return_type
       =
     match return_type with
     | TType_Identifier { module_path; name } ->
         TType_Identifier
           {
-            module_path =
-              (if current_module = module_path then "" else module_type_path);
+            module_path = {
+              v = if current_module = module_path.v then "" else module_type_path;
+              position = module_path.position
+            };
             name;
           }
     | TParametric_identifier { module_path; parametrics_type; name } ->
         TParametric_identifier
           {
-            module_path =
-              (if current_module = module_path then "" else module_type_path);
+            module_path = {
+              module_path with v = if module_path.v = current_module then "" else module_type_path
+            };
             parametrics_type =
               parametrics_type
               |> List.map
-                   (module_path_return_type ~current_module ~module_type_path);
+                   (Position.map(module_path_return_type ~current_module ~module_type_path));
             name;
           }
     | TTuple kts ->
         TTuple
           (kts
           |> List.map
-               (module_path_return_type ~current_module ~module_type_path))
-    | TPointer kt ->
-        TPointer (module_path_return_type ~current_module ~module_type_path kt)
+               ( Position.map( module_path_return_type ~current_module ~module_type_path) ))
+    | TPointer kt -> 
+        kt |> Position.map (module_path_return_type ~current_module ~module_type_path) |> pointer
     | _ as kt -> kt
 
   let rec remap_generic_ktype ~current_module generics_table ktype =
     match ktype with
-    | TType_Identifier { module_path = ""; name } -> (
+    | TType_Identifier { module_path = { v = ""; position = kposition}; name } -> (
         match Hashtbl.find_opt generics_table name with
-        | None -> TType_Identifier { module_path = ""; name }
+        | None -> TType_Identifier { module_path = { v = ""; position = kposition}; name }
         | Some (_, typ) -> typ)
     | TType_Identifier { module_path; name } -> (
         match Hashtbl.find_opt generics_table name with
         | None ->
             TType_Identifier
               {
-                module_path =
-                  (if current_module = module_path then "" else module_path);
+                module_path = module_path |> Position.map ( fun smodule_path -> if current_module = smodule_path then "" else smodule_path);
                 name;
               }
         | Some (_, typ) -> typ)
@@ -507,23 +511,22 @@ module Type = struct
         TParametric_identifier
           {
             module_path;
-            parametrics_type =
+            parametrics_type = 
               parametrics_type
-              |> List.map (remap_generic_ktype ~current_module generics_table);
+              |> List.map ( Position.map(remap_generic_ktype ~current_module generics_table));
             name;
           }
     | TTuple kts ->
         TTuple
-          (kts |> List.map (remap_generic_ktype ~current_module generics_table))
-    | TPointer kt ->
-        TPointer (remap_generic_ktype ~current_module generics_table kt)
+          (kts |> List.map ( Position.map(remap_generic_ktype ~current_module generics_table)))
+    | TPointer kt -> kt |> Position.map (remap_generic_ktype ~current_module generics_table) |> pointer
     | _ as kt -> kt
 
-  let rec map_generics_type (generics_combined : (string * ktype) list)
+  let rec map_generics_type (generics_combined : (string location * ktype) list)
       (primitive_generics : string list) ktype =
     match ktype with
     (* | TType_Identifier {module_path = ""; name} when primitive_generics |> List.mem name -> ktype *)
-    | TType_Identifier { module_path = ""; name } ->
+    | TType_Identifier { module_path = {v = ""; _}; name } ->
         generics_combined |> List.assoc_opt name |> Option.value ~default:ktype
     | TParametric_identifier { module_path; parametrics_type; name } ->
         TParametric_identifier
@@ -532,15 +535,14 @@ module Type = struct
             parametrics_type =
               parametrics_type
               |> List.map
-                   (map_generics_type generics_combined primitive_generics);
+                   (Position.map( map_generics_type generics_combined primitive_generics));
             name;
           }
     | TTuple kts ->
         TTuple
           (kts
-          |> List.map (map_generics_type generics_combined primitive_generics))
-    | TPointer kt ->
-        TPointer (map_generics_type generics_combined primitive_generics kt)
+          |> List.map (Position.map(map_generics_type generics_combined primitive_generics)))
+    | TPointer kt -> kt |> Position.map (map_generics_type generics_combined primitive_generics) |> pointer
     | _ -> ktype
 
   (**
@@ -564,11 +566,12 @@ module Type = struct
                 module_path = mp1;
                 parametrics_type =
                   List.combine pt1 pt2
-                  |> List.map (fun (lhs, rhs) -> restrict_type lhs rhs);
+                  |> List.map ( fun (lhs, rhs) -> { v = restrict_type lhs.v rhs.v; position = lhs.position} );
+                  (*(fun (lhs, rhs) -> restrict_type lhs.v rhs.v)*)
                 name = n1;
               }
       | TUnknow, t -> t
-      | (TPointer _ as kt), TPointer TUnknow -> kt
+      | (TPointer _ as kt), TPointer { v = TUnknow; _} -> kt
       | _, _ -> to_restrict_type
 end
 

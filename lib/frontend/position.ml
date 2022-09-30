@@ -18,16 +18,16 @@ type position = {
 
 
 type 'a location = {
-  value: 'a;
+  v: 'a;
   position: position
 }
 
 let map f location = {
-  location with value = f (location.value)  
+  location with v = f (location.v)  
 }
 
-let located_value start_position end_position value = {
-  value;
+let located_value start_position end_position v = {
+  v;
   position = {
     start_position;
     end_position
