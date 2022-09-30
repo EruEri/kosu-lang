@@ -3,12 +3,12 @@
     open Lexing
     open Position
 
-    exception Lexical_error of string
-    exception Forbidden_char of char
-    exception Unexpected_escaped_char of string
-    exception Invalid_keyword_for_build_in_function of string
-    exception Invalid_litteral_for_build_in_function of char
-    exception Not_finished_built_in_function
+    exception Lexical_error of position*string
+    exception Forbidden_char of position*char
+    exception Unexpected_escaped_char of position*string
+    exception Invalid_keyword_for_build_in_function of position*string
+    exception Invalid_litteral_for_build_in_function of position*char
+    exception Not_finished_built_in_function of position
     exception Unclosed_string of position
     exception Unclosed_comment of position
 
@@ -121,22 +121,22 @@ rule main = parse
         Hashtbl.find keywords s
     with Not_found -> IDENT s
 }
-| _ as c { raise (Forbidden_char c) }
+| _ as c { raise (Forbidden_char( (current_position lexbuf), c) ) }
 | eof { EOF }
 and built_in_function = parse
 | identifiant as s {
     match Hashtbl.find_opt keywords s with
     | None -> BUILTIN s
-    | Some _ -> raise (Invalid_keyword_for_build_in_function s)
+    | Some _ -> raise (Invalid_keyword_for_build_in_function ((current_position lexbuf) , s) )
 }
 | _ as lit {
-    raise (Invalid_litteral_for_build_in_function lit)
+    raise (Invalid_litteral_for_build_in_function ( current_position lexbuf ,lit))
 }
-| eof { raise Not_finished_built_in_function }
+| eof {  Not_finished_built_in_function (current_position lexbuf) |> raise }
 and read_string buffer = parse
 | '"' { String_lit (Buffer.contents buffer) }
 | '\\' ( escaped_char as c ){ Buffer.add_string buffer ( (if c = '\\' then "" else "\\")^( lexbuf |> lexeme)); read_string buffer lexbuf }
-| '\\' { raise ( Unexpected_escaped_char (lexbuf |> lexeme) ) }
+| '\\' { raise ( Unexpected_escaped_char ((current_position lexbuf) , (lexbuf |> lexeme) )) }
 | _ as s { Buffer.add_char buffer s; read_string buffer lexbuf }
 | eof {
     raise (Unclosed_string (current_position lexbuf))  
