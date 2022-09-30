@@ -1,3 +1,5 @@
+open Lexing
+
 let get_lexing_position lexbuf =
   let p = Lexing.lexeme_start_p lexbuf in
   let line_number = p.Lexing.pos_lnum in
@@ -26,4 +28,9 @@ let located_value start_position end_position value = {
     start_position;
     end_position
   }
+}
+
+let current_position lexbuf = {
+  start_position = lexbuf.lex_start_p;
+  end_position = lexbuf.lex_curr_p
 }
