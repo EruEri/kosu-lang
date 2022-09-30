@@ -1,15 +1,21 @@
 {
     open Parser
     open Lexing
+    open Position
 
-    exception Lexical_error of string
-    exception Forbidden_char of char
-    exception Unexpected_escaped_char of string
-    exception Invalid_keyword_for_build_in_function of string
-    exception Invalid_litteral_for_build_in_function of char
-    exception Not_finished_built_in_function
-    exception Unclosed_string
-    exception Unclosed_comment
+    exception Lexical_error of position*string
+    exception Forbidden_char of position*char
+    exception Unexpected_escaped_char of position*string
+    exception Invalid_keyword_for_build_in_function of position*string
+    exception Invalid_litteral_for_build_in_function of position*char
+    exception Not_finished_built_in_function of position
+    exception Unclosed_string of position
+    exception Unclosed_comment of position
+
+
+  let next_line_and f lexbuf =
+    Lexing.new_line lexbuf;
+    f lexbuf
 
     let keywords = Hashtbl.create 19
     let _ = ["cases", CASES; "const", CONST; "enum", ENUM; "external", EXTERNAL; "empty", EMPTY; "sig", SIG; "discard", DISCARD ; "else", ELSE; "fn", FUNCTION; 
@@ -35,13 +41,18 @@ let octal_intger = '0' ('o' | 'O') (['0'-'7']) (['0'-'7'] | '_')*
 let binary_integer = '0' ('b' | 'B') ('0' | '1') ('0' | '1' | '_')*
 let number = decimal_integer | hex_integer | octal_intger | binary_integer
 
+
+let newline = ('\010' | '\013' | "\013\010")
+let blank   = [' ' '\009' '\012']
+
 let whitespace = [' ' '\t' '\r' '\n']+
 
 rule main = parse
-| whitespace {  
+| newline {  
     (* let _ = if ( String.contains s '\n') then (line := !line + 1) else () in  *)
-    main lexbuf 
+    next_line_and main lexbuf 
 }
+| blank+ { main lexbuf }
 | "(" { LPARENT }
 | ")" { RPARENT }
 | "{" { LBRACE }
@@ -110,29 +121,34 @@ rule main = parse
         Hashtbl.find keywords s
     with Not_found -> IDENT s
 }
-| _ as c { raise (Forbidden_char c) }
+| _ as c { raise (Forbidden_char( (current_position lexbuf), c) ) }
 | eof { EOF }
 and built_in_function = parse
 | identifiant as s {
     match Hashtbl.find_opt keywords s with
     | None -> BUILTIN s
-    | Some _ -> raise (Invalid_keyword_for_build_in_function s)
+    | Some _ -> raise (Invalid_keyword_for_build_in_function ((current_position lexbuf) , s) )
 }
 | _ as lit {
-    raise (Invalid_litteral_for_build_in_function lit)
+    raise (Invalid_litteral_for_build_in_function ( current_position lexbuf ,lit))
 }
-| eof { raise Not_finished_built_in_function }
+| eof {  Not_finished_built_in_function (current_position lexbuf) |> raise }
 and read_string buffer = parse
 | '"' { String_lit (Buffer.contents buffer) }
 | '\\' ( escaped_char as c ){ Buffer.add_string buffer ( (if c = '\\' then "" else "\\")^( lexbuf |> lexeme)); read_string buffer lexbuf }
-| '\\' { raise ( Unexpected_escaped_char (lexbuf |> lexeme) ) }
+| '\\' { raise ( Unexpected_escaped_char ((current_position lexbuf) , (lexbuf |> lexeme) )) }
 | _ as s { Buffer.add_char buffer s; read_string buffer lexbuf }
-| eof { raise Unclosed_string }
+| eof {
+    raise (Unclosed_string (current_position lexbuf))  
+}
 and single_line_comment = parse
-| '\n' { main lexbuf }
+| newline { next_line_and main lexbuf }
 | _ { single_line_comment lexbuf}
 | eof { EOF }
 and multiple_line_comment = parse 
 | "*/" { main lexbuf }
+| newline { next_line_and multiple_line_comment lexbuf}
 | _ { multiple_line_comment lexbuf }
-| eof { raise  Unclosed_comment }
+| eof {
+    raise  (Unclosed_comment (current_position lexbuf) )
+}

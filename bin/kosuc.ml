@@ -28,17 +28,15 @@ let () =
       match e with
       | No_input_file -> raise (Invalid_argument "no Input file")
       | File_error (s, exn) ->
-          Printf.printf "%s\n" s;
+          Printf.eprintf "%s\n" s;
           raise exn
       | Filename_error _ -> raise (Invalid_argument "Filename Error")
-      | Syntax_error (line, column) ->
-          Printf.printf "SyntaxError near -- line : %d, column : %d --" line
-            column;
-          raise (Invalid_argument ""))
+      | Parser_Error (filename, position) -> position |> Kosu_frontend.Pprint.string_of_position_error |> Printf.eprintf "File \"%s\"%s: Parser Error\n" filename; raise (Invalid_argument "Parser Error")
+      | Lexer_Error e -> raise e)
   | Ok modules -> (
       match valide_program modules with
       | Error e ->
-          Printf.printf "%s\n" (Error.string_of_validation_error e);
+          Printf.eprintf "%s\n" (Error.string_of_validation_error e);
           raise (Error.Validation_error e)
       | Ok () -> ())
 (* let () = modules |> List.iter (fun record -> Printf.printf "module name : %s\n" record.path) in
