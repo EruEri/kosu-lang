@@ -523,7 +523,7 @@ module Type = struct
     | _ as kt -> kt
 
   let rec map_generics_type (generics_combined : (string location * ktype) list)
-      (primitive_generics : string list) ktype =
+      (primitive_generics : string location list) ktype =
     match ktype with
     (* | TType_Identifier {module_path = ""; name} when primitive_generics |> List.mem name -> ktype *)
     | TType_Identifier { module_path = {v = ""; _}; name } ->
