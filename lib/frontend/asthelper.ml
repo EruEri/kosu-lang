@@ -899,7 +899,7 @@ module Enum = struct
                  let () =
                    Hashtbl.replace generic_table name.v
                      ( enum_decl.generics
-                       |> Util.ListHelper.index_of (( = ) name),
+                       |> Util.ListHelper.index_of ( fun ge -> ge.v = name.v),
                        kt )
                  in
                  true
@@ -977,7 +977,7 @@ module Enum = struct
     in
     enum_decl.variants
     |> List.find_map (fun (variant_enum, assoc_types) ->
-           if variant = variant_enum then Some (variant, assoc_types) else None)
+           if variant.v = variant_enum.v then Some (variant, assoc_types) else None)
     |> Option.to_result ~none:(Variant_not_found { enum_decl; variant = variant.v })
     >>= fun (_, assoc_types) ->
     let assoc_len = assoc_types |> List.length in
