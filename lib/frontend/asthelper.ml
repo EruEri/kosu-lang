@@ -1132,8 +1132,8 @@ module Struct = struct
     let list_len = parametrics_types |> List.length in
     let dummy_list = List.init list_len (fun _ -> ()) in
     let dummy_parametrics = List.combine dummy_list parametrics_types in
-    let generics_mapped = List.combine struct_decl.generics dummy_parametrics in
-    let hashtbl = Hashtbl.of_seq (generics_mapped |> List.to_seq) in
+    let generics_mapped = List.combine (struct_decl.generics |> List.map Position.value) dummy_parametrics in
+    let hashtbl = Hashtbl.of_seq (generics_mapped |> List.to_seq ) in
     struct_decl.fields |> List.map Position.assocs_value |> List.assoc_opt field
     |> Option.map (fun kt ->
            if not (is_type_generic kt struct_decl) then kt
@@ -1196,11 +1196,11 @@ module Struct = struct
       (expected_type : ktype) (struct_decl : t) =
     match (init_type, expected_type) with
     | kt, TType_Identifier { module_path; name }
-      when match Hashtbl.find_opt generic_table name with
+      when match Hashtbl.find_opt generic_table name.v with
            | None ->
                if module_path.v = "" && struct_decl.generics |> List.mem name then
                  let () =
-                   Hashtbl.replace generic_table name
+                   Hashtbl.replace generic_table name.v
                      ( struct_decl.generics
                        |> List.map Position.value
                        |> Util.ListHelper.index_of (( = ) name.v),
@@ -1494,11 +1494,11 @@ module Function = struct
       (expected_type : ktype) (function_decl : t) =
     match (init_type, expected_type) with
     | kt, TType_Identifier { module_path = { v = ""; _}; name }
-      when match Hashtbl.find_opt generic_table name with
+      when match Hashtbl.find_opt generic_table name.v with
            | None ->
-               if function_decl.generics |> List.mem name then
+               if function_decl.generics |> List.map Position.value |> List.mem name.v then
                  let () =
-                   Hashtbl.replace generic_table name
+                   Hashtbl.replace generic_table name.v
                      ( function_decl.generics
                        |> Util.ListHelper.index_of (( = ) name),
                        kt )
@@ -1728,12 +1728,12 @@ module Sizeof = struct
         match type_decl with
         | Ast.Type_Decl.Decl_Enum enum_decl ->
             size_enum calcul current_module program
-              (Util.dummy_generic_map enum_decl.generics
+              (Util.dummy_generic_map (enum_decl.generics |> List.map Position.value)
                  (Type.extract_parametrics_ktype kt |> List.map Position.value))
               enum_decl
         | Ast.Type_Decl.Decl_Struct struct_decl ->
             size_struct calcul current_module program
-              (Util.dummy_generic_map struct_decl.generics
+              (Util.dummy_generic_map (struct_decl.generics |> List.map Position.value)
                  (Type.extract_parametrics_ktype kt |> List.map Position.value))
               struct_decl)
 
@@ -1820,7 +1820,7 @@ let string_of_struct_error =
   let open Printf in
   function
   | Unexpected_field { expected; found } ->
-      sprintf "Unexpected_field -- expected : %s, found : %s --" expected found
+      sprintf "Unexpected_field -- expected : %s, found : %s --" expected.v found.v
   | Unexisting_field s -> sprintf "Unexisting_field %s" s
   | Wrong_field_count record ->
       sprintf "Wrong_field_count -- expected : %d, found : %d" record.expected

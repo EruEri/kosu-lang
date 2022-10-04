@@ -271,7 +271,7 @@ end
 
 module Error = struct
   type struct_error =
-    | Unexpected_field of { expected : string; found : string }
+    | Unexpected_field of { expected : string location; found : string location }
     | Unexisting_field of string
     | Wrong_field_count of { expected : int; found : int }
 
@@ -398,14 +398,14 @@ module Type = struct
   let is_parametric = function TParametric_identifier _ -> true | _ -> false
 
   let rec set_module_path generics new_module_name = function
-    | TType_Identifier { module_path = {v = ""; _}; name }
+    | TType_Identifier { module_path = {v = ""; position}; name }
       when generics |> List.mem name |> not ->
-        TType_Identifier { module_path = new_module_name; name }
+        TType_Identifier { module_path = { v = new_module_name; position}; name }
     | TParametric_identifier { module_path; parametrics_type; name } ->
         TParametric_identifier
           {
             module_path =
-              (if module_path.v = "" then {v = new_module_name.v; position = module_path.position} else module_path);
+              (if module_path.v = "" then {v = new_module_name; position = module_path.position} else module_path);
             parametrics_type =
               parametrics_type
               |> List.map( Position.map (set_module_path generics new_module_name));
@@ -495,11 +495,11 @@ module Type = struct
   let rec remap_generic_ktype ~current_module generics_table ktype =
     match ktype with
     | TType_Identifier { module_path = { v = ""; position = kposition}; name } -> (
-        match Hashtbl.find_opt generics_table name with
+        match Hashtbl.find_opt generics_table name.v with
         | None -> TType_Identifier { module_path = { v = ""; position = kposition}; name }
         | Some (_, typ) -> typ)
     | TType_Identifier { module_path; name } -> (
-        match Hashtbl.find_opt generics_table name with
+        match Hashtbl.find_opt generics_table name.v with
         | None ->
             TType_Identifier
               {

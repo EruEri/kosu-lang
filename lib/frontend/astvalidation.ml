@@ -1,5 +1,6 @@
 open Ast
 open Asthelper
+open Position
 
 module Error = struct
   type external_func_error =
@@ -41,7 +42,7 @@ module Error = struct
     | Duplicate_type_name of string
     | Duplicate_const_name of string
     | Duplicate_Operator of
-        [ `binary of Ast.parser_binary_op | `unary of Ast.parser_unary_op ]
+        [ `binary of Ast.parser_binary_op location | `unary of Ast.parser_unary_op location ]
     | Main_no_kosu_function
 
   type validation_error =
@@ -71,10 +72,10 @@ module Error = struct
     let open Printf in
     function
     | Unit_parameter external_func_decl ->
-        sprintf "Unit parameter in %s" external_func_decl.sig_name
+        sprintf "Unit parameter in %s" external_func_decl.sig_name.v
     | Not_C_compatible_type (external_func_decl, ktype) ->
         sprintf "Not_C_compatible_type in %s -- %s --"
-          external_func_decl.sig_name (string_of_ktype ktype)
+          external_func_decl.sig_name.v (string_of_ktype ktype)
     | Too_much_parameters record ->
         sprintf "Too_much_parameters -- limit: %d, found: %d --" record.limit
           record.found
@@ -83,9 +84,9 @@ module Error = struct
     let open Printf in
     function
     | Syscall_Unit_parameter syscall_decl ->
-        sprintf "Unit parameter in %s" syscall_decl.syscall_name
+        sprintf "Unit parameter in %s" syscall_decl.syscall_name.v
     | Syscall_Not_C_compatible_type (syscall_decl, ktype) ->
-        sprintf "Not_C_compatible_type in %s -- %s --" syscall_decl.syscall_name
+        sprintf "Not_C_compatible_type in %s -- %s --" syscall_decl.syscall_name.v
           (string_of_ktype ktype)
     | Syscall_Too_much_parameters record ->
         sprintf "Too_much_parameters -- limit: %d, found: %d --" record.limit
@@ -98,17 +99,17 @@ module Error = struct
         sprintf "Unknown_type_for_field : %s -> %s" field
           (string_of_ktype ktype)
     | SCyclic_Declaration struct_decl ->
-        sprintf "Struct Cyclic_Declaration for %s" struct_decl.struct_name
+        sprintf "Struct Cyclic_Declaration for %s" struct_decl.struct_name.v
     | SDuplicated_field struct_decl ->
-        sprintf "Struct Duplicated_field for %s" struct_decl.struct_name
+        sprintf "Struct Duplicated_field for %s" struct_decl.struct_name.v
 
   let string_of_enum_error =
     let open Printf in
     function
     | ECyclic_Declaration enum_decl ->
-        sprintf " Enum_Cyclic_Declaration for %s" enum_decl.enum_name
+        sprintf " Enum_Cyclic_Declaration for %s" enum_decl.enum_name.v
     | EDuplicated_variant_name enum_decl ->
-        sprintf "Enum_Duplicated_variant_name for %s" enum_decl.enum_name
+        sprintf "Enum_Duplicated_variant_name for %s" enum_decl.enum_name.v
 
   let string_of_operator_error =
     let open Printf in
@@ -131,9 +132,9 @@ module Error = struct
     function
     | Wrong_signature_for_main -> sprintf "Wrong_signature_for_main"
     | Duplicated_parameters function_decl ->
-        sprintf "Duplicate name parameters for %s" function_decl.fn_name
+        sprintf "Duplicate name parameters for %s" function_decl.fn_name.v
     | Function_Unit_parameter function_decl ->
-        sprintf "Function_Unit_parameter : %s" function_decl.fn_name
+        sprintf "Function_Unit_parameter : %s" function_decl.fn_name.v
 
   let string_of_module_error =
     let open Printf in
@@ -144,7 +145,7 @@ module Error = struct
     | Duplicate_const_name name -> sprintf "Duplicate_const_name : %s" name
     | Duplicate_Operator op ->
         sprintf "Duplicate_Operator for -- %s --"
-          (Asthelper.ParserOperator.string_of_parser_operator op)
+          (Asthelper.ParserOperator.string_of_parser_operator (op |> fun op -> match op with `unary o -> `unary o.v | `binary b -> `binary b.v))
     | Main_no_kosu_function -> "Main function should be a kosu function"
 
   let string_of_validation_error =
@@ -203,8 +204,8 @@ module Help = struct
     match ktype with
     | TType_Identifier { module_path = ktype_def_path; name = ktype_name } -> (
         match
-          Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path
-            ~ktype_name ~current_module program
+          Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v
+            ~ktype_name:ktype_name.v ~current_module program
         with
         | Ast.Type_Decl.Decl_Struct struct_decl ->
             does_contains_type_decl_struct current_module program struct_decl
@@ -216,13 +217,13 @@ module Help = struct
         { module_path = ktype_def_path; parametrics_type; name = ktype_name }
       -> (
         let type_decl_found =
-          Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path
-            ~ktype_name ~current_module program
+          Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v
+            ~ktype_name:ktype_name.v ~current_module program
         in
         match type_decl_found with
         | Ast.Type_Decl.Decl_Struct struct_decl ->
             let new_struct =
-              Asthelper.Struct.bind_struct_decl parametrics_type
+              Asthelper.Struct.bind_struct_decl (parametrics_type |> List.map Position.value)
                 (ktype_type_decl_origin |> Asthelper.Type_Decl.generics)
                 struct_decl
             in
@@ -231,7 +232,7 @@ module Help = struct
               already_visited type_decl_to_check
         | Ast.Type_Decl.Decl_Enum enum_decl ->
             let new_enum_decl =
-              Asthelper.Enum.bind_enum_decl parametrics_type
+              Asthelper.Enum.bind_enum_decl (parametrics_type |> List.map Position.value)
                 (ktype_type_decl_origin |> Asthelper.Type_Decl.generics)
                 enum_decl
             in
@@ -240,7 +241,7 @@ module Help = struct
     | TTuple kts ->
         kts
         |> List.for_all (fun kt ->
-               does_ktype_contains_type_decl current_module program kt
+               does_ktype_contains_type_decl current_module program kt.v
                  ktype_type_decl_origin already_visited type_decl_to_check)
     | _ -> false
 
@@ -257,19 +258,19 @@ module Help = struct
       Ast.Type_Decl.decl_struct struct_decl = type_decl_to_check
       || struct_decl.fields
          |> List.exists (fun (_, kt) ->
-                match kt with
-                | TType_Identifier _ when Struct.is_type_generic kt struct_decl
+                match kt.v with
+                | TType_Identifier _ when Struct.is_type_generic kt.v struct_decl
                   ->
                     false
                 | TType_Identifier
                     { module_path = ktype_def_path; name = ktype_name } ->
                     let t_decl =
-                      Program.find_type_decl_from_ktype ~ktype_def_path
-                        ~ktype_name ~current_module program
+                      Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v
+                        ~ktype_name:ktype_name.v ~current_module program
                     in
                     t_decl = type_decl_to_check
                     || t_decl = Ast.Type_Decl.decl_struct struct_decl
-                    || does_ktype_contains_type_decl current_module program kt
+                    || does_ktype_contains_type_decl current_module program kt.v
                          (Ast.Type_Decl.Decl_Struct struct_decl)
                          (Ast.Type_Decl.Decl_Struct struct_decl
                         :: already_visited)
@@ -281,30 +282,30 @@ module Help = struct
                       name = ktype_name;
                     } ->
                     let t_decl =
-                      Program.find_type_decl_from_ktype ~ktype_def_path
-                        ~ktype_name ~current_module program
+                      Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v
+                        ~ktype_name:ktype_name.v ~current_module program
                     in
                     t_decl = type_decl_to_check
                     || parametrics_type
                        |> List.exists (fun ikt ->
                               if
                                 struct_decl
-                                |> Struct.is_ktype_generic_level_zero ikt
+                                |> Struct.is_ktype_generic_level_zero ikt.v
                               then false
                               else
                                 does_ktype_contains_type_decl current_module
-                                  program ikt
+                                  program ikt.v
                                   (Ast.Type_Decl.Decl_Struct struct_decl)
                                   (Ast.Type_Decl.Decl_Struct struct_decl
                                  :: already_visited)
                                   type_decl_to_check)
-                    || does_ktype_contains_type_decl current_module program kt
+                    || does_ktype_contains_type_decl current_module program kt.v
                          (Ast.Type_Decl.Decl_Struct struct_decl)
                          (Ast.Type_Decl.Decl_Struct struct_decl
                         :: already_visited)
                          type_decl_to_check
                 | _ ->
-                    does_ktype_contains_type_decl current_module program kt
+                    does_ktype_contains_type_decl current_module program kt.v
                       (Ast.Type_Decl.Decl_Struct struct_decl) already_visited
                       type_decl_to_check)
 
@@ -323,6 +324,7 @@ module Help = struct
          |> List.exists (fun (_, kts) ->
                 kts
                 |> List.exists (fun kt ->
+                  let kt = kt.v in
                        match kt with
                        | TType_Identifier _
                          when Enum.is_type_generic kt enum_decl ->
@@ -334,8 +336,8 @@ module Help = struct
                              name = ktype_name;
                            } ->
                            let t_decl =
-                             Program.find_type_decl_from_ktype ~ktype_def_path
-                               ~ktype_name ~current_module program
+                             Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v
+                               ~ktype_name:ktype_name.v ~current_module program
                            in
                            t_decl = type_decl_to_check
                            || t_decl = Ast.Type_Decl.decl_enum enum_decl
@@ -343,11 +345,11 @@ module Help = struct
                               |> List.exists (fun ikt ->
                                      if
                                        enum_decl
-                                       |> Enum.is_ktype_generic_level_zero ikt
+                                       |> Enum.is_ktype_generic_level_zero ikt.v
                                      then false
                                      else
                                        does_ktype_contains_type_decl
-                                         current_module program ikt
+                                         current_module program ikt.v
                                          (Ast.Type_Decl.Decl_Enum enum_decl)
                                          (Ast.Type_Decl.Decl_Enum enum_decl
                                         :: already_visited)
@@ -361,8 +363,8 @@ module Help = struct
                            { module_path = ktype_def_path; name = ktype_name }
                          ->
                            let t_decl =
-                             Program.find_type_decl_from_ktype ~ktype_def_path
-                               ~ktype_name ~current_module program
+                             Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v
+                               ~ktype_name:ktype_name.v ~current_module program
                            in
                            t_decl = type_decl_to_check
                            || t_decl = Ast.Type_Decl.decl_enum enum_decl
@@ -379,6 +381,7 @@ module Help = struct
   and is_cyclic_struct current_module program struct_decl =
     struct_decl.fields
     |> List.exists (fun (_, kt) ->
+      let kt = kt.v in
            if Asthelper.Struct.is_ktype_generic_level_zero kt struct_decl then
              false
            else
@@ -392,6 +395,7 @@ module Help = struct
     |> List.map (fun (_, kts) -> kts)
     |> List.flatten
     |> List.exists (fun kt ->
+      let kt = kt.v in
            if Asthelper.Enum.is_ktype_generic_level_zero kt enum_decl then false
            else
              does_ktype_contains_type_decl current_module program kt
@@ -413,7 +417,7 @@ end
 
 module ValidateExternalFunction = struct
   let does_parameters_contains_unit (external_func_decl : external_func_decl) =
-    if external_func_decl.fn_parameters |> List.mem TUnit then
+    if external_func_decl.fn_parameters |> List.map Position.value |> List.mem TUnit then
       Error.Unit_parameter external_func_decl |> Error.external_func_error
       |> Result.error
     else Ok ()
@@ -422,6 +426,7 @@ module ValidateExternalFunction = struct
       (external_func_decl : external_func_decl) =
     external_func_decl.fn_parameters
     |> List.filter_map (fun kt ->
+      let kt = kt.v in
            try
              if
                Asthelper.Program.is_c_type_from_ktype current_module kt program
@@ -458,7 +463,7 @@ end
 
 module ValidateSyscall = struct
   let does_parameters_contains_unit (syscall_decl : syscall_decl) =
-    if syscall_decl.parameters |> List.mem TUnit then
+    if syscall_decl.parameters |> List.map Position.value |> List.mem TUnit then
       Error.Syscall_Unit_parameter syscall_decl |> Error.syscall_error
       |> Result.error
     else Ok ()
@@ -467,6 +472,7 @@ module ValidateSyscall = struct
       (syscall_decl : syscall_decl) =
     syscall_decl.parameters
     |> List.filter_map (fun kt ->
+      let kt = kt.v in
            try
              if
                Asthelper.Program.is_c_type_from_ktype current_module kt program
@@ -504,10 +510,10 @@ module ValidateStruct = struct
   let is_all_type_exist current_module program struct_decl =
     struct_decl.fields
     |> List.find_map (fun (_, kt) ->
-           if Asthelper.Struct.is_ktype_generic_level_zero kt struct_decl then
+           if Asthelper.Struct.is_ktype_generic_level_zero kt.v struct_decl then
              None
            else
-             match Help.is_ktype_exist current_module program kt with
+             match Help.is_ktype_exist current_module program kt.v with
              | Ok () -> None
              | Error e -> Some e)
 
@@ -539,9 +545,9 @@ module ValidateEnum = struct
     |> List.map (fun (_, kts) -> kts)
     |> List.flatten
     |> List.find_map (fun kt ->
-           if Asthelper.Enum.is_ktype_generic_level_zero kt enum_decl then None
+           if Asthelper.Enum.is_ktype_generic_level_zero kt.v enum_decl then None
            else
-             match Help.is_ktype_exist current_module program kt with
+             match Help.is_ktype_exist current_module program kt.v with
              | Ok () -> None
              | Error e -> Some e)
 
@@ -568,11 +574,11 @@ module ValidateEnum = struct
 end
 
 module ValidateFunction_Decl = struct
-  let is_main_function function_decl = function_decl.fn_name = "main"
+  let is_main_function function_decl = function_decl.fn_name.v = "main"
 
   let is_valid_main_sig function_decl =
-    function_decl.fn_name = "main"
-    && function_decl.return_type = TInteger (Signed, I32)
+    function_decl.fn_name.v = "main"
+    && function_decl.return_type.v = TInteger (Signed, I32)
     && function_decl.parameters = []
     && function_decl.generics = []
 
@@ -587,7 +593,7 @@ module ValidateFunction_Decl = struct
     else Ok ()
 
   let check_unit_parameters (function_decl : function_decl) =
-    if function_decl.parameters |> List.exists (fun (_, kt) -> kt = TUnit) then
+    if function_decl.parameters |> List.exists (fun (_, kt) -> kt.v = TUnit) then
       Error.Function_Unit_parameter function_decl |> Error.function_error
       |> Result.error
     else Ok ()
@@ -595,10 +601,10 @@ module ValidateFunction_Decl = struct
   let is_all_type_exist current_module program function_decl =
     function_decl.parameters
     |> List.find_map (fun (_, kt) ->
-           if Asthelper.Function.is_ktype_generic_level_zero kt function_decl
+           if Asthelper.Function.is_ktype_generic_level_zero kt.v function_decl
            then None
            else
-             match Help.is_ktype_exist current_module program kt with
+             match Help.is_ktype_exist current_module program kt.v with
              | Ok () -> None
              | Error e -> Some e)
 
@@ -618,9 +624,9 @@ module ValidateFunction_Decl = struct
           (function_decl.parameters
           |> List.fold_left
                (fun acc_env para ->
-                 acc_env |> Env.add_fn_parameters ~const:false para)
+                 acc_env |> Env.add_fn_parameters ~const:false (para |> Position.assocs_value))
                Env.create_empty_env)
-          current_module program ~return_type:(Some function_decl.return_type)
+          current_module program ~return_type:(Some function_decl.return_type.v)
           function_decl.body
       in
       Ok ()
@@ -645,10 +651,10 @@ module ValidateOperator_Decl = struct
     let first_kt =
       Asthelper.ParserOperator.first_parameter_ktype operator_decl
     in
-    Help.is_ktype_exist_from_ktype current_module program first_kt >>= fun () ->
+    Help.is_ktype_exist_from_ktype current_module program first_kt.v >>= fun () ->
     match Asthelper.ParserOperator.second_parameter_ktype operator_decl with
     | None -> Ok ()
-    | Some kt -> Help.is_ktype_exist_from_ktype current_module program kt
+    | Some kt -> Help.is_ktype_exist_from_ktype current_module program kt.v
 
   let check_parameters operator_decl =
     match operator_decl with
@@ -656,11 +662,11 @@ module ValidateOperator_Decl = struct
     | Binary binary ->
         let (_, kt1), (_, kt2) = binary.fields in
         if kt1 = kt2 then
-          if kt1 |> Ast.Type.is_builtin_type then
-            Error.Op_built_overload kt1 |> Error.operator_error |> Result.error
+          if kt1.v |> Ast.Type.is_builtin_type then
+            Error.Op_built_overload kt1.v |> Error.operator_error |> Result.error
           else Ok ()
         else
-          Error.Op_binary_op_diff_type (kt1, kt2)
+          Error.Op_binary_op_diff_type (kt1.v, kt2.v)
           |> Error.operator_error |> Result.error
 
   let check_return_ktype operator_decl =
@@ -668,24 +674,24 @@ module ValidateOperator_Decl = struct
     | Unary u ->
         let expected =
           Asthelper.ParserOperator.expected_unary_return_type
-            (Asthelper.ParserOperator.first_parameter_ktype operator_decl)
-            u.op
+            (Asthelper.ParserOperator.first_parameter_ktype operator_decl).v
+            u.op.v
         in
-        if u.return_type = expected then Ok ()
+        if u.return_type.v = expected then Ok ()
         else
           Op_wrong_return_type_error
-            { op = `unary u.op; expected; found = u.return_type }
+            { op = `unary u.op.v; expected; found = u.return_type.v }
           |> Error.operator_error |> Result.error
     | Binary b ->
         let expected =
           Asthelper.ParserOperator.expected_binary_return_type
-            (Asthelper.ParserOperator.first_parameter_ktype operator_decl)
-            b.op
+            (Asthelper.ParserOperator.first_parameter_ktype operator_decl).v
+            b.op.v
         in
-        if b.return_type = expected then Ok ()
+        if b.return_type.v = expected then Ok ()
         else
           Op_wrong_return_type_error
-            { op = `binary b.op; expected; found = b.return_type }
+            { op = `binary (b.op |> Position.value); expected; found = b.return_type.v }
           |> Error.operator_error |> Result.error
 
   let check_kbody current_module program operator_decl =
@@ -702,7 +708,7 @@ module ValidateOperator_Decl = struct
           (fields
           |> List.fold_left
                (fun acc_env para ->
-                 acc_env |> Env.add_fn_parameters ~const:false para)
+                 acc_env |> Env.add_fn_parameters ~const:false (para |> Position.assocs_value))
                Env.create_empty_env)
           current_module program
           ~return_type:
@@ -728,7 +734,7 @@ module ValidateModule = struct
     |> function
     | [] -> Ok ()
     | t :: _ ->
-        Error.Duplicate_function_name t |> Error.module_error |> Result.error
+        Error.Duplicate_function_name t.v |> Error.module_error |> Result.error
 
   let check_duplicate_operator { path = _; _module } =
     _module |> Asthelper.Module.retrieve_operator_decl
@@ -743,7 +749,7 @@ module ValidateModule = struct
     let ( >>= ) = Result.bind in
     _module |> Asthelper.Module.retrieve_functions_decl
     |> List.filter (fun decl ->
-           decl |> Ast.Function_Decl.calling_name |> ( = ) "main")
+           decl |> Ast.Function_Decl.calling_name |> Position.value |> ( = ) "main")
     |> List.fold_left
          (fun acc value ->
            acc >>= fun found ->
@@ -761,7 +767,7 @@ module ValidateModule = struct
                      Wrong_signature_for_main |> Error.function_error
                      |> Result.error
                | Some _ ->
-                   Duplicate_function_name function_decl.fn_name
+                   Duplicate_function_name function_decl.fn_name.v
                    |> Error.module_error |> Result.error))
          (Ok None)
     |> Result.map (fun _ -> ())
@@ -773,7 +779,7 @@ module ValidateModule = struct
     |> function
     | [] -> Ok ()
     | t :: _ ->
-        Error.Duplicate_type_name t |> Error.module_error |> Result.error
+        Error.Duplicate_type_name t.v |> Error.module_error |> Result.error
 
   let check_duplicate_const_name { path = _; _module } =
     _module |> Asthelper.Module.retrieve_const_decl
@@ -798,7 +804,7 @@ module Validate_Program = struct
     |> List.map (fun { path = _; _module } ->
            _module |> Asthelper.Module.retrieve_functions_decl
            |> List.filter (fun fn ->
-                  fn |> Ast.Function_Decl.calling_name = "main"))
+                  fn |> Ast.Function_Decl.calling_name |> Position.value = "main"))
     |> List.flatten
     |> function
     | [] | _ :: [] -> Ok ()
