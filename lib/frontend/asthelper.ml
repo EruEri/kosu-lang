@@ -892,12 +892,12 @@ module Enum = struct
       (expected_type : ktype) (enum_decl : t) =
     match (init_type, expected_type) with
     | kt, TType_Identifier { module_path = {v = ""; _}; name }
-      when match Hashtbl.find_opt generic_table name with
+      when match Hashtbl.find_opt generic_table name.v with
            | None -> false
            | Some (_, find_kt) ->
                if find_kt = TUnknow then
                  let () =
-                   Hashtbl.replace generic_table name
+                   Hashtbl.replace generic_table name.v
                      ( enum_decl.generics
                        |> Util.ListHelper.index_of (( = ) name),
                        kt )
@@ -948,7 +948,7 @@ module Enum = struct
           parametrics_type =
             generics |> Hashtbl.to_seq |> List.of_seq
             |> List.sort (fun (_, (i, _)) (_, (b, _)) -> compare i b)
-            |> List.map (fun (_, (_, kt)) -> kt);
+            |> List.map (fun (_, (_, kt)) -> { v = kt; position = Position.dummy});
           name = enum_decl.enum_name;
         }
 
@@ -1020,11 +1020,11 @@ module Enum = struct
   let extract_assoc_type_variant generics variant (enum_decl : t) =
     enum_decl.variants
     |> List.find_map (fun (case, assoc_type) ->
-           if case = variant then Some assoc_type else None)
+           if case.v = variant.v then Some assoc_type else None)
     |> Option.map (fun assoc_ktypes ->
            assoc_ktypes
            |> List.map (fun kt ->
-                  generics |> List.assoc_opt kt |> Option.value ~default:kt))
+                  generics |> List.assoc_opt kt.v |> Option.value ~default:kt))
 
   let is_ktype_generic_level_zero ktype (enum_decl : t) =
     match ktype with
@@ -1044,8 +1044,8 @@ module Enum = struct
 
   let reduce_binded_variable_combine assoc =
     assoc
-    |> List.filter_map (fun (name, (ktype : ktype)) ->
-           match (name : string option) with
+    |> List.filter_map (fun (name, ktype) ->
+           match name with
            | None -> None
            | Some s -> Some (s, ktype))
 
@@ -1255,7 +1255,7 @@ module Struct = struct
           parametrics_type =
             generics |> Hashtbl.to_seq |> List.of_seq
             |> List.sort (fun (_, (i, _)) (_, (b, _)) -> compare i b)
-            |> List.map (fun (_, (_, kt)) -> kt);
+            |> List.map (fun (_, (_, kt)) -> { v = kt; position = Position.dummy});
           name = struct_decl.struct_name;
         }
 
@@ -1932,11 +1932,11 @@ let string_of_switch_error =
       sprintf "Incompatible_Binding between: \n-> %s\n-> %s"
         (lhs
         |> List.map (fun (id, ktype) ->
-               sprintf "%s: %s" id (string_of_ktype ktype))
+               sprintf "%s: %s" id.v (string_of_ktype ktype.v))
         |> String.concat ", ")
         (rhs
         |> List.map (fun (id, ktype) ->
-               sprintf "%s: %s" id (string_of_ktype ktype))
+               sprintf "%s: %s" id.v (string_of_ktype ktype.v))
         |> String.concat ", ")
   | Binded_identifier_already_exist s ->
       sprintf "Binded_identifier_already_exist_in_env : %s" s

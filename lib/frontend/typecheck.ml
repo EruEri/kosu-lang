@@ -210,18 +210,18 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
            (fun
              ((init_field_name, init_type), (struct_field_name, expected_typed))
            ->
-             if init_field_name <> struct_field_name then
+             if init_field_name.v <> struct_field_name.v then
                raise
                  (struct_error
                     (Unexpected_field
                        { expected = struct_field_name; found = init_field_name }));
              if
                Asthelper.Struct.is_type_compatible_hashgen generic_table
-                 init_type expected_typed struct_decl
+                 init_type expected_typed.v struct_decl
                |> not
              then
                Ast.Error.Uncompatible_type
-                 { expected = expected_typed; found = init_type }
+                 { expected = expected_typed.v; found = init_type }
                |> Ast.Error.ast_error |> raise);
 
       let modules_path = modules_path |> Position.map (fun mp -> if mp = "" then current_mod_name else mp) in
@@ -240,7 +240,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let hashtbl = Hashtbl.create (enum_decl.generics |> List.length) in
       enum_decl.generics
       |> List.iteri (fun i generic_name ->
-             Hashtbl.add hashtbl generic_name (i, TUnknow));
+             Hashtbl.add hashtbl generic_name.v (i, TUnknow));
       let init_types =
         assoc_exprs
         |> List.map (typeof ~generics_resolver env current_mod_name prog)
@@ -248,7 +248,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let () =
         enum_decl.variants
         |> List.find_map (fun (var, assoc_types) ->
-               if var = variant then Some assoc_types else None)
+               if var.v = variant.v then Some assoc_types else None)
         (* |> Option.map (fun k -> print_endline (k |> List.map Asthelper.string_of_ktype |> String.concat ", "); k ) *)
         (* |> function Some s -> s | None -> (raise Not_found) *)
         |> Option.get
@@ -262,7 +262,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                     found = assoc_exprs |> List.length;
                   }))
         else
-          assoc_types |> List.combine init_types
+          assoc_types |> List.map Position.value |> List.combine init_types
           |> List.iter (fun (init, expected) ->
                  match
                    Asthelper.Enum.is_type_compatible_hashgen hashtbl init
@@ -277,8 +277,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       Asthelper.Enum.to_ktype_hash hashtbl modules_path enum_decl
   | ETuple expected_types ->
       TTuple
-        (expected_types
-        |> List.map (typeof ~generics_resolver env current_mod_name prog))
+        (expected_types |> List.map ( fun expr -> { v = typeof ~generics_resolver env current_mod_name prog expr; position = expr.position}))
   | EIf (expression, if_block, else_block) ->
       let if_condition =
         typeof ~generics_resolver env current_mod_name prog expression
@@ -440,6 +439,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
               |> List.map (fun (_, t) -> t)
               |> List.combine external_func_decl.fn_parameters
               |> List.for_all (fun (para_type, init_type) ->
+                let para_type = para_type.v in
                      match
                        ( Asthelper.Program.is_c_type_from_ktype current_mod_name
                            para_type prog,
@@ -460,7 +460,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                            { external_func_decl }
                          |> func_error |> raise)
               |> fun b ->
-              if b then external_func_decl.r_type
+              if b then external_func_decl.r_type.v
               else Unknow_Function_Error |> func_error |> raise
           else
             match
@@ -988,10 +988,10 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           enum_decl.variants
           |> List.iter (fun (variant_name, _) ->
                  if
-                   Asthelper.Switch_case.is_cases_duplicated variant_name
+                   Asthelper.Switch_case.is_cases_duplicated variant_name.v
                      variant_cases
                  then
-                   Ast.Error.Duplicated_case variant_name |> switch_error
+                   Ast.Error.Duplicated_case variant_name.v |> switch_error
                    |> raise)
         in
 
@@ -1041,8 +1041,8 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                             else acc)
                           (reduce_binded_variable_combine ass_bin)
                      |> List.map (fun (variable_name, ktype) ->
-                            ( variable_name,
-                              ({ is_const = true; ktype } : Env.variable_info)
+                            ( variable_name.v,
+                              ({ is_const = true; ktype = ktype.v } : Env.variable_info)
                             ))
                      |> List.map (fun (binding_name, var_info) ->
                             if env |> Env.is_identifier_exists binding_name then

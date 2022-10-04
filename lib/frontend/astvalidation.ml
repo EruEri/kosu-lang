@@ -712,7 +712,7 @@ module ValidateOperator_Decl = struct
                Env.create_empty_env)
           current_module program
           ~return_type:
-            (Some (Asthelper.ParserOperator.return_ktype operator_decl))
+            (Some (Asthelper.ParserOperator.return_ktype operator_decl).v)
           (Asthelper.ParserOperator.kbody operator_decl)
       in
       Ok ()

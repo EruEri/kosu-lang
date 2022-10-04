@@ -340,7 +340,7 @@ module Error = struct
         expected : int;
         found : int;
       }
-    | Incompatible_Binding of (string * ktype) list * (string * ktype) list
+    | Incompatible_Binding of (string location * ktype location) list * (string location * ktype location) list
     | Binded_identifier_already_exist of string
 
   type ast_error =
