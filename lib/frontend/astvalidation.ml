@@ -545,10 +545,8 @@ module ValidateEnum = struct
     |> List.map (fun (_, kts) -> kts)
     |> List.flatten
     |> List.find_map (fun kt ->
-          Printf.printf "my type is %s\n" (string_of_ktype kt.v);
            if Asthelper.Enum.is_ktype_generic_level_zero kt.v enum_decl then None
            else
-            let () = Printf.printf "Hello my name is leoal\n" in
              match Help.is_ktype_exist current_module program kt.v with
              | Ok () -> None
              | Error e -> Some e)

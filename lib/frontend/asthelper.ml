@@ -1060,7 +1060,7 @@ module Enum = struct
                ( name,
                  kts
                  |> List.map
-                      (Position.map(Ast.Type.map_generics_type combined primitive_generics))
+                      (Position.map (Ast.Type.map_generics_type combined primitive_generics))
                ));
     }
 

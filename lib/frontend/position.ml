@@ -39,6 +39,10 @@ let dummy = {
   end_position = dummy_pos
 }
 
+let print_position f {v; position} = 
+  let (line, column ) = line_column_of_position position.start_position in
+  Printf.printf "Line %d, Characher %d, %s" line column (f v)
+
 let located_value start_position end_position v = {
   v;
   position = {

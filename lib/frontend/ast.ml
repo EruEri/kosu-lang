@@ -525,9 +525,9 @@ module Type = struct
   let rec map_generics_type (generics_combined : (string location * ktype) list)
       (primitive_generics : string location list) ktype =
     match ktype with
-    (* | TType_Identifier {module_path = ""; name} when primitive_generics |> List.mem name -> ktype *)
+    (* | TType_Identifier {module_path = { v = ""; _ }; name} when primitive_generics |> List.map Position.value |> List.mem name.v -> ktype *)
     | TType_Identifier { module_path = {v = ""; _}; name } ->
-        generics_combined |> List.assoc_opt name |> Option.value ~default:ktype
+        generics_combined |> List.map Position.assoc_value_left |> List.assoc_opt name.v |> Option.value ~default:ktype
     | TParametric_identifier { module_path; parametrics_type; name } ->
         TParametric_identifier
           {
