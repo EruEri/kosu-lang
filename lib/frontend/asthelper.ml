@@ -1010,7 +1010,7 @@ module Enum = struct
   let rec is_type_generic ktype (enum_decl : t) =
     match ktype with
     | TType_Identifier { module_path = { v = ""; _}; name } ->
-        enum_decl.generics |> List.mem name
+        enum_decl.generics |> List.map Position.value |> List.mem name.v
     | TParametric_identifier { module_path = _; parametrics_type; name = _ } ->
         parametrics_type |> List.exists (fun kt -> is_type_generic kt.v enum_decl)
     | TPointer kt -> is_type_generic kt.v enum_decl
@@ -1029,7 +1029,7 @@ module Enum = struct
   let is_ktype_generic_level_zero ktype (enum_decl : t) =
     match ktype with
     | TType_Identifier { module_path = { v = ""; _}; name } ->
-        enum_decl.generics |> List.mem name
+        enum_decl.generics |> List.map Position.value |> List.mem name.v
     | _ -> false
 
   let remove_level_zero_genenics ktypes (enum_decl : t) =
@@ -1106,7 +1106,7 @@ module Struct = struct
   let rec is_type_generic ktype (struct_decl : t) =
     match ktype with
     | TType_Identifier { module_path = { v = ""; _ }; name } ->
-        struct_decl.generics |> List.mem name
+        struct_decl.generics |> List.map Position.value |> List.mem name.v
     | TParametric_identifier { module_path = _; parametrics_type; name = _ } ->
         parametrics_type
         |> List.exists (fun kt -> is_type_generic kt.v struct_decl)
@@ -1185,7 +1185,7 @@ module Struct = struct
   let is_ktype_generic_level_zero ktype (struct_decl : t) =
     match ktype with
     | TType_Identifier { module_path = { v = ""; _}; name } ->
-        struct_decl.generics |> List.mem name
+        struct_decl.generics |> List.map Position.value |> List.mem name.v
     | _ -> false
 
   let remove_level_zero_genenics ktypes (struct_decl : t) =
@@ -1198,7 +1198,7 @@ module Struct = struct
     | kt, TType_Identifier { module_path; name }
       when match Hashtbl.find_opt generic_table name.v with
            | None ->
-               if module_path.v = "" && struct_decl.generics |> List.mem name then
+               if module_path.v = "" && struct_decl.generics |> List.map Position.value |> List.mem name.v then
                  let () =
                    Hashtbl.replace generic_table name.v
                      ( struct_decl.generics
@@ -1463,7 +1463,7 @@ module Function = struct
     | TParametric_identifier { module_path = _; parametrics_type; name = _ } ->
         parametrics_type |> List.exists (fun kt -> is_ktype_generic kt.v fn_decl)
     | TType_Identifier { module_path = { v = ""; _}; name } ->
-        fn_decl.generics |> List.mem name
+        fn_decl.generics |> List.map Position.value |> List.mem name.v
     | _ -> false
 
   (**
@@ -1472,7 +1472,7 @@ module Function = struct
   let is_ktype_generic_level_zero ktype (fn_decl : t) =
     match ktype with
     | TType_Identifier { module_path = { v = ""; _}; name } ->
-        fn_decl.generics |> List.mem name
+        fn_decl.generics |> List.map Position.value |> List.mem name.v
     | _ -> false
 
   let does_need_generic_resolver (function_decl : t) =
