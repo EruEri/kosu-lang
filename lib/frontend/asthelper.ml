@@ -857,7 +857,7 @@ module Enum = struct
     match (init_type, expected_type) with
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
-        enum_decl.generics |> List.mem exp_name
+        enum_decl.generics |> List.map Position.value |> List.mem exp_name.v
         || (init_path = exp_path && init_name = exp_name)
     | ( TParametric_identifier
           {
@@ -907,7 +907,7 @@ module Enum = struct
         true
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
-        enum_decl.generics |> List.mem exp_name
+        enum_decl.generics |> List.map Position.value |> List.mem exp_name.v
         || (init_path = exp_path && init_name = exp_name)
     | ( TParametric_identifier
           {
@@ -1212,7 +1212,7 @@ module Struct = struct
         true
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
-        struct_decl.generics |> List.mem exp_name
+        struct_decl.generics |> List.map Position.value |> List.mem exp_name.v
         || (init_path = exp_path && init_name = exp_name)
     | ( TParametric_identifier
           {
@@ -1488,7 +1488,7 @@ module Function = struct
        fn_decl.parameters
        |> List.find_map (fun (field_name, ktype ) -> if field_name = field then Some ktype else None)
        >>: (Type.type_name_opt)
-       >>: (fun s -> if fn_decl.generics |> List.mem s then Some s else None) *)
+       >>: (fun s -> if fn_decl.generics |> List.map Position.value |> List.mem s then Some s else None) *)
 
   let rec is_type_compatible_hashgen generic_table (init_type : ktype)
       (expected_type : ktype) (function_decl : t) =
@@ -1509,7 +1509,7 @@ module Function = struct
         true
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
-        function_decl.generics |> List.mem exp_name
+        function_decl.generics |> List.map Position.value |> List.mem exp_name.v
         || (init_path = exp_path && init_name = exp_name)
     | ( TParametric_identifier
           {
