@@ -332,7 +332,7 @@ module Error = struct
   type switch_error =
     | Not_enum_type_in_switch_Expression of ktype
     | Not_fully_known_ktype of ktype
-    | Not_all_cases_handled of (string * ktype list) list
+    | Not_all_cases_handled of (string location * ktype location list) list
     | Duplicated_case of string
     | Variant_not_found of { enum_decl : enum_decl; variant : string }
     | Mismatched_Assoc_length of {
@@ -355,7 +355,7 @@ module Error = struct
     | Undefined_Identifier of string
     | Undefined_Const of string
     | Undefined_Struct of string
-    | Unbound_Module of string
+    | Unbound_Module of string location
     | Struct_Error of struct_error
     | Enum_Error of enum_error
     | Statement_Error of statement_error
@@ -367,7 +367,7 @@ module Error = struct
     | Uncompatible_type_If_Else of { if_type : ktype; else_type : ktype }
     | Not_Boolean_Type_Condition of { found : ktype }
     | Impossible_field_Access of ktype
-    | Enum_Access_field of { field : string; enum_decl : enum_decl }
+    | Enum_Access_field of { field : string location; enum_decl : enum_decl }
     | Unvalid_Deference
 
   exception Ast_error of ast_error

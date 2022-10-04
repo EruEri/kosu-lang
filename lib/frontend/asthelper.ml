@@ -155,26 +155,28 @@ module Program = struct
            if mod_name = mp.path then Some mp._module else None)
     |> List.hd
 
-  let find_struct_decl_opt (current_module_name : string) (module_path : string)
+  let find_struct_decl_opt (current_module_name : string) (module_path : string location)
       (struct_name : string) (program : t) =
-    Result.bind
-      ((if module_path = "" then
+      let ( >>= ) = Result.bind in
+
+      (if module_path.v = "" then
         Some (program |> module_of_string current_module_name)
-       else program |> module_of_string_opt module_path)
+       else program |> module_of_string_opt module_path.v)
       |> Option.map Module.retrieve_struct_decl
-      |> Option.to_result ~none:(Ast.Error.Unbound_Module module_path))
+      |> Option.to_result ~none:(Ast.Error.Unbound_Module module_path)
+      >>=
       (fun structs ->
         structs
         |> List.find_opt (fun s -> s.struct_name.v = struct_name)
         |> Option.to_result ~none:(Ast.Error.Undefined_Struct struct_name))
 
   let find_enum_decl_opt current_module_name module_enum_path
-      (enum_name_opt : string option) (variant : string)
-      (assoc_exprs : kexpression list) (program : t) =
+      (enum_name_opt : string option) (variant : string location)
+      (assoc_exprs : kexpression location list) (program : t) =
     match
-      if module_enum_path = "" then
+      if module_enum_path.v = "" then
         Some (program |> module_of_string current_module_name)
-      else program |> module_of_string_opt module_enum_path
+      else program |> module_of_string_opt module_enum_path.v
     with
     | None -> Ast.Error.Unbound_Module module_enum_path |> Result.error
     | Some _module -> (
@@ -184,24 +186,24 @@ module Program = struct
                | None ->
                    enum_decl.variants
                    |> List.exists (fun (variant_decl, assoc_type) ->
-                          variant_decl.v = variant
+                          variant_decl.v = variant.v
                           && Util.are_same_lenght assoc_exprs assoc_type)
                | Some enum_name ->
                    enum_name = enum_decl.enum_name.v
                    && enum_decl.variants
                       |> List.exists (fun (variant_decl, assoc_type) ->
-                             variant_decl.v = variant
+                             variant_decl.v = variant.v
                              && Util.are_same_lenght assoc_exprs assoc_type))
         |> function
         | Empty ->
-            Ast.Error.No_Occurence_found ("Enum with variant " ^ variant)
+            Ast.Error.No_Occurence_found ("Enum with variant " ^ variant.v)
             |> Result.error
         | Util.Occurence.Multiple enum_decls ->
             Ast.Error.Too_Many_occurence_found
               (Printf.sprintf
                  "Need explicit enum name : Too many enum with variant : %s -- \
                   conflicts -- %s -- "
-                 variant
+                 variant.v
                  (enum_decls
                  |> List.map (fun decl -> decl.enum_name.v)
                  |> String.concat ", "))
@@ -604,10 +606,10 @@ end
 
 module Statement = struct
   let rec string_of_kbody = function
-    | (statements : kstatement list), (expr : kexpression) ->
+    | (statements : kstatement location list), (expr : kexpression location) ->
         sprintf "{\n  %s  %s\n}"
-          (statements |> List.map string_of_kstatement |> String.concat "\n  ")
-          (string_of_kexpression expr)
+          (statements |> List.map (fun s -> s |> value |> string_of_kstatement) |> String.concat "\n  ")
+          (string_of_kexpression expr.v)
 
   and string_of_kstatement = function
     | SDeclaration { is_const; variable_name; explicit_type; expression } ->
@@ -673,7 +675,7 @@ module Statement = struct
               |> String.concat ", "))
     | ETuple exprs ->
         sprintf "(%s)"
-          (exprs |> List.map string_of_kexpression |> String.concat ", ")
+          (exprs |> List.map Position.value |> List.map string_of_kexpression  |> String.concat ", ")
     | EFunction_call { modules_path; generics_resolver; fn_name; parameters } ->
         sprintf "%s%s%s(%s)"
           (Util.string_of_module_path modules_path.v)
@@ -681,7 +683,7 @@ module Statement = struct
           (generics_resolver
           |> Option.map (fun kts ->
                  sprintf "::<%s>"
-                   (kts |> List.map string_of_ktype |> String.concat ", "))
+                   (kts |> List.map (fun gkt -> gkt |> value |> string_of_ktype) |> String.concat ", "))
           |> Option.value ~default:"")
           (parameters |> List.map Position.value |> List.map string_of_kexpression |> String.concat ", ")
     | EIf (expression, if_body, else_body) ->
@@ -694,13 +696,13 @@ module Statement = struct
           (cases
           |> List.map (fun (expr, kbody) ->
                  sprintf "%s => %s"
-                   (expr |> string_of_kexpression)
+                   (expr.v |> string_of_kexpression)
                    (string_of_kbody kbody))
           |> String.concat "\n")
           (string_of_kbody else_case)
     | ESwitch { expression; cases; wildcard_case } ->
         sprintf "switch %s {%s\n%s}"
-          (string_of_kexpression expression)
+          (string_of_kexpression expression.v)
           (cases
           |> List.map (fun (sc, kbody) ->
                  sprintf "%s => %s"
@@ -813,12 +815,12 @@ module Switch_case = struct
     | SC_Enum_Identifier _ -> []
     | SC_Enum_Identifier_Assoc e -> e.assoc_ids
 
-  let is_case_matched (variant, (assoc_types : ktype list)) (switch_case : t) =
+  let is_case_matched (variant, (assoc_types : ktype location list)) (switch_case : t) =
     match switch_case with
     | SC_Enum_Identifier { variant = matched_variant } ->
-        matched_variant = variant && assoc_types |> List.length = 0
+        matched_variant.v = variant.v && assoc_types |> List.length = 0
     | SC_Enum_Identifier_Assoc { variant = matched_variant; assoc_ids } ->
-        matched_variant = variant && Util.are_same_lenght assoc_ids assoc_types
+        matched_variant.v = variant.v && Util.are_same_lenght assoc_ids assoc_types
 
   let is_cases_matched variant (switch_cases : t list) =
     switch_cases |> List.exists (is_case_matched variant)
@@ -826,7 +828,7 @@ module Switch_case = struct
   let is_cases_duplicated variant (switch_cases : t list) =
     let open Util.Occurence in
     switch_cases
-    |> find_occurence (fun sc -> sc |> variant_name |> ( = ) variant)
+    |> find_occurence (fun sc -> sc |> variant_name |> Position.value |> ( = ) variant)
     |> function
     | Multiple _ -> true
     | _ -> false
@@ -1080,11 +1082,11 @@ module Struct = struct
 
   let string_of_struct_decl (struct_decl : t) =
     sprintf "struct (%s) %s := { %s }"
-      (struct_decl.generics |> String.concat ", ")
-      struct_decl.struct_name
+      (struct_decl.generics |> List.map value |> String.concat ", ")
+      struct_decl.struct_name.v
       (struct_decl.fields
       |> List.map (fun (field, t) ->
-             sprintf "%s : %s" field (string_of_ktype t))
+             sprintf "%s : %s" field.v (string_of_ktype t.v))
       |> String.concat ", ")
 
   let bind_struct_decl (ktypes : ktype list) primitive_generics
@@ -1113,14 +1115,14 @@ module Struct = struct
         kts |> List.exists (fun kt -> is_type_generic kt.v struct_decl)
     | _ -> false
 
-  let to_ktype module_def_path (struct_decl : t) =
+  let to_ktype ?(position = Position.dummy) (module_def_path: string) (struct_decl : t) =
     if not (struct_decl |> contains_generics) then
       TType_Identifier
-        { module_path = module_def_path; name = struct_decl.struct_name }
+        { module_path = { v = module_def_path; position}; name = struct_decl.struct_name }
     else
       TParametric_identifier
         {
-          module_path = module_def_path;
+          module_path = { v = module_def_path; position};
           parametrics_type = struct_decl.generics |> List.map ( Position.map(fun _ -> TUnknow) );
           name = struct_decl.struct_name;
         }
@@ -1132,13 +1134,13 @@ module Struct = struct
     let dummy_parametrics = List.combine dummy_list parametrics_types in
     let generics_mapped = List.combine struct_decl.generics dummy_parametrics in
     let hashtbl = Hashtbl.of_seq (generics_mapped |> List.to_seq) in
-    struct_decl.fields |> List.assoc_opt field
+    struct_decl.fields |> List.map Position.assocs_value |> List.assoc_opt field
     |> Option.map (fun kt ->
            if not (is_type_generic kt struct_decl) then kt
            else Type.remap_generic_ktype ~current_module hashtbl kt)
 
   let rec resolve_fields_access_gen (parametrics_types : ktype list)
-      (fields : string list) (type_decl : Ast.Type_Decl.type_decl)
+      (fields : string location list) (type_decl : Ast.Type_Decl.type_decl)
       (current_mod_name : string) (program : program) =
     let open Ast.Type_Decl in
     let open Ast.Error in
@@ -1151,7 +1153,7 @@ module Struct = struct
         | Decl_Struct struct_decl -> (
             match
               ktype_of_field_gen ~current_module:current_mod_name
-                parametrics_types t struct_decl
+                parametrics_types t.v struct_decl
             with
             | None ->
                 Impossible_field_Access (to_ktype current_mod_name struct_decl)
@@ -1164,7 +1166,7 @@ module Struct = struct
         | Decl_Struct struct_decl -> (
             match
               ktype_of_field_gen ~current_module:current_mod_name
-                parametrics_types t struct_decl
+                parametrics_types t.v struct_decl
             with
             | None ->
                 Impossible_field_Access (to_ktype current_mod_name struct_decl)
@@ -1174,15 +1176,15 @@ module Struct = struct
                 let ktype_def_path = Type.module_path_opt kt |> Option.get in
                 let ktype_name = Type.type_name_opt kt |> Option.get in
                 let type_decl_two =
-                  Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name
+                  Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v ~ktype_name:ktype_name.v
                     ~current_module:current_mod_name program
                 in
-                resolve_fields_access_gen parametrics_types_two q type_decl_two
+                resolve_fields_access_gen (parametrics_types_two |> List.map Position.value) q type_decl_two
                   current_mod_name program))
 
   let is_ktype_generic_level_zero ktype (struct_decl : t) =
     match ktype with
-    | TType_Identifier { module_path = ""; name } ->
+    | TType_Identifier { module_path = { v = ""; _}; name } ->
         struct_decl.generics |> List.mem name
     | _ -> false
 
@@ -1196,11 +1198,12 @@ module Struct = struct
     | kt, TType_Identifier { module_path; name }
       when match Hashtbl.find_opt generic_table name with
            | None ->
-               if module_path = "" && struct_decl.generics |> List.mem name then
+               if module_path.v = "" && struct_decl.generics |> List.mem name then
                  let () =
                    Hashtbl.replace generic_table name
                      ( struct_decl.generics
-                       |> Util.ListHelper.index_of (( = ) name),
+                       |> List.map Position.value
+                       |> Util.ListHelper.index_of (( = ) name.v),
                        kt )
                  in
                  true
@@ -1226,6 +1229,7 @@ module Struct = struct
         then false
         else
           List.combine init_pt exp_pt
+          |> List.map Position.assocs_value
           |> List.for_all (fun (i, e) ->
                  is_type_compatible_hashgen generic_table i e struct_decl)
     | TPointer lhs, TPointer rhs ->
@@ -1236,7 +1240,7 @@ module Struct = struct
              (fun init exptected ->
                is_type_compatible_hashgen generic_table init exptected
                  struct_decl)
-             lhs rhs
+             (lhs |> List.map value) (rhs |> List.map value)
     | TUnknow, _ -> true
     | lhs, rhs -> lhs = rhs
 
@@ -1261,9 +1265,9 @@ module Struct = struct
       fields =
         struct_decl.fields
         |> List.map (fun (field, ktype) ->
-               ( field,
-                 Ast.Type.set_module_path struct_decl.generics new_module_path
-                   ktype ));
+               ( field, 
+               ktype |> Position.map (Ast.Type.set_module_path struct_decl.generics new_module_path)
+              ));
     }
 end
 
@@ -1416,7 +1420,7 @@ module Builtin_Function = struct
   let builtin_return_type =
     let open Ast.Builtin_Function in
     function
-    | Stringl_ptr -> TPointer (TInteger (Signed, I8))
+    | Stringl_ptr -> TPointer { v = (TInteger (Signed, I8)); position = Position.dummy }
     | Tos8 -> TInteger (Signed, I8)
     | Tou8 -> TInteger (Unsigned, I8)
     | Tos16 -> TInteger (Signed, I16)
@@ -1439,7 +1443,7 @@ module Function = struct
              sprintf "%s: %s" id.v (string_of_ktype ktype.v))
       |> String.concat ", ")
       (function_decl.return_type.v |> string_of_ktype)
-      (function_decl.body |> ( fun (stmts, expr) -> stmts |> List.map Position.value , expr.v) |> Statement.string_of_kbody)
+      (function_decl.body |> Statement.string_of_kbody)
 
   let rename_parameter_explicit_module current_module (function_decl : t) =
     {
@@ -1447,12 +1451,11 @@ module Function = struct
       parameters =
         function_decl.parameters
         |> List.map (fun (field, ktype) ->
-               ( field,
-                 Ast.Type.set_module_path function_decl.generics current_module
-                   ktype ));
+               ( field, 
+               ktype |> Position.map (Ast.Type.set_module_path function_decl.generics current_module)
+              ));
       return_type =
-        function_decl.return_type
-        |> Ast.Type.set_module_path function_decl.generics current_module;
+        function_decl.return_type |> Position.map (Ast.Type.set_module_path function_decl.generics current_module);
     }
 
   let rec is_ktype_generic ktype (fn_decl : t) =
@@ -1681,7 +1684,9 @@ module Sizeof = struct
     | TInteger (_, isize) -> size_of_isize isize / 8 |> Int64.of_int
     | TFloat | TPointer _ | TString_lit | TFunction _ -> 8L
     | TTuple kts -> (
-        kts |> function
+        kts
+        |> List.map Position.value
+        |> function
         | list -> (
             let size, align, _packed_size =
               list
@@ -1724,18 +1729,18 @@ module Sizeof = struct
         | Ast.Type_Decl.Decl_Enum enum_decl ->
             size_enum calcul current_module program
               (Util.dummy_generic_map enum_decl.generics
-                 (Type.extract_parametrics_ktype kt))
+                 (Type.extract_parametrics_ktype kt |> List.map Position.value))
               enum_decl
         | Ast.Type_Decl.Decl_Struct struct_decl ->
             size_struct calcul current_module program
               (Util.dummy_generic_map struct_decl.generics
-                 (Type.extract_parametrics_ktype kt))
+                 (Type.extract_parametrics_ktype kt |> List.map Position.value))
               struct_decl)
 
   and size_struct calcul current_module program generics struct_decl =
     struct_decl.fields
     |> List.map (fun (_, kt) ->
-           Ast.Type.remap_generic_ktype ~current_module generics kt)
+           Ast.Type.remap_generic_ktype ~current_module generics kt.v)
     |> function
     | list -> (
         let size, align, _packed_size =
@@ -1769,8 +1774,8 @@ module Sizeof = struct
     enum_decl.variants
     |> List.map (fun (_, kts) ->
            kts
-           |> List.map ( Type.remap_generic_ktype ~current_module generics)
-           |> List.cons (TInteger (Unsigned, I32))
+           |> List.map ( Position.map (Type.remap_generic_ktype ~current_module generics) )
+           |> List.cons  { v = (TInteger (Unsigned, I32)); position = Position.dummy }
            |> Type.ktuple
            |> size calcul current_module program)
     |> List.fold_left max 0L
@@ -1913,6 +1918,7 @@ let string_of_switch_error =
   | Not_all_cases_handled missing_cases ->
       sprintf "Not_all_cases_handled : missing cases :\n  %s"
         (missing_cases
+        |> List.map (fun (variant, assoc) -> variant.v, assoc |> List.map value)
         |> List.map (fun (variant, kts) ->
                sprintf "%s(%s)" variant
                  (kts |> List.map string_of_ktype |> String.concat ", "))
@@ -1965,7 +1971,7 @@ let string_of_ast_error =
   | Undefined_Identifier s -> sprintf "Undefined_Identifier : %s" s
   | Undefined_Const s -> sprintf "Undefined_Const : %s" s
   | Undefined_Struct s -> sprintf "Undefined_Struct : %s" s
-  | Unbound_Module s -> sprintf "Unbound_Module : %s" s
+  | Unbound_Module s -> sprintf "Unbound_Module : %s" s.v
   | Struct_Error s -> string_of_struct_error s
   | Enum_Error e -> string_of_enum_error e
   | Statement_Error e -> string_of_statement_error e
@@ -1985,6 +1991,6 @@ let string_of_ast_error =
   | Impossible_field_Access e ->
       sprintf "Impossible_field_Access : %s" (string_of_ktype e)
   | Enum_Access_field record ->
-      sprintf "Enum doesn't have field : %s for enum : %s" record.field
+      sprintf "Enum doesn't have field : %s for enum : %s" record.field.v
         record.enum_decl.enum_name.v
   | Unvalid_Deference -> sprintf "Unvalid_Deference"

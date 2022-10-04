@@ -1,5 +1,6 @@
 open Ast
 open Ast.Error
+open Position
 
 (**
   Return the type of the code block expression by checking each expression in this one
