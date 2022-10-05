@@ -220,10 +220,10 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                  init_type expected_typed.v struct_decl
                |> not
              then
+              (* let () = Printf.printf "Hello world\n\n\n" in *)
                Ast.Error.Uncompatible_type
                  { expected = expected_typed.v; found = init_type }
                |> Ast.Error.ast_error |> raise);
-
       let modules_path = modules_path |> Position.map (fun mp -> if mp = "" then current_mod_name else mp) in
       Asthelper.Struct.to_ktype_hash generic_table modules_path struct_decl
   (* validate_and_type_struct_initialisation ~env ~current_mod_name ~program:prog ~struct_module_path:modules_path ~fields: fields ~struct_decl *)

@@ -657,11 +657,12 @@ module ValidateOperator_Decl = struct
     | Some kt -> Help.is_ktype_exist_from_ktype current_module program kt.v
 
   let check_parameters operator_decl =
+    let open Ast.Type in
     match operator_decl with
     | Unary _ -> Ok ()
     | Binary binary ->
         let (_, kt1), (_, kt2) = binary.fields in
-        if kt1 = kt2 then
+        if (=?) kt1.v kt2.v then
           if kt1.v |> Ast.Type.is_builtin_type then
             Error.Op_built_overload kt1.v |> Error.operator_error |> Result.error
           else Ok ()
@@ -670,6 +671,7 @@ module ValidateOperator_Decl = struct
           |> Error.operator_error |> Result.error
 
   let check_return_ktype operator_decl =
+    let open Ast.Type in
     match operator_decl with
     | Unary u ->
         let expected =
@@ -677,7 +679,7 @@ module ValidateOperator_Decl = struct
             (Asthelper.ParserOperator.first_parameter_ktype operator_decl).v
             u.op.v
         in
-        if u.return_type.v = expected then Ok ()
+        if (=?) u.return_type.v expected then Ok ()
         else
           Op_wrong_return_type_error
             { op = `unary u.op.v; expected; found = u.return_type.v }
@@ -688,7 +690,7 @@ module ValidateOperator_Decl = struct
             (Asthelper.ParserOperator.first_parameter_ktype operator_decl).v
             b.op.v
         in
-        if b.return_type.v = expected then Ok ()
+        if (=?) b.return_type.v expected then Ok ()
         else
           Op_wrong_return_type_error
             { op = `binary (b.op |> Position.value); expected; found = b.return_type.v }

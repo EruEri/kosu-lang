@@ -445,18 +445,44 @@ module Type = struct
         Some module_path
     | _ -> None
 
+  
+  let rec ( =? ) lhs rhs = 
+  match (lhs, rhs) with
+  | ( TParametric_identifier
+        { module_path = mp1; parametrics_type = pt1; name = n1 },
+      TParametric_identifier
+        { module_path = mp2; parametrics_type = pt2; name = n2 } ) ->
+      n1.v = n2.v && mp1.v = mp2.v
+      && pt1 |> Util.are_same_lenght pt2
+      && List.for_all2 (fun kt1 kt2 -> (=?) kt1.v kt2.v) pt1 pt2
+  | TPointer pt1, TPointer pt2 -> (=?) pt1.v pt2.v
+  | TType_Identifier { module_path = mp1; name = n1}, TType_Identifier { module_path = mp2; name = n2 } ->
+    mp1.v = mp2.v && n1.v = n2.v
+  | TTuple t1, TTuple t2 -> 
+    Util.are_same_lenght t1 t2 && 
+    List.combine t1 t2 |> List.map Position.assocs_value |> List.for_all (fun (k1,k2) -> (=?) k1 k2) 
+  | _, _ -> lhs = rhs
+
+  let (=?) = (=?)
+
   let rec are_compatible_type (lhs : ktype) (rhs : ktype) =
     match (lhs, rhs) with
     | ( TParametric_identifier
           { module_path = mp1; parametrics_type = pt1; name = n1 },
         TParametric_identifier
           { module_path = mp2; parametrics_type = pt2; name = n2 } ) ->
-        n1 = n2 && mp1 = mp2
+        n1.v = n2.v && mp1.v = mp2.v
         && pt1 |> Util.are_same_lenght pt2
         && List.for_all2 (fun kt1 kt2 -> are_compatible_type kt1.v kt2.v) pt1 pt2
     | TUnknow, _ | _, TUnknow -> true
     | TPointer _, TPointer { v = TUnknow; _} -> true
     | TPointer { v= TUnknow; _}, TPointer _ -> true
+    | TPointer pt1, TPointer pt2 -> are_compatible_type pt1.v pt2.v
+    | TType_Identifier { module_path = mp1; name = n1}, TType_Identifier { module_path = mp2; name = n2 } ->
+      mp1.v = mp2.v && n1.v = n2.v
+    | TTuple t1, TTuple t2 -> 
+      Util.are_same_lenght t1 t2 && 
+      List.combine t1 t2 |> List.map Position.assocs_value |> List.for_all (fun (k1,k2) -> are_compatible_type k1 k2) 
     | _, _ -> lhs = rhs
 
   let rec module_path_return_type ~(current_module: string) ~(module_type_path: string) return_type
