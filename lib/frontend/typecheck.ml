@@ -51,7 +51,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
           match env |> Env.find_identifier_opt variable.v with
           | None ->
               raise
-                (stmt_error (Ast.Error.Undefine_Identifier { name = variable.v }))
+                (stmt_error (Ast.Error.Undefine_Identifier { name = variable }))
           | Some { is_const; ktype } ->
               if is_const then
                 raise
@@ -128,7 +128,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       env |> Env.flat_context |> List.assoc_opt s.v
       |> Option.map (fun (t : Env.variable_info) -> TPointer { v = t.ktype; position = s.position})
       |> function
-      | None -> raise (ast_error (Undefined_Identifier s.v))
+      | None -> raise (ast_error (Undefined_Identifier s))
       | Some s -> s)
   | EDeference (indirection_count, id) -> (
       let rec loop count ktype =
@@ -140,13 +140,13 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             | _ -> raise (ast_error Unvalid_Deference))
       in
       match env |> Env.flat_context |> List.assoc_opt id.v with
-      | None -> raise (ast_error (Undefined_Identifier id.v))
+      | None -> raise (ast_error (Undefined_Identifier id))
       | Some t -> loop indirection_count t.ktype)
   | EIdentifier { modules_path = _; identifier } -> (
       env |> Env.flat_context |> List.assoc_opt identifier.v
       |> Option.map (fun (var_info : Env.variable_info) -> var_info.ktype)
       |> function
-      | None -> raise (ast_error (Undefined_Identifier identifier.v))
+      | None -> raise (ast_error (Undefined_Identifier identifier))
       | Some s -> s)
   | EConst_Identifier { modules_path; identifier } -> (
       let consts_opt =

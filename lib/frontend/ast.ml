@@ -284,7 +284,7 @@ module Error = struct
     | Uncompatible_type_in_variant of { variant_name : string }
 
   type statement_error =
-    | Undefine_Identifier of { name : string }
+    | Undefine_Identifier of { name : string location }
     | Already_Define_Identifier of { name : string }
     | Reassign_Constante of { name : string }
     | Uncompatible_type_Assign of { expected : ktype; found : ktype }
@@ -356,7 +356,7 @@ module Error = struct
       }
     | No_Occurence_found of string
     | Too_Many_occurence_found of string
-    | Undefined_Identifier of string
+    | Undefined_Identifier of string location
     | Undefined_Const of string
     | Undefined_Struct of string
     | Unbound_Module of string location

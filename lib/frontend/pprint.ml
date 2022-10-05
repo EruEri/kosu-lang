@@ -348,7 +348,7 @@ let string_of_statement_error =
   let open Ast.Error in
   let open Printf in
   function
-  | Undefine_Identifier s -> sprintf "Undefine_Identifier : %s" s.name
+  | Undefine_Identifier s -> sprintf "%s : Undefine Identifier : %s" (string_of_position_error s.name.position) (s.name.v)
   | Already_Define_Identifier s ->
       sprintf "Already_Define_Identifier : %s" s.name
   | Reassign_Constante s -> sprintf "Reassign_Constante : %s" s.name
@@ -476,7 +476,7 @@ let string_of_ast_error =
         (string_of_expected_found (`int (record.expected, record.found)))
   | No_Occurence_found s -> sprintf "No Occurence found for %s" s
   | Too_Many_occurence_found s -> sprintf "Too_Many_occurence_found : %s" s
-  | Undefined_Identifier s -> sprintf "Undefined_Identifier : %s" s
+  | Undefined_Identifier s -> sprintf "%s : Undefined Identifier \"%s\"" (string_of_position_error s.position) s.v
   | Undefined_Const s -> sprintf "Undefined_Const : %s" s
   | Undefined_Struct s -> sprintf "Undefined_Struct : %s" s
   | Unbound_Module s -> sprintf "Unbound_Module : %s" s.v
@@ -499,7 +499,7 @@ let string_of_ast_error =
   | Impossible_field_Access e ->
       sprintf "Impossible_field_Access : %s" (string_of_ktype e)
   | Enum_Access_field record ->
-      sprintf "Enum doesn't have field : %s for enum : %s" record.field.v
+      sprintf "%s Enum doesn't have field : %s for enum : %s" (string_of_position_error record.field.position) record.field.v
         record.enum_decl.enum_name.v
   | Unvalid_Deference -> sprintf "Unvalid_Deference"
     
