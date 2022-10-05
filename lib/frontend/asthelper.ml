@@ -290,11 +290,20 @@ module Program = struct
     *)
   let find_function_decl_from_fn_name fn_def_path fn_name current_module program
       =
+    let (>>=) = Result.bind in
     program
-    |> find_module_of_function fn_def_path current_module
-    |> Util.Occurence.one
-    |> fun m ->
-    m._module |> Module.function_decl_occurence fn_name |> Util.Occurence.one
+    |> find_module_of_function fn_def_path.v current_module
+    |> (function
+    | Util.Occurence.Empty -> Ast.Error.Unbound_Module (fn_def_path) |> Result.error
+    | Util.Occurence.Multiple _module_path -> Ast.Error.Too_Many_occurence_found ("Too Many module name "^fn_def_path.v) |> Result.error
+    | Util.Occurence.One mp -> Ok mp)
+    >>= fun m ->
+    m._module 
+    |> 
+    Module.function_decl_occurence fn_name.v |> (function
+    | Util.Occurence.Empty -> Ast.Error.No_Occurence_found fn_name.v |> Result.error
+    | Util.Occurence.Multiple _fn_decl -> Ast.Error.Too_Many_occurence_found ("Too Many function found "^(fn_name.v)) |> Result.error
+    | Util.Occurence.One mp -> Ok mp) 
 
   let rec does_ktype_exist ktype current_module program =
     match ktype with

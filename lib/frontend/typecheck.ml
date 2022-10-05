@@ -341,8 +341,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
   | EFunction_call
       { modules_path; generics_resolver = grc; fn_name; parameters } -> (
       let fn_decl =
-        Asthelper.Program.find_function_decl_from_fn_name modules_path.v fn_name.v
+        match Asthelper.Program.find_function_decl_from_fn_name modules_path fn_name
           current_mod_name prog
+      with
+      | Error e -> e |> ast_error |> raise
+      | Ok fn_decl -> fn_decl 
       in
       match fn_decl with
       | Ast.Function_Decl.Decl_Kosu_Function e ->
