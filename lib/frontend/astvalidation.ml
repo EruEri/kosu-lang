@@ -1,5 +1,4 @@
 open Ast
-open Asthelper
 open Position
 
 module Error = struct
@@ -67,106 +66,6 @@ module Error = struct
   let module_error e = Module_Error e
 
   exception Validation_error of validation_error
-
-  let string_of_external_func_error =
-    let open Printf in
-    function
-    | Unit_parameter external_func_decl ->
-        sprintf "Unit parameter in %s" external_func_decl.sig_name.v
-    | Not_C_compatible_type (external_func_decl, ktype) ->
-        sprintf "Not_C_compatible_type in %s -- %s --"
-          external_func_decl.sig_name.v (string_of_ktype ktype)
-    | Too_much_parameters record ->
-        sprintf "Too_much_parameters -- limit: %d, found: %d --" record.limit
-          record.found
-
-  let string_of_sycall_error =
-    let open Printf in
-    function
-    | Syscall_Unit_parameter syscall_decl ->
-        sprintf "Unit parameter in %s" syscall_decl.syscall_name.v
-    | Syscall_Not_C_compatible_type (syscall_decl, ktype) ->
-        sprintf "Not_C_compatible_type in %s -- %s --" syscall_decl.syscall_name.v
-          (string_of_ktype ktype)
-    | Syscall_Too_much_parameters record ->
-        sprintf "Too_much_parameters -- limit: %d, found: %d --" record.limit
-          record.found
-
-  let string_of_struct_error =
-    let open Printf in
-    function
-    | Unknown_type_for_field (field, ktype) ->
-        sprintf "Unknown_type_for_field : %s -> %s" field
-          (string_of_ktype ktype)
-    | SCyclic_Declaration struct_decl ->
-        sprintf "Struct Cyclic_Declaration for %s" struct_decl.struct_name.v
-    | SDuplicated_field struct_decl ->
-        sprintf "Struct Duplicated_field for %s" struct_decl.struct_name.v
-
-  let string_of_enum_error =
-    let open Printf in
-    function
-    | ECyclic_Declaration enum_decl ->
-        sprintf " Enum_Cyclic_Declaration for %s" enum_decl.enum_name.v
-    | EDuplicated_variant_name enum_decl ->
-        sprintf "Enum_Duplicated_variant_name for %s" enum_decl.enum_name.v
-
-  let string_of_operator_error =
-    let open Printf in
-    function
-    | Op_built_overload kt ->
-        sprintf "Try to overload builtin type : %s" (string_of_ktype kt)
-    | Op_binary_op_diff_type (lkt, rkt) ->
-        sprintf "Binary operator different type : -- %s | %s --"
-          (string_of_ktype lkt) (string_of_ktype rkt)
-    | Op_wrong_return_type_error { op; expected; found } ->
-        sprintf "Op_wrong_return_type_error for ( %s ) %s"
-          (Asthelper.ParserOperator.string_of_parser_operator op)
-          (Asthelper.string_of_expected_found
-             (`ktype
-               ( Asthelper.ParserOperator.expected_op_return_type expected op,
-                 found )))
-
-  let string_of_function_error =
-    let open Printf in
-    function
-    | Wrong_signature_for_main -> sprintf "Wrong_signature_for_main"
-    | Duplicated_parameters function_decl ->
-        sprintf "Duplicate name parameters for %s" function_decl.fn_name.v
-    | Function_Unit_parameter function_decl ->
-        sprintf "Function_Unit_parameter : %s" function_decl.fn_name.v
-
-  let string_of_module_error =
-    let open Printf in
-    function
-    | Duplicate_function_name name ->
-        sprintf "Duplicate_function_name : %s" name
-    | Duplicate_type_name name -> sprintf "Duplicate_type_name : %s" name
-    | Duplicate_const_name name -> sprintf "Duplicate_const_name : %s" name
-    | Duplicate_Operator op ->
-        sprintf "Duplicate_Operator for -- %s --"
-          (Asthelper.ParserOperator.string_of_parser_operator (op |> fun op -> match op with `unary o -> `unary o.v | `binary b -> `binary b.v))
-    | Main_no_kosu_function -> "Main function should be a kosu function"
-
-  let string_of_validation_error =
-    let open Printf in
-    function
-    | External_Func_Error e -> string_of_external_func_error e
-    | Syscall_Error e -> string_of_sycall_error e
-    | Struct_Error e -> string_of_struct_error e
-    | Enum_Error e -> string_of_enum_error e
-    | Operator_Error e -> string_of_operator_error e
-    | Function_Error e -> string_of_function_error e
-    | Module_Error e -> string_of_module_error e
-    | Too_many_Main count ->
-        sprintf
-          "Too many main found -- count : %d --\n\
-           There should be at most 1 main across the program" count
-    | No_Type_decl_found kt ->
-        sprintf "No_Type_decl_found : %s" (string_of_ktype kt)
-    | Too_many_type_decl kt ->
-        sprintf "Too_many_type_decl : %s" (string_of_ktype kt)
-    | Ast_Error e -> Asthelper.string_of_ast_error e
 end
 
 module Help = struct
@@ -227,7 +126,7 @@ module Help = struct
                 (ktype_type_decl_origin |> Asthelper.Type_Decl.generics)
                 struct_decl
             in
-            print_endline (Struct.string_of_struct_decl new_struct);
+            
             does_contains_type_decl_struct current_module program new_struct
               already_visited type_decl_to_check
         | Ast.Type_Decl.Decl_Enum enum_decl ->

@@ -36,7 +36,7 @@ let () =
   | Ok modules -> (
       match valide_program modules with
       | Error e ->
-          Printf.eprintf "%s\n" (Error.string_of_validation_error e);
+          Printf.eprintf "%s\n" (Kosu_frontend.Pprint.string_of_validation_error e);
           raise (Error.Validation_error e)
       | Ok () -> ())
 (* let () = modules |> List.iter (fun record -> Printf.printf "module name : %s\n" record.path) in

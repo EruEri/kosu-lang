@@ -11,7 +11,7 @@ open Position
 let rec typeof_kbody ~generics_resolver (env : Env.t)
     (current_mod_name : string) (program : program) ?(return_type = None)
     (kbody : kbody) =
-  let () = Printf.printf "env %s\n" (Asthelper.string_of_env env) in
+  (* let () = Printf.printf "env %s\n" (Pprint.string_of_env env) in *)
   let statements, final_expr = kbody in
   match statements with
   | stamement :: q -> (

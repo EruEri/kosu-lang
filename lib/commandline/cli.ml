@@ -26,7 +26,7 @@ let convert_filename_to_path filename =
   |> Result.map f
 
 let module_path_of_file filename =
-  let () = Kosu_frontend.Pprint.register_kosu_error filename () in
+  let () = Kosu_frontend.Registerexn.register_kosu_error filename () in
   let open Kosu_frontend in
   let open Kosu_frontend.Ast in
   let ( >>= ) = Result.bind in
