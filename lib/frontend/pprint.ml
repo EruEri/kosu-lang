@@ -20,6 +20,9 @@ let string_of_position_error {start_position; end_position} =
   else
     Printf.sprintf "Lines %d-%d, Characters %d-%d" start_position_line end_position_line start_position_column end_position_column
 
+let string_of_located_error a b = 
+  Printf.sprintf "%s : %s" (string_of_position_error a.position) (b)
+
   let rec string_of_ktype = function
   | TParametric_identifier { module_path; parametrics_type; name } ->
       sprintf "(%s)%s %s"
@@ -479,7 +482,7 @@ let string_of_ast_error =
   | Undefined_Identifier s -> sprintf "%s : Undefined Identifier \"%s\"" (string_of_position_error s.position) s.v
   | Undefined_Const s -> sprintf "Undefined_Const : %s" s
   | Undefined_Struct s -> sprintf "Undefined_Struct : %s" s
-  | Unbound_Module s -> sprintf "Unbound_Module : %s" s.v
+  | Unbound_Module s -> string_of_located_error s (sprintf "Unbound Module \"%s\"" s.v) 
   | Struct_Error s -> string_of_struct_error s
   | Enum_Error e -> string_of_enum_error e
   | Statement_Error e -> string_of_statement_error e
@@ -501,7 +504,8 @@ let string_of_ast_error =
   | Enum_Access_field record ->
       sprintf "%s Enum doesn't have field : %s for enum : %s" (string_of_position_error record.field.position) record.field.v
         record.enum_decl.enum_name.v
-  | Unvalid_Deference -> sprintf "Unvalid_Deference"
+  | Unvalid_Deference identifier -> 
+    string_of_located_error identifier (sprintf "Invalid Deference for \"%s\"" identifier.v)
     
 let string_of_external_func_error =
   let open Printf in
@@ -534,7 +538,10 @@ let string_of_struct_error =
       sprintf "Unknown_type_for_field : %s -> %s" field
         (string_of_ktype ktype)
   | SCyclic_Declaration struct_decl ->
-      sprintf "Struct Cyclic_Declaration for %s" struct_decl.struct_name.v
+
+    string_of_located_error struct_decl.struct_name (sprintf "Cyclic struct declaration for %s" struct_decl.struct_name.v)
+    (* string_of_located_error (struct_decl.struct_name) (x) *)
+      (* sprintf  *)
   | SDuplicated_field struct_decl ->
       sprintf "Struct Duplicated_field for %s" struct_decl.struct_name.v
 

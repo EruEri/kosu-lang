@@ -137,7 +137,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         | s -> (
             match ktype with
             | Ast.TPointer t -> loop (s - 1) t.v
-            | _ -> raise (ast_error Unvalid_Deference))
+            | _ -> raise (ast_error (Unvalid_Deference id)))
       in
       match env |> Env.flat_context |> List.assoc_opt id.v with
       | None -> raise (ast_error (Undefined_Identifier id))

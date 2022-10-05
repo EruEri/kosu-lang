@@ -372,7 +372,7 @@ module Error = struct
     | Not_Boolean_Type_Condition of { found : ktype }
     | Impossible_field_Access of ktype
     | Enum_Access_field of { field : string location; enum_decl : enum_decl }
-    | Unvalid_Deference
+    | Unvalid_Deference of string location
 
   exception Ast_error of ast_error
 
