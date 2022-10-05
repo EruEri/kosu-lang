@@ -9,7 +9,7 @@ open Position
   @raise Too_Many_Occurence: if several type declarations matching was found
 *)
 let rec typeof_kbody ~generics_resolver (env : Env.t)
-    (current_mod_name : string) (program : program) ?(return_type = None)
+    (current_mod_name : string) (program : module_path list) ?(return_type = None)
     (kbody : kbody) =
   (* let () = Printf.printf "env %s\n" (Pprint.string_of_env env) in *)
   let statements, final_expr = kbody in
@@ -92,7 +92,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
   @raise Too_Many_Occurence: if several type declarations matching was found
 *)
 and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
-    (prog : program) (expression : kexpression location) =
+    (prog : module_path list) (expression : kexpression location) =
   match expression.v with
   | Empty -> TUnit
   | True | False -> TBool

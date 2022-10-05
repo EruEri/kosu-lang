@@ -12,6 +12,14 @@ let string_of_isize = function
   | I32 -> "32"
   | I64 -> "64"
 
+let string_of_position_error {start_position; end_position} = 
+  let start_position_line, start_position_column = line_column_of_position start_position in
+  let end_position_line, end_position_column = line_column_of_position end_position in
+  let column_string = Printf.sprintf "%d%s" (start_position_column) (if start_position_column = end_position_column then "" else " - "^(string_of_int end_position_column)) in 
+  if start_position = end_position then Printf.sprintf "Line %d, Characters %s" start_position_line column_string
+  else
+    Printf.sprintf "Lines %d-%d, Characters %d-%d" start_position_line end_position_line start_position_column end_position_column
+
   let rec string_of_ktype = function
   | TParametric_identifier { module_path; parametrics_type; name } ->
       sprintf "(%s)%s %s"
@@ -594,10 +602,3 @@ let string_of_validation_error =
   | Too_many_type_decl kt ->
       sprintf "Too_many_type_decl : %s" (string_of_ktype kt)
   | Ast_Error e -> string_of_ast_error e
-let string_of_position_error {start_position; end_position} = 
-  let start_position_line, start_position_column = line_column_of_position start_position in
-  let end_position_line, end_position_column = line_column_of_position end_position in
-  let column_string = Printf.sprintf "%d%s" (start_position_column) (if start_position_column = end_position_column then "" else " - "^(string_of_int end_position_column)) in 
-  if start_position = end_position then Printf.sprintf "Line %d, Characters %s" start_position_line column_string
-  else
-    Printf.sprintf "Lines %d-%d, Characters %d-%d" start_position_line end_position_line start_position_column end_position_column

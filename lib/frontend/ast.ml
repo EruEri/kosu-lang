@@ -199,7 +199,11 @@ type module_node =
 
 type _module = Mod of module_node list
 type module_path = { path : string; _module : _module }
-type program = module_path list
+type named_module_path = {
+  filename: string;
+  module_path: module_path
+}
+type program = named_module_path list
 
 module OperatorFunction = struct
   type operator =

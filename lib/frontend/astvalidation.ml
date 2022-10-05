@@ -302,16 +302,16 @@ module Help = struct
                []
                (Ast.Type_Decl.decl_enum enum_decl))
 
-  let program_remove_implicit_type_path (program : program) =
+  let program_remove_implicit_type_path program =
     program
-    |> List.map (fun { path; _module = Mod _module } ->
+    |> List.map (fun {filename; module_path = { path; _module = Mod _module }} ->
            let new_module =
              _module
              |> List.map (fun node ->
                     Asthelper.AstModif.module_node_remove_implicit_type_path
                       path node)
            in
-           { path; _module = Mod new_module })
+           {filename; module_path =  { path; _module = Mod new_module } })
 end
 
 module ValidateExternalFunction = struct
@@ -351,7 +351,7 @@ module ValidateExternalFunction = struct
       Error.Too_much_parameters { limit = 15; found = length } |> Result.error
     else Ok ()
 
-  let is_valid_external_function_declaration (program : Ast.program)
+  let is_valid_external_function_declaration (program)
       (current_module_name : string) (external_func_decl : external_func_decl) =
     let ( >>= ) = Result.bind in
     ( does_parameters_contains_unit external_func_decl >>= fun () ->
@@ -396,7 +396,7 @@ module ValidateSyscall = struct
       |> Result.error
     else Ok ()
 
-  let is_valid_syscall_declaration (program : Ast.program)
+  let is_valid_syscall_declaration (program)
       (current_module_name : string) (syscall_decl : syscall_decl) =
     let ( >>= ) = Result.bind in
     ( does_parameters_contains_unit syscall_decl >>= fun () ->
@@ -421,7 +421,7 @@ module ValidateStruct = struct
     |> List.map (fun (field, _) -> field)
     |> Util.ListHelper.duplicate |> Util.are_diff_lenght []
 
-  let is_valid_struct_decl (program : Ast.program)
+  let is_valid_struct_decl program
       (current_module_name : string) (struct_decl : struct_decl) =
     let ( >>= ) = Result.bind in
     ( (is_all_type_exist current_module_name program struct_decl |> function
@@ -455,7 +455,7 @@ module ValidateEnum = struct
     |> List.map (fun (s, _) -> s)
     |> Util.ListHelper.duplicate |> Util.are_diff_lenght []
 
-  let is_valid_enum_decl (program : Ast.program) (current_module_name : string)
+  let is_valid_enum_decl program (current_module_name : string)
       (enum_decl : enum_decl) =
     let ( >>= ) = Result.bind in
     ( (is_all_type_exist current_module_name program enum_decl |> function
@@ -702,6 +702,7 @@ end
 module Validate_Program = struct
   let check_main_in_program (program : program) =
     program
+    |> Asthelper.Program.to_module_path_list
     |> List.map (fun { path = _; _module } ->
            _module |> Asthelper.Module.retrieve_functions_decl
            |> List.filter (fun fn ->
@@ -712,7 +713,7 @@ module Validate_Program = struct
     | _ :: _ as l -> Error (Error.Too_many_Main (l |> List.length))
 end
 
-let validate_module_node (program : Ast.program) (current_module_name : string)
+let validate_module_node (program) (current_module_name : string)
     (node : Ast.module_node) =
   match node with
   | NConst _ | NSigFun _ -> Ok ()
@@ -734,10 +735,10 @@ let validate_module_node (program : Ast.program) (current_module_name : string)
       ValidateOperator_Decl.is_valid_operator_decl current_module_name program
         operator_decl
 
-let validate_module (program : Ast.program)
-    ({ path; _module = Mod _module } as package) =
+let validate_module (program)
+    ( {filename; module_path = { path; _module = Mod _module } as package} ) =
   let ( >>= ) = Result.bind in
-  ValidateModule.check_validate_module package >>= fun () ->
+  filename, ValidateModule.check_validate_module package >>= fun () ->
   _module
   |> List.fold_left
        (fun acc value ->
@@ -746,12 +747,15 @@ let validate_module (program : Ast.program)
        (Ok ())
 
 let valide_program (program : program) =
-  let ( >>= ) = Result.bind in
-  program 
-  |> Validate_Program.check_main_in_program >>= fun () ->
+  (* let ( >>= ) = Result.bind in *)
+  match program |> Validate_Program.check_main_in_program with
+  | Error e -> "", Error e
+  | Ok () ->
   let remove_program = program |> Help.program_remove_implicit_type_path in
   remove_program
   |> List.fold_left
-       (fun acc value ->
-         if acc |> Result.is_error then acc else validate_module remove_program value)
-       (Ok ())
+       (fun acc named_module_path ->
+        let _f_name, result = acc in
+         if result |> Result.is_error then acc 
+        else validate_module (remove_program |> Asthelper.Program.to_module_path_list) named_module_path
+        ) ("", Ok ())

@@ -35,10 +35,10 @@ let () =
       | Lexer_Error e -> raise e)
   | Ok modules -> (
       match valide_program modules with
-      | Error e ->
+      | _filename, Error e ->
           Printf.eprintf "%s\n" (Kosu_frontend.Pprint.string_of_validation_error e);
           raise (Error.Validation_error e)
-      | Ok () -> ())
+      | _,Ok () -> ())
 (* let () = modules |> List.iter (fun record -> Printf.printf "module name : %s\n" record.path) in
      let { path; _module } = modules |> List.hd in
      let main =  _module

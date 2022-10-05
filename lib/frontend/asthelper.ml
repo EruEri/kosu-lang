@@ -114,7 +114,13 @@ end
 module Program = struct
   type t = Ast.program
 
-  let module_of_string_opt mod_name (program : t) =
+  let to_module_path_list (program: t) = 
+    program |> List.map (fun named_module_path -> named_module_path.module_path )
+
+  let map_module_path f (program: Ast.program) = 
+    program |> List.map ( fun { filename; module_path} -> { filename; module_path = f module_path} )
+
+  let module_of_string_opt mod_name (program) =
     program
     |> List.filter_map (fun (mp : Ast.module_path) ->
            if mod_name = mp.path then Some mp._module else None)
@@ -122,14 +128,14 @@ module Program = struct
     | [] -> None
     | t :: _ -> Some t
 
-  let module_of_string mod_name (program : t) =
+  let module_of_string mod_name (program ) =
     program
     |> List.filter_map (fun (mp : Ast.module_path) ->
            if mod_name = mp.path then Some mp._module else None)
     |> List.hd
 
   let find_struct_decl_opt (current_module_name : string) (module_path : string location)
-      (struct_name : string) (program : t) =
+      (struct_name : string) (program : module_path list) =
       let ( >>= ) = Result.bind in
 
       (if module_path.v = "" then
@@ -145,7 +151,7 @@ module Program = struct
 
   let find_enum_decl_opt current_module_name module_enum_path
       (enum_name_opt : string option) (variant : string location)
-      (assoc_exprs : kexpression location list) (program : t) =
+      (assoc_exprs : kexpression location list) (program : module_path list) =
     match
       if module_enum_path.v = "" then
         Some (program |> module_of_string current_module_name)
@@ -901,7 +907,7 @@ module Struct = struct
 
   let rec resolve_fields_access_gen (parametrics_types : ktype list)
       (fields : string location list) (type_decl : Ast.Type_Decl.type_decl)
-      (current_mod_name : string) (program : program) =
+      (current_mod_name : string) (program : module_path list) =
     let open Ast.Type_Decl in
     let open Ast.Error in
     match fields with
@@ -1454,7 +1460,7 @@ module Sizeof = struct
         let ktype_name = (Type.type_name_opt kt |> Option.get).v in
         let type_decl =
           Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name
-            ~current_module program
+            ~current_module (program |> List.map (fun named_module -> named_module.module_path))
         in
         match type_decl with
         | Ast.Type_Decl.Decl_Enum enum_decl ->

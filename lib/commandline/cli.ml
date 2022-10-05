@@ -9,7 +9,7 @@ type cli_error =
   | File_error of string * exn
   | Filename_error of filename_error
 
-let ( >>= ) o f = Result.bind o f
+let ( >>= ) = Result.bind
 
 let f s =
   String.concat "::"
@@ -45,7 +45,7 @@ let module_path_of_file filename =
     | e -> Lexer_Error e |> Result.error )
   >>= fun _module ->
   filename |> convert_filename_to_path
-  |> Result.map (fun path -> { path; _module })
+  |> Result.map (fun path -> {filename; module_path = { path; _module }} )
   |> Result.map_error (fun e -> Filename_error e)
 
 let files_to_ast_program (files : string list) =
