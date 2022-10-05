@@ -320,7 +320,7 @@ module Error = struct
     | Invalid_Uminus_for_Unsigned_integer of isize
 
   type builtin_func_error =
-    | Unknow_built_function of string
+    | Unknow_built_function of string location
     | Wrong_parameters of { fn_name : string; expected : ktype; found : ktype }
     | Mismatched_Parameters_Length of {
         fn_name : string;

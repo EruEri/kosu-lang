@@ -330,7 +330,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         |> List.map (typeof ~generics_resolver env current_mod_name prog)
       in
 
-      fn_name.v |> Asthelper.Builtin_Function.builtin_fn_of_fn_name
+      fn_name |> Asthelper.Builtin_Function.builtin_fn_of_fn_name
       >>= (fun builtin ->
             Asthelper.Builtin_Function.is_valide_parameters_type parameters_type
               builtin)

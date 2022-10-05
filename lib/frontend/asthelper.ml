@@ -303,7 +303,7 @@ module Program = struct
     Module.function_decl_occurence fn_name.v |> (function
     | Util.Occurence.Empty -> Ast.Error.No_Occurence_found fn_name.v |> Result.error
     | Util.Occurence.Multiple _fn_decl -> Ast.Error.Too_Many_occurence_found ("Too Many function found "^(fn_name.v)) |> Result.error
-    | Util.Occurence.One mp -> Ok mp) 
+    | Util.Occurence.One fn_decl -> Ok fn_decl) 
 
   let rec does_ktype_exist ktype current_module program =
     match ktype with
@@ -1375,15 +1375,15 @@ module Builtin_Function = struct
   let builtin_fn_of_fn_name =
     let open Ast.Builtin_Function in
     function
-    | "tos8" -> Tos8 |> Result.ok
-    | "tou8" -> Tou8 |> Result.ok
-    | "tos16" -> Tos16 |> Result.ok
-    | "tou16" -> Tou16 |> Result.ok
-    | "tos32" -> Tos32 |> Result.ok
-    | "tou32" -> Tou32 |> Result.ok
-    | "tos64" -> Tos64 |> Result.ok
-    | "tou64" -> Tou64 |> Result.ok
-    | "stringlptr" -> Stringl_ptr |> Result.ok
+    | { v = "tos8"; _ } -> Tos8 |> Result.ok
+    | { v = "tou8"; _ } -> Tou8 |> Result.ok
+    | { v = "tos16"; _ } -> Tos16 |> Result.ok
+    | { v = "tou16"; _ } -> Tou16 |> Result.ok
+    | { v = "tos32"; _ } -> Tos32 |> Result.ok
+    | { v = "tou32"; _ } -> Tou32 |> Result.ok
+    | { v = "tos64"; _ } -> Tos64 |> Result.ok
+    | { v = "tou64"; _ } -> Tou64 |> Result.ok
+    | { v = "stringlptr"; _ } -> Stringl_ptr |> Result.ok
     | _ as fn_name -> Ast.Error.Unknow_built_function fn_name |> Result.error
 
   let is_valide_parameters_type parameters =
@@ -1956,7 +1956,7 @@ let string_of_built_in_func_error =
   let open Printf in
   function
   | Unknow_built_function fn_name ->
-      sprintf "Unknow_built_function : %s" fn_name
+      sprintf "Unknow_built_function : %s" fn_name.v
   | Wrong_parameters { fn_name; expected; found } ->
       sprintf "Wrong_parameters for %s : %s" fn_name
         (string_of_expected_found (`ktype (expected, found)))
