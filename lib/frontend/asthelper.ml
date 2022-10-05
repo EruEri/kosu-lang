@@ -1501,7 +1501,7 @@ module Function = struct
                  let () =
                    Hashtbl.replace generic_table name.v
                      ( function_decl.generics
-                       |> Util.ListHelper.index_of (( = ) name),
+                       |> Util.ListHelper.index_of ( fun g -> g.v = name.v),
                        kt )
                  in
                  true
