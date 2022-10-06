@@ -65,7 +65,7 @@ module Error = struct
   let function_error e = Function_Error e
   let module_error e = Module_Error e
 
-  exception Validation_error of validation_error
+  exception Validation_error of string*validation_error
 end
 
 module Help = struct

@@ -3,7 +3,7 @@ open Pprint
 let register_kosu_error filename () =  
   Printexc.register_printer 
   (fun exn -> (match exn with
-  | Astvalidation.Error.Validation_error e -> e |> string_of_validation_error |> Printf.sprintf "%s" |> Option.some
+  | Astvalidation.Error.Validation_error (filename, e) -> e |> string_of_validation_error |> Printf.sprintf "%s" |> (Printf.sprintf "\nFile \"%s\", %s" filename) |> Option.some
   | Lexer.Forbidden_char (position, char) -> begin
     let s = position |> string_of_position_error in
     Printf.sprintf "%s: Forbidden character : %c" s char |> (Printf.sprintf "\nFile \"%s\", %s" filename) |> Option.some 
