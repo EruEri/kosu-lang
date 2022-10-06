@@ -592,6 +592,26 @@ module Program = struct
     | _ -> `no_uminus_for_built_in
 end
 
+module Kbody = struct
+  let remap_body_explicit_type current_module kbody = 
+    let stmts_located, (expr_located: kexpression location) = kbody in
+    (  
+        stmts_located |> List.map (fun located_stmt -> 
+          located_stmt |> Position.map (fun stmt -> 
+            match stmt with
+            | SDeclaration { is_const; variable_name; explicit_type; expression = ex} -> 
+              SDeclaration {
+              is_const; variable_name; explicit_type = explicit_type |> Option.map (Position.map (Type.set_module_path [] current_module)) ; expression = ex
+            }
+            | _ as s -> s 
+            )
+          )
+      )
+      ,
+      expr_located
+  
+end
+
 module Switch_case = struct
   type t = switch_case
 
@@ -1192,6 +1212,7 @@ module Function = struct
               ));
       return_type =
         function_decl.return_type |> Position.map (Ast.Type.set_module_path function_decl.generics current_module);
+        body = Kbody.remap_body_explicit_type current_module function_decl.body
     }
 
   let rec is_ktype_generic ktype (fn_decl : t) =
@@ -1372,6 +1393,7 @@ module ParserOperator = struct
             field = (p1, k1 |> Position.map (Type.set_module_path [] new_module_path) );
             return_type =
               unary.return_type |> Position.map (Type.set_module_path [] new_module_path);
+            kbody = Kbody.remap_body_explicit_type new_module_path unary.kbody
           }
     | Binary binary ->
         let (p1, k1), (p2, k2) = binary.fields in
@@ -1383,6 +1405,7 @@ module ParserOperator = struct
                 (p2, k2 |> Position.map (Type.set_module_path [] new_module_path)) );
             return_type =
               binary.return_type |> Position.map (Type.set_module_path [] new_module_path);
+            kbody = Kbody.remap_body_explicit_type new_module_path binary.kbody
           }
 end
 
