@@ -358,9 +358,12 @@ let string_of_statement_error =
       string_of_located_error s.name (sprintf "Identifier already defined : \"%s\"" s.name.v)
   | Reassign_Constante s ->  string_of_located_error s.name (sprintf "Reassign a constant : %s" s.name.v)
   | Uncompatible_type_Assign s ->
-      sprintf "Uncompatible_type_Assign -- expected: %s, found: %s --"
-        (s.expected |> string_of_ktype)
-        (s.found |> string_of_ktype)
+    string_of_located_error s.found 
+    (
+      sprintf "incompatible type between \"%s\" and \"%s\""
+    (s.expected |> string_of_ktype)
+    (s.found.v |> string_of_ktype)
+    )
   | Need_explicit_type_declaration s ->
     string_of_located_error s.variable_name (
       sprintf "Need explicit type declaration for identifier \"%s\" ::=> type = %s"
@@ -500,7 +503,7 @@ let string_of_ast_error =
     string_of_located_error 
     e.position 
     (
-      sprintf "If block has the type -- %s -- but else block has type -- %s --, -- %s -- and -- %s -- aren't compaatible" 
+      sprintf "If block has the type -- %s -- but else block has type -- %s --, -- %s -- and -- %s -- aren't compatible" 
       (string_of_ktype e.if_type)
       (string_of_ktype e.else_type)
       (string_of_ktype e.if_type)

@@ -287,7 +287,7 @@ module Error = struct
     | Undefine_Identifier of { name : string location }
     | Already_Define_Identifier of { name : string location }
     | Reassign_Constante of { name : string location }
-    | Uncompatible_type_Assign of { expected : ktype; found : ktype }
+    | Uncompatible_type_Assign of { expected : ktype; found : ktype location }
     | Need_explicit_type_declaration of {
         variable_name : string location;
         infer_type : ktype;

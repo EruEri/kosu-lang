@@ -34,6 +34,11 @@ let map f location = {
   location with v = f (location.v)  
 }
 
+let map_use f location = {
+  v = f location;
+  position = location.position
+}
+
 let value {v; _} = v
 
 let assocs_value ({v = v1; _}, {v = v2; _}) = v1, v2
