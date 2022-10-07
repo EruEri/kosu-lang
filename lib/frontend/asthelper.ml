@@ -1235,7 +1235,7 @@ module Function = struct
   let does_need_generic_resolver (function_decl : t) =
     if function_decl.generics = [] then false
     else if function_decl.parameters |> List.length = 0 then true
-    else function_decl |> is_ktype_generic_level_zero function_decl.return_type.v
+    else function_decl |> is_ktype_generic_level_zero function_decl.return_type.v || function_decl.return_type.v |> Ast.Type.is_any_ptr
 
   (* (**
        @return : Returns [Some name] if the associated type with the field is generics else [None] if not or the field name doesn't exist

@@ -295,7 +295,7 @@ module Error = struct
 
   type func_error =
     | Unmatched_Parameters_length of { expected : int; found : int }
-    | Unmatched_Generics_Resolver_length of { expected : int; found : int }
+    | Unmatched_Generics_Resolver_length of { fn_name: string location; expected : int; found : int }
     | Uncompatible_type_for_C_Function of {
         external_func_decl : external_func_decl;
       }

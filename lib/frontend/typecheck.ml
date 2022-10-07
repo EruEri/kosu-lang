@@ -378,6 +378,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                   then
                     Unmatched_Generics_Resolver_length
                       {
+                        fn_name;
                         expected = e.generics |> List.length;
                         found = grc |> Option.value ~default:[] |> List.length;
                       }

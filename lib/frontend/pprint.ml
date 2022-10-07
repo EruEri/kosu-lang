@@ -378,8 +378,14 @@ let string_of_function_error =
       sprintf "Unmatched_Parameters_length %s "
         (string_of_expected_found (`int (record.expected, record.found)))
   | Unmatched_Generics_Resolver_length record ->
-      sprintf "Unmatched_Generics_Resolver_length : %s"
-        (string_of_expected_found (`int (record.expected, record.found)))
+    string_of_located_error record.fn_name
+    (
+      sprintf "Function \"%s\" expects %d generics resolver but %d %s provided"
+      (record.fn_name.v)
+      (record.expected)
+      (record.found)
+      (if record.found >= 2 then "were" else "was")
+    )
   | Uncompatible_type_for_C_Function recod ->
       sprintf "Uncompatible_type_for_C_Function for %s "
         (string_of_external_func_decl recod.external_func_decl)
