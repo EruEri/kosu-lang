@@ -25,14 +25,14 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
           if env |> Env.is_identifier_exists variable_name.v then
             raise
               (stmt_error
-                 (Ast.Error.Already_Define_Identifier { name = variable_name.v }))
+                 (Ast.Error.Already_Define_Identifier { name = variable_name }))
           else
             let kt =
               match explicit_type with
               | None ->
                   if Ast.Type.is_type_full_known type_init |> not then
-                    Neead_explicit_type_declaration
-                      { variable_name = variable_name.v; infer_type = type_init }
+                    Need_explicit_type_declaration
+                      { variable_name = variable_name; infer_type = type_init }
                     |> stmt_error |> raise
                   else type_init
               | Some explicit_type_sure ->
@@ -56,7 +56,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
               if is_const then
                 raise
                   (stmt_error
-                     (Ast.Error.Reassign_Constante { name = variable.v }))
+                     (Ast.Error.Reassign_Constante { name = variable }))
               else
                 let new_type =
                   typeof ~generics_resolver env current_mod_name program expr
@@ -183,7 +183,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let struct_decl =
         match
           Asthelper.Program.find_struct_decl_opt current_mod_name modules_path
-            struct_name.v prog
+            struct_name prog
         with
         | Ok str -> str
         | Error e -> e |> ast_error |> raise
@@ -195,7 +195,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         raise
           (Ast.Error.struct_error
              (Wrong_field_count
-                { expected = expected_length; found = parameters_length }));
+                { location = expression.position; expected = expected_length; found = parameters_length }));
 
       let generic_table =
         Hashtbl.create (struct_decl.generics |> List.length)
@@ -278,12 +278,12 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
   | ETuple expected_types ->
       TTuple
         (expected_types |> List.map ( fun expr -> { v = typeof ~generics_resolver env current_mod_name prog expr; position = expr.position}))
-  | EIf (expression, if_block, else_block) ->
+  | EIf (if_expression, if_block, else_block) ->
       let if_condition =
-        typeof ~generics_resolver env current_mod_name prog expression
+        typeof ~generics_resolver env current_mod_name prog if_expression
       in
       if if_condition <> TBool then
-        raise (ast_error (Not_Boolean_Type_Condition { found = if_condition }))
+        raise (ast_error (Not_Boolean_Type_Condition { found = if_expression |> Position.map (fun _ -> if_condition) }))
       else
         let if_type =
           typeof_kbody ~generics_resolver
@@ -298,7 +298,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         if not (Type.are_compatible_type if_type else_type) then
           raise
             (ast_error
-               (Ast.Error.Uncompatible_type_If_Else { if_type; else_type }))
+               (Ast.Error.Uncompatible_type_If_Else { position = expression |> Position.map (fun _ -> ());  if_type; else_type }))
         else Type.restrict_type else_type if_type
   | ECases { cases; else_case } ->
       cases
@@ -308,7 +308,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
              in
              if expr_type <> TBool then
                raise
-                 (ast_error (Not_Boolean_Type_Condition { found = expr_type }))
+                 (ast_error (Not_Boolean_Type_Condition { found = expr |> Position.map (fun _ -> expr_type) }))
              else
                typeof_kbody ~generics_resolver
                  (env |> Env.push_context [])

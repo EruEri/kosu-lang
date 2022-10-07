@@ -275,9 +275,9 @@ end
 
 module Error = struct
   type struct_error =
-    | Unexpected_field of { expected : string location; found : string location }
+    | Unexpected_field of { expected: string location; found : string location }
     | Unexisting_field of string
-    | Wrong_field_count of { expected : int; found : int }
+    | Wrong_field_count of { location: position; expected : int; found : int }
 
   type enum_error =
     | Wrong_length_assoc_type of { expected : int; found : int }
@@ -285,11 +285,11 @@ module Error = struct
 
   type statement_error =
     | Undefine_Identifier of { name : string location }
-    | Already_Define_Identifier of { name : string }
-    | Reassign_Constante of { name : string }
+    | Already_Define_Identifier of { name : string location }
+    | Reassign_Constante of { name : string location }
     | Uncompatible_type_Assign of { expected : ktype; found : ktype }
-    | Neead_explicit_type_declaration of {
-        variable_name : string;
+    | Need_explicit_type_declaration of {
+        variable_name : string location;
         infer_type : ktype;
       }
 
@@ -358,7 +358,7 @@ module Error = struct
     | Too_Many_occurence_found of string
     | Undefined_Identifier of string location
     | Undefined_Const of string
-    | Undefined_Struct of string
+    | Undefined_Struct of string location
     | Unbound_Module of string location
     | Struct_Error of struct_error
     | Enum_Error of enum_error
@@ -368,8 +368,8 @@ module Error = struct
     | Switch_error of switch_error
     | Builtin_Func_Error of builtin_func_error
     | Uncompatible_type of { expected : ktype; found : ktype }
-    | Uncompatible_type_If_Else of { if_type : ktype; else_type : ktype }
-    | Not_Boolean_Type_Condition of { found : ktype }
+    | Uncompatible_type_If_Else of { position: unit location; if_type : ktype; else_type : ktype }
+    | Not_Boolean_Type_Condition of { found : ktype location }
     | Impossible_field_Access of ktype
     | Enum_Access_field of { field : string location; enum_decl : enum_decl }
     | Unvalid_Deference of string location
@@ -588,7 +588,7 @@ module Type = struct
             { module_path = mp1; parametrics_type = pt1; name = n1 },
           TParametric_identifier
             { module_path = mp2; parametrics_type = pt2; name = n2 } ) ->
-          if n1 <> n2 || mp1 <> mp2 || Util.are_diff_lenght pt1 pt2 then
+          if n1.v <> n2.v || mp1.v <> mp2.v || Util.are_diff_lenght pt1 pt2 then
             to_restrict_type
           else
             TParametric_identifier

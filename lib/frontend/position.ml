@@ -11,6 +11,14 @@ let line_column_of_position p =
   let column = p.Lexing.pos_cnum - p.Lexing.pos_bol + 1 in
   (line_number, column)
 
+let line_of_position p = 
+  let line, _ =  line_column_of_position p in 
+  line
+
+let column_of_position p = 
+  let _, column =  line_column_of_position p in 
+  column
+  
 type position = {
   start_position: Lexing.position;
   end_position: Lexing.position

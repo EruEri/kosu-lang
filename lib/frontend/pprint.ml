@@ -16,7 +16,7 @@ let string_of_position_error {start_position; end_position} =
   let start_position_line, start_position_column = line_column_of_position start_position in
   let end_position_line, end_position_column = line_column_of_position end_position in
   let column_string = Printf.sprintf "%d%s" (start_position_column) (if start_position_column = end_position_column then "" else " - "^(string_of_int end_position_column)) in 
-  if start_position = end_position then Printf.sprintf "Line %d, Characters %s" start_position_line column_string
+  if start_position_line = end_position_line then Printf.sprintf "Line %d, Characters %s" start_position_line column_string
   else
     Printf.sprintf "Lines %d-%d, Characters %d-%d" start_position_line end_position_line start_position_column end_position_column
 
@@ -334,8 +334,10 @@ let string_of_struct_error =
       sprintf "Unexpected_field -- expected : %s, found : %s --" expected.v found.v
   | Unexisting_field s -> sprintf "Unexisting_field %s" s
   | Wrong_field_count record ->
-      sprintf "Wrong_field_count -- expected : %d, found : %d" record.expected
-        record.found
+      string_of_located_error 
+      {v = true; position = record.location} 
+      (sprintf "Wrong number of fields -- expected : %d, found : %d --" record.expected record.found)
+      
 
 let string_of_enum_error =
   let open Ast.Error in
@@ -353,16 +355,17 @@ let string_of_statement_error =
   function
   | Undefine_Identifier s -> sprintf "%s : Undefine Identifier : %s" (string_of_position_error s.name.position) (s.name.v)
   | Already_Define_Identifier s ->
-      sprintf "Already_Define_Identifier : %s" s.name
-  | Reassign_Constante s -> sprintf "Reassign_Constante : %s" s.name
+      string_of_located_error s.name (sprintf "Identifier already defined : \"%s\"" s.name.v)
+  | Reassign_Constante s ->  string_of_located_error s.name (sprintf "Reassign a constant : %s" s.name.v)
   | Uncompatible_type_Assign s ->
       sprintf "Uncompatible_type_Assign -- expected: %s, found: %s --"
         (s.expected |> string_of_ktype)
         (s.found |> string_of_ktype)
-  | Neead_explicit_type_declaration s ->
-      sprintf "Neead_explicit_type_declaration for : %s : type = %s"
-        s.variable_name
-        (string_of_ktype s.infer_type)
+  | Need_explicit_type_declaration s ->
+    string_of_located_error s.variable_name (
+      sprintf "Need explicit type declaration for identifier \"%s\" ::=> type = %s"
+        s.variable_name.v
+        (string_of_ktype s.infer_type))
 
 let string_of_function_error =
   let open Ast.Error in
@@ -481,7 +484,7 @@ let string_of_ast_error =
   | Too_Many_occurence_found s -> sprintf "Too_Many_occurence_found : %s" s
   | Undefined_Identifier s -> sprintf "%s : Undefined Identifier \"%s\"" (string_of_position_error s.position) s.v
   | Undefined_Const s -> sprintf "Undefined_Const : %s" s
-  | Undefined_Struct s -> sprintf "Undefined_Struct : %s" s
+  | Undefined_Struct s ->  string_of_located_error s (sprintf "Undefined Struct \"%s\"" s.v)
   | Unbound_Module s -> string_of_located_error s (sprintf "Unbound Module \"%s\"" s.v) 
   | Struct_Error s -> string_of_struct_error s
   | Enum_Error e -> string_of_enum_error e
@@ -494,11 +497,24 @@ let string_of_ast_error =
       sprintf "Uncompatible_type %s"
         (string_of_expected_found (`ktype (e.expected, e.found)))
   | Uncompatible_type_If_Else e ->
-      sprintf "Uncompatible_type_If_Else %s"
-        (string_of_expected_found (`ktype (e.if_type, e.else_type)))
+    string_of_located_error 
+    e.position 
+    (
+      sprintf "If block has the type -- %s -- but else block has type -- %s --, -- %s -- and -- %s -- aren't compaatible" 
+      (string_of_ktype e.if_type)
+      (string_of_ktype e.else_type)
+      (string_of_ktype e.if_type)
+      (string_of_ktype e.else_type)
+    )
+
   | Not_Boolean_Type_Condition e ->
-      sprintf "Not_Boolean_Type_Condition -- found : %s : expected : bool --"
-        (string_of_ktype e.found)
+    string_of_located_error e.found 
+    (
+      sprintf "Not Boolean Type Condition -- found : %s : expected : bool --" 
+    (string_of_ktype e.found.v)
+    )
+      
+        
   | Impossible_field_Access e ->
       sprintf "Impossible_field_Access : %s" (string_of_ktype e)
   | Enum_Access_field record ->

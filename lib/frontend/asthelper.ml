@@ -135,7 +135,7 @@ module Program = struct
     |> List.hd
 
   let find_struct_decl_opt (current_module_name : string) (module_path : string location)
-      (struct_name : string) (program : module_path list) =
+      (struct_name : string location) (program : module_path list) =
       let ( >>= ) = Result.bind in
 
       (if module_path.v = "" then
@@ -146,7 +146,7 @@ module Program = struct
       >>=
       (fun structs ->
         structs
-        |> List.find_opt (fun s -> s.struct_name.v = struct_name)
+        |> List.find_opt (fun s -> s.struct_name.v = struct_name.v)
         |> Option.to_result ~none:(Ast.Error.Undefined_Struct struct_name))
 
   let find_enum_decl_opt current_module_name module_enum_path
