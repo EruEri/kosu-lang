@@ -294,7 +294,7 @@ module Error = struct
       }
 
   type func_error =
-    | Unmatched_Parameters_length of { expected : int; found : int }
+    | Unmatched_Parameters_length of { fn_name: string location; expected : int; found : int }
     | Unmatched_Generics_Resolver_length of { fn_name: string location; expected : int; found : int }
     | Uncompatible_type_for_C_Function of {
         external_func_decl : external_func_decl;
@@ -357,7 +357,7 @@ module Error = struct
     | No_Occurence_found of string
     | Too_Many_occurence_found of string
     | Undefined_Identifier of string location
-    | Undefined_Const of string
+    | Undefined_Const of string location
     | Undefined_Struct of string location
     | Unbound_Module of string location
     | Undefine_Type of string location
@@ -468,8 +468,6 @@ module Type = struct
     List.combine t1 t2 |> List.map Position.assocs_value |> List.for_all (fun (k1,k2) -> (=?) k1 k2) 
   | _, _ -> lhs = rhs
 
-  let (=?) = (=?)
-
   let rec are_compatible_type (lhs : ktype) (rhs : ktype) =
     match (lhs, rhs) with
     | ( TParametric_identifier
@@ -488,7 +486,7 @@ module Type = struct
     | TTuple t1, TTuple t2 -> 
       Util.are_same_lenght t1 t2 && 
       List.combine t1 t2 |> List.map Position.assocs_value |> List.for_all (fun (k1,k2) -> are_compatible_type k1 k2) 
-    | _, _ -> lhs = rhs
+    | _, _ -> (=?) lhs rhs
 
   let rec module_path_return_type ~(current_module: string) ~(module_type_path: string) return_type
       =

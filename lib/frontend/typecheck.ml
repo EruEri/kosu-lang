@@ -165,7 +165,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                  if c.const_name = identifier.v then Some c.explicit_type
                  else None)
           |> function
-          | None -> raise (ast_error (Unbound_Module modules_path))
+          | None -> raise (ast_error (Undefined_Const identifier))
           | Some s -> s))
   | EFieldAcces { first_expr; fields } ->
       let first_type =
@@ -354,6 +354,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           if Util.are_diff_lenght parameters e.parameters then
             Unmatched_Parameters_length
               {
+                fn_name;
                 expected = e.parameters |> List.length;
                 found = parameters |> List.length;
               }
@@ -431,6 +432,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             then
               Unmatched_Parameters_length
                 {
+                  fn_name;
                   expected = external_func_decl.fn_parameters |> List.length;
                   found = parameters |> List.length;
                 }
@@ -475,6 +477,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             | false ->
                 Unmatched_Parameters_length
                   {
+                    fn_name;
                     expected = external_func_decl.fn_parameters |> List.length;
                     found = parameters |> List.length;
                   }
@@ -520,6 +523,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           | false ->
               Unmatched_Parameters_length
                 {
+                  fn_name;
                   expected = syscall_decl.parameters |> List.length;
                   found = parameters |> List.length;
                 }

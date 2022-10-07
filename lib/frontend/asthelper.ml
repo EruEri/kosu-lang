@@ -213,8 +213,6 @@ module Program = struct
 
   (**
     Find type declaration from ktype
-    @raise No_Occurence : if no type declaration was found
-    @raise Too_Many_Occurence: if several type declaration matching was found
     *)
   let find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
       program =
@@ -235,8 +233,6 @@ module Program = struct
   (**
       Find type declaration from ktype
       @return type_decl if ktype came from a type declaration, [None] if ktype is a builtin type
-      @raise No_Occurence : if no type declaration was found
-      @raise Too_Many_Occurence: if several type declaration matching was found
       @raise Ast_error: if length of assoc_type is not the same as the length of the generic of the type declaration found
     *)
   let find_type_decl_from_true_ktype ktype current_module program =
@@ -277,8 +273,6 @@ module Program = struct
 
   (**
     Find function declaration from function name
-    @raise No_Occurence : if no function declaration was found
-    @raise Too_Many_Occurence: if several function declaration matching was found
     *)
   let find_function_decl_from_fn_name fn_def_path fn_name current_module program
       =
@@ -676,7 +670,7 @@ module Enum = struct
     | _, TType_Identifier { module_path; name }
       when module_path.v = "" && enum_decl.generics |> List.map Position.value |> List.mem name.v ->
         true
-    | lhs, rhs -> lhs = rhs
+    | lhs, rhs -> Ast.Type.(=?) lhs rhs
 
   let rec is_type_compatible_hashgen generic_table (init_type : ktype)
       (expected_type : ktype) (enum_decl : t) =
@@ -725,7 +719,7 @@ module Enum = struct
            |> List.for_all (fun (lhs_type, rhs_type) ->
                   is_type_compatible_hashgen generic_table lhs_type.v rhs_type.v
                     enum_decl)
-    | lhs, rhs -> lhs = rhs
+    | lhs, rhs -> Ast.Type.(=?) lhs rhs
 
   let to_ktype_hash generics module_def_path (enum_decl : t) =
     if enum_decl.generics = [] then

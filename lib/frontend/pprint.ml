@@ -375,8 +375,14 @@ let string_of_function_error =
   let open Printf in
   function
   | Unmatched_Parameters_length record ->
-      sprintf "Unmatched_Parameters_length %s "
-        (string_of_expected_found (`int (record.expected, record.found)))
+      string_of_located_error 
+      record.fn_name (sprintf "Function \"%s\" expects %d parameter%s but %d %s provided"
+      (record.fn_name.v)
+      (record.expected)
+      (if record.expected > 1 then "s" else "")
+      (record.found)
+      (if record.found >= 2 then "were" else "was")
+      )
   | Unmatched_Generics_Resolver_length record ->
     string_of_located_error record.fn_name
     (
@@ -492,7 +498,7 @@ let string_of_ast_error =
   | No_Occurence_found s -> sprintf "No Occurence found for %s" s
   | Too_Many_occurence_found s -> sprintf "Too_Many_occurence_found : %s" s
   | Undefined_Identifier s -> sprintf "%s : Undefined Identifier \"%s\"" (string_of_position_error s.position) s.v
-  | Undefined_Const s -> sprintf "Undefined_Const : %s" s
+  | Undefined_Const s -> string_of_located_error s (sprintf "Undefined Constant \"%s\"" s.v)
   | Undefined_Struct s ->  string_of_located_error s (sprintf "Undefined Struct \"%s\"" s.v)
   | Unbound_Module s -> string_of_located_error s (sprintf "Unbound Module \"%s\"" s.v)
   | Undefine_Type s -> string_of_located_error s (sprintf "Undefined Type \"%s\"" s.v)
@@ -510,7 +516,7 @@ let string_of_ast_error =
     string_of_located_error 
     e.position 
     (
-      sprintf "If block has the type -- %s -- but else block has type -- %s --, -- %s -- and -- %s -- aren't compatible" 
+      sprintf "If block has the type \"%s\" but else block has type \"%s\", \"%s\" and \"%s\" aren't compatible" 
       (string_of_ktype e.if_type)
       (string_of_ktype e.else_type)
       (string_of_ktype e.if_type)
