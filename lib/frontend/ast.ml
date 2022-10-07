@@ -360,6 +360,7 @@ module Error = struct
     | Undefined_Const of string
     | Undefined_Struct of string location
     | Unbound_Module of string location
+    | Undefine_Type of string location
     | Struct_Error of struct_error
     | Enum_Error of enum_error
     | Statement_Error of statement_error

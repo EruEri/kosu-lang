@@ -494,7 +494,8 @@ let string_of_ast_error =
   | Undefined_Identifier s -> sprintf "%s : Undefined Identifier \"%s\"" (string_of_position_error s.position) s.v
   | Undefined_Const s -> sprintf "Undefined_Const : %s" s
   | Undefined_Struct s ->  string_of_located_error s (sprintf "Undefined Struct \"%s\"" s.v)
-  | Unbound_Module s -> string_of_located_error s (sprintf "Unbound Module \"%s\"" s.v) 
+  | Unbound_Module s -> string_of_located_error s (sprintf "Unbound Module \"%s\"" s.v)
+  | Undefine_Type s -> string_of_located_error s (sprintf "Undefined Type \"%s\"" s.v)
   | Struct_Error s -> string_of_struct_error s
   | Enum_Error e -> string_of_enum_error e
   | Statement_Error e -> string_of_statement_error e

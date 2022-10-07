@@ -218,10 +218,19 @@ module Program = struct
     *)
   let find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
       program =
-    find_module_of_ktype ktype_def_path current_module program
-    |> Util.Occurence.one
-    |> fun m ->
-    m._module |> Module.type_decl_occurence ktype_name |> Util.Occurence.one
+    let (>>=) = Result.bind in
+    find_module_of_ktype ktype_def_path.v current_module program
+    |> (
+      function
+      | Util.Occurence.Empty -> (Ast.Error.Unbound_Module ktype_def_path) |> Result.error
+      | Util.Occurence.One module_path -> Ok module_path
+      | Util.Occurence.Multiple _module_paths -> (Ast.Error.Too_Many_occurence_found "Too many module") |> Result.error
+    )
+    >>= fun m ->
+    m._module |> Module.type_decl_occurence ktype_name.v |> function
+    | Util.Occurence.Empty -> (Ast.Error.Undefine_Type ktype_name) |> Result.error
+    | Util.Occurence.One m -> m |> Result.ok
+    | Util.Occurence.Multiple _type_decl -> (Ast.Error.Too_Many_occurence_found ("Type named "^ktype_name.v)) |> Result.error
 
   (**
       Find type declaration from ktype
@@ -237,10 +246,12 @@ module Program = struct
     in
     match ktype with
     | TType_Identifier { module_path = ktype_def_path; name = ktype_name } ->
-        let type_decl =
-          find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v ~ktype_name: ktype_name.v ~current_module
-            program
-        in
+      let type_decl =
+        match find_type_decl_from_ktype ~ktype_def_path:ktype_def_path ~ktype_name: ktype_name ~current_module
+          program with
+        | Error e -> e |> Ast.Error.ast_error |> raise
+        | Ok type_decl -> type_decl
+      in
         let generics_len = type_decl |> type_generics |> List.length in
         if generics_len <> 0 then
           Wrong_Assoc_Length_for_Parametrics
@@ -250,8 +261,10 @@ module Program = struct
     | TParametric_identifier
         { module_path = ktype_def_path; parametrics_type; name = ktype_name } ->
         let type_decl =
-          find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v ~ktype_name: ktype_name.v ~current_module
-            program
+          match find_type_decl_from_ktype ~ktype_def_path:ktype_def_path ~ktype_name: ktype_name ~current_module
+            program with
+          | Error e -> e |> Ast.Error.ast_error |> raise
+          | Ok type_decl -> type_decl
         in
         let generics_len = type_decl |> type_generics |> List.length in
         let assoc_type = parametrics_type |> List.length in
@@ -287,27 +300,25 @@ module Program = struct
   let rec does_ktype_exist ktype current_module program =
     match ktype with
     | TType_Identifier { module_path = ktype_def_path; name = ktype_name } -> (
-        try
-          let _ =
-            find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v ~ktype_name: ktype_name.v
+          match
+            find_type_decl_from_ktype ~ktype_def_path:ktype_def_path ~ktype_name: ktype_name
               ~current_module program
-          in
-          `exist
-        with
-        | Util.Occurence.No_Occurence -> `not_exist
-        | Util.Occurence.Too_Many_Occurence -> `not_unique)
+          with
+          | Ok _ -> `exist
+          | Error Ast.Error.Undefine_Type _ -> `not_exist
+          | Error Ast.Error.Too_Many_occurence_found _ -> `not_unique
+          | Error e -> e |> Ast.Error.ast_error |> raise)
     | TParametric_identifier
         { module_path = ktype_def_path; parametrics_type; name = ktype_name } ->
         let exist =
-          try
-            let _ =
-              find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v ~ktype_name: ktype_name.v
-                ~current_module program
-            in
-            `exist
+          match
+            find_type_decl_from_ktype ~ktype_def_path:ktype_def_path ~ktype_name: ktype_name
+              ~current_module program
           with
-          | Util.Occurence.No_Occurence -> `not_exist
-          | Util.Occurence.Too_Many_Occurence -> `not_unique
+          | Ok _ -> `exist
+          | Error Ast.Error.Undefine_Type _ -> `not_exist
+          | Error Ast.Error.Too_Many_occurence_found _ -> `not_unique
+          | Error e -> e |> Ast.Error.ast_error |> raise
         in
         parametrics_type
         |> List.fold_left
@@ -328,32 +339,16 @@ module Program = struct
         else
           s.fields
           |> List.for_all (fun (_, { v = ktype; _}) ->
-                 match ktype with
-                 | TParametric_identifier _ -> false
-                 | TType_Identifier { module_path; name } -> (
-                     try
-                       let type_decl =
-                         find_type_decl_from_ktype ~ktype_def_path:module_path.v
-                           ~ktype_name:name.v ~current_module:current_mod_name
-                           program
-                       in
-                       is_c_type current_mod_name type_decl program
-                     with _ -> false)
-                 | TFunction _ -> false
-                 | TTuple _ -> false
-                 | _ -> true)
-
-  let is_c_type_from_ktype current_mod_name (ktype : ktype) program =
+            is_c_type_from_ktype current_mod_name ktype program)
+  and is_c_type_from_ktype current_mod_name (ktype : ktype) program =
     match ktype with
     | TParametric_identifier _ -> false
     | TType_Identifier { module_path; name } -> (
-        try
-          let type_decl =
-            find_type_decl_from_ktype ~ktype_def_path:module_path.v
-              ~ktype_name:name.v ~current_module:current_mod_name program
-          in
-          is_c_type current_mod_name type_decl program
-        with _ -> false)
+       (match find_type_decl_from_ktype ~ktype_def_path:module_path ~ktype_name:name ~current_module:current_mod_name
+         program with
+       | Error e -> e |> Ast.Error.ast_error |> raise
+       | Ok type_decl -> is_c_type current_mod_name type_decl program)
+    )
     | TFunction _ -> false
     | TTuple _ -> false
     | _ -> true
@@ -962,8 +957,10 @@ module Struct = struct
                 let ktype_def_path = Type.module_path_opt kt |> Option.get in
                 let ktype_name = Type.type_name_opt kt |> Option.get in
                 let type_decl_two =
-                  Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v ~ktype_name:ktype_name.v
-                    ~current_module:current_mod_name program
+                  match Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path ~ktype_name: ktype_name ~current_module:current_mod_name
+                    program with
+                  | Error e -> e |> Ast.Error.ast_error |> raise
+                  | Ok type_decl -> type_decl
                 in
                 resolve_fields_access_gen (parametrics_types_two |> List.map Position.value) q type_decl_two
                   current_mod_name program))
@@ -1479,12 +1476,15 @@ module Sizeof = struct
             in
             match calcul with `size -> size | `align -> align))
     | kt -> (
-        let ktype_def_path = (Type.module_path_opt kt |> Option.get).v in
-        let ktype_name = (Type.type_name_opt kt |> Option.get).v in
+        let ktype_def_path = (Type.module_path_opt kt |> Option.get) in
+        let ktype_name = (Type.type_name_opt kt |> Option.get) in
         let type_decl =
-          Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name
-            ~current_module (program |> List.map (fun named_module -> named_module.module_path))
+          match Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
+          (program |> List.map (fun named_module -> named_module.module_path)) with
+          | Error e -> e |> Ast.Error.ast_error |> raise
+          | Ok type_decl -> type_decl
         in
+
         match type_decl with
         | Ast.Type_Decl.Decl_Enum enum_decl ->
             size_enum calcul current_module program

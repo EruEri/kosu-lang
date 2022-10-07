@@ -108,16 +108,17 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
               | TParametric_identifier
                   { module_path; parametrics_type = _; name }
               | TType_Identifier { module_path; name } -> (
-                  try
-                    ignore
-                      (Asthelper.Program.find_type_decl_from_ktype
-                         ~ktype_def_path:module_path.v ~ktype_name:name.v
-                         ~current_module:current_mod_name prog)
-                  with e -> (
-                        ignore
-                          (Hashtbl.find_opt generics_resolver name |> function
-                           | None -> raise e
-                           | Some s -> s)))
+                match Asthelper.Program.find_type_decl_from_ktype
+                ~ktype_def_path:module_path ~ktype_name:name
+                ~current_module:current_mod_name prog with
+                | Ok _ -> ignore ()
+                | Error (Undefine_Type _ as e) when module_path.v = "" -> begin 
+                  match generics_resolver |> Hashtbl.to_seq_keys |> Seq.find (fun gen_loc -> gen_loc.v = name.v ) with
+                  | Some _ -> ignore ()
+                  | None -> e |> Ast.Error.ast_error |> raise
+                end 
+                | Error e -> e |> Ast.Error.ast_error |> raise  
+                )
               | _ -> ignore ())
         | Right expr ->
             ignore (typeof ~generics_resolver env current_mod_name prog expr)
@@ -174,8 +175,10 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let ktype_def_path = Type.module_path_opt first_type |> Option.get in
       let ktype_name = Type.type_name_opt first_type |> Option.get in
       let type_decl =
-        Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v ~ktype_name:ktype_name.v
-          ~current_module:current_mod_name prog
+        match Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path ~ktype_name: ktype_name ~current_module:current_mod_name
+          prog with
+        | Error e -> e |> Ast.Error.ast_error |> raise
+        | Ok type_decl -> type_decl
       in
       Asthelper.Struct.resolve_fields_access_gen (parametrics_types |> List.map Position.value) fields
         type_decl current_mod_name prog
@@ -220,7 +223,6 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                  init_type expected_typed.v struct_decl
                |> not
              then
-              (* let () = Printf.printf "Hello world\n\n\n" in *)
                Ast.Error.Uncompatible_type
                  { expected = expected_typed.v; found = init_type }
                |> Ast.Error.ast_error |> raise);
@@ -983,13 +985,13 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         let enum_decl =
           match
             Asthelper.Program.find_type_decl_from_ktype
-              ~ktype_def_path:module_path.v ~ktype_name:name.v
+              ~ktype_def_path:module_path ~ktype_name:name
               ~current_module:current_mod_name prog
           with
-          | Type_Decl.Decl_Enum e -> e
-          | _ ->
-              Not_enum_type_in_switch_Expression expr_type |> switch_error
-              |> raise
+          | Ok(Type_Decl.Decl_Enum e) -> e
+          | Ok (Type_Decl.Decl_Struct _s) -> Not_enum_type_in_switch_Expression expr_type |> switch_error
+          |> raise
+          | Error e -> e |> ast_error |> raise
         in
 
         let () =

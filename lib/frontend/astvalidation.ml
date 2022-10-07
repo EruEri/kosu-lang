@@ -103,24 +103,27 @@ module Help = struct
     match ktype with
     | TType_Identifier { module_path = ktype_def_path; name = ktype_name } -> (
         match
-          Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v
-            ~ktype_name:ktype_name.v ~current_module program
+          Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path
+            ~ktype_name:ktype_name ~current_module program
         with
-        | Ast.Type_Decl.Decl_Struct struct_decl ->
+        | Ok( Ast.Type_Decl.Decl_Struct struct_decl) ->
             does_contains_type_decl_struct current_module program struct_decl
               already_visited type_decl_to_check
-        | Ast.Type_Decl.Decl_Enum enum_decl ->
+        | Ok (Ast.Type_Decl.Decl_Enum enum_decl) ->
             does_contains_type_decl_enum current_module program enum_decl
-              already_visited type_decl_to_check)
+              already_visited type_decl_to_check
+        | Error e -> e |> Ast.Error.ast_error |> raise
+      )
     | TParametric_identifier
         { module_path = ktype_def_path; parametrics_type; name = ktype_name }
       -> (
         let type_decl_found =
-          Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v
-            ~ktype_name:ktype_name.v ~current_module program
+          Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path
+            ~ktype_name:ktype_name ~current_module program
         in
         match type_decl_found with
-        | Ast.Type_Decl.Decl_Struct struct_decl ->
+        | Error e -> e |> Ast.Error.ast_error |> raise
+        | Ok (Ast.Type_Decl.Decl_Struct struct_decl) ->
             let new_struct =
               Asthelper.Struct.bind_struct_decl (parametrics_type |> List.map Position.value)
                 (ktype_type_decl_origin |> Asthelper.Type_Decl.generics)
@@ -129,7 +132,7 @@ module Help = struct
             
             does_contains_type_decl_struct current_module program new_struct
               already_visited type_decl_to_check
-        | Ast.Type_Decl.Decl_Enum enum_decl ->
+        | Ok (Ast.Type_Decl.Decl_Enum enum_decl) ->
             let new_enum_decl =
               Asthelper.Enum.bind_enum_decl (parametrics_type |> List.map Position.value)
                 (ktype_type_decl_origin |> Asthelper.Type_Decl.generics)
@@ -163,10 +166,12 @@ module Help = struct
                     false
                 | TType_Identifier
                     { module_path = ktype_def_path; name = ktype_name } ->
-                    let t_decl =
-                      Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v
-                        ~ktype_name:ktype_name.v ~current_module program
-                    in
+                      let t_decl =
+                        match Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
+                          program with
+                        | Error e -> e |> Ast.Error.ast_error |> raise
+                        | Ok type_decl -> type_decl
+                      in
                     t_decl = type_decl_to_check
                     || t_decl = Ast.Type_Decl.decl_struct struct_decl
                     || does_ktype_contains_type_decl current_module program kt.v
@@ -181,8 +186,10 @@ module Help = struct
                       name = ktype_name;
                     } ->
                     let t_decl =
-                      Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v
-                        ~ktype_name:ktype_name.v ~current_module program
+                      match Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
+                        program with
+                      | Error e -> e |> Ast.Error.ast_error |> raise
+                      | Ok type_decl -> type_decl
                     in
                     t_decl = type_decl_to_check
                     || parametrics_type
@@ -234,10 +241,12 @@ module Help = struct
                              parametrics_type;
                              name = ktype_name;
                            } ->
-                           let t_decl =
-                             Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v
-                               ~ktype_name:ktype_name.v ~current_module program
-                           in
+                            let t_decl =
+                              match Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
+                                program with
+                              | Error e -> e |> Ast.Error.ast_error |> raise
+                              | Ok type_decl -> type_decl
+                            in
                            t_decl = type_decl_to_check
                            || t_decl = Ast.Type_Decl.decl_enum enum_decl
                            || parametrics_type
@@ -261,10 +270,12 @@ module Help = struct
                        | TType_Identifier
                            { module_path = ktype_def_path; name = ktype_name }
                          ->
-                           let t_decl =
-                             Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path.v
-                               ~ktype_name:ktype_name.v ~current_module program
-                           in
+                          let t_decl =
+                            match Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
+                              program with
+                            | Error e -> e |> Ast.Error.ast_error |> raise
+                            | Ok type_decl -> type_decl
+                          in
                            t_decl = type_decl_to_check
                            || t_decl = Ast.Type_Decl.decl_enum enum_decl
                            || does_ktype_contains_type_decl current_module
