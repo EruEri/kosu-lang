@@ -571,7 +571,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                        | true, true -> true
                        | _, _ -> Ast.Error.Uncompatible_type_for_Syscall {index = Some i ; syscall_decl} |> func_error |> raise
                         )
-              then (if Asthelper.Program.is_c_type_from_ktype current_mod_name syscall_decl.return_type.v prog then syscall_decl.return_type.v else  Ast.Error.Uncompatible_type_for_Syscall {index = None; syscall_decl} |> func_error |> raise )
+              then (if Asthelper.Program.is_c_type_from_ktype current_mod_name syscall_decl.return_type.v prog then syscall_decl.return_type.v else Ast.Error.Uncompatible_type_for_Syscall {index = None; syscall_decl} |> func_error |> raise )
               else Unknow_Function_Error |> func_error |> raise))
   | EBin_op (BAdd (lhs, rhs)) -> (
       let l_type = typeof ~generics_resolver env current_mod_name prog lhs in

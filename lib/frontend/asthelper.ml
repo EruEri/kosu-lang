@@ -332,8 +332,7 @@ module Program = struct
         e.generics = []
         && e.variants |> List.for_all (fun (_, assoc) -> assoc = [])
     | Decl_Struct s ->
-        if s.generics = [] then false
-        else
+        s.generics = [] &&
           s.fields
           |> List.for_all (fun (_, { v = ktype; _}) ->
             is_c_type_from_ktype current_mod_name ktype program)
