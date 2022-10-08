@@ -548,8 +548,13 @@ let string_of_ast_error =
     )
       
         
-  | Impossible_field_Access e ->
-      sprintf "Impossible_field_Access : %s" (string_of_ktype e)
+  | Impossible_field_Access {field; struct_decl} ->
+      string_of_located_error field 
+      (sprintf "Struct \"%s\" doesn't contain a field named \"%s\""
+      struct_decl.struct_name.v
+      field.v
+      )
+      
   | Enum_Access_field record ->
       sprintf "%s Enum doesn't have field : %s for enum : %s" (string_of_position_error record.field.position) record.field.v
         record.enum_decl.enum_name.v

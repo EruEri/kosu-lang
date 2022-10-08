@@ -933,7 +933,7 @@ module Struct = struct
                 parametrics_types t.v struct_decl
             with
             | None ->
-                Impossible_field_Access (to_ktype current_mod_name struct_decl)
+                Impossible_field_Access { field = t; struct_decl }
                 |> ast_error |> raise
             | Some kt -> kt))
     | t :: q -> (
@@ -946,7 +946,7 @@ module Struct = struct
                 parametrics_types t.v struct_decl
             with
             | None ->
-                Impossible_field_Access (to_ktype current_mod_name struct_decl)
+                Impossible_field_Access { field = t; struct_decl }
                 |> ast_error |> raise
             | Some kt ->
                 let parametrics_types_two = Type.extract_parametrics_ktype kt in

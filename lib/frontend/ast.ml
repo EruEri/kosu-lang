@@ -304,7 +304,8 @@ module Error = struct
       index: int option;
       syscall_decl : syscall_decl 
     }
-    | Mismatched_Parameters_Type of { fn_name: string; 
+    | Mismatched_Parameters_Type of { 
+      fn_name: string; 
       expected : ktype; 
       found : ktype location 
     }
@@ -378,7 +379,7 @@ module Error = struct
     | Uncompatible_type of { expected : ktype; found : ktype }
     | Uncompatible_type_If_Else of { position: unit location; if_type : ktype; else_type : ktype }
     | Not_Boolean_Type_Condition of { found : ktype location }
-    | Impossible_field_Access of ktype
+    | Impossible_field_Access of { field: string location; struct_decl: struct_decl }
     | Enum_Access_field of { field : string location; enum_decl : enum_decl }
     | Unvalid_Deference of string location
 
