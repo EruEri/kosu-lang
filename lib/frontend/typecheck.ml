@@ -367,8 +367,8 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             let init_type_parameters =
               parameters
               |> List.map
-                   (typeof ~generics_resolver:new_map_generics env
-                      current_mod_name prog)
+                   ( Position.map_use (typeof ~generics_resolver:new_map_generics env
+                      current_mod_name prog))
             in
             let hashtal = Hashtbl.create (e.generics |> List.length) in
             let () =
@@ -397,16 +397,20 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                          Hashtbl.add hashtal generic_name.v (index, field_ktype.v))
               | None -> ()
             in
-            init_type_parameters |> List.combine (e.parameters |> List.map Position.assocs_value)
+            init_type_parameters |> List.combine e.parameters
             |> List.iter (fun ((_, para_type), init_type) ->
                    if
                      e
                      |> Asthelper.Function.is_type_compatible_hashgen hashtal
-                          init_type para_type
+                          init_type.v para_type.v
                      |> not
                    then
                      Mismatched_Parameters_Type
-                       { expected = para_type; found = init_type }
+                       { 
+                        fn_name = fn_name.v;
+                        expected = para_type.v; 
+                        found = init_type 
+                      }
                      |> func_error |> raise);
 
             Asthelper.Function.to_return_ktype_hashtab
@@ -423,7 +427,9 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                    then t
                    else
                      Ast.Error.Uncompatible_type_for_C_Function
-                       { external_func_decl }
+                       { fn_name;
+                       ktype = t;
+                        }
                      |> func_error |> raise)
             |> fun types ->
             if
@@ -447,25 +453,27 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
               |> List.map (fun (_, t) -> t)
               |> List.combine external_func_decl.fn_parameters
               |> List.for_all (fun (para_type, init_type) ->
-                let para_type = para_type.v in
                      match
                        ( Asthelper.Program.is_c_type_from_ktype current_mod_name
-                           para_type prog,
+                           para_type.v prog,
                          Asthelper.Program.is_c_type_from_ktype current_mod_name
                            init_type.v prog )
                      with
                      | true, true ->
                          if
                            not
-                             (Ast.Type.are_compatible_type para_type init_type.v)
+                             (Ast.Type.are_compatible_type para_type.v init_type.v)
                          then
                            Uncompatible_type_Assign
-                             { expected = para_type; found = init_type }
+                             { expected = para_type.v; found = init_type }
                            |> stmt_error |> raise
                          else true
                      | _ ->
                          Ast.Error.Uncompatible_type_for_C_Function
-                           { external_func_decl }
+                           { 
+                            fn_name;
+                            ktype = para_type
+                            }
                          |> func_error |> raise)
               |> fun b ->
               if b then external_func_decl.r_type.v
@@ -514,9 +522,15 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                              else true
                          | _ ->
                              Ast.Error.Uncompatible_type_for_C_Function
-                               { external_func_decl }
+                               { fn_name;
+                               ktype = para_type }
                              |> func_error |> raise)
-                then external_func_decl.r_type.v
+                then (
+                  if Asthelper.Program.is_c_type_from_ktype current_mod_name external_func_decl.r_type.v prog then external_func_decl.r_type.v 
+                  else Ast.Error.Uncompatible_type_for_C_Function 
+                  { fn_name;
+                    ktype = external_func_decl.r_type 
+                    } |> func_error |> raise ) 
                 else Unknow_Function_Error |> func_error |> raise)
       | Ast.Function_Decl.Decl_Syscall syscall_decl -> (
           match Util.are_same_lenght syscall_decl.parameters parameters with
@@ -536,30 +550,28 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                 position = located_expr.position
               })
             in
-              let zipped = List.combine syscall_decl.parameters mapped_type in
+              let zipped = List.combine syscall_decl.parameters mapped_type |> List.mapi (fun i a -> i,a) in
               if
                 zipped
-                |> List.for_all (fun (para_type, init_type) ->
+                |> List.for_all (fun (i,(para_type, init_type)) ->
+                  if
+                    not
+                      (Ast.Type.are_compatible_type para_type.v init_type.v)
+                  then
+                    Uncompatible_type_Assign
+                      { expected = para_type.v; found = init_type }
+                    |> stmt_error |> raise
+                  else 
                        match
-                         ( Asthelper.Program.is_c_type_from_ktype
-                             current_mod_name para_type.v prog,
-                           Asthelper.Program.is_c_type_from_ktype
-                             current_mod_name init_type.v prog )
+                         ( (Asthelper.Program.is_c_type_from_ktype
+                             current_mod_name para_type.v prog),
+                           (Asthelper.Program.is_c_type_from_ktype
+                             current_mod_name init_type.v prog) )
                        with
-                       | true, true ->
-                           if
-                             not
-                               (Ast.Type.are_compatible_type para_type.v init_type.v)
-                           then
-                             Uncompatible_type_Assign
-                               { expected = para_type.v; found = init_type }
-                             |> stmt_error |> raise
-                           else true
-                       | _ ->
-                           Ast.Error.Uncompatible_type_for_Syscall
-                             { syscall_decl }
-                           |> func_error |> raise)
-              then syscall_decl.return_type.v
+                       | true, true -> true
+                       | _, _ -> Ast.Error.Uncompatible_type_for_Syscall {index = Some i ; syscall_decl} |> func_error |> raise
+                        )
+              then (if Asthelper.Program.is_c_type_from_ktype current_mod_name syscall_decl.return_type.v prog then syscall_decl.return_type.v else  Ast.Error.Uncompatible_type_for_Syscall {index = None; syscall_decl} |> func_error |> raise )
               else Unknow_Function_Error |> func_error |> raise))
   | EBin_op (BAdd (lhs, rhs)) -> (
       let l_type = typeof ~generics_resolver env current_mod_name prog lhs in

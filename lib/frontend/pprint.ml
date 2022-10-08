@@ -353,10 +353,10 @@ let string_of_statement_error =
   let open Ast.Error in
   let open Printf in
   function
-  | Undefine_Identifier s -> sprintf "%s : Undefine Identifier : %s" (string_of_position_error s.name.position) (s.name.v)
+  | Undefine_Identifier s -> sprintf "%s : Undefine Identifier \"%s\"" (string_of_position_error s.name.position) (s.name.v)
   | Already_Define_Identifier s ->
       string_of_located_error s.name (sprintf "Identifier already defined : \"%s\"" s.name.v)
-  | Reassign_Constante s ->  string_of_located_error s.name (sprintf "Reassign a constant : %s" s.name.v)
+  | Reassign_Constante s ->  string_of_located_error s.name (sprintf "Reassign a constant \"%s\"" s.name.v)
   | Uncompatible_type_Assign s ->
     string_of_located_error s.found 
     (
@@ -392,15 +392,27 @@ let string_of_function_error =
       (record.found)
       (if record.found >= 2 then "were" else "was")
     )
-  | Uncompatible_type_for_C_Function recod ->
-      sprintf "Uncompatible_type_for_C_Function for %s "
-        (string_of_external_func_decl recod.external_func_decl)
-  | Uncompatible_type_for_Syscall record ->
-      sprintf "Uncompatible_type_for_Syscall for %s"
-        (string_of_syscall record.syscall_decl)
-  | Mismatched_Parameters_Type record ->
-      sprintf "Mismatched_Parameters_Type : %s"
-        (string_of_expected_found (`ktype (record.expected, record.found)))
+  | Uncompatible_type_for_C_Function {fn_name; ktype} ->
+    string_of_located_error ktype 
+    (sprintf "Function \"%s\", this expression has the type \"%s\" but is not compatible with a C type"
+    (fn_name.v)
+    (string_of_ktype ktype.v)
+    )
+  | Uncompatible_type_for_Syscall {index; syscall_decl} ->
+    let wrong_type = index |> Option.map (List.nth syscall_decl.parameters) |> Option.value ~default:syscall_decl.return_type in
+    string_of_located_error wrong_type (
+      sprintf "\"%s\" is not compatible with a C type and cannot be used in a signature of a system call"
+      (string_of_ktype wrong_type.v)
+      )
+  | Mismatched_Parameters_Type {fn_name; expected; found} ->
+    string_of_located_error found 
+    (sprintf "Function \"%s\", this expression has the type \"%s\" but an expression of the type \"%s\" was expected. \"%s\" and \"%s\" aren't compatible"
+    fn_name
+    (string_of_ktype expected)
+    (string_of_ktype found.v)
+    (string_of_ktype found.v)
+    (string_of_ktype expected)
+    )
   | Unknow_Function_Error -> "Unknow_Function_Error"
 
 let string_of_operator_error =
@@ -488,13 +500,18 @@ let string_of_built_in_func_error =
 
 let string_of_ast_error =
   let open Ast.Error in
-  let open Printf in
   function
   | Bin_operator_Different_type -> "Bin_operator_Different_type"
   | Wrong_Assoc_Length_for_Parametrics record ->
-      sprintf "Wrong_Assoc_Length_for_Parametrics for %s -> %s"
-        (string_of_ktype record.ktype)
-        (string_of_expected_found (`int (record.expected, record.found)))
+    string_of_located_error record.type_name (
+      sprintf "type \"%s\" expects %d parametric%s but %d %s given"
+      (record.type_name.v)
+      (record.expected)
+      (if record.expected > 1 then "s" else "")
+      (record.found)
+      (if record.expected > 1 then "was" else "were")
+    )
+
   | No_Occurence_found s -> sprintf "No Occurence found for %s" s
   | Too_Many_occurence_found s -> sprintf "Too_Many_occurence_found : %s" s
   | Undefined_Identifier s -> sprintf "%s : Undefined Identifier \"%s\"" (string_of_position_error s.position) s.v

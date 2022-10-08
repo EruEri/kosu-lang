@@ -240,6 +240,9 @@ module Program = struct
       | Ast.Type_Decl.Decl_Enum e -> e.generics
       | Ast.Type_Decl.Decl_Struct s -> s.generics
     in
+    let type_name = function
+    | Ast.Type_Decl.Decl_Enum e -> e.enum_name
+    | Ast.Type_Decl.Decl_Struct s -> s.struct_name in
     match ktype with
     | TType_Identifier { module_path = ktype_def_path; name = ktype_name } ->
       let type_decl =
@@ -251,7 +254,7 @@ module Program = struct
         let generics_len = type_decl |> type_generics |> List.length in
         if generics_len <> 0 then
           Wrong_Assoc_Length_for_Parametrics
-            { expected = generics_len; found = 0; ktype }
+            { type_name = type_decl |> type_name; expected = generics_len; found = 0 }
           |> Ast.Error.ast_error |> raise
         else type_decl |> Option.some
     | TParametric_identifier
@@ -266,7 +269,7 @@ module Program = struct
         let assoc_type = parametrics_type |> List.length in
         if generics_len <> assoc_type then
           Wrong_Assoc_Length_for_Parametrics
-            { expected = generics_len; found = assoc_type; ktype }
+            { type_name = type_decl |> type_name ;expected = generics_len; found = assoc_type }
           |> Ast.Error.ast_error |> raise
         else type_decl |> Option.some
     | _ -> None

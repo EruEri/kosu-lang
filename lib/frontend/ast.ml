@@ -297,10 +297,17 @@ module Error = struct
     | Unmatched_Parameters_length of { fn_name: string location; expected : int; found : int }
     | Unmatched_Generics_Resolver_length of { fn_name: string location; expected : int; found : int }
     | Uncompatible_type_for_C_Function of {
-        external_func_decl : external_func_decl;
+        fn_name: string location;
+        ktype: ktype location;
       }
-    | Uncompatible_type_for_Syscall of { syscall_decl : syscall_decl }
-    | Mismatched_Parameters_Type of { expected : ktype; found : ktype }
+    | Uncompatible_type_for_Syscall of {
+      index: int option;
+      syscall_decl : syscall_decl 
+    }
+    | Mismatched_Parameters_Type of { fn_name: string; 
+      expected : ktype; 
+      found : ktype location 
+    }
     | Unknow_Function_Error
 
   type operator_error =
@@ -350,9 +357,9 @@ module Error = struct
   type ast_error =
     | Bin_operator_Different_type
     | Wrong_Assoc_Length_for_Parametrics of {
+        type_name: string location;
         expected : int;
         found : int;
-        ktype : ktype;
       }
     | No_Occurence_found of string
     | Too_Many_occurence_found of string
