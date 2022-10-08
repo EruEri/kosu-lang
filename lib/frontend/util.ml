@@ -35,7 +35,7 @@ module Occurence = struct
     | [] -> Empty
     | [ t ] -> One t
     | t :: q -> Multiple (t :: q)
-    
+
   let find_occurence predicate list =
     match list |> List.find_all predicate with
     | [] -> Empty

@@ -15,11 +15,14 @@ module Error = struct
   type struct_error =
     | Unknown_type_for_field of string * ktype
     | SCyclic_Declaration of struct_decl
-    | SDuplicated_field of struct_decl
+    | SDuplicated_field of {
+      field: string location;
+      struct_decl: struct_decl
+      }
 
   type enum_error =
     | ECyclic_Declaration of enum_decl
-    | EDuplicated_variant_name of enum_decl
+    | EDuplicated_variant_name of {variant: string location; enum_decl: enum_decl}
 
   type operator_error =
     | Op_built_overload of ktype
@@ -429,8 +432,12 @@ module ValidateStruct = struct
 
   let is_field_duplicate struct_decl =
     struct_decl.fields
-    |> List.map (fun (field, _) -> field)
-    |> Util.ListHelper.duplicate |> Util.are_diff_lenght []
+    |> List.map (fun (field, _) -> field.v)
+    |> Util.ListHelper.duplicate |> (
+      function
+      | [] -> None
+      | t::_ -> Some t
+    )
 
   let is_valid_struct_decl program
       (current_module_name : string) (struct_decl : struct_decl) =
@@ -444,9 +451,12 @@ module ValidateStruct = struct
         |> Result.error
       else Ok () )
     >>= fun () ->
-    if is_field_duplicate struct_decl then
-      Error.SDuplicated_field struct_decl |> Error.struct_error |> Result.error
-    else Ok ()
+      
+    match is_field_duplicate struct_decl with
+    | None -> Ok ()
+    | Some field -> 
+      let located_field = struct_decl.fields |> List.find_all (fun (fie, _) -> fie.v = field ) |> List.rev |> List.hd |> fun (f, _) -> f  in
+      Error.SDuplicated_field {field = located_field; struct_decl} |> Error.struct_error |> Result.error
 end
 
 module ValidateEnum = struct
@@ -463,8 +473,12 @@ module ValidateEnum = struct
 
   let is_variant_duplicate enum_decl =
     enum_decl.variants
-    |> List.map (fun (s, _) -> s)
-    |> Util.ListHelper.duplicate |> Util.are_diff_lenght []
+    |> List.map (fun (s, _) -> s.v)
+    |> Util.ListHelper.duplicate |> (
+      function
+      | [] -> None
+      | t::_ -> Some t
+    )
 
   let is_valid_enum_decl program (current_module_name : string)
       (enum_decl : enum_decl) =
@@ -477,10 +491,11 @@ module ValidateEnum = struct
         Error.ECyclic_Declaration enum_decl |> Error.enum_error |> Result.error
       else Ok () )
     >>= fun () ->
-    if is_variant_duplicate enum_decl then
-      Error.EDuplicated_variant_name enum_decl |> Error.enum_error
-      |> Result.error
-    else Ok ()
+    match is_variant_duplicate enum_decl with
+    | None -> Ok ()
+    | Some vari -> 
+      let located_variant = enum_decl.variants |>  List.find_all (fun (variant, _) -> variant.v = vari ) |> List.rev |> List.hd |> fun (f, _) -> f in
+      Error.EDuplicated_variant_name {variant = located_variant; enum_decl} |> Error.enum_error |> Result.error
 end
 
 module ValidateFunction_Decl = struct

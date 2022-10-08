@@ -622,16 +622,26 @@ let string_of_struct_error =
     string_of_located_error struct_decl.struct_name (sprintf "Cyclic struct declaration for %s" struct_decl.struct_name.v)
     (* string_of_located_error (struct_decl.struct_name) (x) *)
       (* sprintf  *)
-  | SDuplicated_field struct_decl ->
-      sprintf "Struct Duplicated_field for %s" struct_decl.struct_name.v
+  | SDuplicated_field {field; struct_decl} ->
+      string_of_located_error field 
+      (
+        sprintf "field \"%s\" appears multiple type in \"%s\" declaration"
+        field.v
+        struct_decl.struct_name.v
+      )
 
 let string_of_enum_error =
   let open Printf in
   function
   | ECyclic_Declaration enum_decl ->
       sprintf " Enum_Cyclic_Declaration for %s" enum_decl.enum_name.v
-  | EDuplicated_variant_name enum_decl ->
-      sprintf "Enum_Duplicated_variant_name for %s" enum_decl.enum_name.v
+  | EDuplicated_variant_name {variant; enum_decl} ->
+    string_of_located_error variant 
+    (
+      sprintf "variant \"%s\" appears multiple type in \"%s\" declaration"
+      variant.v
+      enum_decl.enum_name.v
+    )
 
 let string_of_operator_error =
   let open Printf in
