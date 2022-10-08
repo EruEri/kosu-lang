@@ -276,12 +276,10 @@ end
 module Error = struct
   type struct_error =
     | Unexpected_field of { expected: string location; found : string location }
-    | Unexisting_field of string
     | Wrong_field_count of { location: position; expected : int; found : int }
 
   type enum_error =
     | Wrong_length_assoc_type of { expected : int; found : int }
-    | Uncompatible_type_in_variant of { variant_name : string }
 
   type statement_error =
     | Undefine_Identifier of { name : string location }
@@ -342,21 +340,20 @@ module Error = struct
     | Found_no_Integer of { fn_name : string; found : ktype }
 
   type switch_error =
-    | Not_enum_type_in_switch_Expression of ktype
-    | Not_fully_known_ktype of ktype
+    | Not_enum_type_in_switch_Expression of ktype location
+    | Not_fully_known_ktype of ktype location
     | Not_all_cases_handled of (string location * ktype location list) list
-    | Duplicated_case of string
-    | Variant_not_found of { enum_decl : enum_decl; variant : string }
+    | Duplicated_case of string location
+    | Variant_not_found of { enum_decl : enum_decl; variant : string location }
     | Mismatched_Assoc_length of {
-        variant : string;
+        variant : string location;
         expected : int;
         found : int;
       }
     | Incompatible_Binding of (string location * ktype location) list * (string location * ktype location) list
-    | Binded_identifier_already_exist of string
+    | Identifier_already_Bound of string location
 
   type ast_error =
-    | Bin_operator_Different_type
     | Wrong_Assoc_Length_for_Parametrics of {
         type_name: string location;
         expected : int;

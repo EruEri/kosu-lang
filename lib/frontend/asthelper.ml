@@ -632,6 +632,16 @@ module Switch_case = struct
     |> function
     | Multiple _ -> true
     | _ -> false
+
+  let cases_duplicated variant (switch_cases: t list) = 
+    let open Util.Occurence in
+    switch_cases
+    |> find_map_occurence (fun sc -> 
+      let vn_loc = sc |> variant_name in if vn_loc.v = variant then Some vn_loc else None)
+    |> function
+      | Multiple t -> Some (t |> List.rev |> List.hd)
+      | _ -> None
+    
 end
 
 module Enum = struct
@@ -764,14 +774,14 @@ module Enum = struct
     enum_decl.variants
     |> List.find_map (fun (variant_enum, assoc_types) ->
            if variant.v = variant_enum.v then Some (variant, assoc_types) else None)
-    |> Option.to_result ~none:(Variant_not_found { enum_decl; variant = variant.v })
+    |> Option.to_result ~none:(Variant_not_found { enum_decl; variant = variant })
     >>= fun (_, assoc_types) ->
     let assoc_len = assoc_types |> List.length in
     if assoc_len = given_len then Ok ()
     else
       Error
         (Mismatched_Assoc_length
-           { variant = variant.v; expected = assoc_len; found = given_len })
+           { variant = variant; expected = assoc_len; found = given_len })
 
   let is_all_cases_handled (switch_cases : switch_case list) (enum_decl : t) =
     let open Ast.Error in

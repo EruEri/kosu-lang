@@ -990,12 +990,12 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         typeof ~generics_resolver env current_mod_name prog expr
       in
       if expr_type |> Ast.Type.is_type_full_known |> not then
-        Not_fully_known_ktype expr_type |> switch_error |> raise
+        Not_fully_known_ktype (expr |> Position.map (fun _ -> expr_type)) |> switch_error |> raise
       else
         let module_path, name =
           expr_type |> Asthelper.module_path_of_ktype_opt |> function
           | None ->
-              Not_enum_type_in_switch_Expression expr_type |> switch_error
+              Not_enum_type_in_switch_Expression ( expr |> Position.map (fun _ -> expr_type)) |> switch_error
               |> raise
           | Some s -> s
         in
@@ -1006,7 +1006,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
               ~current_module:current_mod_name prog
           with
           | Ok(Type_Decl.Decl_Enum e) -> e
-          | Ok (Type_Decl.Decl_Struct _s) -> Not_enum_type_in_switch_Expression expr_type |> switch_error
+          | Ok (Type_Decl.Decl_Struct _s) -> Not_enum_type_in_switch_Expression ( expr |> Position.map (fun _ -> expr_type)) |> switch_error
           |> raise
           | Error e -> e |> ast_error |> raise
         in
@@ -1014,12 +1014,10 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         let () =
           enum_decl.variants
           |> List.iter (fun (variant_name, _) ->
-                 if
-                   Asthelper.Switch_case.is_cases_duplicated variant_name.v
-                     variant_cases
-                 then
-                   Ast.Error.Duplicated_case variant_name.v |> switch_error
-                   |> raise)
+            match Asthelper.Switch_case.cases_duplicated variant_name.v variant_cases with
+            | None -> ()
+            | Some duplicate -> Ast.Error.Duplicated_case duplicate |> switch_error |> raise
+          )  
         in
 
         let generics_mapped =
@@ -1068,18 +1066,18 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                             else acc)
                           (reduce_binded_variable_combine ass_bin)
                      |> List.map (fun (variable_name, ktype) ->
-                            ( variable_name.v,
+                            ( variable_name,
                               ({ is_const = true; ktype = ktype.v } : Env.variable_info)
                             ))
                      |> List.map (fun (binding_name, var_info) ->
-                            if env |> Env.is_identifier_exists binding_name then
-                              Binded_identifier_already_exist binding_name
+                            if env |> Env.is_identifier_exists binding_name.v then
+                              Identifier_already_Bound binding_name
                               |> switch_error |> raise
                             else (binding_name, var_info))
                    in
                    let _stmt, { v = _; position } = kb in
                    (typeof_kbody ~generics_resolver
-                     (env |> Env.push_context new_context)
+                     (env |> Env.push_context (new_context |> List.map Position.assoc_value_left))
                      current_mod_name prog kb), position)
         |> fun l ->
           match wildcard_case with

@@ -30,6 +30,12 @@ module Occurence = struct
     | Multiple _ -> raise Too_Many_Occurence
     | One f -> f
 
+  let find_map_occurence predicate list =
+    match list |> List.filter_map predicate with
+    | [] -> Empty
+    | [ t ] -> One t
+    | t :: q -> Multiple (t :: q)
+    
   let find_occurence predicate list =
     match list |> List.find_all predicate with
     | [] -> Empty

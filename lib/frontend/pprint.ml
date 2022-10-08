@@ -332,7 +332,6 @@ let string_of_struct_error =
   function
   | Unexpected_field { expected; found } ->
       sprintf "Unexpected_field -- expected : %s, found : %s --" expected.v found.v
-  | Unexisting_field s -> sprintf "Unexisting_field %s" s
   | Wrong_field_count record ->
       string_of_located_error 
       {v = true; position = record.location} 
@@ -346,8 +345,6 @@ let string_of_enum_error =
   | Wrong_length_assoc_type record ->
       sprintf "Wrong_length_assoc_type -- expected : %d, found : %d --"
         record.expected record.found
-  | Uncompatible_type_in_variant { variant_name } ->
-      sprintf "Uncompatible_type_in_variant : %s" variant_name
 
 let string_of_statement_error =
   let open Ast.Error in
@@ -447,15 +444,25 @@ let string_of_operator_error =
 
 let string_of_switch_error =
   let open Ast.Error in
-  let open Printf in
   function
-  | Duplicated_case name -> sprintf "Duplicated_case -- variant : %s --" name
+  | Duplicated_case name -> 
+    string_of_located_error name 
+    (
+      sprintf "case \"%s\" is duplicated"
+      name.v
+    )
   | Not_fully_known_ktype ktype ->
-      sprintf "Type of switch expr cannot be fully infered -- %s --"
-        (string_of_ktype ktype)
+    string_of_located_error ktype
+    (
+      sprintf "this expression has the type \"%s\" which is not fully unknown"
+      (string_of_ktype ktype.v)
+    )
   | Not_enum_type_in_switch_Expression e ->
-      sprintf "Not_enum_type_in_switch_Expression -- found : %s --"
-        (string_of_ktype e)
+    string_of_located_error e (
+      sprintf "This expression has the type \"%s\" but \"%s\" is not an enum"
+      (string_of_ktype e.v)
+      (string_of_ktype e.v)
+    )
   | Not_all_cases_handled missing_cases ->
       sprintf "Not_all_cases_handled : missing cases :\n  %s"
         (missing_cases
@@ -465,10 +472,21 @@ let string_of_switch_error =
                   (kts |> List.map string_of_ktype |> String.concat ", "))
         |> String.concat "\n  ")
   | Variant_not_found { enum_decl; variant } ->
-      sprintf "Variant_not_found %s in %s" variant enum_decl.enum_name.v
+    string_of_located_error variant 
+    (
+      sprintf "enum \"%s\" doesn't contains the case \"%s\""
+      enum_decl.enum_name.v
+      variant.v
+    )
   | Mismatched_Assoc_length { variant; expected; found } ->
-      sprintf "Mismatched_Assoc_length variant %s %s" variant
-        (string_of_expected_found (`int (expected, found)))
+    string_of_located_error variant 
+    (sprintf "case \"%s\" expects %d associated values but %d %s provided"
+    variant.v
+    expected
+    found
+    (if found > 1 then "were" else "was")
+    )
+
   | Incompatible_Binding (lhs, rhs) ->
       sprintf "Incompatible_Binding between: \n-> %s\n-> %s"
         (lhs
@@ -479,8 +497,12 @@ let string_of_switch_error =
         |> List.map (fun (id, ktype) ->
                 sprintf "%s: %s" id.v (string_of_ktype ktype.v))
         |> String.concat ", ")
-  | Binded_identifier_already_exist s ->
-      sprintf "Binded_identifier_already_exist_in_env : %s" s
+  | Identifier_already_Bound s ->
+    string_of_located_error s 
+    (
+      sprintf "variable \"%s\" is already bound"
+      s.v
+    )
 
 let string_of_built_in_func_error =
   let open Ast.Error in
@@ -501,7 +523,6 @@ let string_of_built_in_func_error =
 let string_of_ast_error =
   let open Ast.Error in
   function
-  | Bin_operator_Different_type -> "Bin_operator_Different_type"
   | Wrong_Assoc_Length_for_Parametrics record ->
     string_of_located_error record.type_name (
       sprintf "type \"%s\" expects %d parametric%s but %d %s given"
