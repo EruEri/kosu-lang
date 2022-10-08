@@ -82,7 +82,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
             raise
               (ast_error
                  (Ast.Error.Uncompatible_type
-                    { expected = kt; found = final_expr_type }))
+                    { expected = kt; found = { v = final_expr_type; position = final_expr.position } }))
           else kt)
 
 (**
@@ -206,7 +206,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let init_types =
         fields
         |> List.map (fun (s, expr) ->
-               (s, typeof ~generics_resolver env current_mod_name prog expr))
+               (s,  (expr |> Position.map_use (fun expr_loc -> typeof ~generics_resolver env current_mod_name prog expr_loc)) ))
       in
       List.combine init_types struct_decl.fields
       |> List.iter
@@ -220,7 +220,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                        { expected = struct_field_name; found = init_field_name }));
              if
                Asthelper.Struct.is_type_compatible_hashgen generic_table
-                 init_type expected_typed.v struct_decl
+                 init_type.v expected_typed.v struct_decl
                |> not
              then
                Ast.Error.Uncompatible_type
@@ -245,7 +245,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
              Hashtbl.add hashtbl generic_name.v (i, TUnknow));
       let init_types =
         assoc_exprs
-        |> List.map (typeof ~generics_resolver env current_mod_name prog)
+        |> List.map ( Position.map_use(typeof ~generics_resolver env current_mod_name prog))
       in
       let () =
         enum_decl.variants
@@ -264,14 +264,14 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                     found = assoc_exprs |> List.length;
                   }))
         else
-          assoc_types |> List.map Position.value |> List.combine init_types
+          assoc_types |> List.combine init_types
           |> List.iter (fun (init, expected) ->
                  match
-                   Asthelper.Enum.is_type_compatible_hashgen hashtbl init
-                     expected enum_decl
+                   Asthelper.Enum.is_type_compatible_hashgen hashtbl init.v
+                     expected.v enum_decl
                  with
                  | false ->
-                     Uncompatible_type { expected; found = init }
+                     Uncompatible_type { expected = expected.v; found = init }
                      |> ast_error |> raise
                  | true -> ())
       in
@@ -306,21 +306,22 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       cases
       |> List.map (fun (expr, kbody) ->
              let expr_type =
-               typeof ~generics_resolver env current_mod_name prog expr
+               expr |> Position.map_use(typeof ~generics_resolver env current_mod_name prog)
              in
-             if expr_type <> TBool then
+             if expr_type.v <> TBool then
                raise
-                 (ast_error (Not_Boolean_Type_Condition { found = expr |> Position.map (fun _ -> expr_type) }))
+                 (ast_error (Not_Boolean_Type_Condition { found = expr_type }))
              else
-               typeof_kbody ~generics_resolver
+              let _stmts, { v = _; position} = kbody in
+               (typeof_kbody ~generics_resolver
                  (env |> Env.push_context [])
-                 current_mod_name prog kbody)
+                 current_mod_name prog kbody), position )
       |> List.fold_left
-           (fun acc new_type ->
+           (fun acc (new_type, position) ->
              if not (Type.are_compatible_type acc new_type) then
                raise
                  (ast_error
-                    (Uncompatible_type { expected = acc; found = new_type }))
+                    (Uncompatible_type { expected = acc; found = {v = new_type; position} }))
              else Type.restrict_type acc new_type)
            (typeof_kbody ~generics_resolver
               (env |> Env.push_context [])
@@ -1061,7 +1062,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                             let reduced_binding =
                               reduce_binded_variable_combine value
                             in
-                            if acc <> reduced_binding then
+                            if acc |> Ast.Type.equal_fields reduced_binding |> not then
                               Incompatible_Binding (acc, reduced_binding)
                               |> switch_error |> raise
                             else acc)
@@ -1076,25 +1077,27 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                               |> switch_error |> raise
                             else (binding_name, var_info))
                    in
-                   typeof_kbody ~generics_resolver
+                   let _stmt, { v = _; position } = kb in
+                   (typeof_kbody ~generics_resolver
                      (env |> Env.push_context new_context)
-                     current_mod_name prog kb)
+                     current_mod_name prog kb), position)
         |> fun l ->
           match wildcard_case with
           | None -> l
           | Some wild ->
+            let _stmt, { v = _; position } = wild in
               let wildcard_type =
                 typeof_kbody ~generics_resolver env current_mod_name prog wild
               in
-              wildcard_type :: l )
+              (wildcard_type, position) :: l )
         |> function
         | [] -> failwith "unreachable case: empty kbody"
-        | t :: q ->
+        | (t, _) :: q ->
             q
             |> List.fold_left
-                 (fun acc case_type ->
+                 (fun acc (case_type, position) ->
                    if not (Type.are_compatible_type acc case_type) then
-                     Uncompatible_type { expected = acc; found = case_type }
+                     Uncompatible_type { expected = acc; found = {v = case_type; position = position} }
                      |> ast_error |> raise
                    else Type.restrict_type acc case_type)
                  t)

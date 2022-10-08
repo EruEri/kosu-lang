@@ -376,7 +376,7 @@ module Error = struct
     | Operator_Error of operator_error
     | Switch_error of switch_error
     | Builtin_Func_Error of builtin_func_error
-    | Uncompatible_type of { expected : ktype; found : ktype }
+    | Uncompatible_type of { expected : ktype; found : ktype location }
     | Uncompatible_type_If_Else of { position: unit location; if_type : ktype; else_type : ktype }
     | Not_Boolean_Type_Condition of { found : ktype location }
     | Impossible_field_Access of { field: string location; struct_decl: struct_decl }
@@ -495,6 +495,11 @@ module Type = struct
       Util.are_same_lenght t1 t2 && 
       List.combine t1 t2 |> List.map Position.assocs_value |> List.for_all (fun (k1,k2) -> are_compatible_type k1 k2) 
     | _, _ -> (=?) lhs rhs
+
+let equal_fields = 
+  List.for_all2 (fun ((lfield: string location), lktype) (rfield, rtype) -> 
+    lfield.v = rfield.v && (=?) lktype.v rtype.v
+  )
 
   let rec module_path_return_type ~(current_module: string) ~(module_type_path: string) return_type
       =

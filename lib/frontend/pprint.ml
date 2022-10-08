@@ -526,9 +526,14 @@ let string_of_ast_error =
   | Operator_Error e -> string_of_operator_error e
   | Switch_error e -> string_of_switch_error e
   | Builtin_Func_Error e -> string_of_built_in_func_error e
-  | Uncompatible_type e ->
-      sprintf "Uncompatible_type %s"
-        (string_of_expected_found (`ktype (e.expected, e.found)))
+  | Uncompatible_type {expected; found } ->
+    string_of_located_error found (
+      sprintf "this expression has the type \"%s\" but an expression of type \"%s\" was expected, \"%s\" and \"%s\" aren't compatible"
+      (string_of_ktype found.v)
+      (string_of_ktype expected)
+      (string_of_ktype expected)
+      (string_of_ktype found.v)
+    )
   | Uncompatible_type_If_Else e ->
     string_of_located_error 
     e.position 
