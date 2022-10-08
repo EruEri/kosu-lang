@@ -476,6 +476,22 @@ module Type = struct
     List.combine t1 t2 |> List.map Position.assocs_value |> List.for_all (fun (k1,k2) -> (=?) k1 k2) 
   | _, _ -> lhs = rhs
 
+  let rec extract_mapped_ktype generics ktype = 
+    match ktype with
+    | TType_Identifier { module_path = { v = ""; _}; name }
+    -> (try
+       let _, kt = Hashtbl.find generics name.v in
+       kt
+      with _ -> ktype)
+    | TParametric_identifier { module_path; parametrics_type; name} -> 
+      TParametric_identifier {
+        module_path;
+        parametrics_type = parametrics_type |> List.map (Position.map (extract_mapped_ktype generics));
+        name;
+      }
+    | TTuple kts -> kts |> List.map (Position.map (extract_mapped_ktype generics)) |> ktuple
+    | _ -> ktype 
+
   let rec are_compatible_type (lhs : ktype) (rhs : ktype) =
     match (lhs, rhs) with
     | ( TParametric_identifier

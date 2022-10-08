@@ -409,7 +409,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                      Mismatched_Parameters_Type
                        { 
                         fn_name = fn_name.v;
-                        expected = para_type.v; 
+                        expected = para_type |> Position.map (Ast.Type.extract_mapped_ktype hashtal) |> Position.value; 
                         found = init_type 
                       }
                      |> func_error |> raise);
