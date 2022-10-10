@@ -36,8 +36,14 @@ module Error = struct
 
   type function_error =
     | Wrong_signature_for_main
-    | Duplicated_parameters of function_decl
-    | Function_Unit_parameter of function_decl
+    | Duplicated_parameters of {
+      duplicatated_field: string location;
+      function_decl: function_decl
+    }
+    | Function_Unit_parameter of {
+      field: string location;
+      function_decl: function_decl
+      }
 
   type module_error =
     | Duplicate_function_name of string
@@ -507,21 +513,31 @@ module ValidateFunction_Decl = struct
     && function_decl.parameters = []
     && function_decl.generics = []
 
-  let check_parameters_duplicate (function_decl : function_decl) =
-    if
+  let check_parameters_duplicate (function_decl : function_decl) = 
+    function_decl.parameters 
+      |> List.map (fun (field, _ ) -> field.v)
+      |> Util.ListHelper.duplicate 
+      |> (function
+      | [] -> Ok ()
+      | t::_ -> let duplicate = function_decl.parameters |> List.find_all (fun (field, _) -> field.v = t) |>  List.rev |> List.hd |> fun (f, _) -> f in
+      Error.Duplicated_parameters {duplicatated_field = duplicate; function_decl} |> Error.function_error |> Result.error
+      )
+    (* if
       function_decl.parameters
       |> List.map (fun (field, _) -> field)
       |> Util.ListHelper.duplicate |> Util.are_diff_lenght []
     then
       Error.Duplicated_parameters function_decl |> Error.function_error
       |> Result.error
-    else Ok ()
+    else Ok () *)
 
   let check_unit_parameters (function_decl : function_decl) =
-    if function_decl.parameters |> List.exists (fun (_, kt) -> kt.v = TUnit) then
-      Error.Function_Unit_parameter function_decl |> Error.function_error
-      |> Result.error
-    else Ok ()
+    function_decl.parameters |> List.find_map (fun (field, kt) -> if kt.v = TUnit then Some field else None)
+    |> Option.fold ~none:(Ok ()) ~some:(fun field ->
+       Error.Function_Unit_parameter {field; function_decl } 
+       |> Error.function_error
+       |> Result.error
+    )
 
   let is_all_type_exist current_module program function_decl =
     function_decl.parameters

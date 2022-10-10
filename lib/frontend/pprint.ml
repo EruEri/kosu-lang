@@ -663,10 +663,20 @@ let string_of_function_error =
   let open Printf in
   function
   | Wrong_signature_for_main -> sprintf "Wrong_signature_for_main"
-  | Duplicated_parameters function_decl ->
-      sprintf "Duplicate name parameters for %s" function_decl.fn_name.v
-  | Function_Unit_parameter function_decl ->
-      sprintf "Function_Unit_parameter : %s" function_decl.fn_name.v
+  | Duplicated_parameters {duplicatated_field; function_decl} ->
+    string_of_located_error duplicatated_field 
+    (sprintf "Function \"%s\", parameter \"%s\" is duplicated"
+      function_decl.fn_name.v
+      duplicatated_field.v
+    )
+  | Function_Unit_parameter {field; function_decl} ->
+    string_of_located_error field
+    (sprintf 
+      "Function \"%s\",  parameter \"%s\" has the type \"%s\", which is forbidden"
+      function_decl.fn_name.v
+      field.v
+      (string_of_ktype TUnit)
+    )
 
 let string_of_module_error =
   let open Printf in
