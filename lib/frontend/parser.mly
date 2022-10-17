@@ -355,7 +355,7 @@ expr:
             else_case
         }
     }
-    | IF located(expr) kbody ELSE kbody  {
+    | IF delimited(LPARENT, located(expr), RPARENT) kbody ELSE kbody  {
         EIf (
             $2, 
             $3, 
