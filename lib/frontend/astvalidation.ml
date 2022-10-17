@@ -78,7 +78,7 @@ module Error = struct
 end
 
 module Help = struct
-  let is_ktype_exist current_module program ktype =
+  (* let is_ktype_exist generics current_module program ktype =
     try
       let _ =
         Asthelper.Program.find_type_decl_from_true_ktype ktype current_module
@@ -90,13 +90,13 @@ module Help = struct
         Error.No_Type_decl_found ktype |> Result.error
     | Util.Occurence.Too_Many_Occurence ->
         Error.Too_many_type_decl ktype |> Result.error
-    | Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error
+    | Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error *)
 
-  let is_ktype_exist_from_ktype current_module program ktype =
+  let is_ktype_exist_from_ktype generics current_module program ktype =
     try
       let _ =
-        Asthelper.Program.find_type_decl_from_true_ktype ktype current_module
-          program
+        Asthelper.Program.find_type_decl_from_true_ktype ~generics ktype current_module
+          program 
       in
       Ok ()
     with
@@ -432,7 +432,7 @@ module ValidateStruct = struct
            if Asthelper.Struct.is_ktype_generic_level_zero kt.v struct_decl then
              None
            else
-             match Help.is_ktype_exist current_module program kt.v with
+             match Help.is_ktype_exist_from_ktype struct_decl.generics current_module program kt.v with
              | Ok () -> None
              | Error e -> Some e)
 
@@ -473,7 +473,7 @@ module ValidateEnum = struct
     |> List.find_map (fun kt ->
            if Asthelper.Enum.is_ktype_generic_level_zero kt.v enum_decl then None
            else
-             match Help.is_ktype_exist current_module program kt.v with
+             match Help.is_ktype_exist_from_ktype enum_decl.generics current_module program kt.v with
              | Ok () -> None
              | Error e -> Some e)
 
@@ -534,7 +534,7 @@ module ValidateFunction_Decl = struct
   let check_unit_parameters (function_decl : function_decl) =
     function_decl.parameters |> List.find_map (fun (field, kt) -> if kt.v = TUnit then Some field else None)
     |> Option.fold ~none:(Ok ()) ~some:(fun field ->
-       Error.Function_Unit_parameter {field; function_decl } 
+       Error.Function_Unit_parameter {field; function_decl} 
        |> Error.function_error
        |> Result.error
     )
@@ -545,7 +545,7 @@ module ValidateFunction_Decl = struct
            if Asthelper.Function.is_ktype_generic_level_zero kt.v function_decl
            then None
            else
-             match Help.is_ktype_exist current_module program kt.v with
+             match Help.is_ktype_exist_from_ktype function_decl.generics current_module program kt.v with
              | Ok () -> None
              | Error e -> Some e)
 
@@ -592,10 +592,10 @@ module ValidateOperator_Decl = struct
     let first_kt =
       Asthelper.ParserOperator.first_parameter_ktype operator_decl
     in
-    Help.is_ktype_exist_from_ktype current_module program first_kt.v >>= fun () ->
+    Help.is_ktype_exist_from_ktype [] current_module program first_kt.v >>= fun () ->
     match Asthelper.ParserOperator.second_parameter_ktype operator_decl with
     | None -> Ok ()
-    | Some kt -> Help.is_ktype_exist_from_ktype current_module program kt.v
+    | Some kt -> Help.is_ktype_exist_from_ktype [] current_module program kt.v
 
   let check_parameters operator_decl =
     let open Ast.Type in

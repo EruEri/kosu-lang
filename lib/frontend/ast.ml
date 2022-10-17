@@ -410,7 +410,6 @@ module Type = struct
   let rec set_module_path generics new_module_name = function
     | TType_Identifier { module_path = {v = ""; position}; name }
       when generics |> List.map Position.value |> List.mem name.v |> not ->
-        Printf.printf "Generic ? : %s\n" name.v;
         TType_Identifier { module_path = { v = new_module_name; position}; name }
     | TParametric_identifier { module_path; parametrics_type; name } ->
         TParametric_identifier

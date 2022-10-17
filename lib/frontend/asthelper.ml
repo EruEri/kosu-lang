@@ -235,7 +235,7 @@ module Program = struct
       @return type_decl if ktype came from a type declaration, [None] if ktype is a builtin type
       @raise Ast_error: if length of assoc_type is not the same as the length of the generic of the type declaration found
     *)
-  let find_type_decl_from_true_ktype ktype current_module program =
+  let rec find_type_decl_from_true_ktype ?(generics = []) ktype current_module program =
     let type_generics = function
       | Ast.Type_Decl.Decl_Enum e -> e.generics
       | Ast.Type_Decl.Decl_Struct s -> s.generics
@@ -245,6 +245,8 @@ module Program = struct
     | Ast.Type_Decl.Decl_Struct s -> s.struct_name in
     match ktype with
     | TType_Identifier { module_path = ktype_def_path; name = ktype_name } ->
+      if ktype_def_path.v = "" &&  generics |> List.exists (fun gl -> gl.v = ktype_name.v) then None
+      else
       let type_decl =
         match find_type_decl_from_ktype ~ktype_def_path:ktype_def_path ~ktype_name: ktype_name ~current_module
           program with
@@ -257,8 +259,12 @@ module Program = struct
             { type_name = type_decl |> type_name; expected = generics_len; found = 0 }
           |> Ast.Error.ast_error |> raise
         else type_decl |> Option.some
+    
     | TParametric_identifier
         { module_path = ktype_def_path; parametrics_type; name = ktype_name } ->
+        let _ = parametrics_type |> List.iter (fun ktl -> 
+          let _ = find_type_decl_from_true_ktype ~generics ktl.v current_module program in ()
+        ) in
         let type_decl =
           match find_type_decl_from_ktype ~ktype_def_path:ktype_def_path ~ktype_name: ktype_name ~current_module
             program with
@@ -272,6 +278,8 @@ module Program = struct
             { type_name = type_decl |> type_name ;expected = generics_len; found = assoc_type }
           |> Ast.Error.ast_error |> raise
         else type_decl |> Option.some
+    | TPointer kt -> find_type_decl_from_true_ktype ~generics kt.v current_module program
+    | TTuple kts -> kts |> List.iter (fun kt -> let _ = find_type_decl_from_true_ktype ~generics kt.v current_module program in () ); None
     | _ -> None
 
   (**
