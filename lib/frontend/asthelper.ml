@@ -699,12 +699,12 @@ module Enum = struct
                        kt )
                  in
                  true
-               else find_kt = kt ->
+               else Ast.Type.(=?) find_kt kt ->
         true
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
         enum_decl.generics |> List.map Position.value |> List.mem exp_name.v
-        || (init_path = exp_path && init_name = exp_name)
+        || (init_path.v = exp_path.v && init_name.v = exp_name.v)
     | ( TParametric_identifier
           {
             module_path = init_path;
@@ -715,7 +715,7 @@ module Enum = struct
           { module_path = exp_path; parametrics_type = exp_pt; name = exp_name }
       ) ->
         if
-          init_path <> exp_path || init_name <> exp_name
+          init_path.v <> exp_path.v || init_name.v <> exp_name.v
           || List.compare_lengths init_pt exp_pt <> 0
         then false
         else
@@ -997,7 +997,7 @@ module Struct = struct
                  in
                  true
                else false
-           | Some (_, find_kt) -> find_kt = kt ->
+           | Some (_, find_kt) -> Ast.Type.(=?) find_kt kt ->
         true
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
@@ -1031,7 +1031,7 @@ module Struct = struct
                  struct_decl)
              (lhs |> List.map value) (rhs |> List.map value)
     | TUnknow, _ -> true
-    | lhs, rhs -> lhs = rhs
+    | lhs, rhs -> Ast.Type.(=?) lhs rhs
 
   let to_ktype_hash generics module_def_path (struct_decl : t) =
     if struct_decl.generics = [] then

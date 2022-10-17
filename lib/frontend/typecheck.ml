@@ -2,6 +2,38 @@ open Ast
 open Ast.Error
 open Position
 
+let char_of_signedness = function Signed -> 's' | Unsigned -> 'u'
+
+let string_of_isize = function
+  | I8 -> "8"
+  | I16 -> "16"
+  | I32 -> "32"
+  | I64 -> "64"
+
+let rec string_of_ktype = let open Printf in function
+| TParametric_identifier { module_path; parametrics_type; name } ->
+    sprintf "(%s)%s %s"
+      (parametrics_type |> List.map (fun s -> string_of_ktype s.v) |> String.concat ", ")
+      module_path.v name.v
+| TType_Identifier { module_path; name } ->
+    sprintf "%s%s"
+      (if module_path.v = "" then "" else sprintf "%s::" module_path.v)
+      name.v
+| TInteger (sign, size) ->
+    sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
+| TPointer ktype -> sprintf "*%s" (string_of_ktype ktype.v)
+| TTuple ktypes ->
+    sprintf "(%s)" (ktypes |> List.map (fun s -> string_of_ktype s.v) |> String.concat ", ")
+| TFunction (parameters, r_type) ->
+    sprintf "(%s) -> %s"
+      (parameters |> List.map (fun s -> string_of_ktype s.v) |> String.concat ", ")
+      (string_of_ktype r_type.v)
+| TString_lit -> "stringl"
+| TBool -> "bool"
+| TUnit -> "unit"
+| TUnknow -> "unknow"
+| TFloat -> "f64"
+
 (**
   Return the type of the code block expression by checking each expression in this one
   @raise Ast_error

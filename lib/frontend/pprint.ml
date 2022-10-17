@@ -662,7 +662,11 @@ let string_of_operator_error =
 let string_of_function_error =
   let open Printf in
   function
-  | Wrong_signature_for_main -> sprintf "Wrong_signature_for_main"
+  | Wrong_signature_for_main function_decl -> 
+    string_of_located_error function_decl.fn_name (
+      sprintf "Function \"%s\", this function doesn't have a valid signature for a main function"
+      function_decl.fn_name.v
+    )
   | Duplicated_parameters {duplicatated_field; function_decl} ->
     string_of_located_error duplicatated_field 
     (sprintf "Function \"%s\", parameter \"%s\" is duplicated"

@@ -35,7 +35,7 @@ module Error = struct
       }
 
   type function_error =
-    | Wrong_signature_for_main
+    | Wrong_signature_for_main of function_decl
     | Duplicated_parameters of {
       duplicatated_field: string location;
       function_decl: function_decl
@@ -552,7 +552,7 @@ module ValidateFunction_Decl = struct
   let check_main_sig function_decl =
     if not (is_main_function function_decl) then Ok ()
     else if is_valid_main_sig function_decl then Ok ()
-    else Wrong_signature_for_main |> Error.function_error |> Result.error
+    else Wrong_signature_for_main function_decl |> Error.function_error |> Result.error
 
   let check_kbody current_module program (function_decl : function_decl) =
     let hashtbl =
@@ -707,7 +707,7 @@ module ValidateModule = struct
                | None ->
                    if is_main_valid_sig then () |> Option.some |> Result.ok
                    else
-                     Wrong_signature_for_main |> Error.function_error
+                     Wrong_signature_for_main function_decl |> Error.function_error
                      |> Result.error
                | Some _ ->
                    Duplicate_function_name function_decl.fn_name.v
