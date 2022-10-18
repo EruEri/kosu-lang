@@ -41,6 +41,8 @@ let map_use f location = {
 
 let value {v; _} = v
 
+let position {position; _} = position
+
 let assocs_value ({v = v1; _}, {v = v2; _}) = v1, v2
 
 let assoc_value_left ({v = v1; _}, v ) = v1, v

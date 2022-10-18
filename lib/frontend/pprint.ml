@@ -12,6 +12,26 @@ let string_of_isize = function
   | I32 -> "32"
   | I64 -> "64"
 
+let located_symbole_of_operator = function
+  | Unary {op; _} -> op |> Position.map (function
+      | PNot -> "!"
+      | PUMinus -> "(-.)"
+  )
+  | Binary {op; _} -> op |> Position.map (function
+  | Add -> "+"
+  | Minus -> "-"
+  | Mult -> "*"
+  | Div -> "/"
+  | Modulo -> "%"
+  | BitwiseAnd -> "&"
+  | BitwiseOr -> "|"
+  | BitwiseXor -> "^"
+  | ShiftLeft -> "<<"
+  | ShiftRight -> ">>"
+  | Sup -> ">"
+  | Inf -> "<"
+  | Equal -> "=="
+  )
 let string_of_position_error {start_position; end_position} = 
   let start_position_line, start_position_column = line_column_of_position start_position in
   let end_position_line, end_position_column = line_column_of_position end_position in
@@ -343,8 +363,14 @@ let string_of_enum_error =
   let open Printf in
   function
   | Wrong_length_assoc_type record ->
-      sprintf "Wrong_length_assoc_type -- expected : %d, found : %d --"
-        record.expected record.found
+    string_of_located_error record.variant (
+      sprintf "variant \"%s\" expects %d associated value%s but %d %s provided"
+      record.variant.v
+      record.expected
+      (if record.expected > 1 then "s" else "")
+      record.found
+      (if record.expected > 1 then "were" else "was")
+    )
 
 let string_of_statement_error =
   let open Ast.Error in
@@ -418,29 +444,65 @@ let string_of_operator_error =
   let open Ast.OperatorFunction in
   function
   | Invalid_pointer_arithmetic kt ->
-      sprintf "Invalid_pointer_arithmetic with %s" (string_of_ktype kt)
+    string_of_located_error kt (
+      sprintf "this expression has the type \"%s\", which cannot be used in pointer arithmetic"
+      (string_of_ktype kt.v)
+    )
   | No_built_in_op record ->
-      sprintf "No_built \" %s \" for -- %s --"
-        (name_of_operator record.bin_op)
-        (record.ktype |> string_of_ktype)
-  | Incompatible_Type record ->
-      sprintf "Incompatible_Type for \" %s \" -- lhs = %s : rhs = %s --"
-        (record.bin_op |> name_of_operator)
-        (record.lhs |> string_of_ktype)
-        (record.rhs |> string_of_ktype)
-  | Operator_not_found record ->
-      sprintf "No operator \" %s \" for -- %s --"
+      string_of_located_error record.ktype (
+        sprintf "Builtin type \"%s\" doesn't implement the operator \"%s\""
+        (string_of_ktype record.ktype.v)
         (symbole_of_operator record.bin_op)
-        (record.ktype |> string_of_ktype)
-  | Too_many_operator_declaration record ->
-      sprintf "Too many \" %s \" declaration for %s "
-        (name_of_operator record.bin_op)
-        (record.ktype |> string_of_ktype)
-  | Not_Boolean_operand_in_And -> "Not_Boolean_operand_in_And"
-  | Not_Boolean_operand_in_Or -> "Not_Boolean_operand_in_Or"
+      )
+  | Incompatible_Type {bin_op; expr_loc; lhs; rhs} ->
+
+    string_of_located_error expr_loc 
+    (
+      sprintf "left operande has the type \"%s\" but the right one has the type \"%s\". \"%s\" and \"%s\" aren't compatible for operator \"%s\""
+      (string_of_ktype lhs.v)
+      (string_of_ktype rhs.v)
+      (string_of_ktype lhs.v)
+      (string_of_ktype rhs.v)
+      (symbole_of_operator bin_op)
+    )
+  | Operator_not_found record ->
+    string_of_located_error record.ktype (
+      sprintf "Type \"%s\" doesn't implement the operator \"%s\""
+      (string_of_ktype record.ktype.v)
+      (symbole_of_operator record.bin_op)
+    )
+  | Too_many_operator_declaration {operator_decls; bin_op; ktype} ->
+    string_of_located_error ktype (
+      sprintf "Type \"%s\" defines to many times the operator \"%s\". Redefinition occures here [%s]"
+      (string_of_ktype ktype.v)
+      (symbole_of_operator bin_op)
+      (operator_decls 
+      |> List.map ( fun decl -> decl 
+        |> located_symbole_of_operator 
+        |> Position.position
+        |> string_of_position_error)
+      |> String.concat ", "
+      ) 
+    )
+  | Not_Boolean_operand_in_And kt -> 
+    string_of_located_error kt (
+      sprintf "this expression has the type \"%s\", but an expression of type \"%s\" was expected in operator \"%s\""
+      (string_of_ktype kt.v)
+      (string_of_ktype TBool)
+      (symbole_of_operator And)
+    )
+  | Not_Boolean_operand_in_Or kt ->     
+    string_of_located_error kt (
+    sprintf "this expression has the type \"%s\", but an expression of type \"%s\" was expected in operator \"%s\""
+    (string_of_ktype kt.v)
+    (string_of_ktype TBool)
+    (symbole_of_operator Or)
+  )
   | Invalid_Uminus_for_Unsigned_integer size ->
-      sprintf "Invalid_Uminus_for_Unsigned_integer for u%s"
-        (string_of_isize size)
+    string_of_located_error size (
+      sprintf "Cannot use unary minus for unsigned integer: \"%s\""
+      (string_of_ktype (TInteger (Ast.Unsigned, size.v)))
+    )
 
 let string_of_switch_error =
   let open Ast.Error in

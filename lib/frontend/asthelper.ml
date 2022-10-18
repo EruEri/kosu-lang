@@ -1394,7 +1394,6 @@ module ParserOperator = struct
         (`unary op, field :: [], return_type)
     | Binary { op; fields = t1, t2; return_type; kbody = _ } ->
         (`binary op, [ t1; t2 ], return_type)
-
   let rename_parameter_explicit_module new_module_path = function
     | Unary unary ->
         let p1, k1 = unary.field in

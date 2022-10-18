@@ -279,7 +279,7 @@ module Error = struct
     | Wrong_field_count of { location: position; expected : int; found : int }
 
   type enum_error =
-    | Wrong_length_assoc_type of { expected : int; found : int }
+    | Wrong_length_assoc_type of { variant: string location; expected : int; found : int }
 
   type statement_error =
     | Undefine_Identifier of { name : string location }
@@ -310,24 +310,26 @@ module Error = struct
     | Unknow_Function_Error
 
   type operator_error =
-    | Invalid_pointer_arithmetic of ktype
-    | No_built_in_op of { bin_op : OperatorFunction.operator; ktype : ktype }
+    | Invalid_pointer_arithmetic of ktype location
+    | No_built_in_op of { bin_op : OperatorFunction.operator; ktype : ktype location }
     | Incompatible_Type of {
         bin_op : OperatorFunction.operator;
-        lhs : ktype;
-        rhs : ktype;
+        expr_loc: kexpression location;
+        lhs : ktype location;
+        rhs : ktype location;
       }
     | Operator_not_found of {
         bin_op : OperatorFunction.operator;
-        ktype : ktype;
+        ktype : ktype location;
       }
     | Too_many_operator_declaration of {
+        operator_decls: operator_decl list;
         bin_op : OperatorFunction.operator;
-        ktype : ktype;
+        ktype : ktype location;
       }
-    | Not_Boolean_operand_in_And
-    | Not_Boolean_operand_in_Or
-    | Invalid_Uminus_for_Unsigned_integer of isize
+    | Not_Boolean_operand_in_And of ktype location
+    | Not_Boolean_operand_in_Or of ktype location
+    | Invalid_Uminus_for_Unsigned_integer of isize location
 
   type builtin_func_error =
     | Unknow_built_function of string location
