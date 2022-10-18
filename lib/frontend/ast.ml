@@ -335,11 +335,11 @@ module Error = struct
     | Unknow_built_function of string location
     | Wrong_parameters of { fn_name : string; expected : ktype; found : ktype }
     | Mismatched_Parameters_Length of {
-        fn_name : string;
+        fn_name : string location;
         expected : int;
         found : int;
       }
-    | Found_no_Integer of { fn_name : string; found : ktype }
+    | Found_no_Integer of { fn_name : string location; found : ktype }
 
   type switch_error =
     | Not_enum_type_in_switch_Expression of ktype location

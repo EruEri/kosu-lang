@@ -576,12 +576,20 @@ let string_of_built_in_func_error =
       sprintf "Wrong_parameters for %s : %s" fn_name
         (string_of_expected_found (`ktype (expected, found)))
   | Mismatched_Parameters_Length { fn_name; expected; found } ->
-      sprintf "Mismatched_Parameters_Length for %s : %s" fn_name
-        (string_of_expected_found (`int (expected, found)))
+    string_of_located_error fn_name (
+      sprintf "Builtin function \"%s\" expects %d argument%s but %d %s provided"
+      (fn_name.v)
+      (expected)
+      (if expected > 1 then "s" else "")
+      (found)
+      (if expected > 1 then "were" else "was")
+    )
   | Found_no_Integer { fn_name; found } ->
-      sprintf "Found_no_Integer for %s : expected -- any Integer : found %s --"
-        fn_name (string_of_ktype found)
-
+    string_of_located_error fn_name (
+      sprintf "Builtin function \"%s\" expects an integer but an expression of type \"%s\" was provided"
+      (fn_name.v)
+      (string_of_ktype found)
+    )
 let string_of_ast_error =
   let open Ast.Error in
   function

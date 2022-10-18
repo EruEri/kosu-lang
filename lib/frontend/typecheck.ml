@@ -435,7 +435,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
 
       fn_name |> Asthelper.Builtin_Function.builtin_fn_of_fn_name
       >>= (fun builtin ->
-            Asthelper.Builtin_Function.is_valide_parameters_type parameters_type
+            Asthelper.Builtin_Function.is_valide_parameters_type fn_name parameters_type
               builtin)
       |> Result.map Asthelper.Builtin_Function.builtin_return_type
       |> function

@@ -1155,7 +1155,7 @@ module Builtin_Function = struct
     | { v = "stringlptr"; _ } -> Stringl_ptr |> Result.ok
     | _ as fn_name -> Ast.Error.Unknow_built_function fn_name |> Result.error
 
-  let is_valide_parameters_type parameters =
+  let is_valide_parameters_type fn_location parameters =
     let open Ast.Builtin_Function in
     function
     | (Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64) as fn -> (
@@ -1164,12 +1164,12 @@ module Builtin_Function = struct
             if t |> Type.is_any_integer then Result.ok fn
             else
               Ast.Error.Found_no_Integer
-                { fn_name = fn |> fn_name_of_built_in_fn; found = t }
+                { fn_name = fn_location; found = t }
               |> Result.error
         | list ->
             Ast.Error.Mismatched_Parameters_Length
               {
-                fn_name = fn |> fn_name_of_built_in_fn;
+                fn_name = fn_location;
                 expected = 1;
                 found = list |> List.length;
               }
@@ -1189,7 +1189,7 @@ module Builtin_Function = struct
         | list ->
             Ast.Error.Mismatched_Parameters_Length
               {
-                fn_name = Stringl_ptr |> fn_name_of_built_in_fn;
+                fn_name = fn_location;
                 expected = 1;
                 found = list |> List.length;
               }
