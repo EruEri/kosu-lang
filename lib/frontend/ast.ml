@@ -175,7 +175,7 @@ type external_func_decl = {
 }
 
 type const_decl = {
-  const_name : string;
+  const_name : string location;
   explicit_type : ktype;
   value : kexpression location;
 }

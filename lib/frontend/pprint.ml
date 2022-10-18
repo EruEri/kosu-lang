@@ -816,14 +816,61 @@ let string_of_function_error =
 let string_of_module_error =
   let open Printf in
   function
-  | Duplicate_function_name name ->
-      sprintf "Duplicate_function_name : %s" name
-  | Duplicate_type_name name -> sprintf "Duplicate_type_name : %s" name
-  | Duplicate_const_name name -> sprintf "Duplicate_const_name : %s" name
+  | Duplicate_function_declaration {path; functions} ->
+   let calling_name = functions |> List.hd |> Function_Decl.calling_name in
+      sprintf "Conflicting function declarations for \"%s\" between [%s]"
+      calling_name.v
+      (
+        functions
+        |> List.map (fun fn_decl -> 
+          sprintf "%s, %s::%s"
+          ( calling_name |> Position.position |> string_of_position_error)
+          path
+          (string_of_signature (calling_name) (fn_decl |> Ast.Function_Decl.parameters) (fn_decl |> Ast.Function_Decl.return_type))
+          )
+        |> String.concat " and " 
+      )
+  | Duplicate_type_declaration {path; types} -> 
+    let type_name = types |> List.hd |> Asthelper.Type_Decl.type_name in
+    sprintf "Conflicting type declarations for \"%s\" between [%s]"
+    type_name.v
+    (
+      types
+      |> List.map (fun type_decl -> 
+      sprintf "%s, %s::%s"
+      (type_name |> position |> string_of_position_error)
+      path
+      (string_of_type_decl type_decl)  
+      )
+      |> String.concat " and "
+    )
+  | Duplicate_const_declaration {path; consts} -> 
+    let const_name = consts |> List.hd in
+    sprintf "Conflicting constants declaration for \"%s\" between [%s]"
+    const_name.const_name.v
+    (
+      consts
+      |> List.map (fun const_decl -> 
+        sprintf "%s, %s::%s"
+        (const_decl.const_name |> position |> string_of_position_error)
+        path
+        (const_decl.const_name.v)
+      )
+      |> String.concat " and "
+    )
   | Duplicate_Operator op ->
       sprintf "Duplicate_Operator for -- %s --"
         (Asthelper.ParserOperator.string_of_parser_operator (op |> fun op -> match op with `unary o -> `unary o.v | `binary b -> `binary b.v))
-  | Main_no_kosu_function -> "Main function should be a kosu function"
+  | Main_no_kosu_function decl  -> 
+    let position, message = match decl with 
+    `syscall_decl syscall_decl -> syscall_decl.syscall_name, "A system call"
+    | `external_decl external_func_decl -> external_func_decl.sig_name, "An external function" in
+    string_of_located_error position (
+      sprintf "%s cannot be used as a main function"
+      message
+    )
+    
+
 
 let string_of_validation_error =
   let open Printf in

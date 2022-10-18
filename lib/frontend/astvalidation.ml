@@ -46,12 +46,24 @@ module Error = struct
       }
 
   type module_error =
-    | Duplicate_function_name of string
-    | Duplicate_type_name of string
-    | Duplicate_const_name of string
+    | Duplicate_function_declaration of {
+      path: string;
+      functions: Ast.Function_Decl.t list
+    }
+    | Duplicate_type_declaration of {
+      path: string;
+      types: Ast.Type_Decl.type_decl list
+    }
+    | Duplicate_const_declaration of {
+      path: string;
+      consts: Ast.const_decl list
+    }
     | Duplicate_Operator of
         [ `binary of Ast.parser_binary_op location | `unary of Ast.parser_unary_op location ]
-    | Main_no_kosu_function
+    | Main_no_kosu_function of [
+      `syscall_decl of Ast.syscall_decl
+      | `external_decl of Ast.external_func_decl
+    ]
 
   type validation_error =
     | External_Func_Error of external_func_error
@@ -670,14 +682,22 @@ module ValidateOperator_Decl = struct
 end
 
 module ValidateModule = struct
-  let check_duplicate_function { path = _; _module } =
+  let check_duplicate_function { path; _module } =
     _module |> Asthelper.Module.retrieve_functions_decl
-    |> List.map Ast.Function_Decl.calling_name
+    |> Util.ListHelper.duplicated (fun lfn rfn -> 
+      lfn |> Ast.Function_Decl.calling_name |> value = 
+      (rfn |> Ast.Function_Decl.calling_name |> value)
+    )
+    |> (function
+    | [] -> Ok ()
+    | t :: _ -> Error.Duplicate_function_declaration {path; functions = t} |> Error.module_error |> Result.error
+    )
+    (* |> List.map Ast.Function_Decl.calling_name
     |> Util.ListHelper.duplicate
     |> function
     | [] -> Ok ()
     | t :: _ ->
-        Error.Duplicate_function_name t.v |> Error.module_error |> Result.error
+        Error.Duplicate_function_name t.v |> Error.module_error |> Result.error *)
 
   let check_duplicate_operator { path = _; _module } =
     _module |> Asthelper.Module.retrieve_operator_decl
@@ -688,17 +708,19 @@ module ValidateModule = struct
     | (op, _, _) :: _ ->
         Error.Duplicate_Operator op |> Error.module_error |> Result.error
 
-  let check_main_signature { path = _; _module } =
+  let check_main_signature { path; _module } =
     let ( >>= ) = Result.bind in
-    _module |> Asthelper.Module.retrieve_functions_decl
+    let function_decls = _module |> Asthelper.Module.retrieve_functions_decl
     |> List.filter (fun decl ->
-           decl |> Ast.Function_Decl.calling_name |> Position.value |> ( = ) "main")
-    |> List.fold_left
+           decl |> Ast.Function_Decl.calling_name |> Position.value |> ( = ) "main") in
+    function_decls |> List.fold_left
          (fun acc value ->
            acc >>= fun found ->
            match value with
-           | Ast.Function_Decl.Decl_External _ | Function_Decl.Decl_Syscall _ ->
-               Main_no_kosu_function |> Error.module_error |> Result.error
+           | Ast.Function_Decl.Decl_External external_decl ->
+               Main_no_kosu_function (`external_decl external_decl)|> Error.module_error |> Result.error
+          | Ast.Function_Decl.Decl_Syscall syscall_decl -> 
+              Main_no_kosu_function (`syscall_decl syscall_decl) |> Error.module_error |> Result.error 
            | Ast.Function_Decl.Decl_Kosu_Function function_decl -> (
                let is_main_valid_sig =
                  ValidateFunction_Decl.is_valid_main_sig function_decl
@@ -710,28 +732,30 @@ module ValidateModule = struct
                      Wrong_signature_for_main function_decl |> Error.function_error
                      |> Result.error
                | Some _ ->
-                   Duplicate_function_name function_decl.fn_name.v
+                   Duplicate_function_declaration { path; functions = function_decls}
                    |> Error.module_error |> Result.error))
          (Ok None)
     |> Result.map (fun _ -> ())
 
-  let check_duplicate_type { path = _; _module } =
-    _module |> Asthelper.Module.retrieve_type_decl
-    |> List.map Asthelper.Type_Decl.type_name
-    |> Util.ListHelper.duplicate
+  let check_duplicate_type { path; _module } =
+    let type_decls = _module |> Asthelper.Module.retrieve_type_decl in
+    type_decls
+    |> Util.ListHelper.duplicated (fun lhs rhs -> 
+      lhs |> Asthelper.Type_Decl.type_name |> Position.value = 
+      (rhs |> Asthelper.Type_Decl.type_name |> Position.value )
+      )
     |> function
     | [] -> Ok ()
     | t :: _ ->
-        Error.Duplicate_type_name t.v |> Error.module_error |> Result.error
+      Error.Duplicate_type_declaration {path; types = t} |> Error.module_error |> Result.error
 
-  let check_duplicate_const_name { path = _; _module } =
-    _module |> Asthelper.Module.retrieve_const_decl
-    |> List.map (fun { const_name; _ } -> const_name)
-    |> Util.ListHelper.duplicate
+  let check_duplicate_const_name { path; _module } =
+    let consts_decl = _module |> Asthelper.Module.retrieve_const_decl in
+    consts_decl |> Util.ListHelper.duplicated (fun lconst rconst -> lconst.const_name.v = rconst.const_name.v)
     |> function
     | [] -> Ok ()
     | t :: _ ->
-        Error.Duplicate_const_name t |> Error.module_error |> Result.error
+      Error.Duplicate_const_declaration {path; consts = t} |> Error.module_error |> Result.error
 
   let check_validate_module _module =
     let ( >>= ) = Result.bind in

@@ -223,7 +223,7 @@ sig_decl:
         }
     }
 const_decl:
-    | CONST Constant EQUAL located(Integer_lit) SEMICOLON {
+    | CONST located(Constant) EQUAL located(Integer_lit) SEMICOLON {
         let sign, size, _ = $4.v in
         {
             const_name = $2;
@@ -231,14 +231,14 @@ const_decl:
             value = $4 |> Position.map (fun (sign, size, value) -> EInteger (sign, size, value) ) ;
         }
     }
-    | CONST Constant EQUAL located(String_lit) SEMICOLON {
+    | CONST located(Constant) EQUAL located(String_lit) SEMICOLON {
         {
             const_name = $2;
             explicit_type = TString_lit;
             value = $4 |> Position.map (fun s -> EString s)
         }
     }
-    | CONST Constant EQUAL located(Float_lit) SEMICOLON {
+    | CONST located(Constant) EQUAL located(Float_lit) SEMICOLON {
         {
             const_name = $2;
             explicit_type = TFloat;

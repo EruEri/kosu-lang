@@ -222,7 +222,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | Some consts -> (
           consts
           |> List.find_map (fun c ->
-                 if c.const_name = identifier.v then Some c.explicit_type
+                 if c.const_name.v = identifier.v then Some c.explicit_type
                  else None)
           |> function
           | None -> raise (ast_error (Undefined_Const identifier))
