@@ -292,6 +292,17 @@ let string_of_type_decl = function
   | Ast.Type_Decl.Decl_Enum e -> string_of_enum_decl e
   | Ast.Type_Decl.Decl_Struct s -> string_of_struct_decl s
 
+let string_of_signature fn_name parameters return_type = 
+  sprintf "%s(%s)%s"
+  (fn_name.v)
+  (
+    parameters
+    |> List.map (fun ktl -> ktl |> Position.value |> string_of_ktype)
+    |> String.concat ", "
+  )
+  (return_type |> Position.value |> string_of_ktype)
+
+
 let string_of_external_func_decl (efucn_decl : external_func_decl) =
   sprintf "external %s(%s%s) %s %s" efucn_decl.sig_name.v
     (efucn_decl.fn_parameters |> List.map (Position.value) |> List.map string_of_ktype
@@ -371,7 +382,26 @@ let string_of_enum_error =
       record.found
       (if record.expected > 1 then "were" else "was")
     )
-
+  | No_variant_found_for_enum {variant} -> 
+    string_of_located_error variant (
+      sprintf "No enum declaration found containing the variant \"%s\""
+      variant.v
+    )
+  | Conflict_variant_multiple_decl {module_path; variant; enum_decls} -> 
+    string_of_located_error variant (
+      sprintf "Need explicit enum name. This variant \"%s\" appears in multiple declarations: [%s]"
+      variant.v
+      (
+        enum_decls
+        |> List.map (fun enum_decl -> 
+          Printf.sprintf "%s::%s -> %s"
+          (module_path.v)
+          (enum_decl.enum_name.v)
+          (string_of_position_error enum_decl.enum_name.position)
+          )
+        |> String.concat ", "
+      )
+    ) 
 let string_of_statement_error =
   let open Ast.Error in
   let open Printf in
@@ -473,7 +503,7 @@ let string_of_operator_error =
     )
   | Too_many_operator_declaration {operator_decls; bin_op; ktype} ->
     string_of_located_error ktype (
-      sprintf "Type \"%s\" defines to many times the operator \"%s\". Redefinition occures here [%s]"
+      sprintf "Type \"%s\" defines too many times the operator \"%s\". Redefinition occures here [%s]"
       (string_of_ktype ktype.v)
       (symbole_of_operator bin_op)
       (operator_decls 
@@ -602,10 +632,10 @@ let string_of_ast_error =
       (record.found)
       (if record.expected > 1 then "was" else "were")
     )
-
-  | No_Occurence_found s -> sprintf "No Occurence found for %s" s
-  | Too_Many_occurence_found s -> sprintf "Too_Many_occurence_found : %s" s
+  (* | No_Occurence_found s -> sprintf "No Occurence found for %s" s
+  | Too_Many_occurence_found s -> sprintf "Too_Many_occurence_found : %s" s *)
   | Undefined_Identifier s -> sprintf "%s : Undefined Identifier \"%s\"" (string_of_position_error s.position) s.v
+  | Undefine_function s -> string_of_located_error s (sprintf "Undefined Function \"%s\"" s.v)
   | Undefined_Const s -> string_of_located_error s (sprintf "Undefined Constant \"%s\"" s.v)
   | Undefined_Struct s ->  string_of_located_error s (sprintf "Undefined Struct \"%s\"" s.v)
   | Unbound_Module s -> string_of_located_error s (sprintf "Unbound Module \"%s\"" s.v)
@@ -656,6 +686,37 @@ let string_of_ast_error =
         record.enum_decl.enum_name.v
   | Unvalid_Deference identifier -> 
     string_of_located_error identifier (sprintf "Invalid Deference for \"%s\"" identifier.v)
+  | Conflicting_function_declaration { fn_def_path; fn_name; fn_decls} -> 
+    string_of_located_error fn_name (
+      sprintf "Function \"%s\" has multiple declarations. Declarations occures here [%s]"
+      fn_name.v
+      (
+        fn_decls
+        |> List.map (fun fn_decl -> 
+          sprintf "%s, %s::%s" 
+          (fn_decl |> Ast.Function_Decl.calling_name |> Position.position |> string_of_position_error ) 
+          fn_def_path 
+          (string_of_signature (fn_decl |> Ast.Function_Decl.calling_name) (fn_decl |> Ast.Function_Decl.parameters) (fn_decl |> Ast.Function_Decl.return_type))
+        )
+        |> String.concat ", "
+      )
+    )
+  | Conflicting_type_declaration {path; ktype_name; type_decls} -> 
+    string_of_located_error ktype_name (
+      sprintf "Type \"%s\" has multiple declarations. Declarations occures here [%s]"
+      ktype_name.v
+      (
+        type_decls
+        |> List.map (fun type_decl -> sprintf "%s, %s::%s" (type_decl |> Asthelper.Type_Decl.type_name |> Position.position |> string_of_position_error) path (type_decl |> Asthelper.Type_Decl.type_name |> Position.value))
+        |> String.concat ", "
+      )
+    )
+  | Conflicting_module_path_declaration {module_path; _} -> 
+    string_of_located_error module_path (
+      sprintf "Multiple modules have the name \"%s\""
+      module_path.v
+    )
+    
     
 let string_of_external_func_error =
   let open Printf in

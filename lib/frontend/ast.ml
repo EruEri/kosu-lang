@@ -205,6 +205,39 @@ type named_module_path = {
 }
 type program = named_module_path list
 
+module Type_Decl = struct
+  type type_decl = Decl_Enum of enum_decl | Decl_Struct of struct_decl
+
+  let decl_enum e = Decl_Enum e
+  let decl_struct s = Decl_Struct s
+end
+
+module Function_Decl = struct
+  type t =
+    | Decl_External of external_func_decl
+    | Decl_Kosu_Function of function_decl
+    | Decl_Syscall of syscall_decl
+
+  let decl_external e = Decl_External e
+  let decl_kosu_function e = Decl_Kosu_Function e
+  let decl_syscall e = Decl_Syscall e
+  let is_external = function Decl_External _ -> true | _ -> false
+  let is_syscall = function Decl_Syscall _ -> true | _ -> false
+  let is_kosu_func = function Decl_Kosu_Function _ -> true | _ -> false
+
+  let calling_name = function
+    | Decl_External { sig_name = name; _ }
+    | Decl_Kosu_Function { fn_name = name; _ }
+    | Decl_Syscall { syscall_name = name; _ } ->
+        name
+  let parameters = function
+  | Decl_External {fn_parameters = parameters; _ } | Decl_Syscall {parameters; _} -> parameters
+  | Decl_Kosu_Function {parameters; _} -> parameters |> List.map (snd)
+
+  let return_type = function
+  | Decl_External {r_type = return_type; _} | Decl_Kosu_Function {return_type; _} | Decl_Syscall { return_type; _} -> return_type
+end
+
 module OperatorFunction = struct
   type operator =
     | Add
@@ -280,6 +313,8 @@ module Error = struct
 
   type enum_error =
     | Wrong_length_assoc_type of { variant: string location; expected : int; found : int }
+    | No_variant_found_for_enum of { variant: string location }
+    | Conflict_variant_multiple_decl of {module_path: string location; variant: string location; enum_decls: enum_decl list}
 
   type statement_error =
     | Undefine_Identifier of { name : string location }
@@ -361,13 +396,14 @@ module Error = struct
         expected : int;
         found : int;
       }
-    | No_Occurence_found of string
-    | Too_Many_occurence_found of string
+    (* | No_Occurence_found of string *)
+    (* | Too_Many_occurence_found of string *)
     | Undefined_Identifier of string location
     | Undefined_Const of string location
     | Undefined_Struct of string location
     | Unbound_Module of string location
     | Undefine_Type of string location
+    | Undefine_function of string location
     | Struct_Error of struct_error
     | Enum_Error of enum_error
     | Statement_Error of statement_error
@@ -381,6 +417,20 @@ module Error = struct
     | Impossible_field_Access of { field: string location; struct_decl: struct_decl }
     | Enum_Access_field of { field : string location; enum_decl : enum_decl }
     | Unvalid_Deference of string location
+    | Conflicting_type_declaration of {
+      path: string;
+      ktype_name: string location;
+      type_decls: Type_Decl.type_decl list
+    }
+    | Conflicting_module_path_declaration of { 
+      module_path: string location;
+      choices: module_path list
+    }
+    | Conflicting_function_declaration of {
+      fn_def_path: string;
+      fn_name: string location;
+      fn_decls: Function_Decl.t list
+      }
 
   exception Ast_error of ast_error
 
@@ -630,33 +680,6 @@ let equal_fields =
       | TUnknow, t -> t
       | (TPointer _ as kt), TPointer { v = TUnknow; _} -> kt
       | _, _ -> to_restrict_type
-end
-
-module Type_Decl = struct
-  type type_decl = Decl_Enum of enum_decl | Decl_Struct of struct_decl
-
-  let decl_enum e = Decl_Enum e
-  let decl_struct s = Decl_Struct s
-end
-
-module Function_Decl = struct
-  type t =
-    | Decl_External of external_func_decl
-    | Decl_Kosu_Function of function_decl
-    | Decl_Syscall of syscall_decl
-
-  let decl_external e = Decl_External e
-  let decl_kosu_function e = Decl_Kosu_Function e
-  let decl_syscall e = Decl_Syscall e
-  let is_external = function Decl_External _ -> true | _ -> false
-  let is_syscall = function Decl_Syscall _ -> true | _ -> false
-  let is_kosu_func = function Decl_Kosu_Function _ -> true | _ -> false
-
-  let calling_name = function
-    | Decl_External { sig_name = name; _ }
-    | Decl_Kosu_Function { fn_name = name; _ }
-    | Decl_Syscall { syscall_name = name; _ } ->
-        name
 end
 
 module Builtin_Function = struct

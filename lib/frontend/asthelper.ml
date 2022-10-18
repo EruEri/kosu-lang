@@ -175,17 +175,18 @@ module Program = struct
                              && Util.are_same_lenght assoc_exprs assoc_type))
         |> function
         | Empty ->
-            Ast.Error.No_Occurence_found ("Enum with variant " ^ variant.v)
+          Ast.Error.Enum_Error( Ast.Error.No_variant_found_for_enum {variant} )
             |> Result.error
         | Util.Occurence.Multiple enum_decls ->
-            Ast.Error.Too_Many_occurence_found
+          Ast.Error.Enum_Error (Ast.Error.Conflict_variant_multiple_decl {module_path = module_enum_path; variant; enum_decls})
+            (* Ast.Error.Too_Many_occurence_foune
               (Printf.sprintf
                  "Need explicit enum name : Too many enum with variant : %s -- \
                   conflicts -- %s -- "
                  variant.v
                  (enum_decls
                  |> List.map (fun decl -> decl.enum_name.v)
-                 |> String.concat ", "))
+                 |> String.concat ", ")) *)
             |> Result.error
         | One enum_decl -> enum_decl |> Result.ok)
 
@@ -222,13 +223,16 @@ module Program = struct
       function
       | Util.Occurence.Empty -> (Ast.Error.Unbound_Module ktype_def_path) |> Result.error
       | Util.Occurence.One module_path -> Ok module_path
-      | Util.Occurence.Multiple _module_paths -> (Ast.Error.Too_Many_occurence_found "Too many module") |> Result.error
+      | Util.Occurence.Multiple module_paths -> Ast.Error.Conflicting_module_path_declaration {
+        module_path = ktype_def_path;
+        choices = module_paths
+      } |> Result.error
     )
     >>= fun m ->
     m._module |> Module.type_decl_occurence ktype_name.v |> function
     | Util.Occurence.Empty -> (Ast.Error.Undefine_Type ktype_name) |> Result.error
     | Util.Occurence.One m -> m |> Result.ok
-    | Util.Occurence.Multiple _type_decl -> (Ast.Error.Too_Many_occurence_found ("Type named "^ktype_name.v)) |> Result.error
+    | Util.Occurence.Multiple type_decls -> (Ast.Error.Conflicting_type_declaration {path = m.path; ktype_name; type_decls}) |> Result.error
 
   (**
       Find type declaration from ktype
@@ -292,14 +296,17 @@ module Program = struct
     |> find_module_of_function fn_def_path.v current_module
     |> (function
     | Util.Occurence.Empty -> Ast.Error.Unbound_Module (fn_def_path) |> Result.error
-    | Util.Occurence.Multiple _module_path -> Ast.Error.Too_Many_occurence_found ("Too Many module name "^fn_def_path.v) |> Result.error
+    | Util.Occurence.Multiple module_paths -> Ast.Error.Conflicting_module_path_declaration {
+      module_path = fn_def_path;
+      choices = module_paths
+    } |> Result.error
     | Util.Occurence.One mp -> Ok mp)
     >>= fun m ->
     m._module 
     |> 
     Module.function_decl_occurence fn_name.v |> (function
-    | Util.Occurence.Empty -> Ast.Error.No_Occurence_found fn_name.v |> Result.error
-    | Util.Occurence.Multiple _fn_decl -> Ast.Error.Too_Many_occurence_found ("Too Many function found "^(fn_name.v)) |> Result.error
+    | Util.Occurence.Empty -> Ast.Error.Undefine_function fn_name |> Result.error
+    | Util.Occurence.Multiple fn_decls -> Ast.Error.Conflicting_function_declaration {fn_def_path = m.path; fn_name; fn_decls} |> Result.error
     | Util.Occurence.One fn_decl -> Ok fn_decl) 
 
   let rec does_ktype_exist ktype current_module program =
@@ -311,7 +318,7 @@ module Program = struct
           with
           | Ok _ -> `exist
           | Error Ast.Error.Undefine_Type _ -> `not_exist
-          | Error Ast.Error.Too_Many_occurence_found _ -> `not_unique
+          (* | Error Ast.Error.Too_Many_occurence_found _ -> `not_unique *)
           | Error e -> e |> Ast.Error.ast_error |> raise)
     | TParametric_identifier
         { module_path = ktype_def_path; parametrics_type; name = ktype_name } ->
@@ -322,7 +329,7 @@ module Program = struct
           with
           | Ok _ -> `exist
           | Error Ast.Error.Undefine_Type _ -> `not_exist
-          | Error Ast.Error.Too_Many_occurence_found _ -> `not_unique
+          (* | Error Ast.Error.Too_Many_occurence_found _ -> `not_unique *)
           | Error e -> e |> Ast.Error.ast_error |> raise
         in
         parametrics_type
