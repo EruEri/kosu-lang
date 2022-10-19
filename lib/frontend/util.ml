@@ -67,13 +67,13 @@ module ListHelper = struct
 
   let duplicate l = duplicate_aux (Hashtbl.create (l |> List.length)) l
 
-  let rec duplic_aux cmp ~acc ~base ~list = 
+  let rec duplic_aux cmp ~acc ~list = 
     match list with
     | [] -> acc
     | t::q -> 
       let duplicate, no_duplicated = q |> List.partition (cmp t) in
       let duplicate = if duplicate = [] then acc else (t::duplicate)::acc in
-      duplic_aux cmp ~acc:(duplicate) ~base ~list:no_duplicated
+      duplic_aux cmp ~acc:(duplicate) ~list:no_duplicated
 
-  let duplicated cmp list = duplic_aux cmp ~acc:[] ~base:list ~list
+  let duplicated cmp list = duplic_aux cmp ~acc:[] ~list
 end

@@ -818,35 +818,35 @@ let string_of_module_error =
   function
   | Duplicate_function_declaration {path; functions} ->
    let calling_name = functions |> List.hd |> Function_Decl.calling_name in
-      sprintf "Conflicting function declarations for \"%s\" between [%s]"
+      sprintf "Conflicting function declarations for \"%s\" between:\n\t-%s\n"
       calling_name.v
       (
         functions
         |> List.map (fun fn_decl -> 
           sprintf "%s, %s::%s"
-          ( calling_name |> Position.position |> string_of_position_error)
+          (fn_decl |> Function_Decl.calling_name |> Position.position |> string_of_position_error)
           path
           (string_of_signature (calling_name) (fn_decl |> Ast.Function_Decl.parameters) (fn_decl |> Ast.Function_Decl.return_type))
           )
-        |> String.concat " and " 
+        |> String.concat "\n\t-" 
       )
   | Duplicate_type_declaration {path; types} -> 
     let type_name = types |> List.hd |> Asthelper.Type_Decl.type_name in
-    sprintf "Conflicting type declarations for \"%s\" between [%s]"
+    sprintf "Conflicting type declarations for \"%s\" between:\n\t-%s\n"
     type_name.v
     (
       types
       |> List.map (fun type_decl -> 
       sprintf "%s, %s::%s"
-      (type_name |> position |> string_of_position_error)
+      (type_decl |> Asthelper.Type_Decl.type_name |> position |> string_of_position_error)
       path
       (string_of_type_decl type_decl)  
       )
-      |> String.concat " and "
+      |> String.concat "\n\t-"
     )
   | Duplicate_const_declaration {path; consts} -> 
     let const_name = consts |> List.hd in
-    sprintf "Conflicting constants declaration for \"%s\" between [%s]"
+    sprintf "Conflicting constants declaration for \"%s\" between:\n\t-%s\n"
     const_name.const_name.v
     (
       consts
@@ -856,7 +856,7 @@ let string_of_module_error =
         path
         (const_decl.const_name.v)
       )
-      |> String.concat " and "
+      |> String.concat "\n\t-"
     )
   | Duplicate_Operator op ->
       sprintf "Duplicate_Operator for -- %s --"
@@ -882,10 +882,23 @@ let string_of_validation_error =
   | Operator_Error e -> string_of_operator_error e
   | Function_Error e -> string_of_function_error e
   | Module_Error e -> string_of_module_error e
-  | Too_many_Main count ->
-      sprintf
-        "Too many main found -- count : %d --\n\
-          There should be at most 1 main across the program" count
+  | Too_many_Main list ->
+    sprintf "Conflicting \"main\" function declaration between:\n\n%s\n"
+    (
+      list
+      |> List.map (fun (path, fn_decls) -> 
+        sprintf "\tModule \"%s\":\n\t%s"
+        path
+        (fn_decls |> List.map (fun fn_decl -> 
+          sprintf "\t-%s, %s"
+          (fn_decl |> Ast.Function_Decl.calling_name |> Position.position |> string_of_position_error ) 
+          (string_of_signature (fn_decl |> Ast.Function_Decl.calling_name) (fn_decl |> Ast.Function_Decl.parameters) (fn_decl |> Ast.Function_Decl.return_type))
+          )
+          |> String.concat "\n\t" 
+        )
+        )
+      |> String.concat "\n\n"
+    )
   | No_Type_decl_found kt ->
       sprintf "No_Type_decl_found : %s" (string_of_ktype kt)
   | Too_many_type_decl kt ->

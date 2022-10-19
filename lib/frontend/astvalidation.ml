@@ -75,7 +75,7 @@ module Error = struct
     | Module_Error of module_error
     | No_Type_decl_found of ktype
     | Too_many_type_decl of ktype
-    | Too_many_Main of int
+    | Too_many_Main of (string * Ast.Function_Decl.t list) list
     | Ast_Error of Ast.Error.ast_error
 
   let external_func_error e = External_Func_Error e
@@ -767,16 +767,19 @@ end
 
 module Validate_Program = struct
   let check_main_in_program (program : program) =
-    program
+    let filtered_function_decl = program
     |> Asthelper.Program.to_module_path_list
-    |> List.map (fun { path = _; _module } ->
-           _module |> Asthelper.Module.retrieve_functions_decl
-           |> List.filter (fun fn ->
-                  fn |> Ast.Function_Decl.calling_name |> Position.value = "main"))
-    |> List.flatten
-    |> function
-    | [] | _ :: [] -> Ok ()
-    | _ :: _ as l -> Error (Error.Too_many_Main (l |> List.length))
+    |> List.map (fun { path; _module } ->
+           path, (_module 
+           |> Asthelper.Module.retrieve_functions_decl
+           |> List.filter (fun fn -> fn |> Ast.Function_Decl.calling_name |> Position.value = "main")) )
+
+    |> List.filter (fun (_path, fn_decls) -> fn_decls |> List.length |> ( <= ) 1) in
+    let count = filtered_function_decl 
+    |> List.fold_left (fun acc (_, fn_decls) -> acc + (List.length fn_decls)) 0 in
+    if count < 2 then Ok ()
+    else
+      Error.Too_many_Main filtered_function_decl |> Result.error
 end
 
 let validate_module_node (program) (current_module_name : string)
