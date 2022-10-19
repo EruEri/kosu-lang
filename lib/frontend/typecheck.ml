@@ -370,7 +370,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let if_condition =
         typeof ~generics_resolver env current_mod_name prog if_expression
       in
-      if if_condition <> TBool then
+      if Ast.Type.(!==) if_condition TBool then
         raise
           (ast_error
              (Not_Boolean_Type_Condition
@@ -406,7 +406,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                |> Position.map_use
                     (typeof ~generics_resolver env current_mod_name prog)
              in
-             if expr_type.v <> TBool then
+             if Ast.Type.(!==) expr_type.v TBool then
                raise
                  (ast_error (Not_Boolean_Type_Condition { found = expr_type }))
              else
