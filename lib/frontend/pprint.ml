@@ -806,17 +806,23 @@ let string_of_operator_error =
   let open Printf in
   function
   | Op_built_overload kt ->
-      sprintf "Try to overload builtin type : %s" (string_of_ktype kt)
-  | Op_binary_op_diff_type (lkt, rkt) ->
-      sprintf "Binary operator different type : -- %s | %s --"
-        (string_of_ktype lkt) (string_of_ktype rkt)
+    string_of_located_error kt (
+      sprintf "Try to overload builtin type \"%s\"" (string_of_ktype kt.v)
+    )
+  | Op_binary_op_diff_type {operator; lhs; rhs} ->
+    string_of_located_error operator (
+      sprintf "Operator \"%s\", left operande has the type \"%s\" but the right one has the type \"%s\". In operator override, left operande and right one must have the same type"
+      (operator.v)
+      (string_of_ktype lhs)
+      (string_of_ktype rhs)
+    )
   | Op_wrong_return_type_error { op; expected; found } ->
-      sprintf "Op_wrong_return_type_error for ( %s ) %s"
-        (Asthelper.ParserOperator.string_of_parser_operator op)
-        (string_of_expected_found
-            (`ktype
-              ( Asthelper.ParserOperator.expected_op_return_type expected op,
-                found )))
+    string_of_located_error op (
+      sprintf "Operator \"%s\" has the return type \"%s\" but \"%s\" type was expected"
+      (op.v)
+      (found |> string_of_ktype)
+      (expected |> string_of_ktype)
+    )
 
 let string_of_function_error =
   let open Printf in

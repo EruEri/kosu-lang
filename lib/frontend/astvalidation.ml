@@ -24,11 +24,14 @@ module Error = struct
     | EDuplicated_variant_name of {variant: string location; enum_decl: enum_decl}
 
   type operator_error =
-    | Op_built_overload of ktype
-    | Op_binary_op_diff_type of (ktype * ktype)
+    | Op_built_overload of ktype location
+    | Op_binary_op_diff_type of {
+      operator: string location;
+      lhs: ktype;
+      rhs: ktype
+    }
     | Op_wrong_return_type_error of {
-        op :
-          [ `binary of Ast.parser_binary_op | `unary of Ast.parser_unary_op ];
+        op : string location;
         expected : ktype;
         found : ktype;
       }
@@ -606,10 +609,14 @@ module ValidateOperator_Decl = struct
         let (_, kt1), (_, kt2) = binary.fields in
         if (=?) kt1.v kt2.v then
           if kt1.v |> Ast.Type.is_builtin_type then
-            Error.Op_built_overload kt1.v |> Error.operator_error |> Result.error
+            Error.Op_built_overload kt1 |> Error.operator_error |> Result.error
           else Ok ()
         else
-          Error.Op_binary_op_diff_type (kt1.v, kt2.v)
+          Error.Op_binary_op_diff_type {
+            operator = operator_decl |> Asthelper.ParserOperator.operator;
+            lhs = kt1.v;
+            rhs = kt2.v
+          }
           |> Error.operator_error |> Result.error
 
   let check_return_ktype operator_decl =
@@ -624,7 +631,7 @@ module ValidateOperator_Decl = struct
         if (=?) u.return_type.v expected then Ok ()
         else
           Op_wrong_return_type_error
-            { op = `unary u.op.v; expected; found = u.return_type.v }
+            { op = operator_decl |> Asthelper.ParserOperator.operator; expected; found = u.return_type.v }
           |> Error.operator_error |> Result.error
     | Binary b ->
         let expected =
@@ -635,7 +642,7 @@ module ValidateOperator_Decl = struct
         if (=?) b.return_type.v expected then Ok ()
         else
           Op_wrong_return_type_error
-            { op = `binary (b.op |> Position.value); expected; found = b.return_type.v }
+            { op = operator_decl |> Asthelper.ParserOperator.operator; expected; found = b.return_type.v }
           |> Error.operator_error |> Result.error
 
   let check_kbody current_module program operator_decl =
