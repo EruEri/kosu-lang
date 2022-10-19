@@ -2,10 +2,6 @@ open Ast
 open Printf
 open Position
 
-
-
-
-
 let size_of_isize = function I8 -> 8 | I16 -> 16 | I32 -> 32 | I64 -> 64
 let f = sprintf "%Ld"
 
@@ -214,7 +210,7 @@ module Program = struct
 
   (**
     Find type declaration from ktype
-    *)
+  *)
   let find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
       program =
     let (>>=) = Result.bind in
@@ -351,6 +347,11 @@ module Program = struct
           s.fields
           |> List.for_all (fun (_, { v = ktype; _}) ->
             is_c_type_from_ktype current_mod_name ktype program)
+
+  (**
+      @return whether the [ktype] is a c compatible type or not
+      @raise Ast.Error.Ast_error e if no type declaration is found for the [ktype]
+  *)
   and is_c_type_from_ktype current_mod_name (ktype : ktype) program =
     match ktype with
     | TParametric_identifier _ -> false

@@ -601,7 +601,9 @@ let string_of_built_in_func_error =
   let open Printf in
   function
   | Unknow_built_function fn_name ->
-      sprintf "Unknow_built_function : %s" fn_name.v
+    string_of_located_error fn_name (
+      sprintf "Unknown builtin function \"%s\"" fn_name.v
+    )
   | Wrong_parameters { fn_name; expected; found } ->
       sprintf "Wrong_parameters for %s : %s" fn_name
         (string_of_expected_found (`ktype (expected, found)))
@@ -634,7 +636,7 @@ let string_of_ast_error =
     )
   (* | No_Occurence_found s -> sprintf "No Occurence found for %s" s
   | Too_Many_occurence_found s -> sprintf "Too_Many_occurence_found : %s" s *)
-  | Undefined_Identifier s -> sprintf "%s : Undefined Identifier \"%s\"" (string_of_position_error s.position) s.v
+  | Undefined_Identifier s ->  string_of_located_error s (sprintf "Undefined Identifier \"%s\"" s.v)
   | Undefine_function s -> string_of_located_error s (sprintf "Undefined Function \"%s\"" s.v)
   | Undefined_Const s -> string_of_located_error s (sprintf "Undefined Constant \"%s\"" s.v)
   | Undefined_Struct s ->  string_of_located_error s (sprintf "Undefined Struct \"%s\"" s.v)
@@ -722,25 +724,45 @@ let string_of_external_func_error =
   let open Printf in
   function
   | Unit_parameter external_func_decl ->
-      sprintf "Unit parameter in %s" external_func_decl.sig_name.v
+    string_of_located_error external_func_decl.sig_name (
+      sprintf "External function \"%s\" has a unit/void parameter, which is not valid"
+      external_func_decl.sig_name.v
+    )
   | Not_C_compatible_type (external_func_decl, ktype) ->
-      sprintf "Not_C_compatible_type in %s -- %s --"
-        external_func_decl.sig_name.v (string_of_ktype ktype)
-  | Too_much_parameters record ->
-      sprintf "Too_much_parameters -- limit: %d, found: %d --" record.limit
-        record.found
+    string_of_located_error ktype (
+      sprintf "External function \"%s\", Type \"%s\" is not a C compatible type"
+      (external_func_decl.sig_name.v)
+      (string_of_ktype ktype.v)
+    )
+  | Too_much_parameters {external_func_decl; limit; found } ->
+    string_of_located_error external_func_decl.sig_name (
+      sprintf "External function \"%s\" has %d parameters but the limit of parameters is %d"
+      (external_func_decl.sig_name.v)
+      found
+      limit
+    )
 
 let string_of_sycall_error =
   let open Printf in
   function
   | Syscall_Unit_parameter syscall_decl ->
-      sprintf "Unit parameter in %s" syscall_decl.syscall_name.v
+    string_of_located_error syscall_decl.syscall_name (
+      sprintf "System call \"%s\" has a unit/void parameter, which is not valid"
+      syscall_decl.syscall_name.v
+    )
   | Syscall_Not_C_compatible_type (syscall_decl, ktype) ->
-      sprintf "Not_C_compatible_type in %s -- %s --" syscall_decl.syscall_name.v
-        (string_of_ktype ktype)
-  | Syscall_Too_much_parameters record ->
-      sprintf "Too_much_parameters -- limit: %d, found: %d --" record.limit
-        record.found
+    string_of_located_error ktype (
+      sprintf "System call \"%s\", Type \"%s\" is not a C compatible type"
+      (syscall_decl.syscall_name.v)
+      (string_of_ktype ktype.v)
+    )
+  | Syscall_Too_much_parameters {syscall_decl; limit; found} ->
+    string_of_located_error syscall_decl.syscall_name (
+      sprintf "System call \"%s\" has %d parameters but the limit of parameters is %d"
+      (syscall_decl.syscall_name.v)
+      found
+      limit
+    )
 
 let string_of_struct_error =
   let open Printf in
@@ -750,9 +772,10 @@ let string_of_struct_error =
         (string_of_ktype ktype)
   | SCyclic_Declaration struct_decl ->
 
-    string_of_located_error struct_decl.struct_name (sprintf "Cyclic struct declaration for %s" struct_decl.struct_name.v)
-    (* string_of_located_error (struct_decl.struct_name) (x) *)
-      (* sprintf  *)
+    string_of_located_error struct_decl.struct_name (
+      sprintf "Struct \"%s\" has the cyclic declaration" 
+      struct_decl.struct_name.v
+    )
   | SDuplicated_field {field; struct_decl} ->
       string_of_located_error field 
       (
@@ -765,7 +788,10 @@ let string_of_enum_error =
   let open Printf in
   function
   | ECyclic_Declaration enum_decl ->
-      sprintf " Enum_Cyclic_Declaration for %s" enum_decl.enum_name.v
+    string_of_located_error enum_decl.enum_name (
+      sprintf "Enum \"%s\" has the cyclic declaration" 
+      enum_decl.enum_name.v
+    )
   | EDuplicated_variant_name {variant; enum_decl} ->
     string_of_located_error variant 
     (
@@ -899,8 +925,4 @@ let string_of_validation_error =
         )
       |> String.concat "\n\n"
     )
-  | No_Type_decl_found kt ->
-      sprintf "No_Type_decl_found : %s" (string_of_ktype kt)
-  | Too_many_type_decl kt ->
-      sprintf "Too_many_type_decl : %s" (string_of_ktype kt)
   | Ast_Error e -> string_of_ast_error e

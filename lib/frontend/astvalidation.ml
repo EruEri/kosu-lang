@@ -4,13 +4,13 @@ open Position
 module Error = struct
   type external_func_error =
     | Unit_parameter of external_func_decl
-    | Not_C_compatible_type of external_func_decl * ktype
-    | Too_much_parameters of { limit : int; found : int }
+    | Not_C_compatible_type of external_func_decl * ktype location
+    | Too_much_parameters of { external_func_decl: external_func_decl; limit : int; found : int }
 
   type syscall_error =
     | Syscall_Unit_parameter of syscall_decl
-    | Syscall_Not_C_compatible_type of syscall_decl * ktype
-    | Syscall_Too_much_parameters of { limit : int; found : int }
+    | Syscall_Not_C_compatible_type of syscall_decl * ktype location
+    | Syscall_Too_much_parameters of { syscall_decl: syscall_decl; limit : int; found : int }
 
   type struct_error =
     | Unknown_type_for_field of string * ktype
@@ -73,8 +73,8 @@ module Error = struct
     | Operator_Error of operator_error
     | Function_Error of function_error
     | Module_Error of module_error
-    | No_Type_decl_found of ktype
-    | Too_many_type_decl of ktype
+    (* | No_Type_decl_found of ktype location
+    | Too_many_type_decl of ktype *)
     | Too_many_Main of (string * Ast.Function_Decl.t list) list
     | Ast_Error of Ast.Error.ast_error
 
@@ -112,10 +112,6 @@ module Help = struct
       in
       Ok ()
     with
-    | Util.Occurence.No_Occurence ->
-        Error.No_Type_decl_found ktype |> Result.error
-    | Util.Occurence.Too_Many_Occurence ->
-        Error.Too_many_type_decl ktype |> Result.error
     | Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error
 
   let rec does_ktype_contains_type_decl current_module program ktype
@@ -357,10 +353,9 @@ module ValidateExternalFunction = struct
       (external_func_decl : external_func_decl) =
     external_func_decl.fn_parameters
     |> List.filter_map (fun kt ->
-      let kt = kt.v in
            try
              if
-               Asthelper.Program.is_c_type_from_ktype current_module kt program
+               Asthelper.Program.is_c_type_from_ktype current_module kt.v program
                |> not
              then
                Error.External_Func_Error
@@ -368,10 +363,7 @@ module ValidateExternalFunction = struct
                |> Option.some
              else None
            with
-           | Util.Occurence.No_Occurence ->
-               Error.No_Type_decl_found kt |> Option.some
-           | Util.Occurence.Too_Many_Occurence ->
-               Error.Too_many_type_decl kt |> Option.some)
+           | Ast.Error.Ast_error e -> Error.Ast_Error e |> Option.some)
     |> function
     | [] -> Ok ()
     | t :: _ -> t |> Result.error
@@ -380,7 +372,7 @@ module ValidateExternalFunction = struct
       (external_func_decl : external_func_decl) =
     let length = external_func_decl.fn_parameters |> List.length in
     if length > 15 then
-      Error.Too_much_parameters { limit = 15; found = length } |> Result.error
+      Error.Too_much_parameters { external_func_decl; limit = 15; found = length } |> Result.error
     else Ok ()
 
   let is_valid_external_function_declaration (program)
@@ -403,20 +395,16 @@ module ValidateSyscall = struct
       (syscall_decl : syscall_decl) =
     syscall_decl.parameters
     |> List.filter_map (fun kt ->
-      let kt = kt.v in
            try
              if
-               Asthelper.Program.is_c_type_from_ktype current_module kt program
+               Asthelper.Program.is_c_type_from_ktype current_module kt.v program
                |> not
              then
                Error.Syscall_Not_C_compatible_type (syscall_decl, kt)
                |> Error.syscall_error |> Option.some
              else None
            with
-           | Util.Occurence.No_Occurence ->
-               Error.No_Type_decl_found kt |> Option.some
-           | Util.Occurence.Too_Many_Occurence ->
-               Error.Too_many_type_decl kt |> Option.some)
+           | Ast.Error.Ast_error e -> Error.Ast_Error e |> Option.some)
     |> function
     | [] -> Ok ()
     | t :: _ -> t |> Result.error
@@ -424,7 +412,7 @@ module ValidateSyscall = struct
   let does_contains_too_much_parameters (syscall_decl : syscall_decl) =
     let length = syscall_decl.parameters |> List.length in
     if length > 15 then
-      Error.Syscall_Too_much_parameters { limit = 15; found = length }
+      Error.Syscall_Too_much_parameters { syscall_decl; limit = 15; found = length }
       |> Result.error
     else Ok ()
 
