@@ -1188,7 +1188,7 @@ module Type_Decl = struct
     | Ast.Type_Decl.Decl_Enum e -> e |> Enum.remove_level_zero_genenics kts
     | Ast.Type_Decl.Decl_Struct s -> s |> Struct.remove_level_zero_genenics kts
 
-  let are_same_type_decl lhs rhs = type_name lhs = type_name rhs
+  let are_same_type_decl lhs rhs = lhs |> type_name |> Position.value  = (rhs |> type_name |> Position.value)
 end
 
 module ExternalFunc = struct
