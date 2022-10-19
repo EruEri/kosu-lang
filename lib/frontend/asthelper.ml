@@ -5,7 +5,6 @@ open Position
 let size_of_isize = function I8 -> 8 | I16 -> 16 | I32 -> 32 | I64 -> 64
 let f = sprintf "%Ld"
 
-
 let module_path_of_ktype_opt = function
   | TType_Identifier { module_path; name }
   | TParametric_identifier { module_path; parametrics_type = _; name } ->
@@ -87,7 +86,8 @@ module Module = struct
            fn_decl.fn_name = fn_name
            && Ast.Type.are_compatible_type r_types.v fn_decl.return_type.v
            && Util.are_same_lenght fn_decl.parameters parameters_types
-           && List.for_all2 (fun para init -> Ast.Type.are_compatible_type para.v init.v)
+           && List.for_all2
+                (fun para init -> Ast.Type.are_compatible_type para.v init.v)
                 (fn_decl.parameters |> List.map (fun (_, kt) -> kt))
                 parameters_types)
 
@@ -110,13 +110,15 @@ end
 module Program = struct
   type t = Ast.program
 
-  let to_module_path_list (program: t) = 
-    program |> List.map (fun named_module_path -> named_module_path.module_path )
+  let to_module_path_list (program : t) =
+    program |> List.map (fun named_module_path -> named_module_path.module_path)
 
-  let map_module_path f (program: Ast.program) = 
-    program |> List.map ( fun { filename; module_path} -> { filename; module_path = f module_path} )
+  let map_module_path f (program : Ast.program) =
+    program
+    |> List.map (fun { filename; module_path } ->
+           { filename; module_path = f module_path })
 
-  let module_of_string_opt mod_name (program) =
+  let module_of_string_opt mod_name program =
     program
     |> List.filter_map (fun (mp : Ast.module_path) ->
            if mod_name = mp.path then Some mp._module else None)
@@ -124,26 +126,26 @@ module Program = struct
     | [] -> None
     | t :: _ -> Some t
 
-  let module_of_string mod_name (program ) =
+  let module_of_string mod_name program =
     program
     |> List.filter_map (fun (mp : Ast.module_path) ->
            if mod_name = mp.path then Some mp._module else None)
     |> List.hd
 
-  let find_struct_decl_opt (current_module_name : string) (module_path : string location)
-      (struct_name : string location) (program : module_path list) =
-      let ( >>= ) = Result.bind in
+  let find_struct_decl_opt (current_module_name : string)
+      (module_path : string location) (struct_name : string location)
+      (program : module_path list) =
+    let ( >>= ) = Result.bind in
 
-      (if module_path.v = "" then
-        Some (program |> module_of_string current_module_name)
-       else program |> module_of_string_opt module_path.v)
-      |> Option.map Module.retrieve_struct_decl
-      |> Option.to_result ~none:(Ast.Error.Unbound_Module module_path)
-      >>=
-      (fun structs ->
-        structs
-        |> List.find_opt (fun s -> s.struct_name.v = struct_name.v)
-        |> Option.to_result ~none:(Ast.Error.Undefined_Struct struct_name))
+    (if module_path.v = "" then
+     Some (program |> module_of_string current_module_name)
+    else program |> module_of_string_opt module_path.v)
+    |> Option.map Module.retrieve_struct_decl
+    |> Option.to_result ~none:(Ast.Error.Unbound_Module module_path)
+    >>= fun structs ->
+    structs
+    |> List.find_opt (fun s -> s.struct_name.v = struct_name.v)
+    |> Option.to_result ~none:(Ast.Error.Undefined_Struct struct_name)
 
   let find_enum_decl_opt current_module_name module_enum_path
       (enum_name_opt : string option) (variant : string location)
@@ -171,18 +173,21 @@ module Program = struct
                              && Util.are_same_lenght assoc_exprs assoc_type))
         |> function
         | Empty ->
-          Ast.Error.Enum_Error( Ast.Error.No_variant_found_for_enum {variant} )
+            Ast.Error.Enum_Error
+              (Ast.Error.No_variant_found_for_enum { variant })
             |> Result.error
         | Util.Occurence.Multiple enum_decls ->
-          Ast.Error.Enum_Error (Ast.Error.Conflict_variant_multiple_decl {module_path = module_enum_path; variant; enum_decls})
+            Ast.Error.Enum_Error
+              (Ast.Error.Conflict_variant_multiple_decl
+                 { module_path = module_enum_path; variant; enum_decls })
             (* Ast.Error.Too_Many_occurence_foune
-              (Printf.sprintf
-                 "Need explicit enum name : Too many enum with variant : %s -- \
-                  conflicts -- %s -- "
-                 variant.v
-                 (enum_decls
-                 |> List.map (fun decl -> decl.enum_name.v)
-                 |> String.concat ", ")) *)
+               (Printf.sprintf
+                  "Need explicit enum name : Too many enum with variant : %s -- \
+                   conflicts -- %s -- "
+                  variant.v
+                  (enum_decls
+                  |> List.map (fun decl -> decl.enum_name.v)
+                  |> String.concat ", ")) *)
             |> Result.error
         | One enum_decl -> enum_decl |> Result.ok)
 
@@ -213,61 +218,80 @@ module Program = struct
   *)
   let find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
       program =
-    let (>>=) = Result.bind in
-    find_module_of_ktype ktype_def_path.v current_module program
-    |> (
-      function
-      | Util.Occurence.Empty -> (Ast.Error.Unbound_Module ktype_def_path) |> Result.error
-      | Util.Occurence.One module_path -> Ok module_path
-      | Util.Occurence.Multiple module_paths -> Ast.Error.Conflicting_module_path_declaration {
-        module_path = ktype_def_path;
-        choices = module_paths
-      } |> Result.error
-    )
+    let ( >>= ) = Result.bind in
+    (find_module_of_ktype ktype_def_path.v current_module program |> function
+     | Util.Occurence.Empty ->
+         Ast.Error.Unbound_Module ktype_def_path |> Result.error
+     | Util.Occurence.One module_path -> Ok module_path
+     | Util.Occurence.Multiple module_paths ->
+         Ast.Error.Conflicting_module_path_declaration
+           { module_path = ktype_def_path; choices = module_paths }
+         |> Result.error)
     >>= fun m ->
     m._module |> Module.type_decl_occurence ktype_name.v |> function
-    | Util.Occurence.Empty -> (Ast.Error.Undefine_Type ktype_name) |> Result.error
+    | Util.Occurence.Empty -> Ast.Error.Undefine_Type ktype_name |> Result.error
     | Util.Occurence.One m -> m |> Result.ok
-    | Util.Occurence.Multiple type_decls -> (Ast.Error.Conflicting_type_declaration {path = m.path; ktype_name; type_decls}) |> Result.error
+    | Util.Occurence.Multiple type_decls ->
+        Ast.Error.Conflicting_type_declaration
+          { path = m.path; ktype_name; type_decls }
+        |> Result.error
 
   (**
       Find type declaration from ktype
       @return type_decl if ktype came from a type declaration, [None] if ktype is a builtin type
       @raise Ast_error: if length of assoc_type is not the same as the length of the generic of the type declaration found
     *)
-  let rec find_type_decl_from_true_ktype ?(generics = []) ktype current_module program =
+  let rec find_type_decl_from_true_ktype ?(generics = []) ktype current_module
+      program =
     let type_generics = function
       | Ast.Type_Decl.Decl_Enum e -> e.generics
       | Ast.Type_Decl.Decl_Struct s -> s.generics
     in
     let type_name = function
-    | Ast.Type_Decl.Decl_Enum e -> e.enum_name
-    | Ast.Type_Decl.Decl_Struct s -> s.struct_name in
+      | Ast.Type_Decl.Decl_Enum e -> e.enum_name
+      | Ast.Type_Decl.Decl_Struct s -> s.struct_name
+    in
     match ktype with
     | TType_Identifier { module_path = ktype_def_path; name = ktype_name } ->
-      if ktype_def_path.v = "" &&  generics |> List.exists (fun gl -> gl.v = ktype_name.v) then None
-      else
-      let type_decl =
-        match find_type_decl_from_ktype ~ktype_def_path:ktype_def_path ~ktype_name: ktype_name ~current_module
-          program with
-        | Error e -> e |> Ast.Error.ast_error |> raise
-        | Ok type_decl -> type_decl
-      in
-        let generics_len = type_decl |> type_generics |> List.length in
-        if generics_len <> 0 then
-          Wrong_Assoc_Length_for_Parametrics
-            { type_name = type_decl |> type_name; expected = generics_len; found = 0 }
-          |> Ast.Error.ast_error |> raise
-        else type_decl |> Option.some
-    
+        if
+          ktype_def_path.v = ""
+          && generics |> List.exists (fun gl -> gl.v = ktype_name.v)
+        then None
+        else
+          let type_decl =
+            match
+              find_type_decl_from_ktype ~ktype_def_path ~ktype_name
+                ~current_module program
+            with
+            | Error e -> e |> Ast.Error.ast_error |> raise
+            | Ok type_decl -> type_decl
+          in
+          let generics_len = type_decl |> type_generics |> List.length in
+          if generics_len <> 0 then
+            Wrong_Assoc_Length_for_Parametrics
+              {
+                type_name = type_decl |> type_name;
+                expected = generics_len;
+                found = 0;
+              }
+            |> Ast.Error.ast_error |> raise
+          else type_decl |> Option.some
     | TParametric_identifier
         { module_path = ktype_def_path; parametrics_type; name = ktype_name } ->
-        let _ = parametrics_type |> List.iter (fun ktl -> 
-          let _ = find_type_decl_from_true_ktype ~generics ktl.v current_module program in ()
-        ) in
+        let _ =
+          parametrics_type
+          |> List.iter (fun ktl ->
+                 let _ =
+                   find_type_decl_from_true_ktype ~generics ktl.v current_module
+                     program
+                 in
+                 ())
+        in
         let type_decl =
-          match find_type_decl_from_ktype ~ktype_def_path:ktype_def_path ~ktype_name: ktype_name ~current_module
-            program with
+          match
+            find_type_decl_from_ktype ~ktype_def_path ~ktype_name
+              ~current_module program
+          with
           | Error e -> e |> Ast.Error.ast_error |> raise
           | Ok type_decl -> type_decl
         in
@@ -275,11 +299,24 @@ module Program = struct
         let assoc_type = parametrics_type |> List.length in
         if generics_len <> assoc_type then
           Wrong_Assoc_Length_for_Parametrics
-            { type_name = type_decl |> type_name ;expected = generics_len; found = assoc_type }
+            {
+              type_name = type_decl |> type_name;
+              expected = generics_len;
+              found = assoc_type;
+            }
           |> Ast.Error.ast_error |> raise
         else type_decl |> Option.some
-    | TPointer kt -> find_type_decl_from_true_ktype ~generics kt.v current_module program
-    | TTuple kts -> kts |> List.iter (fun kt -> let _ = find_type_decl_from_true_ktype ~generics kt.v current_module program in () ); None
+    | TPointer kt ->
+        find_type_decl_from_true_ktype ~generics kt.v current_module program
+    | TTuple kts ->
+        kts
+        |> List.iter (fun kt ->
+               let _ =
+                 find_type_decl_from_true_ktype ~generics kt.v current_module
+                   program
+               in
+               ());
+        None
     | _ -> None
 
   (**
@@ -287,44 +324,45 @@ module Program = struct
     *)
   let find_function_decl_from_fn_name fn_def_path fn_name current_module program
       =
-    let (>>=) = Result.bind in
-    program
-    |> find_module_of_function fn_def_path.v current_module
-    |> (function
-    | Util.Occurence.Empty -> Ast.Error.Unbound_Module (fn_def_path) |> Result.error
-    | Util.Occurence.Multiple module_paths -> Ast.Error.Conflicting_module_path_declaration {
-      module_path = fn_def_path;
-      choices = module_paths
-    } |> Result.error
-    | Util.Occurence.One mp -> Ok mp)
+    let ( >>= ) = Result.bind in
+    (program |> find_module_of_function fn_def_path.v current_module |> function
+     | Util.Occurence.Empty ->
+         Ast.Error.Unbound_Module fn_def_path |> Result.error
+     | Util.Occurence.Multiple module_paths ->
+         Ast.Error.Conflicting_module_path_declaration
+           { module_path = fn_def_path; choices = module_paths }
+         |> Result.error
+     | Util.Occurence.One mp -> Ok mp)
     >>= fun m ->
-    m._module 
-    |> 
-    Module.function_decl_occurence fn_name.v |> (function
-    | Util.Occurence.Empty -> Ast.Error.Undefine_function fn_name |> Result.error
-    | Util.Occurence.Multiple fn_decls -> Ast.Error.Conflicting_function_declaration {fn_def_path = m.path; fn_name; fn_decls} |> Result.error
-    | Util.Occurence.One fn_decl -> Ok fn_decl) 
+    m._module |> Module.function_decl_occurence fn_name.v |> function
+    | Util.Occurence.Empty ->
+        Ast.Error.Undefine_function fn_name |> Result.error
+    | Util.Occurence.Multiple fn_decls ->
+        Ast.Error.Conflicting_function_declaration
+          { fn_def_path = m.path; fn_name; fn_decls }
+        |> Result.error
+    | Util.Occurence.One fn_decl -> Ok fn_decl
 
   let rec does_ktype_exist ktype current_module program =
     match ktype with
     | TType_Identifier { module_path = ktype_def_path; name = ktype_name } -> (
-          match
-            find_type_decl_from_ktype ~ktype_def_path:ktype_def_path ~ktype_name: ktype_name
-              ~current_module program
-          with
-          | Ok _ -> `exist
-          | Error Ast.Error.Undefine_Type _ -> `not_exist
-          (* | Error Ast.Error.Too_Many_occurence_found _ -> `not_unique *)
-          | Error e -> e |> Ast.Error.ast_error |> raise)
+        match
+          find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
+            program
+        with
+        | Ok _ -> `exist
+        | Error (Ast.Error.Undefine_Type _) -> `not_exist
+        (* | Error Ast.Error.Too_Many_occurence_found _ -> `not_unique *)
+        | Error e -> e |> Ast.Error.ast_error |> raise)
     | TParametric_identifier
         { module_path = ktype_def_path; parametrics_type; name = ktype_name } ->
         let exist =
           match
-            find_type_decl_from_ktype ~ktype_def_path:ktype_def_path ~ktype_name: ktype_name
+            find_type_decl_from_ktype ~ktype_def_path ~ktype_name
               ~current_module program
           with
           | Ok _ -> `exist
-          | Error Ast.Error.Undefine_Type _ -> `not_exist
+          | Error (Ast.Error.Undefine_Type _) -> `not_exist
           (* | Error Ast.Error.Too_Many_occurence_found _ -> `not_unique *)
           | Error e -> e |> Ast.Error.ast_error |> raise
         in
@@ -343,10 +381,10 @@ module Program = struct
         e.generics = []
         && e.variants |> List.for_all (fun (_, assoc) -> assoc = [])
     | Decl_Struct s ->
-        s.generics = [] &&
-          s.fields
-          |> List.for_all (fun (_, { v = ktype; _}) ->
-            is_c_type_from_ktype current_mod_name ktype program)
+        s.generics = []
+        && s.fields
+           |> List.for_all (fun (_, { v = ktype; _ }) ->
+                  is_c_type_from_ktype current_mod_name ktype program)
 
   (**
       @return whether the [ktype] is a c compatible type or not
@@ -356,17 +394,19 @@ module Program = struct
     match ktype with
     | TParametric_identifier _ -> false
     | TType_Identifier { module_path; name } -> (
-       (match find_type_decl_from_ktype ~ktype_def_path:module_path ~ktype_name:name ~current_module:current_mod_name
-         program with
-       | Error e -> e |> Ast.Error.ast_error |> raise
-       | Ok type_decl -> is_c_type current_mod_name type_decl program)
-    )
+        match
+          find_type_decl_from_ktype ~ktype_def_path:module_path ~ktype_name:name
+            ~current_module:current_mod_name program
+        with
+        | Error e -> e |> Ast.Error.ast_error |> raise
+        | Ok type_decl -> is_c_type current_mod_name type_decl program)
     | TFunction _ -> false
     | TTuple _ -> false
     | _ -> true
 
   let find_binary_operator (op : Ast.parser_binary_op) (lhs, rhs) r_type program
       =
+    (* let open Ast.Type in *)
     program
     |> List.map (fun t -> Module.retrieve_operator_decl t._module)
     |> List.flatten
@@ -600,23 +640,34 @@ module Program = struct
 end
 
 module Kbody = struct
-  let remap_body_explicit_type generics current_module kbody = 
-    let stmts_located, (expr_located: kexpression location) = kbody in
-    (  
-        stmts_located |> List.map (fun located_stmt -> 
-          located_stmt |> Position.map (fun stmt -> 
-            match stmt with
-            | SDeclaration { is_const; variable_name; explicit_type; expression = ex} -> 
-              SDeclaration {
-              is_const; variable_name; explicit_type = explicit_type |> Option.map (Position.map (Type.set_module_path generics current_module)) ; expression = ex
-            }
-            | _ as s -> s 
-            )
-          )
-      )
-      ,
-      expr_located
-  
+  let remap_body_explicit_type generics current_module kbody =
+    let stmts_located, (expr_located : kexpression location) = kbody in
+    ( stmts_located
+      |> List.map (fun located_stmt ->
+             located_stmt
+             |> Position.map (fun stmt ->
+                    match stmt with
+                    | SDeclaration
+                        {
+                          is_const;
+                          variable_name;
+                          explicit_type;
+                          expression = ex;
+                        } ->
+                        SDeclaration
+                          {
+                            is_const;
+                            variable_name;
+                            explicit_type =
+                              explicit_type
+                              |> Option.map
+                                   (Position.map
+                                      (Type.set_module_path generics
+                                         current_module));
+                            expression = ex;
+                          }
+                    | _ as s -> s)),
+      expr_located )
 end
 
 module Switch_case = struct
@@ -631,12 +682,14 @@ module Switch_case = struct
     | SC_Enum_Identifier _ -> []
     | SC_Enum_Identifier_Assoc e -> e.assoc_ids
 
-  let is_case_matched (variant, (assoc_types : ktype location list)) (switch_case : t) =
+  let is_case_matched (variant, (assoc_types : ktype location list))
+      (switch_case : t) =
     match switch_case with
     | SC_Enum_Identifier { variant = matched_variant } ->
         matched_variant.v = variant.v && assoc_types |> List.length = 0
     | SC_Enum_Identifier_Assoc { variant = matched_variant; assoc_ids } ->
-        matched_variant.v = variant.v && Util.are_same_lenght assoc_ids assoc_types
+        matched_variant.v = variant.v
+        && Util.are_same_lenght assoc_ids assoc_types
 
   let is_cases_matched variant (switch_cases : t list) =
     switch_cases |> List.exists (is_case_matched variant)
@@ -644,20 +697,21 @@ module Switch_case = struct
   let is_cases_duplicated variant (switch_cases : t list) =
     let open Util.Occurence in
     switch_cases
-    |> find_occurence (fun sc -> sc |> variant_name |> Position.value |> ( = ) variant)
+    |> find_occurence (fun sc ->
+           sc |> variant_name |> Position.value |> ( = ) variant)
     |> function
     | Multiple _ -> true
     | _ -> false
 
-  let cases_duplicated variant (switch_cases: t list) = 
+  let cases_duplicated variant (switch_cases : t list) =
     let open Util.Occurence in
     switch_cases
-    |> find_map_occurence (fun sc -> 
-      let vn_loc = sc |> variant_name in if vn_loc.v = variant then Some vn_loc else None)
+    |> find_map_occurence (fun sc ->
+           let vn_loc = sc |> variant_name in
+           if vn_loc.v = variant then Some vn_loc else None)
     |> function
-      | Multiple t -> Some (t |> List.rev |> List.hd)
-      | _ -> None
-    
+    | Multiple t -> Some (t |> List.rev |> List.hd)
+    | _ -> None
 end
 
 module Enum = struct
@@ -696,14 +750,16 @@ module Enum = struct
                   are_type_compatible lhs_type.v rhs_type.v enum_decl)
     | TUnknow, _ -> true
     | _, TType_Identifier { module_path; name }
-      when module_path.v = "" && enum_decl.generics |> List.map Position.value |> List.mem name.v ->
+      when module_path.v = ""
+           && enum_decl.generics |> List.map Position.value |> List.mem name.v
+      ->
         true
-    | lhs, rhs -> Ast.Type.(=?) lhs rhs
+    | lhs, rhs -> Ast.Type.( lhs === rhs )  
 
   let rec is_type_compatible_hashgen generic_table (init_type : ktype)
       (expected_type : ktype) (enum_decl : t) =
     match (init_type, expected_type) with
-    | kt, TType_Identifier { module_path = {v = ""; _}; name }
+    | kt, TType_Identifier { module_path = { v = ""; _ }; name }
       when match Hashtbl.find_opt generic_table name.v with
            | None -> false
            | Some (_, find_kt) ->
@@ -711,11 +767,11 @@ module Enum = struct
                  let () =
                    Hashtbl.replace generic_table name.v
                      ( enum_decl.generics
-                       |> Util.ListHelper.index_of ( fun ge -> ge.v = name.v),
+                       |> Util.ListHelper.index_of (fun ge -> ge.v = name.v),
                        kt )
                  in
                  true
-               else Ast.Type.(=?) find_kt kt ->
+               else Ast.Type.( find_kt === kt) ->
         true
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
@@ -747,7 +803,7 @@ module Enum = struct
            |> List.for_all (fun (lhs_type, rhs_type) ->
                   is_type_compatible_hashgen generic_table lhs_type.v rhs_type.v
                     enum_decl)
-    | lhs, rhs -> Ast.Type.(=?) lhs rhs
+    | lhs, rhs -> Ast.Type.( lhs === rhs )
 
   let to_ktype_hash generics module_def_path (enum_decl : t) =
     if enum_decl.generics = [] then
@@ -760,7 +816,8 @@ module Enum = struct
           parametrics_type =
             generics |> Hashtbl.to_seq |> List.of_seq
             |> List.sort (fun (_, (i, _)) (_, (b, _)) -> compare i b)
-            |> List.map (fun (_, (_, kt)) -> { v = kt; position = Position.dummy});
+            |> List.map (fun (_, (_, kt)) ->
+                   { v = kt; position = Position.dummy });
           name = enum_decl.enum_name;
         }
 
@@ -789,15 +846,16 @@ module Enum = struct
     in
     enum_decl.variants
     |> List.find_map (fun (variant_enum, assoc_types) ->
-           if variant.v = variant_enum.v then Some (variant, assoc_types) else None)
-    |> Option.to_result ~none:(Variant_not_found { enum_decl; variant = variant })
+           if variant.v = variant_enum.v then Some (variant, assoc_types)
+           else None)
+    |> Option.to_result ~none:(Variant_not_found { enum_decl; variant })
     >>= fun (_, assoc_types) ->
     let assoc_len = assoc_types |> List.length in
     if assoc_len = given_len then Ok ()
     else
       Error
         (Mismatched_Assoc_length
-           { variant = variant; expected = assoc_len; found = given_len })
+           { variant; expected = assoc_len; found = given_len })
 
   let is_all_cases_handled (switch_cases : switch_case list) (enum_decl : t) =
     let open Ast.Error in
@@ -821,12 +879,14 @@ module Enum = struct
 
   let rec is_type_generic ktype (enum_decl : t) =
     match ktype with
-    | TType_Identifier { module_path = { v = ""; _}; name } ->
+    | TType_Identifier { module_path = { v = ""; _ }; name } ->
         enum_decl.generics |> List.map Position.value |> List.mem name.v
     | TParametric_identifier { module_path = _; parametrics_type; name = _ } ->
-        parametrics_type |> List.exists (fun kt -> is_type_generic kt.v enum_decl)
+        parametrics_type
+        |> List.exists (fun kt -> is_type_generic kt.v enum_decl)
     | TPointer kt -> is_type_generic kt.v enum_decl
-    | TTuple kts -> kts |> List.exists (fun kt -> is_type_generic kt.v enum_decl)
+    | TTuple kts ->
+        kts |> List.exists (fun kt -> is_type_generic kt.v enum_decl)
     | _ -> false
 
   let extract_assoc_type_variant generics variant (enum_decl : t) =
@@ -840,7 +900,7 @@ module Enum = struct
 
   let is_ktype_generic_level_zero ktype (enum_decl : t) =
     match ktype with
-    | TType_Identifier { module_path = { v = ""; _}; name } ->
+    | TType_Identifier { module_path = { v = ""; _ }; name } ->
         enum_decl.generics |> List.map Position.value |> List.mem name.v
     | _ -> false
 
@@ -857,9 +917,7 @@ module Enum = struct
   let reduce_binded_variable_combine assoc =
     assoc
     |> List.filter_map (fun (name, ktype) ->
-           match name with
-           | None -> None
-           | Some s -> Some (s, ktype))
+           match name with None -> None | Some s -> Some (s, ktype))
 
   let bind_enum_decl (ktypes : ktype list) primitive_generics (enum_decl : t) =
     let combined = List.combine enum_decl.generics ktypes in
@@ -872,7 +930,8 @@ module Enum = struct
                ( name,
                  kts
                  |> List.map
-                      (Position.map (Ast.Type.map_generics_type combined primitive_generics))
+                      (Position.map
+                         (Ast.Type.map_generics_type combined primitive_generics))
                ));
     }
 
@@ -884,8 +943,10 @@ module Enum = struct
         |> List.map (fun (variant, assoc_types) ->
                ( variant,
                  assoc_types
-                 |> List.map (Position.map (Type.set_module_path enum_decl.generics new_module_path))
-               ));
+                 |> List.map
+                      (Position.map
+                         (Type.set_module_path enum_decl.generics
+                            new_module_path)) ));
     }
 end
 
@@ -901,7 +962,11 @@ module Struct = struct
       fields =
         struct_decl.fields
         |> List.map (fun (name, kt) ->
-               (name, kt |> Position.map (Ast.Type.map_generics_type combined primitive_generics )));
+               ( name,
+                 kt
+                 |> Position.map
+                      (Ast.Type.map_generics_type combined primitive_generics)
+               ));
     }
 
   let contains_generics (struct_decl : t) = struct_decl.generics <> []
@@ -918,15 +983,20 @@ module Struct = struct
         kts |> List.exists (fun kt -> is_type_generic kt.v struct_decl)
     | _ -> false
 
-  let to_ktype ?(position = Position.dummy) (module_def_path: string) (struct_decl : t) =
+  let to_ktype ?(position = Position.dummy) (module_def_path : string)
+      (struct_decl : t) =
     if not (struct_decl |> contains_generics) then
       TType_Identifier
-        { module_path = { v = module_def_path; position}; name = struct_decl.struct_name }
+        {
+          module_path = { v = module_def_path; position };
+          name = struct_decl.struct_name;
+        }
     else
       TParametric_identifier
         {
-          module_path = { v = module_def_path; position};
-          parametrics_type = struct_decl.generics |> List.map ( Position.map(fun _ -> TUnknow) );
+          module_path = { v = module_def_path; position };
+          parametrics_type =
+            struct_decl.generics |> List.map (Position.map (fun _ -> TUnknow));
           name = struct_decl.struct_name;
         }
 
@@ -935,9 +1005,15 @@ module Struct = struct
     let list_len = parametrics_types |> List.length in
     let dummy_list = List.init list_len (fun _ -> ()) in
     let dummy_parametrics = List.combine dummy_list parametrics_types in
-    let generics_mapped = List.combine (struct_decl.generics |> List.map Position.value) dummy_parametrics in
-    let hashtbl = Hashtbl.of_seq (generics_mapped |> List.to_seq ) in
-    struct_decl.fields |> List.map Position.assocs_value |> List.assoc_opt field
+    let generics_mapped =
+      List.combine
+        (struct_decl.generics |> List.map Position.value)
+        dummy_parametrics
+    in
+    let hashtbl = Hashtbl.of_seq (generics_mapped |> List.to_seq) in
+    struct_decl.fields
+    |> List.map Position.assocs_value
+    |> List.assoc_opt field
     |> Option.map (fun kt ->
            if not (is_type_generic kt struct_decl) then kt
            else Type.remap_generic_ktype ~current_module hashtbl kt)
@@ -979,17 +1055,20 @@ module Struct = struct
                 let ktype_def_path = Type.module_path_opt kt |> Option.get in
                 let ktype_name = Type.type_name_opt kt |> Option.get in
                 let type_decl_two =
-                  match Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path ~ktype_name: ktype_name ~current_module:current_mod_name
-                    program with
+                  match
+                    Program.find_type_decl_from_ktype ~ktype_def_path
+                      ~ktype_name ~current_module:current_mod_name program
+                  with
                   | Error e -> e |> Ast.Error.ast_error |> raise
                   | Ok type_decl -> type_decl
                 in
-                resolve_fields_access_gen (parametrics_types_two |> List.map Position.value) q type_decl_two
-                  current_mod_name program))
+                resolve_fields_access_gen
+                  (parametrics_types_two |> List.map Position.value)
+                  q type_decl_two current_mod_name program))
 
   let is_ktype_generic_level_zero ktype (struct_decl : t) =
     match ktype with
-    | TType_Identifier { module_path = { v = ""; _}; name } ->
+    | TType_Identifier { module_path = { v = ""; _ }; name } ->
         struct_decl.generics |> List.map Position.value |> List.mem name.v
     | _ -> false
 
@@ -1003,17 +1082,20 @@ module Struct = struct
     | kt, TType_Identifier { module_path; name }
       when match Hashtbl.find_opt generic_table name.v with
            | None ->
-               if module_path.v = "" && struct_decl.generics |> List.map Position.value |> List.mem name.v then
+               if
+                 module_path.v = ""
+                 && struct_decl.generics |> List.map Position.value
+                    |> List.mem name.v
+               then
                  let () =
                    Hashtbl.replace generic_table name.v
-                     ( struct_decl.generics
-                       |> List.map Position.value
+                     ( struct_decl.generics |> List.map Position.value
                        |> Util.ListHelper.index_of (( = ) name.v),
                        kt )
                  in
                  true
                else false
-           | Some (_, find_kt) -> Ast.Type.(=?) find_kt kt ->
+           | Some (_, find_kt) -> Ast.Type.( find_kt === kt ) ->
         true
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
@@ -1045,9 +1127,10 @@ module Struct = struct
              (fun init exptected ->
                is_type_compatible_hashgen generic_table init exptected
                  struct_decl)
-             (lhs |> List.map value) (rhs |> List.map value)
+             (lhs |> List.map value)
+             (rhs |> List.map value)
     | TUnknow, _ -> true
-    | lhs, rhs -> Ast.Type.(=?) lhs rhs
+    | lhs, rhs -> Ast.Type.( lhs === rhs )
 
   let to_ktype_hash generics module_def_path (struct_decl : t) =
     if struct_decl.generics = [] then
@@ -1060,7 +1143,8 @@ module Struct = struct
           parametrics_type =
             generics |> Hashtbl.to_seq |> List.of_seq
             |> List.sort (fun (_, (i, _)) (_, (b, _)) -> compare i b)
-            |> List.map (fun (_, (_, kt)) -> { v = kt; position = Position.dummy});
+            |> List.map (fun (_, (_, kt)) ->
+                   { v = kt; position = Position.dummy });
           name = struct_decl.struct_name;
         }
 
@@ -1070,9 +1154,11 @@ module Struct = struct
       fields =
         struct_decl.fields
         |> List.map (fun (field, ktype) ->
-               ( field, 
-               ktype |> Position.map (Ast.Type.set_module_path struct_decl.generics new_module_path)
-              ));
+               ( field,
+                 ktype
+                 |> Position.map
+                      (Ast.Type.set_module_path struct_decl.generics
+                         new_module_path) ));
     }
 end
 
@@ -1113,9 +1199,10 @@ module ExternalFunc = struct
       external_func with
       fn_parameters =
         external_func.fn_parameters
-        |> List.map ( Position.map(Ast.Type.set_module_path [] current_module));
+        |> List.map (Position.map (Ast.Type.set_module_path [] current_module));
       r_type =
-        external_func.r_type |> Position.map( Ast.Type.set_module_path [] current_module);
+        external_func.r_type
+        |> Position.map (Ast.Type.set_module_path [] current_module);
     }
 end
 
@@ -1127,9 +1214,10 @@ module Syscall = struct
       syscall_decl with
       parameters =
         syscall_decl.parameters
-        |> List.map (Position.map (Ast.Type.set_module_path [] current_module) );
+        |> List.map (Position.map (Ast.Type.set_module_path [] current_module));
       return_type =
-        syscall_decl.return_type |> Position.map (Ast.Type.set_module_path [] current_module);
+        syscall_decl.return_type
+        |> Position.map (Ast.Type.set_module_path [] current_module);
     }
 end
 
@@ -1171,8 +1259,7 @@ module Builtin_Function = struct
         | [ t ] ->
             if t |> Position.value |> Type.is_any_integer then Result.ok fn
             else
-              Ast.Error.Found_no_Integer
-                { fn_name = fn_location.v; found = t }
+              Ast.Error.Found_no_Integer { fn_name = fn_location.v; found = t }
               |> Result.error
         | list ->
             Ast.Error.Mismatched_Parameters_Length
@@ -1185,14 +1272,11 @@ module Builtin_Function = struct
     | Stringl_ptr -> (
         match parameters with
         | [ t ] ->
-            if t |> Position.value |> Type.is_string_litteral then Result.ok Stringl_ptr
+            if t |> Position.value |> Type.is_string_litteral then
+              Result.ok Stringl_ptr
             else
               Ast.Error.Wrong_parameters
-                {
-                  fn_name = fn_location.v;
-                  expected = TString_lit;
-                  found = t;
-                }
+                { fn_name = fn_location.v; expected = TString_lit; found = t }
               |> Result.error
         | list ->
             Ast.Error.Mismatched_Parameters_Length
@@ -1206,7 +1290,8 @@ module Builtin_Function = struct
   let builtin_return_type =
     let open Ast.Builtin_Function in
     function
-    | Stringl_ptr -> TPointer { v = (TInteger (Signed, I8)); position = Position.dummy }
+    | Stringl_ptr ->
+        TPointer { v = TInteger (Signed, I8); position = Position.dummy }
     | Tos8 -> TInteger (Signed, I8)
     | Tou8 -> TInteger (Unsigned, I8)
     | Tos16 -> TInteger (Signed, I16)
@@ -1226,19 +1311,26 @@ module Function = struct
       parameters =
         function_decl.parameters
         |> List.map (fun (field, ktype) ->
-               ( field, 
-               ktype |> Position.map (Ast.Type.set_module_path function_decl.generics current_module)
-              ));
+               ( field,
+                 ktype
+                 |> Position.map
+                      (Ast.Type.set_module_path function_decl.generics
+                         current_module) ));
       return_type =
-        function_decl.return_type |> Position.map (Ast.Type.set_module_path function_decl.generics current_module);
-        body = Kbody.remap_body_explicit_type function_decl.generics current_module function_decl.body
+        function_decl.return_type
+        |> Position.map
+             (Ast.Type.set_module_path function_decl.generics current_module);
+      body =
+        Kbody.remap_body_explicit_type function_decl.generics current_module
+          function_decl.body;
     }
 
   let rec is_ktype_generic ktype (fn_decl : t) =
     match ktype with
     | TParametric_identifier { module_path = _; parametrics_type; name = _ } ->
-        parametrics_type |> List.exists (fun kt -> is_ktype_generic kt.v fn_decl)
-    | TType_Identifier { module_path = { v = ""; _}; name } ->
+        parametrics_type
+        |> List.exists (fun kt -> is_ktype_generic kt.v fn_decl)
+    | TType_Identifier { module_path = { v = ""; _ }; name } ->
         fn_decl.generics |> List.map Position.value |> List.mem name.v
     | _ -> false
 
@@ -1247,14 +1339,15 @@ module Function = struct
   *)
   let is_ktype_generic_level_zero ktype (fn_decl : t) =
     match ktype with
-    | TType_Identifier { module_path = { v = ""; _}; name } ->
+    | TType_Identifier { module_path = { v = ""; _ }; name } ->
         fn_decl.generics |> List.map Position.value |> List.mem name.v
     | _ -> false
 
   let does_need_generic_resolver (function_decl : t) =
     if function_decl.generics = [] then false
     else if function_decl.parameters |> List.length = 0 then true
-    else function_decl |> is_ktype_generic_level_zero function_decl.return_type.v
+    else
+      function_decl |> is_ktype_generic_level_zero function_decl.return_type.v
 
   (* (**
        @return : Returns [Some name] if the associated type with the field is generics else [None] if not or the field name doesn't exist
@@ -1268,21 +1361,24 @@ module Function = struct
 
   let rec is_type_compatible_hashgen generic_table (init_type : ktype)
       (expected_type : ktype) (function_decl : t) =
-      let open Ast.Type in
+    let open Ast.Type in
     match (init_type, expected_type) with
-    | kt, TType_Identifier { module_path = { v = ""; _}; name }
+    | kt, TType_Identifier { module_path = { v = ""; _ }; name }
       when match Hashtbl.find_opt generic_table name.v with
            | None ->
-               if function_decl.generics |> List.map Position.value |> List.mem name.v then
+               if
+                 function_decl.generics |> List.map Position.value
+                 |> List.mem name.v
+               then
                  let () =
                    Hashtbl.replace generic_table name.v
                      ( function_decl.generics
-                       |> Util.ListHelper.index_of ( fun g -> g.v = name.v),
+                       |> Util.ListHelper.index_of (fun g -> g.v = name.v),
                        kt )
                  in
                  true
                else false
-           | Some (_, find_kt) -> (=?) find_kt kt ->
+           | Some (_, find_kt) -> find_kt === kt ->
         true
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
@@ -1306,16 +1402,17 @@ module Function = struct
           |> List.for_all (fun (i, e) ->
                  is_type_compatible_hashgen generic_table i.v e.v function_decl)
     | TUnknow, _ -> true
-    | TPointer _, TPointer { v = TUnknow; _} -> true
+    | TPointer _, TPointer { v = TUnknow; _ } -> true
     | TPointer lhs, TPointer rhs ->
         is_type_compatible_hashgen generic_table lhs.v rhs.v function_decl
     | TTuple lhs, TTuple rhs ->
         Util.are_same_lenght lhs rhs
         && List.for_all2
              (fun lkt rkt ->
-               is_type_compatible_hashgen generic_table lkt.v rkt.v function_decl)
+               is_type_compatible_hashgen generic_table lkt.v rkt.v
+                 function_decl)
              lhs rhs
-    | lhs, rhs -> (=?) lhs rhs
+    | lhs, rhs -> lhs === rhs
 
   let to_return_ktype_hashtab ~current_module ~module_type_path generic_table
       (function_decl : t) =
@@ -1353,10 +1450,10 @@ module ParserOperator = struct
     | Equal -> "=="
 
   let parameters = function
-  | Unary u -> u.field |> snd |> (fun k -> k::[])
-  | Binary b -> 
-    let lhs, rhs = b.fields |> fst |> snd , b.fields |> snd |> snd in
-    lhs::rhs::[]
+    | Unary u -> u.field |> snd |> fun k -> k :: []
+    | Binary b ->
+        let lhs, rhs = (b.fields |> fst |> snd, b.fields |> snd |> snd) in
+        [ lhs; rhs ]
 
   let string_of_parser_operator = function
     | `unary u -> string_of_parser_unary u
@@ -1379,8 +1476,9 @@ module ParserOperator = struct
         Some kt2
 
   let operator = function
-  | Unary u -> u.op |> Position.map string_of_parser_unary
-  | Binary b -> b.op |> Position.map string_of_parser_binary
+    | Unary u -> u.op |> Position.map string_of_parser_unary
+    | Binary b -> b.op |> Position.map string_of_parser_binary
+
   let return_ktype operator_decl =
     match operator_decl with
     | Unary u -> u.return_type
@@ -1411,16 +1509,20 @@ module ParserOperator = struct
         (`unary op, field :: [], return_type)
     | Binary { op; fields = t1, t2; return_type; kbody = _ } ->
         (`binary op, [ t1; t2 ], return_type)
+
   let rename_parameter_explicit_module new_module_path = function
     | Unary unary ->
         let p1, k1 = unary.field in
         Unary
           {
             unary with
-            field = (p1, k1 |> Position.map (Type.set_module_path [] new_module_path) );
+            field =
+              (p1, k1 |> Position.map (Type.set_module_path [] new_module_path));
             return_type =
-              unary.return_type |> Position.map (Type.set_module_path [] new_module_path);
-            kbody = Kbody.remap_body_explicit_type [] new_module_path unary.kbody
+              unary.return_type
+              |> Position.map (Type.set_module_path [] new_module_path);
+            kbody =
+              Kbody.remap_body_explicit_type [] new_module_path unary.kbody;
           }
     | Binary binary ->
         let (p1, k1), (p2, k2) = binary.fields in
@@ -1428,11 +1530,17 @@ module ParserOperator = struct
           {
             binary with
             fields =
-              ( (p1, k1 |> Position.map (Type.set_module_path [] new_module_path)),
-                (p2, k2 |> Position.map (Type.set_module_path [] new_module_path)) );
+              ( ( p1,
+                  k1 |> Position.map (Type.set_module_path [] new_module_path)
+                ),
+                ( p2,
+                  k2 |> Position.map (Type.set_module_path [] new_module_path)
+                ) );
             return_type =
-              binary.return_type |> Position.map (Type.set_module_path [] new_module_path);
-            kbody = Kbody.remap_body_explicit_type [] new_module_path binary.kbody
+              binary.return_type
+              |> Position.map (Type.set_module_path [] new_module_path);
+            kbody =
+              Kbody.remap_body_explicit_type [] new_module_path binary.kbody;
           }
 end
 
@@ -1471,9 +1579,7 @@ module Sizeof = struct
     | TInteger (_, isize) -> size_of_isize isize / 8 |> Int64.of_int
     | TFloat | TPointer _ | TString_lit | TFunction _ -> 8L
     | TTuple kts -> (
-        kts
-        |> List.map Position.value
-        |> function
+        kts |> List.map Position.value |> function
         | list -> (
             let size, align, _packed_size =
               list
@@ -1506,11 +1612,15 @@ module Sizeof = struct
             in
             match calcul with `size -> size | `align -> align))
     | kt -> (
-        let ktype_def_path = (Type.module_path_opt kt |> Option.get) in
-        let ktype_name = (Type.type_name_opt kt |> Option.get) in
+        let ktype_def_path = Type.module_path_opt kt |> Option.get in
+        let ktype_name = Type.type_name_opt kt |> Option.get in
         let type_decl =
-          match Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
-          (program |> List.map (fun named_module -> named_module.module_path)) with
+          match
+            Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name
+              ~current_module
+              (program
+              |> List.map (fun named_module -> named_module.module_path))
+          with
           | Error e -> e |> Ast.Error.ast_error |> raise
           | Ok type_decl -> type_decl
         in
@@ -1518,12 +1628,14 @@ module Sizeof = struct
         match type_decl with
         | Ast.Type_Decl.Decl_Enum enum_decl ->
             size_enum calcul current_module program
-              (Util.dummy_generic_map (enum_decl.generics |> List.map Position.value)
+              (Util.dummy_generic_map
+                 (enum_decl.generics |> List.map Position.value)
                  (Type.extract_parametrics_ktype kt |> List.map Position.value))
               enum_decl
         | Ast.Type_Decl.Decl_Struct struct_decl ->
             size_struct calcul current_module program
-              (Util.dummy_generic_map (struct_decl.generics |> List.map Position.value)
+              (Util.dummy_generic_map
+                 (struct_decl.generics |> List.map Position.value)
                  (Type.extract_parametrics_ktype kt |> List.map Position.value))
               struct_decl)
 
@@ -1564,8 +1676,11 @@ module Sizeof = struct
     enum_decl.variants
     |> List.map (fun (_, kts) ->
            kts
-           |> List.map ( Position.map (Type.remap_generic_ktype ~current_module generics) )
-           |> List.cons  { v = (TInteger (Unsigned, I32)); position = Position.dummy }
+           |> List.map
+                (Position.map
+                   (Type.remap_generic_ktype ~current_module generics))
+           |> List.cons
+                { v = TInteger (Unsigned, I32); position = Position.dummy }
            |> Type.ktuple
            |> size calcul current_module program)
     |> List.fold_left max 0L

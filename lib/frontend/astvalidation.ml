@@ -607,7 +607,7 @@ module ValidateOperator_Decl = struct
     | Unary _ -> Ok ()
     | Binary binary ->
         let (_, kt1), (_, kt2) = binary.fields in
-        if (=?) kt1.v kt2.v then
+        if  kt1.v === kt2.v then
           if kt1.v |> Ast.Type.is_builtin_type then
             Error.Op_built_overload kt1 |> Error.operator_error |> Result.error
           else Ok ()
@@ -628,7 +628,7 @@ module ValidateOperator_Decl = struct
             (Asthelper.ParserOperator.first_parameter_ktype operator_decl).v
             u.op.v
         in
-        if (=?) u.return_type.v expected then Ok ()
+        if u.return_type.v === expected then Ok ()
         else
           Op_wrong_return_type_error
             { op = operator_decl |> Asthelper.ParserOperator.operator; expected; found = u.return_type.v }
@@ -639,7 +639,7 @@ module ValidateOperator_Decl = struct
             (Asthelper.ParserOperator.first_parameter_ktype operator_decl).v
             b.op.v
         in
-        if (=?) b.return_type.v expected then Ok ()
+        if b.return_type.v === expected then Ok ()
         else
           Op_wrong_return_type_error
             { op = operator_decl |> Asthelper.ParserOperator.operator; expected; found = b.return_type.v }
@@ -695,20 +695,20 @@ module ValidateModule = struct
     | t :: _ ->
         Error.Duplicate_function_name t.v |> Error.module_error |> Result.error *)
 
-  let check_duplicate_operator { path; _module } =
+  let check_duplicate_operator { path; _module } = let open Ast.Type in
     _module |> Asthelper.Module.retrieve_operator_decl
     |> Util.ListHelper.duplicated (fun lop rop -> 
       match lop, rop with
       | Binary l, Binary r -> begin 
       l.op |> Position.value = (r.op |> Position.value)
-      && (Ast.Type.(=?)) (l.fields |> fst |> snd |> Position.value) (r.fields |> fst |> snd |> Position.value)
-      && (Ast.Type.(=?)) (l.fields |> snd |> snd |> Position.value) (r.fields |> snd |> snd |> Position.value)
-      && (Ast.Type.(=?)) (l.return_type |> Position.value) (r.return_type |> Position.value)
+      && (l.fields |> fst |> snd |> Position.value) === (r.fields |> fst |> snd |> Position.value)
+      && (l.fields |> snd |> snd |> Position.value) === (r.fields |> snd |> snd |> Position.value)
+      && (l.return_type |> Position.value) === (r.return_type |> Position.value)
       end
       | Unary l, Unary r -> begin 
         l.op |> Position.value = (r.op |> Position.value)
-        && (Ast.Type.(=?)) (l.field |> snd |> Position.value) (r.field |> snd |> Position.value)
-        && (Ast.Type.(=?)) (l.return_type |> Position.value) (r.return_type |> Position.value)
+        && (l.field |> snd |> Position.value) === (r.field |> snd |> Position.value)
+        && (l.return_type |> Position.value) === (r.return_type |> Position.value)
       end
       | _, _ -> false
       )

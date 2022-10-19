@@ -508,7 +508,7 @@ module Type = struct
     | _ -> None
 
   
-  let rec ( =? ) lhs rhs = 
+  let rec ( === ) lhs rhs = 
   match (lhs, rhs) with
   | ( TParametric_identifier
         { module_path = mp1; parametrics_type = pt1; name = n1 },
@@ -516,14 +516,16 @@ module Type = struct
         { module_path = mp2; parametrics_type = pt2; name = n2 } ) ->
       n1.v = n2.v && mp1.v = mp2.v
       && pt1 |> Util.are_same_lenght pt2
-      && List.for_all2 (fun kt1 kt2 -> (=?) kt1.v kt2.v) pt1 pt2
-  | TPointer pt1, TPointer pt2 -> (=?) pt1.v pt2.v
+      && List.for_all2 (fun kt1 kt2 -> kt1.v === kt2.v) pt1 pt2
+  | TPointer pt1, TPointer pt2 -> pt1.v === pt2.v
   | TType_Identifier { module_path = mp1; name = n1}, TType_Identifier { module_path = mp2; name = n2 } ->
     mp1.v = mp2.v && n1.v = n2.v
   | TTuple t1, TTuple t2 -> 
     Util.are_same_lenght t1 t2 && 
-    List.combine t1 t2 |> List.map Position.assocs_value |> List.for_all (fun (k1,k2) -> (=?) k1 k2) 
+    List.combine t1 t2 |> List.map Position.assocs_value |> List.for_all (fun (k1,k2) -> k1 === k2) 
   | _, _ -> lhs = rhs
+
+let (!==) lhs rhs = (lhs === rhs) |> not
 
   let rec extract_mapped_ktype generics ktype = 
     match ktype with
@@ -559,11 +561,11 @@ module Type = struct
     | TTuple t1, TTuple t2 -> 
       Util.are_same_lenght t1 t2 && 
       List.combine t1 t2 |> List.map Position.assocs_value |> List.for_all (fun (k1,k2) -> are_compatible_type k1 k2) 
-    | _, _ -> (=?) lhs rhs
+    | _, _ -> lhs === rhs
 
 let equal_fields = 
   List.for_all2 (fun ((lfield: string location), lktype) (rfield, rtype) -> 
-    lfield.v = rfield.v && (=?) lktype.v rtype.v
+    lfield.v = rfield.v && lktype.v === rtype.v
   )
 
   let rec module_path_return_type ~(current_module: string) ~(module_type_path: string) return_type
