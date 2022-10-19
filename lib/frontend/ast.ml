@@ -525,7 +525,7 @@ module Type = struct
     List.combine t1 t2 |> List.map Position.assocs_value |> List.for_all (fun (k1,k2) -> k1 === k2) 
   | _, _ -> lhs = rhs
 
-let (!==) lhs rhs = (lhs === rhs) |> not
+let ( !== ) lhs rhs = (lhs === rhs) |> not
 
   let rec extract_mapped_ktype generics ktype = 
     match ktype with

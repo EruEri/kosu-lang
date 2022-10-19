@@ -523,7 +523,7 @@ module ValidateFunction_Decl = struct
       |> Util.ListHelper.duplicate 
       |> (function
       | [] -> Ok ()
-      | t::_ -> let duplicate = function_decl.parameters |> List.find_all (fun (field, _) -> field.v = t) |>  List.rev |> List.hd |> fun (f, _) -> f in
+      | t::_ -> let duplicate = function_decl.parameters |> List.find_all (fun (field, _) -> field.v = t) |>  List.rev |> List.hd |> fst in
       Error.Duplicated_parameters {duplicatated_field = duplicate; function_decl} |> Error.function_error |> Result.error
       )
     (* if

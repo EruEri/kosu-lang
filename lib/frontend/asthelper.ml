@@ -405,7 +405,7 @@ module Program = struct
     | _ -> true
 
   let find_binary_operator (op : Ast.parser_binary_op) (lhs, rhs) r_type program
-      =
+      = let open Ast.Type in
     (* let open Ast.Type in *)
     program
     |> List.map (fun t -> Module.retrieve_operator_decl t._module)
@@ -415,10 +415,10 @@ module Program = struct
            | Unary _ -> false
            | Binary record ->
                let (_, kt1), (_, kt2) = record.fields in
-               record.return_type.v = r_type
-               && kt1.v = lhs && kt2.v = rhs && record.op.v = op)
+               record.return_type.v === r_type
+               && kt1.v === lhs && kt2.v === rhs && record.op.v = op)
 
-  let find_unary_operator (op : Ast.parser_unary_op) lhs r_type program =
+  let find_unary_operator (op : Ast.parser_unary_op) lhs r_type program = let open Ast.Type in
     program
     |> List.map (fun t -> Module.retrieve_operator_decl t._module)
     |> List.flatten
@@ -427,7 +427,7 @@ module Program = struct
            | Binary _ -> false
            | Unary record ->
                let _, kt1 = record.field in
-               record.return_type.v = r_type && kt1.v = lhs && record.op.v = op)
+               record.return_type.v === r_type && kt1.v === lhs && record.op.v = op)
 
   let find_function_exact fn_name ktypes_parameters return_type
       (program : module_path list) =
@@ -439,14 +439,14 @@ module Program = struct
             ktypes_parameters return_type)
     |> List.filter (function One _ -> true | _ -> false)
 
-  let is_valid_add_operation lhs rhs program =
+  let is_valid_add_operation lhs rhs program = let open Ast.Type in
     match lhs with
     | TPointer _ -> (
         match rhs with
         | TInteger _ -> `built_in_ptr_valid
         | _ -> `invalid_add_pointer)
     | _ -> (
-        if lhs <> rhs then `diff_types
+        if ( !== ) lhs rhs then `diff_types
         else
           match lhs with
           | TType_Identifier _ as kt -> (
@@ -464,7 +464,7 @@ module Program = struct
         | TInteger _ -> `built_in_ptr_valid
         | _ -> `invalid_add_pointer)
     | _ -> (
-        if lhs <> rhs then `diff_types
+        if Ast.Type.( !== ) lhs rhs then `diff_types
         else
           match lhs with
           | TType_Identifier _ as kt -> (
@@ -476,7 +476,7 @@ module Program = struct
           | _ -> `no_minus_for_built_in)
 
   let is_valid_mult_operation lhs rhs program =
-    if lhs <> rhs then `diff_types
+    if Ast.Type.( !== ) lhs rhs then `diff_types
     else
       match lhs with
       | TType_Identifier _ as kt -> (
@@ -488,7 +488,7 @@ module Program = struct
       | _ -> `no_mult_for_built_in
 
   let is_valid_div_operation lhs rhs program =
-    if lhs <> rhs then `diff_types
+    if Ast.Type.( !== ) lhs rhs then `diff_types
     else
       match lhs with
       | TType_Identifier _ as kt -> (
@@ -500,7 +500,7 @@ module Program = struct
       | _ -> `no_div_for_built_in
 
   let is_valid_mod_operation lhs rhs program =
-    if lhs <> rhs then `diff_types
+    if Ast.Type.( !== ) lhs rhs then `diff_types
     else
       match lhs with
       | TType_Identifier _ as kt -> (
@@ -512,7 +512,7 @@ module Program = struct
       | _ -> `no_mod_for_built_in
 
   let is_valid_bitwiseor_operation lhs rhs program =
-    if lhs <> rhs then `diff_types
+    if Ast.Type.( !== ) lhs rhs then `diff_types
     else
       match lhs with
       | TType_Identifier _ as kt -> (
@@ -524,7 +524,7 @@ module Program = struct
       | _ -> `no_bitwiseor_for_built_in
 
   let is_valid_bitwiseand_operation lhs rhs program =
-    if lhs <> rhs then `diff_types
+    if Ast.Type.( !== ) lhs rhs then `diff_types
     else
       match lhs with
       | TType_Identifier _ as kt -> (
@@ -536,7 +536,7 @@ module Program = struct
       | _ -> `no_bitwiseand_for_built_in
 
   let is_valid_bitwisexor_operation lhs rhs program =
-    if lhs <> rhs then `diff_types
+    if Ast.Type.( !== ) lhs rhs then `diff_types
     else
       match lhs with
       | TType_Identifier _ as kt -> (
@@ -548,7 +548,7 @@ module Program = struct
       | _ -> `no_bitwisexor_for_built_in
 
   let is_valid_shiftleft_operation lhs rhs program =
-    if lhs <> rhs then `diff_types
+    if Ast.Type.( !== ) lhs rhs then `diff_types
     else
       match lhs with
       | TType_Identifier _ as kt -> (
@@ -560,7 +560,7 @@ module Program = struct
       | _ -> `no_shiftleft_for_built_in
 
   let is_valid_shiftright_operation lhs rhs program =
-    if lhs <> rhs then `diff_types
+    if Ast.Type.( !== ) lhs rhs then `diff_types
     else
       match lhs with
       | TType_Identifier _ as kt -> (
@@ -572,7 +572,7 @@ module Program = struct
       | _ -> `no_shiftright_for_built_in
 
   let is_valid_equal_operation lhs rhs program =
-    if lhs <> rhs then `diff_types
+    if Ast.Type.( !== ) lhs rhs then `diff_types
     else
       match lhs with
       | TType_Identifier _ as kt -> (
@@ -584,7 +584,7 @@ module Program = struct
       | _ -> `no_equal_for_built_in (* Better handle the tuple *)
 
   let is_valid_sup_operation lhs rhs program =
-    if lhs <> rhs then `diff_types
+    if Ast.Type.( !== ) lhs rhs then `diff_types
     else
       match lhs with
       | TType_Identifier _ as kt -> (
@@ -601,7 +601,7 @@ module Program = struct
     | _ as r -> r
 
   let is_valid_inf_operation lhs rhs program =
-    if lhs <> rhs then `diff_types
+    if Ast.Type.( !== ) lhs rhs then `diff_types
     else
       match lhs with
       | TType_Identifier _ as kt -> (
@@ -724,7 +724,7 @@ module Enum = struct
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
         enum_decl.generics |> List.map Position.value |> List.mem exp_name.v
-        || (init_path = exp_path && init_name = exp_name)
+        || (init_path.v = exp_path.v && init_name.v = exp_name.v)
     | ( TParametric_identifier
           {
             module_path = init_path;
@@ -735,7 +735,7 @@ module Enum = struct
           { module_path = exp_path; parametrics_type = exp_pt; name = exp_name }
       ) ->
         if
-          init_path <> exp_path || init_name <> exp_name
+          init_path.v <> exp_path.v || init_name.v <> exp_name.v
           || List.compare_lengths init_pt exp_pt <> 0
         then false
         else
@@ -757,13 +757,13 @@ module Enum = struct
     | lhs, rhs -> Ast.Type.( lhs === rhs )  
 
   let rec is_type_compatible_hashgen generic_table (init_type : ktype)
-      (expected_type : ktype) (enum_decl : t) =
+      (expected_type : ktype) (enum_decl : t) = let open Ast.Type in
     match (init_type, expected_type) with
     | kt, TType_Identifier { module_path = { v = ""; _ }; name }
       when match Hashtbl.find_opt generic_table name.v with
            | None -> false
            | Some (_, find_kt) ->
-               if find_kt = TUnknow then
+               if find_kt === TUnknow then
                  let () =
                    Hashtbl.replace generic_table name.v
                      ( enum_decl.generics
@@ -1100,7 +1100,7 @@ module Struct = struct
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
         struct_decl.generics |> List.map Position.value |> List.mem exp_name.v
-        || (init_path = exp_path && init_name = exp_name)
+        || (init_path.v = exp_path.v && init_name.v = exp_name.v)
     | ( TParametric_identifier
           {
             module_path = init_path;
@@ -1111,7 +1111,7 @@ module Struct = struct
           { module_path = exp_path; parametrics_type = exp_pt; name = exp_name }
       ) ->
         if
-          init_path <> exp_path || init_name <> exp_name
+          init_path.v <> exp_path.v || init_name.v <> exp_name.v
           || List.compare_lengths init_pt exp_pt <> 0
         then false
         else
@@ -1383,7 +1383,7 @@ module Function = struct
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
         function_decl.generics |> List.map Position.value |> List.mem exp_name.v
-        || (init_path = exp_path && init_name = exp_name)
+        || (init_path.v = exp_path.v && init_name.v = exp_name.v)
     | ( TParametric_identifier
           {
             module_path = init_path;
