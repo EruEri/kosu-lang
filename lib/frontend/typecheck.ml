@@ -430,7 +430,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let ( >>= ) = Result.bind in
       let parameters_type =
         parameters
-        |> List.map (typeof ~generics_resolver env current_mod_name prog)
+        |> List.map (Position.map_use (typeof ~generics_resolver env current_mod_name prog))
       in
 
       fn_name |> Asthelper.Builtin_Function.builtin_fn_of_fn_name

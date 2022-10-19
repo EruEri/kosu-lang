@@ -368,13 +368,13 @@ module Error = struct
 
   type builtin_func_error =
     | Unknow_built_function of string location
-    | Wrong_parameters of { fn_name : string; expected : ktype; found : ktype }
+    | Wrong_parameters of { fn_name : string; expected : ktype; found : ktype location}
     | Mismatched_Parameters_Length of {
         fn_name : string location;
         expected : int;
         found : int;
       }
-    | Found_no_Integer of { fn_name : string location; found : ktype }
+    | Found_no_Integer of { fn_name : string; found : ktype location}
 
   type switch_error =
     | Not_enum_type_in_switch_Expression of ktype location

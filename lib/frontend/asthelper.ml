@@ -1169,10 +1169,10 @@ module Builtin_Function = struct
     | (Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64) as fn -> (
         match parameters with
         | [ t ] ->
-            if t |> Type.is_any_integer then Result.ok fn
+            if t |> Position.value |> Type.is_any_integer then Result.ok fn
             else
               Ast.Error.Found_no_Integer
-                { fn_name = fn_location; found = t }
+                { fn_name = fn_location.v; found = t }
               |> Result.error
         | list ->
             Ast.Error.Mismatched_Parameters_Length
@@ -1185,11 +1185,11 @@ module Builtin_Function = struct
     | Stringl_ptr -> (
         match parameters with
         | [ t ] ->
-            if t |> Type.is_string_litteral then Result.ok Stringl_ptr
+            if t |> Position.value |> Type.is_string_litteral then Result.ok Stringl_ptr
             else
               Ast.Error.Wrong_parameters
                 {
-                  fn_name = Stringl_ptr |> fn_name_of_built_in_fn;
+                  fn_name = fn_location.v;
                   expected = TString_lit;
                   found = t;
                 }
@@ -1352,6 +1352,12 @@ module ParserOperator = struct
     | Inf -> "<"
     | Equal -> "=="
 
+  let parameters = function
+  | Unary u -> u.field |> snd |> (fun k -> k::[])
+  | Binary b -> 
+    let lhs, rhs = b.fields |> fst |> snd , b.fields |> snd |> snd in
+    lhs::rhs::[]
+
   let string_of_parser_operator = function
     | `unary u -> string_of_parser_unary u
     | `binary b -> string_of_parser_binary b
@@ -1372,6 +1378,9 @@ module ParserOperator = struct
         let (_, _), (_, kt2) = b.fields in
         Some kt2
 
+  let operator = function
+  | Unary u -> u.op |> Position.map string_of_parser_unary
+  | Binary b -> b.op |> Position.map string_of_parser_binary
   let return_ktype operator_decl =
     match operator_decl with
     | Unary u -> u.return_type

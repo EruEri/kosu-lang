@@ -364,7 +364,7 @@ let string_of_struct_error =
   | Unexpected_field { expected; found } ->
       sprintf "Unexpected_field -- expected : %s, found : %s --" expected.v found.v
   | Wrong_field_count record ->
-      string_of_located_error 
+      string_of_located_error
       {v = true; position = record.location} 
       (sprintf "Wrong number of fields -- expected : %d, found : %d --" record.expected record.found)
       
@@ -605,8 +605,12 @@ let string_of_built_in_func_error =
       sprintf "Unknown builtin function \"%s\"" fn_name.v
     )
   | Wrong_parameters { fn_name; expected; found } ->
-      sprintf "Wrong_parameters for %s : %s" fn_name
-        (string_of_expected_found (`ktype (expected, found)))
+    string_of_located_error found (
+      sprintf "Builtin function \"%s\", this expression has the type \"%s\ but an expression of type \"%s\" was expected"
+      fn_name
+      (string_of_ktype found.v)
+      (string_of_ktype expected)
+    )
   | Mismatched_Parameters_Length { fn_name; expected; found } ->
     string_of_located_error fn_name (
       sprintf "Builtin function \"%s\" expects %d argument%s but %d %s provided"
@@ -617,10 +621,10 @@ let string_of_built_in_func_error =
       (if expected > 1 then "were" else "was")
     )
   | Found_no_Integer { fn_name; found } ->
-    string_of_located_error fn_name (
+    string_of_located_error found (
       sprintf "Builtin function \"%s\" expects an integer but an expression of type \"%s\" was provided"
-      (fn_name.v)
-      (string_of_ktype found)
+      (fn_name)
+      (string_of_ktype found.v)
     )
 let string_of_ast_error =
   let open Ast.Error in
@@ -671,8 +675,9 @@ let string_of_ast_error =
   | Not_Boolean_Type_Condition e ->
     string_of_located_error e.found 
     (
-      sprintf "Not Boolean Type Condition -- found : %s : expected : bool --" 
+      sprintf "this expression has the type \"%s\" but an expression of type \"%s\" was expected" 
     (string_of_ktype e.found.v)
+    (string_of_ktype TBool)
     )
       
         
@@ -767,9 +772,6 @@ let string_of_sycall_error =
 let string_of_struct_error =
   let open Printf in
   function
-  | Unknown_type_for_field (field, ktype) ->
-      sprintf "Unknown_type_for_field : %s -> %s" field
-        (string_of_ktype ktype)
   | SCyclic_Declaration struct_decl ->
 
     string_of_located_error struct_decl.struct_name (
@@ -884,9 +886,25 @@ let string_of_module_error =
       )
       |> String.concat "\n\t-"
     )
-  | Duplicate_Operator op ->
-      sprintf "Duplicate_Operator for -- %s --"
-        (Asthelper.ParserOperator.string_of_parser_operator (op |> fun op -> match op with `unary o -> `unary o.v | `binary b -> `binary b.v))
+  | Duplicate_operator_declaration {path; operators} -> let open Asthelper.ParserOperator in
+      let operator = operators |> List.hd |> Asthelper.ParserOperator.operator in
+      string_of_located_error operator (
+        sprintf "Conflicting operator declaration for \"%s\" between:\n\t-%s\n"
+        operator.v
+        (
+          operators
+          |> List.map (fun operator_decl -> 
+            let op = operator_decl |> Asthelper.ParserOperator.operator in
+            sprintf "%s, %s::%s"
+            (op |> Position.position |> string_of_position_error)
+            (path)
+            (string_of_signature op (operator_decl |> parameters) (operator_decl |> return_ktype) )
+          )
+          |> String.concat "\n\t-"
+        )
+
+      )
+
   | Main_no_kosu_function decl  -> 
     let position, message = match decl with 
     `syscall_decl syscall_decl -> syscall_decl.syscall_name, "A system call"

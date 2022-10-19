@@ -13,7 +13,6 @@ module Error = struct
     | Syscall_Too_much_parameters of { syscall_decl: syscall_decl; limit : int; found : int }
 
   type struct_error =
-    | Unknown_type_for_field of string * ktype
     | SCyclic_Declaration of struct_decl
     | SDuplicated_field of {
       field: string location;
@@ -58,8 +57,10 @@ module Error = struct
       path: string;
       consts: Ast.const_decl list
     }
-    | Duplicate_Operator of
-        [ `binary of Ast.parser_binary_op location | `unary of Ast.parser_unary_op location ]
+    | Duplicate_operator_declaration of {
+        path: string;
+        operators: Ast.operator_decl list;
+    }
     | Main_no_kosu_function of [
       `syscall_decl of Ast.syscall_decl
       | `external_decl of Ast.external_func_decl
@@ -687,14 +688,27 @@ module ValidateModule = struct
     | t :: _ ->
         Error.Duplicate_function_name t.v |> Error.module_error |> Result.error *)
 
-  let check_duplicate_operator { path = _; _module } =
+  let check_duplicate_operator { path; _module } =
     _module |> Asthelper.Module.retrieve_operator_decl
-    |> List.map Asthelper.ParserOperator.signature
-    |> Util.ListHelper.duplicate
-    |> function
+    |> Util.ListHelper.duplicated (fun lop rop -> 
+      match lop, rop with
+      | Binary l, Binary r -> begin 
+      l.op |> Position.value = (r.op |> Position.value)
+      && (Ast.Type.(=?)) (l.fields |> fst |> snd |> Position.value) (r.fields |> fst |> snd |> Position.value)
+      && (Ast.Type.(=?)) (l.fields |> snd |> snd |> Position.value) (r.fields |> snd |> snd |> Position.value)
+      && (Ast.Type.(=?)) (l.return_type |> Position.value) (r.return_type |> Position.value)
+      end
+      | Unary l, Unary r -> begin 
+        l.op |> Position.value = (r.op |> Position.value)
+        && (Ast.Type.(=?)) (l.field |> snd |> Position.value) (r.field |> snd |> Position.value)
+        && (Ast.Type.(=?)) (l.return_type |> Position.value) (r.return_type |> Position.value)
+      end
+      | _, _ -> false
+      )
+      |> function
     | [] -> Ok ()
-    | (op, _, _) :: _ ->
-        Error.Duplicate_Operator op |> Error.module_error |> Result.error
+    | t :: _ ->
+        Error.Duplicate_operator_declaration {path; operators = t} |> Error.module_error |> Result.error
 
   let check_main_signature { path; _module } =
     let ( >>= ) = Result.bind in
