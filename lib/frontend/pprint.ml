@@ -365,8 +365,13 @@ let string_of_struct_error =
       sprintf "Unexpected_field -- expected : %s, found : %s --" expected.v found.v
   | Wrong_field_count record ->
       string_of_located_error
-      {v = true; position = record.location} 
-      (sprintf "Wrong number of fields -- expected : %d, found : %d --" record.expected record.found)
+      record.struct_name
+      (sprintf "struct \"%s\" expects %d field%s but %d was expected" 
+      record.struct_name.v
+      record.expected
+      (if record.expected > 1 then "s" else "")
+      record.found
+      )
       
 
 let string_of_enum_error =
@@ -563,14 +568,14 @@ let string_of_switch_error =
       (string_of_ktype e.v)
       (string_of_ktype e.v)
     )
-  | Not_all_cases_handled missing_cases ->
-      sprintf "Not_all_cases_handled : missing cases :\n  %s"
-        (missing_cases
-        |> List.map (fun (variant, assoc) -> variant.v, assoc |> List.map value)
-        |> List.map (fun (variant, kts) ->
-                sprintf "%s(%s)" variant
-                  (kts |> List.map string_of_ktype |> String.concat ", "))
-        |> String.concat "\n  ")
+  | Not_all_cases_handled {expression_loc; missing_variant = (variant, assotype)} ->
+    string_of_located_error expression_loc (
+      sprintf "Not all cases are handled, miss at least: %s"
+      (sprintf "\"%s(%s)\"" 
+      variant.v
+      (assotype |> List.map (fun ktl -> ktl |> Position.value |> string_of_ktype) |> String.concat ", ")
+      )
+    )
   | Variant_not_found { enum_decl; variant } ->
     string_of_located_error variant 
     (

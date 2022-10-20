@@ -309,7 +309,7 @@ end
 module Error = struct
   type struct_error =
     | Unexpected_field of { expected: string location; found : string location }
-    | Wrong_field_count of { location: position; expected : int; found : int }
+    | Wrong_field_count of { struct_name: string location; expected : int; found : int }
 
   type enum_error =
     | Wrong_length_assoc_type of { variant: string location; expected : int; found : int }
@@ -379,7 +379,10 @@ module Error = struct
   type switch_error =
     | Not_enum_type_in_switch_Expression of ktype location
     | Not_fully_known_ktype of ktype location
-    | Not_all_cases_handled of (string location * ktype location list) list
+    | Not_all_cases_handled of {
+      expression_loc: kexpression location;
+      missing_variant: (string location * ktype location list)
+    }  
     | Duplicated_case of string location
     | Variant_not_found of { enum_decl : enum_decl; variant : string location }
     | Mismatched_Assoc_length of {

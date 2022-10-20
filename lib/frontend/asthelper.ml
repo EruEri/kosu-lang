@@ -878,7 +878,7 @@ module Enum = struct
         (Mismatched_Assoc_length
            { variant; expected = assoc_len; found = given_len })
 
-  let is_all_cases_handled (switch_cases : switch_case list) (enum_decl : t) =
+  let is_all_cases_handled ~expression (switch_cases : switch_case list) (enum_decl : t) =
     let open Ast.Error in
     let _, missing =
       enum_decl.variants
@@ -896,7 +896,7 @@ module Enum = struct
                if acc |> Result.is_error then acc
                else is_valid_case_match sc enum_decl)
              (Result.ok ())
-    | t -> Error (Not_all_cases_handled t)
+    | t::_ -> Error (Not_all_cases_handled {expression_loc = expression; missing_variant = t})
 
   let rec is_type_generic ktype (enum_decl : t) =
     match ktype with

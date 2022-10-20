@@ -262,7 +262,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           (Ast.Error.struct_error
              (Wrong_field_count
                 {
-                  location = expression.position;
+                  struct_name;
                   expected = expected_length;
                   found = parameters_length;
                 }));
@@ -1258,7 +1258,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         let open Asthelper.Switch_case in
         let () =
           if wildcard_case |> Option.is_none then
-            match is_all_cases_handled variant_cases enum_decl with
+            match is_all_cases_handled ~expression variant_cases enum_decl with
             | Error e -> e |> switch_error |> raise
             | Ok _ -> ()
         in
