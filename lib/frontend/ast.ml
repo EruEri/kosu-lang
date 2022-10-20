@@ -358,7 +358,7 @@ module Error = struct
         ktype : ktype location;
       }
     | Too_many_operator_declaration of {
-        operator_decls: operator_decl list;
+        operator_decls: (string * operator_decl list) list;
         bin_op : OperatorFunction.operator;
         ktype : ktype location;
       }

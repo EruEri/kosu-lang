@@ -408,27 +408,33 @@ module Program = struct
       = let open Ast.Type in
     (* let open Ast.Type in *)
     program
-    |> List.map (fun t -> Module.retrieve_operator_decl t._module)
-    |> List.flatten
+    |> List.map (fun t -> t.path, 
+    Module.retrieve_operator_decl t._module
     |> List.filter (fun op_decl ->
            match op_decl with
            | Unary _ -> false
            | Binary record ->
                let (_, kt1), (_, kt2) = record.fields in
                record.return_type.v === r_type
-               && kt1.v === lhs && kt2.v === rhs && record.op.v = op)
+               && kt1.v === lhs && kt2.v === rhs && record.op.v = op))
+    |> List.filter (fun (_path, operator_list) -> operator_list <> [])
+
+
+    
 
   let find_unary_operator (op : Ast.parser_unary_op) lhs r_type program = let open Ast.Type in
     program
-    |> List.map (fun t -> Module.retrieve_operator_decl t._module)
-    |> List.flatten
+    |> List.map (fun t -> t.path, 
+    
+    Module.retrieve_operator_decl t._module
     |> List.filter (fun op_decl ->
            match op_decl with
            | Binary _ -> false
            | Unary record ->
                let _, kt1 = record.field in
-               record.return_type.v === r_type && kt1.v === lhs && record.op.v = op)
-
+               record.return_type.v === r_type && kt1.v === lhs && record.op.v = op))
+    |> List.filter (fun (_path, operator_list) -> operator_list <> [])
+  
   let find_function_exact fn_name ktypes_parameters return_type
       (program : module_path list) =
     let open Util.Occurence in
@@ -450,10 +456,11 @@ module Program = struct
         else
           match lhs with
           | TType_Identifier _ as kt -> (
-              match program |> find_binary_operator Ast.Add (kt, kt) kt with
-              | [] -> `no_function_found
-              | [ t ] -> `valid t
-              | list -> `to_many_declaration list)
+              let declaration = program |> find_binary_operator Ast.Add (kt, kt) kt in
+              match declaration |> Util.ListHelper.inner_count with
+              | 0 -> `no_function_found
+              | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+              | _ -> `to_many_declaration declaration)
           | TInteger _ | TFloat -> `built_in_valid
           | _ -> `no_add_for_built_in)
 
@@ -468,10 +475,11 @@ module Program = struct
         else
           match lhs with
           | TType_Identifier _ as kt -> (
-              match program |> find_binary_operator Ast.Minus (kt, kt) kt with
-              | [] -> `no_function_found
-              | [ t ] -> `valid t
-              | list -> `to_many_declaration list)
+            let declaration = program |> find_binary_operator Ast.Minus (kt, kt) kt in
+            match declaration |> Util.ListHelper.inner_count with
+            | 0 -> `no_function_found
+            | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+            | _ -> `to_many_declaration declaration)
           | TInteger _ | TFloat -> `built_in_valid
           | _ -> `no_minus_for_built_in)
 
@@ -479,11 +487,12 @@ module Program = struct
     if Ast.Type.( !== ) lhs rhs then `diff_types
     else
       match lhs with
-      | TType_Identifier _ as kt -> (
-          match program |> find_binary_operator Ast.Mult (kt, kt) kt with
-          | [] -> `no_function_found
-          | [ t ] -> `valid t
-          | list -> `to_many_declaration list)
+      | TType_Identifier _ as kt -> (            
+      let declaration = program |> find_binary_operator Ast.Mult (kt, kt) kt in
+      match declaration |> Util.ListHelper.inner_count with
+      | 0 -> `no_function_found
+      | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+      | _ -> `to_many_declaration declaration)
       | TInteger _ | TFloat -> `built_in_valid
       | _ -> `no_mult_for_built_in
 
@@ -492,10 +501,11 @@ module Program = struct
     else
       match lhs with
       | TType_Identifier _ as kt -> (
-          match program |> find_binary_operator Ast.Div (kt, kt) kt with
-          | [] -> `no_function_found
-          | [ t ] -> `valid t
-          | list -> `to_many_declaration list)
+        let declaration = program |> find_binary_operator Ast.Div (kt, kt) kt in
+        match declaration |> Util.ListHelper.inner_count with
+        | 0 -> `no_function_found
+        | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+        | _ -> `to_many_declaration declaration)
       | TInteger _ | TFloat -> `built_in_valid
       | _ -> `no_div_for_built_in
 
@@ -504,10 +514,11 @@ module Program = struct
     else
       match lhs with
       | TType_Identifier _ as kt -> (
-          match program |> find_binary_operator Ast.Modulo (kt, kt) kt with
-          | [] -> `no_function_found
-          | [ t ] -> `valid t
-          | list -> `to_many_declaration list)
+        let declaration = program |> find_binary_operator Ast.Modulo (kt, kt) kt in
+        match declaration |> Util.ListHelper.inner_count with
+        | 0 -> `no_function_found
+        | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+        | _ -> `to_many_declaration declaration)
       | TInteger _ -> `built_in_valid
       | _ -> `no_mod_for_built_in
 
@@ -516,10 +527,11 @@ module Program = struct
     else
       match lhs with
       | TType_Identifier _ as kt -> (
-          match program |> find_binary_operator Ast.BitwiseOr (kt, kt) kt with
-          | [] -> `no_function_found
-          | [ t ] -> `valid t
-          | list -> `to_many_declaration list)
+        let declaration = program |> find_binary_operator Ast.BitwiseOr (kt, kt) kt in
+        match declaration |> Util.ListHelper.inner_count with
+        | 0 -> `no_function_found
+        | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+        | _ -> `to_many_declaration declaration)
       | TInteger _ -> `built_in_valid
       | _ -> `no_bitwiseor_for_built_in
 
@@ -528,10 +540,11 @@ module Program = struct
     else
       match lhs with
       | TType_Identifier _ as kt -> (
-          match program |> find_binary_operator Ast.BitwiseAnd (kt, kt) kt with
-          | [] -> `no_function_found
-          | [ t ] -> `valid t
-          | list -> `to_many_declaration list)
+        let declaration = program |> find_binary_operator Ast.BitwiseAnd (kt, kt) kt in
+        match declaration |> Util.ListHelper.inner_count with
+        | 0 -> `no_function_found
+        | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+        | _ -> `to_many_declaration declaration)
       | TInteger _ -> `built_in_valid
       | _ -> `no_bitwiseand_for_built_in
 
@@ -540,10 +553,11 @@ module Program = struct
     else
       match lhs with
       | TType_Identifier _ as kt -> (
-          match program |> find_binary_operator Ast.BitwiseXor (kt, kt) kt with
-          | [] -> `no_function_found
-          | [ t ] -> `valid t
-          | list -> `to_many_declaration list)
+        let declaration = program |> find_binary_operator Ast.BitwiseXor (kt, kt) kt in
+        match declaration |> Util.ListHelper.inner_count with
+        | 0 -> `no_function_found
+        | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+        | _ -> `to_many_declaration declaration)
       | TInteger _ -> `built_in_valid
       | _ -> `no_bitwisexor_for_built_in
 
@@ -552,10 +566,11 @@ module Program = struct
     else
       match lhs with
       | TType_Identifier _ as kt -> (
-          match program |> find_binary_operator Ast.ShiftLeft (kt, kt) kt with
-          | [] -> `no_function_found
-          | [ t ] -> `valid t
-          | list -> `to_many_declaration list)
+        let declaration = program |> find_binary_operator Ast.ShiftLeft (kt, kt) kt in
+        match declaration |> Util.ListHelper.inner_count with
+        | 0 -> `no_function_found
+        | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+        | _ -> `to_many_declaration declaration)
       | TInteger _ -> `built_in_valid
       | _ -> `no_shiftleft_for_built_in
 
@@ -564,10 +579,11 @@ module Program = struct
     else
       match lhs with
       | TType_Identifier _ as kt -> (
-          match program |> find_binary_operator Ast.ShiftRight (kt, kt) kt with
-          | [] -> `no_function_found
-          | [ t ] -> `valid t
-          | list -> `to_many_declaration list)
+        let declaration = program |> find_binary_operator Ast.ShiftRight (kt, kt) kt in
+        match declaration |> Util.ListHelper.inner_count with
+        | 0 -> `no_function_found
+        | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+        | _ -> `to_many_declaration declaration)
       | TInteger _ -> `built_in_valid
       | _ -> `no_shiftright_for_built_in
 
@@ -576,10 +592,11 @@ module Program = struct
     else
       match lhs with
       | TType_Identifier _ as kt -> (
-          match program |> find_binary_operator Ast.Equal (kt, kt) TBool with
-          | [] -> `no_function_found
-          | [ t ] -> `valid t
-          | list -> `to_many_declaration list)
+        let declaration = program |> find_binary_operator Ast.Equal (kt, kt) kt in
+        match declaration |> Util.ListHelper.inner_count with
+        | 0 -> `no_function_found
+        | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+        | _ -> `to_many_declaration declaration)
       | TInteger _ | TBool | TFloat | TPointer _ -> `built_in_valid
       | _ -> `no_equal_for_built_in (* Better handle the tuple *)
 
@@ -588,10 +605,11 @@ module Program = struct
     else
       match lhs with
       | TType_Identifier _ as kt -> (
-          match program |> find_binary_operator Ast.Sup (kt, kt) TBool with
-          | [] -> `no_function_found
-          | [ t ] -> `valid t
-          | list -> `to_many_declaration list)
+        let declaration = program |> find_binary_operator Ast.Sup (kt, kt) kt in
+        match declaration |> Util.ListHelper.inner_count with
+        | 0 -> `no_function_found
+        | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+        | _ -> `to_many_declaration declaration)
       | TInteger _ | TFloat -> `built_in_valid
       | _ -> `no_sup_for_built_in
 
@@ -605,10 +623,11 @@ module Program = struct
     else
       match lhs with
       | TType_Identifier _ as kt -> (
-          match program |> find_binary_operator Ast.Inf (kt, kt) TBool with
-          | [] -> `no_function_found
-          | [ t ] -> `valid t
-          | list -> `to_many_declaration list)
+        let declaration = program |> find_binary_operator Ast.Inf (kt, kt) kt in
+        match declaration |> Util.ListHelper.inner_count with
+        | 0 -> `no_function_found
+        | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+        | _ -> `to_many_declaration declaration)
       | TInteger _ | TFloat -> `built_in_valid
       | _ -> `no_inf_for_built_in
 
@@ -620,20 +639,22 @@ module Program = struct
   let is_valid_not_operation ktype program =
     match ktype with
     | TType_Identifier _ as kt -> (
-        match program |> find_unary_operator Ast.PNot kt kt with
-        | [] -> `no_function_found
-        | [ t ] -> `valid t
-        | list -> `to_many_declaration list)
+      let declaration = program |> find_unary_operator Ast.PNot kt kt in
+      match declaration |> Util.ListHelper.inner_count with
+      | 0 -> `no_function_found
+      | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+      | _ -> `to_many_declaration declaration)
     | TInteger _ | TBool -> `built_in_valid
     | _ -> `no_not_for_built_in
 
   let is_valid_uminus_operation ktype program =
     match ktype with
     | TType_Identifier _ as kt -> (
-        match program |> find_unary_operator Ast.PUMinus kt kt with
-        | [] -> `no_function_found
-        | [ t ] -> `valid t
-        | list -> `to_many_declaration list)
+      let declaration = program |> find_unary_operator Ast.PUMinus kt kt in
+      match declaration |> Util.ListHelper.inner_count with
+      | 0 -> `no_function_found
+      | 1 -> `valid (declaration |> List.find (fun (_, value) -> (List.length value ) = 1))
+      | _ -> `to_many_declaration declaration)
     | TInteger (Signed, _) | TFloat -> `built_in_valid
     | TInteger (Unsigned, size) -> `invalid_unsigned_op size
     | _ -> `no_uminus_for_built_in
@@ -1478,6 +1499,8 @@ module ParserOperator = struct
   let operator = function
     | Unary u -> u.op |> Position.map string_of_parser_unary
     | Binary b -> b.op |> Position.map string_of_parser_binary
+
+  let backticked_operator op = op |> operator |> Position.map (Printf.sprintf "`%s`")  
 
   let return_ktype operator_decl =
     match operator_decl with

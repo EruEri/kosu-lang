@@ -503,14 +503,22 @@ let string_of_operator_error =
     )
   | Too_many_operator_declaration {operator_decls; bin_op; ktype} ->
     string_of_located_error ktype (
-      sprintf "Type \"%s\" defines too many times the operator \"%s\". Redefinition occures here [%s]"
+      sprintf "Type \"%s\" defines too many times the operator \"%s\". Redefinition occures here:\n\n%s\n"
       (string_of_ktype ktype.v)
       (symbole_of_operator bin_op)
       (operator_decls 
-      |> List.map ( fun decl -> decl 
-        |> located_symbole_of_operator 
-        |> Position.position
-        |> string_of_position_error)
+      |> List.map ( fun (path, op_decls) -> let open Asthelper.ParserOperator in
+        sprintf "\tModule \"%s\":\n\t%s\n"
+        (path)
+        (op_decls |> List.map (fun op -> 
+          let symbole = op |> backticked_operator in
+          sprintf "\t-%s, %s"
+          (symbole |> position |> string_of_position_error)
+          (string_of_signature (symbole) (op |> parameters) (op |> return_ktype) )
+          )
+          |> String.concat "\n\t"
+          )
+        )
       |> String.concat ", "
       ) 
     )

@@ -76,4 +76,6 @@ module ListHelper = struct
       duplic_aux cmp ~acc:(duplicate) ~list:no_duplicated
 
   let duplicated cmp list = duplic_aux cmp ~acc:[] ~list
+
+  let inner_count list = List.fold_left (fun acc (_, value) -> acc + (value |> List.length)) 0 list
 end
