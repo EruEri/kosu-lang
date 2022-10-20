@@ -314,7 +314,7 @@ module Error = struct
   type enum_error =
     | Wrong_length_assoc_type of { variant: string location; expected : int; found : int }
     | No_variant_found_for_enum of { variant: string location }
-    | Conflict_variant_multiple_decl of {module_path: string location; variant: string location; enum_decls: enum_decl list}
+    | Conflict_variant_multiple_decl of {module_path: string; variant: string location; enum_decls: enum_decl list}
 
   type statement_error =
     | Undefine_Identifier of { name : string location }

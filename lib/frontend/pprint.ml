@@ -389,17 +389,17 @@ let string_of_enum_error =
     )
   | Conflict_variant_multiple_decl {module_path; variant; enum_decls} -> 
     string_of_located_error variant (
-      sprintf "Need explicit enum name. This variant \"%s\" appears in multiple declarations: [%s]"
+      sprintf "Need explicit enum name. This variant \"%s\" appears in multiple declarations:\n\t%s"
       variant.v
       (
         enum_decls
         |> List.map (fun enum_decl -> 
           Printf.sprintf "%s::%s -> %s"
-          (module_path.v)
+          (module_path)
           (enum_decl.enum_name.v)
           (string_of_position_error enum_decl.enum_name.position)
           )
-        |> String.concat ", "
+        |> String.concat "\n\t"
       )
     ) 
 let string_of_statement_error =

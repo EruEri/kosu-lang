@@ -179,7 +179,7 @@ module Program = struct
         | Util.Occurence.Multiple enum_decls ->
             Ast.Error.Enum_Error
               (Ast.Error.Conflict_variant_multiple_decl
-                 { module_path = module_enum_path; variant; enum_decls })
+                 { module_path = current_module_name; variant; enum_decls })
             (* Ast.Error.Too_Many_occurence_foune
                (Printf.sprintf
                   "Need explicit enum name : Too many enum with variant : %s -- \
