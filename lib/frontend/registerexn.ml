@@ -1,4 +1,5 @@
 open Pprint
+open Pprinterr
 
 let register_kosu_error filename () =  
   Printexc.register_printer 
