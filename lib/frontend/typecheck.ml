@@ -1243,7 +1243,8 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         in
 
         let generics_mapped =
-          Ast.Type.extract_parametrics_ktype expr_type
+          expr_type
+          |> Ast.Type.extract_parametrics_ktype 
           |> List.combine
                (enum_decl.generics
                |> List.map (fun name ->
@@ -1268,32 +1269,54 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                let combine_binding_type =
                  sc_list
                  |> List.map (fun sc ->
+                  let variant_name = (sc |> variant_name) in
                         let assoc_types =
-                          extract_assoc_type_variant generics_mapped
-                            (sc |> variant_name) enum_decl
+                          extract_assoc_type_variant generics_mapped variant_name
+                             enum_decl
                           |> Option.get
                         in
                         let assoc_binding = assoc_binding sc in
-                        List.combine assoc_binding assoc_types)
+                        variant_name, List.combine assoc_binding assoc_types)
                in
                match combine_binding_type with
                | [] -> failwith "Unreachable case: empty case"
-               | ass_bin :: q ->
+               | (first_variant, ass_bin) :: q ->
                    let new_context =
                      q
                      |> List.fold_left
-                          (fun acc value ->
+                          (fun acc (variant_name, value) ->
                             let reduced_binding =
                               reduce_binded_variable_combine value
                             in
-                            if
+                            match Ast.Type.find_field_error acc reduced_binding with
+                            | None -> acc
+                            | Some (`diff_binding_name (lhs, rhs)) -> Incompatible_Binding_Name {
+                              switch_expr = expression;
+                              base_variant = first_variant;
+                              base_bound_id = (lhs |> fst);
+
+                              wrong_variant = variant_name;
+                              wrong_bound_id = (rhs |> fst);
+                            } |> switch_error |> raise
+                            | Some (`diff_binding_ktype (lhs, rhs)) -> Incompatible_Binding_Ktype {
+                              switch_expr = expression;
+                              base_variant = first_variant;
+                              base_bound_id = (lhs |> fst);
+                              base_bound_ktype = (lhs |> snd);
+
+                              wrong_variant = variant_name;
+                              wrong_bound_id = (rhs |> fst);
+                              wrong_bound_ktype = (rhs |> snd)
+                            } |> switch_error |> raise
+                            )
+                            (* if
                               acc
                               |> Ast.Type.equal_fields reduced_binding
                               |> not
                             then
                               Incompatible_Binding (acc, reduced_binding)
                               |> switch_error |> raise
-                            else acc)
+                            else acc) *)
                           (reduce_binded_variable_combine ass_bin)
                      |> List.map (fun (variable_name, ktype) ->
                             ( variable_name,

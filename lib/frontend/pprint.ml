@@ -579,7 +579,7 @@ let string_of_switch_error =
   | Variant_not_found { enum_decl; variant } ->
     string_of_located_error variant 
     (
-      sprintf "enum \"%s\" doesn't contains the case \"%s\""
+      sprintf "enum \"%s\" doesn't contain the case \"%s\""
       enum_decl.enum_name.v
       variant.v
     )
@@ -592,8 +592,41 @@ let string_of_switch_error =
     (if found > 1 then "were" else "was")
     )
 
-  | Incompatible_Binding (lhs, rhs) ->
-      sprintf "Incompatible_Binding between: \n-> %s\n-> %s"
+  | Incompatible_Binding_Ktype {
+    switch_expr = _;
+    base_variant;
+    base_bound_id;
+    base_bound_ktype;
+    wrong_variant;
+    wrong_bound_id;
+    wrong_bound_ktype;
+  } ->
+    string_of_located_error wrong_bound_id (
+      sprintf "Variable bound \"%s\" in the case \"%s\" has the type \"%s\" but due to the binding of \"%s\" in the case \"%s\" the expected type of \"%s\" is \"%s\""
+      (wrong_bound_id.v)
+      (wrong_variant.v)
+      (string_of_ktype wrong_bound_ktype.v)
+      (base_bound_id.v)
+      (base_variant.v)
+      (base_bound_id.v)
+      (string_of_ktype base_bound_ktype.v)
+    )
+  | Incompatible_Binding_Name {
+    switch_expr = _;
+    base_variant;
+    base_bound_id;
+    wrong_variant;
+    wrong_bound_id;
+  } ->
+      string_of_located_error wrong_bound_id (
+        sprintf "Variable bound \"%s\" in the case \"%s\" is different from the bound variable \"%s\" in the case \"%s\""
+        (wrong_bound_id.v)
+        (wrong_variant.v)
+        (base_bound_id.v)
+        (base_variant.v)
+  )
+    
+      (* sprintf "Incompatible_Binding between: \n-> %s\n-> %s"
         (lhs
         |> List.map (fun (id, ktype) ->
                 sprintf "%s: %s" id.v (string_of_ktype ktype.v))
@@ -601,7 +634,7 @@ let string_of_switch_error =
         (rhs
         |> List.map (fun (id, ktype) ->
                 sprintf "%s: %s" id.v (string_of_ktype ktype.v))
-        |> String.concat ", ")
+        |> String.concat ", ") *)
   | Identifier_already_Bound s ->
     string_of_located_error s 
     (
@@ -702,7 +735,7 @@ let string_of_ast_error =
       )
       
   | Enum_Access_field record ->
-      sprintf "%s Enum doesn't have field : %s for enum : %s" (string_of_position_error record.field.position) record.field.v
+      sprintf "%s Enum doesn't have field : \"%s\" for enum : \"%s\"" (string_of_position_error record.field.position) record.field.v
         record.enum_decl.enum_name.v
   | Unvalid_Deference identifier -> 
     string_of_located_error identifier (sprintf "Invalid Deference for \"%s\"" identifier.v)

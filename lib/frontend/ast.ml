@@ -390,7 +390,27 @@ module Error = struct
         expected : int;
         found : int;
       }
-    | Incompatible_Binding of (string location * ktype location) list * (string location * ktype location) list
+    | Incompatible_Binding_Name of {
+      switch_expr: kexpression location;
+
+      base_variant: string location;
+      base_bound_id: string location;
+
+      wrong_variant: string location;
+      wrong_bound_id: string location;
+    }
+    (* } (kexpression location) * (string location * ktype location) * (string location * ktype location) *)
+    | Incompatible_Binding_Ktype of {
+      switch_expr: kexpression location;
+
+      base_variant: string location;
+      base_bound_id: string location;
+      base_bound_ktype: ktype location;
+
+      wrong_variant: string location;
+      wrong_bound_id: string location;
+      wrong_bound_ktype: ktype location;
+    }
     | Identifier_already_Bound of string location
 
   type ast_error =
@@ -571,6 +591,15 @@ let equal_fields =
     lfield.v = rfield.v && lktype.v === rtype.v
   )
 
+let find_diff_field l1 l2 = l2 |> List.combine l1 |> List.find_opt (fun ((lfield, lktype), (rfield, rtype)) -> 
+  not (lfield.v = rfield.v && lktype.v === rtype.v)
+  )
+
+  let find_field_error l1 l2 = l2 |> List.combine l1 |> List.find_map (fun ((lfield, lktype), (rfield, rtype)) -> 
+    if lfield.v <> rfield.v then Some (`diff_binding_name ((lfield, lktype), (rfield, rtype)))
+    else if lktype.v |> ( === ) rtype.v |> not then Some (`diff_binding_ktype((lfield, lktype), (rfield, rtype)))
+    else None
+  )
   let rec module_path_return_type ~(current_module: string) ~(module_type_path: string) return_type
       =
     match return_type with
