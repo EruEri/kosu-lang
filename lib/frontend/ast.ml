@@ -411,6 +411,15 @@ module Error = struct
       wrong_bound_id: string location;
       wrong_bound_ktype: ktype location;
     }
+    | Incompatible_Binding_Position of {
+      base_index: int;
+      base_variant: string  location;
+      base_bound_id: string location;
+
+      wrong_index: int;
+      wrong_variant: string location;
+      wrong_bound_id: string location;
+    }
     | Identifier_already_Bound of string location
 
   type ast_error =
@@ -595,9 +604,10 @@ let find_diff_field l1 l2 = l2 |> List.combine l1 |> List.find_opt (fun ((lfield
   not (lfield.v = rfield.v && lktype.v === rtype.v)
   )
 
-  let find_field_error l1 l2 = l2 |> List.combine l1 |> List.find_map (fun ((lfield, lktype), (rfield, rtype)) -> 
+  let find_field_error l1 l2 = l2 |> List.combine l1 |> List.find_map (fun ((lindex, lfield, lktype), (rindex, rfield, rtype)) -> 
     if lfield.v <> rfield.v then Some (`diff_binding_name ((lfield, lktype), (rfield, rtype)))
     else if lktype.v |> ( === ) rtype.v |> not then Some (`diff_binding_ktype((lfield, lktype), (rfield, rtype)))
+    else if lindex <> rindex then Some (`diff_binding_index(( (lindex: int), lfield), (rindex, rfield)) )
     else None
   )
   let rec module_path_return_type ~(current_module: string) ~(module_type_path: string) return_type

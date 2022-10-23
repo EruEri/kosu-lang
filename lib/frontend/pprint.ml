@@ -625,7 +625,25 @@ let string_of_switch_error =
         (base_bound_id.v)
         (base_variant.v)
   )
-    
+  | Incompatible_Binding_Position {
+    base_index;
+    base_variant;
+    base_bound_id;
+
+    wrong_index;
+    wrong_variant;
+    wrong_bound_id;
+  } -> 
+    string_of_located_error wrong_bound_id (
+      sprintf "Variable bound \"%s\" at index %d in the case \"%s\" but due to the binding of \"%s\" in the case \"%s\" the expected index of \"%s\" is %d"
+      wrong_bound_id.v
+      wrong_index
+      wrong_variant.v
+      base_bound_id.v
+      base_variant.v
+      wrong_bound_id.v
+      base_index
+    )
       (* sprintf "Incompatible_Binding between: \n-> %s\n-> %s"
         (lhs
         |> List.map (fun (id, ktype) ->

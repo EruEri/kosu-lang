@@ -1276,7 +1276,8 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                           |> Option.get
                         in
                         let assoc_binding = assoc_binding sc in
-                        variant_name, List.combine assoc_binding assoc_types)
+                        variant_name, assoc_types |> List.combine assoc_binding |> List.mapi (fun index (v, l) -> (index, v, l) )
+                 )
                in
                match combine_binding_type with
                | [] -> failwith "Unreachable case: empty case"
@@ -1289,7 +1290,10 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                               reduce_binded_variable_combine value
                             in
                             match Ast.Type.find_field_error acc reduced_binding with
-                            | None -> acc
+                            | None -> 
+                              begin 
+                                acc 
+                              end 
                             | Some (`diff_binding_name (lhs, rhs)) -> Incompatible_Binding_Name {
                               switch_expr = expression;
                               base_variant = first_variant;
@@ -1308,17 +1312,17 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                               wrong_bound_id = (rhs |> fst);
                               wrong_bound_ktype = (rhs |> snd)
                             } |> switch_error |> raise
+                            | Some (`diff_binding_index((base_index, base_bound_id), (wrong_index, wrong_bound_id))) -> Incompatible_Binding_Position {
+                              base_index;
+                              base_variant = first_variant;
+                              base_bound_id;
+                              wrong_index;
+                              wrong_variant = variant_name;
+                              wrong_bound_id;
+                            } |> switch_error |> raise
                             )
-                            (* if
-                              acc
-                              |> Ast.Type.equal_fields reduced_binding
-                              |> not
-                            then
-                              Incompatible_Binding (acc, reduced_binding)
-                              |> switch_error |> raise
-                            else acc) *)
                           (reduce_binded_variable_combine ass_bin)
-                     |> List.map (fun (variable_name, ktype) ->
+                     |> List.map (fun (_, variable_name, ktype) ->
                             ( variable_name,
                               ({ is_const = true; ktype = ktype.v }
                                 : Env.variable_info) ))

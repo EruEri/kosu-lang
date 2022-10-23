@@ -935,10 +935,10 @@ module Enum = struct
     |> List.filter_map (fun (name, ktypes) ->
            match name with None -> None | Some s -> Some (s, ktypes))
 
-  let reduce_binded_variable_combine assoc =
+  let reduce_binded_variable_combine (assoc) =
     assoc
-    |> List.filter_map (fun (name, ktype) ->
-           match name with None -> None | Some s -> Some (s, ktype))
+    |> List.filter_map (fun (index, name, ktype) ->
+           match name with None -> None | Some s -> Some (index, s, ktype))
 
   let bind_enum_decl (ktypes : ktype list) primitive_generics (enum_decl : t) =
     let combined = List.combine enum_decl.generics ktypes in
