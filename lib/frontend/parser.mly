@@ -117,12 +117,12 @@ struct_decl:
 
 external_func_decl:
     | EXTERNAL id=located(IDENT) LPARENT ctypes=separated_list(COMMA, located(ctype)) varia=option( p=preceded(SEMICOLON, TRIPLEDOT { () }) { p } ) 
-    RPARENT r_type=located(ctype) c_name=option(EQUAL s=String_lit { s }) SEMICOLON {
+    RPARENT r_type=located(option(ctype)) c_name=option(EQUAL s=String_lit { s }) SEMICOLON {
         {
             sig_name = id;
             fn_parameters = ctypes;
             is_variadic = varia |> Option.is_some;
-            r_type;
+            r_type = r_type |> Position.map (Option.value ~default: TUnit);
             c_name;
         }
     }
@@ -189,12 +189,12 @@ statement:
 ;;
 
 syscall_decl:
-    | SYSCALL syscall_name=located(IDENT) parameters=delimited(LPARENT, separated_list(COMMA, ct=located(ctype) { ct  }), RPARENT ) return_type=located(ctype) 
+    | SYSCALL syscall_name=located(IDENT) parameters=delimited(LPARENT, separated_list(COMMA, ct=located(ctype) { ct  }), RPARENT ) return_type=located( option(ctype) ) 
        LBRACE SYSCALL LPARENT opcode=located(Integer_lit) RPARENT RBRACE {
         {
             syscall_name;
             parameters;
-            return_type;
+            return_type = return_type |> Position.map (Option.value ~default: TUnit);
             opcode = opcode |> Position.map (fun (_, _, value) -> value )
         }
     }
@@ -202,12 +202,12 @@ syscall_decl:
 function_decl:
     | FUNCTION name=located(IDENT) generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=located(IDENT) {id}), SUP ) { d })
     parameters=delimited(LPARENT, separated_list(COMMA, id=located(IDENT) COLON kt=located(ktype) { id, kt  }), RPARENT )
-    r_type=located(ktype) body=kbody {
+    r_type=located( option(ktype) ) body=kbody {
         {
             fn_name = name;
             generics = generics_opt |> Option.value ~default: [];
             parameters;
-            return_type = r_type;
+            return_type = r_type |> Position.map (Option.value ~default: TUnit);
             body
         }
     }
