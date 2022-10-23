@@ -504,7 +504,7 @@ module ValidateEnum = struct
     match is_variant_duplicate enum_decl with
     | None -> Ok ()
     | Some vari -> 
-      let located_variant = enum_decl.variants |>  List.find_all (fun (variant, _) -> variant.v = vari ) |> List.rev |> List.hd |> fun (f, _) -> f in
+      let located_variant = enum_decl.variants |>  List.find_all (fun (variant, _) -> variant.v = vari ) |> List.rev |> List.hd |> fst in
       Error.EDuplicated_variant_name {variant = located_variant; enum_decl} |> Error.enum_error |> Result.error
 end
 
@@ -523,7 +523,7 @@ module ValidateFunction_Decl = struct
       |> Util.ListHelper.duplicate 
       |> (function
       | [] -> Ok ()
-      | t::_ -> let duplicate = function_decl.parameters |> List.find_all (fun (field, _) -> field.v = t) |>  List.rev |> List.hd |> fst in
+      | t::_ -> let duplicate = function_decl.parameters |> List.find_all (fun (field, _) -> field.v = t) |> List.rev |> List.hd |> fst in
       Error.Duplicated_parameters {duplicatated_field = duplicate; function_decl} |> Error.function_error |> Result.error
       )
     (* if
