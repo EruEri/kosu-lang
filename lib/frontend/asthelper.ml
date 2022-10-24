@@ -910,14 +910,14 @@ module Enum = struct
         kts |> List.exists (fun kt -> is_type_generic kt.v enum_decl)
     | _ -> false
 
-  let extract_assoc_type_variant generics variant (enum_decl : t) =
+  let extract_assoc_type_variant generics variant (enum_decl : t) = let open Ast.Type in
     enum_decl.variants
     |> List.find_map (fun (case, assoc_type) ->
            if case.v = variant.v then Some assoc_type else None)
     |> Option.map (fun assoc_ktypes ->
            assoc_ktypes
            |> List.map (fun kt ->
-                  generics |> List.assoc_opt kt.v |> Option.value ~default:kt))
+      generics |> List.find_map (fun (gen_kt, associated_gen_value) -> if gen_kt === kt.v then Some associated_gen_value else None ) |> Option.value ~default:kt))
 
   let is_ktype_generic_level_zero ktype (enum_decl : t) =
     match ktype with

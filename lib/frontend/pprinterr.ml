@@ -4,15 +4,6 @@ open Ast
 open Astvalidation.Error
 open Pprint
 
-let string_of_expected_found = function
-  | `int (expected, found) ->
-      Printf.sprintf "-- expected : %d, found : %d --" expected found
-  | `str (expected, found) ->
-      Printf.sprintf "-- expected : %s, found : %s --" expected found
-  | `ktype (expected, found) ->
-      Printf.sprintf "-- expected : %s, found : %s --"
-        (expected |> string_of_ktype)
-        (found |> string_of_ktype)
 
 let string_of_struct_error =
   let open Ast.Error in
@@ -301,15 +292,6 @@ let string_of_switch_error =
       wrong_bound_id.v
       base_index
     )
-      (* sprintf "Incompatible_Binding between: \n-> %s\n-> %s"
-        (lhs
-        |> List.map (fun (id, ktype) ->
-                sprintf "%s: %s" id.v (string_of_ktype ktype.v))
-        |> String.concat ", ")
-        (rhs
-        |> List.map (fun (id, ktype) ->
-                sprintf "%s: %s" id.v (string_of_ktype ktype.v))
-        |> String.concat ", ") *)
   | Identifier_already_Bound s ->
     string_of_located_error s 
     (

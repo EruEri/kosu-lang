@@ -1,45 +1,7 @@
 open Ast
 open Ast.Error
 open Position
-
-let char_of_signedness = function Signed -> 's' | Unsigned -> 'u'
-
-let string_of_isize = function
-  | I8 -> "8"
-  | I16 -> "16"
-  | I32 -> "32"
-  | I64 -> "64"
-
-let rec string_of_ktype =
-  let open Printf in
-  function
-  | TParametric_identifier { module_path; parametrics_type; name } ->
-      sprintf "(%s)%s %s"
-        (parametrics_type
-        |> List.map (fun s -> string_of_ktype s.v)
-        |> String.concat ", ")
-        module_path.v name.v
-  | TType_Identifier { module_path; name } ->
-      sprintf "%s%s"
-        (if module_path.v = "" then "" else sprintf "%s::" module_path.v)
-        name.v
-  | TInteger (sign, size) ->
-      sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
-  | TPointer ktype -> sprintf "*%s" (string_of_ktype ktype.v)
-  | TTuple ktypes ->
-      sprintf "(%s)"
-        (ktypes |> List.map (fun s -> string_of_ktype s.v) |> String.concat ", ")
-  | TFunction (parameters, r_type) ->
-      sprintf "(%s) -> %s"
-        (parameters
-        |> List.map (fun s -> string_of_ktype s.v)
-        |> String.concat ", ")
-        (string_of_ktype r_type.v)
-  | TString_lit -> "stringl"
-  | TBool -> "bool"
-  | TUnit -> "unit"
-  | TUnknow -> "unknow"
-  | TFloat -> "f64"
+open Pprint
 
 (**
   Return the type of the code block expression by checking each expression in this one
@@ -130,6 +92,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
       | None -> final_expr_type
       | Some kt ->
           if not (Type.are_compatible_type kt final_expr_type) then
+            
             raise
               (ast_error
                  (Ast.Error.Uncompatible_type
@@ -1254,7 +1217,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                           name;
                         }))
         in
-
+        (* let () = generics_mapped |> List.iter (fun (kt, lkt) -> Printf.printf "\nGeneric resolver normal = %s, located = %s\n\n" (string_of_ktype kt) (string_of_ktype lkt.v)) in *)
         let open Asthelper.Enum in
         let open Asthelper.Switch_case in
         let () =
@@ -1279,6 +1242,12 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                         variant_name, assoc_types |> List.combine assoc_binding |> List.mapi (fun index (v, l) -> (index, v, l) )
                  )
                in
+               (* let () =  combine_binding_type |> List.iter (fun (var_name, list) -> 
+                Printf.printf "\nvariant = %s(%s)\n" 
+                (var_name.v)
+                (list |> List.map (fun (_, binding, kt) -> Printf.sprintf "%s => %s" (binding |> Option.map Position.value |> Option.value ~default:"_" ) (string_of_ktype kt.v)) |> String.concat ", ")
+                )  
+              in  *)
                match combine_binding_type with
                | [] -> failwith "Unreachable case: empty case"
                | (first_variant, ass_bin) :: q ->
@@ -1322,7 +1291,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                             } |> switch_error |> raise
                             )
                           (reduce_binded_variable_combine ass_bin)
-                     |> List.map (fun (_, variable_name, ktype) ->
+                     |> List.map (fun (_, variable_name, ktype) -> 
                             ( variable_name,
                               ({ is_const = true; ktype = ktype.v }
                                 : Env.variable_info) ))
@@ -1357,6 +1326,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             |> List.fold_left
                  (fun acc (case_type, position) ->
                    if not (Type.are_compatible_type acc case_type) then
+                    let () = Printf.printf "Not compatible acc = %s; value = %s\n" (string_of_ktype acc) (string_of_ktype case_type) in
                      Uncompatible_type
                        { expected = acc; found = { v = case_type; position } }
                      |> ast_error |> raise
