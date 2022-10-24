@@ -1596,7 +1596,7 @@ module Sizeof = struct
   let ( ++ ) = Int64.add
   let ( -- ) = Int64.sub
 
-  let rec size calcul current_module (program : Program.t) ktype =
+  let rec size calcul current_module (program: module_path list) ktype =
     match ktype with
     | TUnit | TBool | TUnknow -> 1L
     | TInteger (_, isize) -> size_of_isize isize / 8 |> Int64.of_int
@@ -1641,8 +1641,7 @@ module Sizeof = struct
           match
             Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name
               ~current_module
-              (program
-              |> List.map (fun named_module -> named_module.module_path))
+              program
           with
           | Error e -> e |> Ast.Error.ast_error |> raise
           | Ok type_decl -> type_decl

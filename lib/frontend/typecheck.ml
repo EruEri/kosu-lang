@@ -27,7 +27,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
             |> Position.map_use
                  (typeof ~generics_resolver env current_mod_name program)
           in
-          (* let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Asthelper.string_of_ktype type_init) (Asthelper.Sizeof.sizeof current_mod_name program type_init) (Asthelper.Sizeof.alignmentof current_mod_name program type_init) in *)
+          let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Pprint.string_of_ktype type_init.v) (Asthelper.Sizeof.sizeof current_mod_name program type_init.v) (Asthelper.Sizeof.alignmentof current_mod_name program type_init.v) in
           if env |> Env.is_identifier_exists variable_name.v then
             raise
               (stmt_error
@@ -84,7 +84,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
                     (env |> Env.restrict_variable_type variable.v new_type)
                     current_mod_name program ~return_type (q, final_expr)))
   | [] -> (
-      Printf.printf "Final expr\n";
+      (* Printf.printf "Final expr\n"; *)
       let final_expr_type =
         typeof ~generics_resolver env current_mod_name program final_expr
       in
@@ -1217,7 +1217,6 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                           name;
                         }))
         in
-        (* let () = generics_mapped |> List.iter (fun (kt, lkt) -> Printf.printf "\nGeneric resolver normal = %s, located = %s\n\n" (string_of_ktype kt) (string_of_ktype lkt.v)) in *)
         let open Asthelper.Enum in
         let open Asthelper.Switch_case in
         let () =

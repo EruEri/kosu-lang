@@ -565,6 +565,7 @@ module ValidateFunction_Decl = struct
     in
     try
       let _ =
+        (* Printf.printf "\n\nFunction \"%s\" body\n" (function_decl.fn_name.v); *)
         Typecheck.typeof_kbody ~generics_resolver:hashtbl
           (function_decl.parameters
           |> List.fold_left
