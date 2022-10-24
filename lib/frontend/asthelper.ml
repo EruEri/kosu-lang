@@ -1353,6 +1353,8 @@ module Function = struct
         |> List.exists (fun kt -> is_ktype_generic kt.v fn_decl)
     | TType_Identifier { module_path = { v = ""; _ }; name } ->
         fn_decl.generics |> List.map Position.value |> List.mem name.v
+    | TPointer ktl -> is_ktype_generic ktl.v fn_decl
+    | TTuple ktls -> ktls |> List.exists ( fun (ktl) -> is_ktype_generic ktl.v fn_decl)
     | _ -> false
 
   (**
@@ -1363,12 +1365,17 @@ module Function = struct
     | TType_Identifier { module_path = { v = ""; _ }; name } ->
         fn_decl.generics |> List.map Position.value |> List.mem name.v
     | _ -> false
-
+  
+  let is_generic_used_in_parameters (fn_decl: t) = 
+    fn_decl.parameters |> List.exists (fun (_, lkt) -> 
+      is_ktype_generic lkt.v fn_decl
+    )
   let does_need_generic_resolver (function_decl : t) =
     if function_decl.generics = [] then false
     else if function_decl.parameters |> List.length = 0 then true
-    else
-      function_decl |> is_ktype_generic_level_zero function_decl.return_type.v
+    else function_decl |> is_generic_used_in_parameters |> not
+    (* else
+      function_decl |> is_ktype_generic_level_zero function_decl.return_type.v *)
 
   (* (**
        @return : Returns [Some name] if the associated type with the field is generics else [None] if not or the field name doesn't exist
