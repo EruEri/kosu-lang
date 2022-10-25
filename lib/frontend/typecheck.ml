@@ -27,7 +27,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
             |> Position.map_use
                  (typeof ~generics_resolver env current_mod_name program)
           in
-          let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Pprint.string_of_ktype type_init.v) (Asthelper.Sizeof.sizeof current_mod_name program type_init.v) (Asthelper.Sizeof.alignmentof current_mod_name program type_init.v) in
+          (* let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Pprint.string_of_ktype type_init.v) (Asthelper.Sizeof.sizeof current_mod_name program type_init.v) (Asthelper.Sizeof.alignmentof current_mod_name program type_init.v) in *)
           if env |> Env.is_identifier_exists variable_name.v then
             raise
               (stmt_error

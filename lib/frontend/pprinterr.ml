@@ -114,8 +114,8 @@ let string_of_function_error =
     string_of_located_error found 
     (sprintf "Function \"%s\", this expression has the type \"%s\" but an expression of the type \"%s\" was expected. \"%s\" and \"%s\" aren't compatible"
     fn_name
-    (string_of_ktype expected)
     (string_of_ktype found.v)
+    (string_of_ktype expected)
     (string_of_ktype found.v)
     (string_of_ktype expected)
     )

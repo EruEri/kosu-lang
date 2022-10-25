@@ -398,6 +398,7 @@ module ValidateSyscall = struct
   let does_contains_not_c_compatible_type program current_module
       (syscall_decl : syscall_decl) =
     syscall_decl.parameters
+    |> List.cons syscall_decl.return_type
     |> List.filter_map (fun kt ->
            try
              if
@@ -526,14 +527,6 @@ module ValidateFunction_Decl = struct
       | t::_ -> let duplicate = function_decl.parameters |> List.find_all (fun (field, _) -> field.v = t) |> List.rev |> List.hd |> fst in
       Error.Duplicated_parameters {duplicatated_field = duplicate; function_decl} |> Error.function_error |> Result.error
       )
-    (* if
-      function_decl.parameters
-      |> List.map (fun (field, _) -> field)
-      |> Util.ListHelper.duplicate |> Util.are_diff_lenght []
-    then
-      Error.Duplicated_parameters function_decl |> Error.function_error
-      |> Result.error
-    else Ok () *)
 
   let check_unit_parameters (function_decl : function_decl) =
     function_decl.parameters |> List.find_map (fun (field, kt) -> if kt.v = TUnit then Some field else None)
@@ -545,7 +538,9 @@ module ValidateFunction_Decl = struct
 
   let is_all_type_exist current_module program function_decl =
     function_decl.parameters
-    |> List.find_map (fun (_, kt) ->
+    |> List.map snd
+    |> List.cons function_decl.return_type
+    |> List.find_map (fun kt ->
            if Asthelper.Function.is_ktype_generic_level_zero kt.v function_decl
            then None
            else
@@ -565,7 +560,6 @@ module ValidateFunction_Decl = struct
     in
     try
       let _ =
-        (* Printf.printf "\n\nFunction \"%s\" body\n" (function_decl.fn_name.v); *)
         Typecheck.typeof_kbody ~generics_resolver:hashtbl
           (function_decl.parameters
           |> List.fold_left
@@ -597,10 +591,13 @@ module ValidateOperator_Decl = struct
     let first_kt =
       Asthelper.ParserOperator.first_parameter_ktype operator_decl
     in
-    Help.is_ktype_exist_from_ktype [] current_module program first_kt.v >>= fun () ->
+    Help.is_ktype_exist_from_ktype [] current_module program first_kt.v 
+    >>= fun () ->
     match Asthelper.ParserOperator.second_parameter_ktype operator_decl with
     | None -> Ok ()
     | Some kt -> Help.is_ktype_exist_from_ktype [] current_module program kt.v
+    >>= fun () ->
+    Help.is_ktype_exist_from_ktype [] current_module program (operator_decl |> Asthelper.ParserOperator.return_ktype |> Position.value)
 
   let check_parameters operator_decl =
     let open Ast.Type in

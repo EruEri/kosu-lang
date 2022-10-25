@@ -1354,7 +1354,7 @@ module Function = struct
     | TType_Identifier { module_path = { v = ""; _ }; name } ->
         fn_decl.generics |> List.map Position.value |> List.mem name.v
     | TPointer ktl -> is_ktype_generic ktl.v fn_decl
-    | TTuple ktls -> ktls |> List.exists ( fun (ktl) -> is_ktype_generic ktl.v fn_decl)
+    | TTuple ktls -> ktls |> List.exists ( fun ktl -> is_ktype_generic ktl.v fn_decl)
     | _ -> false
 
   (**
