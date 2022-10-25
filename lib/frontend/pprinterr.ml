@@ -63,6 +63,21 @@ let string_of_statement_error =
   | Already_Define_Identifier s ->
       string_of_located_error s.name (sprintf "Identifier already defined : \"%s\"" s.name.v)
   | Reassign_Constante s ->  string_of_located_error s.name (sprintf "Reassign a constant \"%s\"" s.name.v)
+  | Dereference_No_pointer {name; ktype} -> 
+    string_of_located_error name (
+      sprintf "Identifier \"%s\" has the type \"%s\ which is not a pointer. Therefore, it can't be deferenced"
+      name.v
+      (string_of_ktype ktype)
+    )
+  | Dereference_Wrong_type { identifier; expected; found } -> 
+    string_of_located_error found (
+      sprintf "This expression has the type \"%s\" but the deferenced variable \"%s\" has the type \"%s\". \"%s\" and \"%s\" aren't compatible"
+      (string_of_ktype found.v)
+      identifier.v
+      (string_of_ktype expected)
+      (string_of_ktype found.v)
+      (string_of_ktype expected)
+    )
   | Uncompatible_type_Assign s ->
     string_of_located_error s.found 
     (

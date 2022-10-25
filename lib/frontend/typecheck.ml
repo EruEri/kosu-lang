@@ -82,7 +82,19 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
                 else
                   typeof_kbody ~generics_resolver
                     (env |> Env.restrict_variable_type variable.v new_type)
-                    current_mod_name program ~return_type (q, final_expr)))
+                    current_mod_name program ~return_type (q, final_expr))
+      | SDerefAffectation (id, expression) -> (
+        match env |> Env.find_identifier_opt id.v with
+        | None -> Ast.Error.Undefine_Identifier { name = id} |> stmt_error |> raise
+        | Some {ktype; _} -> begin
+          let in_pointer_ktype = match ktype with TPointer ktl -> ktl.v | _ -> Ast.Error.Dereference_No_pointer {name = id; ktype} |> stmt_error |> raise in
+          let expr_ktype = expression |> Position.map_use (typeof ~generics_resolver env current_mod_name program) in
+          if (not @@ Ast.Type.are_compatible_type in_pointer_ktype @@ expr_ktype.v) then Ast.Error.Dereference_Wrong_type {identifier = id; expected = in_pointer_ktype; found = expr_ktype} |> stmt_error |> raise
+          else
+            typeof_kbody ~generics_resolver (env |> Env.restrict_variable_type id.v expr_ktype.v) current_mod_name program ~return_type (q, final_expr)
+        end 
+      )             
+      )  
   | [] -> (
       (* Printf.printf "Final expr\n"; *)
       let final_expr_type =

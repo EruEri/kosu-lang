@@ -185,6 +185,7 @@ statement:
         }
     }
     | located(IDENT) EQUAL located(expr) SEMICOLON { SAffection ($1, $3 ) }
+    | preceded(MULT, located(IDENT)) EQUAL located(expr) SEMICOLON { SDerefAffectation($1, $3)}
     | DISCARD located(expr) SEMICOLON { SDiscard ($2) }
 ;;
 

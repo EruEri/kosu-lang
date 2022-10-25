@@ -82,6 +82,8 @@ and string_of_kstatement = function
   | SAffection (id, expression) ->
       sprintf "%s = %s;" id.v (expression.v |> string_of_kexpression)
   | SDiscard expr -> sprintf "discard %s;" (string_of_kexpression expr.v)
+  | SDerefAffectation (id, exprssion) -> 
+    sprintf "*%s = %s;" id.v (string_of_kexpression exprssion.v)
 
 and string_of_kexpression = function
   | Empty -> "empty"
