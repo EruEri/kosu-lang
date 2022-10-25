@@ -399,7 +399,6 @@ module Error = struct
       wrong_variant: string location;
       wrong_bound_id: string location;
     }
-    (* } (kexpression location) * (string location * ktype location) * (string location * ktype location) *)
     | Incompatible_Binding_Ktype of {
       switch_expr: kexpression location;
 
@@ -428,8 +427,6 @@ module Error = struct
         expected : int;
         found : int;
       }
-    (* | No_Occurence_found of string *)
-    (* | Too_Many_occurence_found of string *)
     | Undefined_Identifier of string location
     | Undefined_Const of string location
     | Undefined_Struct of string location

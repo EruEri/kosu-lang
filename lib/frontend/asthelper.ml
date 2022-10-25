@@ -180,14 +180,6 @@ module Program = struct
             Ast.Error.Enum_Error
               (Ast.Error.Conflict_variant_multiple_decl
                  { module_path = current_module_name; variant; enum_decls })
-            (* Ast.Error.Too_Many_occurence_foune
-               (Printf.sprintf
-                  "Need explicit enum name : Too many enum with variant : %s -- \
-                   conflicts -- %s -- "
-                  variant.v
-                  (enum_decls
-                  |> List.map (fun decl -> decl.enum_name.v)
-                  |> String.concat ", ")) *)
             |> Result.error
         | One enum_decl -> enum_decl |> Result.ok)
 
