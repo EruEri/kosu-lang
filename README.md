@@ -7,10 +7,10 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 ## Roadmap (For now)
 - [x] Lexer
 - [x] Parser
-- [ ] Better syntax error handling
+- [x] Better syntax error handling
 - [x] Ast
-- [ ] Type checking the Ast <- Currently here
-- [ ] Annote the Ast with type
+- [x] Type checking the Ast 
+- [ ] Annote the Ast with type <- Currently here
 - [ ] Assembly generation (LLVM or hand-written ARM64 assembly ?)
 - [ ] Create a website explaining the syntax and the language in general
 

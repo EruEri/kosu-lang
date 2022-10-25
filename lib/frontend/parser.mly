@@ -1,5 +1,6 @@
 %{
     open Ast
+    open Position
 %}
 
 
@@ -65,6 +66,10 @@ modul:
     | pns = list(module_nodes) EOF { Mod pns }
 ;;
 
+%inline located(X): x=X {
+  Position.located_value $startpos $endpos x
+};;
+
 module_nodes:
     | enum_decl { NEnum $1 }
     | struct_decl { NStruct $1 }
@@ -77,9 +82,9 @@ module_nodes:
 ;;
 
 enum_decl:
-    | ENUM generics_opt=option( LPARENT l=separated_nonempty_list(COMMA, IDENT) RPARENT { l }) LBRACE 
+    | ENUM generics_opt=option( LPARENT l=separated_nonempty_list(COMMA, located(IDENT)) RPARENT { l }) LBRACE 
     variants=separated_list(COMMA,enum_assoc) 
-    RBRACE name=IDENT SEMICOLON { 
+    RBRACE name=located(IDENT) SEMICOLON { 
         let generics = generics_opt |> Option.value ~default: [] in
         {
             enum_name = name;
@@ -90,7 +95,7 @@ enum_decl:
 ;;
 
 enum_assoc:
-    | id=IDENT opt=option(LPARENT l=separated_nonempty_list(COMMA, ktype) RPARENT {l} ) {
+    | id=located(IDENT) opt=option(LPARENT l=separated_nonempty_list(COMMA, located(ktype) ) RPARENT {l} ) {
         (
             id,
             opt |> Option.value ~default: []
@@ -99,9 +104,9 @@ enum_assoc:
 ;;
 
 struct_decl:
-    | STRUCT generics_opt=option( LPARENT l=separated_nonempty_list(COMMA, IDENT) RPARENT { l }) LBRACE
-    fields=separated_list(COMMA, id=IDENT COLON kt=ktype { id, kt  })
-    RBRACE name=IDENT SEMICOLON {
+    | STRUCT generics_opt=option( LPARENT l=separated_nonempty_list(COMMA, located(IDENT) ) RPARENT { l }) LBRACE
+    fields=separated_list(COMMA, id=located(IDENT) COLON kt=located(ktype) { id, kt  })
+    RBRACE name=located(IDENT) SEMICOLON {
         {
             struct_name = name;
             generics = generics_opt |> Option.value ~default: [];
@@ -111,13 +116,13 @@ struct_decl:
 ;;
 
 external_func_decl:
-    | EXTERNAL id=IDENT LPARENT ctypes=separated_list(COMMA, ctype) varia=option( p=preceded(SEMICOLON, TRIPLEDOT { () }) { p } ) 
-    RPARENT r_type=ctype c_name=option(EQUAL s=String_lit { s }) SEMICOLON {
+    | EXTERNAL id=located(IDENT) LPARENT ctypes=separated_list(COMMA, located(ctype)) varia=option( p=preceded(SEMICOLON, TRIPLEDOT { () }) { p } ) 
+    RPARENT r_type=located(option(ctype)) c_name=option(EQUAL s=String_lit { s }) SEMICOLON {
         {
             sig_name = id;
             fn_parameters = ctypes;
             is_variadic = varia |> Option.is_some;
-            r_type;
+            r_type = r_type |> Position.map (Option.value ~default: TUnit);
             c_name;
         }
     }
@@ -145,7 +150,7 @@ binary_operator_symbol:
 ;;
 
 operator_decl:
-    | OPERATOR op=binary_operator_symbol fields=delimited(LPARENT, id1=IDENT COLON kt1=ktype COMMA id2=IDENT COLON kt2=ktype { (id1,kt1), (id2, kt2) } , RPARENT) return_type=ktype kbody=kbody {
+    | OPERATOR op=located(binary_operator_symbol) fields=delimited(LPARENT, id1=located(IDENT) COLON kt1=located(ktype) COMMA id2=located(IDENT) COLON kt2=located(ktype) { (id1,kt1), (id2, kt2) } , RPARENT) return_type=located(ktype) kbody=kbody {
         Binary {
             op;
             fields;
@@ -153,7 +158,7 @@ operator_decl:
             kbody
         }
     }
-    | OPERATOR op=delimited(LPARENT, unary_operator_symbol, RPARENT) field=delimited(LPARENT, id=IDENT COLON kt=ktype { id, kt} ,RPARENT) return_type=ktype kbody=kbody {
+    | OPERATOR op=delimited(LPARENT, located(unary_operator_symbol), RPARENT) field=delimited(LPARENT, id=located(IDENT) COLON kt=located(ktype) { id, kt} ,RPARENT) return_type=located(ktype) kbody=kbody {
         Unary {
             op;
             field;
@@ -169,9 +174,9 @@ declarer:
 ;;
 
 kbody:
-    | delimited(LBRACE, l=list(statement) DOLLAR e=expr { l , e } , RBRACE)  { $1 }
+    | delimited(LBRACE, l=list(located(statement)) DOLLAR e=located(expr) { l , e } , RBRACE)  { $1 }
 statement:
-    | declarer IDENT explicit_type=option(COLON k=ktype {k} ) EQUAL expression=expr SEMICOLON { 
+    | declarer located(IDENT) explicit_type=option(COLON k=located(ktype) {k} ) EQUAL expression=located(expr) SEMICOLON { 
         SDeclaration { 
             is_const = $1;
             variable_name = $2;
@@ -179,31 +184,30 @@ statement:
             expression
         }
     }
-    | IDENT EQUAL expr SEMICOLON { SAffection ($1, $3) }
-    | DISCARD expr SEMICOLON { SDiscard $2 }
+    | located(IDENT) EQUAL located(expr) SEMICOLON { SAffection ($1, $3 ) }
+    | DISCARD located(expr) SEMICOLON { SDiscard ($2) }
 ;;
 
 syscall_decl:
-    | SYSCALL syscall_name=IDENT parameters=delimited(LPARENT, separated_list(COMMA, ct=ctype { ct  }), RPARENT ) return_type=ctype 
-       LBRACE SYSCALL LPARENT opcode=Integer_lit RPARENT RBRACE {
-        let _, _, value = opcode in
+    | SYSCALL syscall_name=located(IDENT) parameters=delimited(LPARENT, separated_list(COMMA, ct=located(ctype) { ct  }), RPARENT ) return_type=located( option(ctype) ) 
+       LBRACE SYSCALL LPARENT opcode=located(Integer_lit) RPARENT RBRACE {
         {
             syscall_name;
             parameters;
-            return_type;
-            opcode = value
+            return_type = return_type |> Position.map (Option.value ~default: TUnit);
+            opcode = opcode |> Position.map (fun (_, _, value) -> value )
         }
     }
 
 function_decl:
-    | FUNCTION name=IDENT generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=IDENT {id}), SUP ) { d })
-    parameters=delimited(LPARENT, separated_list(COMMA, id=IDENT COLON kt=ktype { id, kt  }), RPARENT )
-    r_type=ktype body=kbody {
+    | FUNCTION name=located(IDENT) generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=located(IDENT) {id}), SUP ) { d })
+    parameters=delimited(LPARENT, separated_list(COMMA, id=located(IDENT) COLON kt=located(ktype) { id, kt  }), RPARENT )
+    r_type=located( option(ktype) ) body=kbody {
         {
             fn_name = name;
             generics = generics_opt |> Option.value ~default: [];
             parameters;
-            return_type = r_type;
+            return_type = r_type |> Position.map (Option.value ~default: TUnit);
             body
         }
     }
@@ -219,26 +223,26 @@ sig_decl:
         }
     }
 const_decl:
-    | CONST Constant EQUAL Integer_lit SEMICOLON {
-        let sign, size, value = $4 in
+    | CONST located(Constant) EQUAL located(Integer_lit) SEMICOLON {
+        let sign, size, _ = $4.v in
         {
             const_name = $2;
             explicit_type = TInteger (sign, size);
-            value = EInteger (sign, size, value);
+            value = $4 |> Position.map (fun (sign, size, value) -> EInteger (sign, size, value) ) ;
         }
     }
-    | CONST Constant EQUAL String_lit SEMICOLON {
+    | CONST located(Constant) EQUAL located(String_lit) SEMICOLON {
         {
             const_name = $2;
             explicit_type = TString_lit;
-            value = EString $4
+            value = $4 |> Position.map (fun s -> EString s)
         }
     }
-    | CONST Constant EQUAL Float_lit SEMICOLON {
+    | CONST located(Constant) EQUAL located(Float_lit) SEMICOLON {
         {
             const_name = $2;
             explicit_type = TFloat;
-            value = EFloat $4
+            value =  $4 |> Position.map ( fun f -> EFloat f)
         }
     }
 either_color_equal:
@@ -252,97 +256,98 @@ expr:
     | FALSE { False }
     | EMPTY { Empty }
     | NULLPTR { ENullptr }
-    | SIZEOF delimited(LPARENT, preceded(COLON, expr) , RPARENT) { ESizeof ( Either.Right $2) }
-    | SIZEOF delimited(LPARENT, t=ktype { t } , RPARENT) { ESizeof (Either.Left $2)  }
-    | nonempty_list(MULT) IDENT { 
-        EDeference ( $1 |> List.length , $2 )
+    | SIZEOF delimited(LPARENT, preceded(COLON, located(expr)) , RPARENT) { ESizeof ( Either.Right( $2) ) }
+    | SIZEOF delimited(LPARENT, t=located(ktype) { t } , RPARENT) { ESizeof (Either.Left $2)  }
+    | nonempty_list(MULT) located(IDENT) { 
+        EDeference ( $1 |> List.length , $2)
     }
-    | AMPERSAND IDENT { EAdress $2 }
-    | expr PLUS expr { EBin_op (BAdd ($1, $3) ) }
-    | expr MINUS expr { EBin_op (BMinus ($1, $3)) }
-    | expr MULT expr { EBin_op (BMult ($1, $3)) }
-    | expr DIV expr { EBin_op (BDiv ($1, $3)) }
-    | expr MOD expr { EBin_op (BMod ($1, $3)) }
-    | expr PIPE expr {  EBin_op (BBitwiseOr ($1, $3)) }
-    | expr XOR expr {  EBin_op (BBitwiseXor ($1, $3)) }
-    | expr AMPERSAND expr {  EBin_op (BBitwiseAnd ($1, $3)) }
-    | expr SHIFTLEFT expr { EBin_op (BShiftLeft ($1, $3)) }
-    | expr SHIFTRIGHT expr { EBin_op (BShiftRight ($1, $3)) }
-    | expr AND expr { EBin_op (BAnd ($1, $3)) }
-    | expr OR expr { EBin_op (BOr ($1, $3)) }
-    | expr SUP expr { EBin_op (BSup ($1, $3)) }
-    | expr SUPEQ expr { EBin_op (BSupEq ($1, $3)) }
-    | expr INF expr { EBin_op (BInf ($1, $3)) }
-    | expr INFEQ expr { EBin_op (BInfEq ($1, $3)) }
-    | expr DOUBLEQUAL expr { EBin_op (BEqual ($1, $3)) }
-    | expr DIF expr { EBin_op (BDif ($1, $3)) }
-    | expr MINUSUP separated_nonempty_list(MINUSUP, IDENT) {
+    | AMPERSAND located(IDENT) { EAdress $2 }
+    | located(expr) PLUS located(expr) { EBin_op (BAdd ($1, $3) ) }
+    | located(expr) MINUS located(expr) { EBin_op (BMinus ($1, $3)) }
+    | located(expr) MULT located(expr) { EBin_op (BMult ($1, $3)) }
+    | located(expr) DIV located(expr) { EBin_op (BDiv ($1, $3)) }
+    | located(expr) MOD located(expr) { EBin_op (BMod ($1, $3)) }
+    | located(expr) PIPE located(expr) { EBin_op (BBitwiseOr ($1, $3)) }
+    | located(expr) XOR located(expr) {  EBin_op (BBitwiseXor ($1, $3)) }
+    | located(expr) AMPERSAND located(expr) {  EBin_op (BBitwiseAnd ($1, $3)) }
+    | located(expr) SHIFTLEFT located(expr) { EBin_op (BShiftLeft ($1, $3)) }
+    | located(expr) SHIFTRIGHT located(expr) { EBin_op (BShiftRight ($1, $3)) }
+    | located(expr) AND located(expr) { EBin_op (BAnd ($1, $3)) }
+    | located(expr) OR located(expr) { EBin_op (BOr ($1, $3)) }
+    | located(expr) SUP located(expr) { EBin_op (BSup ($1, $3)) }
+    | located(expr) SUPEQ located(expr) { EBin_op (BSupEq ($1, $3)) }
+    | located(expr) INF located(expr) { EBin_op (BInf ($1, $3)) }
+    | located(expr) INFEQ located(expr) { EBin_op (BInfEq ($1, $3)) }
+    | located(expr) DOUBLEQUAL located(expr) { EBin_op (BEqual ($1, $3)) }
+    | located(expr) DIF located(expr) { EBin_op (BDif ($1, $3)) }
+    | located(expr) MINUSUP separated_nonempty_list(MINUSUP, located(IDENT)) {
         EFieldAcces {
             first_expr = $1;
             fields = $3
         }
     }
-    | NOT expr { EUn_op (UNot $2) }
-    | MINUS expr %prec UMINUS { EUn_op (UMinus $2) }
-    | BUILTIN parameters=delimited(LPARENT, separated_list(COMMA, expr) ,RPARENT) {
+    | NOT located(expr) { EUn_op (UNot $2) }
+    | MINUS located(expr) %prec UMINUS { EUn_op (UMinus $2) }
+    | located(BUILTIN) parameters=delimited(LPARENT, separated_list(COMMA, located(expr)) ,RPARENT) {
         EBuiltin_Function_call {
             fn_name = $1;
             parameters
         }
     }
-    | l=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, ktype) SUP { s } ) LPARENT exprs=separated_list(COMMA, expr) RPARENT {
+    | l=located(separated_list(DOUBLECOLON, Module_IDENT)) name=located(IDENT) generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, located(ktype)) SUP { s } ) LPARENT exprs=separated_list(COMMA, located(expr) ) RPARENT {
         EFunction_call { 
-            modules_path = l |> String.concat "/";
+            modules_path = l |> Position.map( String.concat "/" ) ;
             generics_resolver;
             fn_name = name;
             parameters = exprs;
         }
     }
-    | l=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT {
+    | l=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) {
         EIdentifier { 
-            modules_path = l |> String.concat "/";
+            modules_path = l |> Position.map( String.concat "/" ) ;
             identifier = id
         }
 
     }
-    | l=separated_list(DOUBLECOLON, Module_IDENT) id=Constant {
+    | l=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(Constant) {
         EConst_Identifier {
-            modules_path = l |> String.concat "/";
+            modules_path = l |> Position.map( String.concat "/" ) ;
             identifier = id
         }
     }
-    | expr PIPESUP calls=separated_nonempty_list(PIPESUP, 
-        modules=separated_list(DOUBLECOLON, Module_IDENT) name=IDENT 
-        generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, ktype) SUP { s } )
-         LPARENT exprs=separated_list(COMMA, expr) RPARENT { name, generics_resolver, exprs, modules }) {
+    | located(expr) PIPESUP calls=separated_nonempty_list(PIPESUP,
+    located(
+        modules=located(separated_list(DOUBLECOLON, Module_IDENT)) name=located(IDENT) 
+        generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, located(ktype)) SUP { s } )
+         LPARENT exprs=separated_list(COMMA, located(expr)) RPARENT { name, generics_resolver, exprs, modules })) {
             calls |> List.fold_left (
                 fun acc value  -> 
-                    let fn_name, generics_resolver, parameters, modules_path = value in
+                    let fn_name, generics_resolver, parameters, modules_path = value.v in
                     EFunction_call { 
-                        modules_path = modules_path |> String.concat "/";
+                        modules_path = modules_path |> Position.map( String.concat "/" );
                         generics_resolver;
                         fn_name;
-                        parameters = acc::parameters;
+                        parameters = ({ v = acc; position = value.position})::parameters;
                     }
-                ) $1
+                ) $1.v
         }
-    | modules_path=separated_list(DOUBLECOLON, Module_IDENT)  struct_name=IDENT fields=delimited(LBRACE, separated_list(COMMA, id=IDENT either_color_equal  expr=expr { id, expr } ) , RBRACE) {
+    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) struct_name=located(IDENT) fields=delimited(LBRACE, separated_list(COMMA, id=located(IDENT) either_color_equal  expr=located(expr) { id, expr } ) , RBRACE) {
         EStruct {
-            modules_path = modules_path |> String.concat "/";
+            modules_path = modules_path |> Position.map( String.concat "/" );
             struct_name;
             fields
         }
     }
-    | modules_path=separated_list(DOUBLECOLON, Module_IDENT) enum_name=option(IDENT) DOT variant=IDENT assoc_exprs=option(delimited(LPARENT, separated_nonempty_list(COMMA, expr) ,RPARENT)) {
+    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) enum_name=option(located(IDENT)) DOT variant=located(IDENT) assoc_exprs=option(delimited(LPARENT, separated_nonempty_list(COMMA, located(expr)) ,RPARENT)) {
         EEnum {
-            modules_path = modules_path |> String.concat "/";
+            modules_path = modules_path |> Position.map( String.concat "/" );
             enum_name;
             variant;
             assoc_exprs = assoc_exprs |> Option.value ~default: []
         }
     }
     | CASES delimited(LBRACE, 
-        s=nonempty_list(OF conds=expr ARROWFUNC body=kbody { conds, body } ) 
+        s=nonempty_list(OF conds=located(expr) ARROWFUNC body=kbody { conds, body } ) 
         ELSE else_case=kbody { s, else_case } , RBRACE) {
             let cases, else_case = $2 in
         ECases {
@@ -350,7 +355,7 @@ expr:
             else_case
         }
     }
-    | IF expr kbody ELSE kbody  {
+    | IF delimited(LPARENT, located(expr), RPARENT) kbody ELSE kbody  {
         EIf (
             $2, 
             $3, 
@@ -358,7 +363,7 @@ expr:
             (* $4 |> Option.map (fun e -> (SExpression e)::[] ) *)
         )
     }
-    | SWITCH delimited(LPARENT, expr, RPARENT) LBRACE nonempty_list(cases=separated_nonempty_list(COMMA, s_case) ARROWFUNC stmts=kbody { cases, stmts } ) 
+    | SWITCH delimited(LPARENT, located(expr), RPARENT) LBRACE nonempty_list(cases=separated_nonempty_list(COMMA, s_case) ARROWFUNC stmts=kbody { cases, stmts } ) 
         wildcard_case=option(WILDCARD ARROWFUNC d=kbody { d } ) RBRACE { 
         ESwitch {
             expression = $2;
@@ -366,16 +371,16 @@ expr:
             wildcard_case
         }
     }
-    | d=delimited(LPARENT, separated_list(COMMA, expr), RPARENT) {
+    | d=delimited(LPARENT, separated_list(COMMA, located(expr)), RPARENT) {
         match d with
         | [] -> Empty
-        | t::[] -> t
+        | t::[] -> t.v
         | tuple -> ETuple tuple
     }
 ;;
 s_case:
-    | DOT IDENT { SC_Enum_Identifier { variant = $2 } }
-    | DOT IDENT delimited(LPARENT, separated_nonempty_list(COMMA, IDENT { Some $1 } | WILDCARD { None } ), RPARENT) {
+    | DOT located(IDENT) { SC_Enum_Identifier { variant = $2 } }
+    | DOT located(IDENT) delimited(LPARENT, separated_nonempty_list(COMMA, located(IDENT) { Some $1 } | WILDCARD { None } ), RPARENT) {
         SC_Enum_Identifier_Assoc {
             variant = $2;
             assoc_ids = $3
@@ -383,13 +388,13 @@ s_case:
     }
 
 ctype:
-    | modules_path=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT { 
-        match id with
+    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) { 
+        match id.v with
         | "f64" -> TFloat
         | "unit" -> TUnit
         | "bool" -> TBool
         | "stringl" -> TString_lit
-        | "anyptr" -> TPointer (TUnknow)
+        | "anyptr" -> TPointer ({ v = TUnknow; position = id.position })
         | "s8" -> TInteger( Signed, I8)
         | "u8" -> TInteger( Unsigned, I8)
         | "s16" -> TInteger( Signed, I16)
@@ -398,16 +403,16 @@ ctype:
         | "u32" -> TInteger( Unsigned, I32)
         | "s64" -> TInteger( Signed, I64)
         | "u64" -> TInteger( Unsigned, I64)
-        | _ as s -> TType_Identifier {
-            module_path = modules_path |> String.concat "/";
-            name = s
+        | _ -> TType_Identifier {
+            module_path = modules_path |> Position.map( String.concat "/" ) ;
+            name = id
         }
      }
-    | MULT ktype { TPointer $2 } 
+    | MULT located(ktype) { TPointer $2 } 
 
 ktype:
-    | modules_path=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT { 
-        match id with
+    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) {
+        match id.v with
         | "f64" -> TFloat
         | "unit" -> TUnit
         | "bool" -> TBool
@@ -420,19 +425,19 @@ ktype:
         | "s64" -> TInteger( Signed, I64)
         | "u64" -> TInteger( Unsigned, I64)
         | "stringl" -> TString_lit
-        | _ as s -> TType_Identifier {
-            module_path = modules_path |> String.concat "/";
-            name = s
-        }
+        | _ -> TType_Identifier {
+            module_path = modules_path |> Position.map( String.concat "/" ) ;
+            name = id
+        } 
      }
-    | MULT ktype { TPointer $2 }
-    | LPARENT l=separated_nonempty_list(COMMA, ktype) RPARENT 
-    modules_path=separated_list(DOUBLECOLON, Module_IDENT) id=IDENT { 
+    | MULT located(ktype) { TPointer $2 }
+    | LPARENT l=separated_nonempty_list(COMMA, located(ktype)) RPARENT 
+    modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) { 
         TParametric_identifier {
-            module_path = modules_path |> String.concat "/";
+            module_path = modules_path |> Position.map( String.concat "/" ) ;
             parametrics_type = l;
             name = id
         }
     }
-    | LPARENT l=separated_nonempty_list(COMMA, ktype) RPARENT { TTuple (l)  }
+    | LPARENT l=separated_nonempty_list(COMMA, located(ktype) ) RPARENT { TTuple (l)  }
 ;;

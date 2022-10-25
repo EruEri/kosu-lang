@@ -30,6 +30,12 @@ module Occurence = struct
     | Multiple _ -> raise Too_Many_Occurence
     | One f -> f
 
+  let find_map_occurence predicate list =
+    match list |> List.filter_map predicate with
+    | [] -> Empty
+    | [ t ] -> One t
+    | t :: q -> Multiple (t :: q)
+
   let find_occurence predicate list =
     match list |> List.find_all predicate with
     | [] -> Empty
@@ -60,4 +66,16 @@ module ListHelper = struct
         duplicate_aux hashmap q
 
   let duplicate l = duplicate_aux (Hashtbl.create (l |> List.length)) l
+
+  let rec duplic_aux cmp ~acc ~list = 
+    match list with
+    | [] -> acc
+    | t::q -> 
+      let duplicate, no_duplicated = q |> List.partition (cmp t) in
+      let duplicate = if duplicate = [] then acc else (t::duplicate)::acc in
+      duplic_aux cmp ~acc:(duplicate) ~list:no_duplicated
+
+  let duplicated cmp list = duplic_aux cmp ~acc:[] ~list
+
+  let inner_count list = List.fold_left (fun acc (_, value) -> acc + (value |> List.length)) 0 list
 end

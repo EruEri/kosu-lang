@@ -1,48 +1,73 @@
 open Ast
-open Asthelper
+open Position
 
 module Error = struct
   type external_func_error =
     | Unit_parameter of external_func_decl
-    | Not_C_compatible_type of external_func_decl * ktype
-    | Too_much_parameters of { limit : int; found : int }
+    | Not_C_compatible_type of external_func_decl * ktype location
+    | Too_much_parameters of { external_func_decl: external_func_decl; limit : int; found : int }
 
   type syscall_error =
     | Syscall_Unit_parameter of syscall_decl
-    | Syscall_Not_C_compatible_type of syscall_decl * ktype
-    | Syscall_Too_much_parameters of { limit : int; found : int }
+    | Syscall_Not_C_compatible_type of syscall_decl * ktype location
+    | Syscall_Too_much_parameters of { syscall_decl: syscall_decl; limit : int; found : int }
 
   type struct_error =
-    | Unknown_type_for_field of string * ktype
     | SCyclic_Declaration of struct_decl
-    | SDuplicated_field of struct_decl
+    | SDuplicated_field of {
+      field: string location;
+      struct_decl: struct_decl
+      }
 
   type enum_error =
     | ECyclic_Declaration of enum_decl
-    | EDuplicated_variant_name of enum_decl
+    | EDuplicated_variant_name of {variant: string location; enum_decl: enum_decl}
 
   type operator_error =
-    | Op_built_overload of ktype
-    | Op_binary_op_diff_type of (ktype * ktype)
+    | Op_built_overload of ktype location
+    | Op_binary_op_diff_type of {
+      operator: string location;
+      lhs: ktype;
+      rhs: ktype
+    }
     | Op_wrong_return_type_error of {
-        op :
-          [ `binary of Ast.parser_binary_op | `unary of Ast.parser_unary_op ];
+        op : string location;
         expected : ktype;
         found : ktype;
       }
 
   type function_error =
-    | Wrong_signature_for_main
-    | Duplicated_parameters of function_decl
-    | Function_Unit_parameter of function_decl
+    | Wrong_signature_for_main of function_decl
+    | Duplicated_parameters of {
+      duplicatated_field: string location;
+      function_decl: function_decl
+    }
+    | Function_Unit_parameter of {
+      field: string location;
+      function_decl: function_decl
+      }
 
   type module_error =
-    | Duplicate_function_name of string
-    | Duplicate_type_name of string
-    | Duplicate_const_name of string
-    | Duplicate_Operator of
-        [ `binary of Ast.parser_binary_op | `unary of Ast.parser_unary_op ]
-    | Main_no_kosu_function
+    | Duplicate_function_declaration of {
+      path: string;
+      functions: Ast.Function_Decl.t list
+    }
+    | Duplicate_type_declaration of {
+      path: string;
+      types: Ast.Type_Decl.type_decl list
+    }
+    | Duplicate_const_declaration of {
+      path: string;
+      consts: Ast.const_decl list
+    }
+    | Duplicate_operator_declaration of {
+        path: string;
+        operators: Ast.operator_decl list;
+    }
+    | Main_no_kosu_function of [
+      `syscall_decl of Ast.syscall_decl
+      | `external_decl of Ast.external_func_decl
+    ]
 
   type validation_error =
     | External_Func_Error of external_func_error
@@ -52,9 +77,9 @@ module Error = struct
     | Operator_Error of operator_error
     | Function_Error of function_error
     | Module_Error of module_error
-    | No_Type_decl_found of ktype
-    | Too_many_type_decl of ktype
-    | Too_many_Main of int
+    (* | No_Type_decl_found of ktype location
+    | Too_many_type_decl of ktype *)
+    | Too_many_Main of (string * Ast.Function_Decl.t list) list
     | Ast_Error of Ast.Error.ast_error
 
   let external_func_error e = External_Func_Error e
@@ -65,111 +90,11 @@ module Error = struct
   let function_error e = Function_Error e
   let module_error e = Module_Error e
 
-  exception Validation_error of validation_error
-
-  let string_of_external_func_error =
-    let open Printf in
-    function
-    | Unit_parameter external_func_decl ->
-        sprintf "Unit parameter in %s" external_func_decl.sig_name
-    | Not_C_compatible_type (external_func_decl, ktype) ->
-        sprintf "Not_C_compatible_type in %s -- %s --"
-          external_func_decl.sig_name (string_of_ktype ktype)
-    | Too_much_parameters record ->
-        sprintf "Too_much_parameters -- limit: %d, found: %d --" record.limit
-          record.found
-
-  let string_of_sycall_error =
-    let open Printf in
-    function
-    | Syscall_Unit_parameter syscall_decl ->
-        sprintf "Unit parameter in %s" syscall_decl.syscall_name
-    | Syscall_Not_C_compatible_type (syscall_decl, ktype) ->
-        sprintf "Not_C_compatible_type in %s -- %s --" syscall_decl.syscall_name
-          (string_of_ktype ktype)
-    | Syscall_Too_much_parameters record ->
-        sprintf "Too_much_parameters -- limit: %d, found: %d --" record.limit
-          record.found
-
-  let string_of_struct_error =
-    let open Printf in
-    function
-    | Unknown_type_for_field (field, ktype) ->
-        sprintf "Unknown_type_for_field : %s -> %s" field
-          (string_of_ktype ktype)
-    | SCyclic_Declaration struct_decl ->
-        sprintf "Struct Cyclic_Declaration for %s" struct_decl.struct_name
-    | SDuplicated_field struct_decl ->
-        sprintf "Struct Duplicated_field for %s" struct_decl.struct_name
-
-  let string_of_enum_error =
-    let open Printf in
-    function
-    | ECyclic_Declaration enum_decl ->
-        sprintf " Enum_Cyclic_Declaration for %s" enum_decl.enum_name
-    | EDuplicated_variant_name enum_decl ->
-        sprintf "Enum_Duplicated_variant_name for %s" enum_decl.enum_name
-
-  let string_of_operator_error =
-    let open Printf in
-    function
-    | Op_built_overload kt ->
-        sprintf "Try to overload builtin type : %s" (string_of_ktype kt)
-    | Op_binary_op_diff_type (lkt, rkt) ->
-        sprintf "Binary operator different type : -- %s | %s --"
-          (string_of_ktype lkt) (string_of_ktype rkt)
-    | Op_wrong_return_type_error { op; expected; found } ->
-        sprintf "Op_wrong_return_type_error for ( %s ) %s"
-          (Asthelper.ParserOperator.string_of_parser_operator op)
-          (Asthelper.string_of_expected_found
-             (`ktype
-               ( Asthelper.ParserOperator.expected_op_return_type expected op,
-                 found )))
-
-  let string_of_function_error =
-    let open Printf in
-    function
-    | Wrong_signature_for_main -> sprintf "Wrong_signature_for_main"
-    | Duplicated_parameters function_decl ->
-        sprintf "Duplicate name parameters for %s" function_decl.fn_name
-    | Function_Unit_parameter function_decl ->
-        sprintf "Function_Unit_parameter : %s" function_decl.fn_name
-
-  let string_of_module_error =
-    let open Printf in
-    function
-    | Duplicate_function_name name ->
-        sprintf "Duplicate_function_name : %s" name
-    | Duplicate_type_name name -> sprintf "Duplicate_type_name : %s" name
-    | Duplicate_const_name name -> sprintf "Duplicate_const_name : %s" name
-    | Duplicate_Operator op ->
-        sprintf "Duplicate_Operator for -- %s --"
-          (Asthelper.ParserOperator.string_of_parser_operator op)
-    | Main_no_kosu_function -> "Main function should be a kosu function"
-
-  let string_of_validation_error =
-    let open Printf in
-    function
-    | External_Func_Error e -> string_of_external_func_error e
-    | Syscall_Error e -> string_of_sycall_error e
-    | Struct_Error e -> string_of_struct_error e
-    | Enum_Error e -> string_of_enum_error e
-    | Operator_Error e -> string_of_operator_error e
-    | Function_Error e -> string_of_function_error e
-    | Module_Error e -> string_of_module_error e
-    | Too_many_Main count ->
-        sprintf
-          "Too many main found -- count : %d --\n\
-           There should be at most 1 main across the program" count
-    | No_Type_decl_found kt ->
-        sprintf "No_Type_decl_found : %s" (string_of_ktype kt)
-    | Too_many_type_decl kt ->
-        sprintf "Too_many_type_decl : %s" (string_of_ktype kt)
-    | Ast_Error e -> Asthelper.string_of_ast_error e
+  exception Validation_error of string*validation_error
 end
 
 module Help = struct
-  let is_ktype_exist current_module program ktype =
+  (* let is_ktype_exist generics current_module program ktype =
     try
       let _ =
         Asthelper.Program.find_type_decl_from_true_ktype ktype current_module
@@ -181,20 +106,16 @@ module Help = struct
         Error.No_Type_decl_found ktype |> Result.error
     | Util.Occurence.Too_Many_Occurence ->
         Error.Too_many_type_decl ktype |> Result.error
-    | Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error
+    | Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error *)
 
-  let is_ktype_exist_from_ktype current_module program ktype =
+  let is_ktype_exist_from_ktype generics current_module program ktype =
     try
       let _ =
-        Asthelper.Program.find_type_decl_from_true_ktype ktype current_module
-          program
+        Asthelper.Program.find_type_decl_from_true_ktype ~generics ktype current_module
+          program 
       in
       Ok ()
     with
-    | Util.Occurence.No_Occurence ->
-        Error.No_Type_decl_found ktype |> Result.error
-    | Util.Occurence.Too_Many_Occurence ->
-        Error.Too_many_type_decl ktype |> Result.error
     | Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error
 
   let rec does_ktype_contains_type_decl current_module program ktype
@@ -203,35 +124,38 @@ module Help = struct
     match ktype with
     | TType_Identifier { module_path = ktype_def_path; name = ktype_name } -> (
         match
-          Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path
-            ~ktype_name ~current_module program
+          Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path
+            ~ktype_name:ktype_name ~current_module program
         with
-        | Ast.Type_Decl.Decl_Struct struct_decl ->
+        | Ok( Ast.Type_Decl.Decl_Struct struct_decl) ->
             does_contains_type_decl_struct current_module program struct_decl
               already_visited type_decl_to_check
-        | Ast.Type_Decl.Decl_Enum enum_decl ->
+        | Ok (Ast.Type_Decl.Decl_Enum enum_decl) ->
             does_contains_type_decl_enum current_module program enum_decl
-              already_visited type_decl_to_check)
+              already_visited type_decl_to_check
+        | Error e -> e |> Ast.Error.ast_error |> raise
+      )
     | TParametric_identifier
         { module_path = ktype_def_path; parametrics_type; name = ktype_name }
       -> (
         let type_decl_found =
-          Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path
-            ~ktype_name ~current_module program
+          Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path:ktype_def_path
+            ~ktype_name:ktype_name ~current_module program
         in
         match type_decl_found with
-        | Ast.Type_Decl.Decl_Struct struct_decl ->
+        | Error e -> e |> Ast.Error.ast_error |> raise
+        | Ok (Ast.Type_Decl.Decl_Struct struct_decl) ->
             let new_struct =
-              Asthelper.Struct.bind_struct_decl parametrics_type
+              Asthelper.Struct.bind_struct_decl (parametrics_type |> List.map Position.value)
                 (ktype_type_decl_origin |> Asthelper.Type_Decl.generics)
                 struct_decl
             in
-            print_endline (Struct.string_of_struct_decl new_struct);
+            
             does_contains_type_decl_struct current_module program new_struct
               already_visited type_decl_to_check
-        | Ast.Type_Decl.Decl_Enum enum_decl ->
+        | Ok (Ast.Type_Decl.Decl_Enum enum_decl) ->
             let new_enum_decl =
-              Asthelper.Enum.bind_enum_decl parametrics_type
+              Asthelper.Enum.bind_enum_decl (parametrics_type |> List.map Position.value)
                 (ktype_type_decl_origin |> Asthelper.Type_Decl.generics)
                 enum_decl
             in
@@ -240,7 +164,7 @@ module Help = struct
     | TTuple kts ->
         kts
         |> List.for_all (fun kt ->
-               does_ktype_contains_type_decl current_module program kt
+               does_ktype_contains_type_decl current_module program kt.v
                  ktype_type_decl_origin already_visited type_decl_to_check)
     | _ -> false
 
@@ -257,19 +181,21 @@ module Help = struct
       Ast.Type_Decl.decl_struct struct_decl = type_decl_to_check
       || struct_decl.fields
          |> List.exists (fun (_, kt) ->
-                match kt with
-                | TType_Identifier _ when Struct.is_type_generic kt struct_decl
+                match kt.v with
+                | TType_Identifier _ when Struct.is_type_generic kt.v struct_decl
                   ->
                     false
                 | TType_Identifier
                     { module_path = ktype_def_path; name = ktype_name } ->
-                    let t_decl =
-                      Program.find_type_decl_from_ktype ~ktype_def_path
-                        ~ktype_name ~current_module program
-                    in
+                      let t_decl =
+                        match Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
+                          program with
+                        | Error e -> e |> Ast.Error.ast_error |> raise
+                        | Ok type_decl -> type_decl
+                      in
                     t_decl = type_decl_to_check
                     || t_decl = Ast.Type_Decl.decl_struct struct_decl
-                    || does_ktype_contains_type_decl current_module program kt
+                    || does_ktype_contains_type_decl current_module program kt.v
                          (Ast.Type_Decl.Decl_Struct struct_decl)
                          (Ast.Type_Decl.Decl_Struct struct_decl
                         :: already_visited)
@@ -281,30 +207,32 @@ module Help = struct
                       name = ktype_name;
                     } ->
                     let t_decl =
-                      Program.find_type_decl_from_ktype ~ktype_def_path
-                        ~ktype_name ~current_module program
+                      match Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
+                        program with
+                      | Error e -> e |> Ast.Error.ast_error |> raise
+                      | Ok type_decl -> type_decl
                     in
                     t_decl = type_decl_to_check
                     || parametrics_type
                        |> List.exists (fun ikt ->
                               if
                                 struct_decl
-                                |> Struct.is_ktype_generic_level_zero ikt
+                                |> Struct.is_ktype_generic_level_zero ikt.v
                               then false
                               else
                                 does_ktype_contains_type_decl current_module
-                                  program ikt
+                                  program ikt.v
                                   (Ast.Type_Decl.Decl_Struct struct_decl)
                                   (Ast.Type_Decl.Decl_Struct struct_decl
                                  :: already_visited)
                                   type_decl_to_check)
-                    || does_ktype_contains_type_decl current_module program kt
+                    || does_ktype_contains_type_decl current_module program kt.v
                          (Ast.Type_Decl.Decl_Struct struct_decl)
                          (Ast.Type_Decl.Decl_Struct struct_decl
                         :: already_visited)
                          type_decl_to_check
                 | _ ->
-                    does_ktype_contains_type_decl current_module program kt
+                    does_ktype_contains_type_decl current_module program kt.v
                       (Ast.Type_Decl.Decl_Struct struct_decl) already_visited
                       type_decl_to_check)
 
@@ -323,6 +251,7 @@ module Help = struct
          |> List.exists (fun (_, kts) ->
                 kts
                 |> List.exists (fun kt ->
+                  let kt = kt.v in
                        match kt with
                        | TType_Identifier _
                          when Enum.is_type_generic kt enum_decl ->
@@ -333,21 +262,23 @@ module Help = struct
                              parametrics_type;
                              name = ktype_name;
                            } ->
-                           let t_decl =
-                             Program.find_type_decl_from_ktype ~ktype_def_path
-                               ~ktype_name ~current_module program
-                           in
+                            let t_decl =
+                              match Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
+                                program with
+                              | Error e -> e |> Ast.Error.ast_error |> raise
+                              | Ok type_decl -> type_decl
+                            in
                            t_decl = type_decl_to_check
                            || t_decl = Ast.Type_Decl.decl_enum enum_decl
                            || parametrics_type
                               |> List.exists (fun ikt ->
                                      if
                                        enum_decl
-                                       |> Enum.is_ktype_generic_level_zero ikt
+                                       |> Enum.is_ktype_generic_level_zero ikt.v
                                      then false
                                      else
                                        does_ktype_contains_type_decl
-                                         current_module program ikt
+                                         current_module program ikt.v
                                          (Ast.Type_Decl.Decl_Enum enum_decl)
                                          (Ast.Type_Decl.Decl_Enum enum_decl
                                         :: already_visited)
@@ -360,10 +291,12 @@ module Help = struct
                        | TType_Identifier
                            { module_path = ktype_def_path; name = ktype_name }
                          ->
-                           let t_decl =
-                             Program.find_type_decl_from_ktype ~ktype_def_path
-                               ~ktype_name ~current_module program
-                           in
+                          let t_decl =
+                            match Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name ~current_module
+                              program with
+                            | Error e -> e |> Ast.Error.ast_error |> raise
+                            | Ok type_decl -> type_decl
+                          in
                            t_decl = type_decl_to_check
                            || t_decl = Ast.Type_Decl.decl_enum enum_decl
                            || does_ktype_contains_type_decl current_module
@@ -379,6 +312,7 @@ module Help = struct
   and is_cyclic_struct current_module program struct_decl =
     struct_decl.fields
     |> List.exists (fun (_, kt) ->
+      let kt = kt.v in
            if Asthelper.Struct.is_ktype_generic_level_zero kt struct_decl then
              false
            else
@@ -392,6 +326,7 @@ module Help = struct
     |> List.map (fun (_, kts) -> kts)
     |> List.flatten
     |> List.exists (fun kt ->
+      let kt = kt.v in
            if Asthelper.Enum.is_ktype_generic_level_zero kt enum_decl then false
            else
              does_ktype_contains_type_decl current_module program kt
@@ -399,21 +334,21 @@ module Help = struct
                []
                (Ast.Type_Decl.decl_enum enum_decl))
 
-  let program_remove_implicit_type_path (program : program) =
+  let program_remove_implicit_type_path program =
     program
-    |> List.map (fun { path; _module = Mod _module } ->
+    |> List.map (fun {filename; module_path = { path; _module = Mod _module }} ->
            let new_module =
              _module
              |> List.map (fun node ->
                     Asthelper.AstModif.module_node_remove_implicit_type_path
                       path node)
            in
-           { path; _module = Mod new_module })
+           {filename; module_path =  { path; _module = Mod new_module } })
 end
 
 module ValidateExternalFunction = struct
   let does_parameters_contains_unit (external_func_decl : external_func_decl) =
-    if external_func_decl.fn_parameters |> List.mem TUnit then
+    if external_func_decl.fn_parameters |> List.map Position.value |> List.mem TUnit then
       Error.Unit_parameter external_func_decl |> Error.external_func_error
       |> Result.error
     else Ok ()
@@ -424,7 +359,7 @@ module ValidateExternalFunction = struct
     |> List.filter_map (fun kt ->
            try
              if
-               Asthelper.Program.is_c_type_from_ktype current_module kt program
+               Asthelper.Program.is_c_type_from_ktype current_module kt.v program
                |> not
              then
                Error.External_Func_Error
@@ -432,10 +367,7 @@ module ValidateExternalFunction = struct
                |> Option.some
              else None
            with
-           | Util.Occurence.No_Occurence ->
-               Error.No_Type_decl_found kt |> Option.some
-           | Util.Occurence.Too_Many_Occurence ->
-               Error.Too_many_type_decl kt |> Option.some)
+           | Ast.Error.Ast_error e -> Error.Ast_Error e |> Option.some)
     |> function
     | [] -> Ok ()
     | t :: _ -> t |> Result.error
@@ -444,10 +376,10 @@ module ValidateExternalFunction = struct
       (external_func_decl : external_func_decl) =
     let length = external_func_decl.fn_parameters |> List.length in
     if length > 15 then
-      Error.Too_much_parameters { limit = 15; found = length } |> Result.error
+      Error.Too_much_parameters { external_func_decl; limit = 15; found = length } |> Result.error
     else Ok ()
 
-  let is_valid_external_function_declaration (program : Ast.program)
+  let is_valid_external_function_declaration (program)
       (current_module_name : string) (external_func_decl : external_func_decl) =
     let ( >>= ) = Result.bind in
     ( does_parameters_contains_unit external_func_decl >>= fun () ->
@@ -458,7 +390,7 @@ end
 
 module ValidateSyscall = struct
   let does_parameters_contains_unit (syscall_decl : syscall_decl) =
-    if syscall_decl.parameters |> List.mem TUnit then
+    if syscall_decl.parameters |> List.map Position.value |> List.mem TUnit then
       Error.Syscall_Unit_parameter syscall_decl |> Error.syscall_error
       |> Result.error
     else Ok ()
@@ -466,20 +398,18 @@ module ValidateSyscall = struct
   let does_contains_not_c_compatible_type program current_module
       (syscall_decl : syscall_decl) =
     syscall_decl.parameters
+    |> List.cons syscall_decl.return_type
     |> List.filter_map (fun kt ->
            try
              if
-               Asthelper.Program.is_c_type_from_ktype current_module kt program
+               Asthelper.Program.is_c_type_from_ktype current_module kt.v program
                |> not
              then
                Error.Syscall_Not_C_compatible_type (syscall_decl, kt)
                |> Error.syscall_error |> Option.some
              else None
            with
-           | Util.Occurence.No_Occurence ->
-               Error.No_Type_decl_found kt |> Option.some
-           | Util.Occurence.Too_Many_Occurence ->
-               Error.Too_many_type_decl kt |> Option.some)
+           | Ast.Error.Ast_error e -> Error.Ast_Error e |> Option.some)
     |> function
     | [] -> Ok ()
     | t :: _ -> t |> Result.error
@@ -487,11 +417,11 @@ module ValidateSyscall = struct
   let does_contains_too_much_parameters (syscall_decl : syscall_decl) =
     let length = syscall_decl.parameters |> List.length in
     if length > 15 then
-      Error.Syscall_Too_much_parameters { limit = 15; found = length }
+      Error.Syscall_Too_much_parameters { syscall_decl; limit = 15; found = length }
       |> Result.error
     else Ok ()
 
-  let is_valid_syscall_declaration (program : Ast.program)
+  let is_valid_syscall_declaration (program)
       (current_module_name : string) (syscall_decl : syscall_decl) =
     let ( >>= ) = Result.bind in
     ( does_parameters_contains_unit syscall_decl >>= fun () ->
@@ -504,19 +434,23 @@ module ValidateStruct = struct
   let is_all_type_exist current_module program struct_decl =
     struct_decl.fields
     |> List.find_map (fun (_, kt) ->
-           if Asthelper.Struct.is_ktype_generic_level_zero kt struct_decl then
+           if Asthelper.Struct.is_ktype_generic_level_zero kt.v struct_decl then
              None
            else
-             match Help.is_ktype_exist current_module program kt with
+             match Help.is_ktype_exist_from_ktype struct_decl.generics current_module program kt.v with
              | Ok () -> None
              | Error e -> Some e)
 
   let is_field_duplicate struct_decl =
     struct_decl.fields
-    |> List.map (fun (field, _) -> field)
-    |> Util.ListHelper.duplicate |> Util.are_diff_lenght []
+    |> List.map (fun (field, _) -> field.v)
+    |> Util.ListHelper.duplicate |> (
+      function
+      | [] -> None
+      | t::_ -> Some t
+    )
 
-  let is_valid_struct_decl (program : Ast.program)
+  let is_valid_struct_decl program
       (current_module_name : string) (struct_decl : struct_decl) =
     let ( >>= ) = Result.bind in
     ( (is_all_type_exist current_module_name program struct_decl |> function
@@ -528,9 +462,12 @@ module ValidateStruct = struct
         |> Result.error
       else Ok () )
     >>= fun () ->
-    if is_field_duplicate struct_decl then
-      Error.SDuplicated_field struct_decl |> Error.struct_error |> Result.error
-    else Ok ()
+      
+    match is_field_duplicate struct_decl with
+    | None -> Ok ()
+    | Some field -> 
+      let located_field = struct_decl.fields |> List.find_all (fun (fie, _) -> fie.v = field ) |> List.rev |> List.hd |> fun (f, _) -> f  in
+      Error.SDuplicated_field {field = located_field; struct_decl} |> Error.struct_error |> Result.error
 end
 
 module ValidateEnum = struct
@@ -539,18 +476,22 @@ module ValidateEnum = struct
     |> List.map (fun (_, kts) -> kts)
     |> List.flatten
     |> List.find_map (fun kt ->
-           if Asthelper.Enum.is_ktype_generic_level_zero kt enum_decl then None
+           if Asthelper.Enum.is_ktype_generic_level_zero kt.v enum_decl then None
            else
-             match Help.is_ktype_exist current_module program kt with
+             match Help.is_ktype_exist_from_ktype enum_decl.generics current_module program kt.v with
              | Ok () -> None
              | Error e -> Some e)
 
   let is_variant_duplicate enum_decl =
     enum_decl.variants
-    |> List.map (fun (s, _) -> s)
-    |> Util.ListHelper.duplicate |> Util.are_diff_lenght []
+    |> List.map (fun (s, _) -> s.v)
+    |> Util.ListHelper.duplicate |> (
+      function
+      | [] -> None
+      | t::_ -> Some t
+    )
 
-  let is_valid_enum_decl (program : Ast.program) (current_module_name : string)
+  let is_valid_enum_decl program (current_module_name : string)
       (enum_decl : enum_decl) =
     let ( >>= ) = Result.bind in
     ( (is_all_type_exist current_module_name program enum_decl |> function
@@ -561,51 +502,56 @@ module ValidateEnum = struct
         Error.ECyclic_Declaration enum_decl |> Error.enum_error |> Result.error
       else Ok () )
     >>= fun () ->
-    if is_variant_duplicate enum_decl then
-      Error.EDuplicated_variant_name enum_decl |> Error.enum_error
-      |> Result.error
-    else Ok ()
+    match is_variant_duplicate enum_decl with
+    | None -> Ok ()
+    | Some vari -> 
+      let located_variant = enum_decl.variants |>  List.find_all (fun (variant, _) -> variant.v = vari ) |> List.rev |> List.hd |> fst in
+      Error.EDuplicated_variant_name {variant = located_variant; enum_decl} |> Error.enum_error |> Result.error
 end
 
 module ValidateFunction_Decl = struct
-  let is_main_function function_decl = function_decl.fn_name = "main"
+  let is_main_function function_decl = function_decl.fn_name.v = "main"
 
   let is_valid_main_sig function_decl =
-    function_decl.fn_name = "main"
-    && function_decl.return_type = TInteger (Signed, I32)
+    function_decl.fn_name.v = "main"
+    && function_decl.return_type.v = TInteger (Signed, I32)
     && function_decl.parameters = []
     && function_decl.generics = []
 
-  let check_parameters_duplicate (function_decl : function_decl) =
-    if
-      function_decl.parameters
-      |> List.map (fun (field, _) -> field)
-      |> Util.ListHelper.duplicate |> Util.are_diff_lenght []
-    then
-      Error.Duplicated_parameters function_decl |> Error.function_error
-      |> Result.error
-    else Ok ()
+  let check_parameters_duplicate (function_decl : function_decl) = 
+    function_decl.parameters 
+      |> List.map (fun (field, _ ) -> field.v)
+      |> Util.ListHelper.duplicate 
+      |> (function
+      | [] -> Ok ()
+      | t::_ -> let duplicate = function_decl.parameters |> List.find_all (fun (field, _) -> field.v = t) |> List.rev |> List.hd |> fst in
+      Error.Duplicated_parameters {duplicatated_field = duplicate; function_decl} |> Error.function_error |> Result.error
+      )
 
   let check_unit_parameters (function_decl : function_decl) =
-    if function_decl.parameters |> List.exists (fun (_, kt) -> kt = TUnit) then
-      Error.Function_Unit_parameter function_decl |> Error.function_error
-      |> Result.error
-    else Ok ()
+    function_decl.parameters |> List.find_map (fun (field, kt) -> if kt.v = TUnit then Some field else None)
+    |> Option.fold ~none:(Ok ()) ~some:(fun field ->
+       Error.Function_Unit_parameter {field; function_decl} 
+       |> Error.function_error
+       |> Result.error
+    )
 
   let is_all_type_exist current_module program function_decl =
     function_decl.parameters
-    |> List.find_map (fun (_, kt) ->
-           if Asthelper.Function.is_ktype_generic_level_zero kt function_decl
+    |> List.map snd
+    |> List.cons function_decl.return_type
+    |> List.find_map (fun kt ->
+           if Asthelper.Function.is_ktype_generic_level_zero kt.v function_decl
            then None
            else
-             match Help.is_ktype_exist current_module program kt with
+             match Help.is_ktype_exist_from_ktype function_decl.generics current_module program kt.v with
              | Ok () -> None
              | Error e -> Some e)
 
   let check_main_sig function_decl =
     if not (is_main_function function_decl) then Ok ()
     else if is_valid_main_sig function_decl then Ok ()
-    else Wrong_signature_for_main |> Error.function_error |> Result.error
+    else Wrong_signature_for_main function_decl |> Error.function_error |> Result.error
 
   let check_kbody current_module program (function_decl : function_decl) =
     let hashtbl =
@@ -618,9 +564,9 @@ module ValidateFunction_Decl = struct
           (function_decl.parameters
           |> List.fold_left
                (fun acc_env para ->
-                 acc_env |> Env.add_fn_parameters ~const:false para)
+                 acc_env |> Env.add_fn_parameters ~const:false (para |> Position.assocs_value))
                Env.create_empty_env)
-          current_module program ~return_type:(Some function_decl.return_type)
+          current_module program ~return_type:(Some function_decl.return_type.v)
           function_decl.body
       in
       Ok ()
@@ -645,47 +591,56 @@ module ValidateOperator_Decl = struct
     let first_kt =
       Asthelper.ParserOperator.first_parameter_ktype operator_decl
     in
-    Help.is_ktype_exist_from_ktype current_module program first_kt >>= fun () ->
+    Help.is_ktype_exist_from_ktype [] current_module program first_kt.v 
+    >>= fun () ->
     match Asthelper.ParserOperator.second_parameter_ktype operator_decl with
     | None -> Ok ()
-    | Some kt -> Help.is_ktype_exist_from_ktype current_module program kt
+    | Some kt -> Help.is_ktype_exist_from_ktype [] current_module program kt.v
+    >>= fun () ->
+    Help.is_ktype_exist_from_ktype [] current_module program (operator_decl |> Asthelper.ParserOperator.return_ktype |> Position.value)
 
   let check_parameters operator_decl =
+    let open Ast.Type in
     match operator_decl with
     | Unary _ -> Ok ()
     | Binary binary ->
         let (_, kt1), (_, kt2) = binary.fields in
-        if kt1 = kt2 then
-          if kt1 |> Ast.Type.is_builtin_type then
+        if  kt1.v === kt2.v then
+          if kt1.v |> Ast.Type.is_builtin_type then
             Error.Op_built_overload kt1 |> Error.operator_error |> Result.error
           else Ok ()
         else
-          Error.Op_binary_op_diff_type (kt1, kt2)
+          Error.Op_binary_op_diff_type {
+            operator = operator_decl |> Asthelper.ParserOperator.operator;
+            lhs = kt1.v;
+            rhs = kt2.v
+          }
           |> Error.operator_error |> Result.error
 
   let check_return_ktype operator_decl =
+    let open Ast.Type in
     match operator_decl with
     | Unary u ->
         let expected =
           Asthelper.ParserOperator.expected_unary_return_type
-            (Asthelper.ParserOperator.first_parameter_ktype operator_decl)
-            u.op
+            (Asthelper.ParserOperator.first_parameter_ktype operator_decl).v
+            u.op.v
         in
-        if u.return_type = expected then Ok ()
+        if u.return_type.v === expected then Ok ()
         else
           Op_wrong_return_type_error
-            { op = `unary u.op; expected; found = u.return_type }
+            { op = operator_decl |> Asthelper.ParserOperator.operator; expected; found = u.return_type.v }
           |> Error.operator_error |> Result.error
     | Binary b ->
         let expected =
           Asthelper.ParserOperator.expected_binary_return_type
-            (Asthelper.ParserOperator.first_parameter_ktype operator_decl)
-            b.op
+            (Asthelper.ParserOperator.first_parameter_ktype operator_decl).v
+            b.op.v
         in
-        if b.return_type = expected then Ok ()
+        if b.return_type.v === expected then Ok ()
         else
           Op_wrong_return_type_error
-            { op = `binary b.op; expected; found = b.return_type }
+            { op = operator_decl |> Asthelper.ParserOperator.operator; expected; found = b.return_type.v }
           |> Error.operator_error |> Result.error
 
   let check_kbody current_module program operator_decl =
@@ -702,11 +657,11 @@ module ValidateOperator_Decl = struct
           (fields
           |> List.fold_left
                (fun acc_env para ->
-                 acc_env |> Env.add_fn_parameters ~const:false para)
+                 acc_env |> Env.add_fn_parameters ~const:false (para |> Position.assocs_value))
                Env.create_empty_env)
           current_module program
           ~return_type:
-            (Some (Asthelper.ParserOperator.return_ktype operator_decl))
+            (Some (Asthelper.ParserOperator.return_ktype operator_decl).v)
           (Asthelper.ParserOperator.kbody operator_decl)
       in
       Ok ()
@@ -721,35 +676,58 @@ module ValidateOperator_Decl = struct
 end
 
 module ValidateModule = struct
-  let check_duplicate_function { path = _; _module } =
+  let check_duplicate_function { path; _module } =
     _module |> Asthelper.Module.retrieve_functions_decl
-    |> List.map Ast.Function_Decl.calling_name
+    |> Util.ListHelper.duplicated (fun lfn rfn -> 
+      lfn |> Ast.Function_Decl.calling_name |> value = 
+      (rfn |> Ast.Function_Decl.calling_name |> value)
+    )
+    |> (function
+    | [] -> Ok ()
+    | t :: _ -> Error.Duplicate_function_declaration {path; functions = t} |> Error.module_error |> Result.error
+    )
+    (* |> List.map Ast.Function_Decl.calling_name
     |> Util.ListHelper.duplicate
     |> function
     | [] -> Ok ()
     | t :: _ ->
-        Error.Duplicate_function_name t |> Error.module_error |> Result.error
+        Error.Duplicate_function_name t.v |> Error.module_error |> Result.error *)
 
-  let check_duplicate_operator { path = _; _module } =
+  let check_duplicate_operator { path; _module } = let open Ast.Type in
     _module |> Asthelper.Module.retrieve_operator_decl
-    |> List.map Asthelper.ParserOperator.signature
-    |> Util.ListHelper.duplicate
-    |> function
+    |> Util.ListHelper.duplicated (fun lop rop -> 
+      match lop, rop with
+      | Binary l, Binary r -> begin 
+      l.op |> Position.value = (r.op |> Position.value)
+      && (l.fields |> fst |> snd |> Position.value) === (r.fields |> fst |> snd |> Position.value)
+      && (l.fields |> snd |> snd |> Position.value) === (r.fields |> snd |> snd |> Position.value)
+      && (l.return_type |> Position.value) === (r.return_type |> Position.value)
+      end
+      | Unary l, Unary r -> begin 
+        l.op |> Position.value = (r.op |> Position.value)
+        && (l.field |> snd |> Position.value) === (r.field |> snd |> Position.value)
+        && (l.return_type |> Position.value) === (r.return_type |> Position.value)
+      end
+      | _, _ -> false
+      )
+      |> function
     | [] -> Ok ()
-    | (op, _, _) :: _ ->
-        Error.Duplicate_Operator op |> Error.module_error |> Result.error
+    | t :: _ ->
+        Error.Duplicate_operator_declaration {path; operators = t} |> Error.module_error |> Result.error
 
-  let check_main_signature { path = _; _module } =
+  let check_main_signature { path; _module } =
     let ( >>= ) = Result.bind in
-    _module |> Asthelper.Module.retrieve_functions_decl
+    let function_decls = _module |> Asthelper.Module.retrieve_functions_decl
     |> List.filter (fun decl ->
-           decl |> Ast.Function_Decl.calling_name |> ( = ) "main")
-    |> List.fold_left
+           decl |> Ast.Function_Decl.calling_name |> Position.value |> ( = ) "main") in
+    function_decls |> List.fold_left
          (fun acc value ->
            acc >>= fun found ->
            match value with
-           | Ast.Function_Decl.Decl_External _ | Function_Decl.Decl_Syscall _ ->
-               Main_no_kosu_function |> Error.module_error |> Result.error
+           | Ast.Function_Decl.Decl_External external_decl ->
+               Main_no_kosu_function (`external_decl external_decl)|> Error.module_error |> Result.error
+          | Ast.Function_Decl.Decl_Syscall syscall_decl -> 
+              Main_no_kosu_function (`syscall_decl syscall_decl) |> Error.module_error |> Result.error 
            | Ast.Function_Decl.Decl_Kosu_Function function_decl -> (
                let is_main_valid_sig =
                  ValidateFunction_Decl.is_valid_main_sig function_decl
@@ -758,31 +736,33 @@ module ValidateModule = struct
                | None ->
                    if is_main_valid_sig then () |> Option.some |> Result.ok
                    else
-                     Wrong_signature_for_main |> Error.function_error
+                     Wrong_signature_for_main function_decl |> Error.function_error
                      |> Result.error
                | Some _ ->
-                   Duplicate_function_name function_decl.fn_name
+                   Duplicate_function_declaration { path; functions = function_decls}
                    |> Error.module_error |> Result.error))
          (Ok None)
     |> Result.map (fun _ -> ())
 
-  let check_duplicate_type { path = _; _module } =
-    _module |> Asthelper.Module.retrieve_type_decl
-    |> List.map Asthelper.Type_Decl.type_name
-    |> Util.ListHelper.duplicate
+  let check_duplicate_type { path; _module } =
+    let type_decls = _module |> Asthelper.Module.retrieve_type_decl in
+    type_decls
+    |> Util.ListHelper.duplicated (fun lhs rhs -> 
+      lhs |> Asthelper.Type_Decl.type_name |> Position.value = 
+      (rhs |> Asthelper.Type_Decl.type_name |> Position.value )
+      )
     |> function
     | [] -> Ok ()
     | t :: _ ->
-        Error.Duplicate_type_name t |> Error.module_error |> Result.error
+      Error.Duplicate_type_declaration {path; types = t} |> Error.module_error |> Result.error
 
-  let check_duplicate_const_name { path = _; _module } =
-    _module |> Asthelper.Module.retrieve_const_decl
-    |> List.map (fun { const_name; _ } -> const_name)
-    |> Util.ListHelper.duplicate
+  let check_duplicate_const_name { path; _module } =
+    let consts_decl = _module |> Asthelper.Module.retrieve_const_decl in
+    consts_decl |> Util.ListHelper.duplicated (fun lconst rconst -> lconst.const_name.v = rconst.const_name.v)
     |> function
     | [] -> Ok ()
     | t :: _ ->
-        Error.Duplicate_const_name t |> Error.module_error |> Result.error
+      Error.Duplicate_const_declaration {path; consts = t} |> Error.module_error |> Result.error
 
   let check_validate_module _module =
     let ( >>= ) = Result.bind in
@@ -794,18 +774,22 @@ end
 
 module Validate_Program = struct
   let check_main_in_program (program : program) =
-    program
-    |> List.map (fun { path = _; _module } ->
-           _module |> Asthelper.Module.retrieve_functions_decl
-           |> List.filter (fun fn ->
-                  fn |> Ast.Function_Decl.calling_name = "main"))
-    |> List.flatten
-    |> function
-    | [] | _ :: [] -> Ok ()
-    | _ :: _ as l -> Error (Error.Too_many_Main (l |> List.length))
+    let filtered_function_decl = program
+    |> Asthelper.Program.to_module_path_list
+    |> List.map (fun { path; _module } ->
+           path, (_module 
+           |> Asthelper.Module.retrieve_functions_decl
+           |> List.filter (fun fn -> fn |> Ast.Function_Decl.calling_name |> Position.value = "main")) )
+
+    |> List.filter (fun (_path, fn_decls) -> fn_decls |> List.length |> ( <= ) 1) in
+    let count = filtered_function_decl 
+    |> List.fold_left (fun acc (_, fn_decls) -> acc + (List.length fn_decls)) 0 in
+    if count < 2 then Ok ()
+    else
+      Error.Too_many_Main filtered_function_decl |> Result.error
 end
 
-let validate_module_node (program : Ast.program) (current_module_name : string)
+let validate_module_node (program) (current_module_name : string)
     (node : Ast.module_node) =
   match node with
   | NConst _ | NSigFun _ -> Ok ()
@@ -827,10 +811,10 @@ let validate_module_node (program : Ast.program) (current_module_name : string)
       ValidateOperator_Decl.is_valid_operator_decl current_module_name program
         operator_decl
 
-let validate_module (program : Ast.program)
-    ({ path; _module = Mod _module } as package) =
+let validate_module (program)
+    ( {filename; module_path = { path; _module = Mod _module } as package} ) =
   let ( >>= ) = Result.bind in
-  ValidateModule.check_validate_module package >>= fun () ->
+  filename, ValidateModule.check_validate_module package >>= fun () ->
   _module
   |> List.fold_left
        (fun acc value ->
@@ -839,12 +823,15 @@ let validate_module (program : Ast.program)
        (Ok ())
 
 let valide_program (program : program) =
-  let ( >>= ) = Result.bind in
-  program 
-  |> Validate_Program.check_main_in_program >>= fun () ->
+  (* let ( >>= ) = Result.bind in *)
+  match program |> Validate_Program.check_main_in_program with
+  | Error e -> "", Error e
+  | Ok () ->
   let remove_program = program |> Help.program_remove_implicit_type_path in
   remove_program
   |> List.fold_left
-       (fun acc value ->
-         if acc |> Result.is_error then acc else validate_module remove_program value)
-       (Ok ())
+       (fun acc named_module_path ->
+        let _f_name, result = acc in
+         if result |> Result.is_error then acc 
+        else validate_module (remove_program |> Asthelper.Program.to_module_path_list) named_module_path
+        ) ("", Ok ())

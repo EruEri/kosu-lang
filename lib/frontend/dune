@@ -3,7 +3,7 @@
 
 (menhir
  (modules parser)
- (flags --table)
+ (flags --table --explain)
  (infer true))
 
 ; (rule

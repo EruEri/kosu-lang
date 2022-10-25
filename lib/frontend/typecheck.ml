@@ -1,5 +1,7 @@
 open Ast
 open Ast.Error
+open Position
+open Pprint
 
 (**
   Return the type of the code block expression by checking each expression in this one
@@ -8,20 +10,25 @@ open Ast.Error
   @raise Too_Many_Occurence: if several type declarations matching was found
 *)
 let rec typeof_kbody ~generics_resolver (env : Env.t)
-    (current_mod_name : string) (program : program) ?(return_type = None)
-    (kbody : kbody) =
-  let () = Printf.printf "env %s\n" (Asthelper.string_of_env env) in
+    (current_mod_name : string) (program : module_path list)
+    ?(return_type = None) (kbody : kbody) =
+  (* let () = Printf.printf "env %s\n" (Pprint.string_of_env env) in *)
   let statements, final_expr = kbody in
   match statements with
   | stamement :: q -> (
-      match stamement with
+      match stamement.v with
       | SDiscard expr ->
           ignore (typeof ~generics_resolver env current_mod_name program expr);
-          typeof_kbody ~generics_resolver env current_mod_name program ~return_type (q, final_expr)
+          typeof_kbody ~generics_resolver env current_mod_name program
+            ~return_type (q, final_expr)
       | SDeclaration { is_const; variable_name; explicit_type; expression } ->
-          let type_init = typeof ~generics_resolver env current_mod_name program expression in
-          (* let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Asthelper.string_of_ktype type_init) (Asthelper.Sizeof.sizeof current_mod_name program type_init) (Asthelper.Sizeof.alignmentof current_mod_name program type_init) in *)
-          if env |> Env.is_identifier_exists variable_name then
+          let type_init =
+            expression
+            |> Position.map_use
+                 (typeof ~generics_resolver env current_mod_name program)
+          in
+          (* let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Pprint.string_of_ktype type_init.v) (Asthelper.Sizeof.sizeof current_mod_name program type_init.v) (Asthelper.Sizeof.alignmentof current_mod_name program type_init.v) in *)
+          if env |> Env.is_identifier_exists variable_name.v then
             raise
               (stmt_error
                  (Ast.Error.Already_Define_Identifier { name = variable_name }))
@@ -29,25 +36,29 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
             let kt =
               match explicit_type with
               | None ->
-                  if Ast.Type.is_type_full_known type_init |> not then
-                    Neead_explicit_type_declaration
-                      { variable_name; infer_type = type_init }
+                  if Ast.Type.is_type_full_known type_init.v |> not then
+                    Need_explicit_type_declaration
+                      { variable_name; infer_type = type_init.v }
                     |> stmt_error |> raise
                   else type_init
               | Some explicit_type_sure ->
-                  if not (Type.are_compatible_type explicit_type_sure type_init)
+                  if
+                    not
+                      (Type.are_compatible_type explicit_type_sure.v type_init.v)
                   then
                     raise
                       (Ast.Error.Uncompatible_type_Assign
-                         { expected = explicit_type_sure; found = type_init }
+                         { expected = explicit_type_sure.v; found = type_init }
                       |> stmt_error |> raise)
                   else explicit_type_sure
             in
             typeof_kbody ~generics_resolver
-              (env |> Env.add_variable (variable_name, { is_const; ktype = kt }))
+              (env
+              |> Env.add_variable (variable_name.v, { is_const; ktype = kt.v })
+              )
               current_mod_name program ~return_type (q, final_expr)
       | SAffection (variable, expr) -> (
-          match env |> Env.find_identifier_opt variable with
+          match env |> Env.find_identifier_opt variable.v with
           | None ->
               raise
                 (stmt_error (Ast.Error.Undefine_Identifier { name = variable }))
@@ -64,13 +75,16 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
                   raise
                     (stmt_error
                        (Ast.Error.Uncompatible_type_Assign
-                          { expected = ktype; found = new_type }))
+                          {
+                            expected = ktype;
+                            found = expr |> Position.map (fun _ -> new_type);
+                          }))
                 else
                   typeof_kbody ~generics_resolver
-                    (env |> Env.restrict_variable_type variable new_type)
+                    (env |> Env.restrict_variable_type variable.v new_type)
                     current_mod_name program ~return_type (q, final_expr)))
   | [] -> (
-      Printf.printf "Final expr\n";
+      (* Printf.printf "Final expr\n"; *)
       let final_expr_type =
         typeof ~generics_resolver env current_mod_name program final_expr
       in
@@ -78,10 +92,15 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
       | None -> final_expr_type
       | Some kt ->
           if not (Type.are_compatible_type kt final_expr_type) then
+            
             raise
               (ast_error
                  (Ast.Error.Uncompatible_type
-                    { expected = kt; found = final_expr_type }))
+                    {
+                      expected = kt;
+                      found =
+                        { v = final_expr_type; position = final_expr.position };
+                    }))
           else kt)
 
 (**
@@ -91,11 +110,11 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
   @raise Too_Many_Occurence: if several type declarations matching was found
 *)
 and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
-    (prog : program) (expression : kexpression) =
-  match expression with
+    (prog : module_path list) (expression : kexpression location) =
+  match expression.v with
   | Empty -> TUnit
   | True | False -> TBool
-  | ENullptr -> TPointer TUnknow
+  | ENullptr -> TPointer { v = TUnknow; position = expression.position }
   | EInteger (sign, size, _) -> TInteger (sign, size)
   | EFloat _ -> TFloat
   | ESizeof either ->
@@ -103,20 +122,24 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         match either with
         | Left ktype ->
             ignore
-              (match ktype with
+              (match ktype.v with
               | TParametric_identifier
                   { module_path; parametrics_type = _; name }
               | TType_Identifier { module_path; name } -> (
-                  try
-                    ignore
-                      (Asthelper.Program.find_type_decl_from_ktype
-                         ~ktype_def_path:module_path ~ktype_name:name
-                         ~current_module:current_mod_name prog)
-                  with e -> (
-                        ignore
-                          (Hashtbl.find_opt generics_resolver name |> function
-                           | None -> raise e
-                           | Some s -> s)))
+                  match
+                    Asthelper.Program.find_type_decl_from_ktype
+                      ~ktype_def_path:module_path ~ktype_name:name
+                      ~current_module:current_mod_name prog
+                  with
+                  | Ok _ -> ignore ()
+                  | Error (Undefine_Type _ as e) when module_path.v = "" -> (
+                      match
+                        generics_resolver |> Hashtbl.to_seq_keys
+                        |> Seq.find (fun gen_loc -> gen_loc.v = name.v)
+                      with
+                      | Some _ -> ignore ()
+                      | None -> e |> Ast.Error.ast_error |> raise)
+                  | Error e -> e |> Ast.Error.ast_error |> raise)
               | _ -> ignore ())
         | Right expr ->
             ignore (typeof ~generics_resolver env current_mod_name prog expr)
@@ -124,8 +147,9 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       TInteger (Unsigned, I64)
   | EString _ -> TString_lit
   | EAdress s -> (
-      env |> Env.flat_context |> List.assoc_opt s
-      |> Option.map (fun (t : Env.variable_info) -> TPointer t.ktype)
+      env |> Env.flat_context |> List.assoc_opt s.v
+      |> Option.map (fun (t : Env.variable_info) ->
+             TPointer { v = t.ktype; position = s.position })
       |> function
       | None -> raise (ast_error (Undefined_Identifier s))
       | Some s -> s)
@@ -135,21 +159,22 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         | 0 -> ktype
         | s -> (
             match ktype with
-            | Ast.TPointer t -> loop (s - 1) t
-            | _ -> raise (ast_error Unvalid_Deference))
+            | Ast.TPointer t -> loop (s - 1) t.v
+            | _ -> raise (ast_error (Unvalid_Deference id)))
       in
-      match env |> Env.flat_context |> List.assoc_opt id with
+      match env |> Env.flat_context |> List.assoc_opt id.v with
       | None -> raise (ast_error (Undefined_Identifier id))
       | Some t -> loop indirection_count t.ktype)
   | EIdentifier { modules_path = _; identifier } -> (
-      env |> Env.flat_context |> List.assoc_opt identifier
+      env |> Env.flat_context
+      |> List.assoc_opt identifier.v
       |> Option.map (fun (var_info : Env.variable_info) -> var_info.ktype)
       |> function
       | None -> raise (ast_error (Undefined_Identifier identifier))
       | Some s -> s)
   | EConst_Identifier { modules_path; identifier } -> (
       let consts_opt =
-        (if modules_path = "" then
+        (if modules_path.v = "" then
          Some (prog |> Asthelper.Program.module_of_string current_mod_name)
         else prog |> Asthelper.Program.module_of_string_opt current_mod_name)
         |> Option.map Asthelper.Module.retrieve_const_decl
@@ -160,10 +185,10 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | Some consts -> (
           consts
           |> List.find_map (fun c ->
-                 if c.const_name = identifier then Some c.explicit_type
+                 if c.const_name.v = identifier.v then Some c.explicit_type
                  else None)
           |> function
-          | None -> raise (ast_error (Unbound_Module modules_path))
+          | None -> raise (ast_error (Undefined_Const identifier))
           | Some s -> s))
   | EFieldAcces { first_expr; fields } ->
       let first_type =
@@ -173,11 +198,16 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let ktype_def_path = Type.module_path_opt first_type |> Option.get in
       let ktype_name = Type.type_name_opt first_type |> Option.get in
       let type_decl =
-        Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name
-          ~current_module:current_mod_name prog
+        match
+          Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path
+            ~ktype_name ~current_module:current_mod_name prog
+        with
+        | Error e -> e |> Ast.Error.ast_error |> raise
+        | Ok type_decl -> type_decl
       in
-      Asthelper.Struct.resolve_fields_access_gen parametrics_types fields
-        type_decl current_mod_name prog
+      Asthelper.Struct.resolve_fields_access_gen
+        (parametrics_types |> List.map Position.value)
+        fields type_decl current_mod_name prog
   | EStruct { modules_path; struct_name; fields } ->
       let struct_decl =
         match
@@ -194,7 +224,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         raise
           (Ast.Error.struct_error
              (Wrong_field_count
-                { expected = expected_length; found = parameters_length }));
+                {
+                  struct_name;
+                  expected = expected_length;
+                  found = parameters_length;
+                }));
 
       let generic_table =
         Hashtbl.create (struct_decl.generics |> List.length)
@@ -202,28 +236,33 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let init_types =
         fields
         |> List.map (fun (s, expr) ->
-               (s, typeof ~generics_resolver env current_mod_name prog expr))
+               ( s,
+                 expr
+                 |> Position.map_use (fun expr_loc ->
+                        typeof ~generics_resolver env current_mod_name prog
+                          expr_loc) ))
       in
       List.combine init_types struct_decl.fields
       |> List.iter
            (fun
              ((init_field_name, init_type), (struct_field_name, expected_typed))
            ->
-             if init_field_name <> struct_field_name then
+             if init_field_name.v <> struct_field_name.v then
                raise
                  (struct_error
                     (Unexpected_field
                        { expected = struct_field_name; found = init_field_name }));
              if
                Asthelper.Struct.is_type_compatible_hashgen generic_table
-                 init_type expected_typed struct_decl
+                 init_type.v expected_typed.v struct_decl
                |> not
              then
                Ast.Error.Uncompatible_type
-                 { expected = expected_typed; found = init_type }
+                 { expected = expected_typed.v; found = init_type }
                |> Ast.Error.ast_error |> raise);
       let modules_path =
-        if modules_path = "" then current_mod_name else modules_path
+        modules_path
+        |> Position.map (fun mp -> if mp = "" then current_mod_name else mp)
       in
       Asthelper.Struct.to_ktype_hash generic_table modules_path struct_decl
   (* validate_and_type_struct_initialisation ~env ~current_mod_name ~program:prog ~struct_module_path:modules_path ~fields: fields ~struct_decl *)
@@ -231,7 +270,8 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let enum_decl =
         match
           Asthelper.Program.find_enum_decl_opt current_mod_name modules_path
-            enum_name variant assoc_exprs prog
+            (enum_name |> Option.map Position.value)
+            variant assoc_exprs prog
         with
         | Error e -> raise (Ast.Error.ast_error e)
         | Ok e -> e
@@ -240,15 +280,17 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let hashtbl = Hashtbl.create (enum_decl.generics |> List.length) in
       enum_decl.generics
       |> List.iteri (fun i generic_name ->
-             Hashtbl.add hashtbl generic_name (i, TUnknow));
+             Hashtbl.add hashtbl generic_name.v (i, TUnknow));
       let init_types =
         assoc_exprs
-        |> List.map (typeof ~generics_resolver env current_mod_name prog)
+        |> List.map
+             (Position.map_use
+                (typeof ~generics_resolver env current_mod_name prog))
       in
       let () =
         enum_decl.variants
         |> List.find_map (fun (var, assoc_types) ->
-               if var = variant then Some assoc_types else None)
+               if var.v = variant.v then Some assoc_types else None)
         (* |> Option.map (fun k -> print_endline (k |> List.map Asthelper.string_of_ktype |> String.concat ", "); k ) *)
         (* |> function Some s -> s | None -> (raise Not_found) *)
         |> Option.get
@@ -258,6 +300,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             (Ast.Error.enum_error
                (Ast.Error.Wrong_length_assoc_type
                   {
+                    variant;
                     expected = assoc_types |> List.length;
                     found = assoc_exprs |> List.length;
                   }))
@@ -265,28 +308,38 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           assoc_types |> List.combine init_types
           |> List.iter (fun (init, expected) ->
                  match
-                   Asthelper.Enum.is_type_compatible_hashgen hashtbl init
-                     expected enum_decl
+                   Asthelper.Enum.is_type_compatible_hashgen hashtbl init.v
+                     expected.v enum_decl
                  with
                  | false ->
-                     Uncompatible_type { expected; found = init }
+                     Uncompatible_type { expected = expected.v; found = init }
                      |> ast_error |> raise
                  | true -> ())
       in
       let modules_path =
-        if modules_path = "" then current_mod_name else modules_path
+        modules_path
+        |> Position.map (fun mp -> if mp = "" then current_mod_name else mp)
       in
       Asthelper.Enum.to_ktype_hash hashtbl modules_path enum_decl
   | ETuple expected_types ->
       TTuple
         (expected_types
-        |> List.map (typeof ~generics_resolver env current_mod_name prog))
-  | EIf (expression, if_block, else_block) ->
+        |> List.map (fun expr ->
+               {
+                 v = typeof ~generics_resolver env current_mod_name prog expr;
+                 position = expr.position;
+               }))
+  | EIf (if_expression, if_block, else_block) ->
       let if_condition =
-        typeof ~generics_resolver env current_mod_name prog expression
+        typeof ~generics_resolver env current_mod_name prog if_expression
       in
-      if if_condition <> TBool then
-        raise (ast_error (Not_Boolean_Type_Condition { found = if_condition }))
+      if Ast.Type.(!==) if_condition TBool then
+        raise
+          (ast_error
+             (Not_Boolean_Type_Condition
+                {
+                  found = if_expression |> Position.map (fun _ -> if_condition);
+                }))
       else
         let if_type =
           typeof_kbody ~generics_resolver
@@ -301,27 +354,37 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         if not (Type.are_compatible_type if_type else_type) then
           raise
             (ast_error
-               (Ast.Error.Uncompatible_type_If_Else { if_type; else_type }))
+               (Ast.Error.Uncompatible_type_If_Else
+                  {
+                    position = expression |> Position.map (fun _ -> ());
+                    if_type;
+                    else_type;
+                  }))
         else Type.restrict_type else_type if_type
   | ECases { cases; else_case } ->
       cases
       |> List.map (fun (expr, kbody) ->
              let expr_type =
-               typeof ~generics_resolver env current_mod_name prog expr
+               expr
+               |> Position.map_use
+                    (typeof ~generics_resolver env current_mod_name prog)
              in
-             if expr_type <> TBool then
+             if Ast.Type.(!==) expr_type.v TBool then
                raise
                  (ast_error (Not_Boolean_Type_Condition { found = expr_type }))
              else
-               typeof_kbody ~generics_resolver
-                 (env |> Env.push_context [])
-                 current_mod_name prog kbody)
+               let _stmts, { v = _; position } = kbody in
+               ( typeof_kbody ~generics_resolver
+                   (env |> Env.push_context [])
+                   current_mod_name prog kbody,
+                 position ))
       |> List.fold_left
-           (fun acc new_type ->
+           (fun acc (new_type, position) ->
              if not (Type.are_compatible_type acc new_type) then
                raise
                  (ast_error
-                    (Uncompatible_type { expected = acc; found = new_type }))
+                    (Uncompatible_type
+                       { expected = acc; found = { v = new_type; position } }))
              else Type.restrict_type acc new_type)
            (typeof_kbody ~generics_resolver
               (env |> Env.push_context [])
@@ -330,12 +393,12 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let ( >>= ) = Result.bind in
       let parameters_type =
         parameters
-        |> List.map (typeof ~generics_resolver env current_mod_name prog)
+        |> List.map (Position.map_use (typeof ~generics_resolver env current_mod_name prog))
       in
 
       fn_name |> Asthelper.Builtin_Function.builtin_fn_of_fn_name
       >>= (fun builtin ->
-            Asthelper.Builtin_Function.is_valide_parameters_type parameters_type
+            Asthelper.Builtin_Function.is_valide_parameters_type fn_name parameters_type
               builtin)
       |> Result.map Asthelper.Builtin_Function.builtin_return_type
       |> function
@@ -344,14 +407,19 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
   | EFunction_call
       { modules_path; generics_resolver = grc; fn_name; parameters } -> (
       let fn_decl =
-        Asthelper.Program.find_function_decl_from_fn_name modules_path fn_name
-          current_mod_name prog
+        match
+          Asthelper.Program.find_function_decl_from_fn_name modules_path fn_name
+            current_mod_name prog
+        with
+        | Error e -> e |> ast_error |> raise
+        | Ok fn_decl -> fn_decl
       in
       match fn_decl with
       | Ast.Function_Decl.Decl_Kosu_Function e ->
           if Util.are_diff_lenght parameters e.parameters then
             Unmatched_Parameters_length
               {
+                fn_name;
                 expected = e.parameters |> List.length;
                 found = parameters |> List.length;
               }
@@ -364,8 +432,9 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             let init_type_parameters =
               parameters
               |> List.map
-                   (typeof ~generics_resolver:new_map_generics env
-                      current_mod_name prog)
+                   (Position.map_use
+                      (typeof ~generics_resolver:new_map_generics env
+                         current_mod_name prog))
             in
             let hashtal = Hashtbl.create (e.generics |> List.length) in
             let () =
@@ -378,6 +447,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                   then
                     Unmatched_Generics_Resolver_length
                       {
+                        fn_name;
                         expected = e.generics |> List.length;
                         found = grc |> Option.value ~default:[] |> List.length;
                       }
@@ -390,7 +460,8 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
               | Some grc_safe ->
                   List.combine e.generics grc_safe
                   |> List.iteri (fun index (generic_name, field_ktype) ->
-                         Hashtbl.add hashtal generic_name (index, field_ktype))
+                         Hashtbl.add hashtal generic_name.v
+                           (index, field_ktype.v))
               | None -> ()
             in
             init_type_parameters |> List.combine e.parameters
@@ -398,28 +469,38 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                    if
                      e
                      |> Asthelper.Function.is_type_compatible_hashgen hashtal
-                          init_type para_type
+                          init_type.v para_type.v
                      |> not
                    then
                      Mismatched_Parameters_Type
-                       { expected = para_type; found = init_type }
+                       {
+                         fn_name = fn_name.v;
+                         expected =
+                           para_type
+                           |> Position.map
+                                (Ast.Type.extract_mapped_ktype hashtal)
+                           |> Position.value;
+                         found = init_type;
+                       }
                      |> func_error |> raise);
 
             Asthelper.Function.to_return_ktype_hashtab
-              ~current_module:current_mod_name ~module_type_path:modules_path
+              ~current_module:current_mod_name ~module_type_path:modules_path.v
               hashtal e
       | Ast.Function_Decl.Decl_External external_func_decl -> (
           if external_func_decl.is_variadic then
             parameters
-            |> List.map (typeof ~generics_resolver env current_mod_name prog)
+            |> List.map
+                 (Position.map_use
+                    (typeof ~generics_resolver env current_mod_name prog))
             |> List.map (fun t ->
                    if
-                     Asthelper.Program.is_c_type_from_ktype current_mod_name t
+                     Asthelper.Program.is_c_type_from_ktype current_mod_name t.v
                        prog
                    then t
                    else
                      Ast.Error.Uncompatible_type_for_C_Function
-                       { external_func_decl }
+                       { fn_name; ktype = t }
                      |> func_error |> raise)
             |> fun types ->
             if
@@ -428,6 +509,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             then
               Unmatched_Parameters_length
                 {
+                  fn_name;
                   expected = external_func_decl.fn_parameters |> List.length;
                   found = parameters |> List.length;
                 }
@@ -444,25 +526,26 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
               |> List.for_all (fun (para_type, init_type) ->
                      match
                        ( Asthelper.Program.is_c_type_from_ktype current_mod_name
-                           para_type prog,
+                           para_type.v prog,
                          Asthelper.Program.is_c_type_from_ktype current_mod_name
-                           init_type prog )
+                           init_type.v prog )
                      with
                      | true, true ->
                          if
                            not
-                             (Ast.Type.are_compatible_type para_type init_type)
+                             (Ast.Type.are_compatible_type para_type.v
+                                init_type.v)
                          then
                            Uncompatible_type_Assign
-                             { expected = para_type; found = init_type }
+                             { expected = para_type.v; found = init_type }
                            |> stmt_error |> raise
                          else true
                      | _ ->
                          Ast.Error.Uncompatible_type_for_C_Function
-                           { external_func_decl }
+                           { fn_name; ktype = para_type }
                          |> func_error |> raise)
               |> fun b ->
-              if b then external_func_decl.r_type
+              if b then external_func_decl.r_type.v
               else Unknow_Function_Error |> func_error |> raise
           else
             match
@@ -471,6 +554,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             | false ->
                 Unmatched_Parameters_length
                   {
+                    fn_name;
                     expected = external_func_decl.fn_parameters |> List.length;
                     found = parameters |> List.length;
                   }
@@ -478,8 +562,13 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             | true ->
                 let mapped_type =
                   parameters
-                  |> List.map
-                       (typeof ~generics_resolver env current_mod_name prog)
+                  |> List.map (fun located_expr ->
+                         {
+                           v =
+                             typeof ~generics_resolver env current_mod_name prog
+                               located_expr;
+                           position = located_expr.position;
+                         })
                 in
                 let zipped =
                   List.combine external_func_decl.fn_parameters mapped_type
@@ -489,31 +578,40 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                   |> List.for_all (fun (para_type, init_type) ->
                          match
                            ( Asthelper.Program.is_c_type_from_ktype
-                               current_mod_name para_type prog,
+                               current_mod_name para_type.v prog,
                              Asthelper.Program.is_c_type_from_ktype
-                               current_mod_name init_type prog )
+                               current_mod_name init_type.v prog )
                          with
                          | true, true ->
                              if
                                not
-                                 (Ast.Type.are_compatible_type para_type
-                                    init_type)
+                                 (Ast.Type.are_compatible_type para_type.v
+                                    init_type.v)
                              then
                                Uncompatible_type_Assign
-                                 { expected = para_type; found = init_type }
+                                 { expected = para_type.v; found = init_type }
                                |> stmt_error |> raise
                              else true
                          | _ ->
                              Ast.Error.Uncompatible_type_for_C_Function
-                               { external_func_decl }
+                               { fn_name; ktype = para_type }
                              |> func_error |> raise)
-                then external_func_decl.r_type
+                then
+                  if
+                    Asthelper.Program.is_c_type_from_ktype current_mod_name
+                      external_func_decl.r_type.v prog
+                  then external_func_decl.r_type.v
+                  else
+                    Ast.Error.Uncompatible_type_for_C_Function
+                      { fn_name; ktype = external_func_decl.r_type }
+                    |> func_error |> raise
                 else Unknow_Function_Error |> func_error |> raise)
       | Ast.Function_Decl.Decl_Syscall syscall_decl -> (
           match Util.are_same_lenght syscall_decl.parameters parameters with
           | false ->
               Unmatched_Parameters_length
                 {
+                  fn_name;
                   expected = syscall_decl.parameters |> List.length;
                   found = parameters |> List.length;
                 }
@@ -521,155 +619,223 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           | true ->
               let mapped_type =
                 parameters
-                |> List.map
-                     (typeof ~generics_resolver env current_mod_name prog)
+                |> List.map (fun located_expr ->
+                       {
+                         v =
+                           typeof ~generics_resolver env current_mod_name prog
+                             located_expr;
+                         position = located_expr.position;
+                       })
               in
-              let zipped = List.combine syscall_decl.parameters mapped_type in
+              let zipped =
+                List.combine syscall_decl.parameters mapped_type
+                |> List.mapi (fun i a -> (i, a))
+              in
               if
                 zipped
-                |> List.for_all (fun (para_type, init_type) ->
-                       match
-                         ( Asthelper.Program.is_c_type_from_ktype
-                             current_mod_name para_type prog,
-                           Asthelper.Program.is_c_type_from_ktype
-                             current_mod_name init_type prog )
-                       with
-                       | true, true ->
-                           if
-                             not
-                               (Ast.Type.are_compatible_type para_type init_type)
-                           then
-                             Uncompatible_type_Assign
-                               { expected = para_type; found = init_type }
-                             |> stmt_error |> raise
-                           else true
-                       | _ ->
-                           Ast.Error.Uncompatible_type_for_Syscall
-                             { syscall_decl }
-                           |> func_error |> raise)
-              then syscall_decl.return_type
+                |> List.for_all (fun (i, (para_type, init_type)) ->
+                       if
+                         not
+                           (Ast.Type.are_compatible_type para_type.v init_type.v)
+                       then
+                         Uncompatible_type_Assign
+                           { expected = para_type.v; found = init_type }
+                         |> stmt_error |> raise
+                       else
+                         match
+                           ( Asthelper.Program.is_c_type_from_ktype
+                               current_mod_name para_type.v prog,
+                             Asthelper.Program.is_c_type_from_ktype
+                               current_mod_name init_type.v prog )
+                         with
+                         | true, true -> true
+                         | _, _ ->
+                             Ast.Error.Uncompatible_type_for_Syscall
+                               { index = Some i; syscall_decl }
+                             |> func_error |> raise)
+              then
+                if
+                  Asthelper.Program.is_c_type_from_ktype current_mod_name
+                    syscall_decl.return_type.v prog
+                then syscall_decl.return_type.v
+                else
+                  Ast.Error.Uncompatible_type_for_Syscall
+                    { index = None; syscall_decl }
+                  |> func_error |> raise
               else Unknow_Function_Error |> func_error |> raise))
   | EBin_op (BAdd (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
-      match Asthelper.Program.is_valid_add_operation l_type r_type prog with
-      | `built_in_ptr_valid -> l_type
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      match Asthelper.Program.is_valid_add_operation l_type.v r_type.v prog with
+      | `built_in_ptr_valid -> l_type.v
       | `invalid_add_pointer ->
           Invalid_pointer_arithmetic r_type |> operator_error |> raise
       | `diff_types ->
           Incompatible_Type
-            { bin_op = Ast.OperatorFunction.Add; lhs = l_type; rhs = r_type }
+            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Add; lhs = l_type; rhs = r_type }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
             { bin_op = Ast.OperatorFunction.Add; ktype = l_type }
           |> operator_error |> raise
-      | `valid _ -> l_type
-      | `to_many_declaration _ ->
+      | `valid _ -> l_type.v
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.Add; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.Add; ktype = l_type }
           |> operator_error |> raise
-      | `built_in_valid -> l_type
+      | `built_in_valid -> l_type.v
       | `no_add_for_built_in ->
           No_built_in_op { bin_op = Ast.OperatorFunction.Add; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BMinus (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
-      match Asthelper.Program.is_valid_minus_operation l_type r_type prog with
-      | `built_in_ptr_valid -> l_type
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      match
+        Asthelper.Program.is_valid_minus_operation l_type.v r_type.v prog
+      with
+      | `built_in_ptr_valid -> l_type.v
       | `invalid_add_pointer ->
           Invalid_pointer_arithmetic r_type |> operator_error |> raise
       | `diff_types ->
           Incompatible_Type
-            { bin_op = Ast.OperatorFunction.Minus; lhs = l_type; rhs = r_type }
+            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Minus; lhs = l_type; rhs = r_type }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
             { bin_op = Ast.OperatorFunction.Minus; ktype = l_type }
           |> operator_error |> raise
-      | `valid _ -> l_type
-      | `to_many_declaration _ ->
+      | `valid _ -> l_type.v
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.Minus; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.Minus; ktype = l_type }
           |> operator_error |> raise
-      | `built_in_valid -> l_type
+      | `built_in_valid -> l_type.v
       | `no_minus_for_built_in ->
           No_built_in_op { bin_op = Ast.OperatorFunction.Minus; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BMult (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
-      match Asthelper.Program.is_valid_mult_operation l_type r_type prog with
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      match
+        Asthelper.Program.is_valid_mult_operation l_type.v r_type.v prog
+      with
       | `diff_types ->
           Incompatible_Type
-            { bin_op = Ast.OperatorFunction.Mult; lhs = l_type; rhs = r_type }
+            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Mult; lhs = l_type; rhs = r_type }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
             { bin_op = Ast.OperatorFunction.Mult; ktype = l_type }
           |> operator_error |> raise
-      | `valid _ -> l_type
-      | `to_many_declaration _ ->
+      | `valid _ -> l_type.v
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.Mult; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.Mult; ktype = l_type }
           |> operator_error |> raise
-      | `built_in_valid -> l_type
+      | `built_in_valid -> l_type.v
       | `no_mult_for_built_in ->
           No_built_in_op { bin_op = Ast.OperatorFunction.Mult; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BDiv (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
-      match Asthelper.Program.is_valid_div_operation l_type r_type prog with
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      match Asthelper.Program.is_valid_div_operation l_type.v r_type.v prog with
       | `diff_types ->
           Incompatible_Type
-            { bin_op = Ast.OperatorFunction.Div; lhs = l_type; rhs = r_type }
+            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Div; lhs = l_type; rhs = r_type }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
             { bin_op = Ast.OperatorFunction.Div; ktype = l_type }
           |> operator_error |> raise
-      | `valid _ -> l_type
-      | `to_many_declaration _ ->
+      | `valid _ -> l_type.v
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.Div; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.Div; ktype = l_type }
           |> operator_error |> raise
-      | `built_in_valid -> l_type
+      | `built_in_valid -> l_type.v
       | `no_div_for_built_in ->
           No_built_in_op { bin_op = Ast.OperatorFunction.Div; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BMod (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
-      match Asthelper.Program.is_valid_mod_operation l_type r_type prog with
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      match Asthelper.Program.is_valid_mod_operation l_type.v r_type.v prog with
       | `diff_types ->
           Incompatible_Type
-            { bin_op = Ast.OperatorFunction.Modulo; lhs = l_type; rhs = r_type }
+            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Modulo; lhs = l_type; rhs = r_type }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
             { bin_op = Ast.OperatorFunction.Modulo; ktype = l_type }
           |> operator_error |> raise
-      | `valid _ -> l_type
-      | `to_many_declaration _ ->
+      | `valid _ -> l_type.v
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.Modulo; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.Modulo; ktype = l_type }
           |> operator_error |> raise
-      | `built_in_valid -> l_type
+      | `built_in_valid -> l_type.v
       | `no_mod_for_built_in ->
           No_built_in_op
             { bin_op = Ast.OperatorFunction.Modulo; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BBitwiseOr (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
       match
-        Asthelper.Program.is_valid_bitwiseor_operation l_type r_type prog
+        Asthelper.Program.is_valid_bitwiseor_operation l_type.v r_type.v prog
       with
       | `diff_types ->
           Incompatible_Type
-            {
+            { expr_loc = expression; 
               bin_op = Ast.OperatorFunction.BitwiseOr;
               lhs = l_type;
               rhs = r_type;
@@ -679,25 +845,33 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           Operator_not_found
             { bin_op = Ast.OperatorFunction.BitwiseOr; ktype = l_type }
           |> operator_error |> raise
-      | `valid _ -> l_type
-      | `to_many_declaration _ ->
+      | `valid _ -> l_type.v
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.BitwiseOr; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.BitwiseOr; ktype = l_type }
           |> operator_error |> raise
-      | `built_in_valid -> l_type
+      | `built_in_valid -> l_type.v
       | `no_bitwiseor_for_built_in ->
           No_built_in_op
             { bin_op = Ast.OperatorFunction.BitwiseOr; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BBitwiseAnd (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
       match
-        Asthelper.Program.is_valid_bitwiseand_operation l_type r_type prog
+        Asthelper.Program.is_valid_bitwiseand_operation l_type.v r_type.v prog
       with
       | `diff_types ->
           Incompatible_Type
-            {
+            { expr_loc = expression; 
               bin_op = Ast.OperatorFunction.BitwiseAnd;
               lhs = l_type;
               rhs = r_type;
@@ -707,25 +881,33 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           Operator_not_found
             { bin_op = Ast.OperatorFunction.BitwiseAnd; ktype = l_type }
           |> operator_error |> raise
-      | `valid _ -> l_type
-      | `to_many_declaration _ ->
+      | `valid _ -> l_type.v
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.BitwiseAnd; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.BitwiseAnd; ktype = l_type }
           |> operator_error |> raise
-      | `built_in_valid -> l_type
+      | `built_in_valid -> l_type.v
       | `no_bitwiseand_for_built_in ->
           No_built_in_op
             { bin_op = Ast.OperatorFunction.BitwiseAnd; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BBitwiseXor (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
       match
-        Asthelper.Program.is_valid_bitwisexor_operation l_type r_type prog
+        Asthelper.Program.is_valid_bitwisexor_operation l_type.v r_type.v prog
       with
       | `diff_types ->
           Incompatible_Type
-            {
+            { expr_loc = expression; 
               bin_op = Ast.OperatorFunction.BitwiseXor;
               lhs = l_type;
               rhs = r_type;
@@ -735,25 +917,33 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           Operator_not_found
             { bin_op = Ast.OperatorFunction.BitwiseXor; ktype = l_type }
           |> operator_error |> raise
-      | `valid _ -> l_type
-      | `to_many_declaration _ ->
+      | `valid _ -> l_type.v
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.BitwiseXor; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.BitwiseXor; ktype = l_type }
           |> operator_error |> raise
-      | `built_in_valid -> l_type
+      | `built_in_valid -> l_type.v
       | `no_bitwisexor_for_built_in ->
           No_built_in_op
             { bin_op = Ast.OperatorFunction.BitwiseXor; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BShiftLeft (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
       match
-        Asthelper.Program.is_valid_shiftleft_operation l_type r_type prog
+        Asthelper.Program.is_valid_shiftleft_operation l_type.v r_type.v prog
       with
       | `diff_types ->
           Incompatible_Type
-            {
+            { expr_loc = expression; 
               bin_op = Ast.OperatorFunction.ShiftLeft;
               lhs = l_type;
               rhs = r_type;
@@ -763,25 +953,25 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           Operator_not_found
             { bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }
           |> operator_error |> raise
-      | `valid _ -> l_type
-      | `to_many_declaration _ ->
+      | `valid _ -> l_type.v
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }
           |> operator_error |> raise
-      | `built_in_valid -> l_type
+      | `built_in_valid -> l_type.v
       | `no_shiftleft_for_built_in ->
           No_built_in_op
             { bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BShiftRight (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
+    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
       match
-        Asthelper.Program.is_valid_shiftright_operation l_type r_type prog
+        Asthelper.Program.is_valid_shiftright_operation l_type.v r_type.v prog
       with
       | `diff_types ->
           Incompatible_Type
-            {
+            { expr_loc = expression; 
               bin_op = Ast.OperatorFunction.ShiftLeft;
               lhs = l_type;
               rhs = r_type;
@@ -791,86 +981,90 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           Operator_not_found
             { bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }
           |> operator_error |> raise
-      | `valid _ -> l_type
-      | `to_many_declaration _ ->
+      | `valid _ -> l_type.v
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }
           |> operator_error |> raise
-      | `built_in_valid -> l_type
+      | `built_in_valid -> l_type.v
       | `no_shiftright_for_built_in ->
           No_built_in_op
             { bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BAnd (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
-      match (l_type, r_type) with
+    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+      match (l_type.v, r_type.v) with
       | TBool, TBool -> TBool
-      | _, _ -> Not_Boolean_operand_in_And |> operator_error |> raise)
+      | TBool, _ -> Not_Boolean_operand_in_And r_type |> operator_error |> raise
+      | _, TBool -> Not_Boolean_operand_in_And l_type |> operator_error |> raise
+      | _, _ -> Not_Boolean_operand_in_And l_type |> operator_error |> raise)
   | EBin_op (BOr (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
-      match (l_type, r_type) with
+    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+      match (l_type.v, r_type.v) with
       | TBool, TBool -> TBool
-      | _, _ -> Not_Boolean_operand_in_Or |> operator_error |> raise)
+      | TBool, _ -> Not_Boolean_operand_in_Or r_type |> operator_error |> raise
+      | _, TBool -> Not_Boolean_operand_in_Or l_type |> operator_error |> raise
+      | _, _ -> Not_Boolean_operand_in_Or l_type |> operator_error |> raise)
   | EBin_op (BEqual (lhs, rhs) | BDif (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
-      match Asthelper.Program.is_valid_equal_operation l_type r_type prog with
+    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+      match Asthelper.Program.is_valid_equal_operation l_type.v r_type.v prog with
       | `diff_types ->
           Incompatible_Type
-            { bin_op = Ast.OperatorFunction.Equal; lhs = l_type; rhs = r_type }
+            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Equal; lhs = l_type; rhs = r_type }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
             { bin_op = Ast.OperatorFunction.Equal; ktype = l_type }
           |> operator_error |> raise
       | `valid _ -> TBool
-      | `to_many_declaration _ ->
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.Equal; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.Equal; ktype = l_type }
           |> operator_error |> raise
       | `built_in_valid -> TBool
       | `no_equal_for_built_in ->
           No_built_in_op { bin_op = Ast.OperatorFunction.Equal; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BSup (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
-      match Asthelper.Program.is_valid_sup_operation l_type r_type prog with
+    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+      match Asthelper.Program.is_valid_sup_operation l_type.v r_type.v prog with
       | `diff_types ->
           Incompatible_Type
-            { bin_op = Ast.OperatorFunction.Sup; lhs = l_type; rhs = r_type }
+            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Sup; lhs = l_type; rhs = r_type }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
             { bin_op = Ast.OperatorFunction.Sup; ktype = l_type }
           |> operator_error |> raise
       | `valid _ -> TBool
-      | `to_many_declaration _ ->
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.Sup; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.Sup; ktype = l_type }
           |> operator_error |> raise
       | `built_in_valid -> TBool
       | `no_sup_for_built_in ->
           No_built_in_op { bin_op = Ast.OperatorFunction.Sup; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BSupEq (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
-      match Asthelper.Program.is_valid_supeq_operation l_type r_type prog with
+    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+      match Asthelper.Program.is_valid_supeq_operation l_type.v r_type.v prog with
       | `diff_types ->
           Incompatible_Type
-            { bin_op = Ast.OperatorFunction.SupEq; lhs = l_type; rhs = r_type }
+            { expr_loc = expression;  bin_op = Ast.OperatorFunction.SupEq; lhs = l_type; rhs = r_type }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
             { bin_op = Ast.OperatorFunction.SupEq; ktype = l_type }
           |> operator_error |> raise
       | `valid _ -> TBool
-      | `to_many_declaration _ ->
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.SupEq; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.SupEq; ktype = l_type }
           |> operator_error |> raise
       | `built_in_valid -> TBool
       | `no_equal_for_built_in ->
@@ -880,42 +1074,42 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           No_built_in_op { bin_op = Ast.OperatorFunction.Sup; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BInf (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
-      match Asthelper.Program.is_valid_inf_operation l_type r_type prog with
+    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+      match Asthelper.Program.is_valid_inf_operation l_type.v r_type.v prog with
       | `diff_types ->
           Incompatible_Type
-            { bin_op = Ast.OperatorFunction.Inf; lhs = l_type; rhs = r_type }
+            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Inf; lhs = l_type; rhs = r_type }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
             { bin_op = Ast.OperatorFunction.Inf; ktype = l_type }
           |> operator_error |> raise
       | `valid _ -> TBool
-      | `to_many_declaration _ ->
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.Inf; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.Inf; ktype = l_type }
           |> operator_error |> raise
       | `built_in_valid -> TBool
       | `no_inf_for_built_in ->
           No_built_in_op { bin_op = Ast.OperatorFunction.Inf; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BInfEq (lhs, rhs)) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      let r_type = typeof ~generics_resolver env current_mod_name prog rhs in
-      match Asthelper.Program.is_valid_infeq_operation l_type r_type prog with
+    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+      match Asthelper.Program.is_valid_infeq_operation l_type.v r_type.v prog with
       | `diff_types ->
           Incompatible_Type
-            { bin_op = Ast.OperatorFunction.InfEq; lhs = l_type; rhs = r_type }
+            { expr_loc = expression;  bin_op = Ast.OperatorFunction.InfEq; lhs = l_type; rhs = r_type }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
             { bin_op = Ast.OperatorFunction.InfEq; ktype = l_type }
           |> operator_error |> raise
       | `valid _ -> TBool
-      | `to_many_declaration _ ->
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.InfEq; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.InfEq; ktype = l_type }
           |> operator_error |> raise
       | `built_in_valid -> TBool
       | `no_equal_for_built_in ->
@@ -925,36 +1119,44 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           No_built_in_op { bin_op = Ast.OperatorFunction.Inf; ktype = l_type }
           |> operator_error |> raise)
   | EUn_op (UNot lhs) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      match Asthelper.Program.is_valid_not_operation l_type prog with
+    let l_type =
+      lhs
+      |> Position.map_use
+           (typeof ~generics_resolver env current_mod_name prog)
+    in
+      match Asthelper.Program.is_valid_not_operation l_type.v prog with
       | `no_function_found ->
           Operator_not_found
             { bin_op = Ast.OperatorFunction.Not; ktype = l_type }
           |> operator_error |> raise
-      | `valid _ -> l_type
-      | `to_many_declaration _ ->
+      | `valid _ -> l_type.v
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.Not; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.Not; ktype = l_type }
           |> operator_error |> raise
-      | `built_in_valid -> l_type
+      | `built_in_valid -> l_type.v
       | `no_not_for_built_in ->
           No_built_in_op { bin_op = Ast.OperatorFunction.Not; ktype = l_type }
           |> operator_error |> raise)
   | EUn_op (UMinus lhs) -> (
-      let l_type = typeof ~generics_resolver env current_mod_name prog lhs in
-      match Asthelper.Program.is_valid_uminus_operation l_type prog with
+    let l_type =
+      lhs
+      |> Position.map_use
+           (typeof ~generics_resolver env current_mod_name prog)
+    in
+      match Asthelper.Program.is_valid_uminus_operation l_type.v prog with
       | `no_function_found ->
           Operator_not_found
             { bin_op = Ast.OperatorFunction.UMinus; ktype = l_type }
           |> operator_error |> raise
-      | `valid _ -> l_type
-      | `to_many_declaration _ ->
+      | `valid _ -> l_type.v
+      | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            { bin_op = Ast.OperatorFunction.UMinus; ktype = l_type }
+            {operator_decls; bin_op = Ast.OperatorFunction.UMinus; ktype = l_type }
           |> operator_error |> raise
-      | `built_in_valid -> l_type
+      | `built_in_valid -> l_type.v
       | `invalid_unsigned_op size ->
-          Invalid_Uminus_for_Unsigned_integer size |> operator_error |> raise
+          Invalid_Uminus_for_Unsigned_integer { v = size; position = l_type.position} |> operator_error |> raise
       | `no_uminus_for_built_in ->
           No_built_in_op
             { bin_op = Ast.OperatorFunction.UMinus; ktype = l_type }
@@ -965,13 +1167,15 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         typeof ~generics_resolver env current_mod_name prog expr
       in
       if expr_type |> Ast.Type.is_type_full_known |> not then
-        Not_fully_known_ktype expr_type |> switch_error |> raise
+        Not_fully_known_ktype (expr |> Position.map (fun _ -> expr_type))
+        |> switch_error |> raise
       else
         let module_path, name =
           expr_type |> Asthelper.module_path_of_ktype_opt |> function
           | None ->
-              Not_enum_type_in_switch_Expression expr_type |> switch_error
-              |> raise
+              Not_enum_type_in_switch_Expression
+                (expr |> Position.map (fun _ -> expr_type))
+              |> switch_error |> raise
           | Some s -> s
         in
         let enum_decl =
@@ -980,36 +1184,44 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
               ~ktype_def_path:module_path ~ktype_name:name
               ~current_module:current_mod_name prog
           with
-          | Type_Decl.Decl_Enum e -> e
-          | _ ->
-              Not_enum_type_in_switch_Expression expr_type |> switch_error
-              |> raise
+          | Ok (Type_Decl.Decl_Enum e) -> e
+          | Ok (Type_Decl.Decl_Struct _s) ->
+              Not_enum_type_in_switch_Expression
+                (expr |> Position.map (fun _ -> expr_type))
+              |> switch_error |> raise
+          | Error e -> e |> ast_error |> raise
         in
 
         let () =
           enum_decl.variants
           |> List.iter (fun (variant_name, _) ->
-                 if
-                   Asthelper.Switch_case.is_cases_duplicated variant_name
+                 match
+                   Asthelper.Switch_case.cases_duplicated variant_name.v
                      variant_cases
-                 then
-                   Ast.Error.Duplicated_case variant_name |> switch_error
-                   |> raise)
+                 with
+                 | None -> ()
+                 | Some duplicate ->
+                     Ast.Error.Duplicated_case duplicate |> switch_error
+                     |> raise)
         in
 
         let generics_mapped =
-          Ast.Type.extract_parametrics_ktype expr_type
+          expr_type
+          |> Ast.Type.extract_parametrics_ktype 
           |> List.combine
                (enum_decl.generics
                |> List.map (fun name ->
-                      TType_Identifier { module_path = ""; name }))
+                      TType_Identifier
+                        {
+                          module_path = { v = ""; position = Position.dummy };
+                          name;
+                        }))
         in
-
         let open Asthelper.Enum in
         let open Asthelper.Switch_case in
         let () =
           if wildcard_case |> Option.is_none then
-            match is_all_cases_handled variant_cases enum_decl with
+            match is_all_cases_handled ~expression variant_cases enum_decl with
             | Error e -> e |> switch_error |> raise
             | Ok _ -> ()
         in
@@ -1019,58 +1231,103 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                let combine_binding_type =
                  sc_list
                  |> List.map (fun sc ->
+                  let variant_name = (sc |> variant_name) in
                         let assoc_types =
-                          extract_assoc_type_variant generics_mapped
-                            (sc |> variant_name) enum_decl
+                          extract_assoc_type_variant generics_mapped variant_name
+                             enum_decl
                           |> Option.get
                         in
                         let assoc_binding = assoc_binding sc in
-                        List.combine assoc_binding assoc_types)
+                        variant_name, assoc_types |> List.combine assoc_binding |> List.mapi (fun index (v, l) -> (index, v, l) )
+                 )
                in
+               (* let () =  combine_binding_type |> List.iter (fun (var_name, list) -> 
+                Printf.printf "\nvariant = %s(%s)\n" 
+                (var_name.v)
+                (list |> List.map (fun (_, binding, kt) -> Printf.sprintf "%s => %s" (binding |> Option.map Position.value |> Option.value ~default:"_" ) (string_of_ktype kt.v)) |> String.concat ", ")
+                )  
+              in  *)
                match combine_binding_type with
                | [] -> failwith "Unreachable case: empty case"
-               | ass_bin :: q ->
+               | (first_variant, ass_bin) :: q ->
                    let new_context =
                      q
                      |> List.fold_left
-                          (fun acc value ->
+                          (fun acc (variant_name, value) ->
                             let reduced_binding =
                               reduce_binded_variable_combine value
                             in
-                            if acc <> reduced_binding then
-                              Incompatible_Binding (acc, reduced_binding)
-                              |> switch_error |> raise
-                            else acc)
+                            match Ast.Type.find_field_error acc reduced_binding with
+                            | None -> 
+                              begin 
+                                acc 
+                              end 
+                            | Some (`diff_binding_name (lhs, rhs)) -> Incompatible_Binding_Name {
+                              switch_expr = expression;
+                              base_variant = first_variant;
+                              base_bound_id = (lhs |> fst);
+
+                              wrong_variant = variant_name;
+                              wrong_bound_id = (rhs |> fst);
+                            } |> switch_error |> raise
+                            | Some (`diff_binding_ktype (lhs, rhs)) -> Incompatible_Binding_Ktype {
+                              switch_expr = expression;
+                              base_variant = first_variant;
+                              base_bound_id = (lhs |> fst);
+                              base_bound_ktype = (lhs |> snd);
+
+                              wrong_variant = variant_name;
+                              wrong_bound_id = (rhs |> fst);
+                              wrong_bound_ktype = (rhs |> snd)
+                            } |> switch_error |> raise
+                            | Some (`diff_binding_index((base_index, base_bound_id), (wrong_index, wrong_bound_id))) -> Incompatible_Binding_Position {
+                              base_index;
+                              base_variant = first_variant;
+                              base_bound_id;
+                              wrong_index;
+                              wrong_variant = variant_name;
+                              wrong_bound_id;
+                            } |> switch_error |> raise
+                            )
                           (reduce_binded_variable_combine ass_bin)
-                     |> List.map (fun (variable_name, ktype) ->
+                     |> List.map (fun (_, variable_name, ktype) -> 
                             ( variable_name,
-                              ({ is_const = true; ktype } : Env.variable_info)
-                            ))
+                              ({ is_const = true; ktype = ktype.v }
+                                : Env.variable_info) ))
                      |> List.map (fun (binding_name, var_info) ->
-                            if env |> Env.is_identifier_exists binding_name then
-                              Binded_identifier_already_exist binding_name
+                            if env |> Env.is_identifier_exists binding_name.v
+                            then
+                              Identifier_already_Bound binding_name
                               |> switch_error |> raise
                             else (binding_name, var_info))
                    in
-                   typeof_kbody ~generics_resolver
-                     (env |> Env.push_context new_context)
-                     current_mod_name prog kb)
+                   let _stmt, { v = _; position } = kb in
+                   ( typeof_kbody ~generics_resolver
+                       (env
+                       |> Env.push_context
+                            (new_context |> List.map Position.assoc_value_left)
+                       )
+                       current_mod_name prog kb,
+                     position ))
         |> fun l ->
           match wildcard_case with
           | None -> l
           | Some wild ->
+              let _stmt, { v = _; position } = wild in
               let wildcard_type =
                 typeof_kbody ~generics_resolver env current_mod_name prog wild
               in
-              wildcard_type :: l )
+              (wildcard_type, position) :: l )
         |> function
         | [] -> failwith "unreachable case: empty kbody"
-        | t :: q ->
+        | (t, _) :: q ->
             q
             |> List.fold_left
-                 (fun acc case_type ->
+                 (fun acc (case_type, position) ->
                    if not (Type.are_compatible_type acc case_type) then
-                     Uncompatible_type { expected = acc; found = case_type }
+                    let () = Printf.printf "Not compatible acc = %s; value = %s\n" (string_of_ktype acc) (string_of_ktype case_type) in
+                     Uncompatible_type
+                       { expected = acc; found = { v = case_type; position } }
                      |> ast_error |> raise
                    else Type.restrict_type acc case_type)
                  t)
