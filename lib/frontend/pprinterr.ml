@@ -65,7 +65,7 @@ let string_of_statement_error =
   | Reassign_Constante s ->  string_of_located_error s.name (sprintf "Reassign a constant \"%s\"" s.name.v)
   | Dereference_No_pointer {name; ktype} -> 
     string_of_located_error name (
-      sprintf "Identifier \"%s\" has the type \"%s\ which is not a pointer. Therefore, it can't be deferenced"
+      sprintf "Identifier \"%s\" has the type \"%s\" which is not a pointer. Therefore, it can't be deferenced"
       name.v
       (string_of_ktype ktype)
     )
