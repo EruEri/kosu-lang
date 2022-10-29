@@ -1,5 +1,6 @@
 open Ast
 open Typecheck
+open Env
 
 type rswitch_case =
   | RSC_Enum_Identifier of { variant : string }
@@ -25,7 +26,7 @@ type rktype =
 | RTBool
 | RTUnit
 
-type rkbody = rkastatement list * rkexpression
+type rkbody = rkastatement list * typed_expression
 and typed_expression = {
   rktype: rktype;
   rexpression: rkexpression;
@@ -36,9 +37,9 @@ and rkastatement =
   variable_name: string;
   typed_expression: typed_expression;
 }
-| SAffection of string * typed_expression
-| SDiscard of typed_expression
-| SDerefAffectation of string * kexpression 
+| RSAffection of string * typed_expression
+| RSDiscard of typed_expression
+| RSDerefAffectation of string * typed_expression 
 
 and rkexpression = 
 | REmpty
@@ -220,7 +221,48 @@ module Convert = struct
     rktype = expression |> typeof ~generics_resolver env current_mod_name prog |> from_ktype;
     rexpression = failwith ""
   }
-  (* and from_kexpression current_module program = let open Position in function
+  and rkbody_of_kbody 
+  ~generics_resolver 
+  (env: Env.t) 
+  current_module 
+  (program: module_path list) 
+  ?(return_type = None) 
+  ((kstatements: Ast.kstatement Position.location list), (kexpression: kexpression Position.location))
+   = let open Position in
+   match kstatements with
+   | kstatement::q -> (
+    match kstatement.v with
+    | SDiscard expr -> 
+      let mapped = typed_expression_of_kexpression ~generics_resolver env current_module program expr in
+      let stmts_remains, future_expr = (rkbody_of_kbody ~generics_resolver env current_module program ~return_type (q, kexpression)) in
+      (RSDiscard mapped)::stmts_remains, future_expr
+    | SDeclaration { is_const; variable_name; explicit_type; expression } -> 
+      let typed_expression = typed_expression_of_kexpression ~generics_resolver env current_module program expression in
+      let type_of_expression = typeof ~generics_resolver env current_module program expression in
+      let variable_type = match explicit_type with
+      | None -> type_of_expression
+      | Some explicit_type -> explicit_type.v in
+      let updated_env = env |> Env.add_variable (variable_name.v, {is_const; ktype = variable_type} ) in
+      let stmts_remains, future_expr = (rkbody_of_kbody ~generics_resolver updated_env current_module program ~return_type (q, kexpression)) in
+      (RSDeclaration {is_const; variable_name = variable_name.v; typed_expression})::stmts_remains, future_expr
+    | SAffection (variable, expression) -> 
+      let typed_expression = typed_expression_of_kexpression ~generics_resolver env current_module program expression in
+      let stmts_remains, future_expr = (rkbody_of_kbody ~generics_resolver env current_module program ~return_type (q, kexpression)) in
+      (RSAffection (variable.v, typed_expression))::stmts_remains, future_expr
+    | SDerefAffectation (id, expression) -> 
+      let {is_const = _; ktype} = env |> Env.find_identifier_opt (id.v) |> Option.get in
+      let ktype = Type.restrict_type ktype (expression |> typeof ~generics_resolver env current_module program) in
+      let rktype = from_ktype ktype in
+      let stmts_remains, future_expr = (rkbody_of_kbody ~generics_resolver env current_module program ~return_type (q, kexpression)) in
+      failwith ""
+      (* Latter use ktype of variable in env*)
+
+   )
+   | [] -> begin 
+
+    failwith ""
+  end 
+  and from_kexpression current_module program = let open Position in function
   | Empty -> REmpty
   | True -> RTrue
   | False -> RFalse
@@ -238,10 +280,32 @@ module Convert = struct
       }
     end
     | Either.Right kexpression ->  begin 
-      let type_of = type
+      ()
     end
-  ) *)
-  and from_module_node current_module (prog : module_path list) = function
+  )
+  | _ -> failwith ""
+  and from_module_node current_module (prog : module_path list) = let open Position in function
+  | NStruct {struct_name; generics; fields} -> RNStruct {
+    rstruct_name = struct_name.v;
+    generics = generics |> List.map Position.value;
+    rfields = fields |> List.map (fun (field, ktype) -> (field.v, ktype |> Position.value |> from_ktype))
+  }
+  | NEnum {enum_name; generics; variants} -> RNEnum {
+    renum_name = enum_name.v;
+    generics = generics |> List.map Position.value;
+    rvariants = variants |> List.map ( fun (variant, assoc_ktype) -> 
+      variant.v ,
+      assoc_ktype |> List.map (fun lkt -> lkt |> Position.value |> from_ktype )
+    )
+  }
+  | NOperator (Unary {op; field = (field, ktype); return_type; kbody}) -> RNOperator(
+    RUnary {
+      op = op.v;
+      rfield = (field.v, ktype |> Position.value |> from_ktype);
+      return_type = return_type.v |> from_ktype;
+      kbody 
+    }
+  )
   | NConst const_decl -> 
     let generics_resolver = Hashtbl.create 0 in
       RNConst {
