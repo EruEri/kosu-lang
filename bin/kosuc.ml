@@ -40,7 +40,11 @@ let () =
           (* Printf.eprintf "\nFile \"%s\", %s\n" filename (Kosu_frontend.Pprint.string_of_validation_error e); *)
           raise (Error.Validation_error (filename, e))
       | _, Ok () -> 
-      let _typed_program = Astconvert.from_program modules in
+      let _typed_program = try 
+      Astconvert.from_program modules with Kosu_frontend.Ast.Error.Ast_error e -> 
+        let () = Printf.printf "%s\n" (Kosu_frontend.Pprinterr.string_of_ast_error e) in
+        failwith ""
+       in
       let () = Printf.printf "Successfult converted\n\n" in
       ()
   )

@@ -83,7 +83,10 @@ let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
       let stmts_remains, future_expr = (rkbody_of_kbody ~generics_resolver updated_env current_module program ~return_type (q, kexpression)) in
       (RSDeclaration {is_const; variable_name = variable_name.v; typed_expression})::stmts_remains, future_expr
     | SAffection (variable, expression) -> 
-      let typed_expression = typed_expression_of_kexpression ~generics_resolver env current_module program expression in
+      let typed_expression = 
+        typed_expression_of_kexpression ~generics_resolver env current_module program expression 
+        |> restrict_typed_expression (env |> Env.find_identifier_opt variable.v |> Option.get |> Env.vi_ktype |> from_ktype)
+      in
       let stmts_remains, future_expr = (rkbody_of_kbody ~generics_resolver env current_module program ~return_type (q, kexpression)) in
       (RSAffection (variable.v, typed_expression))::stmts_remains, future_expr
     | SDerefAffectation (id, expression) -> 
@@ -123,11 +126,7 @@ let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
     | Either.Right kexpression -> 
       typeof ~generics_resolver env current_module program kexpression in
     let rktype = from_ktype ktype in
-    let sizeof = Asthelper.Sizeof.sizeof current_module program ktype in
-    RESizeof {
-      rktype;
-      size = sizeof;
-    }
+    RESizeof rktype
   )
   | EString s -> REstring s
   | EAdress e -> REAdress e.v
@@ -329,7 +328,83 @@ let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
           parameters = typed_parameters
         }
     )
-  | _ -> failwith ""
+  | EUn_op (UMinus expression) -> REUn_op (RUMinus (typed_expression_of_kexpression ~generics_resolver env current_module program expression))
+  | EUn_op (UNot expression) -> REUn_op (RUNot (typed_expression_of_kexpression ~generics_resolver env current_module program expression))
+  | EBin_op binop -> REBin_op (
+    match binop with
+    | BAdd (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBAdd (ltyped, rtyped)
+    | BMinus (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBMinus (ltyped, rtyped)
+    | BMult (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBMult (ltyped, rtyped)
+    | BDiv (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBDiv (ltyped, rtyped)
+    | BMod (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBMod (ltyped, rtyped)
+    | BBitwiseOr (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBBitwiseOr (ltyped, rtyped)
+    | BBitwiseAnd (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBBitwiseAnd (ltyped, rtyped)
+    | BBitwiseXor (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBBitwiseXor (ltyped, rtyped)
+    | BShiftLeft (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBShiftLeft (ltyped, rtyped)
+    | BShiftRight (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBShiftRight (ltyped, rtyped)
+    | BAnd (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBAnd (ltyped, rtyped)
+    | BOr (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBOr (ltyped, rtyped)
+    | BSup (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBSup (ltyped, rtyped)
+    | BSupEq (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBSupEq (ltyped, rtyped)
+    | BInf (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBInf (ltyped, rtyped)
+    | BInfEq (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBInfEq (ltyped, rtyped)
+    | BEqual (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBEqual (ltyped, rtyped)
+    | BDif (lhs, rhs) -> 
+      let ltyped = typed_expression_of_kexpression ~generics_resolver env current_module program lhs in
+      let rtyped = typed_expression_of_kexpression ~generics_resolver env current_module program rhs in
+      RBDif (ltyped, rtyped)
+  )
   and from_module_node current_module (prog : module_path list) = let open Position in function
   | NStruct {struct_name; generics; fields} -> RNStruct {
     rstruct_name = struct_name.v;

@@ -58,8 +58,8 @@ and string_of_rkexpression = function
   | REFloat f -> string_of_float f
   | REBin_op bin -> string_of_rkbin_op bin
   | REUn_op un -> string_of_rkunary_op un
-  | RESizeof e ->
-      sprintf "sizeof(%s = %Lu)" (string_of_rktype e.rktype) (e.size)
+  | RESizeof rktype ->
+      sprintf "sizeof(%s)" (string_of_rktype rktype)
   | REstring s -> Printf.sprintf "\"%s\"" s
   | REAdress x -> sprintf "&%s" x
   | REDeference (indirection, id) ->

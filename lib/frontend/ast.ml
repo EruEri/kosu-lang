@@ -744,7 +744,8 @@ end
 module Env = struct
   type variable_info = { is_const : bool; ktype : ktype }
   type t = { contexts : (string * variable_info) list list }
-
+  let vi_ktype {ktype; _} = ktype
+  let vi_is_const {is_const; _} = is_const 
   let create_empty_env : t = { contexts = [] }
   let create_env first_context = { contexts = [ first_context ] }
   let flat_context env = env.contexts |> List.flatten

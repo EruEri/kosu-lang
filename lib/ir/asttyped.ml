@@ -46,10 +46,7 @@ and rkexpression =
 | RENullptr
 | REInteger of (signedness * isize * int64)
 | REFloat of float
-| RESizeof of { 
-  rktype: rktype;
-  size: int64; 
-}
+| RESizeof of rktype
 | REstring of string
 | REAdress of string
 | REDeference of int * (string)
