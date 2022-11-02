@@ -1,0 +1,3 @@
+(library
+ (name kosu_ir)
+ (libraries kosu_frontend ))

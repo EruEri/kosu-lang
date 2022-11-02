@@ -2,6 +2,7 @@
 (* open Kosu_frontend.Ast *)
 (* open Kosu_frontend.Typecheck *)
 open Kosu_frontend.Astvalidation
+open Kosu_ir
 open Kosu_cli.Cli
 
 let () =
@@ -39,7 +40,7 @@ let () =
           (* Printf.eprintf "\nFile \"%s\", %s\n" filename (Kosu_frontend.Pprint.string_of_validation_error e); *)
           raise (Error.Validation_error (filename, e))
       | _, Ok () -> 
-      let _typed_program = Kosu_frontend.Asttyped.Convert.from_program modules in
+      let _typed_program = Asttyped.Convert.from_program modules in
       let () = Printf.printf "Successfult converted\n\n" in
       ()
   )
