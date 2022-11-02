@@ -193,6 +193,27 @@ type named_rmodule_path = {
 type rprogram = named_rmodule_path list
 
 module Convert = struct
+  let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
+  | RTParametric_identifier {module_path = lmp; parametrics_type = lpt; name = lname} as lhs, RTParametric_identifier { module_path = rmp; parametrics_type = rpt; name = rname } -> 
+    if lmp <> rmp || lname <> rname || Util.are_diff_lenght lpt rpt then lhs 
+    else
+      RTParametric_identifier {
+      module_path = lmp;
+      parametrics_type = List.map2 restrict_rktype lpt rpt;
+      name = rname
+    }
+  | (RTPointer lhs, RTPointer rhs) -> RTPointer (restrict_rktype lhs rhs)
+  | (RTUnknow, rtk) | (rtk, RTUnknow) -> rtk
+  | (RTTuple rkts) as rkt, RTTuple lkts -> 
+    if Util.are_diff_lenght rkts lkts then rkt
+    else RTTuple (List.map2 restrict_rktype rkts lkts)
+  | _ -> to_restrict 
+  
+  let restrict_typed_expression restrict typed_expression = {
+      typed_expression with
+      rktype = restrict_rktype typed_expression.rktype restrict
+    }
+
   let rec from_ktype = function
   | TParametric_identifier {module_path; parametrics_type; name} -> RTParametric_identifier {
     module_path = module_path.v;
@@ -233,7 +254,7 @@ module Convert = struct
   (program: module_path list) 
   ?(return_type = None) 
   ((kstatements: Ast.kstatement Position.location list), (kexpression: kexpression Position.location))
-   = let open Position in
+   = let open Position in 
    match kstatements with
    | kstatement::q -> (
     match kstatement.v with
@@ -259,13 +280,23 @@ module Convert = struct
       let ktype = Type.restrict_type (Type.pointee_fail ktype) (expression |> typeof ~generics_resolver env current_module program) in
       let rktype = from_ktype ktype in
       let stmts_remains, future_expr = (rkbody_of_kbody ~generics_resolver env current_module program ~return_type (q, kexpression)) in
-      failwith ""
+      (RSDerefAffectation (id.v, {
+        rktype;
+        rexpression = from_kexpression ~generics_resolver env current_module program expression.v;
+      }))::stmts_remains, future_expr
+
       (* Latter use ktype of variable in env*)
 
    )
    | [] -> begin 
-
-    failwith ""
+    let rktype = match return_type with Some kt -> kt |> from_ktype | None -> 
+    kexpression |> typeof ~generics_resolver env current_module program |> from_ktype
+    in
+    let typed_ex = {
+      rktype;
+      rexpression = from_kexpression ~generics_resolver env current_module program kexpression.v
+    } in
+    [], typed_ex
   end 
   and from_kexpression ~generics_resolver (env: Env.t) current_module program = let open Position in function
   | Empty -> REmpty
@@ -443,6 +474,50 @@ module Convert = struct
       rkbody_of_kbody ~generics_resolver (env |> Env.push_context []) current_module program 
     )
   }
+  | EFunction_call {modules_path; generics_resolver = grc; fn_name; parameters} ->( 
+      let fn_decl = Asthelper.Program.find_function_decl_from_fn_name modules_path fn_name current_module program |> Result.get_ok in
+      
+      match fn_decl with
+      | Ast.Function_Decl.Decl_Syscall { syscall_name = _; parameters = sys_type_parameters; _ } ->
+        let sys_rktype_parameters = sys_type_parameters |> List.map (fun stl -> stl |> Position.value |> from_ktype) in
+        let typed_parameters = parameters |> List.map (typed_expression_of_kexpression ~generics_resolver env current_module program) in
+        let mapped = List.map2 restrict_typed_expression sys_rktype_parameters typed_parameters in
+        REFunction_call {
+          modules_path = modules_path.v;
+          generics_resolver = None;
+          fn_name = fn_name.v;
+          parameters = mapped
+        }
+      | Ast.Function_Decl.Decl_External { sig_name = _ ; fn_parameters; is_variadic; _ } -> 
+        let mapped = if is_variadic then 
+          let known_parameters_len = fn_parameters |> List.length in
+          let external_rktype_parameters = fn_parameters |> List.map (fun stl -> stl |> Position.value |> from_ktype) in
+          parameters 
+            |> List.mapi (fun i expr -> i, typed_expression_of_kexpression ~generics_resolver env current_module program expr )
+            |> List.partition (fun (index, _) -> index < known_parameters_len )
+            |> fun (mappable, variadic) -> ( (List.map2 (fun rktype (i, typed_expr) -> i, restrict_typed_expression rktype typed_expr) external_rktype_parameters mappable) @ variadic )
+            |> List.map snd
+        else
+          let external_rktype_parameters = fn_parameters |> List.map (fun stl -> stl |> Position.value |> from_ktype) in
+          let typed_parameters = parameters |> List.map (typed_expression_of_kexpression ~generics_resolver env current_module program) in
+          List.map2 restrict_typed_expression external_rktype_parameters typed_parameters in
+        REFunction_call {
+        modules_path = modules_path.v;
+        generics_resolver = None;
+        fn_name = fn_name.v;
+         parameters = mapped 
+        }
+      | Ast.Function_Decl.Decl_Kosu_Function kosu_function -> 
+        let new_map_generics = kosu_function.generics |> List.map (fun s -> s, ()) |> List.to_seq |> Hashtbl.of_seq in
+        let typed_parameters = parameters |> List.map (typed_expression_of_kexpression ~generics_resolver:new_map_generics env current_module program) in
+        let typed_parameters = kosu_function.parameters |> List.map (fun (_, { v = kt; _})-> from_ktype kt) |> List.map2 (fun typed_exp kt -> restrict_typed_expression kt typed_exp) typed_parameters in 
+        REFunction_call {
+          modules_path = modules_path.v;
+          generics_resolver = grc |> Option.map (List.map Position.value);
+          fn_name = fn_name.v;
+          parameters = typed_parameters
+        }
+    )
   | _ -> failwith ""
   and from_module_node current_module (prog : module_path list) = let open Position in function
   | NStruct {struct_name; generics; fields} -> RNStruct {
@@ -458,14 +533,42 @@ module Convert = struct
       assoc_ktype |> List.map (fun lkt -> lkt |> Position.value |> from_ktype )
     )
   }
-  | NOperator (Unary {op; field = (field, ktype); return_type; kbody}) -> RNOperator(
+  | NOperator (Unary {op; field = (field, ktype); return_type; kbody}) -> 
+    let empty_env = Env.create_empty_env in
+    RNOperator(
     RUnary {
       op = op.v;
       rfield = (field.v, ktype |> Position.value |> from_ktype);
       return_type = return_type.v |> from_ktype;
-      kbody = failwith "" (* Todo ------ ---------*)
+      kbody = 
+        rkbody_of_kbody 
+        ~generics_resolver:(Hashtbl.create 0) 
+        ( empty_env |> Env.add_fn_parameters ~const:true (field.v, ktype.v))
+        current_module
+        prog 
+        ~return_type:(Some return_type.v)
+        kbody
     }
   )
+  | NOperator ( Binary {op; fields = (field1, ktype1), (field2, ktype2); return_type; kbody} ) -> 
+      let env = Env.create_empty_env 
+      |> Env.add_fn_parameters ~const:true (field1.v, ktype1.v)
+      |> Env.add_fn_parameters ~const:true (field2.v, ktype2.v) in
+    RNOperator (
+        RBinary {
+        op = op.v;
+        rfields = (field1.v, from_ktype ktype1.v), (field2.v, from_ktype ktype2.v);
+        return_type = return_type |> Position.value |> from_ktype;
+        kbody = 
+          rkbody_of_kbody 
+          ~generics_resolver:(Hashtbl.create 0)
+          env
+          current_module
+          prog
+          ~return_type:(Some return_type.v)
+          kbody
+      }
+      )
   | NConst const_decl -> 
     let generics_resolver = Hashtbl.create 0 in
       RNConst {
@@ -485,8 +588,26 @@ module Convert = struct
     return_type = syscall_decl.return_type.v |> from_ktype;
     opcode = syscall_decl.opcode.v 
   }
+  | NFunction {fn_name; generics; parameters; return_type; body} ->
+      let generics_resolver = generics |> List.map (fun g -> g, ()) |> List.to_seq |> Hashtbl.of_seq in
+      let env = parameters |> List.fold_left (fun acc (para_name, ktype) -> 
+        acc |> Env.add_fn_parameters ~const:false (para_name.v, ktype.v)
+      ) Env.create_empty_env in 
+      RNFunction {
+        rfn_name = fn_name.v;
+        generics = generics |> List.map Position.value;
+        rparameters = parameters |> List.map (fun (lf, lkt) -> lf.v, lkt |> Position.value |> from_ktype);
+      return_type = from_ktype return_type.v;
+        rbody = 
+          rkbody_of_kbody
+          ~generics_resolver
+          env
+          current_module
+          prog
+          ~return_type:(Some return_type.v)
+          body
+      }  
   | NSigFun _ -> failwith "To Delete in AST" 
-  | _ -> failwith "TODO ----------------"
   and from_module_path module_path_list {path; _module = Mod (module_nodes)} = 
    {
     path;

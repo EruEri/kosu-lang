@@ -38,7 +38,11 @@ let () =
       | filename, Error e ->
           (* Printf.eprintf "\nFile \"%s\", %s\n" filename (Kosu_frontend.Pprint.string_of_validation_error e); *)
           raise (Error.Validation_error (filename, e))
-      | _, Ok () -> ())
+      | _, Ok () -> 
+      let _typed_program = Kosu_frontend.Asttyped.Convert.from_program modules in
+      let () = Printf.printf "Successfult converted\n\n" in
+      ()
+  )
 (* let () = modules |> List.iter (fun record -> Printf.printf "module name : %s\n" record.path) in
      let { path; _module } = modules |> List.hd in
      let main =  _module
