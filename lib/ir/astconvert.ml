@@ -324,7 +324,7 @@ let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
         let typed_parameters = kosu_function.parameters |> List.map (fun (_, { v = kt; _})-> from_ktype kt) |> List.map2 (fun typed_exp kt -> restrict_typed_expression kt typed_exp) typed_parameters in 
         REFunction_call {
           modules_path = modules_path.v;
-          generics_resolver = grc |> Option.map (List.map Position.value);
+          generics_resolver = grc |> Option.map (List.map (fun kt -> from_ktype @@ Position.value kt));
           fn_name = fn_name.v;
           parameters = typed_parameters
         }
@@ -404,7 +404,7 @@ let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
       let env = parameters |> List.fold_left (fun acc (para_name, ktype) -> 
         acc |> Env.add_fn_parameters ~const:false (para_name.v, ktype.v)
       ) Env.create_empty_env in 
-      RNFunction {
+      let rfuntion =  {
         rfn_name = fn_name.v;
         generics = generics |> List.map Position.value;
         rparameters = parameters |> List.map (fun (lf, lkt) -> lf.v, lkt |> Position.value |> from_ktype);
@@ -417,7 +417,9 @@ let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
           prog
           ~return_type:(Some return_type.v)
           body
-      }  
+      } in 
+      let () = Printf.printf "%s" (Asttpprint.string_of_rfunc_decl rfuntion) in
+      RNFunction rfuntion
   | NSigFun _ -> failwith "To Delete in AST" 
   and from_module_path module_path_list {path; _module = Mod (module_nodes)} = 
    {

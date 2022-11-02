@@ -24,12 +24,12 @@ type rktype =
 | RTBool
 | RTUnit
 
-type rkbody = rkastatement list * typed_expression
+type rkbody = rkstatement list * typed_expression
 and typed_expression = {
   rktype: rktype;
   rexpression: rkexpression;
 }
-and rkastatement =
+and rkstatement =
 | RSDeclaration of {
   is_const: bool;
   variable_name: string;
@@ -74,7 +74,7 @@ and rkexpression =
   }
 | REFunction_call of {
     modules_path : string ;
-    generics_resolver : ktype list option;
+    generics_resolver : rktype list option;
     fn_name : string ;
     parameters : typed_expression list;
   }
@@ -88,8 +88,8 @@ and rkexpression =
   cases : (rswitch_case list * rkbody) list;
   wildcard_case : rkbody option;
 }
-| EBin_op of rkbin_op
-| EUn_op of rkunary_op
+| REBin_op of rkbin_op
+| REUn_op of rkunary_op
 
 and rkbin_op =
 | RBAdd of typed_expression * typed_expression
