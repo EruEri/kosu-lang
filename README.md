@@ -9,9 +9,9 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 - [x] Parser
 - [x] Better syntax error handling
 - [x] Ast
-- [x] Type checking the Ast 
-- [ ] Annote the Ast with type <- Currently here
-- [ ] Assembly generation (LLVM or hand-written ARM64 assembly ?)
+- [x] Type checking the Ast
+- [x] Annote the Ast with type
+- [ ] Assembly generation (LLVM or hand-written ARM64 assembly ?) <- Currently here
 - [ ] Create a website explaining the syntax and the language in general
 
 ## Example
