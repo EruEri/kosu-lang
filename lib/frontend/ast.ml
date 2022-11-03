@@ -752,7 +752,8 @@ module Env = struct
 
   let push_context (context : (string * variable_info) list) (env : t) =
     { contexts = context :: env.contexts }
-
+  
+  let push_empty_context env = { contexts = [] :: env.contexts }
   let find_identifier_opt (identifier : string) (env : t) =
     env |> flat_context |> List.assoc_opt identifier
 

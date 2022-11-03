@@ -54,38 +54,39 @@ let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
     assoc_ids = assoc_ids |> List.map (Option.map Position.value)
   }
   and typed_expression_of_kexpression ~generics_resolver (env : Env.t) (current_mod_name : string)
-  (prog : module_path list) (expression : kexpression Position.location ) = {
-    rktype = expression |> typeof ~generics_resolver env current_mod_name prog |> from_ktype;
-    rexpression = from_kexpression ~generics_resolver env current_mod_name prog expression.v
+  (prog : module_path list) ?(hint_type = RTUnknow) (expression : kexpression Position.location ) = {
+    rktype = restrict_rktype ( expression |> typeof ~generics_resolver env current_mod_name prog |> from_ktype) hint_type;
+    rexpression = from_kexpression ~generics_resolver env current_mod_name prog ~hint_type expression.v
   }
   and rkbody_of_kbody 
   ~generics_resolver 
   (env: Env.t) 
   current_module 
   (program: module_path list) 
-  ?(return_type = None) 
+  ~return_type 
   ((kstatements: Ast.kstatement Position.location list), (kexpression: kexpression Position.location))
    = let open Position in 
    match kstatements with
    | kstatement::q -> (
     match kstatement.v with
     | SDiscard expr -> 
-      let mapped = typed_expression_of_kexpression ~generics_resolver env current_module program expr in
+      let rktype = typeof ~generics_resolver env current_module program expr |> from_ktype in
+      let mapped = typed_expression_of_kexpression ~generics_resolver env current_module program ~hint_type:rktype expr in
       let stmts_remains, future_expr = (rkbody_of_kbody ~generics_resolver env current_module program ~return_type (q, kexpression)) in
       (RSDiscard mapped)::stmts_remains, future_expr
     | SDeclaration { is_const; variable_name; explicit_type; expression } -> 
-      let typed_expression = typed_expression_of_kexpression ~generics_resolver env current_module program expression in
       let type_of_expression = typeof ~generics_resolver env current_module program expression in
       let variable_type = match explicit_type with
       | None -> type_of_expression
       | Some explicit_type -> explicit_type.v in
+      let typed_expression = typed_expression_of_kexpression ~generics_resolver env current_module program ~hint_type:(variable_type |> from_ktype) expression in
       let updated_env = env |> Env.add_variable (variable_name.v, {is_const; ktype = variable_type} ) in
       let stmts_remains, future_expr = (rkbody_of_kbody ~generics_resolver updated_env current_module program ~return_type (q, kexpression)) in
       (RSDeclaration {is_const; variable_name = variable_name.v; typed_expression})::stmts_remains, future_expr
     | SAffection (variable, expression) -> 
+      let var_kt = env |> Env.find_identifier_opt (variable.v) |> Option.get |> Env.vi_ktype |> from_ktype in
       let typed_expression = 
-        typed_expression_of_kexpression ~generics_resolver env current_module program expression 
-        |> restrict_typed_expression (env |> Env.find_identifier_opt variable.v |> Option.get |> Env.vi_ktype |> from_ktype)
+        typed_expression_of_kexpression ~generics_resolver env current_module program ~hint_type:var_kt expression 
       in
       let stmts_remains, future_expr = (rkbody_of_kbody ~generics_resolver env current_module program ~return_type (q, kexpression)) in
       (RSAffection (variable.v, typed_expression))::stmts_remains, future_expr
@@ -96,23 +97,21 @@ let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
       let stmts_remains, future_expr = (rkbody_of_kbody ~generics_resolver env current_module program ~return_type (q, kexpression)) in
       (RSDerefAffectation (id.v, {
         rktype;
-        rexpression = from_kexpression ~generics_resolver env current_module program expression.v;
+        rexpression = from_kexpression ~generics_resolver env current_module program ~hint_type:rktype expression.v;
       }))::stmts_remains, future_expr
-
-      (* Latter use ktype of variable in env*)
-
    )
    | [] -> begin 
-    let rktype = match return_type with Some kt -> kt |> from_ktype | None -> 
+    let rktype = match return_type with RTUnknow ->
     kexpression |> typeof ~generics_resolver env current_module program |> from_ktype
+    | kt -> kt
     in
     let typed_ex = {
-      rktype;
-      rexpression = from_kexpression ~generics_resolver env current_module program kexpression.v
+      rktype = rktype;
+      rexpression = from_kexpression ~generics_resolver env current_module program ~hint_type:rktype kexpression.v
     } in
     [], typed_ex
   end 
-  and from_kexpression ~generics_resolver (env: Env.t) current_module program = let open Position in function
+  and from_kexpression ~generics_resolver (env: Env.t) current_module program ?(hint_type = RTUnknow) = let open Position in function
   | Empty -> REmpty
   | True -> RTrue
   | False -> RFalse
@@ -160,15 +159,15 @@ let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
   }
   | EIf (condition, if_block, else_block) -> REIf ( 
     condition |> typed_expression_of_kexpression ~generics_resolver env current_module program,
-    rkbody_of_kbody ~generics_resolver (env |> Env.push_context []) current_module program if_block,
-    rkbody_of_kbody ~generics_resolver (env |> Env.push_context []) current_module program else_block
+    rkbody_of_kbody ~generics_resolver (env |> Env.push_context []) current_module program ~return_type:hint_type if_block,
+    rkbody_of_kbody ~generics_resolver (env |> Env.push_context []) current_module program ~return_type:hint_type else_block
   )
   | ECases {cases; else_case} -> RECases {
     cases = cases |> List.map (fun (expr, kbody) -> 
       typed_expression_of_kexpression ~generics_resolver env current_module program expr,
-      kbody |> rkbody_of_kbody ~generics_resolver (env |> Env.push_context []) current_module program
+      kbody |> rkbody_of_kbody ~generics_resolver (env |> Env.push_context []) current_module ~return_type:hint_type program
     );
-    else_case = else_case |> rkbody_of_kbody ~generics_resolver (env |> Env.push_context []) current_module program
+    else_case = else_case |> rkbody_of_kbody ~generics_resolver (env |> Env.push_context []) current_module ~return_type:hint_type program
   }
   | ESwitch { expression; cases; wildcard_case } -> 
     let open Asthelper.Enum in
@@ -273,6 +272,7 @@ let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
                   (env |> Env.push_context (new_conext |> List.map Position.assoc_value_left))
                   current_module
                   program
+                  ~return_type:hint_type
                   kb
                 )
     ))
@@ -281,7 +281,7 @@ let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
     rexpression = typed_expression_of_kexpression ~generics_resolver env current_module program expression;
     cases = List.combine variant_cases rkbodys;
     wildcard_case = wildcard_case |> Option.map (
-      rkbody_of_kbody ~generics_resolver (env |> Env.push_context []) current_module program 
+      rkbody_of_kbody ~generics_resolver (env |> Env.push_context []) current_module ~return_type:hint_type program 
     )
   }
   | EFunction_call {modules_path; generics_resolver = grc; fn_name; parameters} ->( 
@@ -432,7 +432,7 @@ let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
         ( empty_env |> Env.add_fn_parameters ~const:true (field.v, ktype.v))
         current_module
         prog 
-        ~return_type:(Some return_type.v)
+        ~return_type:(return_type.v |> from_ktype)
         kbody
     }
   )
@@ -451,7 +451,7 @@ let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
           env
           current_module
           prog
-          ~return_type:(Some return_type.v)
+          ~return_type:(return_type.v |> from_ktype)
           kbody
       }
       )
@@ -490,10 +490,10 @@ let rec restrict_rktype to_restrict restrict = match to_restrict, restrict with
           env
           current_module
           prog
-          ~return_type:(Some return_type.v)
+          ~return_type:(return_type.v |> from_ktype)
           body
       } in 
-      let () = Printf.printf "%s" (Asttpprint.string_of_rfunc_decl rfuntion) in
+      let () = Printf.printf "%s\n\n" (Asttpprint.string_of_rfunc_decl rfuntion) in
       RNFunction rfuntion
   | NSigFun _ -> failwith "To Delete in AST" 
   and from_module_path module_path_list {path; _module = Mod (module_nodes)} = 
