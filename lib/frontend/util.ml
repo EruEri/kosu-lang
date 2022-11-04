@@ -67,15 +67,18 @@ module ListHelper = struct
 
   let duplicate l = duplicate_aux (Hashtbl.create (l |> List.length)) l
 
-  let rec duplic_aux cmp ~acc ~list = 
+  let rec duplic_aux cmp ~acc ~list =
     match list with
     | [] -> acc
-    | t::q -> 
-      let duplicate, no_duplicated = q |> List.partition (cmp t) in
-      let duplicate = if duplicate = [] then acc else (t::duplicate)::acc in
-      duplic_aux cmp ~acc:(duplicate) ~list:no_duplicated
+    | t :: q ->
+        let duplicate, no_duplicated = q |> List.partition (cmp t) in
+        let duplicate =
+          if duplicate = [] then acc else (t :: duplicate) :: acc
+        in
+        duplic_aux cmp ~acc:duplicate ~list:no_duplicated
 
   let duplicated cmp list = duplic_aux cmp ~acc:[] ~list
 
-  let inner_count list = List.fold_left (fun acc (_, value) -> acc + (value |> List.length)) 0 list
+  let inner_count list =
+    List.fold_left (fun acc (_, value) -> acc + (value |> List.length)) 0 list
 end

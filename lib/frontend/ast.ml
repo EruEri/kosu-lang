@@ -1,5 +1,4 @@
 open Position
-  
 
 type signedness = Signed | Unsigned
 type isize = I8 | I16 | I32 | I64
@@ -34,7 +33,10 @@ type ktype =
       parametrics_type : ktype location list;
       name : string location;
     }
-  | TType_Identifier of { module_path : string location; name : string location}
+  | TType_Identifier of {
+      module_path : string location;
+      name : string location;
+    }
   | TInteger of (signedness * isize)
   | TPointer of ktype location
   | TTuple of ktype location list
@@ -45,18 +47,18 @@ type ktype =
   | TBool
   | TUnit
 
-type kbody = kstatement location list * (kexpression location)
+type kbody = kstatement location list * kexpression location
 
 and kstatement =
   | SDeclaration of {
       is_const : bool;
       variable_name : string location;
       explicit_type : ktype location option;
-      expression : (kexpression location);
+      expression : kexpression location;
     }
-  | SAffection of (string location) * (kexpression location)
-  | SDiscard of (kexpression location)
-  | SDerefAffectation of (string location) * (kexpression location)
+  | SAffection of string location * kexpression location
+  | SDiscard of kexpression location
+  | SDerefAffectation of string location * kexpression location
 
 and kexpression =
   | Empty
@@ -68,14 +70,23 @@ and kexpression =
   | ESizeof of (ktype location, kexpression location) Either.t
   | EString of string
   | EAdress of string location
-  | EDeference of int * (string location)
-  | EIdentifier of { modules_path : string location; identifier : string location }
-  | EFieldAcces of { first_expr : kexpression location; fields : string location list }
-  | EConst_Identifier of { modules_path : string location; identifier : string location }
+  | EDeference of int * string location
+  | EIdentifier of {
+      modules_path : string location;
+      identifier : string location;
+    }
+  | EFieldAcces of {
+      first_expr : kexpression location;
+      fields : string location list;
+    }
+  | EConst_Identifier of {
+      modules_path : string location;
+      identifier : string location;
+    }
   | EStruct of {
       modules_path : string location;
       struct_name : string location;
-      fields : ((string location) * (kexpression location)) list;
+      fields : (string location * kexpression location) list;
     }
   | EEnum of {
       modules_path : string location;
@@ -94,8 +105,8 @@ and kexpression =
       fn_name : string location;
       parameters : kexpression location list;
     }
-  | EIf of (kexpression location) * kbody * kbody
-  | ECases of { cases : ( (kexpression location) * kbody) list; else_case : kbody }
+  | EIf of kexpression location * kbody * kbody
+  | ECases of { cases : (kexpression location * kbody) list; else_case : kbody }
   | ESwitch of {
       expression : kexpression location;
       cases : (switch_case list * kbody) list;
@@ -105,37 +116,37 @@ and kexpression =
   | EUn_op of kunary_op
 
 and kbin_op =
-  | BAdd of (kexpression location) * (kexpression location)
-  | BMinus of (kexpression location) * (kexpression location)
-  | BMult of (kexpression location) * (kexpression location)
-  | BDiv of (kexpression location) * (kexpression location)
-  | BMod of (kexpression location) * (kexpression location)
-  | BBitwiseOr of (kexpression location) * (kexpression location)
-  | BBitwiseAnd of (kexpression location) * (kexpression location)
-  | BBitwiseXor of (kexpression location) * (kexpression location)
-  | BShiftLeft of (kexpression location) * (kexpression location)
-  | BShiftRight of (kexpression location) * (kexpression location)
-  | BAnd of (kexpression location) * (kexpression location)
-  | BOr of (kexpression location) * (kexpression location)
-  | BSup of (kexpression location) * (kexpression location)
-  | BSupEq of (kexpression location) * (kexpression location)
-  | BInf of (kexpression location) * (kexpression location)
-  | BInfEq of (kexpression location) * (kexpression location)
-  | BEqual of (kexpression location) * (kexpression location)
-  | BDif of (kexpression location) * (kexpression location)
+  | BAdd of kexpression location * kexpression location
+  | BMinus of kexpression location * kexpression location
+  | BMult of kexpression location * kexpression location
+  | BDiv of kexpression location * kexpression location
+  | BMod of kexpression location * kexpression location
+  | BBitwiseOr of kexpression location * kexpression location
+  | BBitwiseAnd of kexpression location * kexpression location
+  | BBitwiseXor of kexpression location * kexpression location
+  | BShiftLeft of kexpression location * kexpression location
+  | BShiftRight of kexpression location * kexpression location
+  | BAnd of kexpression location * kexpression location
+  | BOr of kexpression location * kexpression location
+  | BSup of kexpression location * kexpression location
+  | BSupEq of kexpression location * kexpression location
+  | BInf of kexpression location * kexpression location
+  | BInfEq of kexpression location * kexpression location
+  | BEqual of kexpression location * kexpression location
+  | BDif of kexpression location * kexpression location
 
 and kunary_op = UMinus of kexpression location | UNot of kexpression location
 
 type struct_decl = {
   struct_name : string location;
   generics : string location list;
-  fields : ((string location) * (ktype location) ) list;
+  fields : (string location * ktype location) list;
 }
 
 type enum_decl = {
   enum_name : string location;
   generics : string location list;
-  variants : ( (string location)  * (ktype location list) ) list;
+  variants : (string location * ktype location list) list;
 }
 
 type function_decl = {
@@ -149,13 +160,14 @@ type function_decl = {
 type operator_decl =
   | Unary of {
       op : parser_unary_op location;
-      field : (string location) * (ktype location);
+      field : string location * ktype location;
       return_type : ktype location;
       kbody : kbody;
     }
   | Binary of {
       op : parser_binary_op location;
-      fields : ((string location) * (ktype location)) * ((string location) * (ktype location));
+      fields :
+        (string location * ktype location) * (string location * ktype location);
       return_type : ktype location;
       kbody : kbody;
     }
@@ -200,10 +212,7 @@ type module_node =
 
 type _module = Mod of module_node list
 type module_path = { path : string; _module : _module }
-type named_module_path = {
-  filename: string;
-  module_path: module_path
-}
+type named_module_path = { filename : string; module_path : module_path }
 type program = named_module_path list
 
 module Type_Decl = struct
@@ -231,12 +240,18 @@ module Function_Decl = struct
     | Decl_Kosu_Function { fn_name = name; _ }
     | Decl_Syscall { syscall_name = name; _ } ->
         name
+
   let parameters = function
-  | Decl_External {fn_parameters = parameters; _ } | Decl_Syscall {parameters; _} -> parameters
-  | Decl_Kosu_Function {parameters; _} -> parameters |> List.map (snd)
+    | Decl_External { fn_parameters = parameters; _ }
+    | Decl_Syscall { parameters; _ } ->
+        parameters
+    | Decl_Kosu_Function { parameters; _ } -> parameters |> List.map snd
 
   let return_type = function
-  | Decl_External {r_type = return_type; _} | Decl_Kosu_Function {return_type; _} | Decl_Syscall { return_type; _} -> return_type
+    | Decl_External { r_type = return_type; _ }
+    | Decl_Kosu_Function { return_type; _ }
+    | Decl_Syscall { return_type; _ } ->
+        return_type
 end
 
 module OperatorFunction = struct
@@ -309,50 +324,80 @@ end
 
 module Error = struct
   type struct_error =
-    | Unexpected_field of { expected: string location; found : string location }
-    | Wrong_field_count of { struct_name: string location; expected : int; found : int }
+    | Unexpected_field of {
+        expected : string location;
+        found : string location;
+      }
+    | Wrong_field_count of {
+        struct_name : string location;
+        expected : int;
+        found : int;
+      }
 
   type enum_error =
-    | Wrong_length_assoc_type of { variant: string location; expected : int; found : int }
-    | No_variant_found_for_enum of { variant: string location }
-    | Conflict_variant_multiple_decl of {module_path: string; variant: string location; enum_decls: enum_decl list}
+    | Wrong_length_assoc_type of {
+        variant : string location;
+        expected : int;
+        found : int;
+      }
+    | No_variant_found_for_enum of { variant : string location }
+    | Conflict_variant_multiple_decl of {
+        module_path : string;
+        variant : string location;
+        enum_decls : enum_decl list;
+      }
 
   type statement_error =
     | Undefine_Identifier of { name : string location }
     | Already_Define_Identifier of { name : string location }
     | Reassign_Constante of { name : string location }
     | Uncompatible_type_Assign of { expected : ktype; found : ktype location }
-    | Dereference_No_pointer of { name: string location; ktype: ktype }
-    | Dereference_Wrong_type of { identifier: string location; expected: ktype; found: ktype location}
+    | Dereference_No_pointer of { name : string location; ktype : ktype }
+    | Dereference_Wrong_type of {
+        identifier : string location;
+        expected : ktype;
+        found : ktype location;
+      }
     | Need_explicit_type_declaration of {
         variable_name : string location;
         infer_type : ktype;
       }
 
   type func_error =
-    | Unmatched_Parameters_length of { fn_name: string location; expected : int; found : int }
-    | Unmatched_Generics_Resolver_length of { fn_name: string location; expected : int; found : int }
+    | Unmatched_Parameters_length of {
+        fn_name : string location;
+        expected : int;
+        found : int;
+      }
+    | Unmatched_Generics_Resolver_length of {
+        fn_name : string location;
+        expected : int;
+        found : int;
+      }
     | Uncompatible_type_for_C_Function of {
-        fn_name: string location;
-        ktype: ktype location;
+        fn_name : string location;
+        ktype : ktype location;
       }
     | Uncompatible_type_for_Syscall of {
-      index: int option;
-      syscall_decl : syscall_decl 
-    }
-    | Mismatched_Parameters_Type of { 
-      fn_name: string; 
-      expected : ktype; 
-      found : ktype location 
-    }
+        index : int option;
+        syscall_decl : syscall_decl;
+      }
+    | Mismatched_Parameters_Type of {
+        fn_name : string;
+        expected : ktype;
+        found : ktype location;
+      }
     | Unknow_Function_Error
 
   type operator_error =
     | Invalid_pointer_arithmetic of ktype location
-    | No_built_in_op of { bin_op : OperatorFunction.operator; ktype : ktype location }
+    | No_built_in_op of {
+        bin_op : OperatorFunction.operator;
+        ktype : ktype location;
+      }
     | Incompatible_Type of {
         bin_op : OperatorFunction.operator;
-        expr_loc: kexpression location;
+        expr_loc : kexpression location;
         lhs : ktype location;
         rhs : ktype location;
       }
@@ -361,7 +406,7 @@ module Error = struct
         ktype : ktype location;
       }
     | Too_many_operator_declaration of {
-        operator_decls: (string * operator_decl list) list;
+        operator_decls : (string * operator_decl list) list;
         bin_op : OperatorFunction.operator;
         ktype : ktype location;
       }
@@ -371,21 +416,25 @@ module Error = struct
 
   type builtin_func_error =
     | Unknow_built_function of string location
-    | Wrong_parameters of { fn_name : string; expected : ktype; found : ktype location}
+    | Wrong_parameters of {
+        fn_name : string;
+        expected : ktype;
+        found : ktype location;
+      }
     | Mismatched_Parameters_Length of {
         fn_name : string location;
         expected : int;
         found : int;
       }
-    | Found_no_Integer of { fn_name : string; found : ktype location}
+    | Found_no_Integer of { fn_name : string; found : ktype location }
 
   type switch_error =
     | Not_enum_type_in_switch_Expression of ktype location
     | Not_fully_known_ktype of ktype location
     | Not_all_cases_handled of {
-      expression_loc: kexpression location;
-      missing_variant: (string location * ktype location list)
-    }  
+        expression_loc : kexpression location;
+        missing_variant : string location * ktype location list;
+      }
     | Duplicated_case of string location
     | Variant_not_found of { enum_decl : enum_decl; variant : string location }
     | Mismatched_Assoc_length of {
@@ -394,39 +443,34 @@ module Error = struct
         found : int;
       }
     | Incompatible_Binding_Name of {
-      switch_expr: kexpression location;
-
-      base_variant: string location;
-      base_bound_id: string location;
-
-      wrong_variant: string location;
-      wrong_bound_id: string location;
-    }
+        switch_expr : kexpression location;
+        base_variant : string location;
+        base_bound_id : string location;
+        wrong_variant : string location;
+        wrong_bound_id : string location;
+      }
     | Incompatible_Binding_Ktype of {
-      switch_expr: kexpression location;
-
-      base_variant: string location;
-      base_bound_id: string location;
-      base_bound_ktype: ktype location;
-
-      wrong_variant: string location;
-      wrong_bound_id: string location;
-      wrong_bound_ktype: ktype location;
-    }
+        switch_expr : kexpression location;
+        base_variant : string location;
+        base_bound_id : string location;
+        base_bound_ktype : ktype location;
+        wrong_variant : string location;
+        wrong_bound_id : string location;
+        wrong_bound_ktype : ktype location;
+      }
     | Incompatible_Binding_Position of {
-      base_index: int;
-      base_variant: string  location;
-      base_bound_id: string location;
-
-      wrong_index: int;
-      wrong_variant: string location;
-      wrong_bound_id: string location;
-    }
+        base_index : int;
+        base_variant : string location;
+        base_bound_id : string location;
+        wrong_index : int;
+        wrong_variant : string location;
+        wrong_bound_id : string location;
+      }
     | Identifier_already_Bound of string location
 
   type ast_error =
     | Wrong_Assoc_Length_for_Parametrics of {
-        type_name: string location;
+        type_name : string location;
         expected : int;
         found : int;
       }
@@ -444,24 +488,31 @@ module Error = struct
     | Switch_error of switch_error
     | Builtin_Func_Error of builtin_func_error
     | Uncompatible_type of { expected : ktype; found : ktype location }
-    | Uncompatible_type_If_Else of { position: unit location; if_type : ktype; else_type : ktype }
+    | Uncompatible_type_If_Else of {
+        position : unit location;
+        if_type : ktype;
+        else_type : ktype;
+      }
     | Not_Boolean_Type_Condition of { found : ktype location }
-    | Impossible_field_Access of { field: string location; struct_decl: struct_decl }
+    | Impossible_field_Access of {
+        field : string location;
+        struct_decl : struct_decl;
+      }
     | Enum_Access_field of { field : string location; enum_decl : enum_decl }
     | Unvalid_Deference of string location
     | Conflicting_type_declaration of {
-      path: string;
-      ktype_name: string location;
-      type_decls: Type_Decl.type_decl list
-    }
-    | Conflicting_module_path_declaration of { 
-      module_path: string location;
-      choices: module_path list
-    }
+        path : string;
+        ktype_name : string location;
+        type_decls : Type_Decl.type_decl list;
+      }
+    | Conflicting_module_path_declaration of {
+        module_path : string location;
+        choices : module_path list;
+      }
     | Conflicting_function_declaration of {
-      fn_def_path: string;
-      fn_name: string location;
-      fn_decls: Function_Decl.t list
+        fn_def_path : string;
+        fn_name : string location;
+        fn_decls : Function_Decl.t list;
       }
 
   exception Ast_error of ast_error
@@ -480,9 +531,17 @@ module Type = struct
   let ktuple kts = TTuple kts
   let pointer kt = TPointer kt
   let is_any_ptr = function TPointer _ -> true | _ -> false
-  let is_unknown_ptr = function TPointer {v = TUnknow; _} -> true | _ -> false
+
+  let is_unknown_ptr = function
+    | TPointer { v = TUnknow; _ } -> true
+    | _ -> false
+
   let is_any_integer = function TInteger _ -> true | _ -> false
   let is_string_litteral = function TString_lit -> true | _ -> false
+
+  let pointee_fail = function
+    | TPointer kt -> kt.v
+    | _ -> failwith "Ktype is not a pointer"
 
   let rec is_builtin_type = function
     | TParametric_identifier _ | TType_Identifier _ -> false
@@ -492,23 +551,33 @@ module Type = struct
   let is_parametric = function TParametric_identifier _ -> true | _ -> false
 
   let rec set_module_path generics new_module_name = function
-    | TType_Identifier { module_path = {v = ""; position}; name }
+    | TType_Identifier { module_path = { v = ""; position }; name }
       when generics |> List.map Position.value |> List.mem name.v |> not ->
-        TType_Identifier { module_path = { v = new_module_name; position}; name }
+        TType_Identifier
+          { module_path = { v = new_module_name; position }; name }
     | TParametric_identifier { module_path; parametrics_type; name } ->
         TParametric_identifier
           {
             module_path =
-              (if module_path.v = "" then {v = new_module_name; position = module_path.position} else module_path);
+              (if module_path.v = "" then
+               { v = new_module_name; position = module_path.position }
+              else module_path);
             parametrics_type =
               parametrics_type
-              |> List.map( Position.map (set_module_path generics new_module_name));
-              
+              |> List.map
+                   (Position.map (set_module_path generics new_module_name));
             name;
           }
-    | TPointer t -> t |> Position.map (set_module_path generics new_module_name) |> pointer
+    | TPointer t ->
+        t |> Position.map (set_module_path generics new_module_name) |> pointer
     | TTuple kts ->
-        TTuple (kts |> List.map (fun kt -> {v = set_module_path generics new_module_name kt.v; position = kt.position}))
+        TTuple
+          (kts
+          |> List.map (fun kt ->
+                 {
+                   v = set_module_path generics new_module_name kt.v;
+                   position = kt.position;
+                 }))
     | _ as kt -> kt
 
   let rec is_type_full_known ktype =
@@ -539,41 +608,47 @@ module Type = struct
         Some module_path
     | _ -> None
 
-  
-  let rec ( === ) lhs rhs = 
-  match (lhs, rhs) with
-  | ( TParametric_identifier
-        { module_path = mp1; parametrics_type = pt1; name = n1 },
-      TParametric_identifier
-        { module_path = mp2; parametrics_type = pt2; name = n2 } ) ->
-      n1.v = n2.v && mp1.v = mp2.v
-      && pt1 |> Util.are_same_lenght pt2
-      && List.for_all2 (fun kt1 kt2 -> kt1.v === kt2.v) pt1 pt2
-  | TPointer pt1, TPointer pt2 -> pt1.v === pt2.v
-  | TType_Identifier { module_path = mp1; name = n1}, TType_Identifier { module_path = mp2; name = n2 } ->
-    mp1.v = mp2.v && n1.v = n2.v
-  | TTuple t1, TTuple t2 -> 
-    Util.are_same_lenght t1 t2 && 
-    List.combine t1 t2 |> List.map Position.assocs_value |> List.for_all (fun (k1,k2) -> k1 === k2) 
-  | _, _ -> lhs = rhs
+  let rec ( === ) lhs rhs =
+    match (lhs, rhs) with
+    | ( TParametric_identifier
+          { module_path = mp1; parametrics_type = pt1; name = n1 },
+        TParametric_identifier
+          { module_path = mp2; parametrics_type = pt2; name = n2 } ) ->
+        n1.v = n2.v && mp1.v = mp2.v
+        && pt1 |> Util.are_same_lenght pt2
+        && List.for_all2 (fun kt1 kt2 -> kt1.v === kt2.v) pt1 pt2
+    | TPointer pt1, TPointer pt2 -> pt1.v === pt2.v
+    | ( TType_Identifier { module_path = mp1; name = n1 },
+        TType_Identifier { module_path = mp2; name = n2 } ) ->
+        mp1.v = mp2.v && n1.v = n2.v
+    | TTuple t1, TTuple t2 ->
+        Util.are_same_lenght t1 t2
+        && List.combine t1 t2
+           |> List.map Position.assocs_value
+           |> List.for_all (fun (k1, k2) -> k1 === k2)
+    | _, _ -> lhs = rhs
 
-let ( !== ) lhs rhs = (lhs === rhs) |> not
+  let ( !== ) lhs rhs = lhs === rhs |> not
 
-  let rec extract_mapped_ktype generics ktype = 
+  let rec extract_mapped_ktype generics ktype =
     match ktype with
-    | TType_Identifier { module_path = { v = ""; _}; name }
-    -> (try
-       let _, kt = Hashtbl.find generics name.v in
-       kt
-      with _ -> ktype)
-    | TParametric_identifier { module_path; parametrics_type; name} -> 
-      TParametric_identifier {
-        module_path;
-        parametrics_type = parametrics_type |> List.map (Position.map (extract_mapped_ktype generics));
-        name;
-      }
-    | TTuple kts -> kts |> List.map (Position.map (extract_mapped_ktype generics)) |> ktuple
-    | _ -> ktype 
+    | TType_Identifier { module_path = { v = ""; _ }; name } -> (
+        try
+          let _, kt = Hashtbl.find generics name.v in
+          kt
+        with _ -> ktype)
+    | TParametric_identifier { module_path; parametrics_type; name } ->
+        TParametric_identifier
+          {
+            module_path;
+            parametrics_type =
+              parametrics_type
+              |> List.map (Position.map (extract_mapped_ktype generics));
+            name;
+          }
+    | TTuple kts ->
+        kts |> List.map (Position.map (extract_mapped_ktype generics)) |> ktuple
+    | _ -> ktype
 
   let rec are_compatible_type (lhs : ktype) (rhs : ktype) =
     match (lhs, rhs) with
@@ -583,78 +658,109 @@ let ( !== ) lhs rhs = (lhs === rhs) |> not
           { module_path = mp2; parametrics_type = pt2; name = n2 } ) ->
         n1.v = n2.v && mp1.v = mp2.v
         && pt1 |> Util.are_same_lenght pt2
-        && List.for_all2 (fun kt1 kt2 -> are_compatible_type kt1.v kt2.v) pt1 pt2
+        && List.for_all2
+             (fun kt1 kt2 -> are_compatible_type kt1.v kt2.v)
+             pt1 pt2
     | TUnknow, _ | _, TUnknow -> true
-    | TPointer _, TPointer { v = TUnknow; _} -> true
-    | TPointer { v= TUnknow; _}, TPointer _ -> true
+    | TPointer _, TPointer { v = TUnknow; _ } -> true
+    | TPointer { v = TUnknow; _ }, TPointer _ -> true
     | TPointer pt1, TPointer pt2 -> are_compatible_type pt1.v pt2.v
-    | TType_Identifier { module_path = mp1; name = n1}, TType_Identifier { module_path = mp2; name = n2 } ->
-      mp1.v = mp2.v && n1.v = n2.v
-    | TTuple t1, TTuple t2 -> 
-      Util.are_same_lenght t1 t2 && 
-      List.combine t1 t2 |> List.map Position.assocs_value |> List.for_all (fun (k1,k2) -> are_compatible_type k1 k2) 
+    | ( TType_Identifier { module_path = mp1; name = n1 },
+        TType_Identifier { module_path = mp2; name = n2 } ) ->
+        mp1.v = mp2.v && n1.v = n2.v
+    | TTuple t1, TTuple t2 ->
+        Util.are_same_lenght t1 t2
+        && List.combine t1 t2
+           |> List.map Position.assocs_value
+           |> List.for_all (fun (k1, k2) -> are_compatible_type k1 k2)
     | _, _ -> lhs === rhs
 
-let equal_fields = 
-  List.for_all2 (fun ((lfield: string location), lktype) (rfield, rtype) -> 
-    lfield.v = rfield.v && lktype.v === rtype.v
-  )
+  let equal_fields =
+    List.for_all2 (fun ((lfield : string location), lktype) (rfield, rtype) ->
+        lfield.v = rfield.v && lktype.v === rtype.v)
 
-let find_diff_field l1 l2 = l2 |> List.combine l1 |> List.find_opt (fun ((lfield, lktype), (rfield, rtype)) -> 
-  not (lfield.v = rfield.v && lktype.v === rtype.v)
-  )
+  let find_diff_field l1 l2 =
+    l2 |> List.combine l1
+    |> List.find_opt (fun ((lfield, lktype), (rfield, rtype)) ->
+           not (lfield.v = rfield.v && lktype.v === rtype.v))
 
-  let find_field_error l1 l2 = l2 |> List.combine l1 |> List.find_map (fun ((lindex, lfield, lktype), (rindex, rfield, rtype)) -> 
-    if lfield.v <> rfield.v then Some (`diff_binding_name ((lfield, lktype), (rfield, rtype)))
-    else if lktype.v |> ( === ) rtype.v |> not then Some (`diff_binding_ktype((lfield, lktype), (rfield, rtype)))
-    else if lindex <> rindex then Some (`diff_binding_index(( (lindex: int), lfield), (rindex, rfield)) )
-    else None
-  )
-  let rec module_path_return_type ~(current_module: string) ~(module_type_path: string) return_type
-      =
+  let find_field_error l1 l2 =
+    l2 |> List.combine l1
+    |> List.find_map (fun ((lindex, lfield, lktype), (rindex, rfield, rtype)) ->
+           if lfield.v <> rfield.v then
+             Some (`diff_binding_name ((lfield, lktype), (rfield, rtype)))
+           else if lktype.v |> ( === ) rtype.v |> not then
+             Some (`diff_binding_ktype ((lfield, lktype), (rfield, rtype)))
+           else if lindex <> rindex then
+             Some
+               (`diff_binding_index
+                 (((lindex : int), lfield), (rindex, rfield)))
+           else None)
+
+  let rec module_path_return_type ~(current_module : string)
+      ~(module_type_path : string) return_type =
     match return_type with
     | TType_Identifier { module_path; name } ->
         TType_Identifier
           {
-            module_path = {
-              v = if current_module = module_path.v then "" else module_type_path;
-              position = module_path.position
-            };
+            module_path =
+              {
+                v =
+                  (if current_module = module_path.v then ""
+                  else module_type_path);
+                position = module_path.position;
+              };
             name;
           }
     | TParametric_identifier { module_path; parametrics_type; name } ->
         TParametric_identifier
           {
-            module_path = {
-              module_path with v = if module_path.v = current_module then "" else module_type_path
-            };
+            module_path =
+              {
+                module_path with
+                v =
+                  (if module_path.v = current_module then ""
+                  else module_type_path);
+              };
             parametrics_type =
               parametrics_type
               |> List.map
-                   (Position.map(module_path_return_type ~current_module ~module_type_path));
+                   (Position.map
+                      (module_path_return_type ~current_module ~module_type_path));
             name;
           }
     | TTuple kts ->
         TTuple
           (kts
           |> List.map
-               ( Position.map( module_path_return_type ~current_module ~module_type_path) ))
-    | TPointer kt -> 
-        kt |> Position.map (module_path_return_type ~current_module ~module_type_path) |> pointer
+               (Position.map
+                  (module_path_return_type ~current_module ~module_type_path)))
+    | TPointer kt ->
+        kt
+        |> Position.map
+             (module_path_return_type ~current_module ~module_type_path)
+        |> pointer
     | _ as kt -> kt
 
   let rec remap_generic_ktype ~current_module generics_table ktype =
     match ktype with
-    | TType_Identifier { module_path = { v = ""; position = kposition}; name } -> (
+    | TType_Identifier { module_path = { v = ""; position = kposition }; name }
+      -> (
         match Hashtbl.find_opt generics_table name.v with
-        | None -> TType_Identifier { module_path = { v = ""; position = kposition}; name }
+        | None ->
+            TType_Identifier
+              { module_path = { v = ""; position = kposition }; name }
         | Some (_, typ) -> typ)
     | TType_Identifier { module_path; name } -> (
         match Hashtbl.find_opt generics_table name.v with
         | None ->
             TType_Identifier
               {
-                module_path = module_path |> Position.map ( fun smodule_path -> if current_module = smodule_path then "" else smodule_path);
+                module_path =
+                  module_path
+                  |> Position.map (fun smodule_path ->
+                         if current_module = smodule_path then ""
+                         else smodule_path);
                 name;
               }
         | Some (_, typ) -> typ)
@@ -662,23 +768,34 @@ let find_diff_field l1 l2 = l2 |> List.combine l1 |> List.find_opt (fun ((lfield
         TParametric_identifier
           {
             module_path;
-            parametrics_type = 
+            parametrics_type =
               parametrics_type
-              |> List.map ( Position.map(remap_generic_ktype ~current_module generics_table));
+              |> List.map
+                   (Position.map
+                      (remap_generic_ktype ~current_module generics_table));
             name;
           }
     | TTuple kts ->
         TTuple
-          (kts |> List.map ( Position.map(remap_generic_ktype ~current_module generics_table)))
-    | TPointer kt -> kt |> Position.map (remap_generic_ktype ~current_module generics_table) |> pointer
+          (kts
+          |> List.map
+               (Position.map
+                  (remap_generic_ktype ~current_module generics_table)))
+    | TPointer kt ->
+        kt
+        |> Position.map (remap_generic_ktype ~current_module generics_table)
+        |> pointer
     | _ as kt -> kt
 
   let rec map_generics_type (generics_combined : (string location * ktype) list)
       (primitive_generics : string location list) ktype =
     match ktype with
     (* | TType_Identifier {module_path = { v = ""; _ }; name} when primitive_generics |> List.map Position.value |> List.mem name.v -> ktype *)
-    | TType_Identifier { module_path = {v = ""; _}; name } ->
-        generics_combined |> List.map Position.assoc_value_left |> List.assoc_opt name.v |> Option.value ~default:ktype
+    | TType_Identifier { module_path = { v = ""; _ }; name } ->
+        generics_combined
+        |> List.map Position.assoc_value_left
+        |> List.assoc_opt name.v
+        |> Option.value ~default:ktype
     | TParametric_identifier { module_path; parametrics_type; name } ->
         TParametric_identifier
           {
@@ -686,14 +803,20 @@ let find_diff_field l1 l2 = l2 |> List.combine l1 |> List.find_opt (fun ((lfield
             parametrics_type =
               parametrics_type
               |> List.map
-                   (Position.map( map_generics_type generics_combined primitive_generics));
+                   (Position.map
+                      (map_generics_type generics_combined primitive_generics));
             name;
           }
     | TTuple kts ->
         TTuple
           (kts
-          |> List.map (Position.map(map_generics_type generics_combined primitive_generics)))
-    | TPointer kt -> kt |> Position.map (map_generics_type generics_combined primitive_generics) |> pointer
+          |> List.map
+               (Position.map
+                  (map_generics_type generics_combined primitive_generics)))
+    | TPointer kt ->
+        kt
+        |> Position.map (map_generics_type generics_combined primitive_generics)
+        |> pointer
     | _ -> ktype
 
   (**
@@ -717,12 +840,16 @@ let find_diff_field l1 l2 = l2 |> List.combine l1 |> List.find_opt (fun ((lfield
                 module_path = mp1;
                 parametrics_type =
                   List.combine pt1 pt2
-                  |> List.map ( fun (lhs, rhs) -> { v = restrict_type lhs.v rhs.v; position = lhs.position} );
-                  (*(fun (lhs, rhs) -> restrict_type lhs.v rhs.v)*)
+                  |> List.map (fun (lhs, rhs) ->
+                         {
+                           v = restrict_type lhs.v rhs.v;
+                           position = lhs.position;
+                         });
+                (*(fun (lhs, rhs) -> restrict_type lhs.v rhs.v)*)
                 name = n1;
               }
       | TUnknow, t -> t
-      | (TPointer _ as kt), TPointer { v = TUnknow; _} -> kt
+      | (TPointer _ as kt), TPointer { v = TUnknow; _ } -> kt
       | _, _ -> to_restrict_type
 end
 
@@ -743,12 +870,16 @@ module Env = struct
   type variable_info = { is_const : bool; ktype : ktype }
   type t = { contexts : (string * variable_info) list list }
 
+  let vi_ktype { ktype; _ } = ktype
+  let vi_is_const { is_const; _ } = is_const
   let create_empty_env : t = { contexts = [] }
   let create_env first_context = { contexts = [ first_context ] }
   let flat_context env = env.contexts |> List.flatten
 
   let push_context (context : (string * variable_info) list) (env : t) =
     { contexts = context :: env.contexts }
+
+  let push_empty_context env = { contexts = [] :: env.contexts }
 
   let find_identifier_opt (identifier : string) (env : t) =
     env |> flat_context |> List.assoc_opt identifier

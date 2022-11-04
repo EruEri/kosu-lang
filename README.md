@@ -9,30 +9,57 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 - [x] Parser
 - [x] Better syntax error handling
 - [x] Ast
-- [x] Type checking the Ast 
-- [ ] Annote the Ast with type <- Currently here
-- [ ] Assembly generation (LLVM or hand-written ARM64 assembly ?)
+- [x] Type checking the Ast
+- [x] Annote the Ast with type
+- [ ] Assembly generation (LLVM or hand-written ARM64 assembly ?) <- Currently here
 - [ ] Create a website explaining the syntax and the language in general
 
 ## Example
 ```
+
+const EXIT_SUCCESS = 0;
+
 enum (wrapper) {
   some(wrapper),
   none
-} option_t;
+} option;
 
 struct { 
   x: s8,
   y: u8
-} point_t;
+} point;
 
+external malloc(u64) anyptr;
+
+external print(stringl; ...) s32 = "printf";
+
+
+fn default<t>(option: (t) option, default: t) t {
+    $ switch (option) {
+        .none => { $ default }
+        .some(x) => { $ x }
+    }
+}
+
+// Single line comment
 fn fibonacci(n: u32) u32 {
   $ cases {
   of n == 0u32 => { $ 0u32 }
   of n == 1u32 => { $ 1u32 }
-  else { $ fibonacci(n - 1u32) + finonacci(n - 2u32) }
+  else { $ fibonacci(n - 1u32) + fibonacci(n - 2u32) }
   }
 }
+
+fn main() s32 {
+  /*
+    Multiple lines comment
+  */
+  const message_opt = .some("Hello world");
+  const message = message_opt |> default("Never");
+  discard print("%s", message);
+  $ EXIT_SUCCESS
+}
+
 
 ```
 

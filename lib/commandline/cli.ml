@@ -4,7 +4,7 @@ type filename_error = Mutiple_dot_in_filename | No_extension | Unknow_error
 
 type cli_error =
   | No_input_file
-  | Parser_Error of string*position
+  | Parser_Error of string * position
   | Lexer_Error of exn
   | File_error of string * exn
   | Filename_error of filename_error
@@ -39,15 +39,21 @@ let module_path_of_file filename =
        source |> Result.ok
      with e -> Error (File_error (filename, e)))
   >>= fun lexbuf ->
-    try Parser.modul Lexer.main lexbuf |> Result.ok
-    with 
-    | Parser.Error -> Parser_Error (filename, (Position.current_position lexbuf)) |> Result.error
+    try Parser.modul Lexer.main lexbuf |> Result.ok with
+    | Parser.Error ->
+        Parser_Error (filename, Position.current_position lexbuf)
+        |> Result.error
     | e -> Lexer_Error e |> Result.error )
   >>= fun _module ->
   filename |> convert_filename_to_path
-  |> Result.map (fun path -> {filename; module_path = { path; _module }} )
+  |> Result.map (fun path -> { filename; module_path = { path; _module } })
   |> Result.map_error (fun e -> Filename_error e)
 
+(**
+    Takes all the kosuc files and transform into the ast.
+    It also revomes all the implicit Module type function with the function
+    [Kosu_frontend.Astvalidation.Help.program_remove_implicit_type_path]
+*)
 let files_to_ast_program (files : string list) =
   files |> List.map module_path_of_file |> function
   | [] -> Error No_input_file
@@ -56,5 +62,9 @@ let files_to_ast_program (files : string list) =
         l
         |> List.find_map (fun s -> match s with Error e -> Some e | _ -> None)
       with
-      | None -> Ok (l |> List.map Result.get_ok)
+      | None ->
+          Ok
+            (l |> List.map Result.get_ok
+           |> Kosu_frontend.Astvalidation.Help.program_remove_implicit_type_path
+            )
       | Some error -> Error error)
