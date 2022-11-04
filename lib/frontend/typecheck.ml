@@ -84,17 +84,38 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
                     (env |> Env.restrict_variable_type variable.v new_type)
                     current_mod_name program ~return_type (q, final_expr))
       | SDerefAffectation (id, expression) -> (
-        match env |> Env.find_identifier_opt id.v with
-        | None -> Ast.Error.Undefine_Identifier { name = id} |> stmt_error |> raise
-        | Some {ktype; _} -> begin
-          let in_pointer_ktype = match ktype with TPointer ktl -> ktl.v | _ -> Ast.Error.Dereference_No_pointer {name = id; ktype} |> stmt_error |> raise in
-          let expr_ktype = expression |> Position.map_use (typeof ~generics_resolver env current_mod_name program) in
-          if (not @@ Ast.Type.are_compatible_type in_pointer_ktype @@ expr_ktype.v) then Ast.Error.Dereference_Wrong_type {identifier = id; expected = in_pointer_ktype; found = expr_ktype} |> stmt_error |> raise
-          else
-            typeof_kbody ~generics_resolver (env |> Env.restrict_variable_type id.v expr_ktype.v) current_mod_name program ~return_type (q, final_expr)
-        end 
-      )             
-      )  
+          match env |> Env.find_identifier_opt id.v with
+          | None ->
+              Ast.Error.Undefine_Identifier { name = id } |> stmt_error |> raise
+          | Some { ktype; _ } ->
+              let in_pointer_ktype =
+                match ktype with
+                | TPointer ktl -> ktl.v
+                | _ ->
+                    Ast.Error.Dereference_No_pointer { name = id; ktype }
+                    |> stmt_error |> raise
+              in
+              let expr_ktype =
+                expression
+                |> Position.map_use
+                     (typeof ~generics_resolver env current_mod_name program)
+              in
+              if
+                not
+                @@ Ast.Type.are_compatible_type in_pointer_ktype
+                @@ expr_ktype.v
+              then
+                Ast.Error.Dereference_Wrong_type
+                  {
+                    identifier = id;
+                    expected = in_pointer_ktype;
+                    found = expr_ktype;
+                  }
+                |> stmt_error |> raise
+              else
+                typeof_kbody ~generics_resolver
+                  (env |> Env.restrict_variable_type id.v expr_ktype.v)
+                  current_mod_name program ~return_type (q, final_expr)))
   | [] -> (
       (* Printf.printf "Final expr\n"; *)
       let final_expr_type =
@@ -104,7 +125,6 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
       | None -> final_expr_type
       | Some kt ->
           if not (Type.are_compatible_type kt final_expr_type) then
-            
             raise
               (ast_error
                  (Ast.Error.Uncompatible_type
@@ -345,7 +365,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let if_condition =
         typeof ~generics_resolver env current_mod_name prog if_expression
       in
-      if Ast.Type.(!==) if_condition TBool then
+      if Ast.Type.( !== ) if_condition TBool then
         raise
           (ast_error
              (Not_Boolean_Type_Condition
@@ -381,7 +401,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                |> Position.map_use
                     (typeof ~generics_resolver env current_mod_name prog)
              in
-             if Ast.Type.(!==) expr_type.v TBool then
+             if Ast.Type.( !== ) expr_type.v TBool then
                raise
                  (ast_error (Not_Boolean_Type_Condition { found = expr_type }))
              else
@@ -405,13 +425,15 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let ( >>= ) = Result.bind in
       let parameters_type =
         parameters
-        |> List.map (Position.map_use (typeof ~generics_resolver env current_mod_name prog))
+        |> List.map
+             (Position.map_use
+                (typeof ~generics_resolver env current_mod_name prog))
       in
 
       fn_name |> Asthelper.Builtin_Function.builtin_fn_of_fn_name
       >>= (fun builtin ->
-            Asthelper.Builtin_Function.is_valide_parameters_type fn_name parameters_type
-              builtin)
+            Asthelper.Builtin_Function.is_valide_parameters_type fn_name
+              parameters_type builtin)
       |> Result.map Asthelper.Builtin_Function.builtin_return_type
       |> function
       | Ok kt -> kt
@@ -692,7 +714,12 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           Invalid_pointer_arithmetic r_type |> operator_error |> raise
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Add; lhs = l_type; rhs = r_type }
+            {
+              expr_loc = expression;
+              bin_op = Ast.OperatorFunction.Add;
+              lhs = l_type;
+              rhs = r_type;
+            }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
@@ -701,7 +728,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> l_type.v
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.Add; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.Add;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> l_type.v
       | `no_add_for_built_in ->
@@ -726,7 +757,12 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           Invalid_pointer_arithmetic r_type |> operator_error |> raise
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Minus; lhs = l_type; rhs = r_type }
+            {
+              expr_loc = expression;
+              bin_op = Ast.OperatorFunction.Minus;
+              lhs = l_type;
+              rhs = r_type;
+            }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
@@ -735,7 +771,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> l_type.v
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.Minus; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.Minus;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> l_type.v
       | `no_minus_for_built_in ->
@@ -757,7 +797,12 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       with
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Mult; lhs = l_type; rhs = r_type }
+            {
+              expr_loc = expression;
+              bin_op = Ast.OperatorFunction.Mult;
+              lhs = l_type;
+              rhs = r_type;
+            }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
@@ -766,7 +811,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> l_type.v
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.Mult; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.Mult;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> l_type.v
       | `no_mult_for_built_in ->
@@ -786,7 +835,12 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       match Asthelper.Program.is_valid_div_operation l_type.v r_type.v prog with
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Div; lhs = l_type; rhs = r_type }
+            {
+              expr_loc = expression;
+              bin_op = Ast.OperatorFunction.Div;
+              lhs = l_type;
+              rhs = r_type;
+            }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
@@ -795,7 +849,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> l_type.v
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.Div; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.Div;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> l_type.v
       | `no_div_for_built_in ->
@@ -815,7 +873,12 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       match Asthelper.Program.is_valid_mod_operation l_type.v r_type.v prog with
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Modulo; lhs = l_type; rhs = r_type }
+            {
+              expr_loc = expression;
+              bin_op = Ast.OperatorFunction.Modulo;
+              lhs = l_type;
+              rhs = r_type;
+            }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
@@ -824,7 +887,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> l_type.v
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.Modulo; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.Modulo;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> l_type.v
       | `no_mod_for_built_in ->
@@ -847,7 +914,8 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       with
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression; 
+            {
+              expr_loc = expression;
               bin_op = Ast.OperatorFunction.BitwiseOr;
               lhs = l_type;
               rhs = r_type;
@@ -860,7 +928,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> l_type.v
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.BitwiseOr; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.BitwiseOr;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> l_type.v
       | `no_bitwiseor_for_built_in ->
@@ -883,7 +955,8 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       with
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression; 
+            {
+              expr_loc = expression;
               bin_op = Ast.OperatorFunction.BitwiseAnd;
               lhs = l_type;
               rhs = r_type;
@@ -896,7 +969,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> l_type.v
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.BitwiseAnd; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.BitwiseAnd;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> l_type.v
       | `no_bitwiseand_for_built_in ->
@@ -919,7 +996,8 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       with
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression; 
+            {
+              expr_loc = expression;
               bin_op = Ast.OperatorFunction.BitwiseXor;
               lhs = l_type;
               rhs = r_type;
@@ -932,7 +1010,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> l_type.v
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.BitwiseXor; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.BitwiseXor;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> l_type.v
       | `no_bitwisexor_for_built_in ->
@@ -955,7 +1037,8 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       with
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression; 
+            {
+              expr_loc = expression;
               bin_op = Ast.OperatorFunction.ShiftLeft;
               lhs = l_type;
               rhs = r_type;
@@ -968,7 +1051,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> l_type.v
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.ShiftLeft;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> l_type.v
       | `no_shiftleft_for_built_in ->
@@ -976,14 +1063,23 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             { bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BShiftRight (lhs, rhs)) -> (
-    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
-    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
       match
         Asthelper.Program.is_valid_shiftright_operation l_type.v r_type.v prog
       with
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression; 
+            {
+              expr_loc = expression;
               bin_op = Ast.OperatorFunction.ShiftLeft;
               lhs = l_type;
               rhs = r_type;
@@ -996,7 +1092,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> l_type.v
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.ShiftLeft;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> l_type.v
       | `no_shiftright_for_built_in ->
@@ -1004,28 +1104,59 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             { bin_op = Ast.OperatorFunction.ShiftLeft; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BAnd (lhs, rhs)) -> (
-    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
-    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
       match (l_type.v, r_type.v) with
       | TBool, TBool -> TBool
       | TBool, _ -> Not_Boolean_operand_in_And r_type |> operator_error |> raise
       | _, TBool -> Not_Boolean_operand_in_And l_type |> operator_error |> raise
       | _, _ -> Not_Boolean_operand_in_And l_type |> operator_error |> raise)
   | EBin_op (BOr (lhs, rhs)) -> (
-    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
-    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
       match (l_type.v, r_type.v) with
       | TBool, TBool -> TBool
       | TBool, _ -> Not_Boolean_operand_in_Or r_type |> operator_error |> raise
       | _, TBool -> Not_Boolean_operand_in_Or l_type |> operator_error |> raise
       | _, _ -> Not_Boolean_operand_in_Or l_type |> operator_error |> raise)
   | EBin_op (BEqual (lhs, rhs) | BDif (lhs, rhs)) -> (
-    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
-    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
-      match Asthelper.Program.is_valid_equal_operation l_type.v r_type.v prog with
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      match
+        Asthelper.Program.is_valid_equal_operation l_type.v r_type.v prog
+      with
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Equal; lhs = l_type; rhs = r_type }
+            {
+              expr_loc = expression;
+              bin_op = Ast.OperatorFunction.Equal;
+              lhs = l_type;
+              rhs = r_type;
+            }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
@@ -1034,19 +1165,36 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> TBool
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.Equal; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.Equal;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> TBool
       | `no_equal_for_built_in ->
           No_built_in_op { bin_op = Ast.OperatorFunction.Equal; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BSup (lhs, rhs)) -> (
-    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
-    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
       match Asthelper.Program.is_valid_sup_operation l_type.v r_type.v prog with
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Sup; lhs = l_type; rhs = r_type }
+            {
+              expr_loc = expression;
+              bin_op = Ast.OperatorFunction.Sup;
+              lhs = l_type;
+              rhs = r_type;
+            }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
@@ -1055,19 +1203,38 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> TBool
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.Sup; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.Sup;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> TBool
       | `no_sup_for_built_in ->
           No_built_in_op { bin_op = Ast.OperatorFunction.Sup; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BSupEq (lhs, rhs)) -> (
-    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
-    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
-      match Asthelper.Program.is_valid_supeq_operation l_type.v r_type.v prog with
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      match
+        Asthelper.Program.is_valid_supeq_operation l_type.v r_type.v prog
+      with
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression;  bin_op = Ast.OperatorFunction.SupEq; lhs = l_type; rhs = r_type }
+            {
+              expr_loc = expression;
+              bin_op = Ast.OperatorFunction.SupEq;
+              lhs = l_type;
+              rhs = r_type;
+            }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
@@ -1076,7 +1243,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> TBool
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.SupEq; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.SupEq;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> TBool
       | `no_equal_for_built_in ->
@@ -1086,12 +1257,25 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           No_built_in_op { bin_op = Ast.OperatorFunction.Sup; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BInf (lhs, rhs)) -> (
-    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
-    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
       match Asthelper.Program.is_valid_inf_operation l_type.v r_type.v prog with
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression;  bin_op = Ast.OperatorFunction.Inf; lhs = l_type; rhs = r_type }
+            {
+              expr_loc = expression;
+              bin_op = Ast.OperatorFunction.Inf;
+              lhs = l_type;
+              rhs = r_type;
+            }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
@@ -1100,19 +1284,38 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> TBool
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.Inf; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.Inf;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> TBool
       | `no_inf_for_built_in ->
           No_built_in_op { bin_op = Ast.OperatorFunction.Inf; ktype = l_type }
           |> operator_error |> raise)
   | EBin_op (BInfEq (lhs, rhs)) -> (
-    let l_type = lhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
-    let r_type = rhs |> Position.map_use (typeof ~generics_resolver env current_mod_name prog) in
-      match Asthelper.Program.is_valid_infeq_operation l_type.v r_type.v prog with
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      let r_type =
+        rhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
+      match
+        Asthelper.Program.is_valid_infeq_operation l_type.v r_type.v prog
+      with
       | `diff_types ->
           Incompatible_Type
-            { expr_loc = expression;  bin_op = Ast.OperatorFunction.InfEq; lhs = l_type; rhs = r_type }
+            {
+              expr_loc = expression;
+              bin_op = Ast.OperatorFunction.InfEq;
+              lhs = l_type;
+              rhs = r_type;
+            }
           |> operator_error |> raise
       | `no_function_found ->
           Operator_not_found
@@ -1121,7 +1324,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> TBool
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.InfEq; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.InfEq;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> TBool
       | `no_equal_for_built_in ->
@@ -1131,11 +1338,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           No_built_in_op { bin_op = Ast.OperatorFunction.Inf; ktype = l_type }
           |> operator_error |> raise)
   | EUn_op (UNot lhs) -> (
-    let l_type =
-      lhs
-      |> Position.map_use
-           (typeof ~generics_resolver env current_mod_name prog)
-    in
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
       match Asthelper.Program.is_valid_not_operation l_type.v prog with
       | `no_function_found ->
           Operator_not_found
@@ -1144,18 +1351,22 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> l_type.v
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.Not; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.Not;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> l_type.v
       | `no_not_for_built_in ->
           No_built_in_op { bin_op = Ast.OperatorFunction.Not; ktype = l_type }
           |> operator_error |> raise)
   | EUn_op (UMinus lhs) -> (
-    let l_type =
-      lhs
-      |> Position.map_use
-           (typeof ~generics_resolver env current_mod_name prog)
-    in
+      let l_type =
+        lhs
+        |> Position.map_use
+             (typeof ~generics_resolver env current_mod_name prog)
+      in
       match Asthelper.Program.is_valid_uminus_operation l_type.v prog with
       | `no_function_found ->
           Operator_not_found
@@ -1164,11 +1375,17 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       | `valid _ -> l_type.v
       | `to_many_declaration operator_decls ->
           Too_many_operator_declaration
-            {operator_decls; bin_op = Ast.OperatorFunction.UMinus; ktype = l_type }
+            {
+              operator_decls;
+              bin_op = Ast.OperatorFunction.UMinus;
+              ktype = l_type;
+            }
           |> operator_error |> raise
       | `built_in_valid -> l_type.v
       | `invalid_unsigned_op size ->
-          Invalid_Uminus_for_Unsigned_integer { v = size; position = l_type.position} |> operator_error |> raise
+          Invalid_Uminus_for_Unsigned_integer
+            { v = size; position = l_type.position }
+          |> operator_error |> raise
       | `no_uminus_for_built_in ->
           No_built_in_op
             { bin_op = Ast.OperatorFunction.UMinus; ktype = l_type }
@@ -1218,8 +1435,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         in
 
         let generics_mapped =
-          expr_type
-          |> Ast.Type.extract_parametrics_ktype 
+          expr_type |> Ast.Type.extract_parametrics_ktype
           |> List.combine
                (enum_decl.generics
                |> List.map (fun name ->
@@ -1243,22 +1459,23 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                let combine_binding_type =
                  sc_list
                  |> List.map (fun sc ->
-                  let variant_name = (sc |> variant_name) in
+                        let variant_name = sc |> variant_name in
                         let assoc_types =
-                          extract_assoc_type_variant generics_mapped variant_name
-                             enum_decl
+                          extract_assoc_type_variant generics_mapped
+                            variant_name enum_decl
                           |> Option.get
                         in
                         let assoc_binding = assoc_binding sc in
-                        variant_name, assoc_types |> List.combine assoc_binding |> List.mapi (fun index (v, l) -> (index, v, l) )
-                 )
+                        ( variant_name,
+                          assoc_types |> List.combine assoc_binding
+                          |> List.mapi (fun index (v, l) -> (index, v, l)) ))
                in
-               (* let () =  combine_binding_type |> List.iter (fun (var_name, list) -> 
-                Printf.printf "\nvariant = %s(%s)\n" 
-                (var_name.v)
-                (list |> List.map (fun (_, binding, kt) -> Printf.sprintf "%s => %s" (binding |> Option.map Position.value |> Option.value ~default:"_" ) (string_of_ktype kt.v)) |> String.concat ", ")
-                )  
-              in  *)
+               (* let () =  combine_binding_type |> List.iter (fun (var_name, list) ->
+                    Printf.printf "\nvariant = %s(%s)\n"
+                    (var_name.v)
+                    (list |> List.map (fun (_, binding, kt) -> Printf.sprintf "%s => %s" (binding |> Option.map Position.value |> Option.value ~default:"_" ) (string_of_ktype kt.v)) |> String.concat ", ")
+                    )
+                  in *)
                match combine_binding_type with
                | [] -> failwith "Unreachable case: empty case"
                | (first_variant, ass_bin) :: q ->
@@ -1269,40 +1486,48 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                             let reduced_binding =
                               reduce_binded_variable_combine value
                             in
-                            match Ast.Type.find_field_error acc reduced_binding with
-                            | None -> 
-                              begin 
-                                acc 
-                              end 
-                            | Some (`diff_binding_name (lhs, rhs)) -> Incompatible_Binding_Name {
-                              switch_expr = expression;
-                              base_variant = first_variant;
-                              base_bound_id = (lhs |> fst);
-
-                              wrong_variant = variant_name;
-                              wrong_bound_id = (rhs |> fst);
-                            } |> switch_error |> raise
-                            | Some (`diff_binding_ktype (lhs, rhs)) -> Incompatible_Binding_Ktype {
-                              switch_expr = expression;
-                              base_variant = first_variant;
-                              base_bound_id = (lhs |> fst);
-                              base_bound_ktype = (lhs |> snd);
-
-                              wrong_variant = variant_name;
-                              wrong_bound_id = (rhs |> fst);
-                              wrong_bound_ktype = (rhs |> snd)
-                            } |> switch_error |> raise
-                            | Some (`diff_binding_index((base_index, base_bound_id), (wrong_index, wrong_bound_id))) -> Incompatible_Binding_Position {
-                              base_index;
-                              base_variant = first_variant;
-                              base_bound_id;
-                              wrong_index;
-                              wrong_variant = variant_name;
-                              wrong_bound_id;
-                            } |> switch_error |> raise
-                            )
+                            match
+                              Ast.Type.find_field_error acc reduced_binding
+                            with
+                            | None -> acc
+                            | Some (`diff_binding_name (lhs, rhs)) ->
+                                Incompatible_Binding_Name
+                                  {
+                                    switch_expr = expression;
+                                    base_variant = first_variant;
+                                    base_bound_id = lhs |> fst;
+                                    wrong_variant = variant_name;
+                                    wrong_bound_id = rhs |> fst;
+                                  }
+                                |> switch_error |> raise
+                            | Some (`diff_binding_ktype (lhs, rhs)) ->
+                                Incompatible_Binding_Ktype
+                                  {
+                                    switch_expr = expression;
+                                    base_variant = first_variant;
+                                    base_bound_id = lhs |> fst;
+                                    base_bound_ktype = lhs |> snd;
+                                    wrong_variant = variant_name;
+                                    wrong_bound_id = rhs |> fst;
+                                    wrong_bound_ktype = rhs |> snd;
+                                  }
+                                |> switch_error |> raise
+                            | Some
+                                (`diff_binding_index
+                                  ( (base_index, base_bound_id),
+                                    (wrong_index, wrong_bound_id) )) ->
+                                Incompatible_Binding_Position
+                                  {
+                                    base_index;
+                                    base_variant = first_variant;
+                                    base_bound_id;
+                                    wrong_index;
+                                    wrong_variant = variant_name;
+                                    wrong_bound_id;
+                                  }
+                                |> switch_error |> raise)
                           (reduce_binded_variable_combine ass_bin)
-                     |> List.map (fun (_, variable_name, ktype) -> 
+                     |> List.map (fun (_, variable_name, ktype) ->
                             ( variable_name,
                               ({ is_const = true; ktype = ktype.v }
                                 : Env.variable_info) ))
@@ -1337,7 +1562,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             |> List.fold_left
                  (fun acc (case_type, position) ->
                    if not (Type.are_compatible_type acc case_type) then
-                    let () = Printf.printf "Not compatible acc = %s; value = %s\n" (string_of_ktype acc) (string_of_ktype case_type) in
+                     let () =
+                       Printf.printf "Not compatible acc = %s; value = %s\n"
+                         (string_of_ktype acc)
+                         (string_of_ktype case_type)
+                     in
                      Uncompatible_type
                        { expected = acc; found = { v = case_type; position } }
                      |> ast_error |> raise
