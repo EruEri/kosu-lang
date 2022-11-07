@@ -1,9 +1,9 @@
 (* open Kosu_frontend *)
 (* open Kosu_frontend.Ast *)
 (* open Kosu_frontend.Typecheck *)
-open Kosu_frontend.Astvalidation
-open Kosu_ir
-open Kosu_cli.Cli
+open KosuFrontend.Astvalidation
+open KosuIrTyped
+open KosuCli
 
 let () =
   Clap.description "kosuc - The Kosu compiler";
@@ -22,7 +22,7 @@ let () =
 
   Clap.close ();
 
-  let modules_opt = Kosu_cli.Cli.files_to_ast_program _files in
+  let modules_opt = Cli.files_to_ast_program _files in
 
   match modules_opt with
   | Error e -> (
@@ -33,7 +33,7 @@ let () =
           raise exn
       | Filename_error _ -> raise (Invalid_argument "Filename Error")
       | Parser_Error (filename, position) ->
-          position |> Kosu_frontend.Pprint.string_of_position_error
+          position |> KosuFrontend.Pprint.string_of_position_error
           |> Printf.eprintf "File \"%s\", %s: Parser Error\n" filename;
           raise (Invalid_argument "Parser Error")
       | Lexer_Error e -> raise e)
@@ -45,10 +45,10 @@ let () =
       | _, Ok () ->
           let _typed_program =
             try Astconvert.from_program modules
-            with Kosu_frontend.Ast.Error.Ast_error e ->
+            with KosuFrontend.Ast.Error.Ast_error e ->
               let () =
                 Printf.printf "%s\n"
-                  (Kosu_frontend.Pprinterr.string_of_ast_error e)
+                  (KosuFrontend.Pprinterr.string_of_ast_error e)
               in
               failwith ""
           in

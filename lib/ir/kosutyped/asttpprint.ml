@@ -1,8 +1,8 @@
 open Asttyped
 open Printf
-open Kosu_frontend.Ast
-open Kosu_frontend.Pprint
-open Kosu_frontend
+open KosuFrontend.Ast
+open KosuFrontend.Pprint
+open KosuFrontend
 
 let rec string_of_rktype = function
   | RTParametric_identifier { module_path; parametrics_type; name } ->

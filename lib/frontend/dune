@@ -15,5 +15,5 @@
 ;    (run menhir --compile-errors %{deps}))))
 
 (library
- (name kosu_frontend)
+ (name kosuFrontend)
  (libraries menhirLib))

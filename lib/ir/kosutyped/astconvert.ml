@@ -1,8 +1,8 @@
 open Asttyped
-open Kosu_frontend.Ast
-open Kosu_frontend.Typecheck
-open Kosu_frontend.Ast.Env
-open Kosu_frontend
+open KosuFrontend.Ast
+open KosuFrontend.Typecheck
+open KosuFrontend.Ast.Env
+open KosuFrontend
 
 let rec restrict_rktype to_restrict restrict =
   match (to_restrict, restrict) with

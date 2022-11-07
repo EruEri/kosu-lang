@@ -1,4 +1,4 @@
-open Kosu_frontend.Ast
+open KosuFrontend.Ast
 
 type rswitch_case =
   | RSC_Enum_Identifier of { variant : string }

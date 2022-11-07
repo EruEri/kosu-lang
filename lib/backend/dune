@@ -1,2 +1,2 @@
 (library
- (name kosu_backend))
+ (name kosuBackend))
