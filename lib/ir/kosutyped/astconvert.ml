@@ -540,18 +540,24 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
               parameters = typed_parameters;
             })
   | EUn_op (UMinus expression) ->
-      REUn_op
-        (RUMinus
-           (typed_expression_of_kexpression ~generics_resolver env
-              current_module program expression))
+    let typed = typed_expression_of_kexpression ~generics_resolver env
+    current_module program expression in
+
+    if typed.rktype |> Asttyped.Type.is_builtin_type then
+      REUn_op (RUMinus typed)
+    else
+      REUnOperator_Function_call( RUMinus(typed) )
   | EUn_op (UNot expression) ->
-      REUn_op
-        (RUNot
-           (typed_expression_of_kexpression ~generics_resolver env
-              current_module program expression))
+    let typed = typed_expression_of_kexpression ~generics_resolver env
+    current_module program expression in
+    let runot = RUNot typed in
+    if typed.rktype |> Asttyped.Type.is_builtin_type then
+      REUn_op runot
+    else 
+      REUnOperator_Function_call runot
   | EBin_op binop ->
-      REBin_op
-        (match binop with
+      
+        let rkbin = (match binop with
         | BAdd (lhs, rhs) ->
             let ltyped =
               typed_expression_of_kexpression ~generics_resolver env
@@ -732,6 +738,12 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
                 current_module program rhs
             in
             RBDif (ltyped, rtyped))
+          in
+    let (lhs, rhs) = Asttyped.Binop.operands rkbin in
+    if (lhs.rktype |> Asttyped.Type.is_builtin_type |> not) || (rhs.rktype |> Asttyped.Type.is_builtin_type |> not) then
+      REBinOperator_Function_call rkbin
+    else
+      REBin_op rkbin
 
 and from_module_node current_module (prog : module_path list) =
   let open Position in

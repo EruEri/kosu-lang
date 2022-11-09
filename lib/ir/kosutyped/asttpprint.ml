@@ -59,8 +59,8 @@ and string_of_rkexpression = function
       | Signed -> sprintf "%Ld" value
       | Unsigned -> sprintf "%Lu" value)
   | REFloat f -> string_of_float f
-  | REBin_op bin -> string_of_rkbin_op bin
-  | REUn_op un -> string_of_rkunary_op un
+  | REBin_op bin | REBinOperator_Function_call bin -> string_of_rkbin_op bin
+  | REUn_op un | REUnOperator_Function_call un -> string_of_rkunary_op un
   | RESizeof rktype -> sprintf "sizeof(%s)" (string_of_rktype rktype)
   | REstring s -> Printf.sprintf "\"%s\"" s
   | REAdress x -> sprintf "&%s" x
@@ -134,7 +134,6 @@ and string_of_rkexpression = function
   | REBuiltin_Function_call { fn_name; parameters } ->
       sprintf "@%s(%s)" fn_name
         (parameters |> List.map string_of_typed_expression |> String.concat ", ")
-
 and string_of_rkbin_op = function
   | RBAdd (lhs, rhs) ->
       sprintf "(%s + %s)"

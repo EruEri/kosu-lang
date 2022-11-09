@@ -73,6 +73,8 @@ and rkexpression =
       fn_name : string;
       parameters : typed_expression list;
     }
+  | REBinOperator_Function_call of rkbin_op
+  | REUnOperator_Function_call of rkunary_op
   | REIf of typed_expression * rkbody * rkbody
   | RECases of { cases : (typed_expression * rkbody) list; else_case : rkbody }
   | RESwitch of {
@@ -169,3 +171,71 @@ type rmodule = RModule of rmodule_node list
 type rmodule_path = { path : string; rmodule : rmodule }
 type named_rmodule_path = { filename : string; rmodule_path : rmodule_path }
 type rprogram = named_rmodule_path list
+
+module Type = struct
+  let is_builtin_type = function
+  | RTParametric_identifier _ | RTType_Identifier  _ -> false
+  | _ -> true
+end
+
+module Binop = struct
+  let left_operande = function
+  | RBAdd ( lhs, _ )
+  | RBMinus ( lhs, _ )
+  | RBMult ( lhs, _ )
+  | RBDiv ( lhs, _ )
+  | RBMod ( lhs, _ )
+  | RBBitwiseOr ( lhs, _ )
+  | RBBitwiseAnd ( lhs, _ )
+  | RBBitwiseXor ( lhs, _ )
+  | RBShiftLeft ( lhs, _ )
+  | RBShiftRight ( lhs, _ )
+  | RBAnd ( lhs, _ )
+  | RBOr ( lhs, _ )
+  | RBSup ( lhs, _ )
+  | RBSupEq ( lhs, _ )
+  | RBInf ( lhs, _ )
+  | RBInfEq ( lhs, _ )
+  | RBEqual ( lhs, _ )
+  | RBDif ( lhs, _ ) -> lhs
+
+  let right_operand = function
+  | RBAdd (_, rhs )
+  | RBMinus (_, rhs )
+  | RBMult (_, rhs )
+  | RBDiv (_, rhs )
+  | RBMod (_, rhs )
+  | RBBitwiseOr (_, rhs )
+  | RBBitwiseAnd (_, rhs )
+  | RBBitwiseXor (_, rhs )
+  | RBShiftLeft (_, rhs )
+  | RBShiftRight (_, rhs )
+  | RBAnd (_, rhs )
+  | RBOr (_, rhs )
+  | RBSup (_, rhs )
+  | RBSupEq (_, rhs )
+  | RBInf (_, rhs )
+  | RBInfEq (_, rhs )
+  | RBEqual (_, rhs )
+  | RBDif (_, rhs ) -> rhs
+
+  let operands = function
+  | RBAdd (lhs, rhs)
+  | RBMinus (lhs, rhs)
+  | RBMult (lhs, rhs)
+  | RBDiv (lhs, rhs)
+  | RBMod (lhs, rhs)
+  | RBBitwiseOr (lhs, rhs)
+  | RBBitwiseAnd (lhs, rhs)
+  | RBBitwiseXor (lhs, rhs)
+  | RBShiftLeft (lhs, rhs)
+  | RBShiftRight (lhs, rhs)
+  | RBAnd (lhs, rhs)
+  | RBOr (lhs, rhs)
+  | RBSup (lhs, rhs)
+  | RBSupEq (lhs, rhs)
+  | RBInf (lhs, rhs)
+  | RBInfEq (lhs, rhs)
+  | RBEqual (lhs, rhs)
+  | RBDif (lhs, rhs) -> lhs, rhs
+end

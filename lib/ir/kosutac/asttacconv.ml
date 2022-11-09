@@ -27,17 +27,33 @@ let rec convert_from_typed_expression ~map ~count_var ~if_count typed_expression
   | RENullptr -> [], (tac_rvalue_litteral_int Unsigned I64 0L)
   | REInteger (sign, size, int) -> [], (tac_rvalue_litteral_int sign size int)
   | REFloat float -> [], (tac_rvalue_litteral_flaot float)
-  | RESizeof rktype -> [], (RFunction( Sizeof rktype ))
+  | RESizeof rktype -> [], ( RSizeof rktype )
   | REstring s -> [], (tac_rvalue_litteral_stringlit s)
   | REIdentifier {identifier; _ } -> [], (tac_rvalue_litteral_identifier (Hashtbl.find map identifier))
   | REFunction_call {modules_path; generics_resolver; fn_name; parameters} -> 
+    let (stmts_needed, tac_parameters) = 
+      parameters 
+      |> List.map (convert_from_typed_expression ~map ~count_var ~if_count)
+      |> List.fold_left_map (fun acc (stmts, value) -> acc @ stmts, value) []
+ in
+    (* stmts_needed, RFunction( Function_call {
+      module_path = modules_path;
+      fn_name;
+      generics_resolver;
+      tac_parameters
+    }) *)
     failwith ""
   | REIf (typed_expression, if_body, else_body) -> 
-    let (stmts, return_bool) = convert_from_typed_expression ~map ~count_var ~if_count typed_expression in
+    let (statement_for_bool, condition_rvalue) = convert_from_typed_expression ~map ~count_var ~if_count typed_expression in
     let goto_label = (make_goto_label ~count_if:(post_inc if_count) 0) in
     let if_tac_body = convert_from_rkbody ~label_name:goto_label ~map ~count_var ~if_count if_body in
-    let else_tac_body = convert_from_rkbody ~label_name:(make_goto_label ~count_if:(post_inc if_count) 1) ~map ~count_var ~if_count if_body in
-    failwith "Je ne sais pas quoi renvoyer pour un if"
+    let else_tac_body = convert_from_rkbody ~label_name:(make_goto_label ~count_if:(post_inc if_count) 1) ~map ~count_var ~if_count else_body in
+    [], RIf {
+      statement_for_bool;
+      condition_rvalue;
+      if_tac_body;
+        else_tac_body
+    }
   | _ -> failwith ""
 
 and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody: rkbody) = 

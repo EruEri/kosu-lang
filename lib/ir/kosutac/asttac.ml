@@ -38,8 +38,13 @@ type tac_expression =
 | TEUminus of tac_expression
 | TENeg of tac_expression
 and tac_fncall = 
-| Function_call of string * (rktype list) * (tac_expression list)
-| Sizeof of (rktype)
+| Function_call of {
+  module_path: string;
+  fn_name: string;
+  generics_resolver: rktype list option;
+  tac_parameters: tac_expression list
+} 
+
 and condition = {
   binbool: tac_binop_bool;
   clhs: tac_expression;
@@ -57,11 +62,18 @@ and unary = {
 and tac_rvalue = 
 | RLitteral of tac_expression
 | RFunction of tac_fncall
+| RSizeof of rktype
 | RAdress of string
 | RDefer of string
 | RBinop of binary
 | RUnop of unary
 | RAffectation of string
+| RIf of {
+  statement_for_bool: tac_statement list;
+  condition_rvalue: tac_rvalue;
+  if_tac_body: tac_body;
+  else_tac_body: tac_body;
+}
 and tac_statement = 
 | STacDeclaration of {
   identifier: string;
@@ -75,10 +87,6 @@ and tac_statement =
 | STDerefAffectation of {
   identifier: string;
   expression: tac_rvalue;
-}
-| STAcIf of {
-  condition: condition;
-  goto: string
 }
 and tac_body = {
   label: string;
