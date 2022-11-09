@@ -16,4 +16,4 @@
 
 (library
  (name kosuFrontend)
- (libraries menhirLib))
+ (libraries menhirLib util))
