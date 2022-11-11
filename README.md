@@ -11,7 +11,7 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 - [x] Ast
 - [x] Type checking the Ast
 - [x] Annote the Ast with type
-- [ ] Create an intermediate representation using the 3 adress code methode <- Currently here 
+- [ ] Create an intermediate representation using the 3 adress code method <- Currently here 
 - [ ] Assembly generation (LLVM or hand-written ARM64 assembly ?) 
 - [ ] Create a website explaining the syntax and the language in general
 
