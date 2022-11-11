@@ -1,4 +1,3 @@
 (library
  (name kosuIrTAC)
- (libraries kosuFrontend kosuIrTyped util)
- )
+ (libraries kosuFrontend kosuIrTyped util))

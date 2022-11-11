@@ -1,4 +1,3 @@
 (library
  (name kosuIrTyped)
- (libraries kosuFrontend)
- )
+ (libraries kosuFrontend))

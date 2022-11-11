@@ -134,6 +134,7 @@ and string_of_rkexpression = function
   | REBuiltin_Function_call { fn_name; parameters } ->
       sprintf "@%s(%s)" fn_name
         (parameters |> List.map string_of_typed_expression |> String.concat ", ")
+
 and string_of_rkbin_op = function
   | RBAdd (lhs, rhs) ->
       sprintf "(%s + %s)"
