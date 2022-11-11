@@ -15,7 +15,7 @@ module Operator = struct
     | RBBitwiseXor _ -> TacSelf TacBitwiseXor
     | RBShiftLeft _ -> TacSelf TacShiftLeft
     | RBShiftRight _ -> TacSelf TacShiftRight
-    | RBAnd _ -> TacSelf TacAnd
+    | RBAnd _ -> TacBool TacAnd
     | RBOr _ -> TacBool TacOr
     | RBSup _ -> TacBool TacSup
     | RBSupEq _ -> TacBool TacSupEq
@@ -78,6 +78,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
       STIf {
         statement_for_bool;
         condition_rvalue;
+        goto = goto_label;
         if_tac_body;
         else_tac_body
       } :: [], (TEIdentifier identifier)
@@ -91,6 +92,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
          {
           statement_for_condition;
           condition = tac_condition;
+          goto = label;
           tac_body
          }
   )

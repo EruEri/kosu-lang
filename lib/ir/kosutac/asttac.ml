@@ -9,6 +9,7 @@ type tac_binop_bool =
   | TacInfEq
   | TacEqual
   | TacDiff
+  | TacAnd
 
 type tac_binop_self =
   | TacAdd
@@ -21,7 +22,7 @@ type tac_binop_self =
   | TacBitwiseXor
   | TacShiftLeft
   | TacShiftRight
-  | TacAnd
+  
 
 type tac_binop = TacSelf of tac_binop_self | TacBool of tac_binop_bool
 type tac_unop = TacNot | TacUminus
@@ -78,6 +79,7 @@ and tac_rvalue =
 and tac_case = {
   statement_for_condition: tac_statement list;
   condition: tac_expression;
+  goto: string;
   tac_body: tac_body
 }
 and tac_statement =
@@ -87,6 +89,7 @@ and tac_statement =
   | STIf of { 
     statement_for_bool: tac_statement list;
     condition_rvalue: tac_expression;
+    goto: string;
     if_tac_body: tac_body;
     else_tac_body: tac_body;
 }
