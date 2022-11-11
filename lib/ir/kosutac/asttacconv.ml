@@ -307,3 +307,74 @@ and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
         body =
           convert_from_typed_expression ~map ~count_var ~if_count types_return;
       }
+
+
+
+let tac_function_decl_of_rfunction (rfunction_decl: rfunction_decl) = 
+  let map = rfunction_decl.rparameters
+  |> List.mapi (fun i (n, _kt) -> n, Printf.sprintf "p%d" i )
+  |> List.to_seq
+  |> Hashtbl.of_seq
+ in
+  {
+    rfn_name = rfunction_decl.rfn_name;
+    generics = rfunction_decl.generics;
+    rparameters = rfunction_decl.rparameters;
+    return_type = rfunction_decl.return_type;
+    tac_body = convert_from_rkbody ~label_name:(rfunction_decl.rfn_name) ~map ~count_var:(ref 0) ~if_count:(ref 0) rfunction_decl.rbody
+  }
+
+let tac_operator_decl_of_roperator_decl = function
+| RUnary {op; rfield; return_type; kbody} ->
+  let map = [rfield |> fst |> fun n -> n, "p0"] |> List.to_seq |> Hashtbl.of_seq in
+  TacUnary {
+    op;
+    rfield;
+    return_type;
+    tac_body = convert_from_rkbody ~label_name:("operator") ~map ~count_var:(ref 0) ~if_count:(ref 0) kbody
+  }
+| RBinary {op; rfields = (((f1, _), (f2, _)) as rfields); return_type; kbody} -> 
+  let map = f1::f2::[] |> List.mapi (fun i s -> s, Printf.sprintf "p%d" i) |> List.to_seq |> Hashtbl.of_seq in
+  TacBinary {
+    op;
+    rfields;
+    return_type;
+    tac_body = convert_from_rkbody ~label_name:("binary operator") ~map ~count_var:(ref 0) ~if_count:(ref 0) kbody
+  }
+
+let rec tac_module_node_from_rmodule_node = function
+  | RNExternFunc f -> TNExternFunc f
+  | RNSyscall f -> TNSyscall f
+  | RNStruct s -> TNStruct s
+  | RNEnum s -> TNEnum s
+  | RNConst s -> TNConst s
+  | RNFunction f -> let tmp = (tac_function_decl_of_rfunction f) in 
+  let () = Printf.printf "%s\n" (Asttacpprint.string_of_label_tac_body tmp.tac_body) in
+  TNFunction tmp
+  | RNOperator s -> TNOperator (tac_operator_decl_of_roperator_decl s)
+
+
+and tac_module_path_of_rmodule_path { path; rmodule = RModule module_nodes } = 
+{
+  path;
+  tac_module = TacModule (
+    module_nodes |> List.map (fun node -> tac_module_node_from_rmodule_node node) )
+}
+
+and tac_program_of_rprogram (rprogram: rprogram): tac_program = 
+  rprogram
+  |> List.map (fun {filename; rmodule_path} -> 
+    {
+      filename;
+      tac_module_path = tac_module_path_of_rmodule_path rmodule_path
+    }
+    )
+(* and tac_program_of_rprogram (program: rprogram): tac_program = 
+  program
+  |> List.map (
+    fun {filename, rmodule_path} ->
+      {
+        filename;
+        tac_module_path = tac_module_path_of_rmodule_path md
+      }
+  ) *)

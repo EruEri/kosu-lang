@@ -3,6 +3,7 @@
 (* open Kosu_frontend.Typecheck *)
 open KosuFrontend.Astvalidation
 open KosuIrTyped
+open KosuIrTAC
 open KosuCli
 
 let () =
@@ -43,7 +44,7 @@ let () =
           (* Printf.eprintf "\nFile \"%s\", %s\n" filename (Kosu_frontend.Pprint.string_of_validation_error e); *)
           raise (Error.Validation_error (filename, e))
       | _, Ok () ->
-          let _typed_program =
+          let typed_program =
             try Astconvert.from_program modules
             with KosuFrontend.Ast.Error.Ast_error e ->
               let () =
@@ -53,6 +54,7 @@ let () =
               failwith ""
           in
           let () = Printf.printf "Successfult converted\n\n" in
+          let _tac_program = Asttacconv.tac_program_of_rprogram typed_program in
           ())
 (* let () = modules |> List.iter (fun record -> Printf.printf "module name : %s\n" record.path) in
      let { path; _module } = modules |> List.hd in

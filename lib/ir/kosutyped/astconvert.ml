@@ -878,9 +878,9 @@ and from_module_node current_module (prog : module_path list) =
               body;
         }
       in
-      let () =
+      (* let () =
         Printf.printf "%s\n\n" (Asttpprint.string_of_rfunc_decl rfuntion)
-      in
+      in *)
       RNFunction rfuntion
   | NSigFun _ -> failwith "To Delete in AST"
 

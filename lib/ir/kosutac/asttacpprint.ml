@@ -30,7 +30,7 @@ let symbole_of_binary binary =
   | TacBool TacDiff -> "!="
   
 let rec string_of_label_tac_body tac_body = 
-  sprintf "%s:\n\t%s" 
+  sprintf "%s:\n\t%s\n" 
   tac_body.label
   (string_of_tac_body tac_body.body)
 and string_of_tac_statement = function

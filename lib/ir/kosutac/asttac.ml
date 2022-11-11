@@ -113,15 +113,47 @@ let tac_rvalue_litteral_stringlit s = RVExpression (TEString s)
 let tac_rvalue_litteral_const (module_path, name) =
   RVExpression (TEConst { module_path; name })
 
-(* type tac_terminal =
-   | TacTEmpty
-   | TacTFalse
-   | TacTTrue
-   | TacTIdentifier of string
-   | TacTFloat of float
-   | TacTInt of (signedness * isize * int64)
-   | TacTStringl of string
-   | TacTConst of {module_path: string; name: string}
-   and trvalue =
-   | TRTerminal of tac_terminal
-   | *)
+type tac_function_decl = {
+    rfn_name : string;
+    generics : string list;
+    rparameters : (string * rktype) list;
+    return_type : rktype;
+    tac_body : tac_body;
+}
+
+type tac_operator_decl =
+  | TacUnary of {
+      op : parser_unary_op;
+      rfield : string * rktype;
+      return_type : rktype;
+      tac_body : tac_body;
+    }
+  | TacBinary of {
+      op : parser_binary_op;
+      rfields : (string * rktype) * (string * rktype);
+      return_type : rktype;
+      tac_body : tac_body;
+    }
+
+type tac_module_node = 
+| TNExternFunc of rexternal_func_decl
+| TNSyscall of rsyscall_decl
+| TNFunction of tac_function_decl
+| TNOperator of tac_operator_decl
+| TNStruct of rstruct_decl
+| TNEnum of renum_decl
+| TNConst of rconst_decl
+
+type tac_module = TacModule of tac_module_node list
+
+type tac_module_path = {
+  path: string;
+  tac_module: tac_module
+}
+
+type named_tacmodule_path = {
+  filename: string;
+  tac_module_path: tac_module_path
+}
+
+type tac_program = named_tacmodule_path list
