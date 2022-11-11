@@ -82,7 +82,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
         else_tac_body
       } :: [], (TEIdentifier identifier)
 
-  | Some _identifier, RECases _ -> failwith "RECases to do"
+  | Some _identifier, RECases {cases = _; else_case = _} -> failwith "RECases to do"
   | Some _identifier, RESwitch _ -> failwith "RESwitch to do"
   | _, REmpty -> convert_if_allocated ~allocated TEmpty
   | _, RFalse -> convert_if_allocated ~allocated TEFalse
@@ -211,6 +211,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     let statement = STacDeclaration {identifier = new_tmp; expression = unary_op } in
     let last_stmt, return = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
     (need_stmts @ statement::last_stmt ), return
+  | _, REDeference (_n, _id) -> failwith ""
   | _ -> failwith ""
 
 and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)

@@ -123,7 +123,7 @@ and string_of_rkexpression = function
       sprintf "switch %s {%s\n%s}"
         (string_of_typed_expression rexpression)
         (cases
-        |> List.map (fun (sc, kbody) ->
+        |> List.map (fun (sc, _ ,kbody) ->
                sprintf "%s => %s"
                  (sc |> List.map string_of_rswitch_case |> String.concat ", ")
                  (string_of_rkbody kbody))

@@ -74,6 +74,7 @@ and tac_rvalue =
   | RVDefer of string
   | RVBinop of binary
   | RVUnop of unary
+  | RVLater
 
 and tac_statement =
   | STacDeclaration of { identifier : string; expression : tac_rvalue }

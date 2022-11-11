@@ -342,7 +342,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
                         name;
                       }))
       in
-      let rkbodys =
+      let bound_variables, rkbodys =
         cases
         |> List.map (fun (sc_list, kb) ->
                let combine_binding_type =
@@ -414,19 +414,30 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
                             ( variable_name,
                               ({ is_const = true; ktype = ktype.v }
                                 : Env.variable_info) ))
-                   in
-                   rkbody_of_kbody ~generics_resolver
+                   in 
+                   new_conext, rkbody_of_kbody ~generics_resolver
                      (env
                      |> Env.push_context
                           (new_conext |> List.map Position.assoc_value_left))
                      current_module program ~return_type:hint_type kb)
+
+                     |> List.split
+      in
+      let bound_variables = bound_variables |> List.map (fun bounds_for_cases -> 
+        bounds_for_cases |> List.map Position.assoc_value_left)
+      in
+      let cases = 
+        rkbodys 
+        |> List.combine (bound_variables |> List.map (fun list -> list |> List.map (fun (name, vi) -> name, vi |> Env.vi_ktype |> from_ktype )))
+        |> List.combine variant_cases
+        |> List.map (fun (a, (b, c)) -> a, b, c)
       in
       RESwitch
         {
           rexpression =
             typed_expression_of_kexpression ~generics_resolver env
               current_module program expression;
-          cases = List.combine variant_cases rkbodys;
+          cases;
           wildcard_case =
             wildcard_case
             |> Option.map
