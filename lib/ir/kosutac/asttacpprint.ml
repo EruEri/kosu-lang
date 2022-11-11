@@ -29,10 +29,10 @@ let symbole_of_binary binary =
   | TacBool TacEqual -> "=="
   | TacBool TacDiff -> "!="
   
-let rec string_of_label_tac_body tac_body = 
-  sprintf "%s:\n\t%s\n" 
+let rec string_of_label_tac_body ?(end_jmp = None) tac_body = 
+  sprintf "%s:\n\t%s \n\n" 
   tac_body.label
-  (string_of_tac_body tac_body.body)
+  (string_of_tac_body ~end_jmp tac_body.body)
 and string_of_tac_statement = function
 | STacDeclaration {identifier; expression} -> 
   sprintf "%s = %s" identifier (string_of_tac_rvalue expression)
@@ -51,12 +51,13 @@ and string_of_tac_statement = function
   Buffer.contents buffer
 | SCases {cases; else_tac_body} -> 
   sprintf "%s\n%s"
-  (cases |> List.map string_of_tac_case |> String.concat "\n")
+  (cases |> List.map string_of_tac_case |> String.concat "\n\t")
   (else_tac_body |> string_of_label_tac_body )
-and string_of_tac_body (statemements, expression) = 
-  sprintf "%s\n\t%s"
+and string_of_tac_body ?(end_jmp = None) (statemements, expression) = 
+  sprintf "%s\n\t%s%s"
   (statemements |> List.map string_of_tac_statement |> String.concat "\n\t")
   (string_of_tac_expression expression)
+  (end_jmp |> Option.map (fun s -> sprintf "\n\t%s" s )|> Option.value ~default:"")
 and string_of_tac_expression = function
 | TEFalse -> "false"
 | TETrue -> "true"
@@ -119,9 +120,9 @@ and string_of_tac_unary unary =
 let symbole = symbole_of_unary unary in
 let lhs = string_of_tac_expression unary.expr in
 sprintf "%s %s" symbole lhs
-and string_of_tac_case {statement_for_condition; condition; goto; tac_body} = 
-  sprintf "%s\n\t%s goto %s\n%s"
+and string_of_tac_case {statement_for_condition; condition; goto; end_label; tac_body} = 
+  sprintf "%s\n\tif %s goto %s\n%s"
   (statement_for_condition |> List.map string_of_tac_statement |> String.concat "\n\t")
   (string_of_tac_expression condition)
   goto
-  (string_of_label_tac_body tac_body)
+  (string_of_label_tac_body ~end_jmp:(Some end_label) tac_body)

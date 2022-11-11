@@ -80,7 +80,8 @@ and tac_case = {
   statement_for_condition: tac_statement list;
   condition: tac_expression;
   goto: string;
-  tac_body: tac_body
+  end_label: string;
+  tac_body: tac_body;
 }
 and tac_statement =
   | STacDeclaration of { identifier : string; expression : tac_rvalue }

@@ -36,6 +36,7 @@ module Operator = struct
 end
 let make_tmp = Printf.sprintf "r%u"
 let make_goto_label ~count_if = Printf.sprintf "if.%u.%u" count_if
+let make_end_label ~count_if = Printf.sprintf "if.%u.end" count_if
 
 (**
 @returns: the value of [n] before the incrementation    
@@ -84,7 +85,9 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
       } :: [], (TEIdentifier identifier)
 
   | Some identifier, RECases {cases; else_case} -> 
-    let make_locale_label = make_goto_label ~count_if:(post_inc if_count) in
+    let incremented = post_inc if_count in
+    let make_locale_label = make_goto_label ~count_if:(incremented) in
+    let end_label = make_end_label ~count_if:(incremented) in
     let cases = cases |> List.mapi (fun i (case_condition, rkbody) -> 
       let label =  make_locale_label (i + 1) in
       let (statement_for_condition, tac_condition) = convert_from_typed_expression ~map ~count_var ~if_count case_condition in
@@ -92,6 +95,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
          {
           statement_for_condition;
           condition = tac_condition;
+          end_label;
           goto = label;
           tac_body
          }
@@ -112,6 +116,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
   | _, RESizeof rktype -> convert_if_allocated ~allocated (TESizeof rktype)
   | _, REstring s ->  convert_if_allocated ~allocated (TEString s)
   | _, REIdentifier { identifier; _ } -> convert_if_allocated ~allocated (TEIdentifier (Hashtbl.find map identifier))
+  | _, REConst_Identifier {modules_path; identifier} -> convert_if_allocated ~allocated (TEConst {module_path = modules_path; name = identifier})
   | _, RETuple (typed_expressions) -> 
     let stmts_needed, tac_expression =
     typed_expressions
@@ -242,12 +247,12 @@ and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
       | RSDeclaration { is_const = _; variable_name; typed_expression } ->
           let new_tmp = make_inc_tmp count_var in
           let () = Hashtbl.add map variable_name new_tmp in
-          let allocated =
+          let allocated, stmt_opt =
             if
               KosuIrTyped.Asttyped.Expression.is_typed_expresion_branch
                 typed_expression
-            then Some new_tmp
-            else None
+            then Some new_tmp, Some (STacDeclaration { identifier = new_tmp; expression = RVLater})
+            else None, None
           in
           let tac_stmts, tac_expression =
             convert_from_typed_expression ~allocated ~map ~count_var ~if_count
@@ -259,7 +264,9 @@ and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
               (q, types_return)
           in
           add_statements_to_tac_body
-            (tac_stmts
+            (
+            (stmt_opt |> Option.to_list)
+            @ tac_stmts
             @ STacDeclaration { identifier = new_tmp; expression = RVExpression tac_expression }
               :: [])
             body
@@ -305,10 +312,11 @@ and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
               :: [])
             body)
   | [] ->
+    let allocated = if types_return |> Expression.is_typed_expresion_branch then Some (make_inc_tmp count_var) else None in 
       {
         label = label_name;
         body =
-          convert_from_typed_expression ~map ~count_var ~if_count types_return;
+          convert_from_typed_expression ~allocated ~map ~count_var ~if_count types_return;
       }
 
 
