@@ -58,7 +58,7 @@ and string_of_tac_body ?(end_jmp = None) (statemements, expression) =
   sprintf "%s\n\t%s%s"
   (statemements |> List.map string_of_tac_statement |> String.concat "\n\t")
   (string_of_tac_expression expression)
-  (end_jmp |> Option.map (fun s -> sprintf "\n\t%s" s )|> Option.value ~default:"")
+  (end_jmp |> Option.map (fun s -> sprintf "\n\tjump %s" s )|> Option.value ~default:"")
 and string_of_tac_expression = function
 | TEFalse -> "false"
 | TETrue -> "true"
