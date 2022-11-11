@@ -1,6 +1,5 @@
 open KosuIrTyped.Asttyped
 open Asttac
-open KosuFrontend.Ast
 
 let make_tmp = Printf.sprintf "r%u"
 let make_goto_label ~count_if = Printf.sprintf "if.%u.%u" count_if
@@ -50,8 +49,8 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
         else_tac_body
       } :: [], (TEIdentifier identifier)
 
-  | Some identifier, RECases _ -> failwith "RECases to do"
-  | Some identifier, RESwitch _ -> failwith "RESwitch to do"
+  | Some _identifier, RECases _ -> failwith "RECases to do"
+  | Some _identifier, RESwitch _ -> failwith "RESwitch to do"
   | _, REmpty -> convert_if_allocated ~allocated TEmpty
   | _, RFalse -> convert_if_allocated ~allocated TEFalse
   | _, RTrue -> convert_if_allocated ~allocated TETrue
