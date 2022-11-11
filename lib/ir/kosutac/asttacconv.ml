@@ -70,21 +70,23 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     let statement_for_bool, condition_rvalue =
         convert_from_typed_expression ~allocated:(next_allocated) ~map ~count_var ~if_count typed_expression
       in
-      let goto_label = make_goto_label ~count_if:(post_inc if_count) 0 in
+      let goto_label1 = make_goto_label ~count_if:(post_inc if_count) 0 in
+      let goto_label2 = (make_goto_label ~count_if:(post_inc if_count) 1) in
       let if_tac_body =
-        convert_from_rkbody ~previous_alloc:(allocated) ~label_name:goto_label ~map ~count_var ~if_count
+        convert_from_rkbody ~previous_alloc:(allocated) ~label_name:goto_label1 ~map ~count_var ~if_count
           if_body
       in
       let else_tac_body =
         convert_from_rkbody
           ~previous_alloc:(allocated)
-          ~label_name:(make_goto_label ~count_if:(post_inc if_count) 1)
+          ~label_name:goto_label2
           ~map ~count_var ~if_count else_body
       in
       STIf {
         statement_for_bool = statement_for_bool @ stmt;
         condition_rvalue;
-        goto = goto_label;
+        goto1 = goto_label1;
+        goto2 = goto_label2;
         if_tac_body;
         else_tac_body
       } :: [], (TEIdentifier identifier)

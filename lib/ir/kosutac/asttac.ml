@@ -90,7 +90,8 @@ and tac_statement =
   | STIf of { 
     statement_for_bool: tac_statement list;
     condition_rvalue: tac_expression;
-    goto: string;
+    goto1: string;
+    goto2: string;
     if_tac_body: tac_body;
     else_tac_body: tac_body;
 }
