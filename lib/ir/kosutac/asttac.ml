@@ -96,7 +96,8 @@ and tac_statement =
 }
   | SCases of {
     cases: tac_case list;
-    else_tac_body: tac_body
+    else_tac_body: tac_body;
+    exit_label: string;
   }
 
 and tac_body = { label : string; body : tac_statement list * tac_expression }

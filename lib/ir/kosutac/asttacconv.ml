@@ -104,6 +104,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     let else_tac_body = convert_from_rkbody ~label_name:(make_locale_label 0) ~map ~count_var ~if_count else_case in
     SCases {
       cases;
+      exit_label = end_label;
       else_tac_body
     }::[], TEIdentifier identifier
   | Some _identifier, RESwitch _ -> failwith "RESwitch to do"

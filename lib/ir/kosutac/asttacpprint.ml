@@ -49,10 +49,11 @@ and string_of_tac_statement = function
   let () = Buffer.add_string buffer (string_of_label_tac_body if_tac_body) in
   let () = Buffer.add_string buffer (string_of_label_tac_body else_tac_body) in
   Buffer.contents buffer
-| SCases {cases; else_tac_body} -> 
-  sprintf "%s\n%s"
+| SCases {cases; exit_label ;else_tac_body} -> 
+  sprintf "%s\n%s%s:\n"
   (cases |> List.map string_of_tac_case |> String.concat "\n\t")
   (else_tac_body |> string_of_label_tac_body )
+  (exit_label)
 and string_of_tac_body ?(end_jmp = None) (statemements, expression) = 
   sprintf "%s\n\t%s%s"
   (statemements |> List.map string_of_tac_statement |> String.concat "\n\t")
