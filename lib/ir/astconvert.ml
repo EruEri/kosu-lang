@@ -215,7 +215,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
   | EDeference (c, id) -> REDeference (c, id.v)
   | EIdentifier { modules_path; identifier } ->
       REIdentifier { modules_path = modules_path.v; identifier = identifier.v }
-  | EFieldAcces { first_expr; fields } ->
+  | EFieldAcces { first_expr; field } ->
       let typed_expression =
         typed_expression_of_kexpression ~generics_resolver env current_module
           program first_expr
@@ -223,7 +223,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
       REFieldAcces
         {
           first_expr = typed_expression;
-          fields = fields |> List.map Position.value;
+          field = field |> Position.value;
         }
   | EConst_Identifier { modules_path; identifier } ->
       REConst_Identifier

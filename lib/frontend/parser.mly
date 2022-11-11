@@ -281,10 +281,10 @@ expr:
     | located(expr) INFEQ located(expr) { EBin_op (BInfEq ($1, $3)) }
     | located(expr) DOUBLEQUAL located(expr) { EBin_op (BEqual ($1, $3)) }
     | located(expr) DIF located(expr) { EBin_op (BDif ($1, $3)) }
-    | located(expr) MINUSUP separated_nonempty_list(MINUSUP, located(IDENT)) {
+    | located(expr) MINUSUP located(IDENT) {
         EFieldAcces {
             first_expr = $1;
-            fields = $3
+            field = $3
         }
     }
     | NOT located(expr) { EUn_op (UNot $2) }

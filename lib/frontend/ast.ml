@@ -77,7 +77,7 @@ and kexpression =
     }
   | EFieldAcces of {
       first_expr : kexpression location;
-      fields : string location list;
+      field : string location;
     }
   | EConst_Identifier of {
       modules_path : string location;

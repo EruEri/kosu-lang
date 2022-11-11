@@ -70,10 +70,10 @@ and string_of_rkexpression = function
   | REIdentifier { modules_path; identifier }
   | REConst_Identifier { modules_path; identifier } ->
       sprintf "%s%s" (Util.string_of_module_path modules_path) identifier
-  | REFieldAcces { first_expr; fields } ->
+  | REFieldAcces { first_expr; field } ->
       sprintf "(%s)->%s"
         (string_of_typed_expression first_expr)
-        (fields |> String.concat "->")
+        (field)
   | REStruct { modules_path; struct_name; fields } ->
       sprintf "%s%s { %s }"
         (if modules_path = "" then "" else sprintf "%s::" modules_path)
