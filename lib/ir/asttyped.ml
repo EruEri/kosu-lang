@@ -49,7 +49,7 @@ and rkexpression =
   | REAdress of string
   | REDeference of int * string
   | REIdentifier of { modules_path : string; identifier : string }
-  | REFieldAcces of { first_expr : typed_expression; fields : string list }
+  | REFieldAcces of { first_expr : typed_expression; field : string }
   | REConst_Identifier of { modules_path : string; identifier : string }
   | REStruct of {
       modules_path : string;

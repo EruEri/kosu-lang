@@ -222,7 +222,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           |> function
           | None -> raise (ast_error (Undefined_Const identifier))
           | Some s -> s))
-  | EFieldAcces { first_expr; fields } ->
+  | EFieldAcces { first_expr; field } ->
       let first_type =
         typeof ~generics_resolver env current_mod_name prog first_expr
       in
@@ -239,7 +239,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       in
       Asthelper.Struct.resolve_fields_access_gen
         (parametrics_types |> List.map Position.value)
-        fields type_decl current_mod_name prog
+        field type_decl current_mod_name
   | EStruct { modules_path; struct_name; fields } ->
       let struct_decl =
         match

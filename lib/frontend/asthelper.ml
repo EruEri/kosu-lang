@@ -1115,53 +1115,24 @@ module Struct = struct
            if not (is_type_generic kt struct_decl) then kt
            else Type.remap_generic_ktype ~current_module hashtbl kt)
 
-  let rec resolve_fields_access_gen (parametrics_types : ktype list)
-      (fields : string location list) (type_decl : Ast.Type_Decl.type_decl)
-      (current_mod_name : string) (program : module_path list) =
+  let resolve_fields_access_gen (parametrics_types : ktype list)
+      (field : string location) (type_decl : Ast.Type_Decl.type_decl)
+      (current_mod_name : string) =
     let open Ast.Type_Decl in
     let open Ast.Error in
-    match fields with
-    | [] -> failwith "Unreachable: Empty field access"
-    | [ t ] -> (
+    (
         match type_decl with
         | Decl_Enum enum_decl ->
-            Enum_Access_field { field = t; enum_decl } |> ast_error |> raise
+            Enum_Access_field { field = field; enum_decl } |> ast_error |> raise
         | Decl_Struct struct_decl -> (
             match
               ktype_of_field_gen ~current_module:current_mod_name
-                parametrics_types t.v struct_decl
+                parametrics_types field.v struct_decl
             with
             | None ->
-                Impossible_field_Access { field = t; struct_decl }
+                Impossible_field_Access { field = field; struct_decl }
                 |> ast_error |> raise
             | Some kt -> kt))
-    | t :: q -> (
-        match type_decl with
-        | Decl_Enum enum_decl ->
-            Enum_Access_field { field = t; enum_decl } |> ast_error |> raise
-        | Decl_Struct struct_decl -> (
-            match
-              ktype_of_field_gen ~current_module:current_mod_name
-                parametrics_types t.v struct_decl
-            with
-            | None ->
-                Impossible_field_Access { field = t; struct_decl }
-                |> ast_error |> raise
-            | Some kt ->
-                let parametrics_types_two = Type.extract_parametrics_ktype kt in
-                let ktype_def_path = Type.module_path_opt kt |> Option.get in
-                let ktype_name = Type.type_name_opt kt |> Option.get in
-                let type_decl_two =
-                  match
-                    Program.find_type_decl_from_ktype ~ktype_def_path
-                      ~ktype_name ~current_module:current_mod_name program
-                  with
-                  | Error e -> e |> Ast.Error.ast_error |> raise
-                  | Ok type_decl -> type_decl
-                in
-                resolve_fields_access_gen
-                  (parametrics_types_two |> List.map Position.value)
-                  q type_decl_two current_mod_name program))
 
   let is_ktype_generic_level_zero ktype (struct_decl : t) =
     match ktype with
