@@ -1,6 +1,31 @@
 open KosuIrTyped.Asttyped
 open Asttac
 
+
+
+module Operator = struct
+  let bin_operantor = function
+    | RBAdd _ -> TacSelf TacAdd 
+    | RBMinus _ -> TacSelf TacMinus
+    | RBMult _ -> TacSelf TacMult
+    | RBDiv _ -> TacSelf TacDiv
+    | RBMod _ -> TacSelf TacModulo
+    | RBBitwiseOr _ -> TacSelf TacBitwiseOr
+    | RBBitwiseAnd _ -> TacSelf TacBitwiseAnd
+    | RBBitwiseXor _ -> TacSelf TacBitwiseXor
+    | RBShiftLeft _ -> TacSelf TacShiftLeft
+    | RBShiftRight _ -> TacSelf TacShiftRight
+    | RBAnd _ -> TacSelf TacAnd
+    | RBOr _ -> TacBool TacOr
+    | RBSup _ -> TacBool TacSup
+    | RBSupEq _ -> TacBool TacSupEq
+    | RBInf _ -> TacBool TacInf
+    | RBInfEq _ -> TacBool TacInfEq
+    | RBEqual _ -> TacBool TacEqual
+    | RBDif _ -> TacBool TacDiff
+
+    let typed_operandes = KosuIrTyped.Asttyped.Binop.operands
+end
 let make_tmp = Printf.sprintf "r%u"
 let make_goto_label ~count_if = Printf.sprintf "if.%u.%u" count_if
 
@@ -22,7 +47,7 @@ let add_statements_to_tac_body stmts tac_body =
 let convert_if_allocated ~allocated tac_expression = 
   match allocated with
   | None -> [], tac_expression
-  | Some identifier -> STacModification {identifier; expression = RExpression tac_expression}::[], TEIdentifier identifier
+  | Some identifier -> STacModification {identifier; expression = RVExpression tac_expression}::[], TEIdentifier identifier
 let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     ~if_count typed_expression =
   let _rktype = typed_expression.rktype in
@@ -60,6 +85,23 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
   | _, RESizeof rktype -> convert_if_allocated ~allocated (TESizeof rktype)
   | _, REstring s ->  convert_if_allocated ~allocated (TEString s)
   | _, REIdentifier { identifier; _ } -> convert_if_allocated ~allocated (TEIdentifier (Hashtbl.find map identifier))
+  | _, RETuple (typed_expressions) -> 
+    let stmts_needed, tac_expression =
+    typed_expressions
+    |> List.map (convert_from_typed_expression ~map ~count_var ~if_count)
+    |> List.fold_left_map
+         (fun acc (stmts, value) -> (acc @ stmts, value))
+         []
+  in
+  let new_tmp = make_inc_tmp count_var in
+  let tuple =
+    RVTuple tac_expression
+  in
+  let stt =
+    STacDeclaration { identifier = new_tmp; expression = tuple }
+  in
+  let (last_stmt, return) = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
+  (stmts_needed @ (last_stmt |> List.cons stt ), return )
   | _, REFunction_call { modules_path; generics_resolver; fn_name; parameters }
     ->
       let stmts_needed, tac_parameters =
@@ -71,7 +113,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
       in
       let new_tmp = make_inc_tmp count_var in
       let call_rvalue =
-        RFunction
+        RVFunction
           {
             module_path = modules_path;
             fn_name;
@@ -84,6 +126,71 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
       in
       let (last_stmt, return) = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
       (stmts_needed @ (last_stmt |> List.cons stt ), return )
+  | _, REStruct {modules_path; struct_name; fields } -> 
+    let stmts_needed, tac_fields = 
+    fields
+    |> List.map (fun (field, typed_expression) ->
+      field, convert_from_typed_expression ~map ~count_var ~if_count typed_expression
+    )
+    |> List.fold_left_map (fun acc (field, (stmts, tac_expr)) -> 
+      acc @ stmts, (field, tac_expr)
+      ) []
+    in
+    let new_tmp = make_inc_tmp count_var in
+    let struct_rvalue = RVStruct {
+      module_path = modules_path;
+      struct_name;
+      fields = tac_fields
+    } in
+    let statament = STacDeclaration { identifier = new_tmp; expression = struct_rvalue} in
+    let (last_stmt, return) = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
+    stmts_needed @ (statament::last_stmt), return
+  | _ , REEnum {modules_path; enum_name; variant; assoc_exprs} -> 
+    let stmts_needed, assoc_tac_exprs = 
+    assoc_exprs
+    |> List.map (convert_from_typed_expression ~map ~count_var ~if_count)
+    |> List.fold_left_map (fun acc (smts, value) -> acc @ smts, value) []
+  in
+  let new_tmp = make_inc_tmp count_var in
+  let enum_rvalue = RVEnum {
+    module_path = modules_path;
+    enum_name;
+    variant;
+    assoc_tac_exprs
+  } in
+  let statement = STacDeclaration {identifier = new_tmp; expression = enum_rvalue} in
+  let (last_stmt, return) = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
+  stmts_needed @ (statement::last_stmt), return
+  | _, REFieldAcces {first_expr; field} -> 
+    let needed_statement, tac_expr = convert_from_typed_expression ~map ~if_count ~count_var first_expr in
+    let new_tmp = make_inc_tmp count_var in
+    let field_acces = RVFieldAcess {
+      first_expr = tac_expr;
+      field
+    } in
+    let statement = STacDeclaration { identifier = new_tmp; expression = field_acces} in
+    let last_stmt, return = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
+    needed_statement @ (statement::last_stmt), return
+  | _, REAdress identifier ->
+    let new_tmp = make_inc_tmp count_var in
+    let adress = RVAdress (Hashtbl.find map identifier) in
+    let statement = STacDeclaration { identifier = new_tmp; expression = adress} in
+    let last_stmt, return = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
+    (statement::last_stmt), return 
+  | _, REBin_op bin -> 
+    let operator = Operator.bin_operantor bin in
+    let (ltyped, rtyped) = Operator.typed_operandes bin in
+    let (lstamements_needed, lhs_value) = convert_from_typed_expression ~map ~if_count ~count_var ltyped in
+    let (rstamements_needed, rhs_value) = convert_from_typed_expression ~map ~if_count ~count_var rtyped in
+    let new_tmp = make_inc_tmp count_var in
+    let binary_op = RVBinop {
+      binop = operator;
+      blhs = lhs_value;
+      brhs = rhs_value
+    } in
+    let stamement = STacDeclaration { identifier = new_tmp; expression = binary_op} in
+    let last_stmt, return = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
+    lstamements_needed @ rstamements_needed @ (stamement::last_stmt), return  
   | _ -> failwith ""
 
 and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
@@ -113,7 +220,7 @@ and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
           in
           add_statements_to_tac_body
             (tac_stmts
-            @ STacDeclaration { identifier = new_tmp; expression = RExpression tac_expression }
+            @ STacDeclaration { identifier = new_tmp; expression = RVExpression tac_expression }
               :: [])
             body
       | RSAffection (identifier, typed_expression) ->
@@ -129,7 +236,7 @@ and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
           body
           |> add_statements_to_tac_body
                (tac_stmts
-               @ STacModification { identifier = find_tmp; expression = RExpression tac_expression }
+               @ STacModification { identifier = find_tmp; expression = RVExpression tac_expression }
                  :: [])
       | RSDiscard typed_expression ->
           let tac_stmts, _tac_rvalue =
@@ -151,7 +258,7 @@ and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
           in
           add_statements_to_tac_body
             (tac_stmts
-            @ STDerefAffectation { identifier = find_tmp; expression = RExpression tac_expression }
+            @ STDerefAffectation { identifier = find_tmp; expression = RVExpression tac_expression }
               :: [])
             body)
   | [] ->

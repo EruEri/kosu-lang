@@ -45,25 +45,35 @@ and tac_fncall = {
   tac_parameters : tac_expression list;
 }
 
-and condition = {
-  binbool : tac_binop_bool;
-  clhs : tac_expression;
-  crhs : tac_expression;
-}
-
 and binary = { binop : tac_binop; blhs : tac_expression; brhs : tac_expression }
 and unary = { unop : tac_unop; expr : tac_expression }
 
 and tac_rvalue =
-  | RUminus of tac_rvalue
-  | RNeg of tac_rvalue
-  | RExpression of tac_expression
-  | RFunction of tac_fncall
-  | RAdress of string
-  | RDefer of string
-  | RBinop of binary
-  | RUnop of unary
-  | RAffectation of string
+  | RVUminus of tac_rvalue
+  | RVNeg of tac_rvalue
+  | RVExpression of tac_expression
+  | RVFunction of tac_fncall
+  | RVStruct of {
+    module_path: string;
+    struct_name: string;
+    fields: (string*tac_expression) list
+  }
+  | RVEnum of {
+    module_path: string;
+    enum_name: string option;
+    variant: string;
+    assoc_tac_exprs: tac_expression list
+    
+  }
+  | RVTuple of tac_expression list
+  | RVFieldAcess of {
+    first_expr: tac_expression;
+    field: string
+  }
+  | RVAdress of string
+  | RVDefer of string
+  | RVBinop of binary
+  | RVUnop of unary
 
 and tac_statement =
   | STacDeclaration of { identifier : string; expression : tac_rvalue }
@@ -79,17 +89,17 @@ and tac_statement =
 and tac_body = { label : string; body : tac_statement list * tac_expression }
 
 let tac_rvalue_litteral_int sign isize value =
-  RExpression (TEInt (sign, isize, value))
+  RVExpression (TEInt (sign, isize, value))
 
-let tac_rvalue_litteral_empty = RExpression TEmpty
-let tac_rvalue_litteral_false = RExpression TEFalse
-let tac_rvalue_litteral_true = RExpression TETrue
-let tac_rvalue_litteral_flaot float = RExpression (TEFloat float)
-let tac_rvalue_litteral_identifier var = RExpression (TEIdentifier var)
-let tac_rvalue_litteral_stringlit s = RExpression (TEString s)
+let tac_rvalue_litteral_empty = RVExpression TEmpty
+let tac_rvalue_litteral_false = RVExpression TEFalse
+let tac_rvalue_litteral_true = RVExpression TETrue
+let tac_rvalue_litteral_flaot float = RVExpression (TEFloat float)
+let tac_rvalue_litteral_identifier var = RVExpression (TEIdentifier var)
+let tac_rvalue_litteral_stringlit s = RVExpression (TEString s)
 
 let tac_rvalue_litteral_const (module_path, name) =
-  RExpression (TEConst { module_path; name })
+  RVExpression (TEConst { module_path; name })
 
 (* type tac_terminal =
    | TacTEmpty
