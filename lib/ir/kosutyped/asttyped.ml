@@ -172,19 +172,19 @@ type rmodule_path = { path : string; rmodule : rmodule }
 type named_rmodule_path = { filename : string; rmodule_path : rmodule_path }
 type rprogram = named_rmodule_path list
 
-module Type = struct
+module RType = struct
   let is_builtin_type = function
     | RTParametric_identifier _ | RTType_Identifier _ -> false
     | _ -> true
 end
 
 module Expression = struct
-  let is_expression_branch = function
+  let is_expresion_branch = function
     | RECases _ | RESwitch _ | REIf _ -> true
     | _ -> false
 
-  let is_typed_expreesion_branch { rexpression; _ } =
-    is_expression_branch rexpression
+  let is_typed_expresion_branch { rexpression; _ } =
+    is_expresion_branch rexpression
 end
 
 module Binop = struct

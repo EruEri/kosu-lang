@@ -145,7 +145,7 @@ and rkbody_of_kbody ~generics_resolver (env : Env.t) current_module
           let stmts_remains, future_expr =
             rkbody_of_kbody ~generics_resolver env current_module program
               ~return_type (q, kexpression)
-          in
+        in
           ( RSAffection (variable.v, typed_expression) :: stmts_remains,
             future_expr )
       | SDerefAffectation (id, expression) ->
@@ -556,7 +556,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
           program expression
       in
 
-      if typed.rktype |> Asttyped.Type.is_builtin_type then
+      if typed.rktype |> Asttyped.RType.is_builtin_type then
         REUn_op (RUMinus typed)
       else REUnOperator_Function_call (RUMinus typed)
   | EUn_op (UNot expression) ->
@@ -565,7 +565,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
           program expression
       in
       let runot = RUNot typed in
-      if typed.rktype |> Asttyped.Type.is_builtin_type then REUn_op runot
+      if typed.rktype |> Asttyped.RType.is_builtin_type then REUn_op runot
       else REUnOperator_Function_call runot
   | EBin_op binop ->
       let rkbin =
@@ -753,8 +753,8 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
       in
       let lhs, rhs = Asttyped.Binop.operands rkbin in
       if
-        lhs.rktype |> Asttyped.Type.is_builtin_type |> not
-        || rhs.rktype |> Asttyped.Type.is_builtin_type |> not
+        lhs.rktype |> Asttyped.RType.is_builtin_type |> not
+        || rhs.rktype |> Asttyped.RType.is_builtin_type |> not
       then REBinOperator_Function_call rkbin
       else REBin_op rkbin
 

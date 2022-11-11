@@ -230,8 +230,8 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     let statement = STacDeclaration {identifier = new_tmp; expression = unary_op } in
     let last_stmt, return = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
     (need_stmts @ statement::last_stmt ), return
-  | _, REDeference (_n, _id) -> failwith ""
-  | _ -> failwith ""
+  | _, REDeference (_n, _id) -> failwith "TODO : TAC Deference"
+  | _ -> failwith "Other typed expression"
 
 and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
     =
@@ -244,7 +244,7 @@ and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
           let () = Hashtbl.add map variable_name new_tmp in
           let allocated =
             if
-              KosuIrTyped.Asttyped.Expression.is_typed_expreesion_branch
+              KosuIrTyped.Asttyped.Expression.is_typed_expresion_branch
                 typed_expression
             then Some new_tmp
             else None
@@ -265,8 +265,9 @@ and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
             body
       | RSAffection (identifier, typed_expression) ->
           let find_tmp = Hashtbl.find map identifier in
+          let allocated = if typed_expression |> Expression.is_typed_expresion_branch then Some (make_inc_tmp count_var) else None in 
           let tac_stmts, tac_expression =
-            convert_from_typed_expression ~map ~count_var ~if_count
+            convert_from_typed_expression ~allocated ~map ~count_var ~if_count
               typed_expression
           in
           let body =
@@ -279,17 +280,19 @@ and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
                @ STacModification { identifier = find_tmp; expression = RVExpression tac_expression }
                  :: [])
       | RSDiscard typed_expression ->
+        let allocated = if typed_expression |> Expression.is_typed_expresion_branch then Some (make_inc_tmp count_var) else None in 
           let tac_stmts, _tac_rvalue =
-            convert_from_typed_expression ~map ~count_var ~if_count
+            convert_from_typed_expression ~allocated ~map ~count_var ~if_count
               typed_expression
           in
           add_statements_to_tac_body tac_stmts
             (convert_from_rkbody ~label_name ~map ~count_var ~if_count
                (q, types_return))
       | RSDerefAffectation (identifier, typed_expression) ->
+        let allocated = if typed_expression |> Expression.is_typed_expresion_branch then Some (make_inc_tmp count_var) else None in 
           let find_tmp = Hashtbl.find map identifier in
           let tac_stmts, tac_expression =
-            convert_from_typed_expression ~map ~count_var ~if_count
+            convert_from_typed_expression ~allocated ~map ~count_var ~if_count
               typed_expression
           in
           let body =
