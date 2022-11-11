@@ -23,8 +23,16 @@ module Operator = struct
     | RBInfEq _ -> TacBool TacInfEq
     | RBEqual _ -> TacBool TacEqual
     | RBDif _ -> TacBool TacDiff
+  
+  let unary_operator = function
+  | RUMinus _ -> TacUminus
+  | RUNot _ -> TacNot
 
-    let typed_operandes = KosuIrTyped.Asttyped.Binop.operands
+  let typed_operand = function
+  | RUMinus e | RUNot e -> e
+
+
+  let typed_operandes = KosuIrTyped.Asttyped.Binop.operands
 end
 let make_tmp = Printf.sprintf "r%u"
 let make_goto_label ~count_if = Printf.sprintf "if.%u.%u" count_if
@@ -190,7 +198,19 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     } in
     let stamement = STacDeclaration { identifier = new_tmp; expression = binary_op} in
     let last_stmt, return = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
-    lstamements_needed @ rstamements_needed @ (stamement::last_stmt), return  
+    lstamements_needed @ rstamements_needed @ (stamement::last_stmt), return
+  | _, REUn_op unary -> 
+    let operator = Operator.unary_operator unary in
+    let operand = Operator.typed_operand unary in
+    let (need_stmts, lvalue) = convert_from_typed_expression ~map ~if_count ~count_var operand in
+    let new_tmp = make_inc_tmp count_var in
+    let unary_op = RVUnop {
+      unop = operator;
+      expr = lvalue;
+    } in
+    let statement = STacDeclaration {identifier = new_tmp; expression = unary_op } in
+    let last_stmt, return = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
+    (need_stmts @ statement::last_stmt ), return
   | _ -> failwith ""
 
 and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
