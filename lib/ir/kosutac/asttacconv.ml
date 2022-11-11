@@ -273,7 +273,10 @@ and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
             body
       | RSAffection (identifier, typed_expression) ->
           let find_tmp = Hashtbl.find map identifier in
-          let allocated = if typed_expression |> Expression.is_typed_expresion_branch then Some (make_inc_tmp count_var) else None in 
+          let allocated, forward_push = 
+            if typed_expression |> Expression.is_typed_expresion_branch then 
+              let new_tmp = (make_inc_tmp count_var) in Some new_tmp, Some (STacDeclaration {identifier = new_tmp; expression = RVLater})
+          else None, None in 
           let tac_stmts, tac_expression =
             convert_from_typed_expression ~allocated ~map ~count_var ~if_count
               typed_expression
@@ -284,8 +287,11 @@ and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
           in
           body
           |> add_statements_to_tac_body
-               (tac_stmts
-               @ STacModification { identifier = find_tmp; expression = RVExpression tac_expression }
+               (
+                (
+                  forward_push |> Option.to_list)
+                @ tac_stmts
+                @ STacModification { identifier = find_tmp; expression = RVExpression tac_expression }
                  :: [])
       | RSDiscard typed_expression ->
         let allocated = if typed_expression |> Expression.is_typed_expresion_branch then Some (make_inc_tmp count_var) else None in 
@@ -313,11 +319,17 @@ and convert_from_rkbody ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
               :: [])
             body)
   | [] ->
-    let allocated = if types_return |> Expression.is_typed_expresion_branch then Some (make_inc_tmp count_var) else None in 
+    let allocated, forward_push = 
+      if types_return |> Expression.is_typed_expresion_branch 
+        then let new_tmp = (make_inc_tmp count_var) in  Some new_tmp, Some (STacDeclaration {identifier = new_tmp; expression = RVLater})
+    else None, None in 
+    let stmts, expr = convert_from_typed_expression ~allocated ~map ~count_var ~if_count types_return in
+
+
       {
         label = label_name;
-        body =
-          convert_from_typed_expression ~allocated ~map ~count_var ~if_count types_return;
+        body = ((forward_push |> Option.to_list) @ stmts), expr
+          
       }
 
 
