@@ -75,7 +75,11 @@ and tac_rvalue =
   | RVBinop of binary
   | RVUnop of unary
   | RVLater
-
+and tac_case = {
+  statement_for_condition: tac_statement list;
+  condition: tac_expression;
+  tac_body: tac_body
+}
 and tac_statement =
   | STacDeclaration of { identifier : string; expression : tac_rvalue }
   | STacModification of { identifier : string; expression : tac_rvalue }
@@ -86,6 +90,10 @@ and tac_statement =
     if_tac_body: tac_body;
     else_tac_body: tac_body;
 }
+  | SCases of {
+    cases: tac_case list;
+    else_tac_body: tac_body
+  }
 
 and tac_body = { label : string; body : tac_statement list * tac_expression }
 

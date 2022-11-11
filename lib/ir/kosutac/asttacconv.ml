@@ -82,7 +82,24 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
         else_tac_body
       } :: [], (TEIdentifier identifier)
 
-  | Some _identifier, RECases {cases = _; else_case = _} -> failwith "RECases to do"
+  | Some identifier, RECases {cases; else_case} -> 
+    let make_locale_label = make_goto_label ~count_if:(post_inc if_count) in
+    let cases = cases |> List.mapi (fun i (case_condition, rkbody) -> 
+      let label =  make_locale_label (i + 1) in
+      let (statement_for_condition, tac_condition) = convert_from_typed_expression ~map ~count_var ~if_count case_condition in
+      let tac_body = convert_from_rkbody ~label_name:label ~map ~count_var ~if_count rkbody in
+         {
+          statement_for_condition;
+          condition = tac_condition;
+          tac_body
+         }
+  )
+    in 
+    let else_tac_body = convert_from_rkbody ~label_name:(make_locale_label 0) ~map ~count_var ~if_count else_case in
+    SCases {
+      cases;
+      else_tac_body
+    }::[], TEIdentifier identifier
   | Some _identifier, RESwitch _ -> failwith "RESwitch to do"
   | _, REmpty -> convert_if_allocated ~allocated TEmpty
   | _, RFalse -> convert_if_allocated ~allocated TEFalse
