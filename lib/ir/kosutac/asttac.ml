@@ -85,6 +85,13 @@ and tac_case = {
   end_label: string;
   tac_body: tac_body;
 }
+and tac_switch = {
+  condition_sw_label: string option;
+  variants_to_match: string list;
+  assoc_bound: (int * rktype) list;
+  sw_exit_label: string;
+  switch_tac_body: tac_body;
+}
 and tac_statement =
   | STacDeclaration of { identifier : string; expression : tac_rvalue }
   | STacModification of { identifier : string; expression : tac_rvalue }
@@ -103,7 +110,14 @@ and tac_statement =
     else_tac_body: tac_body;
     exit_label: string;
   }
-
+  | STSwitch of {
+    statemenets_for_case: tac_statement list;
+    condition_switch: tac_expression;
+    sw_cases: tac_switch list;
+    
+    wildcard_body: tac_body option;
+    sw_exit_label: string
+  }
 and tac_body = { label : string; body : tac_statement list * tac_expression }
 
 let tac_rvalue_litteral_int sign isize value =

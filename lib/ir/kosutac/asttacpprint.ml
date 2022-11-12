@@ -57,6 +57,7 @@ and string_of_tac_statement = function
   (cases |> List.map string_of_tac_case |> String.concat "\n")
   (else_tac_body |> string_of_label_tac_body )
   (exit_label)
+| STSwitch _ -> failwith "TODO: STSwitch print"
 and string_of_tac_body ?(end_jmp = None) (statemements, expression) = 
   sprintf "%s\n\t%s%s"
   (statemements |> List.map string_of_tac_statement |> String.concat "\n\t")
