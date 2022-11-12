@@ -271,7 +271,10 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     let last_stmt, return = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
     (need_stmts @ statement::last_stmt ), return
   | _, REDeference (_n, _id) -> failwith "TODO : TAC Deference"
-  | _ -> failwith "Other typed expression"
+  | _, REBinOperator_Function_call _ -> failwith "TODO: Custom binary operator"
+  | _, REUnOperator_Function_call _ -> failwith "TODO: Custom unary operator"
+  | _, REBuiltin_Function_call _ -> failwith "TODO: builtitn function"
+  | _, (RESwitch _ | RECases _ | REIf _) -> failwith "Compiler code Error: Cannot create branch without previous allocation" 
 
 and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var ~if_count ~cases_count (rkbody : rkbody)
     =

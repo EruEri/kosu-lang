@@ -79,7 +79,7 @@ and rkexpression =
   | RECases of { cases : (typed_expression * rkbody) list; else_case : rkbody }
   | RESwitch of {
       rexpression : typed_expression;
-      cases : (rswitch_case list * ((string * rktype) list) * rkbody) list;
+      cases : (rswitch_case list * ((int * string * rktype) list) * rkbody) list;
       wildcard_case : rkbody option;
     }
   | REBin_op of rkbin_op
