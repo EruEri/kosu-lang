@@ -37,6 +37,8 @@ end
 let make_tmp = Printf.sprintf "r%u"
 let make_goto_label ~count_if = Printf.sprintf "if.%u.%u" count_if
 let make_end_label ~count_if = Printf.sprintf "if.%u.end" count_if
+let make_case_goto_label ~cases_count = Printf.sprintf "case.%u.%u" cases_count
+let make_case_end_label ~cases_count = Printf.sprintf "case.%u.end" cases_count
 
 (**
 @returns: the value of [n] before the incrementation    
@@ -58,7 +60,7 @@ let convert_if_allocated ~allocated tac_expression =
   | None -> [], tac_expression
   | Some identifier -> STacModification {identifier; expression = RVExpression tac_expression}::[], TEIdentifier identifier
 let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
-    ~if_count typed_expression =
+    ~if_count ~cases_count typed_expression =
   let _rktype = typed_expression.rktype in
   let expr = typed_expression.rexpression in
   match (allocated, expr) with
@@ -68,16 +70,19 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     else None, [] in 
  
     let statement_for_bool, condition_rvalue =
-        convert_from_typed_expression ~allocated:(next_allocated) ~map ~count_var ~if_count typed_expression
+        convert_from_typed_expression ~allocated:(next_allocated) ~map ~count_var ~if_count ~cases_count typed_expression
       in
-      let goto_label1 = make_goto_label ~count_if:(post_inc if_count) 0 in
-      let goto_label2 = (make_goto_label ~count_if:(post_inc if_count) 1) in
+      let incremented = (post_inc if_count) in
+      let goto_label1 = make_goto_label ~count_if:incremented 0 in
+      let goto_label2 = (make_goto_label ~count_if:incremented 1) in
+      let exit_label = make_end_label ~count_if:incremented in
       let if_tac_body =
-        convert_from_rkbody ~previous_alloc:(allocated) ~label_name:goto_label1 ~map ~count_var ~if_count
+        convert_from_rkbody ~cases_count ~previous_alloc:(allocated) ~label_name:goto_label1 ~map ~count_var ~if_count
           if_body
       in
       let else_tac_body =
         convert_from_rkbody
+          ~cases_count
           ~previous_alloc:(allocated)
           ~label_name:goto_label2
           ~map ~count_var ~if_count else_body
@@ -87,18 +92,19 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
         condition_rvalue;
         goto1 = goto_label1;
         goto2 = goto_label2;
+        exit_label;
         if_tac_body;
         else_tac_body
       } :: [], (TEIdentifier identifier)
 
   | Some identifier, RECases {cases; else_case} -> 
-    let incremented = post_inc if_count in
-    let make_locale_label = make_goto_label ~count_if:(incremented) in
-    let end_label = make_end_label ~count_if:(incremented) in
+    let incremented = post_inc cases_count in
+    let make_locale_label = make_case_goto_label ~cases_count:(incremented) in
+    let end_label = make_case_end_label ~cases_count:(incremented) in
     let cases = cases |> List.mapi (fun i (case_condition, rkbody) -> 
       let label = make_locale_label (i + 1) in
-      let (statement_for_condition, tac_condition) = convert_from_typed_expression  ~map ~count_var ~if_count case_condition in
-      let tac_body = convert_from_rkbody ~previous_alloc:(allocated) ~label_name:label ~map ~count_var ~if_count rkbody in
+      let (statement_for_condition, tac_condition) = convert_from_typed_expression  ~map ~count_var ~if_count ~cases_count case_condition in
+      let tac_body = convert_from_rkbody ~cases_count ~previous_alloc:(allocated) ~label_name:label ~map ~count_var ~if_count rkbody in
          {
           statement_for_condition;
           condition = tac_condition;
@@ -108,7 +114,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
          }
   )
     in 
-    let else_tac_body = convert_from_rkbody ~previous_alloc:(allocated) ~label_name:(make_locale_label 0) ~map ~count_var ~if_count else_case in
+    let else_tac_body = convert_from_rkbody ~cases_count ~previous_alloc:(allocated) ~label_name:(make_locale_label 0) ~map ~count_var ~if_count else_case in
     SCases {
       cases;
       exit_label = end_label;
@@ -128,7 +134,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
   | _, RETuple (typed_expressions) -> 
     let stmts_needed, tac_expression =
     typed_expressions
-    |> List.map (convert_from_typed_expression ~map ~count_var ~if_count)
+    |> List.map (convert_from_typed_expression ~cases_count ~map ~count_var ~if_count)
     |> List.fold_left_map
          (fun acc (stmts, value) -> (acc @ stmts, value))
          []
@@ -146,7 +152,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     ->
       let stmts_needed, tac_parameters =
         parameters
-        |> List.map (convert_from_typed_expression ~map ~count_var ~if_count)
+        |> List.map (convert_from_typed_expression ~cases_count ~map ~count_var ~if_count)
         |> List.fold_left_map
              (fun acc (stmts, value) -> (acc @ stmts, value))
              []
@@ -170,7 +176,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     let stmts_needed, tac_fields = 
     fields
     |> List.map (fun (field, typed_expression) ->
-      field, convert_from_typed_expression ~map ~count_var ~if_count typed_expression
+      field, convert_from_typed_expression ~cases_count ~map ~count_var ~if_count typed_expression
     )
     |> List.fold_left_map (fun acc (field, (stmts, tac_expr)) -> 
       acc @ stmts, (field, tac_expr)
@@ -188,7 +194,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
   | _ , REEnum {modules_path; enum_name; variant; assoc_exprs} -> 
     let stmts_needed, assoc_tac_exprs = 
     assoc_exprs
-    |> List.map (convert_from_typed_expression ~map ~count_var ~if_count)
+    |> List.map (convert_from_typed_expression ~cases_count ~map ~count_var ~if_count)
     |> List.fold_left_map (fun acc (smts, value) -> acc @ smts, value) []
   in
   let new_tmp = make_inc_tmp count_var in
@@ -202,7 +208,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
   let (last_stmt, return) = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
   stmts_needed @ (statement::last_stmt), return
   | _, REFieldAcces {first_expr; field} -> 
-    let needed_statement, tac_expr = convert_from_typed_expression ~map ~if_count ~count_var first_expr in
+    let needed_statement, tac_expr = convert_from_typed_expression ~cases_count ~map ~if_count ~count_var first_expr in
     let new_tmp = make_inc_tmp count_var in
     let field_acces = RVFieldAcess {
       first_expr = tac_expr;
@@ -220,8 +226,8 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
   | _, REBin_op bin -> 
     let operator = Operator.bin_operantor bin in
     let (ltyped, rtyped) = Operator.typed_operandes bin in
-    let (lstamements_needed, lhs_value) = convert_from_typed_expression ~map ~if_count ~count_var ltyped in
-    let (rstamements_needed, rhs_value) = convert_from_typed_expression ~map ~if_count ~count_var rtyped in
+    let (lstamements_needed, lhs_value) = convert_from_typed_expression ~cases_count ~map ~if_count ~count_var ltyped in
+    let (rstamements_needed, rhs_value) = convert_from_typed_expression ~cases_count ~map ~if_count ~count_var rtyped in
     let new_tmp = make_inc_tmp count_var in
     let binary_op = RVBinop {
       binop = operator;
@@ -234,7 +240,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
   | _, REUn_op unary -> 
     let operator = Operator.unary_operator unary in
     let operand = Operator.typed_operand unary in
-    let (need_stmts, lvalue) = convert_from_typed_expression ~map ~if_count ~count_var operand in
+    let (need_stmts, lvalue) = convert_from_typed_expression ~cases_count ~map ~if_count ~count_var operand in
     let new_tmp = make_inc_tmp count_var in
     let unary_op = RVUnop {
       unop = operator;
@@ -246,7 +252,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
   | _, REDeference (_n, _id) -> failwith "TODO : TAC Deference"
   | _ -> failwith "Other typed expression"
 
-and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var ~if_count (rkbody : rkbody)
+and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var ~if_count ~cases_count (rkbody : rkbody)
     =
   let stmts, types_return = rkbody in
   match stmts with
@@ -263,12 +269,12 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var ~if
             else None, None
           in
           let tac_stmts, tac_expression =
-            convert_from_typed_expression ~allocated ~map ~count_var ~if_count
+            convert_from_typed_expression ~cases_count ~allocated ~map ~count_var ~if_count
               typed_expression
           in
 
           let body =
-            convert_from_rkbody ~previous_alloc ~label_name ~map ~count_var ~if_count
+            convert_from_rkbody ~cases_count ~previous_alloc ~label_name ~map ~count_var ~if_count
               (q, types_return)
           in
           add_statements_to_tac_body
@@ -285,11 +291,11 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var ~if
               let new_tmp = (make_inc_tmp count_var) in Some new_tmp, Some (STacDeclaration {identifier = new_tmp; expression = RVLater})
           else None, None in 
           let tac_stmts, tac_expression =
-            convert_from_typed_expression ~allocated ~map ~count_var ~if_count
+            convert_from_typed_expression ~cases_count ~allocated ~map ~count_var ~if_count
               typed_expression
           in
           let body =
-            convert_from_rkbody ~previous_alloc ~label_name ~map ~count_var ~if_count
+            convert_from_rkbody ~cases_count ~previous_alloc ~label_name ~map ~count_var ~if_count
               (q, types_return)
           in
           body
@@ -303,21 +309,21 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var ~if
       | RSDiscard typed_expression ->
         let allocated = if typed_expression |> Expression.is_typed_expresion_branch then Some (make_inc_tmp count_var) else None in 
           let tac_stmts, _tac_rvalue =
-            convert_from_typed_expression ~allocated ~map ~count_var ~if_count
+            convert_from_typed_expression ~cases_count ~allocated ~map ~count_var ~if_count
               typed_expression
           in
           add_statements_to_tac_body tac_stmts
-            (convert_from_rkbody ~previous_alloc ~label_name ~map ~count_var ~if_count
+            (convert_from_rkbody ~cases_count ~previous_alloc ~label_name ~map ~count_var ~if_count
                (q, types_return))
       | RSDerefAffectation (identifier, typed_expression) ->
         let allocated = if typed_expression |> Expression.is_typed_expresion_branch then Some (make_inc_tmp count_var) else None in 
           let find_tmp = Hashtbl.find map identifier in
           let tac_stmts, tac_expression =
-            convert_from_typed_expression ~allocated ~map ~count_var ~if_count
+            convert_from_typed_expression ~cases_count ~allocated ~map ~count_var ~if_count
               typed_expression
           in
           let body =
-            convert_from_rkbody ~previous_alloc ~label_name ~map ~count_var ~if_count
+            convert_from_rkbody ~previous_alloc ~label_name ~map ~count_var ~if_count ~cases_count
               (q, types_return)
           in
           add_statements_to_tac_body
@@ -330,7 +336,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var ~if
       if types_return |> Expression.is_typed_expresion_branch 
         then let new_tmp = (make_inc_tmp count_var) in  Some new_tmp, Some (STacDeclaration {identifier = new_tmp; expression = RVLater})
     else None, None in 
-    let stmts, expr = convert_from_typed_expression ~allocated ~map ~count_var ~if_count types_return in
+    let stmts, expr = convert_from_typed_expression ~cases_count ~allocated ~map ~count_var ~if_count types_return in
     let penultimate_stmt = match previous_alloc with
     | None -> []
     | Some identifier -> STacModification { identifier; expression = RVExpression expr}::[] in 
@@ -354,7 +360,7 @@ let tac_function_decl_of_rfunction (rfunction_decl: rfunction_decl) =
     generics = rfunction_decl.generics;
     rparameters = rfunction_decl.rparameters;
     return_type = rfunction_decl.return_type;
-    tac_body = convert_from_rkbody ~label_name:(rfunction_decl.rfn_name) ~map ~count_var:(ref 0) ~if_count:(ref 0) rfunction_decl.rbody
+    tac_body = convert_from_rkbody ~cases_count:(ref 0) ~label_name:(rfunction_decl.rfn_name) ~map ~count_var:(ref 0) ~if_count:(ref 0) rfunction_decl.rbody
   }
 
 let tac_operator_decl_of_roperator_decl = function
@@ -364,7 +370,7 @@ let tac_operator_decl_of_roperator_decl = function
     op;
     rfield;
     return_type;
-    tac_body = convert_from_rkbody ~label_name:("operator") ~map ~count_var:(ref 0) ~if_count:(ref 0) kbody
+    tac_body = convert_from_rkbody ~cases_count:(ref 0) ~label_name:("operator") ~map ~count_var:(ref 0) ~if_count:(ref 0) kbody
   }
 | RBinary {op; rfields = (((f1, _), (f2, _)) as rfields); return_type; kbody} -> 
   let map = f1::f2::[] |> List.mapi (fun i s -> s, Printf.sprintf "p%d" i) |> List.to_seq |> Hashtbl.of_seq in
@@ -372,7 +378,7 @@ let tac_operator_decl_of_roperator_decl = function
     op;
     rfields;
     return_type;
-    tac_body = convert_from_rkbody ~label_name:("binary operator") ~map ~count_var:(ref 0) ~if_count:(ref 0) kbody
+    tac_body = convert_from_rkbody ~cases_count:(ref 0) ~label_name:("binary operator") ~map ~count_var:(ref 0) ~if_count:(ref 0) kbody
   }
 
 let rec tac_module_node_from_rmodule_node = function

@@ -92,6 +92,7 @@ and tac_statement =
     condition_rvalue: tac_expression;
     goto1: string;
     goto2: string;
+    exit_label: string;
     if_tac_body: tac_body;
     else_tac_body: tac_body;
 }

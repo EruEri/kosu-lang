@@ -39,17 +39,18 @@ and string_of_tac_statement = function
 | STacModification {identifier; expression} -> sprintf "%s <- %s" identifier (string_of_tac_rvalue expression)
 | STDerefAffectation {identifier; expression} ->
   sprintf "*%s <- %s" identifier (string_of_tac_rvalue expression)
-| STIf {statement_for_bool; condition_rvalue; if_tac_body; goto1; goto2; else_tac_body} ->
+| STIf {statement_for_bool; condition_rvalue; if_tac_body; goto1; goto2; exit_label; else_tac_body} ->
   let buffer = Buffer.create 64 in
   let () = statement_for_bool |> List.iter (fun stmt -> 
     let () = Buffer.add_string buffer (string_of_tac_statement stmt) in
     Buffer.add_char buffer '\n'
   ) in
-  let () = Buffer.add_string buffer (sprintf "if %s goto %s\n" (string_of_tac_expression condition_rvalue) goto1) in
+  let () = Buffer.add_string buffer (sprintf "\tif %s goto %s\n" (string_of_tac_expression condition_rvalue) goto1) in
   let () = Buffer.add_string buffer (sprintf "\tjump %s\n" goto2) in
 
-  let () = Buffer.add_string buffer (string_of_label_tac_body if_tac_body) in
+  let () = Buffer.add_string buffer (string_of_label_tac_body ~end_jmp:(Some exit_label) if_tac_body) in
   let () = Buffer.add_string buffer (string_of_label_tac_body else_tac_body) in
+  let () = Buffer.add_string buffer (sprintf "\n%s" exit_label)  in
   Buffer.contents buffer
 | SCases {cases; exit_label ;else_tac_body} -> 
   sprintf "%s\n%s%s:\n"
