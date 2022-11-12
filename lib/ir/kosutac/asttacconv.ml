@@ -38,7 +38,17 @@ let make_tmp = Printf.sprintf "r%u"
 let make_goto_label ~count_if = Printf.sprintf "if.%u.%u" count_if
 let make_end_label ~count_if = Printf.sprintf "if.%u.end" count_if
 let make_case_goto_label ~cases_count = Printf.sprintf "case.%u.%u" cases_count
+let make_case_goto_cond_label ~cases_count = Printf.sprintf "case.%u.%u.cond" cases_count
+
+(**
+  [case.%u.end]    
+*)
 let make_case_end_label ~cases_count = Printf.sprintf "case.%u.end" cases_count
+
+(**
+    [case.%u.else]
+*)
+let make_case_else ~cases_count = Printf.sprintf "case.%u.else" cases_count
 
 (**
 @returns: the value of [n] before the incrementation    
@@ -99,22 +109,33 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
 
   | Some identifier, RECases {cases; else_case} -> 
     let incremented = post_inc cases_count in
+
     let make_locale_label = make_case_goto_label ~cases_count:(incremented) in
+    let lambda_make_locale_condition_label = make_case_goto_cond_label ~cases_count:(incremented) in
+    let else_label = make_case_else ~cases_count:(incremented) in
     let end_label = make_case_end_label ~cases_count:(incremented) in
-    let cases = cases |> List.mapi (fun i (case_condition, rkbody) -> 
-      let label = make_locale_label (i + 1) in
+    let cases_len = cases |> List.length in
+    let cases = cases |> List.mapi (fun i (case_condition, rkbody) ->
+      let label = make_locale_label (i) in
+      let self_condition_label =  if i = 0 then None else Some (lambda_make_locale_condition_label i) in
+      let jmp_next_condition = if i < cases_len - 1 then  
+        lambda_make_locale_condition_label (i + 1)
+      else  else_label in
+      
       let (statement_for_condition, tac_condition) = convert_from_typed_expression  ~map ~count_var ~if_count ~cases_count case_condition in
       let tac_body = convert_from_rkbody ~cases_count ~previous_alloc:(allocated) ~label_name:label ~map ~count_var ~if_count rkbody in
          {
+          condition_label = self_condition_label;
           statement_for_condition;
           condition = tac_condition;
           end_label;
           goto = label;
+          jmp_false = jmp_next_condition;
           tac_body
          }
   )
     in 
-    let else_tac_body = convert_from_rkbody ~cases_count ~previous_alloc:(allocated) ~label_name:(make_locale_label 0) ~map ~count_var ~if_count else_case in
+    let else_tac_body = convert_from_rkbody ~cases_count ~previous_alloc:(allocated) ~label_name:else_label ~map ~count_var ~if_count else_case in
     SCases {
       cases;
       exit_label = end_label;
@@ -373,7 +394,7 @@ let tac_operator_decl_of_roperator_decl = function
     tac_body = convert_from_rkbody ~cases_count:(ref 0) ~label_name:("operator") ~map ~count_var:(ref 0) ~if_count:(ref 0) kbody
   }
 | RBinary {op; rfields = (((f1, _), (f2, _)) as rfields); return_type; kbody} -> 
-  let map = f1::f2::[] |> List.mapi (fun i s -> s, Printf.sprintf "p%d" i) |> List.to_seq |> Hashtbl.of_seq in
+  let map = f1::f2::[] |> List.mapi (fun i s -> s, Printf.sprintf "p%u" i) |> List.to_seq |> Hashtbl.of_seq in
   TacBinary {
     op;
     rfields;

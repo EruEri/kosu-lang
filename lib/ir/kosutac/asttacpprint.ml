@@ -54,7 +54,7 @@ and string_of_tac_statement = function
   Buffer.contents buffer
 | SCases {cases; exit_label ;else_tac_body} -> 
   sprintf "%s\n%s%s:\n"
-  (cases |> List.map string_of_tac_case |> String.concat "\n\t")
+  (cases |> List.map string_of_tac_case |> String.concat "\n")
   (else_tac_body |> string_of_label_tac_body )
   (exit_label)
 and string_of_tac_body ?(end_jmp = None) (statemements, expression) = 
@@ -124,9 +124,11 @@ and string_of_tac_unary unary =
 let symbole = symbole_of_unary unary in
 let lhs = string_of_tac_expression unary.expr in
 sprintf "%s %s" symbole lhs
-and string_of_tac_case {statement_for_condition; condition; goto; end_label; tac_body} = 
-  sprintf "%s\n\tif %s goto %s\n%s"
+and string_of_tac_case {condition_label; statement_for_condition; condition; goto; jmp_false; end_label; tac_body} = 
+  sprintf "%s\n\t%s\n\tif %s goto %s\n%s\n%s"
+  (condition_label |> Option.map (sprintf "%s:") |> Option.value ~default: "")
   (statement_for_condition |> List.map string_of_tac_statement |> String.concat "\n\t")
   (string_of_tac_expression condition)
   goto
+  (jmp_false |> sprintf "\tjump %s")
   (string_of_label_tac_body ~end_jmp:(Some end_label) tac_body)

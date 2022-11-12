@@ -77,9 +77,11 @@ and tac_rvalue =
   | RVUnop of unary
   | RVLater
 and tac_case = {
+  condition_label: string option;
   statement_for_condition: tac_statement list;
   condition: tac_expression;
   goto: string;
+  jmp_false: string;
   end_label: string;
   tac_body: tac_body;
 }
