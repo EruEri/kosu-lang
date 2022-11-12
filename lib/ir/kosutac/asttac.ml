@@ -86,9 +86,9 @@ and tac_case = {
   tac_body: tac_body;
 }
 and tac_switch = {
-  condition_sw_label: string option;
   variants_to_match: string list;
   assoc_bound: (int * rktype) list;
+  sw_goto: string;
   sw_exit_label: string;
   switch_tac_body: tac_body;
 }
@@ -114,7 +114,8 @@ and tac_statement =
     statemenets_for_case: tac_statement list;
     condition_switch: tac_expression;
     sw_cases: tac_switch list;
-    
+
+    wildcard_label: string option;
     wildcard_body: tac_body option;
     sw_exit_label: string
   }

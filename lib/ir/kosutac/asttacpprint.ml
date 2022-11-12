@@ -57,7 +57,36 @@ and string_of_tac_statement = function
   (cases |> List.map string_of_tac_case |> String.concat "\n")
   (else_tac_body |> string_of_label_tac_body )
   (exit_label)
-| STSwitch _ -> failwith "TODO: STSwitch print"
+| STSwitch {statemenets_for_case; condition_switch; sw_cases; wildcard_label; wildcard_body; sw_exit_label } -> 
+  let buffer = Buffer.create 86 in
+  let s_condition = (string_of_tac_expression condition_switch) in
+  let () = statemenets_for_case |> List.iter (fun stmt ->
+    let () = Buffer.add_string buffer (sprintf "%s\n\t" (string_of_tac_statement stmt)) in
+    () 
+  ) in
+  let () = Buffer.add_string buffer (sprintf "\n\t%s\n" s_condition) in
+  let () = sw_cases |> List.iter (fun {variants_to_match; sw_goto; assoc_bound = _; _} -> 
+    let () = variants_to_match |> List.iter (fun variant -> 
+        let () = Buffer.add_string buffer (sprintf "\tif %s = %s goto %s" (s_condition) variant sw_goto ) in
+        let () = Buffer.add_string buffer (sprintf "\n") in
+        ()
+      ) in 
+    let () = Buffer.add_string buffer (wildcard_label |> Option.map (sprintf "\n\tjump %s") |> Option.value ~default:"" ) in
+      ()
+  ) in
+
+  let () = sw_cases |> List.iter (fun {sw_exit_label; switch_tac_body; _} -> 
+    let () = Buffer.add_string buffer (string_of_label_tac_body ~end_jmp:(Some sw_exit_label) switch_tac_body) in
+    () 
+  ) in
+
+  let () = wildcard_body |> Option.iter ( fun body -> 
+    let () = Buffer.add_string buffer (string_of_label_tac_body body) in
+    ()
+  ) in
+
+  let () = Buffer.add_string buffer (sprintf "%s" sw_exit_label) in 
+  Buffer.contents buffer
 and string_of_tac_body ?(end_jmp = None) (statemements, expression) = 
   sprintf "%s\n\t%s%s"
   (statemements |> List.map string_of_tac_statement |> String.concat "\n\t")

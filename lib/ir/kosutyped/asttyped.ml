@@ -178,6 +178,13 @@ module RType = struct
     | _ -> true
 end
 
+module RSwitch_Case = struct
+  let variant = function
+  | RSC_Enum_Identifier { variant }
+  | RSC_Enum_Identifier_Assoc { variant; _} -> variant
+
+end
+
 module Expression = struct
   let is_expresion_branch = function
     | RECases _ | RESwitch _ | REIf _ -> true

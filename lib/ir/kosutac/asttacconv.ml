@@ -148,9 +148,47 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
       exit_label = end_label;
       else_tac_body
     }::[], TEIdentifier identifier
-  | Some _identifier, RESwitch {rexpression = _; cases = _; wildcard_case = _} -> 
-    
-    failwith "RESwitch to do"
+  | Some identifier, RESwitch {rexpression; cases; wildcard_case} -> 
+    let incremented = post_inc switch_count in
+
+    let fn_local_switch_label = make_switch_goto_label ~switch_count:incremented in
+    let sw_exit_label = make_switch_end_label ~switch_count:(incremented) in
+      let allocated, forward_push = 
+    if typed_expression |> Expression.is_typed_expresion_branch then 
+      let new_tmp = (make_inc_tmp count_var) in Some new_tmp,  STacDeclaration {identifier = new_tmp; expression = RVLater}::[]
+  else None, [] in 
+    let statemenets_for_case, condition_switch = convert_from_typed_expression ~allocated ~switch_count ~cases_count ~if_count ~count_var ~map rexpression in
+    let sw_cases = cases |> List.mapi (fun i (variants, bounds, kbody) ->
+      let sw_goto = fn_local_switch_label i in 
+        let variants_to_match = variants |> List.map RSwitch_Case.variant in
+        let bounds_id, assoc_bound = bounds |> List.map (fun (index, id, rtype) -> id, (index, rtype)) |> List.split in
+        let () = bounds_id |> List.iter (fun s -> 
+          Hashtbl.add map s (make_inc_tmp count_var)
+          ) in
+        let switch_tac_body = convert_from_rkbody ~previous_alloc:(allocated) ~label_name:sw_goto ~map ~count_var ~if_count ~cases_count ~switch_count kbody in
+        {
+          variants_to_match;
+          assoc_bound;
+          sw_goto;
+          sw_exit_label;
+          switch_tac_body
+        }
+      )
+  in
+
+  let wildcard_label = wildcard_case |> Option.map (fun _ -> make_switch_wild_label ~switch_count:incremented) in
+  let wildcard_body = wildcard_case |> Option.map (fun wild_body ->
+    let label_name = make_switch_end_label ~switch_count:incremented in
+      convert_from_rkbody ~previous_alloc:(allocated) ~cases_count ~switch_count ~label_name ~map ~count_var ~if_count wild_body) 
+    in
+    STSwitch {
+    statemenets_for_case = statemenets_for_case @ forward_push;
+    condition_switch;
+    sw_cases;
+    wildcard_label;
+    wildcard_body;
+    sw_exit_label;
+  }:: [], TEIdentifier identifier
   | _, REmpty -> convert_if_allocated ~allocated TEmpty
   | _, RFalse -> convert_if_allocated ~allocated TEFalse
   | _, RTrue -> convert_if_allocated ~allocated TETrue
