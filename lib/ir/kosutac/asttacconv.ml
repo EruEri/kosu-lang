@@ -182,7 +182,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
       convert_from_rkbody ~previous_alloc:(allocated) ~cases_count ~switch_count ~label_name ~map ~count_var ~if_count wild_body) 
     in
     STSwitch {
-    statemenets_for_case = statemenets_for_case @ forward_push;
+    statemenets_for_case = forward_push @ statemenets_for_case;
     condition_switch;
     sw_cases;
     wildcard_label;
@@ -317,7 +317,22 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     let statement = STacDeclaration {identifier = new_tmp; expression = unary_op } in
     let last_stmt, return = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
     (need_stmts @ statement::last_stmt ), return
-  | _, REDeference (_n, _id) -> failwith "TODO : TAC Deference"
+  | _, REDeference (n, id) -> 
+    let rec loop i = 
+      match i with
+      | 0 -> failwith ""
+      | 1 -> 
+        let defer = if 1 = n then Hashtbl.find map id else make_inc_tmp count_var in
+        let new_tmp = make_inc_tmp count_var in
+        new_tmp, STacDeclaration {identifier = new_tmp; expression = RVDefer defer}::[]
+      | count -> 
+        let defer = if count = n then Hashtbl.find map id else make_inc_tmp count_var in
+        let new_tmp = make_inc_tmp count_var in
+        let result, future_stmt = (loop (i - 1)) in
+        result, STacDeclaration {identifier = new_tmp; expression = RVDefer defer}::future_stmt
+    in
+  let restult, stmt = loop n in
+  stmt, TEIdentifier restult
   | _, REBinOperator_Function_call _ -> failwith "TODO: Custom binary operator"
   | _, REUnOperator_Function_call _ -> failwith "TODO: Custom unary operator"
   | _, REBuiltin_Function_call _ -> failwith "TODO: builtitn function"
