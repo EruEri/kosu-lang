@@ -158,10 +158,10 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
                  else else_label
                in
                let next_allocated, stmt =
-                 if typed_expression |> Expression.is_typed_expresion_branch
+                 if case_condition |> Expression.is_typed_expresion_branch
                  then
                    let new_tmp = make_inc_tmp count_var in
-                   ( Some (new_tmp, typed_expression.rktype),
+                   ( Some (new_tmp, case_condition.rktype),
                      STacDeclaration
                        { identifier = new_tmp; trvalue = make_typed_tac_rvalue trktype RVLater }
                      :: [] )
