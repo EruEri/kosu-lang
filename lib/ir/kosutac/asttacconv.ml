@@ -463,7 +463,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         if ltyped |> Expression.is_typed_expresion_branch then
           let new_tmp = make_inc_tmp count_var in
           ( Some (new_tmp, ltyped.rktype) ,
-            STacDeclaration { identifier = new_tmp; trvalue = make_typed_tac_rvalue trktype RVLater } :: []
+            STacDeclaration { identifier = new_tmp; trvalue = make_typed_tac_rvalue ltyped.rktype RVLater } :: []
           )
         else (None, [])
       in
@@ -472,7 +472,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         if rtyped |> Expression.is_typed_expresion_branch then
           let new_tmp = make_inc_tmp count_var in
           ( Some (new_tmp, rtyped.rktype),
-            STacDeclaration { identifier = new_tmp; trvalue = make_typed_tac_rvalue trktype RVLater } :: []
+            STacDeclaration { identifier = new_tmp; trvalue = make_typed_tac_rvalue rtyped.rktype RVLater } :: []
           )
         else (None, [])
       in
@@ -504,7 +504,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         if operand |> Expression.is_typed_expresion_branch then
           let new_tmp = make_inc_tmp count_var in
           ( Some (new_tmp, operand.rktype),
-            STacDeclaration { identifier = new_tmp; trvalue = make_typed_tac_rvalue trktype RVLater } :: []
+            STacDeclaration { identifier = new_tmp; trvalue = make_typed_tac_rvalue operand.rktype RVLater } :: []
           )
         else (None, [])
       in
@@ -524,7 +524,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
   | REDeference (n, id), _ ->
       let rec loop i =
         match i with
-        | 0 -> failwith ""
+        | 0 -> failwith "Never I hope: deferencement without start ??"
         | 1 ->
             let defer =
               if 1 = n then Hashtbl.find map id else make_inc_tmp count_var
@@ -556,7 +556,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       if ltyped |> Expression.is_typed_expresion_branch then
         let new_tmp = make_inc_tmp count_var in
         ( Some (new_tmp, ltyped.rktype),
-          STacDeclaration { identifier = new_tmp; trvalue = make_typed_tac_rvalue trktype RVLater } :: []
+          STacDeclaration { identifier = new_tmp; trvalue = make_typed_tac_rvalue ltyped.rktype RVLater } :: []
         )
       else (None, [])
     in
@@ -565,7 +565,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       if rtyped |> Expression.is_typed_expresion_branch then
         let new_tmp = make_inc_tmp count_var in
         ( Some (new_tmp, rtyped.rktype),
-          STacDeclaration { identifier = new_tmp; trvalue = make_typed_tac_rvalue trktype RVLater } :: []
+          STacDeclaration { identifier = new_tmp; trvalue = make_typed_tac_rvalue rtyped.rktype RVLater } :: []
         )
       else (None, [])
     in
@@ -598,7 +598,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       if operand |> Expression.is_typed_expresion_branch then
         let new_tmp = make_inc_tmp count_var in
         ( Some (new_tmp, operand.rktype),
-          STacDeclaration { identifier = new_tmp; trvalue = make_typed_tac_rvalue trktype RVLater } :: []
+          STacDeclaration { identifier = new_tmp; trvalue = make_typed_tac_rvalue operand.rktype RVLater } :: []
         )
       else (None, [])
     in
@@ -624,7 +624,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
                let new_tmp = make_inc_tmp count_var in
                ( Some (new_tmp, ty_ex.rktype),
                  STacDeclaration
-                   { identifier = new_tmp; trvalue = make_typed_tac_rvalue trktype RVLater }
+                   { identifier = new_tmp; trvalue = make_typed_tac_rvalue ty_ex.rktype RVLater }
                  :: [] )
              else (None, [])
            in
