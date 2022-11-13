@@ -145,7 +145,7 @@ and string_of_tac_rvalue = function
 | RVUnop un -> string_of_tac_unary un
 | RVBinop bin -> string_of_tac_binary bin
 | RVLater -> "lateinit"
-
+| RVDiscard -> "discard"
 and string_of_tac_binary binary = 
 let symbole = symbole_of_binary binary in
 let lhs = string_of_tac_expression binary.blhs in

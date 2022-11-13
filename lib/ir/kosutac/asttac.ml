@@ -75,6 +75,7 @@ and tac_rvalue =
   | RVDefer of string
   | RVBinop of binary
   | RVUnop of unary
+  | RVDiscard
   | RVLater
 and tac_case = {
   condition_label: string option;

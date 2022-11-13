@@ -395,12 +395,15 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var ~if
                 @ STacModification { identifier = find_tmp; expression = RVExpression tac_expression }
                  :: [])
       | RSDiscard typed_expression ->
-        let allocated = if typed_expression |> Expression.is_typed_expresion_branch then Some (make_inc_tmp count_var) else None in 
+        let allocated, push_forward = 
+          if typed_expression |> Expression.is_typed_expresion_branch then 
+            let new_tmp = (make_inc_tmp count_var) in
+            Some new_tmp, STacDeclaration {identifier = new_tmp ; expression = RVDiscard}::[]  else None, [] in 
           let tac_stmts, _tac_rvalue =
             convert_from_typed_expression ~cases_count ~allocated ~map ~count_var ~if_count ~switch_count
               typed_expression
           in
-          add_statements_to_tac_body tac_stmts
+          add_statements_to_tac_body (push_forward @ tac_stmts)
             (convert_from_rkbody ~cases_count ~previous_alloc ~label_name ~map ~count_var ~if_count ~switch_count
                (q, types_return))
       | RSDerefAffectation (identifier, typed_expression) ->
