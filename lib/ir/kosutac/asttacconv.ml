@@ -469,7 +469,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       in
       let new_tmp = make_inc_tmp count_var in
       let binary_op =
-        RVBinop { binop = operator; blhs = lhs_value; brhs = rhs_value }
+        RVBuiltinBinop { binop = operator; blhs = lhs_value; brhs = rhs_value }
       in
       let stamement =
         STacDeclaration { identifier = new_tmp; expression = binary_op }
@@ -496,7 +496,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
           ~cases_count ~map ~if_count ~count_var operand
       in
       let new_tmp = make_inc_tmp count_var in
-      let unary_op = RVUnop { unop = operator; expr = lvalue } in
+      let unary_op = RVBuiltinUnop { unop = operator; expr = lvalue } in
       let statement =
         STacDeclaration { identifier = new_tmp; expression = unary_op }
       in
@@ -530,8 +530,72 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       in
       let restult, stmt = loop n in
       (stmt, TEIdentifier restult)
-  | _, REBinOperator_Function_call _ -> failwith "TODO: Custom binary operator"
-  | _, REUnOperator_Function_call _ -> failwith "TODO: Custom unary operator"
+  | _, REBinOperator_Function_call rkbin_op -> 
+    let operator = Operator.bin_operantor rkbin_op in
+    let ltyped, rtyped = Operator.typed_operandes rkbin_op in
+    let lnext_allocated, lstmt =
+      if typed_expression |> Expression.is_typed_expresion_branch then
+        let new_tmp = make_inc_tmp count_var in
+        ( Some new_tmp,
+          STacDeclaration { identifier = new_tmp; expression = RVLater } :: []
+        )
+      else (None, [])
+    in
+
+    let rnext_allocated, rstmt =
+      if typed_expression |> Expression.is_typed_expresion_branch then
+        let new_tmp = make_inc_tmp count_var in
+        ( Some new_tmp,
+          STacDeclaration { identifier = new_tmp; expression = RVLater } :: []
+        )
+      else (None, [])
+    in
+    let lstamements_needed, lhs_value =
+      convert_from_typed_expression ~allocated:lnext_allocated ~switch_count
+        ~cases_count ~map ~if_count ~count_var ltyped
+    in
+    let rstamements_needed, rhs_value =
+      convert_from_typed_expression ~allocated:rnext_allocated ~switch_count
+        ~cases_count ~map ~if_count ~count_var rtyped
+    in
+    let new_tmp = make_inc_tmp count_var in
+    let binary_op =
+      RVCustomBinop { binop = operator; blhs = lhs_value; brhs = rhs_value }
+    in
+    let stamement =
+      STacDeclaration { identifier = new_tmp; expression = binary_op }
+    in
+    let last_stmt, return =
+      convert_if_allocated ~allocated (TEIdentifier new_tmp)
+    in
+    ( lstamements_needed @ rstamements_needed @ lstmt @ rstmt
+      @ (stamement :: last_stmt),
+      return )
+
+  | _, REUnOperator_Function_call rkunary_op -> 
+    let operator = Operator.unary_operator rkunary_op in
+    let operand = Operator.typed_operand rkunary_op in
+    let next_allocated, stmt =
+      if typed_expression |> Expression.is_typed_expresion_branch then
+        let new_tmp = make_inc_tmp count_var in
+        ( Some new_tmp,
+          STacDeclaration { identifier = new_tmp; expression = RVLater } :: []
+        )
+      else (None, [])
+    in
+    let need_stmts, lvalue =
+      convert_from_typed_expression ~allocated:next_allocated ~switch_count
+        ~cases_count ~map ~if_count ~count_var operand
+    in
+    let new_tmp = make_inc_tmp count_var in
+    let unary_op = RVCustomUnop { unop = operator; expr = lvalue } in
+    let statement =
+      STacDeclaration { identifier = new_tmp; expression = unary_op }
+    in
+    let last_stmt, return =
+      convert_if_allocated ~allocated (TEIdentifier new_tmp)
+    in
+    (stmt @ need_stmts @ (statement :: last_stmt), return)
   | _, REBuiltin_Function_call {fn_name; parameters} ->
     let stmts_needed, tac_parameters =
     parameters

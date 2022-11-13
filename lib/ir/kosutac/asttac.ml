@@ -72,8 +72,10 @@ and tac_rvalue =
   | RVFieldAcess of { first_expr : tac_expression; field : string }
   | RVAdress of string
   | RVDefer of string
-  | RVBinop of binary
-  | RVUnop of unary
+  | RVCustomBinop of binary
+  | RVCustomUnop of unary
+  | RVBuiltinBinop of binary
+  | RVBuiltinUnop of unary
   | RVDiscard
   | RVLater
 
