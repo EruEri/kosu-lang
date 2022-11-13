@@ -1,9 +1,10 @@
 (* open Kosu_frontend *)
 (* open Kosu_frontend.Ast *)
 (* open Kosu_frontend.Typecheck *)
-open Kosu_frontend.Astvalidation
-open Kosu_ir
-open Kosu_cli.Cli
+open KosuFrontend.Astvalidation
+open KosuIrTyped
+open KosuIrTAC
+open KosuCli
 
 let () =
   Clap.description "kosuc - The Kosu compiler";
@@ -22,7 +23,7 @@ let () =
 
   Clap.close ();
 
-  let modules_opt = Kosu_cli.Cli.files_to_ast_program _files in
+  let modules_opt = Cli.files_to_ast_program _files in
 
   match modules_opt with
   | Error e -> (
@@ -33,7 +34,7 @@ let () =
           raise exn
       | Filename_error _ -> raise (Invalid_argument "Filename Error")
       | Parser_Error (filename, position) ->
-          position |> Kosu_frontend.Pprint.string_of_position_error
+          position |> KosuFrontend.Pprint.string_of_position_error
           |> Printf.eprintf "File \"%s\", %s: Parser Error\n" filename;
           raise (Invalid_argument "Parser Error")
       | Lexer_Error e -> raise e)
@@ -43,16 +44,17 @@ let () =
           (* Printf.eprintf "\nFile \"%s\", %s\n" filename (Kosu_frontend.Pprint.string_of_validation_error e); *)
           raise (Error.Validation_error (filename, e))
       | _, Ok () ->
-          let _typed_program =
+          let typed_program =
             try Astconvert.from_program modules
-            with Kosu_frontend.Ast.Error.Ast_error e ->
+            with KosuFrontend.Ast.Error.Ast_error e ->
               let () =
                 Printf.printf "%s\n"
-                  (Kosu_frontend.Pprinterr.string_of_ast_error e)
+                  (KosuFrontend.Pprinterr.string_of_ast_error e)
               in
               failwith ""
           in
           let () = Printf.printf "Successfult converted\n\n" in
+          let _tac_program = Asttacconv.tac_program_of_rprogram typed_program in
           ())
 (* let () = modules |> List.iter (fun record -> Printf.printf "module name : %s\n" record.path) in
      let { path; _module } = modules |> List.hd in

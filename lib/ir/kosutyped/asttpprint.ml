@@ -1,8 +1,49 @@
 open Asttyped
 open Printf
-open Kosu_frontend.Ast
-open Kosu_frontend.Pprint
-open Kosu_frontend
+open KosuFrontend.Ast
+open KosuFrontend.Pprint
+
+
+let symbole_of_roperator = function
+  | RUnary { op; _ } ->
+      op |> (function PNot -> "!" | PUMinus -> "(-.)")
+  | RBinary { op; _ } ->
+      op
+      |>  (function
+           | Add -> "+"
+           | Minus -> "-"
+           | Mult -> "*"
+           | Div -> "/"
+           | Modulo -> "%"
+           | BitwiseAnd -> "&"
+           | BitwiseOr -> "|"
+           | BitwiseXor -> "^"
+           | ShiftLeft -> "<<"
+           | ShiftRight -> ">>"
+           | Sup -> ">"
+           | Inf -> "<"
+           | Equal -> "==")
+
+let name_of_roperator = function
+| RUnary { op; _ } ->
+    op |> (function PNot -> "not" | PUMinus -> "unminus")
+| RBinary { op; _ } ->
+    op
+    |>  (function
+        | Add -> "add"
+        | Minus -> "minus"
+        | Mult -> "mult"
+        | Div -> "dic"
+        | Modulo -> "module"
+        | BitwiseAnd -> "bitwiseand"
+        | BitwiseOr -> "bitwiseor"
+        | BitwiseXor -> "botwisexor"
+        | ShiftLeft -> "shiftleft"
+        | ShiftRight -> "shiftright"
+        | Sup -> "sup"
+        | Inf -> "inf"
+        | Equal -> "equal")
+
 
 let rec string_of_rktype = function
   | RTParametric_identifier { module_path; parametrics_type; name } ->
@@ -60,8 +101,8 @@ and string_of_rkexpression = function
       | Signed -> sprintf "%Ld" value
       | Unsigned -> sprintf "%Lu" value)
   | REFloat f -> string_of_float f
-  | REBin_op bin -> string_of_rkbin_op bin
-  | REUn_op un -> string_of_rkunary_op un
+  | REBin_op bin | REBinOperator_Function_call bin -> string_of_rkbin_op bin
+  | REUn_op un | REUnOperator_Function_call un -> string_of_rkunary_op un
   | RESizeof rktype -> sprintf "sizeof(%s)" (string_of_rktype rktype)
   | REstring s -> Printf.sprintf "\"%s\"" s
   | REAdress x -> sprintf "&%s" x
@@ -71,9 +112,7 @@ and string_of_rkexpression = function
   | REConst_Identifier { modules_path; identifier } ->
       sprintf "%s%s" (Util.string_of_module_path modules_path) identifier
   | REFieldAcces { first_expr; field } ->
-      sprintf "(%s)->%s"
-        (string_of_typed_expression first_expr)
-        (field)
+      sprintf "(%s)->%s" (string_of_typed_expression first_expr) field
   | REStruct { modules_path; struct_name; fields } ->
       sprintf "%s%s { %s }"
         (if modules_path = "" then "" else sprintf "%s::" modules_path)
@@ -124,7 +163,7 @@ and string_of_rkexpression = function
       sprintf "switch %s {%s\n%s}"
         (string_of_typed_expression rexpression)
         (cases
-        |> List.map (fun (sc, kbody) ->
+        |> List.map (fun (sc, _, kbody) ->
                sprintf "%s => %s"
                  (sc |> List.map string_of_rswitch_case |> String.concat ", ")
                  (string_of_rkbody kbody))

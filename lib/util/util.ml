@@ -82,3 +82,16 @@ module ListHelper = struct
   let inner_count list =
     List.fold_left (fun acc (_, value) -> acc + (value |> List.length)) 0 list
 end
+
+module Either3 = struct
+  type ('a, 'b, 'c) t = ELeft of 'a | EMiddle of 'b | ERight of 'c
+
+  let is_left = function ELeft _ -> true | _ -> false
+  let is_middle = function EMiddle _ -> true | _ -> false
+  let is_right = function ERight _ -> true | _ -> false
+
+  let fold ~left ~middle ~right = function
+    | ELeft l -> left l
+    | EMiddle m -> middle m
+    | ERight r -> right r
+end

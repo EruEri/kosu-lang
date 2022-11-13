@@ -1,6 +1,6 @@
 (executable
  (public_name kosuc)
  (name kosuc)
- (libraries kosu_frontend kosu_ir kosu_backend kosu_cli clap)
+ (libraries kosuFrontend kosuIrTyped kosuBackend kosuIrTAC kosuCli clap)
  (flags
   (:standard -g)))

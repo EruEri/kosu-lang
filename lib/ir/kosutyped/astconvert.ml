@@ -1,8 +1,8 @@
 open Asttyped
-open Kosu_frontend.Ast
-open Kosu_frontend.Typecheck
-open Kosu_frontend.Ast.Env
-open Kosu_frontend
+open KosuFrontend.Ast
+open KosuFrontend.Typecheck
+open KosuFrontend.Ast.Env
+open KosuFrontend
 
 let rec restrict_rktype to_restrict restrict =
   match (to_restrict, restrict) with
@@ -221,10 +221,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
           program first_expr
       in
       REFieldAcces
-        {
-          first_expr = typed_expression;
-          field = field |> Position.value;
-        }
+        { first_expr = typed_expression; field = field |> Position.value }
   | EConst_Identifier { modules_path; identifier } ->
       REConst_Identifier
         { modules_path = modules_path.v; identifier = identifier.v }
@@ -342,7 +339,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
                         name;
                       }))
       in
-      let rkbodys =
+      let bound_variables, rkbodys =
         cases
         |> List.map (fun (sc_list, kb) ->
                let combine_binding_type =
@@ -410,23 +407,42 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
                                   }
                                 |> switch_error |> raise)
                           (reduce_binded_variable_combine ass_bin)
-                     |> List.map (fun (_, variable_name, ktype) ->
-                            ( variable_name,
-                              ({ is_const = true; ktype = ktype.v }
-                                : Env.variable_info) ))
+                     |> List.map (fun (i, variable_name, ktype) ->
+                            ( i,
+                              ( variable_name,
+                                ({ is_const = true; ktype = ktype.v }
+                                  : Env.variable_info) ) ))
                    in
-                   rkbody_of_kbody ~generics_resolver
-                     (env
-                     |> Env.push_context
-                          (new_conext |> List.map Position.assoc_value_left))
-                     current_module program ~return_type:hint_type kb)
+                   let new_variable_info = new_conext |> List.split |> snd in
+                   ( new_conext,
+                     rkbody_of_kbody ~generics_resolver
+                       (env
+                       |> Env.push_context
+                            (new_variable_info
+                            |> List.map Position.assoc_value_left))
+                       current_module program ~return_type:hint_type kb ))
+        |> List.split
+      in
+      let bound_variables =
+        bound_variables
+        |> List.map
+             (List.map (fun (index, (bound_varn, variable_info)) ->
+                  ( index,
+                    bound_varn.v,
+                    variable_info |> Env.vi_ktype |> from_ktype )))
+      in
+      let cases =
+        rkbodys
+        |> List.combine bound_variables
+        |> List.combine variant_cases
+        |> List.map (fun (a, (b, c)) -> (a, b, c))
       in
       RESwitch
         {
           rexpression =
             typed_expression_of_kexpression ~generics_resolver env
               current_module program expression;
-          cases = List.combine variant_cases rkbodys;
+          cases;
           wildcard_case =
             wildcard_case
             |> Option.map
@@ -540,18 +556,25 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
               parameters = typed_parameters;
             })
   | EUn_op (UMinus expression) ->
-      REUn_op
-        (RUMinus
-           (typed_expression_of_kexpression ~generics_resolver env
-              current_module program expression))
+      let typed =
+        typed_expression_of_kexpression ~generics_resolver env current_module
+          program expression
+      in
+
+      if typed.rktype |> Asttyped.RType.is_builtin_type then
+        REUn_op (RUMinus typed)
+      else REUnOperator_Function_call (RUMinus typed)
   | EUn_op (UNot expression) ->
-      REUn_op
-        (RUNot
-           (typed_expression_of_kexpression ~generics_resolver env
-              current_module program expression))
+      let typed =
+        typed_expression_of_kexpression ~generics_resolver env current_module
+          program expression
+      in
+      let runot = RUNot typed in
+      if typed.rktype |> Asttyped.RType.is_builtin_type then REUn_op runot
+      else REUnOperator_Function_call runot
   | EBin_op binop ->
-      REBin_op
-        (match binop with
+      let rkbin =
+        match binop with
         | BAdd (lhs, rhs) ->
             let ltyped =
               typed_expression_of_kexpression ~generics_resolver env
@@ -731,7 +754,14 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
               typed_expression_of_kexpression ~generics_resolver env
                 current_module program rhs
             in
-            RBDif (ltyped, rtyped))
+            RBDif (ltyped, rtyped)
+      in
+      let lhs, rhs = Asttyped.Binop.operands rkbin in
+      if
+        lhs.rktype |> Asttyped.RType.is_builtin_type |> not
+        || rhs.rktype |> Asttyped.RType.is_builtin_type |> not
+      then REBinOperator_Function_call rkbin
+      else REBin_op rkbin
 
 and from_module_node current_module (prog : module_path list) =
   let open Position in
@@ -853,9 +883,9 @@ and from_module_node current_module (prog : module_path list) =
               body;
         }
       in
-      let () =
-        Printf.printf "%s\n\n" (Asttpprint.string_of_rfunc_decl rfuntion)
-      in
+      (* let () =
+           Printf.printf "%s\n\n" (Asttpprint.string_of_rfunc_decl rfuntion)
+         in *)
       RNFunction rfuntion
   | NSigFun _ -> failwith "To Delete in AST"
 

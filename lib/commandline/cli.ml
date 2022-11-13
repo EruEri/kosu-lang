@@ -1,4 +1,4 @@
-open Kosu_frontend.Position
+open KosuFrontend.Position
 
 type filename_error = Mutiple_dot_in_filename | No_extension | Unknow_error
 
@@ -26,9 +26,9 @@ let convert_filename_to_path filename =
   |> Result.map f
 
 let module_path_of_file filename =
-  let () = Kosu_frontend.Registerexn.register_kosu_error filename () in
-  let open Kosu_frontend in
-  let open Kosu_frontend.Ast in
+  let () = KosuFrontend.Registerexn.register_kosu_error filename () in
+  let open KosuFrontend in
+  let open KosuFrontend.Ast in
   let ( >>= ) = Result.bind in
   ( (try
        let file = open_in filename in
@@ -65,6 +65,6 @@ let files_to_ast_program (files : string list) =
       | None ->
           Ok
             (l |> List.map Result.get_ok
-           |> Kosu_frontend.Astvalidation.Help.program_remove_implicit_type_path
+           |> KosuFrontend.Astvalidation.Help.program_remove_implicit_type_path
             )
       | Some error -> Error error)
