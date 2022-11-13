@@ -79,7 +79,7 @@ and rkexpression =
   | RECases of { cases : (typed_expression * rkbody) list; else_case : rkbody }
   | RESwitch of {
       rexpression : typed_expression;
-      cases : (rswitch_case list * ((int * string * rktype) list) * rkbody) list;
+      cases : (rswitch_case list * (int * string * rktype) list * rkbody) list;
       wildcard_case : rkbody option;
     }
   | REBin_op of rkbin_op
@@ -180,9 +180,9 @@ end
 
 module RSwitch_Case = struct
   let variant = function
-  | RSC_Enum_Identifier { variant }
-  | RSC_Enum_Identifier_Assoc { variant; _} -> variant
-
+    | RSC_Enum_Identifier { variant } | RSC_Enum_Identifier_Assoc { variant; _ }
+      ->
+        variant
 end
 
 module Expression = struct

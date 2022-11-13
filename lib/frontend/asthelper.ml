@@ -1120,19 +1120,17 @@ module Struct = struct
       (current_mod_name : string) =
     let open Ast.Type_Decl in
     let open Ast.Error in
-    (
-        match type_decl with
-        | Decl_Enum enum_decl ->
-            Enum_Access_field { field = field; enum_decl } |> ast_error |> raise
-        | Decl_Struct struct_decl -> (
-            match
-              ktype_of_field_gen ~current_module:current_mod_name
-                parametrics_types field.v struct_decl
-            with
-            | None ->
-                Impossible_field_Access { field = field; struct_decl }
-                |> ast_error |> raise
-            | Some kt -> kt))
+    match type_decl with
+    | Decl_Enum enum_decl ->
+        Enum_Access_field { field; enum_decl } |> ast_error |> raise
+    | Decl_Struct struct_decl -> (
+        match
+          ktype_of_field_gen ~current_module:current_mod_name parametrics_types
+            field.v struct_decl
+        with
+        | None ->
+            Impossible_field_Access { field; struct_decl } |> ast_error |> raise
+        | Some kt -> kt)
 
   let is_ktype_generic_level_zero ktype (struct_decl : t) =
     match ktype with

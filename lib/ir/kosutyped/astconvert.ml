@@ -145,7 +145,7 @@ and rkbody_of_kbody ~generics_resolver (env : Env.t) current_module
           let stmts_remains, future_expr =
             rkbody_of_kbody ~generics_resolver env current_module program
               ~return_type (q, kexpression)
-        in
+          in
           ( RSAffection (variable.v, typed_expression) :: stmts_remains,
             future_expr )
       | SDerefAffectation (id, expression) ->
@@ -221,10 +221,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
           program first_expr
       in
       REFieldAcces
-        {
-          first_expr = typed_expression;
-          field = field |> Position.value;
-        }
+        { first_expr = typed_expression; field = field |> Position.value }
   | EConst_Identifier { modules_path; identifier } ->
       REConst_Identifier
         { modules_path = modules_path.v; identifier = identifier.v }
@@ -410,28 +407,35 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
                                   }
                                 |> switch_error |> raise)
                           (reduce_binded_variable_combine ass_bin)
-                     |> List.map (fun (i, variable_name, ktype) -> i,
-                            ( variable_name,
-                              ({ is_const = true; ktype = ktype.v }
-                                : Env.variable_info) ))
+                     |> List.map (fun (i, variable_name, ktype) ->
+                            ( i,
+                              ( variable_name,
+                                ({ is_const = true; ktype = ktype.v }
+                                  : Env.variable_info) ) ))
                    in
                    let new_variable_info = new_conext |> List.split |> snd in
-                   new_conext, rkbody_of_kbody ~generics_resolver
-                     (env
-                     |> Env.push_context
-                          (new_variable_info |> List.map Position.assoc_value_left))
-                     current_module program ~return_type:hint_type kb)
-
-                     |> List.split
+                   ( new_conext,
+                     rkbody_of_kbody ~generics_resolver
+                       (env
+                       |> Env.push_context
+                            (new_variable_info
+                            |> List.map Position.assoc_value_left))
+                       current_module program ~return_type:hint_type kb ))
+        |> List.split
       in
-      let bound_variables = bound_variables |> List.map (
-        List.map (fun (index, (bound_varn, variable_info)) -> index, bound_varn.v, variable_info |> Env.vi_ktype |> from_ktype))
+      let bound_variables =
+        bound_variables
+        |> List.map
+             (List.map (fun (index, (bound_varn, variable_info)) ->
+                  ( index,
+                    bound_varn.v,
+                    variable_info |> Env.vi_ktype |> from_ktype )))
       in
-      let cases = 
-        rkbodys 
+      let cases =
+        rkbodys
         |> List.combine bound_variables
         |> List.combine variant_cases
-        |> List.map (fun (a, (b, c)) -> a, b, c)
+        |> List.map (fun (a, (b, c)) -> (a, b, c))
       in
       RESwitch
         {
@@ -880,8 +884,8 @@ and from_module_node current_module (prog : module_path list) =
         }
       in
       (* let () =
-        Printf.printf "%s\n\n" (Asttpprint.string_of_rfunc_decl rfuntion)
-      in *)
+           Printf.printf "%s\n\n" (Asttpprint.string_of_rfunc_decl rfuntion)
+         in *)
       RNFunction rfuntion
   | NSigFun _ -> failwith "To Delete in AST"
 
