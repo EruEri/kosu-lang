@@ -81,6 +81,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
   let expr = typed_expression.rexpression in
   match (allocated, expr) with
   | Some identifier, REIf (typed_expression, if_body, else_body) ->
+    let incremented = (post_inc if_count) in
       let next_allocated, stmt = if typed_expression |> Expression.is_typed_expresion_branch then 
         let new_tmp = (make_inc_tmp count_var) in Some new_tmp, STacDeclaration {identifier = new_tmp; expression = RVLater}::[]
     else None, [] in 
@@ -88,7 +89,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     let statement_for_bool, condition_rvalue =
         convert_from_typed_expression ~allocated:(next_allocated) ~switch_count ~map ~count_var ~if_count ~cases_count typed_expression
       in
-      let incremented = (post_inc if_count) in
+      
       let goto_label1 = make_goto_label ~count_if:incremented 0 in
       let goto_label2 = (make_goto_label ~count_if:incremented 1) in
       let exit_label = make_end_label ~count_if:incremented in
@@ -129,7 +130,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
         lambda_make_locale_condition_label (i + 1)
       else  else_label in
       
-      let (statement_for_condition, tac_condition) = convert_from_typed_expression ~switch_count  ~map ~count_var ~if_count ~cases_count case_condition in
+      let (statement_for_condition, tac_condition) = convert_from_typed_expression ~switch_count ~map ~count_var ~if_count ~cases_count case_condition in
       let tac_body = convert_from_rkbody ~cases_count ~switch_count ~previous_alloc:(allocated) ~label_name:label ~map ~count_var ~if_count rkbody in
          {
           condition_label = self_condition_label;
@@ -153,17 +154,18 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
 
     let fn_local_switch_label = make_switch_goto_label ~switch_count:incremented in
     let sw_exit_label = make_switch_end_label ~switch_count:(incremented) in
-      let allocated, forward_push = 
+      let next_allocated, forward_push = 
     if typed_expression |> Expression.is_typed_expresion_branch then 
       let new_tmp = (make_inc_tmp count_var) in Some new_tmp,  STacDeclaration {identifier = new_tmp; expression = RVLater}::[]
   else None, [] in 
-    let statemenets_for_case, condition_switch = convert_from_typed_expression ~allocated ~switch_count ~cases_count ~if_count ~count_var ~map rexpression in
+    let statemenets_for_case, condition_switch = convert_from_typed_expression ~allocated:next_allocated  ~switch_count ~cases_count ~if_count ~count_var ~map rexpression in
     let sw_cases = cases |> List.mapi (fun i (variants, bounds, kbody) ->
       let sw_goto = fn_local_switch_label i in 
         let variants_to_match = variants |> List.map RSwitch_Case.variant in
         let bounds_id, assoc_bound = bounds |> List.map (fun (index, id, rtype) -> id, (index, rtype)) |> List.split in
-        let () = bounds_id |> List.iter (fun s -> 
-          Hashtbl.add map s (make_inc_tmp count_var)
+        let () = bounds_id |> List.iteri (fun i s -> 
+          Hashtbl.add map s (Printf.sprintf "tmp.%u" i)
+          
           ) in
         let switch_tac_body = convert_from_rkbody ~previous_alloc:(allocated) ~label_name:sw_goto ~map ~count_var ~if_count ~cases_count ~switch_count kbody in
         {
