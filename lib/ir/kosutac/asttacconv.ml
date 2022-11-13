@@ -75,7 +75,7 @@ let convert_if_allocated ~allocated tac_expression =
   match allocated with
   | None -> [], tac_expression
   | Some identifier -> STacModification {identifier; expression = RVExpression tac_expression}::[], TEIdentifier identifier
-let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
+let rec convert_from_typed_expression ~(allocated) ~map ~count_var
     ~if_count ~cases_count ~switch_count typed_expression =
   let _rktype = typed_expression.rktype in
   let expr = typed_expression.rexpression in
@@ -129,12 +129,15 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
       let jmp_next_condition = if i < cases_len - 1 then  
         lambda_make_locale_condition_label (i + 1)
       else  else_label in
+      let next_allocated, stmt = if typed_expression |> Expression.is_typed_expresion_branch then 
+        let new_tmp = (make_inc_tmp count_var) in Some new_tmp, STacDeclaration {identifier = new_tmp; expression = RVLater}::[]
+    else None, [] in 
       
-      let (statement_for_condition, tac_condition) = convert_from_typed_expression ~switch_count ~map ~count_var ~if_count ~cases_count case_condition in
+      let (statement_for_condition, tac_condition) = convert_from_typed_expression ~allocated:(next_allocated) ~switch_count ~map ~count_var ~if_count ~cases_count case_condition in
       let tac_body = convert_from_rkbody ~cases_count ~switch_count ~previous_alloc:(allocated) ~label_name:label ~map ~count_var ~if_count rkbody in
          {
           condition_label = self_condition_label;
-          statement_for_condition;
+          statement_for_condition = statement_for_condition @ stmt;
           condition = tac_condition;
           end_label;
           goto = label;
@@ -204,7 +207,14 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
   | _, RETuple (typed_expressions) -> 
     let stmts_needed, tac_expression =
     typed_expressions
-    |> List.map (convert_from_typed_expression ~switch_count ~cases_count ~map ~count_var ~if_count)
+    |> List.map ( fun ty_ex -> 
+      let next_allocated, stmt = if ty_ex |> Expression.is_typed_expresion_branch then 
+        let new_tmp = (make_inc_tmp count_var) in Some new_tmp, STacDeclaration {identifier = new_tmp; expression = RVLater}::[]
+    else None, [] in 
+      let (stmt_needed, tac_expression) = convert_from_typed_expression ~allocated:(next_allocated) ~switch_count ~cases_count ~map ~count_var ~if_count ty_ex in
+        stmt @ stmt_needed, tac_expression
+      )
+      
     |> List.fold_left_map
          (fun acc (stmts, value) -> (acc @ stmts, value))
          []
@@ -222,7 +232,12 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     ->
       let stmts_needed, tac_parameters =
         parameters
-        |> List.map (convert_from_typed_expression ~switch_count ~cases_count ~map ~count_var ~if_count)
+        |> List.map (fun ty_ex -> 
+          let next_allocated, stmt = if ty_ex |> Expression.is_typed_expresion_branch then 
+            let new_tmp = (make_inc_tmp count_var) in Some new_tmp, STacDeclaration {identifier = new_tmp; expression = RVLater}::[]
+        else None, [] in 
+          let (stmt_needed, tac_expression) = convert_from_typed_expression ~allocated:(next_allocated) ~switch_count ~cases_count ~map ~count_var ~if_count ty_ex in
+            stmt @ stmt_needed, tac_expression)
         |> List.fold_left_map
              (fun acc (stmts, value) -> (acc @ stmts, value))
              []
@@ -245,8 +260,13 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
   | _, REStruct {modules_path; struct_name; fields } -> 
     let stmts_needed, tac_fields = 
     fields
-    |> List.map (fun (field, typed_expression) ->
-      field, convert_from_typed_expression ~switch_count ~cases_count ~map ~count_var ~if_count typed_expression
+    |> List.map (fun (field, ty_ex) ->
+        let next_allocated, stmt = if ty_ex |> Expression.is_typed_expresion_branch then 
+          let new_tmp = (make_inc_tmp count_var) in Some new_tmp, STacDeclaration {identifier = new_tmp; expression = RVLater}::[]
+      else None, [] in 
+        let (stmt_needed, tac_expression) = convert_from_typed_expression ~allocated:(next_allocated) ~switch_count ~cases_count ~map ~count_var ~if_count ty_ex in
+          
+      field, ( stmt @ stmt_needed, tac_expression)
     )
     |> List.fold_left_map (fun acc (field, (stmts, tac_expr)) -> 
       acc @ stmts, (field, tac_expr)
@@ -264,7 +284,12 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
   | _ , REEnum {modules_path; enum_name; variant; assoc_exprs} -> 
     let stmts_needed, assoc_tac_exprs = 
     assoc_exprs
-    |> List.map (convert_from_typed_expression ~switch_count ~cases_count ~map ~count_var ~if_count)
+    |> List.map (fun ty_ex -> 
+      let next_allocated, stmt = if ty_ex |> Expression.is_typed_expresion_branch then 
+        let new_tmp = (make_inc_tmp count_var) in Some new_tmp, STacDeclaration {identifier = new_tmp; expression = RVLater}::[]
+    else None, [] in 
+      let (stmt_needed, tac_expression) = convert_from_typed_expression ~allocated:(next_allocated) ~switch_count ~cases_count ~map ~count_var ~if_count ty_ex in
+        stmt @ stmt_needed, tac_expression)
     |> List.fold_left_map (fun acc (smts, value) -> acc @ smts, value) []
   in
   let new_tmp = make_inc_tmp count_var in
@@ -278,7 +303,10 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
   let (last_stmt, return) = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
   stmts_needed @ (statement::last_stmt), return
   | _, REFieldAcces {first_expr; field} -> 
-    let needed_statement, tac_expr = convert_from_typed_expression ~switch_count ~cases_count ~map ~if_count ~count_var first_expr in
+    let next_allocated, stmt = if typed_expression |> Expression.is_typed_expresion_branch then 
+      let new_tmp = (make_inc_tmp count_var) in Some new_tmp, STacDeclaration {identifier = new_tmp; expression = RVLater}::[]
+  else None, [] in 
+    let needed_statement, tac_expr = convert_from_typed_expression ~allocated:(next_allocated) ~switch_count ~cases_count ~map ~if_count ~count_var first_expr in
     let new_tmp = make_inc_tmp count_var in
     let field_acces = RVFieldAcess {
       first_expr = tac_expr;
@@ -286,7 +314,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     } in
     let statement = STacDeclaration { identifier = new_tmp; expression = field_acces} in
     let last_stmt, return = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
-    needed_statement @ (statement::last_stmt), return
+    needed_statement @ stmt @ (statement::last_stmt), return
   | _, REAdress identifier ->
     let new_tmp = make_inc_tmp count_var in
     let adress = RVAdress (Hashtbl.find map identifier) in
@@ -296,8 +324,15 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
   | _, REBin_op bin -> 
     let operator = Operator.bin_operantor bin in
     let (ltyped, rtyped) = Operator.typed_operandes bin in
-    let (lstamements_needed, lhs_value) = convert_from_typed_expression ~switch_count ~cases_count ~map ~if_count ~count_var ltyped in
-    let (rstamements_needed, rhs_value) = convert_from_typed_expression ~switch_count ~cases_count ~map ~if_count ~count_var rtyped in
+    let lnext_allocated, lstmt = if typed_expression |> Expression.is_typed_expresion_branch then 
+      let new_tmp = (make_inc_tmp count_var) in Some new_tmp, STacDeclaration {identifier = new_tmp; expression = RVLater}::[]
+  else None, [] in 
+
+  let rnext_allocated, rstmt = if typed_expression |> Expression.is_typed_expresion_branch then 
+    let new_tmp = (make_inc_tmp count_var) in Some new_tmp, STacDeclaration {identifier = new_tmp; expression = RVLater}::[]
+else None, [] in 
+    let (lstamements_needed, lhs_value) = convert_from_typed_expression ~allocated:(lnext_allocated) ~switch_count ~cases_count ~map ~if_count ~count_var ltyped in
+    let (rstamements_needed, rhs_value) = convert_from_typed_expression ~allocated:(rnext_allocated) ~switch_count ~cases_count ~map ~if_count ~count_var rtyped in
     let new_tmp = make_inc_tmp count_var in
     let binary_op = RVBinop {
       binop = operator;
@@ -306,11 +341,14 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     } in
     let stamement = STacDeclaration { identifier = new_tmp; expression = binary_op} in
     let last_stmt, return = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
-    lstamements_needed @ rstamements_needed @ (stamement::last_stmt), return
+    lstamements_needed @ rstamements_needed @ lstmt @ rstmt @ (stamement::last_stmt), return
   | _, REUn_op unary -> 
     let operator = Operator.unary_operator unary in
     let operand = Operator.typed_operand unary in
-    let (need_stmts, lvalue) = convert_from_typed_expression ~switch_count ~cases_count ~map ~if_count ~count_var operand in
+    let next_allocated, stmt = if typed_expression |> Expression.is_typed_expresion_branch then 
+      let new_tmp = (make_inc_tmp count_var) in Some new_tmp, STacDeclaration {identifier = new_tmp; expression = RVLater}::[]
+  else None, [] in 
+    let (need_stmts, lvalue) = convert_from_typed_expression ~allocated:(next_allocated) ~switch_count ~cases_count ~map ~if_count ~count_var operand in
     let new_tmp = make_inc_tmp count_var in
     let unary_op = RVUnop {
       unop = operator;
@@ -318,7 +356,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
     } in
     let statement = STacDeclaration {identifier = new_tmp; expression = unary_op } in
     let last_stmt, return = convert_if_allocated ~allocated (TEIdentifier new_tmp) in
-    (need_stmts @ statement::last_stmt ), return
+    stmt @ (need_stmts @ statement::last_stmt ), return
   | _, REDeference (n, id) -> 
     let rec loop i = 
       match i with
