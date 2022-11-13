@@ -180,7 +180,7 @@ let rec convert_from_typed_expression ?(allocated = None) ~map ~count_var
 
   let wildcard_label = wildcard_case |> Option.map (fun _ -> make_switch_wild_label ~switch_count:incremented) in
   let wildcard_body = wildcard_case |> Option.map (fun wild_body ->
-    let label_name = make_switch_end_label ~switch_count:incremented in
+    let label_name = make_switch_wild_label ~switch_count:incremented in
       convert_from_rkbody ~previous_alloc:(allocated) ~cases_count ~switch_count ~label_name ~map ~count_var ~if_count wild_body) 
     in
     STSwitch {

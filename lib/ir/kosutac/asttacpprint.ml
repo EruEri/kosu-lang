@@ -71,7 +71,7 @@ and string_of_tac_statement = function
         let () = Buffer.add_string buffer (sprintf "\n") in
         ()
       ) in 
-    let () = Buffer.add_string buffer (wildcard_label |> Option.map (sprintf "\n\tjump %s") |> Option.value ~default:"" ) in
+    let () = Buffer.add_string buffer (wildcard_label |> Option.map (sprintf "\n\tjump %s\n") |> Option.value ~default:"" ) in
       ()
   ) in
 
@@ -80,8 +80,9 @@ and string_of_tac_statement = function
     () 
   ) in
 
-  let () = wildcard_body |> Option.iter ( fun body -> 
-    let () = Buffer.add_string buffer (string_of_label_tac_body body) in
+  let () = wildcard_body |> Option.iter (fun body -> 
+    let s = sprintf "%s" (string_of_label_tac_body ~end_jmp:(Some sw_exit_label) body) in
+    let () = Buffer.add_string buffer (s) in
     ()
   ) in
 
