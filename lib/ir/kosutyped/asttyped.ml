@@ -200,7 +200,59 @@ module RType = struct
   let rtpointee = function
   | RTPointer kt -> kt
   | _ -> failwith "Cannot access pointee type of a none pointer type"
+    let module_path_opt = function
+    | RTParametric_identifier {module_path; _} | RTType_Identifier {module_path; _} -> Some module_path
+    | _ -> None
+  
+    let rtype_name_opt = function
+    | RTParametric_identifier {name; _} | RTType_Identifier {name; _} -> Some name
+    | _ -> None
+    let is_builtin_rtype = function
+    | RTParametric_identifier _ | RTType_Identifier _ -> false
+    | _ -> true
+    let rpointer p = RTPointer p
+    let rtuple tuples = RTTuple tuples
+  
+    let extract_parametrics_rktype = function
+    | RTParametric_identifier {parametrics_type; _} -> parametrics_type
+    | _ -> []
+    let rec remap_generic_ktype generics_table rktype =
+      match rktype with
+      | RTType_Identifier { module_path = ""; name }
+        -> (
+          match Hashtbl.find_opt generics_table name with
+          | None ->
+              RTType_Identifier
+                { module_path = ""; name }
+          | Some (rtyp) -> rtyp)
+      | RTType_Identifier { module_path = _; name } as t -> (
+          match Hashtbl.find_opt generics_table name with
+          | None -> t
+          | Some (typ) -> typ)
+      | RTParametric_identifier { module_path; parametrics_type; name } ->
+          RTParametric_identifier
+            {
+              module_path;
+              parametrics_type =
+                parametrics_type
+                |> List.map
+                        (remap_generic_ktype generics_table);
+              name;
+            }
+      | RTTuple kts ->
+          RTTuple
+            (kts
+            |> List.map
+                    (remap_generic_ktype generics_table))
+      | RTPointer kt ->
+          kt
+          |> (remap_generic_ktype generics_table)
+          |> rpointer
+      | _ as kt -> kt
+  
 end
+
+
 
 module RSwitch_Case = struct
   let variant = function
@@ -281,4 +333,156 @@ module Binop = struct
     | RBEqual (lhs, rhs)
     | RBDif (lhs, rhs) ->
         (lhs, rhs)
+end
+
+module Rtype_Decl = struct
+  type type_decl = 
+  | RDecl_Struct of rstruct_decl
+  | RDecl_Enum of renum_decl
+
+  let type_name = function
+  | RDecl_Struct e -> e.rstruct_name
+  | RDecl_Enum s -> s.renum_name
+end
+
+module Rmodule = struct
+  open Rtype_Decl
+  let retrieve_type_decl = function
+  | RModule rmodule_nodes -> 
+    rmodule_nodes
+    |> List.filter_map (fun node -> 
+      match node with 
+      | RNStruct struct_decl -> Some (RDecl_Struct struct_decl)
+      | RNEnum enum_decl -> Some (RDecl_Enum enum_decl)
+      | _ -> None
+    )
+end
+
+module RProgram = struct 
+
+  let find_module_of_name module_name (rprogram: rprogram) =
+    rprogram
+    |> List.find_map (fun {filename = _; rmodule_path} -> 
+      if rmodule_path.path = module_name 
+        then Some rmodule_path.rmodule
+      else None
+    )
+  let find_type_decl_from_rktye ktype rprogram = 
+    if RType.is_builtin_rtype ktype then None
+    else
+      let type_name = ktype |> RType.rtype_name_opt |> Option.get in
+      let type_module_name = ktype |> RType.module_path_opt |> Option.get in
+      let rmodule = rprogram |> find_module_of_name type_module_name |> Option.get in
+      rmodule
+      |> Rmodule.retrieve_type_decl
+      |> List.find (fun rtype_decl -> type_name = (rtype_decl |> Rtype_Decl.type_name))
+      |> Option.some
+end
+
+module Sizeof = struct
+  let ( ++ ) = Int64.add
+  let ( -- ) = Int64.sub
+
+  let rec size calcul  program rktype =
+    match rktype with
+    | RTUnit | RTBool | RTUnknow -> 1L
+    | RTInteger (_, isize) -> Isize.size_of_isize isize / 8 |> Int64.of_int
+    | RTFloat | RTPointer _ | RTString_lit | RTFunction _ -> 8L
+    | RTTuple kts -> (
+        kts |> function
+        | list -> (
+            let size, align, _packed_size =
+              list
+              |> List.fold_left
+                   (fun (acc_size, acc_align, acc_packed_size) kt ->
+                     let comming_size =
+                       kt |> size `size  program
+                     in
+                     let comming_align =
+                       kt |> size `align  program
+                     in
+                     let quotient = Int64.unsigned_div acc_size comming_align in
+                     let reminder = Int64.unsigned_rem acc_size comming_align in
+                     let new_pacced_size = comming_size ++ acc_packed_size in
+
+                     let add_size =
+                       if new_pacced_size < acc_size then 0L
+                       else if comming_size < acc_align then acc_align
+                       else comming_size
+                     in
+
+                     let padded_size =
+                       if reminder = 0L || acc_size = 0L then acc_size
+                       else Int64.mul comming_align (quotient ++ 1L)
+                     in
+                     ( padded_size ++ add_size,
+                       max comming_align acc_align,
+                       new_pacced_size ))
+                   (0L, 0L, 0L)
+            in
+            match calcul with `size -> size | `align -> align))
+    | kt -> (
+        let type_decl = RProgram.find_type_decl_from_rktye kt program |> Option.get in 
+
+        match type_decl with
+        | Rtype_Decl.RDecl_Enum enum_decl ->
+            size_enum 
+            calcul 
+            program 
+            (kt |> RType.extract_parametrics_rktype |> List.combine enum_decl.generics |> List.to_seq |> Hashtbl.of_seq)
+              enum_decl
+        | Rtype_Decl.RDecl_Struct struct_decl ->
+            size_struct calcul program
+            (kt |> RType.extract_parametrics_rktype |> List.combine struct_decl.generics |> List.to_seq |> Hashtbl.of_seq)
+             struct_decl)
+
+  and size_struct calcul  program generics struct_decl =
+    struct_decl.rfields
+    |> List.map (fun (_, kt) ->
+           RType.remap_generic_ktype generics kt)
+    |> function
+    | list -> (
+        let size, align, _packed_size =
+          list
+          |> List.fold_left
+               (fun (acc_size, acc_align, acc_packed_size) kt ->
+                 let comming_size = kt |> size `size  program in
+                 let comming_align = kt |> size `align  program in
+                 let quotient = Int64.unsigned_div acc_size comming_align in
+                 let reminder = Int64.unsigned_rem acc_size comming_align in
+                 let new_pacced_size = comming_size ++ acc_packed_size in
+
+                 let add_size =
+                   if new_pacced_size < acc_size then 0L
+                   else if comming_size < acc_align then acc_align
+                   else comming_size
+                 in
+
+                 let padded_size =
+                   if reminder = 0L || acc_size = 0L then acc_size
+                   else Int64.mul comming_align (quotient ++ 1L)
+                 in
+                 ( padded_size ++ add_size,
+                   max comming_align acc_align,
+                   new_pacced_size ))
+               (0L, 0L, 0L)
+        in
+        match calcul with `size -> size | `align -> align)
+
+  and size_enum calcul  program generics enum_decl =
+    enum_decl.rvariants
+    |> List.map (fun (_, kts) ->
+           kts
+           |> List.map
+                   (RType.remap_generic_ktype generics)
+           |> List.cons (RTInteger (Unsigned, I32))
+           |> RType.rtuple
+           |> size calcul  program)
+    |> List.fold_left max 0L
+
+  let sizeof  program ktype =
+    size `size  program ktype
+
+  let alignmentof  program ktype =
+    size `align  program ktype
 end

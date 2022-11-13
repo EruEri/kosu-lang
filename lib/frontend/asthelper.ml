@@ -19,8 +19,8 @@
 open Ast
 open Printf
 open Position
+open Ast.Isize
 
-let size_of_isize = function I8 -> 8 | I16 -> 16 | I32 -> 32 | I64 -> 64
 let f = sprintf "%Ld"
 
 let module_path_of_ktype_opt = function

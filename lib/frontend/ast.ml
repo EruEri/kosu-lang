@@ -233,6 +233,10 @@ type module_path = { path : string; _module : _module }
 type named_module_path = { filename : string; module_path : module_path }
 type program = named_module_path list
 
+module Isize = struct
+  let size_of_isize = function | I8 -> 8 | I16 -> 16 | I32 -> 32 | I64 -> 64 
+end
+
 module Type_Decl = struct
   type type_decl = Decl_Enum of enum_decl | Decl_Struct of struct_decl
 
