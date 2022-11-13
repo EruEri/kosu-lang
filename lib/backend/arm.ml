@@ -238,7 +238,7 @@ end
 
 (**
 @return Whenether or not the value can be store 
-directly from the register or it needs to be fetched since non trival size or passed by reference before beeing cloned into the stack    
+directly from the register or it needs to be fetched since non trival size are passed by reference before beeing cloned into the stack    
 *)
 let does_it_hold_in_register program rktype  = 
   let sizeof = KosuIrTyped.Asttyped.Sizeof.sizeof program rktype in

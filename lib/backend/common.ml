@@ -1,5 +1,6 @@
 open KosuIrTyped.Asttyped
 open KosuIrTyped.Asttyped.Sizeof
+open KosuIrTAC.Asttac
 
 
 let offset_of_field ~generics field rstruct_decl rprogram = 
@@ -121,23 +122,112 @@ and map_fill_string_lit_of_rkbody map (rstmts, last_rexpr) () =
   | [] -> 
     map_fill_string_lit_of_typed_expression map last_rexpr () *)
 
-let map_fill_string_lit_of_rkbody _a _b () = failwith ""  
+let rec map_fill_string_lit_of_tac_expression map expression () = 
+  match expression with
+  | TEString s -> (
+    match Hashtbl.find_opt map s with
+    | None -> Hashtbl.add map s (make_string_litteral_label (map |> Hashtbl.length))
+    | Some _ -> ()
+  )
+  | _ -> ()
+and map_fill_string_lit_of_trvalue map trvalue () = 
+match trvalue with
+| RVUminus e | RVNeg e -> map_fill_string_lit_of_trvalue map e.rvalue ()
+| RVExpression e -> map_fill_string_lit_of_tac_expression map e.tac_expression ()
+| RVFunction {tac_parameters; _} -> tac_parameters |> List.iter (fun typed_expr -> 
+  map_fill_string_lit_of_tac_expression map typed_expr.tac_expression ()
+  )
+| RVStruct {fields; _} -> fields |> List.iter (fun (_, typed_expr) -> 
+  map_fill_string_lit_of_tac_expression map typed_expr.tac_expression ()
+  )
+| RVEnum {assoc_tac_exprs; _ } -> assoc_tac_exprs |> List.iter (fun typed_expr -> 
+  map_fill_string_lit_of_tac_expression map typed_expr.tac_expression ()
+  )
+| RVBuiltinCall {parameters; _} | RVTuple (parameters) -> parameters |> List.iter (fun typed_expr -> 
+  map_fill_string_lit_of_tac_expression map typed_expr.tac_expression ()
+  )
+| RVCustomBinop bin | RVBuiltinBinop bin -> 
+  let () = map_fill_string_lit_of_tac_expression map bin.blhs.tac_expression () in
+  map_fill_string_lit_of_tac_expression map bin.brhs.tac_expression ()
+| RVCustomUnop un | RVBuiltinUnop un -> 
+  map_fill_string_lit_of_tac_expression map un.expr.tac_expression ()
+| RVFieldAcess {first_expr; _} -> map_fill_string_lit_of_tac_expression map first_expr.tac_expression ()
+| RVAdress _ | RVDefer _ | RVDiscard | RVLater -> ()
+and map_fill_string_lit_of_tac_case map {statement_for_condition; condition; tac_body; _} () =
+  let () = statement_for_condition |> List.iter (fun stmt -> 
+    map_fill_string_lit_of_tac_statement map stmt ()
+  ) in
+  let () = map_fill_string_lit_of_tac_expression map condition.tac_expression () in
+  let () = map_fill_string_lit_of_tac_body map tac_body () in
+  ()
+and map_fill_string_lit_of_tac_switch map {switch_tac_body; _} () = 
+  map_fill_string_lit_of_tac_body map switch_tac_body ()
+and map_fill_string_lit_of_tac_statement map statement () = 
+match statement with
+| STacDeclaration {trvalue; _}
+| STacModification {trvalue; _}
+| STDerefAffectation {trvalue; _} ->
+  map_fill_string_lit_of_trvalue map trvalue.rvalue ()
+| STIf {
+  statement_for_bool;
+  condition_rvalue;
+  if_tac_body;
+  else_tac_body; _
+} -> 
+  let () = statement_for_bool |> List.iter (fun lstmt -> 
+    map_fill_string_lit_of_tac_statement map lstmt ()
+    ) in
+    let () = map_fill_string_lit_of_tac_expression map condition_rvalue.tac_expression() in
+    let () = map_fill_string_lit_of_tac_body map if_tac_body () in
+    let () = map_fill_string_lit_of_tac_body map else_tac_body () in
+    ()
+| STSwitch {
+  statemenets_for_case;
+  condition_switch;
+  sw_cases;
+  wildcard_body; _
+} -> 
+  let () = statemenets_for_case |> List.iter (fun smt -> 
+    map_fill_string_lit_of_tac_statement map smt ()
+  ) in
+  let () = map_fill_string_lit_of_tac_expression map condition_switch.tac_expression () in
+  let () = sw_cases |> List.iter (fun tac_switch -> 
+    map_fill_string_lit_of_tac_switch map tac_switch ()
+  ) in
+  let () = wildcard_body |> Option.iter (fun tb -> map_fill_string_lit_of_tac_body map tb ()) in
+  ()
+| SCases {
+  cases;
+  else_tac_body;
+  _
+} -> let () = cases |> List.iter (fun case -> map_fill_string_lit_of_tac_case map case ()) in
+map_fill_string_lit_of_tac_body map else_tac_body ()
 
-let map_fill_string_lit_of_module_node map node  () = 
+and map_fill_string_lit_of_tac_body map {label = _; body = (statements, last)} () = 
+  let () = statements |> List.iter (fun stmt -> 
+    map_fill_string_lit_of_tac_statement map stmt ()
+  ) in
+  map_fill_string_lit_of_tac_expression map last.tac_expression ()
+
+
+and map_fill_string_lit_of_module_node map node  () = 
   match node with
-  | RNFunction { rbody; _ } -> map_fill_string_lit_of_rkbody map rbody ()
+  | TNFunction { tac_body; _ } -> map_fill_string_lit_of_tac_body map tac_body ()
+  | TNOperator op -> 
+    let body = KosuIrTAC.Asttachelper.OperatorDeclaration.tac_body op in
+    map_fill_string_lit_of_tac_body map body ()
   | _ -> ()
 
 
-let map_of_string_litteral_in_module (RModule(rmodule)) () = 
+let map_of_string_litteral_in_module (TacModule(rmodule)) () = 
   let map = Hashtbl.create 10 in
   let () = rmodule |> List.iter (fun modul -> 
     map_fill_string_lit_of_module_node map modul  ()
   ) in
   map
 
-let map_string_litteral_of_named_rmodule_path {filename = _;  rmodule_path = {path = _; rmodule = rmodule}} = 
-  map_of_string_litteral_in_module rmodule 
+let map_string_litteral_of_named_rmodule_path {filename = _;  tac_module_path = {path = _; tac_module}} = 
+  map_of_string_litteral_in_module tac_module 
   
 let maps_of_prgram program = 
   program
