@@ -669,7 +669,10 @@ let tac_function_decl_of_rfunction (rfunction_decl : rfunction_decl) =
   }
 
 let tac_operator_decl_of_roperator_decl = function
-  | RUnary { op; rfield; return_type; kbody } ->
+  | (RUnary { op; rfield; return_type; kbody } as self) ->
+    let label_name = 
+    (Printf.sprintf "%s_%s" (KosuIrTyped.Asttpprint.name_of_roperator self ) (KosuIrTyped.Asttpprint.string_of_rktype return_type))
+    in
       let map =
         [ (rfield |> fst |> fun n -> (n, "p0")) ]
         |> List.to_seq |> Hashtbl.of_seq
@@ -681,11 +684,14 @@ let tac_operator_decl_of_roperator_decl = function
           return_type;
           tac_body =
             convert_from_rkbody ~switch_count:(ref 0) ~cases_count:(ref 0)
-              ~label_name:"operator" ~map ~count_var:(ref 0) ~if_count:(ref 0)
+              ~label_name ~map ~count_var:(ref 0) ~if_count:(ref 0)
               kbody;
         }
-  | RBinary { op; rfields = ((f1, _), (f2, _)) as rfields; return_type; kbody }
+  | (RBinary { op; rfields = ((f1, _), (f2, _)) as rfields; return_type; kbody } as self) 
     ->
+      let label_name = 
+        (Printf.sprintf "%s_%s" (KosuIrTyped.Asttpprint.name_of_roperator self ) (KosuIrTyped.Asttpprint.string_of_rktype return_type))
+        in
       let map =
         [ f1; f2 ]
         |> List.mapi (fun i s -> (s, Printf.sprintf "p%u" i))
@@ -698,7 +704,7 @@ let tac_operator_decl_of_roperator_decl = function
           return_type;
           tac_body =
             convert_from_rkbody ~switch_count:(ref 0) ~cases_count:(ref 0)
-              ~label_name:"binary operator" ~map ~count_var:(ref 0)
+              ~label_name ~map ~count_var:(ref 0)
               ~if_count:(ref 0) kbody;
         }
 
@@ -733,12 +739,3 @@ and tac_program_of_rprogram (rprogram : rprogram) : tac_program =
            filename;
            tac_module_path = tac_module_path_of_rmodule_path rmodule_path;
          })
-(* and tac_program_of_rprogram (program: rprogram): tac_program =
-   program
-   |> List.map (
-     fun {filename, rmodule_path} ->
-       {
-         filename;
-         tac_module_path = tac_module_path_of_rmodule_path md
-       }
-   ) *)

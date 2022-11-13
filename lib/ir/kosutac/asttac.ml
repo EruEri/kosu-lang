@@ -133,19 +133,6 @@ and tac_statement =
 
 and tac_body = { label : string; body : tac_statement list * tac_typed_expression }
 
-(* let tac_rvalue_litteral_int sign isize value =
-  RVExpression (TEInt (sign, isize, value))
-
-let tac_rvalue_litteral_empty = RVExpression TEmpty
-let tac_rvalue_litteral_false = RVExpression TEFalse
-let tac_rvalue_litteral_true = RVExpression TETrue
-let tac_rvalue_litteral_flaot float = RVExpression (TEFloat float)
-let tac_rvalue_litteral_identifier var = RVExpression (TEIdentifier var)
-let tac_rvalue_litteral_stringlit s = RVExpression (TEString s)
-
-let tac_rvalue_litteral_const (module_path, name) =
-  RVExpression (TEConst { module_path; name }) *)
-
 type tac_function_decl = {
   rfn_name : string;
   generics : string list;
