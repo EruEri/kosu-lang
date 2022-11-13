@@ -93,13 +93,13 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
     ~cases_count ~switch_count typed_expression =
   let trktype = typed_expression.rktype in
   let expr = typed_expression.rexpression in
-  match (allocated, expr) with
-  | Some (identifier, id_rktype), REIf (typed_expression, if_body, else_body) ->
+  match (expr, allocated) with
+  | REIf (if_typed_expres, if_body, else_body), Some (identifier, id_rktype)  ->
       let incremented = post_inc if_count in
       let next_allocated, stmt =
-        if typed_expression |> Expression.is_typed_expresion_branch then
+        if if_typed_expres |> Expression.is_typed_expresion_branch then
           let new_tmp = make_inc_tmp count_var in
-          ( Some (new_tmp, typed_expression.rktype),
+          ( Some (new_tmp, if_typed_expres.rktype),
             STacDeclaration { identifier = new_tmp; trvalue = make_typed_tac_rvalue trktype RVLater } :: []
           )
         else (None, [])
@@ -107,7 +107,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
 
       let statement_for_bool, condition_rvalue =
         convert_from_typed_expression ~allocated:(next_allocated) ~switch_count
-          ~map ~count_var ~if_count ~cases_count typed_expression
+          ~map ~count_var ~if_count ~cases_count if_typed_expres
       in
 
       let goto_label1 = make_goto_label ~count_if:incremented 0 in
@@ -134,7 +134,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         :: [],
         make_typed_tac_expression id_rktype (TEIdentifier identifier) 
       )
-  | Some (identifier, id_rktype), RECases { cases; else_case } ->
+  | RECases { cases; else_case }, Some (identifier, id_rktype) ->
       let incremented = post_inc cases_count in
 
       let make_locale_label = make_case_goto_label ~cases_count:incremented in
@@ -196,7 +196,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         SCases { cases; exit_label = end_label; else_tac_body } :: [],
       make_typed_tac_expression id_rktype (TEIdentifier identifier) 
       )
-  | Some (identifier, id_rktype), RESwitch { rexpression; cases; wildcard_case } ->
+  | RESwitch { rexpression; cases; wildcard_case }, Some (identifier, id_rktype) ->
       let incremented = post_inc switch_count in
 
       let fn_local_switch_label =
@@ -272,22 +272,22 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         :: [],
         make_typed_tac_expression id_rktype
         (TEIdentifier identifier) )
-  | _, REmpty -> convert_if_allocated ~expr_rktype:(trktype) ~allocated TEmpty
-  | _, RFalse -> convert_if_allocated ~expr_rktype:(trktype) ~allocated TEFalse
-  | _, RTrue -> convert_if_allocated ~expr_rktype:(trktype) ~allocated TETrue
-  | _, RENullptr -> convert_if_allocated ~expr_rktype:(trktype) ~allocated TENullptr
-  | _, REInteger (sign, size, int) ->
+  | REmpty, _ -> convert_if_allocated ~expr_rktype:(trktype) ~allocated TEmpty
+  | RFalse, _ -> convert_if_allocated ~expr_rktype:(trktype) ~allocated TEFalse
+  | RTrue, _ -> convert_if_allocated ~expr_rktype:(trktype) ~allocated TETrue
+  | RENullptr, _ -> convert_if_allocated ~expr_rktype:(trktype) ~allocated TENullptr
+  | REInteger (sign, size, int), _ ->
       convert_if_allocated  ~expr_rktype:(trktype) ~allocated (TEInt (sign, size, int))
-  | _, REFloat float -> convert_if_allocated ~expr_rktype:(trktype) ~allocated (TEFloat float)
-  | _, RESizeof rktype -> convert_if_allocated ~expr_rktype:(trktype) ~allocated (TESizeof rktype)
-  | _, REstring s -> convert_if_allocated ~expr_rktype:(trktype) ~allocated (TEString s)
-  | _, REIdentifier { identifier; _ } ->
+  | REFloat float, _ -> convert_if_allocated ~expr_rktype:(trktype) ~allocated (TEFloat float)
+  | RESizeof rktype, _ -> convert_if_allocated ~expr_rktype:(trktype) ~allocated (TESizeof rktype)
+  | REstring s, _ -> convert_if_allocated ~expr_rktype:(trktype) ~allocated (TEString s)
+  | REIdentifier { identifier; _ }, _ ->
       convert_if_allocated ~expr_rktype:(trktype) ~allocated
         (TEIdentifier (Hashtbl.find map identifier))
-  | _, REConst_Identifier { modules_path; identifier } ->
+  | REConst_Identifier { modules_path; identifier }, _ ->
       convert_if_allocated ~expr_rktype:(trktype) ~allocated
         (TEConst { module_path = modules_path; name = identifier })
-  | _, RETuple typed_expressions ->
+  | RETuple typed_expressions, _ ->
       let stmts_needed, tac_expression =
         typed_expressions
         |> List.map (fun ty_ex ->
@@ -316,7 +316,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         convert_if_allocated ~expr_rktype:(trktype) ~allocated (TEIdentifier new_tmp)
       in
       (stmts_needed @ (last_stmt |> List.cons stt), return)
-  | _, REFunction_call { modules_path; generics_resolver; fn_name; parameters }
+  | REFunction_call { modules_path; generics_resolver; fn_name; parameters }, _
     ->
       let stmts_needed, tac_parameters =
         parameters
@@ -356,7 +356,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         convert_if_allocated ~expr_rktype:(trktype) ~allocated (TEIdentifier new_tmp)
       in
       (stmts_needed @ (last_stmt |> List.cons stt), return)
-  | _, REStruct { modules_path; struct_name; fields } ->
+  | REStruct { modules_path; struct_name; fields }, _ ->
       let stmts_needed, tac_fields =
         fields
         |> List.map (fun (field, ty_ex) ->
@@ -392,7 +392,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         convert_if_allocated ~expr_rktype:(trktype) ~allocated (TEIdentifier new_tmp)
       in
       (stmts_needed @ (statament :: last_stmt), return)
-  | _, REEnum { modules_path; enum_name; variant; assoc_exprs } ->
+  | REEnum { modules_path; enum_name; variant; assoc_exprs }, _ ->
       let stmts_needed, assoc_tac_exprs =
         assoc_exprs
         |> List.map (fun ty_ex ->
@@ -424,7 +424,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         convert_if_allocated ~expr_rktype:(trktype) ~allocated (TEIdentifier new_tmp)
       in
       (stmts_needed @ (statement :: last_stmt), return)
-  | _, REFieldAcces { first_expr; field } ->
+  | REFieldAcces { first_expr; field }, _ ->
       let next_allocated, stmt =
         if first_expr |> Expression.is_typed_expresion_branch then
           let new_tmp = make_inc_tmp count_var in
@@ -446,7 +446,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         convert_if_allocated ~expr_rktype:(trktype) ~allocated (TEIdentifier new_tmp)
       in
       (needed_statement @ stmt @ (statement :: last_stmt), return)
-  | _, REAdress identifier ->
+  | REAdress identifier, _ ->
       let new_tmp = make_inc_tmp count_var in
       let adress = RVAdress (Hashtbl.find map identifier) in
       let statement =
@@ -456,7 +456,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         convert_if_allocated ~expr_rktype:(trktype) ~allocated (TEIdentifier new_tmp)
       in
       (statement :: last_stmt, return)
-  | _, REBin_op bin ->
+  | REBin_op bin, _ ->
       let operator = Operator.bin_operantor bin in
       let ltyped, rtyped = Operator.typed_operandes bin in
       let lnext_allocated, lstmt =
@@ -497,7 +497,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       ( lstamements_needed @ rstamements_needed @ lstmt @ rstmt
         @ (stamement :: last_stmt),
         return )
-  | _, REUn_op unary ->
+  | REUn_op unary, _ ->
       let operator = Operator.unary_operator unary in
       let operand = Operator.typed_operand unary in
       let next_allocated, stmt =
@@ -521,7 +521,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         convert_if_allocated ~expr_rktype:(trktype) ~allocated (TEIdentifier new_tmp)
       in
       (stmt @ need_stmts @ (statement :: last_stmt), return)
-  | _, REDeference (n, id) ->
+  | REDeference (n, id), _ ->
       let rec loop i =
         match i with
         | 0 -> failwith ""
@@ -549,7 +549,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       (stmt, 
       make_typed_tac_expression trktype
       (TEIdentifier restult))
-  | _, REBinOperator_Function_call rkbin_op -> 
+  | REBinOperator_Function_call rkbin_op, _ -> 
     let operator = Operator.bin_operantor rkbin_op in
     let ltyped, rtyped = Operator.typed_operandes rkbin_op in
     let lnext_allocated, lstmt =
@@ -591,7 +591,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       @ (stamement :: last_stmt),
       return )
 
-  | _, REUnOperator_Function_call rkunary_op -> 
+  | REUnOperator_Function_call rkunary_op, _ -> 
     let operator = Operator.unary_operator rkunary_op in
     let operand = Operator.typed_operand rkunary_op in
     let next_allocated, stmt =
@@ -615,7 +615,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       convert_if_allocated ~expr_rktype:(trktype) ~allocated (TEIdentifier new_tmp)
     in
     (stmt @ need_stmts @ (statement :: last_stmt), return)
-  | _, REBuiltin_Function_call {fn_name; parameters} ->
+  | REBuiltin_Function_call {fn_name; parameters}, _ ->
     let stmts_needed, tac_parameters =
     parameters
     |> List.map (fun ty_ex ->
@@ -652,7 +652,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
     convert_if_allocated ~expr_rktype:(trktype) ~allocated (TEIdentifier new_tmp)
   in
   (stmts_needed @ (last_stmt |> List.cons stt), return)
-  | _, (RESwitch _ | RECases _ | REIf _) ->
+  | (RESwitch _ | RECases _ | REIf _), _ ->
       failwith
         "Compiler code Error: Cannot create branch without previous allocation"
 
