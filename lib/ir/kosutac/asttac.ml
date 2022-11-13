@@ -37,39 +37,46 @@ type tac_expression =
   | TEString of string
   | TEConst of { module_path : string; name : string }
   | TESizeof of rktype
-
+and tac_typed_expression = {
+  expr_rktype: rktype;
+  tac_expression: tac_expression
+}
+and tac_typed_rvalue = {
+  rval_rktype: rktype;
+  rvalue: tac_rvalue;
+}
 and tac_fncall = {
   module_path : string;
   fn_name : string;
   generics_resolver : rktype list option;
-  tac_parameters : tac_expression list;
+  tac_parameters : tac_typed_expression list;
 }
 
-and binary = { binop : tac_binop; blhs : tac_expression; brhs : tac_expression }
-and unary = { unop : tac_unop; expr : tac_expression }
+and binary = { binop : tac_binop; blhs : tac_typed_expression; brhs : tac_typed_expression }
+and unary = { unop : tac_unop; expr : tac_typed_expression }
 
 and tac_rvalue =
-  | RVUminus of tac_rvalue
-  | RVNeg of tac_rvalue
-  | RVExpression of tac_expression
+  | RVUminus of tac_typed_rvalue
+  | RVNeg of tac_typed_rvalue
+  | RVExpression of tac_typed_expression
   | RVFunction of tac_fncall
   | RVStruct of {
       module_path : string;
       struct_name : string;
-      fields : (string * tac_expression) list;
+      fields : (string * tac_typed_expression) list;
     }
   | RVEnum of {
       module_path : string;
       enum_name : string option;
       variant : string;
-      assoc_tac_exprs : tac_expression list;
+      assoc_tac_exprs : tac_typed_expression list;
     }
   | RVBuiltinCall of {
     fn_name: string;
-    parameters: tac_expression list;
+    parameters: tac_typed_expression list;
   }
-  | RVTuple of tac_expression list
-  | RVFieldAcess of { first_expr : tac_expression; field : string }
+  | RVTuple of tac_typed_expression list
+  | RVFieldAcess of { first_expr : tac_typed_expression; field : string }
   | RVAdress of string
   | RVDefer of string
   | RVCustomBinop of binary
@@ -82,7 +89,7 @@ and tac_rvalue =
 and tac_case = {
   condition_label : string option;
   statement_for_condition : tac_statement list;
-  condition : tac_expression;
+  condition : tac_typed_expression;
   goto : string;
   jmp_false : string;
   end_label : string;
@@ -98,12 +105,12 @@ and tac_switch = {
 }
 
 and tac_statement =
-  | STacDeclaration of { identifier : string; expression : tac_rvalue }
-  | STacModification of { identifier : string; expression : tac_rvalue }
-  | STDerefAffectation of { identifier : string; expression : tac_rvalue }
+  | STacDeclaration of { identifier : string; trvalue : tac_typed_rvalue }
+  | STacModification of { identifier : string; trvalue : tac_typed_rvalue }
+  | STDerefAffectation of { identifier : string; trvalue : tac_typed_rvalue }
   | STIf of {
       statement_for_bool : tac_statement list;
-      condition_rvalue : tac_expression;
+      condition_rvalue : tac_typed_expression;
       goto1 : string;
       goto2 : string;
       exit_label : string;
@@ -117,16 +124,16 @@ and tac_statement =
     }
   | STSwitch of {
       statemenets_for_case : tac_statement list;
-      condition_switch : tac_expression;
+      condition_switch : tac_typed_expression;
       sw_cases : tac_switch list;
       wildcard_label : string option;
       wildcard_body : tac_body option;
       sw_exit_label : string;
     }
 
-and tac_body = { label : string; body : tac_statement list * tac_expression }
+and tac_body = { label : string; body : tac_statement list * tac_typed_expression }
 
-let tac_rvalue_litteral_int sign isize value =
+(* let tac_rvalue_litteral_int sign isize value =
   RVExpression (TEInt (sign, isize, value))
 
 let tac_rvalue_litteral_empty = RVExpression TEmpty
@@ -137,7 +144,7 @@ let tac_rvalue_litteral_identifier var = RVExpression (TEIdentifier var)
 let tac_rvalue_litteral_stringlit s = RVExpression (TEString s)
 
 let tac_rvalue_litteral_const (module_path, name) =
-  RVExpression (TEConst { module_path; name })
+  RVExpression (TEConst { module_path; name }) *)
 
 type tac_function_decl = {
   rfn_name : string;

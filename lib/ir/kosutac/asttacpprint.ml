@@ -32,12 +32,12 @@ let rec string_of_label_tac_body ?(end_jmp = None) tac_body =
     (string_of_tac_body ~end_jmp tac_body.body)
 
 and string_of_tac_statement = function
-  | STacDeclaration { identifier; expression } ->
-      sprintf "%s = %s" identifier (string_of_tac_rvalue expression)
-  | STacModification { identifier; expression } ->
-      sprintf "%s <- %s" identifier (string_of_tac_rvalue expression)
-  | STDerefAffectation { identifier; expression } ->
-      sprintf "*%s <- %s" identifier (string_of_tac_rvalue expression)
+  | STacDeclaration { identifier; trvalue } ->
+      sprintf "%s = %s" identifier (string_of_typed_tac_rvalue trvalue)
+  | STacModification { identifier; trvalue } ->
+      sprintf "%s <- %s" identifier (string_of_typed_tac_rvalue trvalue)
+  | STDerefAffectation { identifier; trvalue } ->
+      sprintf "*%s <- %s" identifier (string_of_typed_tac_rvalue trvalue)
   | STIf
       {
         statement_for_bool;
@@ -60,7 +60,7 @@ and string_of_tac_statement = function
       let () =
         Buffer.add_string buffer
           (sprintf "\tif %s goto %s\n"
-             (string_of_tac_expression condition_rvalue)
+             (string_of_typed_tac_expression condition_rvalue)
              goto1)
       in
       let () = Buffer.add_string buffer (sprintf "\tjump %s\n" goto2) in
@@ -89,7 +89,7 @@ and string_of_tac_statement = function
         sw_exit_label;
       } ->
       let buffer = Buffer.create 86 in
-      let s_condition = string_of_tac_expression condition_switch in
+      let s_condition = string_of_typed_tac_expression condition_switch in
       let () =
         statemenets_for_case
         |> List.iter (fun stmt ->
@@ -151,7 +151,7 @@ and string_of_tac_statement = function
 and string_of_tac_body ?(end_jmp = None) (statemements, expression) =
   sprintf "%s\n\t%s%s"
     (statemements |> List.map string_of_tac_statement |> String.concat "\n\t")
-    (string_of_tac_expression expression)
+    (string_of_typed_tac_expression expression)
     (end_jmp
     |> Option.map (fun s -> sprintf "\n\tjump %s" s)
     |> Option.value ~default:"")
@@ -169,11 +169,12 @@ and string_of_tac_expression = function
   | TEString s -> sprintf "\"%s\"" s
   | TEConst { module_path; name } -> sprintf "%s::%s" module_path name
   | TESizeof rktype -> sprintf "sizeof(%s)" (string_of_rktype rktype)
-
+and string_of_typed_tac_expression { expr_rktype; tac_expression } = 
+    sprintf "(%s : %s)" (string_of_tac_expression tac_expression) (string_of_rktype expr_rktype)
 and string_of_tac_rvalue = function
-  | RVUminus rvalue -> sprintf "uminus(%s)" (string_of_tac_rvalue rvalue)
-  | RVNeg rvalue -> sprintf "!%s" (string_of_tac_rvalue rvalue)
-  | RVExpression expr -> string_of_tac_expression expr
+  | RVUminus rvalue -> sprintf "uminus(%s)" (string_of_typed_tac_rvalue rvalue)
+  | RVNeg rvalue -> sprintf "!%s" (string_of_typed_tac_rvalue rvalue)
+  | RVExpression expr -> string_of_typed_tac_expression expr
   | RVFunction { module_path; fn_name; generics_resolver; tac_parameters } ->
       sprintf "%s%s%s(%s)"
         (Util.string_of_module_path module_path)
@@ -184,7 +185,7 @@ and string_of_tac_rvalue = function
                  (kts |> List.map string_of_rktype |> String.concat ", "))
         |> Option.value ~default:"")
         (tac_parameters
-        |> List.map string_of_tac_expression
+        |> List.map string_of_typed_tac_expression
         |> String.concat ", ")
   | RVStruct { module_path; struct_name; fields } ->
       sprintf "%s%s { %s }"
@@ -192,7 +193,7 @@ and string_of_tac_rvalue = function
         struct_name
         (fields
         |> List.map (fun (id, expr) ->
-               sprintf "%s: %s" id (string_of_tac_expression expr))
+               sprintf "%s: %s" id (string_of_typed_tac_expression expr))
         |> String.concat ", ")
   | RVEnum { module_path; enum_name; variant; assoc_tac_exprs } ->
       sprintf "%s%s.%s%s"
@@ -203,32 +204,33 @@ and string_of_tac_rvalue = function
         else
           sprintf "(%s)"
             (assoc_tac_exprs
-            |> List.map string_of_tac_expression
+            |> List.map string_of_typed_tac_expression
             |> String.concat ", "))
   | RVTuple exprs ->
       sprintf "(%s)"
-        (exprs |> List.map string_of_tac_expression |> String.concat ", ")
+        (exprs |> List.map string_of_typed_tac_expression |> String.concat ", ")
   | RVFieldAcess { first_expr; field } ->
-      sprintf "%s->%s" (string_of_tac_expression first_expr) field
+      sprintf "%s->%s" (string_of_typed_tac_expression first_expr) field
   | RVAdress id -> sprintf "&%s" id
   | RVDefer id -> sprintf "*%s" id
   | RVCustomBinop bin -> sprintf "%s ; custom" (string_of_tac_binary bin)
   | RVCustomUnop un -> sprintf "%s ; custom" (string_of_tac_unary un)
   | RVBuiltinUnop un -> string_of_tac_unary un
   | RVBuiltinBinop bin -> string_of_tac_binary bin
-  | RVBuiltinCall {fn_name; parameters} -> sprintf "@%s(%s)" fn_name (parameters |> List.map string_of_tac_expression |> String.concat ", ")
+  | RVBuiltinCall {fn_name; parameters} -> sprintf "@%s(%s)" fn_name (parameters |> List.map string_of_typed_tac_expression |> String.concat ", ")
   | RVLater -> "lateinit"
   | RVDiscard -> "discard"
-
+and string_of_typed_tac_rvalue { rval_rktype; rvalue } = 
+    sprintf "%s ::> %s" (string_of_tac_rvalue rvalue) (string_of_rktype rval_rktype) 
 and string_of_tac_binary binary =
   let symbole = symbole_of_binary binary in
-  let lhs = string_of_tac_expression binary.blhs in
-  let rhs = string_of_tac_expression binary.brhs in
+  let lhs = string_of_typed_tac_expression binary.blhs in
+  let rhs = string_of_typed_tac_expression binary.brhs in
   sprintf "%s %s %s" lhs symbole rhs
 
 and string_of_tac_unary unary =
   let symbole = symbole_of_unary unary in
-  let lhs = string_of_tac_expression unary.expr in
+  let lhs = string_of_typed_tac_expression unary.expr in
   sprintf "%s %s" symbole lhs
 
 and string_of_tac_case
@@ -246,7 +248,7 @@ and string_of_tac_case
     (statement_for_condition
     |> List.map string_of_tac_statement
     |> String.concat "\n\t")
-    (string_of_tac_expression condition)
+    (string_of_typed_tac_expression condition)
     goto
     (jmp_false |> sprintf "\tjump %s")
     (string_of_label_tac_body ~end_jmp:(Some end_label) tac_body)
