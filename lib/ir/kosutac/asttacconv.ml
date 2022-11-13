@@ -166,7 +166,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
                in
                {
                  condition_label = self_condition_label;
-                 statement_for_condition = statement_for_condition @ stmt;
+                 statement_for_condition = stmt @ statement_for_condition;
                  condition = tac_condition;
                  end_label;
                  goto = label;
@@ -532,7 +532,43 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       (stmt, TEIdentifier restult)
   | _, REBinOperator_Function_call _ -> failwith "TODO: Custom binary operator"
   | _, REUnOperator_Function_call _ -> failwith "TODO: Custom unary operator"
-  | _, REBuiltin_Function_call _ -> failwith "TODO: builtitn function"
+  | _, REBuiltin_Function_call {fn_name; parameters} ->
+    let stmts_needed, tac_parameters =
+    parameters
+    |> List.map (fun ty_ex ->
+           let next_allocated, stmt =
+             if ty_ex |> Expression.is_typed_expresion_branch then
+               let new_tmp = make_inc_tmp count_var in
+               ( Some new_tmp,
+                 STacDeclaration
+                   { identifier = new_tmp; expression = RVLater }
+                 :: [] )
+             else (None, [])
+           in
+           let stmt_needed, tac_expression =
+             convert_from_typed_expression ~allocated:next_allocated
+               ~switch_count ~cases_count ~map ~count_var ~if_count ty_ex
+           in
+           (stmt @ stmt_needed, tac_expression))
+    |> List.fold_left_map
+         (fun acc (stmts, value) -> (acc @ stmts, value))
+         []
+  in
+  let new_tmp = make_inc_tmp count_var in
+  let call_rvalue =
+    RVBuiltinCall
+      {
+        fn_name;
+        parameters = tac_parameters;
+      }
+  in
+  let stt =
+    STacDeclaration { identifier = new_tmp; expression = call_rvalue }
+  in
+  let last_stmt, return =
+    convert_if_allocated ~allocated (TEIdentifier new_tmp)
+  in
+  (stmts_needed @ (last_stmt |> List.cons stt), return)
   | _, (RESwitch _ | RECases _ | REIf _) ->
       failwith
         "Compiler code Error: Cannot create branch without previous allocation"

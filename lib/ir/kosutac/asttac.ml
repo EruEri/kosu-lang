@@ -64,6 +64,10 @@ and tac_rvalue =
       variant : string;
       assoc_tac_exprs : tac_expression list;
     }
+  | RVBuiltinCall of {
+    fn_name: string;
+    parameters: tac_expression list;
+  }
   | RVTuple of tac_expression list
   | RVFieldAcess of { first_expr : tac_expression; field : string }
   | RVAdress of string

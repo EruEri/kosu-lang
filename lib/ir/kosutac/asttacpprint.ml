@@ -214,6 +214,7 @@ and string_of_tac_rvalue = function
   | RVDefer id -> sprintf "*%s" id
   | RVUnop un -> string_of_tac_unary un
   | RVBinop bin -> string_of_tac_binary bin
+  | RVBuiltinCall {fn_name; parameters} -> sprintf "@%s(%s)" fn_name (parameters |> List.map string_of_tac_expression |> String.concat ", ")
   | RVLater -> "lateinit"
   | RVDiscard -> "discard"
 
