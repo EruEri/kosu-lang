@@ -315,7 +315,7 @@ expr:
     }
     | l=located(separated_list(DOUBLECOLON, Module_IDENT)) name=located(IDENT) generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, located(ktype)) SUP { s } ) LPARENT exprs=separated_list(COMMA, located(expr) ) RPARENT {
         EFunction_call { 
-            modules_path = l |> Position.map( String.concat "/" ) ;
+            modules_path = l |> Position.map( String.concat "::" ) ;
             generics_resolver;
             fn_name = name;
             parameters = exprs;
@@ -323,14 +323,14 @@ expr:
     }
     | l=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) {
         EIdentifier { 
-            modules_path = l |> Position.map( String.concat "/" ) ;
+            modules_path = l |> Position.map( String.concat "::" ) ;
             identifier = id
         }
 
     }
     | l=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(Constant) {
         EConst_Identifier {
-            modules_path = l |> Position.map( String.concat "/" ) ;
+            modules_path = l |> Position.map( String.concat "::" ) ;
             identifier = id
         }
     }
@@ -343,7 +343,7 @@ expr:
                 fun acc value  -> 
                     let fn_name, generics_resolver, parameters, modules_path = value.v in
                     EFunction_call { 
-                        modules_path = modules_path |> Position.map( String.concat "/" );
+                        modules_path = modules_path |> Position.map( String.concat "::" );
                         generics_resolver;
                         fn_name;
                         parameters = ({ v = acc; position = value.position})::parameters;
@@ -352,14 +352,14 @@ expr:
         }
     | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) struct_name=located(IDENT) fields=delimited(LBRACE, separated_list(COMMA, id=located(IDENT) either_color_equal  expr=located(expr) { id, expr } ) , RBRACE) {
         EStruct {
-            modules_path = modules_path |> Position.map( String.concat "/" );
+            modules_path = modules_path |> Position.map( String.concat "::" );
             struct_name;
             fields
         }
     }
     | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) enum_name=option(located(IDENT)) DOT variant=located(IDENT) assoc_exprs=option(delimited(LPARENT, separated_nonempty_list(COMMA, located(expr)) ,RPARENT)) {
         EEnum {
-            modules_path = modules_path |> Position.map( String.concat "/" );
+            modules_path = modules_path |> Position.map( String.concat "::" );
             enum_name;
             variant;
             assoc_exprs = assoc_exprs |> Option.value ~default: []
@@ -423,7 +423,7 @@ ctype:
         | "s64" -> TInteger( Signed, I64)
         | "u64" -> TInteger( Unsigned, I64)
         | _ -> TType_Identifier {
-            module_path = modules_path |> Position.map( String.concat "/" ) ;
+            module_path = modules_path |> Position.map( String.concat "::" ) ;
             name = id
         }
      }
@@ -445,7 +445,7 @@ ktype:
         | "u64" -> TInteger( Unsigned, I64)
         | "stringl" -> TString_lit
         | _ -> TType_Identifier {
-            module_path = modules_path |> Position.map( String.concat "/" ) ;
+            module_path = modules_path |> Position.map( String.concat "::" ) ;
             name = id
         } 
      }
@@ -453,7 +453,7 @@ ktype:
     | LPARENT l=separated_nonempty_list(COMMA, located(ktype)) RPARENT 
     modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) { 
         TParametric_identifier {
-            module_path = modules_path |> Position.map( String.concat "/" ) ;
+            module_path = modules_path |> Position.map( String.concat "::" ) ;
             parametrics_type = l;
             name = id
         }
