@@ -34,11 +34,11 @@ let () =
     Clap.flag ~set_short:'c' ~description:"Produce an object file" false
   in
 
-  let _files = Clap.list_string ~description:"files" ~placeholder:"FILES" () in
+  let files = Clap.list_string ~description:"files" ~placeholder:"FILES" () in
 
   Clap.close ();
 
-  let modules_opt = Cli.files_to_ast_program _files in
+  let modules_opt = Cli.files_to_ast_program files in
 
   match modules_opt with
   | Error e -> (
