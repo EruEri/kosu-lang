@@ -169,7 +169,7 @@ and string_of_tac_statement = function
 and string_of_tac_body ?(end_jmp = None) (statemements, expression) =
   sprintf "%s\n\t%s%s"
     (statemements |> List.map string_of_tac_statement |> String.concat "\n\t")
-    (string_of_typed_tac_expression expression)
+    (expression |> Option.map (fun e -> sprintf "return %s" (string_of_typed_tac_expression e))  |> Option.value ~default:"" )
     (end_jmp
     |> Option.map (fun s -> sprintf "\n\tjump %s" s)
     |> Option.value ~default:"")

@@ -573,7 +573,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         "Compiler code Error: Cannot create branch without previous allocation"
 
 and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
-    ~if_count ~cases_count ~switch_count (rkbody : rkbody) =
+    ~if_count ~cases_count ~switch_count ?(function_return = false) (rkbody : rkbody) =
   let stmts, types_return = rkbody in
   match stmts with
   | stmt :: q -> (
@@ -589,7 +589,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
 
           let body =
             convert_from_rkbody ~switch_count ~cases_count ~previous_alloc
-              ~label_name ~map ~count_var ~if_count (q, types_return)
+              ~label_name ~map ~count_var ~if_count ~function_return (q, types_return)
           in
           add_statements_to_tac_body
             (stmt_opt
@@ -610,7 +610,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
           in
           let body =
             convert_from_rkbody ~switch_count ~cases_count ~previous_alloc
-              ~label_name ~map ~count_var ~if_count (q, types_return)
+              ~label_name ~map ~count_var ~if_count ~function_return (q, types_return)
           in
           body
           |> add_statements_to_tac_body
@@ -631,7 +631,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
           in
           add_statements_to_tac_body (push_forward @ tac_stmts)
             (convert_from_rkbody ~cases_count ~previous_alloc ~label_name ~map
-               ~count_var ~if_count ~switch_count (q, types_return))
+               ~count_var ~if_count ~switch_count ~function_return (q, types_return))
       | RSDerefAffectation (identifier, deref_typed_expr) ->
           let allocated, forward_declaration = create_forward_init ~count_var deref_typed_expr in
           let find_tmp = Hashtbl.find map identifier in
@@ -641,7 +641,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
           in
           let body =
             convert_from_rkbody ~switch_count ~previous_alloc ~label_name ~map
-              ~count_var ~if_count ~cases_count (q, types_return)
+              ~count_var ~if_count ~cases_count ~function_return (q, types_return)
           in
           add_statements_to_tac_body
             (
@@ -671,7 +671,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
       {
         label = label_name;
         body =
-          (forward_push @ stmts @ penultimate_stmt, expr);
+          (forward_push @ stmts @ penultimate_stmt, if function_return then Some expr else None);
       }
 
 let tac_function_decl_of_rfunction (rfunction_decl : rfunction_decl) =
@@ -688,6 +688,7 @@ let tac_function_decl_of_rfunction (rfunction_decl : rfunction_decl) =
     tac_body =
       convert_from_rkbody ~switch_count ~cases_count
         ~label_name:rfunction_decl.rfn_name ~map ~count_var:(ref 0)
+        ~function_return:true
         ~if_count rfunction_decl.rbody;
   }
 
@@ -708,6 +709,7 @@ let tac_operator_decl_of_roperator_decl = function
           tac_body =
             convert_from_rkbody ~switch_count ~cases_count
               ~label_name ~map ~count_var:(ref 0) ~if_count
+              ~function_return:true
               kbody;
         }
   | (RBinary { op; rfields = ((f1, _), (f2, _)) as rfields; return_type; kbody } as self) 
@@ -728,7 +730,7 @@ let tac_operator_decl_of_roperator_decl = function
           tac_body =
             convert_from_rkbody ~switch_count ~cases_count
               ~label_name ~map ~count_var:(ref 0)
-              ~if_count kbody;
+              ~if_count ~function_return:true kbody;
         }
 
 let rec tac_module_node_from_rmodule_node = function

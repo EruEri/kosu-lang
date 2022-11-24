@@ -149,7 +149,7 @@ and tac_statement =
       sw_exit_label : string;
     }
 
-and tac_body = { label : string; body : tac_statement list * tac_typed_expression }
+and tac_body = { label : string; body : tac_statement list * tac_typed_expression option }
 
 type tac_function_decl = {
   rfn_name : string;
