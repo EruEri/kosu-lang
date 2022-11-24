@@ -12,7 +12,8 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 - [x] Type checking the Ast
 - [x] Annote the Ast with type
 - [x] Create an intermediate representation using the 3 adress code method 
-- [ ] Assembly generation <- Currently here 
+- [ ] Write a register allocator throught graph-coloring method (Will be in an other repository, to be used as a depedency)
+- [ ] Assembly generation
 - [ ] Create a website explaining the syntax and the language in general
 
 ## Example
