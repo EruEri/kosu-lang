@@ -45,6 +45,11 @@ module Operator = struct
   let typed_operandes = KosuIrTyped.Asttyped.Binop.operands
 end
 
+let if_count = ref 0
+let cases_count = ref 0
+let switch_count = ref 0
+
+
 let make_tmp = Printf.sprintf "r%u"
 let make_goto_label ~count_if = Printf.sprintf "if.%u.%u" count_if
 let make_end_label ~count_if = Printf.sprintf "if.%u.end" count_if
@@ -681,9 +686,9 @@ let tac_function_decl_of_rfunction (rfunction_decl : rfunction_decl) =
     rparameters = rfunction_decl.rparameters;
     return_type = rfunction_decl.return_type;
     tac_body =
-      convert_from_rkbody ~switch_count:(ref 0) ~cases_count:(ref 0)
+      convert_from_rkbody ~switch_count ~cases_count
         ~label_name:rfunction_decl.rfn_name ~map ~count_var:(ref 0)
-        ~if_count:(ref 0) rfunction_decl.rbody;
+        ~if_count rfunction_decl.rbody;
   }
 
 let tac_operator_decl_of_roperator_decl = function
@@ -701,8 +706,8 @@ let tac_operator_decl_of_roperator_decl = function
           rfield;
           return_type;
           tac_body =
-            convert_from_rkbody ~switch_count:(ref 0) ~cases_count:(ref 0)
-              ~label_name ~map ~count_var:(ref 0) ~if_count:(ref 0)
+            convert_from_rkbody ~switch_count ~cases_count
+              ~label_name ~map ~count_var:(ref 0) ~if_count
               kbody;
         }
   | (RBinary { op; rfields = ((f1, _), (f2, _)) as rfields; return_type; kbody } as self) 
@@ -721,9 +726,9 @@ let tac_operator_decl_of_roperator_decl = function
           rfields;
           return_type;
           tac_body =
-            convert_from_rkbody ~switch_count:(ref 0) ~cases_count:(ref 0)
+            convert_from_rkbody ~switch_count ~cases_count
               ~label_name ~map ~count_var:(ref 0)
-              ~if_count:(ref 0) kbody;
+              ~if_count kbody;
         }
 
 let rec tac_module_node_from_rmodule_node = function
