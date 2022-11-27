@@ -191,6 +191,18 @@ declarer:
     | VAR { false }
 ;;
 
+function_call:
+    modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) 
+        fn_name=located(IDENT) 
+        generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, located(ktype)) SUP { s } ) 
+        LPARENT exprs=separated_list(COMMA, located(expr) ) RPARENT {
+            modules_path, fn_name, generics_resolver, exprs
+        }
+
+fun_kbody:
+    | EQUAL located(expr) SEMICOLON { [], $2 }
+    | kbody { $1 }
+
 kbody:
     | delimited(LBRACE, l=list(located(statement)) DOLLAR e=located(expr) { l , e } , RBRACE)  { $1 }
 statement:
@@ -221,7 +233,7 @@ syscall_decl:
 function_decl:
     | FUNCTION name=located(IDENT) generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=located(IDENT) {id}), SUP ) { d })
     parameters=delimited(LPARENT, separated_list(COMMA, id=located(IDENT) COLON kt=located(ktype) { id, kt  }), RPARENT )
-    r_type=located( option(ktype) ) body=kbody {
+    r_type=located( option(ktype) ) body=fun_kbody {
         {
             fn_name = name;
             generics = generics_opt |> Option.value ~default: [];
@@ -313,12 +325,13 @@ expr:
             parameters
         }
     }
-    | l=located(separated_list(DOUBLECOLON, Module_IDENT)) name=located(IDENT) generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, located(ktype)) SUP { s } ) LPARENT exprs=separated_list(COMMA, located(expr) ) RPARENT {
-        EFunction_call { 
-            modules_path = l |> Position.map( String.concat "::" ) ;
+    | function_call {
+        let modules_path, fn_name, generics_resolver, exprs = $1 in
+        EFunction_call {
+            modules_path = modules_path |> Position.map( String.concat "::");
             generics_resolver;
-            fn_name = name;
-            parameters = exprs;
+            fn_name;
+            parameters = exprs
         }
     }
     | l=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) {
@@ -334,22 +347,15 @@ expr:
             identifier = id
         }
     }
-    | located(expr) PIPESUP calls=separated_nonempty_list(PIPESUP,
-    located(
-        modules=located(separated_list(DOUBLECOLON, Module_IDENT)) name=located(IDENT) 
-        generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, located(ktype)) SUP { s } )
-         LPARENT exprs=separated_list(COMMA, located(expr)) RPARENT { name, generics_resolver, exprs, modules })) {
-            calls |> List.fold_left (
-                fun acc value  -> 
-                    let fn_name, generics_resolver, parameters, modules_path = value.v in
-                    EFunction_call { 
-                        modules_path = modules_path |> Position.map( String.concat "::" );
-                        generics_resolver;
-                        fn_name;
-                        parameters = ({ v = acc; position = value.position})::parameters;
-                    }
-                ) $1.v
+    | located(expr) PIPESUP function_call {
+        let modules_path, fn_name, generics_resolver, exprs = $3 in
+        EFunction_call {
+            modules_path = modules_path |> Position.map( String.concat "::");
+            generics_resolver;
+            fn_name;
+            parameters = $1::exprs
         }
+    }
     | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) struct_name=located(IDENT) fields=delimited(LBRACE, separated_list(COMMA, id=located(IDENT) either_color_equal  expr=located(expr) { id, expr } ) , RBRACE) {
         EStruct {
             modules_path = modules_path |> Position.map( String.concat "::" );
@@ -458,5 +464,10 @@ ktype:
             name = id
         }
     }
-    | LPARENT l=separated_nonempty_list(COMMA, located(ktype) ) RPARENT { TTuple (l)  }
+    | LPARENT l=separated_nonempty_list(COMMA, located(ktype) ) RPARENT { 
+        match l with
+        | [] -> failwith "Cannot not be empty"
+        | t::[] -> t.v
+        | l -> TTuple (l) 
+    }
 ;;
