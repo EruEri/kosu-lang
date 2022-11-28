@@ -68,7 +68,7 @@
 %left PLUS MINUS
 %left MULT DIV MOD
 %nonassoc UMINUS NOT
-%left MINUSUP
+%left MINUSUP DOT
 // %nonassoc ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
 
 %start modul
@@ -279,6 +279,9 @@ const_decl:
 either_color_equal:
     | COLON {}
     | EQUAL {}
+enum_resolver:
+    | DOT { None }
+    | terminated(located(IDENT), DOUBLECOLON) { Some $1 }
 expr:
     | Integer_lit { EInteger $1 }
     | String_lit { EString $1 }
@@ -311,7 +314,7 @@ expr:
     | located(expr) INFEQ located(expr) { EBin_op (BInfEq ($1, $3)) }
     | located(expr) DOUBLEQUAL located(expr) { EBin_op (BEqual ($1, $3)) }
     | located(expr) DIF located(expr) { EBin_op (BDif ($1, $3)) }
-    | located(expr) MINUSUP located(IDENT) {
+    | located(expr) DOT located(IDENT) {
         EFieldAcces {
             first_expr = $1;
             field = $3
@@ -363,7 +366,8 @@ expr:
             fields
         }
     }
-    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) enum_name=option(located(IDENT)) DOT variant=located(IDENT) assoc_exprs=option(delimited(LPARENT, separated_nonempty_list(COMMA, located(expr)) ,RPARENT)) {
+    
+    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) enum_name=enum_resolver variant=located(IDENT) assoc_exprs=option(delimited(LPARENT, separated_nonempty_list(COMMA, located(expr)) ,RPARENT)) {
         EEnum {
             modules_path = modules_path |> Position.map( String.concat "::" );
             enum_name;
