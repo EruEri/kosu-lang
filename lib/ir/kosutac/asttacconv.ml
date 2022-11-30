@@ -50,7 +50,7 @@ let cases_count = ref 0
 let switch_count = ref 0
 
 
-let make_tmp = Printf.sprintf "r%u"
+let make_tmp = Printf.sprintf "$tmp%u"
 let make_goto_label ~count_if = Printf.sprintf "if.%u.%u" count_if
 let make_end_label ~count_if = Printf.sprintf "if.%u.end" count_if
 let make_case_goto_label ~cases_count = Printf.sprintf "case.%u.%u" cases_count
@@ -288,7 +288,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
   | REstring s, _ -> convert_if_allocated ~expr_rktype:(trktype) ~allocated (TEString s)
   | REIdentifier { identifier; _ }, _ ->
       convert_if_allocated ~expr_rktype:(trktype) ~allocated
-        (TEIdentifier (Hashtbl.find map identifier))
+        (TEIdentifier identifier)
   | REConst_Identifier { modules_path; identifier }, _ ->
       convert_if_allocated ~expr_rktype:(trktype) ~allocated
         (TEConst { module_path = modules_path; name = identifier })
@@ -414,7 +414,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       (needed_statement @ stmt @ (statement :: last_stmt), return)
   | REAdress identifier, _ ->
       let new_tmp = make_inc_tmp count_var in
-      let adress = RVAdress (Hashtbl.find map identifier) in
+      let adress = RVAdress identifier in
       let statement =
         STacDeclaration { identifier = new_tmp; trvalue = make_typed_tac_rvalue trktype adress }
       in
@@ -472,7 +472,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         | 0 -> failwith "Never I hope: deferencement without start ??"
         | 1 ->
             let defer =
-              if 1 = n then Hashtbl.find map id else make_inc_tmp count_var
+              if 1 = n then id else make_inc_tmp count_var
             in
             let new_tmp = make_inc_tmp count_var in
             ( new_tmp,
@@ -481,13 +481,13 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
               :: [] )
         | count ->
             let defer =
-              if count = n then Hashtbl.find map id else make_inc_tmp count_var
+              if count = n then id else make_inc_tmp count_var
             in
             let new_tmp = make_inc_tmp count_var in
             let result, future_stmt = loop (i - 1) in
             ( result,
               STacDeclaration
-                { identifier = new_tmp; trvalue = make_typed_tac_rvalue trktype (RVDefer defer) }
+                { identifier = new_tmp; trvalue = make_typed_tac_rvalue (trktype) (RVDefer defer) }
               :: future_stmt )
       in
       let restult, stmt = loop n in
@@ -579,8 +579,8 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
   | stmt :: q -> (
       match stmt with
       | RSDeclaration { is_const = _; variable_name; typed_expression } ->
-          let new_tmp = make_inc_tmp count_var in
-          let () = Hashtbl.add map variable_name new_tmp in
+          (* let new_tmp = make_inc_tmp count_var in
+          let () = Hashtbl.add map variable_name new_tmp in *)
           let allocated, stmt_opt = create_forward_init ~count_var typed_expression in
           let tac_stmts, tac_expression =
             convert_from_typed_expression ~cases_count ~allocated ~map
@@ -596,13 +596,13 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
             @ tac_stmts
             @ STacDeclaration
                 {
-                  identifier = new_tmp;
+                  identifier = variable_name;
                   trvalue = make_typed_tac_rvalue typed_expression.rktype (RVExpression tac_expression);
                 }
               :: [])
             body
       | RSAffection (identifier, aff_typed_expr) ->
-          let find_tmp = Hashtbl.find map identifier in
+          (* let find_tmp = Hashtbl.find map identifier in *)
           let allocated, forward_push = create_forward_init ~count_var aff_typed_expr in
           let tac_stmts, tac_expression =
             convert_from_typed_expression ~cases_count ~allocated ~map
@@ -619,7 +619,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
                @ tac_stmts
                @ STacModification
                    {
-                     identifier = find_tmp;
+                     identifier = identifier;
                      trvalue = make_typed_tac_rvalue aff_typed_expr.rktype (RVExpression tac_expression);
                    }
                  :: [])
@@ -634,7 +634,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
                ~count_var ~if_count ~switch_count ~function_return (q, types_return))
       | RSDerefAffectation (identifier, deref_typed_expr) ->
           let allocated, forward_declaration = create_forward_init ~count_var deref_typed_expr in
-          let find_tmp = Hashtbl.find map identifier in
+          (* let find_tmp = Hashtbl.find map identifier in *)
           let tac_stmts, tac_expression =
             convert_from_typed_expression ~cases_count ~allocated ~map
               ~count_var ~if_count ~switch_count deref_typed_expr
@@ -649,7 +649,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
             @ tac_stmts
             @ STDerefAffectation
                 {
-                  identifier = find_tmp;
+                  identifier = identifier;
                   trvalue = make_typed_tac_rvalue deref_typed_expr.rktype (RVExpression tac_expression);
                 }
               :: [])
@@ -698,7 +698,7 @@ let tac_operator_decl_of_roperator_decl = function
     (Printf.sprintf "%s_%s" (KosuIrTyped.Asttpprint.name_of_roperator self ) (KosuIrTyped.Asttpprint.string_of_rktype return_type))
     in
       let map =
-        [ (rfield |> fst |> fun n -> (n, "p0")) ]
+        [ (rfield |> fst |> fun n -> (n, "$p0")) ]
         |> List.to_seq |> Hashtbl.of_seq
       in
       TacUnary
@@ -719,7 +719,7 @@ let tac_operator_decl_of_roperator_decl = function
         in
       let map =
         [ f1; f2 ]
-        |> List.mapi (fun i s -> (s, Printf.sprintf "p%u" i))
+        |> List.mapi (fun i s -> (s, Printf.sprintf "$p%u" i))
         |> List.to_seq |> Hashtbl.of_seq
       in
       TacBinary
