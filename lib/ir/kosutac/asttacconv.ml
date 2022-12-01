@@ -467,30 +467,28 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       in
       (stmt @ need_stmts @ (statement :: last_stmt), return)
   | REDeference (n, id), _ ->
-      let rec loop i =
+    
+      let rec loop ~origin_type ~from i =
         match i with
         | 0 -> failwith "Never I hope: deferencement without start ??"
         | 1 ->
-            let defer =
-              if 1 = n then id else make_inc_tmp count_var
-            in
             let new_tmp = make_inc_tmp count_var in
+            let rtpointee = KosuIrTyped.Asttyped.RType.rtpointee origin_type in  
             ( new_tmp,
               STacDeclaration
-                { identifier = new_tmp; trvalue = make_typed_tac_rvalue trktype (RVDefer defer) }
+                { identifier = new_tmp; trvalue = make_typed_tac_rvalue rtpointee (RVDefer from) }
               :: [] )
-        | count ->
-            let defer =
-              if count = n then id else make_inc_tmp count_var
-            in
+        | _ ->
             let new_tmp = make_inc_tmp count_var in
-            let result, future_stmt = loop (i - 1) in
+            let rtpointee = KosuIrTyped.Asttyped.RType.rtpointee origin_type in 
+            let result, future_stmt = loop ~origin_type:rtpointee ~from:new_tmp (i - 1) in
             ( result,
               STacDeclaration
-                { identifier = new_tmp; trvalue = make_typed_tac_rvalue (trktype) (RVDefer defer) }
+                { identifier = new_tmp; trvalue = make_typed_tac_rvalue (rtpointee) (RVDefer from) }
               :: future_stmt )
       in
-      let restult, stmt = loop n in
+      let origin_type = KosuIrTyped.Asttyped.RType.npointer n trktype in
+      let restult, stmt = loop ~origin_type ~from:id n in
       (stmt, 
       make_typed_tac_expression trktype
       (TEIdentifier restult))
