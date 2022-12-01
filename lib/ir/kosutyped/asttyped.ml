@@ -194,6 +194,12 @@ module RType = struct
   let is_builtin_type = function
     | RTParametric_identifier _ | RTType_Identifier _ -> false
     | _ -> true
+
+  let rec npointer n kt = if n <= 0 then kt else RTPointer (npointer (n-1) kt)
+
+  let rtpointee = function
+  | RTPointer kt -> kt
+  | _ -> failwith "Cannot access pointee type of a none pointer type"
 end
 
 module RSwitch_Case = struct

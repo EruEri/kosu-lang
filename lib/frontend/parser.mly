@@ -68,7 +68,7 @@
 %left PLUS MINUS
 %left MULT DIV MOD
 %nonassoc UMINUS NOT
-%left MINUSUP
+%left MINUSUP DOT
 // %nonassoc ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
 
 %start modul
@@ -168,7 +168,7 @@ binary_operator_symbol:
 ;;
 
 operator_decl:
-    | OPERATOR op=located(binary_operator_symbol) fields=delimited(LPARENT, id1=located(IDENT) COLON kt1=located(ktype) COMMA id2=located(IDENT) COLON kt2=located(ktype) { (id1,kt1), (id2, kt2) } , RPARENT) return_type=located(ktype) kbody=kbody {
+    | OPERATOR op=located(binary_operator_symbol) fields=delimited(LPARENT, id1=located(IDENT) COLON kt1=located(ktype) COMMA id2=located(IDENT) COLON kt2=located(ktype) { (id1,kt1), (id2, kt2) } , RPARENT) return_type=located(ktype) kbody=fun_kbody {
         Binary {
             op;
             fields;
@@ -176,7 +176,7 @@ operator_decl:
             kbody
         }
     }
-    | OPERATOR op=delimited(LPARENT, located(unary_operator_symbol), RPARENT) field=delimited(LPARENT, id=located(IDENT) COLON kt=located(ktype) { id, kt} ,RPARENT) return_type=located(ktype) kbody=kbody {
+    | OPERATOR op=delimited(LPARENT, located(unary_operator_symbol), RPARENT) field=delimited(LPARENT, id=located(IDENT) COLON kt=located(ktype) { id, kt} ,RPARENT) return_type=located(ktype) kbody=fun_kbody {
         Unary {
             op;
             field;
@@ -190,6 +190,18 @@ declarer:
     | CONST { true }
     | VAR { false }
 ;;
+
+function_call:
+    modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) 
+        fn_name=located(IDENT) 
+        generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, located(ktype)) SUP { s } ) 
+        LPARENT exprs=separated_list(COMMA, located(expr) ) RPARENT {
+            modules_path, fn_name, generics_resolver, exprs
+        }
+
+fun_kbody:
+    | EQUAL located(expr) SEMICOLON { [], $2 }
+    | kbody { $1 }
 
 kbody:
     | delimited(LBRACE, l=list(located(statement)) DOLLAR e=located(expr) { l , e } , RBRACE)  { $1 }
@@ -221,7 +233,7 @@ syscall_decl:
 function_decl:
     | FUNCTION name=located(IDENT) generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=located(IDENT) {id}), SUP ) { d })
     parameters=delimited(LPARENT, separated_list(COMMA, id=located(IDENT) COLON kt=located(ktype) { id, kt  }), RPARENT )
-    r_type=located( option(ktype) ) body=kbody {
+    r_type=located( option(ktype) ) body=fun_kbody {
         {
             fn_name = name;
             generics = generics_opt |> Option.value ~default: [];
@@ -267,6 +279,9 @@ const_decl:
 either_color_equal:
     | COLON {}
     | EQUAL {}
+enum_resolver:
+    | DOT { None }
+    | terminated(located(IDENT), DOUBLECOLON) { Some $1 }
 expr:
     | Integer_lit { EInteger $1 }
     | String_lit { EString $1 }
@@ -299,7 +314,7 @@ expr:
     | located(expr) INFEQ located(expr) { EBin_op (BInfEq ($1, $3)) }
     | located(expr) DOUBLEQUAL located(expr) { EBin_op (BEqual ($1, $3)) }
     | located(expr) DIF located(expr) { EBin_op (BDif ($1, $3)) }
-    | located(expr) MINUSUP located(IDENT) {
+    | located(expr) DOT located(IDENT) {
         EFieldAcces {
             first_expr = $1;
             field = $3
@@ -313,12 +328,13 @@ expr:
             parameters
         }
     }
-    | l=located(separated_list(DOUBLECOLON, Module_IDENT)) name=located(IDENT) generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, located(ktype)) SUP { s } ) LPARENT exprs=separated_list(COMMA, located(expr) ) RPARENT {
-        EFunction_call { 
-            modules_path = l |> Position.map( String.concat "::" ) ;
+    | function_call {
+        let modules_path, fn_name, generics_resolver, exprs = $1 in
+        EFunction_call {
+            modules_path = modules_path |> Position.map( String.concat "::");
             generics_resolver;
-            fn_name = name;
-            parameters = exprs;
+            fn_name;
+            parameters = exprs
         }
     }
     | l=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) {
@@ -334,22 +350,15 @@ expr:
             identifier = id
         }
     }
-    | located(expr) PIPESUP calls=separated_nonempty_list(PIPESUP,
-    located(
-        modules=located(separated_list(DOUBLECOLON, Module_IDENT)) name=located(IDENT) 
-        generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, located(ktype)) SUP { s } )
-         LPARENT exprs=separated_list(COMMA, located(expr)) RPARENT { name, generics_resolver, exprs, modules })) {
-            calls |> List.fold_left (
-                fun acc value  -> 
-                    let fn_name, generics_resolver, parameters, modules_path = value.v in
-                    EFunction_call { 
-                        modules_path = modules_path |> Position.map( String.concat "::" );
-                        generics_resolver;
-                        fn_name;
-                        parameters = ({ v = acc; position = value.position})::parameters;
-                    }
-                ) $1.v
+    | located(expr) PIPESUP function_call {
+        let modules_path, fn_name, generics_resolver, exprs = $3 in
+        EFunction_call {
+            modules_path = modules_path |> Position.map( String.concat "::");
+            generics_resolver;
+            fn_name;
+            parameters = $1::exprs
         }
+    }
     | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) struct_name=located(IDENT) fields=delimited(LBRACE, separated_list(COMMA, id=located(IDENT) either_color_equal  expr=located(expr) { id, expr } ) , RBRACE) {
         EStruct {
             modules_path = modules_path |> Position.map( String.concat "::" );
@@ -357,7 +366,8 @@ expr:
             fields
         }
     }
-    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) enum_name=option(located(IDENT)) DOT variant=located(IDENT) assoc_exprs=option(delimited(LPARENT, separated_nonempty_list(COMMA, located(expr)) ,RPARENT)) {
+    
+    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) enum_name=enum_resolver variant=located(IDENT) assoc_exprs=option(delimited(LPARENT, separated_nonempty_list(COMMA, located(expr)) ,RPARENT)) {
         EEnum {
             modules_path = modules_path |> Position.map( String.concat "::" );
             enum_name;
@@ -458,5 +468,10 @@ ktype:
             name = id
         }
     }
-    | LPARENT l=separated_nonempty_list(COMMA, located(ktype) ) RPARENT { TTuple (l)  }
+    | LPARENT l=separated_nonempty_list(COMMA, located(ktype) ) RPARENT { 
+        match l with
+        | [] -> failwith "Cannot not be empty"
+        | t::[] -> t.v
+        | l -> TTuple (l) 
+    }
 ;;

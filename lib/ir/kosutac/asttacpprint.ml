@@ -45,7 +45,20 @@ let symbole_of_binary binary =
   | TacBool TacEqual -> "=="
   | TacBool TacDiff -> "!="
 
-let rec string_of_label_tac_body ?(end_jmp = None) tac_body =
+let rec string_of_typed_locale typed_locale = 
+  let stype = string_of_rktype typed_locale.locale_ty in
+  let sdescri = match typed_locale.locale with
+  | Locale id -> id
+  | Enum_Assoc_id {name; from; assoc_index_bound} -> 
+    Printf.sprintf "%s ==> %s (%d)"
+    (string_of_typed_tac_expression from)
+    (name)
+    (assoc_index_bound)
+ in
+  Printf.sprintf "%s: \"%s\"" sdescri stype 
+
+
+and string_of_label_tac_body ?(end_jmp = None) tac_body =
   sprintf "%s:\n\t%s \n\n" tac_body.label
     (string_of_tac_body ~end_jmp tac_body.body)
 
@@ -169,7 +182,7 @@ and string_of_tac_statement = function
 and string_of_tac_body ?(end_jmp = None) (statemements, expression) =
   sprintf "%s\n\t%s%s"
     (statemements |> List.map string_of_tac_statement |> String.concat "\n\t")
-    (string_of_typed_tac_expression expression)
+    (expression |> Option.map (fun e -> sprintf "return %s" (string_of_typed_tac_expression e))  |> Option.value ~default:"" )
     (end_jmp
     |> Option.map (fun s -> sprintf "\n\tjump %s" s)
     |> Option.value ~default:"")

@@ -44,7 +44,18 @@ type tac_binop_self =
 type tac_binop = TacSelf of tac_binop_self | TacBool of tac_binop_bool
 type tac_unop = TacNot | TacUminus
 
-type tac_expression =
+type tac_local_variable =
+  | Locale of string
+  | Enum_Assoc_id of {
+    name: string;
+    from: tac_typed_expression;
+    assoc_index_bound: int;
+  }
+and tac_typed_locale_variable = {
+  locale_ty: rktype;
+  locale: tac_local_variable
+}
+and tac_expression =
   | TEFalse
   | TETrue
   | TEmpty
@@ -149,7 +160,7 @@ and tac_statement =
       sw_exit_label : string;
     }
 
-and tac_body = { label : string; body : tac_statement list * tac_typed_expression }
+and tac_body = { label : string; body : tac_statement list * tac_typed_expression option }
 
 type tac_function_decl = {
   rfn_name : string;
@@ -157,6 +168,7 @@ type tac_function_decl = {
   rparameters : (string * rktype) list;
   return_type : rktype;
   tac_body : tac_body;
+  locale_var: tac_typed_locale_variable list;
 }
 
 type tac_operator_decl =
@@ -165,12 +177,14 @@ type tac_operator_decl =
       rfield : string * rktype;
       return_type : rktype;
       tac_body : tac_body;
+      locale_var: tac_typed_locale_variable list;
     }
   | TacBinary of {
       op : parser_binary_op;
       rfields : (string * rktype) * (string * rktype);
       return_type : rktype;
       tac_body : tac_body;
+      locale_var: tac_typed_locale_variable list;
     }
 
 type tac_module_node =
