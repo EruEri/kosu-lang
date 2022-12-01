@@ -55,7 +55,7 @@ let rec string_of_typed_locale typed_locale =
     (name)
     (assoc_index_bound)
  in
-  Printf.sprintf "%s :: \"%s\"" sdescri stype 
+  Printf.sprintf "%s: \"%s\"" sdescri stype 
 
 
 and string_of_label_tac_body ?(end_jmp = None) tac_body =
