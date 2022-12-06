@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open KosuFrontend.Astvalidation
 open KosuIrTyped
 open KosuIrTAC

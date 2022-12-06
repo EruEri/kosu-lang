@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open Asttyped
 open KosuFrontend.Ast
 open KosuFrontend.Typecheck

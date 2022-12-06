@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open KosuFrontend.Position
 
 type filename_error = Mutiple_dot_in_filename | No_extension | Unknow_error

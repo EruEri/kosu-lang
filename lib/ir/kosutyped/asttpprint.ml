@@ -15,53 +15,46 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open Asttyped
 open Printf
 open KosuFrontend.Ast
 open KosuFrontend.Pprint
 
-
 let symbole_of_roperator = function
-  | RUnary { op; _ } ->
-      op |> (function PNot -> "!" | PUMinus -> "(-.)")
-  | RBinary { op; _ } ->
-      op
-      |>  (function
-           | Add -> "+"
-           | Minus -> "-"
-           | Mult -> "*"
-           | Div -> "/"
-           | Modulo -> "%"
-           | BitwiseAnd -> "&"
-           | BitwiseOr -> "|"
-           | BitwiseXor -> "^"
-           | ShiftLeft -> "<<"
-           | ShiftRight -> ">>"
-           | Sup -> ">"
-           | Inf -> "<"
-           | Equal -> "==")
+  | RUnary { op; _ } -> ( op |> function PNot -> "!" | PUMinus -> "(-.)")
+  | RBinary { op; _ } -> (
+      op |> function
+      | Add -> "+"
+      | Minus -> "-"
+      | Mult -> "*"
+      | Div -> "/"
+      | Modulo -> "%"
+      | BitwiseAnd -> "&"
+      | BitwiseOr -> "|"
+      | BitwiseXor -> "^"
+      | ShiftLeft -> "<<"
+      | ShiftRight -> ">>"
+      | Sup -> ">"
+      | Inf -> "<"
+      | Equal -> "==")
 
 let name_of_roperator = function
-| RUnary { op; _ } ->
-    op |> (function PNot -> "not" | PUMinus -> "unminus")
-| RBinary { op; _ } ->
-    op
-    |>  (function
-        | Add -> "add"
-        | Minus -> "minus"
-        | Mult -> "mult"
-        | Div -> "dic"
-        | Modulo -> "module"
-        | BitwiseAnd -> "bitwiseand"
-        | BitwiseOr -> "bitwiseor"
-        | BitwiseXor -> "botwisexor"
-        | ShiftLeft -> "shiftleft"
-        | ShiftRight -> "shiftright"
-        | Sup -> "sup"
-        | Inf -> "inf"
-        | Equal -> "equal")
-
+  | RUnary { op; _ } -> ( op |> function PNot -> "not" | PUMinus -> "unminus")
+  | RBinary { op; _ } -> (
+      op |> function
+      | Add -> "add"
+      | Minus -> "minus"
+      | Mult -> "mult"
+      | Div -> "dic"
+      | Modulo -> "module"
+      | BitwiseAnd -> "bitwiseand"
+      | BitwiseOr -> "bitwiseor"
+      | BitwiseXor -> "botwisexor"
+      | ShiftLeft -> "shiftleft"
+      | ShiftRight -> "shiftright"
+      | Sup -> "sup"
+      | Inf -> "inf"
+      | Equal -> "equal")
 
 let rec string_of_rktype = function
   | RTParametric_identifier { module_path; parametrics_type; name } ->

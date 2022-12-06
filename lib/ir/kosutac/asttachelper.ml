@@ -1,7 +1,6 @@
 open KosuIrTyped.Asttyped
 open Asttac
 
-
 module Operator = struct
   let bin_operantor = function
     | RBAdd _ -> TacSelf TacAdd
@@ -32,6 +31,5 @@ module OperatorDeclaration = struct
   type t = Asttac.tac_operator_decl
 
   let tac_body = function
-  | TacUnary {tac_body; _ } | TacBinary {tac_body; _} -> tac_body
-  
+    | TacUnary { tac_body; _ } | TacBinary { tac_body; _ } -> tac_body
 end

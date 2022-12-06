@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open Asttac
 open Printf
 open KosuFrontend.Ast
@@ -45,18 +44,17 @@ let symbole_of_binary binary =
   | TacBool TacEqual -> "=="
   | TacBool TacDiff -> "!="
 
-let rec string_of_typed_locale typed_locale = 
+let rec string_of_typed_locale typed_locale =
   let stype = string_of_rktype typed_locale.locale_ty in
-  let sdescri = match typed_locale.locale with
-  | Locale id -> id
-  | Enum_Assoc_id {name; from; assoc_index_bound} -> 
-    Printf.sprintf "%s ==> %s (%d)"
-    (string_of_typed_tac_expression from)
-    (name)
-    (assoc_index_bound)
- in
-  Printf.sprintf "%s: \"%s\"" sdescri stype 
-
+  let sdescri =
+    match typed_locale.locale with
+    | Locale id -> id
+    | Enum_Assoc_id { name; from; assoc_index_bound } ->
+        Printf.sprintf "%s ==> %s (%d)"
+          (string_of_typed_tac_expression from)
+          name assoc_index_bound
+  in
+  Printf.sprintf "%s: \"%s\"" sdescri stype
 
 and string_of_label_tac_body ?(end_jmp = None) tac_body =
   sprintf "%s:\n\t%s \n\n" tac_body.label
@@ -182,7 +180,10 @@ and string_of_tac_statement = function
 and string_of_tac_body ?(end_jmp = None) (statemements, expression) =
   sprintf "%s\n\t%s%s"
     (statemements |> List.map string_of_tac_statement |> String.concat "\n\t")
-    (expression |> Option.map (fun e -> sprintf "return %s" (string_of_typed_tac_expression e))  |> Option.value ~default:"" )
+    (expression
+    |> Option.map (fun e ->
+           sprintf "return %s" (string_of_typed_tac_expression e))
+    |> Option.value ~default:"")
     (end_jmp
     |> Option.map (fun s -> sprintf "\n\tjump %s" s)
     |> Option.value ~default:"")
@@ -200,8 +201,12 @@ and string_of_tac_expression = function
   | TEString s -> sprintf "\"%s\"" s
   | TEConst { module_path; name } -> sprintf "%s::%s" module_path name
   | TESizeof rktype -> sprintf "sizeof(%s)" (string_of_rktype rktype)
-and string_of_typed_tac_expression { expr_rktype; tac_expression } = 
-    sprintf "(%s : %s)" (string_of_tac_expression tac_expression) (string_of_rktype expr_rktype)
+
+and string_of_typed_tac_expression { expr_rktype; tac_expression } =
+  sprintf "(%s : %s)"
+    (string_of_tac_expression tac_expression)
+    (string_of_rktype expr_rktype)
+
 and string_of_tac_rvalue = function
   | RVUminus rvalue -> sprintf "uminus(%s)" (string_of_typed_tac_rvalue rvalue)
   | RVNeg rvalue -> sprintf "!%s" (string_of_typed_tac_rvalue rvalue)
@@ -248,11 +253,19 @@ and string_of_tac_rvalue = function
   | RVCustomUnop un -> sprintf "%s ; custom" (string_of_tac_unary un)
   | RVBuiltinUnop un -> string_of_tac_unary un
   | RVBuiltinBinop bin -> string_of_tac_binary bin
-  | RVBuiltinCall {fn_name; parameters} -> sprintf "@%s(%s)" fn_name (parameters |> List.map string_of_typed_tac_expression |> String.concat ", ")
+  | RVBuiltinCall { fn_name; parameters } ->
+      sprintf "@%s(%s)" fn_name
+        (parameters
+        |> List.map string_of_typed_tac_expression
+        |> String.concat ", ")
   | RVLater -> "lateinit"
   | RVDiscard -> "discard"
-and string_of_typed_tac_rvalue { rval_rktype; rvalue } = 
-    sprintf "%s ::> %s" (string_of_tac_rvalue rvalue) (string_of_rktype rval_rktype) 
+
+and string_of_typed_tac_rvalue { rval_rktype; rvalue } =
+  sprintf "%s ::> %s"
+    (string_of_tac_rvalue rvalue)
+    (string_of_rktype rval_rktype)
+
 and string_of_tac_binary binary =
   let symbole = symbole_of_binary binary in
   let lhs = string_of_typed_tac_expression binary.blhs in

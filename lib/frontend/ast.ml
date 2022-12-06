@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open Position
 
 type signedness = Signed | Unsigned
@@ -234,7 +233,7 @@ type named_module_path = { filename : string; module_path : module_path }
 type program = named_module_path list
 
 module Isize = struct
-  let size_of_isize = function | I8 -> 8 | I16 -> 16 | I32 -> 32 | I64 -> 64 
+  let size_of_isize = function I8 -> 8 | I16 -> 16 | I32 -> 32 | I64 -> 64
 end
 
 module Type_Decl = struct

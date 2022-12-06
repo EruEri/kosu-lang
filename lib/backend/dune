@@ -15,8 +15,6 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
-
 (library
  (name kosuBackend)
- (libraries kosuIrTyped kosuIrTAC kosuFrontend)
- )
+ (libraries kosuIrTyped kosuIrTAC kosuFrontend))
