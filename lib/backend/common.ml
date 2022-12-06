@@ -3,6 +3,25 @@ open KosuIrTyped.Asttyped.Sizeof
 open KosuIrTAC.Asttac
 
 
+type lit = 
+| StringL of string
+| IntL of int64
+
+
+type scale =
+  [ `One | `Two | `Four | `Eight ]
+
+type imm =
+  | Lit of lit
+  | Lab of string
+
+type stringlit_label = 
+  | SLit of string
+  
+type label = 
+  | Label of string
+
+
 let offset_of_field ~generics field rstruct_decl rprogram = 
   let ( ++ ) = Int64.add in 
   let ( -- ) = Int64.sub in
@@ -42,85 +61,11 @@ let offset_of_field ~generics field rstruct_decl rprogram =
   |> (fun (x, _, _, _) -> x)  
 
 
-type stringlit_label = 
-| SLit of string
-
-type label = 
-| Label of string
 
 
 let make_string_litteral_label count = 
   let lab = Printf.sprintf "l_.str%s" (if count > 0 then Printf.sprintf ".%u" count else "") in
   SLit lab
-
-
-(* let rec map_fill_string_lit_of_typed_expression map typed_expression () = 
-  match typed_expression.rexpression with
-  | REstring s -> (
-    let map_length = Hashtbl.length map in
-    match Hashtbl.find_opt map s with
-    | None -> Hashtbl.add map s (make_string_litteral_label map_length)
-    | Some _ -> ()
-  )
-  | REmpty | RTrue | RFalse | RENullptr | REInteger _ | REFloat _ | RESizeof _ | REAdress _ | REDeference _ | REIdentifier _ | REConst_Identifier _ -> ()
-  | REFieldAcces {first_expr; _ } -> map_fill_string_lit_of_typed_expression map first_expr ()
-  | REStruct {fields; _} -> fields |> List.iter (fun (_, typed_expr) -> 
-    map_fill_string_lit_of_typed_expression map typed_expr ()
-    )
-  | REEnum {assoc_exprs = typed_exprs; _ } 
-  | RETuple (typed_exprs)
-  | REBuiltin_Function_call {parameters = typed_exprs; _} 
-  | REFunction_call {parameters = typed_exprs; _} -> typed_exprs |> List.iter (fun typed_expr -> map_fill_string_lit_of_typed_expression map typed_expr ())
-  | REIf (condition, if_body, else_body) -> 
-    let () = map_fill_string_lit_of_typed_expression map condition () in
-    let () = map_fill_string_lit_of_rkbody map if_body () in
-    let () = map_fill_string_lit_of_rkbody map else_body () in
-    ()
-  | RECases {cases; else_case} -> 
-    let () = cases |> List.iter (fun (condition, kbody) -> 
-      let () = map_fill_string_lit_of_typed_expression map condition () in
-      let () = map_fill_string_lit_of_rkbody map kbody () in
-      ()
-      ) in
-      map_fill_string_lit_of_rkbody map else_case ()
-  | RESwitch {rexpression; cases; wildcard_case} -> 
-    let () = map_fill_string_lit_of_typed_expression map rexpression () in
-    let () = cases |> List.iter (fun (_, _, rkbody) -> map_fill_string_lit_of_rkbody map rkbody ()) in
-    wildcard_case |> Option.iter (fun rkbody -> map_fill_string_lit_of_rkbody map rkbody () )
-  | REUn_op (RUMinus typed_expr | RUNot typed_expr) -> map_fill_string_lit_of_typed_expression map typed_expr ()
-  | REBin_op (
-    RBAdd (ltyp_expr, rtyp_expr)
-    | RBMinus (ltyp_expr, rtyp_expr)
-    | RBMult (ltyp_expr, rtyp_expr)
-    | RBMod (ltyp_expr, rtyp_expr)
-    | RBDiv (ltyp_expr, rtyp_expr)
-    | RBBitwiseAnd (ltyp_expr, rtyp_expr)
-    | RBBitwiseOr (ltyp_expr, rtyp_expr)
-    | RBBitwiseXor (ltyp_expr, rtyp_expr)
-    | RBShiftLeft (ltyp_expr, rtyp_expr)
-    | RBShiftRight (ltyp_expr, rtyp_expr)
-    | RBAnd (ltyp_expr, rtyp_expr)
-    | RBOr (ltyp_expr, rtyp_expr)
-    | RBSup (ltyp_expr, rtyp_expr)
-    | RBSupEq (ltyp_expr, rtyp_expr)
-    | RBInf (ltyp_expr, rtyp_expr)
-    | RBInfEq (ltyp_expr, rtyp_expr)
-    | RBEqual (ltyp_expr, rtyp_expr)
-    | RBDif (ltyp_expr, rtyp_expr)
-  ) -> 
-    let () = map_fill_string_lit_of_typed_expression map ltyp_expr () in
-    map_fill_string_lit_of_typed_expression map rtyp_expr ()
-
-and map_fill_string_lit_of_rkbody map (rstmts, last_rexpr) () = 
-  match rstmts with
-  | t::q -> (
-    let () = match t with
-    | RSDeclaration {typed_expression; _} | RSAffection (_, typed_expression) | RSDiscard typed_expression | RSDerefAffectation (_, typed_expression)
-     -> map_fill_string_lit_of_typed_expression map typed_expression () in
-     map_fill_string_lit_of_rkbody map (q,last_rexpr) ()
-  )
-  | [] -> 
-    map_fill_string_lit_of_typed_expression map last_rexpr () *)
 
 let rec map_fill_string_lit_of_tac_expression map expression () = 
   match expression with
@@ -207,7 +152,7 @@ and map_fill_string_lit_of_tac_body map {label = _; body = (statements, last)} (
   let () = statements |> List.iter (fun stmt -> 
     map_fill_string_lit_of_tac_statement map stmt ()
   ) in
-  map_fill_string_lit_of_tac_expression map last.tac_expression ()
+  last |> Option.iter (fun expr ->  map_fill_string_lit_of_tac_expression map expr.tac_expression ())
 
 
 and map_fill_string_lit_of_module_node map node  () = 
