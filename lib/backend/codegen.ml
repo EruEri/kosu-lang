@@ -6,6 +6,7 @@ module type ABI = sig
   type src
   type data_size
   type adress_mode
+  type register_size = [`x86 | `x32]
 
   type address = {
     offset : Common.imm option;
@@ -14,11 +15,12 @@ module type ABI = sig
     scale : Common.scale;
   }
 
+  val string_of_register: ?size: register_size -> register -> string
+
   val caller_save : register list
   val callee_save : register list
   val stack_pointer : register
-  val frame_register : register list
-  val instruction_pointer : register
+  val frame_registers : register list
   val return_register : register
   val argument_registers : register list
   val stack_parameter_order : stack_parameter_order

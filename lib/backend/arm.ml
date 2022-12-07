@@ -12,17 +12,18 @@ type register =
   | R5
   | R6
   | R7
-  | R8
+  | R8 (* XR *)
   | R9
   | R10
-  | R11  (** Frame Pointer *)
-  | R12  (** Intre Procedural call*)
-  | SP  (**SP *)
-  | R14 (* Link register*)
-  | R15  (** Program Counter (PC)*)
+  | R11 
+  | R12 
+  | R13 
+  | R14 
+  | R15 
   | R16
   | R29
   | R30
+  | SP
 
 let stack_pointer = SP
 let syscall_code_register = R0
@@ -42,12 +43,13 @@ let all_register =
     R10;
     R11;
     R12;
-    SP;
+    R13;
     R14;
     R15;
     R16;
     R29;
     R30;
+    SP;
   ]
 
 type immediat = Litteral of int64 | Label of string
@@ -206,25 +208,105 @@ let instructions_of_function generics program function_decl =
          let rktype = RType.remap_generic_ktype combined rktype in
          if does_it_hold_in_register program rktype then ())
 
-module ArmABI = struct
+module Arm64ABI = struct
   type register =
-    | R0
-    | R1
-    | R2
-    | R3
-    | R4
-    | R5
-    | R6
-    | R7
-    | R8
-    | R9
-    | R10
-    | R11  (** Frame Pointer *)
-    | R12  (** Intre Procedural call*)
-    | SP  (**SP *)
-    | R14 (* Link register*)
-    | R15  (** Program Counter (PC)*)
-    | R16
-    | R29
-    | R30
+  | R0
+  | R1
+  | R2
+  | R3
+  | R4
+  | R5
+  | R6
+  | R7
+  | R8 (* XR *)
+  | R9
+  | R10
+  | R11 
+  | R12 
+  | R13 
+  | R14 
+  | R15 
+  | R16
+  | R29
+  | R30
+  | SP
+
+  type adress_mode =
+    | Immediat (* out = *intptr; *)
+    | Prefix (* out = *(++intptr);*)
+    | Postfix (* out = *(intptr++);*)
+
+  type data_size = B | SB | H | SH
+
+  type condition_code =
+  | EQ  (** Equal *)
+  | NE  (** Not Equal *)
+  | CS  (** Carry Set *)
+  | CC  (** Carry clear *)
+  | MI  (** Minus / Negative *)
+  | PL  (** Plus , Posivite ./ Zero *)
+  | VS  (** Overflow *)
+  | VC  (** No overflow*)
+  | HI  (** Unsigned higher*)
+  | LS  (** Unsigned lower or same *)
+  | GE  (** Signed greater than or equal*)
+  | LT  (** Signed less than*)
+  | GT  (** Signed greather than *)
+  | LE  (** Signed less than or equal *)
+  | AL  (** Always*)
+
+  type dst = register
+  type src = [ `Litteral of int | `Label of string | `Register of register ]
+  type register_size = [`x86 | `x32]
+  type stack_parameter_order = Ordered | Reversed
+
+  type address = {
+    offset : Common.imm option;
+    base : register option;
+    idx : register option;
+    scale : Common.scale;
+  }
+
+  let stack_pointer_align = 16
+
+  let stack_parameter_order = Ordered
+
+  let string_of_register ?(size = `x64) register = 
+    let prefix = match size with `x64 -> 'x' | `x32 -> 'w' in
+    match register with
+    | R0 -> Printf.sprintf "%c0" prefix
+    | R1 -> Printf.sprintf "%c1" prefix
+    | R2 -> Printf.sprintf "%c2" prefix
+    | R3 -> Printf.sprintf "%c3" prefix
+    | R4 -> Printf.sprintf "%c4" prefix
+    | R5 -> Printf.sprintf "%c5" prefix
+    | R6 -> Printf.sprintf "%c6" prefix
+    | R7 -> Printf.sprintf "%c7" prefix
+    | R8 -> Printf.sprintf "%c8" prefix
+    | R9 -> Printf.sprintf "%c9" prefix
+    | R10 -> Printf.sprintf "%c10" prefix
+    | R11 -> Printf.sprintf "%c11" prefix
+    | R12 -> Printf.sprintf "%c12" prefix
+    | R13 -> Printf.sprintf "%c13" prefix
+    | R14 -> Printf.sprintf "%c14" prefix
+    | R15 -> Printf.sprintf "%c15" prefix
+    | R16 -> Printf.sprintf "%c16" prefix
+    | R29 -> Printf.sprintf "%c29" prefix
+    | R30 -> Printf.sprintf "%c30" prefix
+    | SP -> Printf.sprintf "sp"
+
+    let stack_pointer = SP
+    let argument_registers = [R0; R1; R2; R3; R4; R5; R6; R7]
+    let return_register = R0
+    let caller_save = [R0; R1; R2; R3; R4; R5; R6; R7; R8; R9; R10; R11; R12; R13; R14; R15 ]
+    let callee_save = [R30; R29; R16]
+
+    let create_adress
+    ?(offset = None)
+    ?(base =  None)
+    ?(idx = None)
+    ?(scale = `One)
+    () = {
+      offset; base; idx; scale
+    }
 end
