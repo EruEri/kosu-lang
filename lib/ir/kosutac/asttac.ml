@@ -211,6 +211,7 @@ type tac_module_path = { path : string; tac_module : tac_module }
 type named_tacmodule_path = {
   filename : string;
   tac_module_path : tac_module_path;
+  rprogram: KosuIrTyped.Asttyped.rprogram
 }
 
 type tac_program = named_tacmodule_path list

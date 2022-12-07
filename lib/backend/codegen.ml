@@ -120,7 +120,7 @@ module type Instruction = sig
 
   val ildr :
     ?cc:ABI.condition_code option ->
-    data_size:ABI.data_size option ->
+    ?data_size:ABI.data_size option ->
     dst:ABI.dst ->
     src:ABI.src ->
     offset:int ->
@@ -129,7 +129,7 @@ module type Instruction = sig
 
   val istr :
     ?cc:ABI.condition_code option ->
-    data_size:ABI.data_size option ->
+    ?data_size:ABI.data_size option ->
     dst:ABI.dst ->
     src:ABI.src ->
     offset:int ->
@@ -149,7 +149,14 @@ module type Instruction = sig
   val ret : instruction
 end
 
-module type AInstruction = functor (ABI : ABI) -> Instruction
+(* module type AInstruction = functor (ABI : ABI) -> Instruction *)
+
+module IdVar = struct
+  type t = (string * KosuIrTyped.Asttyped.rktype)
+  let compare = compare 
+end
+
+module IdVarMap = Map.Make(IdVar) 
 
 module type FrameManager = sig
   module Instruction : sig
@@ -158,17 +165,19 @@ module type FrameManager = sig
 
   type frame_desc = {
     stack_param_count : int;
-    locals_space : int;
-    stack_map : (string * KosuIrTyped.Asttyped.rktype) list;
+    locals_space : int64;
+    stack_map : (string * KosuIrTyped.Asttyped.rktype) IdVarMap.t ;
   }
 
   val frame_descriptor :
+    fn_register_params:(string * KosuIrTyped.Asttyped.rktype) list ->
     stack_param:(string * KosuIrTyped.Asttyped.rktype) list ->
     locals_var:(string * KosuIrTyped.Asttyped.rktype) list ->
+    rprogram: KosuIrTyped.Asttyped.rprogram ->
     frame_desc
 
   val adress_of :
-    ?rktype:KosuIrTyped.Asttyped.rktype option ->
+    rktype:KosuIrTyped.Asttyped.rktype ->
     string ->
     frame_desc ->
     Instruction.ABI.address
@@ -182,6 +191,3 @@ module type FrameManager = sig
     args:Instruction.ABI.src ->
     Instruction.instruction list
 end
-
-module type AFrameManager = functor (ABInstruction : AInstruction) ->
-  FrameManager

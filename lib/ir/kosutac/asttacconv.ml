@@ -851,4 +851,5 @@ and tac_program_of_rprogram (rprogram : rprogram) : tac_program =
          {
            filename;
            tac_module_path = tac_module_path_of_rmodule_path rmodule_path;
+           rprogram = rprogram
          })
