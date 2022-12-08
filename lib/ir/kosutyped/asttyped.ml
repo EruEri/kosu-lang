@@ -173,6 +173,13 @@ type rexternal_func_decl = {
   c_name : string option;
 }
 
+type rtrue_function_decl = {
+  rfn_name: string;
+  rparameters : (string * rktype) list;
+  return_type : rktype;
+  rbody : rkbody;
+}
+
 type rconst_decl = { rconst_name : string; value : typed_expression }
 
 type rmodule_node =

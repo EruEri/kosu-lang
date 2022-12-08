@@ -515,7 +515,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                            (index, field_ktype.v))
               | None -> ()
             in
-            init_type_parameters |> List.combine e.parameters
+            let () = init_type_parameters |> List.combine e.parameters
             |> List.iter (fun ((_, para_type), init_type) ->
                    if
                      e
@@ -533,7 +533,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                            |> Position.value;
                          found = init_type;
                        }
-                     |> func_error |> raise);
+                     |> func_error |> raise) in
 
             Asthelper.Function.to_return_ktype_hashtab
               ~current_module:current_mod_name ~module_type_path:modules_path.v

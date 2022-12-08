@@ -21,6 +21,103 @@ open KosuFrontend.Typecheck
 open KosuFrontend.Ast.Env
 open KosuFrontend
 
+let rec instanciate_generics_type generics = function
+| RTType_Identifier { module_path = ""; name } as t -> begin 
+  match generics |> List.assoc_opt name with
+  | None -> t
+  | Some kt -> kt
+end
+| RTParametric_identifier {module_path; parametrics_type; name} -> 
+  RTParametric_identifier {
+    module_path; 
+    parametrics_type = parametrics_type |> List.map (instanciate_generics_type generics);
+    name
+  }
+| RTPointer ptr -> RTPointer (instanciate_generics_type generics ptr)
+| RTTuple rtks -> RTTuple ( rtks |> List.map (instanciate_generics_type generics) )
+| _ as t -> t
+
+let rec instanciate_generics_kbody generics (rkstatements, return_te) = 
+  ( rkstatements |> List.map (instanciate_generics_statement generics),
+  instanciate_generics_typed_expression generics return_te
+  )
+and instanciate_generics_statement generics = function
+| RSDeclaration {is_const; variable_name; typed_expression} -> RSDeclaration {is_const; variable_name; typed_expression = instanciate_generics_typed_expression generics typed_expression}
+| RSAffection (s, te) -> RSAffection (s, instanciate_generics_typed_expression generics te)
+| RSDiscard te -> RSDiscard (instanciate_generics_typed_expression generics te)
+| RSDerefAffectation (s, te) -> RSDerefAffectation (s, instanciate_generics_typed_expression generics te)
+
+and instanciate_generics_rexpression generics = function
+| RESizeof ktype -> RESizeof (instanciate_generics_type generics ktype)
+| REFieldAcces {first_expr; field} -> REFieldAcces {first_expr = instanciate_generics_typed_expression generics first_expr; field}
+| REStruct {modules_path; struct_name; fields} -> REStruct {
+  modules_path; 
+  struct_name; 
+  fields = fields 
+    |> List.map (fun (s, te) -> 
+      s, instanciate_generics_typed_expression generics te
+    )
+}
+| REEnum { modules_path; enum_name; variant; assoc_exprs} -> REEnum {
+  modules_path;
+  enum_name;
+  variant;
+  assoc_exprs = assoc_exprs |> List.map (instanciate_generics_typed_expression generics)
+}
+| RETuple tes -> RETuple (tes |> List.map  (instanciate_generics_typed_expression generics))
+| REBuiltin_Function_call {fn_name; parameters} -> REBuiltin_Function_call {fn_name; parameters = parameters |> List.map (instanciate_generics_typed_expression generics)}
+| REFunction_call {modules_path; generics_resolver; fn_name; parameters} -> REFunction_call {
+  modules_path;
+  generics_resolver = generics_resolver |> Option.map (List.map (instanciate_generics_type generics));
+  fn_name;
+  parameters = parameters |> List.map (instanciate_generics_typed_expression generics)
+}
+| REBinOperator_Function_call bo -> REBinOperator_Function_call (instanciate_generics_binary_op generics bo)
+| REUnOperator_Function_call up -> REUnOperator_Function_call (instanciate_generics_unary_op generics up)
+| REBin_op bo -> REBin_op (instanciate_generics_binary_op generics bo)
+| REUn_op up -> REUn_op (instanciate_generics_unary_op generics up)
+| REIf (te, ifbody, elsebody) -> REIf (
+    instanciate_generics_typed_expression generics te, 
+    instanciate_generics_kbody generics ifbody,
+    instanciate_generics_kbody generics elsebody
+    )
+| RESwitch {rexpression; cases; wildcard_case} -> 
+  RESwitch {
+    rexpression = instanciate_generics_typed_expression generics rexpression;
+    cases = cases |> List.map (fun (rswichs_list, info_list, rbody) -> 
+      rswichs_list,
+      info_list |> List.map (fun (i, s, ktype) -> (i, s, instanciate_generics_type generics ktype)),
+      instanciate_generics_kbody generics rbody
+      );
+    wildcard_case = wildcard_case |> Option.map (instanciate_generics_kbody generics)
+  }
+| _ as t -> t
+and instanciate_generics_typed_expression generics typed_expr = {
+  rktype = instanciate_generics_type generics typed_expr.rktype;
+  rexpression = instanciate_generics_rexpression generics typed_expr.rexpression
+}
+and instanciate_generics_unary_op generics = function
+| RUMinus typed_expression -> RUMinus (instanciate_generics_typed_expression generics typed_expression)
+| RUNot te -> RUNot (instanciate_generics_typed_expression generics te)
+and instanciate_generics_binary_op generics = function
+| RBAdd (lhs, rhs) -> RBAdd (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBMinus (lhs, rhs) -> RBMinus (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBMult (lhs, rhs) -> RBMult (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBDiv (lhs, rhs) -> RBDiv (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBMod (lhs, rhs) -> RBMod (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBBitwiseOr (lhs, rhs) -> RBBitwiseOr (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBBitwiseAnd (lhs, rhs) -> RBBitwiseAnd (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBBitwiseXor (lhs, rhs) -> RBBitwiseXor (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBShiftLeft (lhs, rhs) -> RBShiftLeft (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBShiftRight (lhs, rhs) -> RBShiftRight (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBAnd (lhs, rhs) -> RBAdd (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBOr (lhs, rhs) -> RBOr (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBSup (lhs, rhs) -> RBSup (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBSupEq (lhs, rhs) -> RBSupEq (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBInf (lhs, rhs) -> RBInf (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBInfEq (lhs, rhs) -> RBInfEq (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBEqual (lhs, rhs) -> RBEqual (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
+| RBDif (lhs, rhs) -> RBDif (instanciate_generics_typed_expression generics lhs, instanciate_generics_typed_expression generics rhs)
 let rec restrict_rktype to_restrict restrict =
   match (to_restrict, restrict) with
   | ( (RTParametric_identifier
@@ -925,3 +1022,15 @@ and from_program (program : Ast.program) : rprogram =
                (program |> Asthelper.Program.to_module_path_list)
                module_path;
          })
+
+
+and true_function_of_rfunction_decl generics (rfunction_decl: rfunction_decl) = 
+  match rfunction_decl.generics = [] with
+  | true -> {rfn_name = rfunction_decl.rfn_name; rparameters = rfunction_decl.rparameters; return_type = rfunction_decl.return_type; rbody = rfunction_decl.rbody}
+  | false -> 
+    let assoc_generics = List.combine rfunction_decl.generics generics in
+    let rparameters = rfunction_decl.rparameters |> List.map (fun (field, rtype) -> field,  instanciate_generics_type assoc_generics rtype) in
+    let return_type = instanciate_generics_type assoc_generics rfunction_decl.return_type in
+    failwith ""
+
+let instanciate_generics_function rprogram = failwith ""
