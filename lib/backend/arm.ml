@@ -276,7 +276,7 @@ module Arm64Instruction = struct
       | `Register reg1, `Register reg2 -> (MUL {cc; destination = dst; operand1 = reg1; operand2 = reg2})::[]
       | _ -> failwith "Wrong mult format"
 
-  let iasr ?cc dst srcl srcr = 
+  let _iasr ?cc dst srcl srcr = 
     match srcl, srcr with
     | `Litteral _, `Litteral _ -> 
       let add = ASR {cc; destination = dst; operand1 = ABI.R9; operand2 = srcr } in
@@ -371,7 +371,6 @@ module Arm64FrameManager = struct
   }
 
   let frame_descriptor ~fn_register_params ~stack_param ~locals_var rprogram =
-    let open Int64 in
     let stack_param_count = stack_param |> List.length in
     let stack_concat = fn_register_params @ locals_var in
     let fake_tuple = stack_concat |> List.map snd in

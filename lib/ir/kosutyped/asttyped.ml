@@ -522,6 +522,8 @@ end
 module Rmodule = struct
   open Rtype_Decl
 
+  let add_node node = function
+  | RModule rnodes -> RModule (node::rnodes )
   let retrieve_non_generics_function = function
   | RModule rnodes -> rnodes |> List.filter_map (fun rnode -> 
       match rnode with
@@ -643,9 +645,18 @@ module RProgram = struct
     |> List.flatten
     |> List.append ( return_exprs |> (specialise_generics_function_typed_expression current_module rprogram))
     
-  (* let rec specialise_generics_function current_module (rkstatement, return) = 
-    match rkstatement with
-    | rstmt::q ->  *)
+  let specialise rprogram = 
+    rprogram |> List.map ( fun { rmodule_path = {path; rmodule} ; _} -> 
+      let root_functions = Rmodule.retrieve_non_generics_function rmodule in
+
+      root_functions |> List.map (function
+      | RFFunction rtrue_function_decl -> specialise_generics_function_kbody path rprogram rtrue_function_decl.rbody
+      | RFOperator ( RUnary {kbody; _} | RBinary {kbody; _} ) ->  specialise_generics_function_kbody path rprogram kbody
+      ) |>  List.flatten
+      
+    ) |> List.flatten
+      
+      
 end
 
 module Sizeof = struct

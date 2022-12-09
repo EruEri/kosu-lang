@@ -926,6 +926,3 @@ and from_program (program : Ast.program) : rprogram =
                (program |> Asthelper.Program.to_module_path_list)
                module_path;
          })
-
-
-let instanciate_generics_function rprogram = failwith ""

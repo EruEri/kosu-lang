@@ -1453,6 +1453,8 @@ module Function = struct
 
   let rec is_type_compatible_hashgen generic_table (init_type : ktype)
       (expected_type : ktype) (function_decl : t) =
+    (* let () = Printf.printf "fn_name = %s : init_type = %s, expected_type = %s\n" (function_decl.fn_name.v) (Pprint.string_of_ktype init_type) (Pprint.string_of_ktype expected_type) in
+    let () = Printf.printf "TIdentifier = %b\n\n" (match expected_type with TType_Identifier _ -> true | _ -> false) in *)
     let open Ast.Type in
     match (init_type, expected_type) with
     | kt, TType_Identifier { module_path = { v = ""; _ }; name }
@@ -1470,7 +1472,7 @@ module Function = struct
                  in
                  true
                else false
-           | Some (_, find_kt) -> find_kt === kt ->
+           | Some (_, find_kt) -> are_compatible_type find_kt kt ->
         true
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
