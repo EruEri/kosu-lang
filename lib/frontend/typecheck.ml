@@ -490,7 +490,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             let infered_map = e.generics |> List.mapi ( fun index s -> s.v, (index, TUnknow)) |> List.to_seq |> Hashtbl.of_seq in
             let () = List.iter2 (fun kt (_, param_kt) -> Ast.Type.update_generics infered_map kt param_kt () ) init_type_parameters e.parameters in 
             
-            let init_type_parameters = init_type_parameters |> List.map ( Position.map (Type.remap_generic_ktype ~current_module:current_mod_name infered_map)) in
+            (* let init_type_parameters = init_type_parameters |> List.map ( Position.map (Type.remap_generic_ktype ~current_module:current_mod_name infered_map)) in *)
             let hashtal = Hashtbl.create (e.generics |> List.length) in
             let () =
               match Asthelper.Function.does_need_generic_resolver e with
