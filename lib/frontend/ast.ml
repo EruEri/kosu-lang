@@ -788,6 +788,48 @@ module Type = struct
         |> pointer
     | _ as kt -> kt
 
+  
+  let rec remap_naif_generic_ktype generics_table ktype =
+    match ktype with
+    | TType_Identifier { module_path = { v = ""; position = kposition }; name }
+      -> (
+        match Hashtbl.find_opt generics_table name.v with
+        | None ->
+            TType_Identifier
+              { module_path = { v = ""; position = kposition }; name }
+        | Some (typ) -> typ)
+    | TType_Identifier { module_path; name } -> (
+        match Hashtbl.find_opt generics_table name.v with
+        | None ->
+            TType_Identifier
+              {
+                module_path;
+                name;
+              }
+        | Some (typ) -> typ)
+    | TParametric_identifier { module_path; parametrics_type; name } ->
+        TParametric_identifier
+          {
+            module_path;
+            parametrics_type =
+              parametrics_type
+              |> List.map
+                    (Position.map
+                      (remap_naif_generic_ktype generics_table));
+            name;
+          }
+    | TTuple kts ->
+        TTuple
+          (kts
+          |> List.map
+                (Position.map
+                  (remap_naif_generic_ktype generics_table)))
+    | TPointer kt ->
+        kt
+        |> Position.map (remap_naif_generic_ktype generics_table)
+        |> pointer
+    | _ as kt -> kt
+
   let rec remap_generic_ktype ~current_module generics_table ktype =
     match ktype with
     | TType_Identifier { module_path = { v = ""; position = kposition }; name }

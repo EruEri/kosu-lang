@@ -428,16 +428,14 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
         | _ -> failwith "Wierd it supposed to be an enum"
       in
       let generics_mapped =
-        expr_type |> Ast.Type.extract_parametrics_ktype
-        |> List.combine
-             (enum_decl.generics
-             |> List.map (fun name ->
-                    TType_Identifier
-                      {
-                        module_path = { v = ""; position = Position.dummy };
-                        name;
-                      }))
+        expr_type 
+        |> Ast.Type.extract_parametrics_ktype
+        |> List.combine enum_decl.generics
+        |> List.map Position.assocs_value
+        |> List.to_seq
+        |> Hashtbl.of_seq
       in
+      (* let () = List.iter (fun (gen, kt) -> Printf.printf "generic = %s ==> %s\n\n" (Pprint.string_of_ktype gen) (Pprint.string_of_ktype kt.v)) generics_mapped in  *)
       let bound_variables, rkbodys =
         cases
         |> List.map (fun (sc_list, kb) ->
@@ -446,10 +444,11 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
                  |> List.map (fun sc ->
                         let variant_name = sc |> variant_name in
                         let assoc_types =
-                          extract_assoc_type_variant generics_mapped
+                          extract_assoc_remap_type_variant generics_mapped
                             variant_name enum_decl
                           |> Option.get
                         in
+                        (* let () = List.iter (fun s -> Printf.printf "assoc = %s\n\n" (Pprint.string_of_ktype s.v)) assoc_types in *)
                         let assoc_binding = assoc_binding sc in
                         ( variant_name,
                           assoc_types |> List.combine assoc_binding

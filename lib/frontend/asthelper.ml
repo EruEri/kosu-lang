@@ -1012,6 +1012,16 @@ module Enum = struct
                          else None)
                   |> Option.value ~default:kt))
 
+  let extract_assoc_remap_type_variant generics variant (enum_decl : t) =
+    enum_decl.variants
+    |> List.find_map (fun (case, assoc_type) ->
+            if case.v = variant.v then Some assoc_type else None)
+    |> Option.map (fun assoc_ktypes ->
+            assoc_ktypes
+            |> List.map ( Position.map (Ast.Type.remap_naif_generic_ktype generics)
+
+                  ))
+
   let is_ktype_generic_level_zero ktype (enum_decl : t) =
     match ktype with
     | TType_Identifier { module_path = { v = ""; _ }; name } ->
