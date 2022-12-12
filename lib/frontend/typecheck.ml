@@ -487,9 +487,18 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                       (typeof ~generics_resolver:new_map_generics env
                          current_mod_name prog))
             in
-            let infered_map = e.generics |> List.mapi ( fun index s -> s.v, (index, TUnknow)) |> List.to_seq |> Hashtbl.of_seq in
-            let () = List.iter2 (fun kt (_, param_kt) -> Ast.Type.update_generics infered_map kt param_kt () ) init_type_parameters e.parameters in 
-            
+            let infered_map =
+              e.generics
+              |> List.mapi (fun index s -> (s.v, (index, TUnknow)))
+              |> List.to_seq |> Hashtbl.of_seq
+            in
+            let () =
+              List.iter2
+                (fun kt (_, param_kt) ->
+                  Ast.Type.update_generics infered_map kt param_kt ())
+                init_type_parameters e.parameters
+            in
+
             (* let init_type_parameters = init_type_parameters |> List.map ( Position.map (Type.remap_generic_ktype ~current_module:current_mod_name infered_map)) in *)
             let hashtal = Hashtbl.create (e.generics |> List.length) in
             let () =
@@ -519,30 +528,32 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                            (index, field_ktype.v))
               | None -> ()
             in
-            let () = init_type_parameters |> List.combine e.parameters
-            |> List.iter (fun ((_, para_type), init_type) ->
-              (* let () = Printf.printf "init_ktype = %s, expected = %s\n\n" (Pprint.string_of_ktype init_type.v) (Pprint.string_of_ktype para_type.v) in *)
-                   if
-                     e
-                     |> Asthelper.Function.is_type_compatible_hashgen hashtal
-                          init_type.v para_type.v
-                     |> not
-                   then
-                     Mismatched_Parameters_Type
-                       {
-                         fn_name = fn_name.v;
-                         expected =
-                           para_type
-                           |> Position.map
-                                (Ast.Type.extract_mapped_ktype hashtal)
-                           |> Position.value;
-                         found = init_type;
-                       }
-                     |> func_error |> raise) in
+            let () =
+              init_type_parameters |> List.combine e.parameters
+              |> List.iter (fun ((_, para_type), init_type) ->
+                     (* let () = Printf.printf "init_ktype = %s, expected = %s\n\n" (Pprint.string_of_ktype init_type.v) (Pprint.string_of_ktype para_type.v) in *)
+                     if
+                       e
+                       |> Asthelper.Function.is_type_compatible_hashgen hashtal
+                            init_type.v para_type.v
+                       |> not
+                     then
+                       Mismatched_Parameters_Type
+                         {
+                           fn_name = fn_name.v;
+                           expected =
+                             para_type
+                             |> Position.map
+                                  (Ast.Type.extract_mapped_ktype hashtal)
+                             |> Position.value;
+                           found = init_type;
+                         }
+                       |> func_error |> raise)
+            in
 
             Asthelper.Function.to_return_ktype_hashtab
               ~current_module:current_mod_name ~module_type_path:modules_path.v
-infered_map  e
+              infered_map e
       | Ast.Function_Decl.Decl_External external_func_decl -> (
           if external_func_decl.is_variadic then
             parameters

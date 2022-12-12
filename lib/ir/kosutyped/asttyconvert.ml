@@ -428,12 +428,10 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
         | _ -> failwith "Wierd it supposed to be an enum"
       in
       let generics_mapped =
-        expr_type 
-        |> Ast.Type.extract_parametrics_ktype
+        expr_type |> Ast.Type.extract_parametrics_ktype
         |> List.combine enum_decl.generics
         |> List.map Position.assocs_value
-        |> List.to_seq
-        |> Hashtbl.of_seq
+        |> List.to_seq |> Hashtbl.of_seq
       in
       (* let () = List.iter (fun (gen, kt) -> Printf.printf "generic = %s ==> %s\n\n" (Pprint.string_of_ktype gen) (Pprint.string_of_ktype kt.v)) generics_mapped in  *)
       let bound_variables, rkbodys =
@@ -629,7 +627,10 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
             |> List.map (fun s -> (s, ()))
             |> List.to_seq |> Hashtbl.of_seq
           in
-          let function_rktype_param = kosu_function.parameters |> List.map (fun (_, {v = kt; _}) -> from_ktype kt) in
+          let function_rktype_param =
+            kosu_function.parameters
+            |> List.map (fun (_, { v = kt; _ }) -> from_ktype kt)
+          in
           let typed_parameters =
             parameters
             |> List.map
@@ -638,11 +639,22 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
                     program)
           in
 
-          let hashmap = kosu_function.generics |> List.map (fun s -> s.v, RTUnknow) |> List.to_seq |> Hashtbl.of_seq in
-          let () = List.iter2 (fun {rktype; _} param -> let _ = RType.update_generics hashmap rktype param () in ()) typed_parameters function_rktype_param in
+          let hashmap =
+            kosu_function.generics
+            |> List.map (fun s -> (s.v, RTUnknow))
+            |> List.to_seq |> Hashtbl.of_seq
+          in
+          let () =
+            List.iter2
+              (fun { rktype; _ } param ->
+                let _ = RType.update_generics hashmap rktype param () in
+                ())
+              typed_parameters function_rktype_param
+          in
           let typed_parameters =
             kosu_function.parameters
-            |> List.map (fun (_, { v = kt; _ }) -> kt |> from_ktype |> RType.remap_generic_ktype hashmap )
+            |> List.map (fun (_, { v = kt; _ }) ->
+                   kt |> from_ktype |> RType.remap_generic_ktype hashmap)
             |> List.map2
                  (fun typed_exp kt -> restrict_typed_expression kt typed_exp)
                  typed_parameters
@@ -663,8 +675,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
           program expression
       in
 
-      if typed.rktype |> RType.is_builtin_type then
-        REUn_op (RUMinus typed)
+      if typed.rktype |> RType.is_builtin_type then REUn_op (RUMinus typed)
       else REUnOperator_Function_call (RUMinus typed)
   | EUn_op (UNot expression) ->
       let typed =

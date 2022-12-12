@@ -16,10 +16,14 @@ let offset_of_field ~generics field rstruct_decl rprogram =
        (fun ((acc_size, acc_align, acc_packed_size, found) as acc)
             (sfield, rktype) ->
          let comming_size =
-           rktype |> KosuIrTyped.Asttyhelper.RType.remap_generic_ktype generics |> size `size rprogram
+           rktype
+           |> KosuIrTyped.Asttyhelper.RType.remap_generic_ktype generics
+           |> size `size rprogram
          in
          let comming_align =
-           rktype |> KosuIrTyped.Asttyhelper.RType.remap_generic_ktype generics |> size `align rprogram
+           rktype
+           |> KosuIrTyped.Asttyhelper.RType.remap_generic_ktype generics
+           |> size `align rprogram
          in
          let quotient = Int64.unsigned_div acc_size comming_align in
          let reminder = Int64.unsigned_rem acc_size comming_align in
@@ -54,44 +58,49 @@ let offset_of_tuple_index ~generics index rktypes rprogram =
   let ( ++ ) = Int64.add in
   let ( -- ) = Int64.sub in
   rktypes
-  |> List.mapi (fun i v -> i, v )
+  |> List.mapi (fun i v -> (i, v))
   |> List.fold_left
-        (fun ((acc_size, acc_align, acc_packed_size, found) as acc)
+       (fun ((acc_size, acc_align, acc_packed_size, found) as acc)
             (tindex, rktype) ->
-          let comming_size =
-            rktype |> KosuIrTyped.Asttyhelper.RType.remap_generic_ktype generics |> size `size rprogram
-          in
-          let comming_align =
-            rktype |> KosuIrTyped.Asttyhelper.RType.remap_generic_ktype generics |> size `align rprogram
-          in
-          let quotient = Int64.unsigned_div acc_size comming_align in
-          let reminder = Int64.unsigned_rem acc_size comming_align in
-          let new_pacced_size = comming_size ++ acc_packed_size in
+         let comming_size =
+           rktype
+           |> KosuIrTyped.Asttyhelper.RType.remap_generic_ktype generics
+           |> size `size rprogram
+         in
+         let comming_align =
+           rktype
+           |> KosuIrTyped.Asttyhelper.RType.remap_generic_ktype generics
+           |> size `align rprogram
+         in
+         let quotient = Int64.unsigned_div acc_size comming_align in
+         let reminder = Int64.unsigned_rem acc_size comming_align in
+         let new_pacced_size = comming_size ++ acc_packed_size in
 
-          let add_size =
-            if new_pacced_size < acc_size then 0L
-            else if comming_size < acc_align then acc_align
-            else comming_size
-          in
+         let add_size =
+           if new_pacced_size < acc_size then 0L
+           else if comming_size < acc_align then acc_align
+           else comming_size
+         in
 
-          let padded_size =
-            if reminder = 0L || acc_size = 0L then acc_size
-            else Int64.mul comming_align (quotient ++ 1L)
-          in
+         let padded_size =
+           if reminder = 0L || acc_size = 0L then acc_size
+           else Int64.mul comming_align (quotient ++ 1L)
+         in
 
-          if found then acc
-          else if index = tindex then
-            ( padded_size ++ add_size -- comming_size,
-              max comming_align acc_align,
-              new_pacced_size,
-              true )
-          else
-            ( padded_size ++ add_size,
-              max comming_align acc_align,
-              new_pacced_size,
-              false ))
-        (0L, 0L, 0L, false)
+         if found then acc
+         else if index = tindex then
+           ( padded_size ++ add_size -- comming_size,
+             max comming_align acc_align,
+             new_pacced_size,
+             true )
+         else
+           ( padded_size ++ add_size,
+             max comming_align acc_align,
+             new_pacced_size,
+             false ))
+       (0L, 0L, 0L, false)
   |> fun (x, _, _, _) -> x
+
 let make_string_litteral_label count =
   let lab =
     Printf.sprintf "l_.str%s"

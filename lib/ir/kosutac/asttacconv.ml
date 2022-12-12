@@ -518,7 +518,9 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         | 0 -> failwith "Never I hope: deferencement without start ??"
         | 1 ->
             let new_tmp = make_inc_tmp count_var in
-            let rtpointee = KosuIrTyped.Asttyhelper.RType.rtpointee origin_type in
+            let rtpointee =
+              KosuIrTyped.Asttyhelper.RType.rtpointee origin_type
+            in
             ( new_tmp,
               STacDeclaration
                 {
@@ -528,7 +530,9 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
               :: [] )
         | _ ->
             let new_tmp = make_inc_tmp count_var in
-            let rtpointee = KosuIrTyped.Asttyhelper.RType.rtpointee origin_type in
+            let rtpointee =
+              KosuIrTyped.Asttyhelper.RType.rtpointee origin_type
+            in
             let result, future_stmt =
               loop ~origin_type:rtpointee ~from:new_tmp (i - 1)
             in
@@ -852,5 +856,5 @@ and tac_program_of_rprogram (rprogram : rprogram) : tac_program =
          {
            filename;
            tac_module_path = tac_module_path_of_rmodule_path rmodule_path;
-           rprogram = rprogram
+           rprogram;
          })

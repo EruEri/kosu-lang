@@ -6,7 +6,7 @@ module type ABI = sig
   type src
   type data_size
   type adress_mode
-  type register_size = [`x86 | `x32]
+  type register_size = [ `x86 | `x32 ]
 
   type address = {
     offset : Common.imm option;
@@ -15,8 +15,7 @@ module type ABI = sig
     scale : Common.scale;
   }
 
-  val string_of_register: ?size: register_size -> register -> string
-
+  val string_of_register : ?size:register_size -> register -> string
   val caller_save : register list
   val callee_save : register list
   val stack_pointer : register
@@ -152,11 +151,12 @@ end
 (* module type AInstruction = functor (ABI : ABI) -> Instruction *)
 
 module IdVar = struct
-  type t = (string * KosuIrTyped.Asttyped.rktype)
-  let compare = compare 
+  type t = string * KosuIrTyped.Asttyped.rktype
+
+  let compare = compare
 end
 
-module IdVarMap = Map.Make(IdVar) 
+module IdVarMap = Map.Make (IdVar)
 
 module type FrameManager = sig
   module Instruction : sig
@@ -166,14 +166,14 @@ module type FrameManager = sig
   type frame_desc = {
     stack_param_count : int;
     locals_space : int64;
-    stack_map : (string * KosuIrTyped.Asttyped.rktype) IdVarMap.t ;
+    stack_map : (string * KosuIrTyped.Asttyped.rktype) IdVarMap.t;
   }
 
   val frame_descriptor :
     fn_register_params:(string * KosuIrTyped.Asttyped.rktype) list ->
     stack_param:(string * KosuIrTyped.Asttyped.rktype) list ->
     locals_var:(string * KosuIrTyped.Asttyped.rktype) list ->
-    rprogram: KosuIrTyped.Asttyped.rprogram ->
+    rprogram:KosuIrTyped.Asttyped.rprogram ->
     frame_desc
 
   val adress_of :

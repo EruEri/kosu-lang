@@ -1015,12 +1015,11 @@ module Enum = struct
   let extract_assoc_remap_type_variant generics variant (enum_decl : t) =
     enum_decl.variants
     |> List.find_map (fun (case, assoc_type) ->
-            if case.v = variant.v then Some assoc_type else None)
+           if case.v = variant.v then Some assoc_type else None)
     |> Option.map (fun assoc_ktypes ->
-            assoc_ktypes
-            |> List.map ( Position.map (Ast.Type.remap_naif_generic_ktype generics)
-
-                  ))
+           assoc_ktypes
+           |> List.map
+                (Position.map (Ast.Type.remap_naif_generic_ktype generics)))
 
   let is_ktype_generic_level_zero ktype (enum_decl : t) =
     match ktype with
@@ -1464,7 +1463,7 @@ module Function = struct
   let rec is_type_compatible_hashgen generic_table (init_type : ktype)
       (expected_type : ktype) (function_decl : t) =
     (* let () = Printf.printf "fn_name = %s : init_type = %s, expected_type = %s\n" (function_decl.fn_name.v) (Pprint.string_of_ktype init_type) (Pprint.string_of_ktype expected_type) in
-    let () = Printf.printf "TIdentifier = %b\n\n" (match expected_type with TType_Identifier _ -> true | _ -> false) in *)
+       let () = Printf.printf "TIdentifier = %b\n\n" (match expected_type with TType_Identifier _ -> true | _ -> false) in *)
     let open Ast.Type in
     match (init_type, expected_type) with
     | kt, TType_Identifier { module_path = { v = ""; _ }; name }

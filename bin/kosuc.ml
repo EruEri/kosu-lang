@@ -17,6 +17,7 @@
 
 open KosuFrontend.Astvalidation
 open KosuIrTyped
+
 (* open KosuIrTAC *)
 open KosuCli
 
@@ -68,10 +69,17 @@ let () =
               failwith ""
           in
           let () = Printf.printf "Successfult converted\n\n" in
-          let specialised = KosuIrTyped.Asttyhelper.RProgram.specialise typed_program in
-          let () = specialised |> KosuIrTyped.Asttyhelper.RProgram.FnSpec.to_seq |> List.of_seq |> List.iter (fun (module_path, rtrue_function_decl) -> 
-            Printf.printf "%s\n%s\n\n" module_path (KosuIrTyped.Asttypprint.string_of_rtrue_func_decl rtrue_function_decl)
-            ) in
+          let specialised =
+            KosuIrTyped.Asttyhelper.RProgram.specialise typed_program
+          in
+          let () =
+            specialised |> KosuIrTyped.Asttyhelper.RProgram.FnSpec.to_seq
+            |> List.of_seq
+            |> List.iter (fun (module_path, rtrue_function_decl) ->
+                   Printf.printf "%s\n%s\n\n" module_path
+                     (KosuIrTyped.Asttypprint.string_of_rtrue_func_decl
+                        rtrue_function_decl))
+          in
           (* let _tac_program = Asttacconv.tac_program_of_rprogram typed_program in *)
           ())
 (* let () = modules |> List.iter (fun record -> Printf.printf "module name : %s\n" record.path) in

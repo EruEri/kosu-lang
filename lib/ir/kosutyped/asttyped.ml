@@ -174,7 +174,7 @@ type rexternal_func_decl = {
 }
 
 type rtrue_function_decl = {
-  rfn_name: string;
+  rfn_name : string;
   rparameters : (string * rktype) list;
   return_type : rktype;
   rbody : rkbody;
@@ -196,6 +196,6 @@ type rmodule_path = { path : string; rmodule : rmodule }
 type named_rmodule_path = { filename : string; rmodule_path : rmodule_path }
 type rprogram = named_rmodule_path list
 
-type raw_function = 
-| RFFunction of rtrue_function_decl
-| RFOperator of roperator_decl
+type raw_function =
+  | RFFunction of rtrue_function_decl
+  | RFOperator of roperator_decl

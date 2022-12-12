@@ -283,12 +283,11 @@ let string_of_rfunc_decl (function_decl : rfunction_decl) =
     (function_decl.return_type |> string_of_rktype)
     (function_decl.rbody |> string_of_rkbody)
 
-
 let string_of_rtrue_func_decl (function_decl : rtrue_function_decl) =
   sprintf "fn %s(%s)%s%s" function_decl.rfn_name
     (function_decl.rparameters
     |> List.map (fun (id, ktype) ->
-            sprintf "%s: %s" id (string_of_rktype ktype))
+           sprintf "%s: %s" id (string_of_rktype ktype))
     |> String.concat ", ")
     (function_decl.return_type |> string_of_rktype)
     (function_decl.rbody |> string_of_rkbody)

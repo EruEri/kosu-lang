@@ -240,7 +240,7 @@ and instanciate_generics_statement generics = function
 | RSDerefAffectation (s, te) -> RSDerefAffectation (s, instanciate_generics_typed_expression generics te)
 
 and instanciate_generics_rexpression generics = function
-| RESizeof ktype -> let () = List.iter (fun (s, k) -> Printf.printf "GEN %s ==> Sizeof %s\n\n" s (Asttypprint.string_of_rktype k) ) generics in RESizeof (instanciate_generics_type generics ktype)
+| RESizeof ktype -> RESizeof (instanciate_generics_type generics ktype)
 | REFieldAcces {first_expr; field} -> REFieldAcces {first_expr = instanciate_generics_typed_expression generics first_expr; field}
 | REStruct {modules_path; struct_name; fields} -> REStruct {
   modules_path; 
@@ -486,89 +486,104 @@ module RProgram = struct
              type_name = (rtype_decl |> Rtype_Decl.type_name))
       |> Option.some
 
-  let rec specialise_generics_function current_module rprogram = function
+  let rec specialise_generics_function current_module ~ignored rprogram = function
   | REFunction_call {modules_path; fn_name; generics_resolver; parameters} -> 
+    let default_set = parameters |> List.map ( fun ({rktype = _; rexpression = _} as te) -> 
+      (* let () = Printf.printf "te: %s\n\n" (Asttypprint.string_of_typed_expression te) in *)
+      specialise_generics_function_typed_expression ~ignored current_module rprogram te 
+      ) |> List.fold_left FnSpec.union FnSpec.empty in
     let function_module = if modules_path = "" then current_module else modules_path in
-    let function_decl = rprogram 
+    rprogram 
     |> find_module_of_name function_module 
     |> Option.get
     |> Rmodule.find_function_decl fn_name
-    |> Option.get in
-    if function_decl.generics = [] then FnSpec.empty
+    |> fun (function_decl_opt) -> (
+      match function_decl_opt with
+      | None -> (* let () = Printf.printf "No decl for %s::%s\n" modules_path fn_name in *) default_set
+      | Some function_decl ->
+          if function_decl.generics = [] then default_set
     else  
     let maped_type = Hashtbl.create (parameters |> List.length) in
     let inner_specialise = parameters |> List.combine function_decl.rparameters |> List.map ( fun ((_, type_decl), ({rktype; rexpression = _} as te)) -> 
-      let () = Printf.printf "te: %s\n\n" (Asttypprint.string_of_typed_expression te) in
+      (* let () = Printf.printf "te: %s\n\n" (Asttypprint.string_of_typed_expression te) in *)
       let _ = Function.is_type_compatible_hashgen maped_type rktype type_decl function_decl in
-      specialise_generics_function_typed_expression current_module rprogram te 
+      specialise_generics_function_typed_expression ~ignored current_module rprogram te 
       ) |> List.fold_left FnSpec.union FnSpec.empty in
       begin match generics_resolver with
-    | None -> 
-      let type_list = maped_type |> Hashtbl.to_seq |> List.of_seq |> List.sort (fun (_ls, (lindex, _ltype))  (_rs, (rindex, _rtype)) -> compare lindex rindex) |> List.map (fun (_, (_, kt)) -> kt) in
-      (* let () = List.iter (fun (s, kt) -> Printf.printf "In %s => %s \n\n" s (Asttypprint.string_of_rktype kt)) (List.combine function_decl.generics type_list) in *)
-      let true_decl = Function.true_function_of_rfunction_decl type_list function_decl in
-      FnSpec.add (function_module, true_decl) inner_specialise
-        (* let _recall = if  List.mem (function_module, true_decl) inner_specialise then [] else specialise_generics_function_kbody function_module rprogram true_decl.rbody in *)
+          | None -> 
+            let type_list = maped_type |> Hashtbl.to_seq |> List.of_seq |> List.sort (fun (_ls, (lindex, _ltype))  (_rs, (rindex, _rtype)) -> compare lindex rindex) |> List.map (fun (_, (_, kt)) -> kt) in
+            (* let () = List.iter (fun (s, kt) -> Printf.printf "In %s => %s \n\n" s (Asttypprint.string_of_rktype kt)) (List.combine function_decl.generics type_list) in *)
+            let true_decl = Function.true_function_of_rfunction_decl type_list function_decl in
+            let to_add = (function_module, true_decl) in 
+            let recall = if FnSpec.mem to_add ignored then FnSpec.empty else specialise_generics_function_kbody ~ignored:(FnSpec.add to_add ignored) function_module rprogram true_decl.rbody in
+            inner_specialise 
+            |> FnSpec.add (function_module, true_decl)
+            |> FnSpec.union recall
         (* specialise_generics_function_kbody function_module rprogram true_decl.rbody*)
-    | Some generics -> 
-      let true_decl = Function.true_function_of_rfunction_decl generics function_decl in
-      FnSpec.add (function_module, true_decl) inner_specialise
+        | Some generics -> 
+          let true_decl = Function.true_function_of_rfunction_decl generics function_decl in
+          let to_add = (function_module, true_decl) in 
+          let recall = if FnSpec.mem to_add ignored then FnSpec.empty else specialise_generics_function_kbody ~ignored:(FnSpec.add to_add ignored) function_module rprogram true_decl.rbody in
+          inner_specialise 
+          |> FnSpec.add (function_module, true_decl)
+          |> FnSpec.union recall
     end
-  | REFieldAcces {first_expr; _ } -> specialise_generics_function_typed_expression current_module rprogram first_expr
+    )
+  | REFieldAcces {first_expr; _ } -> specialise_generics_function_typed_expression ~ignored current_module rprogram first_expr
   | REStruct { fields; _} -> 
     fields 
-    |> List.map (fun (_, te) -> specialise_generics_function_typed_expression current_module rprogram te) 
+    |> List.map (fun (_, te) -> specialise_generics_function_typed_expression ~ignored current_module rprogram te) 
     |> List.fold_left FnSpec.union FnSpec.empty
   | REEnum {assoc_exprs = tes; _} | RETuple (tes) | REBuiltin_Function_call {parameters = tes; _} -> 
     tes 
-    |> List.map (specialise_generics_function_typed_expression current_module rprogram) 
+    |> List.map (specialise_generics_function_typed_expression ~ignored current_module rprogram) 
     |> List.fold_left FnSpec.union FnSpec.empty
   | REIf(te_cond, if_body, else_body) ->
     te_cond 
-    |> specialise_generics_function_typed_expression current_module rprogram
-    |> FnSpec.union ( if_body |> specialise_generics_function_kbody current_module rprogram)
-    |> FnSpec.union ( else_body |> specialise_generics_function_kbody current_module rprogram)  
+    |> specialise_generics_function_typed_expression ~ignored current_module rprogram
+    |> FnSpec.union ( if_body |> specialise_generics_function_kbody ~ignored current_module rprogram)
+    |> FnSpec.union ( else_body |> specialise_generics_function_kbody ~ignored current_module rprogram)  
   | RECases {cases; else_case} ->
     cases |> List.map (fun (te, body) -> 
       te
-      |> specialise_generics_function_typed_expression current_module rprogram
-      |> FnSpec.union (body |> specialise_generics_function_kbody current_module rprogram)
+      |> specialise_generics_function_typed_expression ~ignored current_module rprogram
+      |> FnSpec.union (body |> specialise_generics_function_kbody ~ignored current_module rprogram)
     )
     |> List.fold_left (FnSpec.union) FnSpec.empty
-    |> FnSpec.union (else_case |> specialise_generics_function_kbody current_module rprogram)
+    |> FnSpec.union (else_case |> specialise_generics_function_kbody ~ignored current_module rprogram)
   | RESwitch { rexpression; cases; wildcard_case } -> 
     rexpression 
-    |> specialise_generics_function_typed_expression current_module rprogram
+    |> specialise_generics_function_typed_expression ~ignored current_module rprogram
     |> FnSpec.union 
       ( 
         cases 
         |> List.map (fun (_, _, body) -> 
-          body |> specialise_generics_function_kbody current_module rprogram)
+          body |> specialise_generics_function_kbody ~ignored current_module rprogram)
           |> List.fold_left FnSpec.union FnSpec.empty
       )
-    |> FnSpec.union (wildcard_case |> Option.map (specialise_generics_function_kbody current_module rprogram) |> Option.value ~default:(FnSpec.empty))
+    |> FnSpec.union (wildcard_case |> Option.map (specialise_generics_function_kbody ~ignored current_module rprogram) |> Option.value ~default:(FnSpec.empty))
   | REBinOperator_Function_call bin | REBin_op bin -> 
     let (lhs, rhs) =  Binop.operands bin in
     lhs 
-    |> specialise_generics_function_typed_expression current_module rprogram
-    |> FnSpec.union (rhs |> specialise_generics_function_typed_expression current_module rprogram)
+    |> specialise_generics_function_typed_expression ~ignored current_module rprogram
+    |> FnSpec.union (rhs |> specialise_generics_function_typed_expression ~ignored current_module rprogram)
   | REUnOperator_Function_call un | REUn_op un -> begin 
     match un with
-    | RUMinus te | RUNot te -> specialise_generics_function_typed_expression current_module rprogram te
+    | RUMinus te | RUNot te -> specialise_generics_function_typed_expression ~ignored current_module rprogram te
   end 
   | _ -> FnSpec.empty
-  and specialise_generics_function_typed_expression current_module rprogram typed_expression : FnSpec.t = 
-    specialise_generics_function current_module rprogram typed_expression.rexpression
-  and specialise_generics_function_statement current_module rprogram = function
-  | RSDeclaration {typed_expression; _} -> specialise_generics_function_typed_expression current_module rprogram typed_expression
-  | RSAffection (_, typed_expression) -> specialise_generics_function_typed_expression current_module rprogram typed_expression
-  | RSDiscard typed_expression -> specialise_generics_function_typed_expression current_module rprogram typed_expression
-  | RSDerefAffectation (_, typed_expression) -> specialise_generics_function_typed_expression current_module rprogram typed_expression
-  and specialise_generics_function_kbody current_module rprogram (rkstatements, return_exprs) =
+  and specialise_generics_function_typed_expression ~ignored current_module rprogram typed_expression : FnSpec.t = 
+    specialise_generics_function ~ignored current_module rprogram typed_expression.rexpression
+  and specialise_generics_function_statement ~ignored current_module rprogram = function
+  | RSDeclaration {typed_expression; _} -> specialise_generics_function_typed_expression ~ignored current_module rprogram typed_expression
+  | RSAffection (_, typed_expression) -> specialise_generics_function_typed_expression ~ignored current_module rprogram typed_expression
+  | RSDiscard typed_expression -> specialise_generics_function_typed_expression ~ignored current_module rprogram typed_expression
+  | RSDerefAffectation (_, typed_expression) -> specialise_generics_function_typed_expression ~ignored current_module rprogram typed_expression
+  and specialise_generics_function_kbody ?(ignored = FnSpec.empty) current_module rprogram (rkstatements, return_exprs) =
   rkstatements 
-    |> List.map (specialise_generics_function_statement current_module rprogram) 
+    |> List.map (specialise_generics_function_statement ~ignored current_module rprogram) 
     |> List.fold_left FnSpec.union (FnSpec.empty)
-    |> FnSpec.union ( return_exprs |> (specialise_generics_function_typed_expression current_module rprogram))
+    |> FnSpec.union ( return_exprs |> (specialise_generics_function_typed_expression ~ignored current_module rprogram))
     
   let specialise rprogram = 
     rprogram |> List.map ( fun { rmodule_path = {path; rmodule} ; _} -> 

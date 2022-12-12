@@ -696,29 +696,26 @@ module Type = struct
            |> List.for_all (fun (k1, k2) -> are_compatible_type k1 k2)
     | _, _ -> lhs === rhs
 
-  let rec update_generics map init_type param_type () = 
-    match init_type.v, param_type.v with
-    | kt, TType_Identifier {module_path = { v = ""; _}; name} -> begin
-      match Hashtbl.find_opt map name.v with
-      | Some t -> ( 
-        match t with
-        | (index, TUnknow) -> 
-          let () = Hashtbl.replace map name.v ( (index: int), kt) in
-          () 
-        | _ as _t -> ()
-      )
-      | None -> ()
-    end
+  let rec update_generics map init_type param_type () =
+    match (init_type.v, param_type.v) with
+    | kt, TType_Identifier { module_path = { v = ""; _ }; name } -> (
+        match Hashtbl.find_opt map name.v with
+        | Some t -> (
+            match t with
+            | index, TUnknow ->
+                let () = Hashtbl.replace map name.v ((index : int), kt) in
+                ()
+            | _ as _t -> ())
+        | None -> ())
     | ( TParametric_identifier
-    { module_path = lmp; parametrics_type = lpt; name = lname },
-    TParametric_identifier
-    { module_path = rmp; parametrics_type = rpt; name = rname } ) -> 
-      if lmp <> rmp || lname <> rname || Util.are_diff_lenght lpt rpt then ()
-      else List.iter2 (fun l r ->  update_generics map l r ()) lpt rpt
-    | TPointer lhs, TPointer rhs -> 
-        update_generics map lhs rhs ()
-    | TTuple lhs, TTuple rhs -> 
-      List.iter2 (fun l r ->  update_generics map l r ()) lhs rhs
+          { module_path = lmp; parametrics_type = lpt; name = lname },
+        TParametric_identifier
+          { module_path = rmp; parametrics_type = rpt; name = rname } ) ->
+        if lmp <> rmp || lname <> rname || Util.are_diff_lenght lpt rpt then ()
+        else List.iter2 (fun l r -> update_generics map l r ()) lpt rpt
+    | TPointer lhs, TPointer rhs -> update_generics map lhs rhs ()
+    | TTuple lhs, TTuple rhs ->
+        List.iter2 (fun l r -> update_generics map l r ()) lhs rhs
     | _ -> ()
 
   let equal_fields =
@@ -788,7 +785,6 @@ module Type = struct
         |> pointer
     | _ as kt -> kt
 
-  
   let rec remap_naif_generic_ktype generics_table ktype =
     match ktype with
     | TType_Identifier { module_path = { v = ""; position = kposition }; name }
@@ -797,16 +793,11 @@ module Type = struct
         | None ->
             TType_Identifier
               { module_path = { v = ""; position = kposition }; name }
-        | Some (typ) -> typ)
+        | Some typ -> typ)
     | TType_Identifier { module_path; name } -> (
         match Hashtbl.find_opt generics_table name.v with
-        | None ->
-            TType_Identifier
-              {
-                module_path;
-                name;
-              }
-        | Some (typ) -> typ)
+        | None -> TType_Identifier { module_path; name }
+        | Some typ -> typ)
     | TParametric_identifier { module_path; parametrics_type; name } ->
         TParametric_identifier
           {
@@ -814,20 +805,15 @@ module Type = struct
             parametrics_type =
               parametrics_type
               |> List.map
-                    (Position.map
-                      (remap_naif_generic_ktype generics_table));
+                   (Position.map (remap_naif_generic_ktype generics_table));
             name;
           }
     | TTuple kts ->
         TTuple
           (kts
-          |> List.map
-                (Position.map
-                  (remap_naif_generic_ktype generics_table)))
+          |> List.map (Position.map (remap_naif_generic_ktype generics_table)))
     | TPointer kt ->
-        kt
-        |> Position.map (remap_naif_generic_ktype generics_table)
-        |> pointer
+        kt |> Position.map (remap_naif_generic_ktype generics_table) |> pointer
     | _ as kt -> kt
 
   let rec remap_generic_ktype ~current_module generics_table ktype =
