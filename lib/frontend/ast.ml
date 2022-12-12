@@ -696,6 +696,31 @@ module Type = struct
            |> List.for_all (fun (k1, k2) -> are_compatible_type k1 k2)
     | _, _ -> lhs === rhs
 
+  let rec update_generics map init_type param_type () = 
+    match init_type.v, param_type.v with
+    | kt, TType_Identifier {module_path = { v = ""; _}; name} -> begin
+      match Hashtbl.find_opt map name.v with
+      | Some t -> ( 
+        match t with
+        | (index, TUnknow) -> 
+          let () = Hashtbl.replace map name.v ( (index: int), kt) in
+          () 
+        | _ as _t -> ()
+      )
+      | None -> ()
+    end
+    | ( TParametric_identifier
+    { module_path = lmp; parametrics_type = lpt; name = lname },
+    TParametric_identifier
+    { module_path = rmp; parametrics_type = rpt; name = rname } ) -> 
+      if lmp <> rmp || lname <> rname || Util.are_diff_lenght lpt rpt then ()
+      else List.iter2 (fun l r ->  update_generics map l r ()) lpt rpt
+    | TPointer lhs, TPointer rhs -> 
+        update_generics map lhs rhs ()
+    | TTuple lhs, TTuple rhs -> 
+      List.iter2 (fun l r ->  update_generics map l r ()) lhs rhs
+    | _ -> ()
+
   let equal_fields =
     List.for_all2 (fun ((lfield : string location), lktype) (rfield, rtype) ->
         lfield.v = rfield.v && lktype.v === rtype.v)
