@@ -16,37 +16,118 @@
 (**********************************************************************************************)
 
 open Asttyped
+open Asttyhelper
 open KosuFrontend.Ast
 open KosuFrontend.Typecheck
 open KosuFrontend.Ast.Env
 open KosuFrontend
 
+module Sizeof = struct
+  let ( ++ ) = Int64.add
+  let ( -- ) = Int64.sub
 
-let rec restrict_rktype to_restrict restrict =
-  match (to_restrict, restrict) with
-  | ( (RTParametric_identifier
-         { module_path = lmp; parametrics_type = lpt; name = lname } as lhs),
-      RTParametric_identifier
-        { module_path = rmp; parametrics_type = rpt; name = rname } ) ->
-      if lmp <> rmp || lname <> rname || Util.are_diff_lenght lpt rpt then lhs
-      else
-        RTParametric_identifier
-          {
-            module_path = lmp;
-            parametrics_type = List.map2 restrict_rktype lpt rpt;
-            name = rname;
-          }
-  | RTPointer lhs, RTPointer rhs -> RTPointer (restrict_rktype lhs rhs)
-  | RTUnknow, rtk | rtk, RTUnknow -> rtk
-  | (RTTuple rkts as rkt), RTTuple lkts ->
-      if Util.are_diff_lenght rkts lkts then rkt
-      else RTTuple (List.map2 restrict_rktype rkts lkts)
-  | _ -> to_restrict
+  let rec size calcul program rktype =
+    match rktype with
+    | RTUnit | RTBool | RTUnknow -> 1L
+    | RTInteger (_, isize) -> Isize.size_of_isize isize / 8 |> Int64.of_int
+    | RTFloat | RTPointer _ | RTString_lit | RTFunction _ -> 8L
+    | RTTuple kts -> (
+        kts |> function
+        | list -> (
+            let size, align, _packed_size =
+              list
+              |> List.fold_left
+                   (fun (acc_size, acc_align, acc_packed_size) kt ->
+                     let comming_size = kt |> size `size program in
+                     let comming_align = kt |> size `align program in
+                     let quotient = Int64.unsigned_div acc_size comming_align in
+                     let reminder = Int64.unsigned_rem acc_size comming_align in
+                     let new_pacced_size = comming_size ++ acc_packed_size in
+
+                     let add_size =
+                       if new_pacced_size < acc_size then 0L
+                       else if comming_size < acc_align then acc_align
+                       else comming_size
+                     in
+
+                     let padded_size =
+                       if reminder = 0L || acc_size = 0L then acc_size
+                       else Int64.mul comming_align (quotient ++ 1L)
+                     in
+                     ( padded_size ++ add_size,
+                       max comming_align acc_align,
+                       new_pacced_size ))
+                   (0L, 0L, 0L)
+            in
+            match calcul with `size -> size | `align -> align))
+    | kt -> (
+        let type_decl =
+          RProgram.find_type_decl_from_rktye kt program |> Option.get
+        in
+
+        match type_decl with
+        | Rtype_Decl.RDecl_Enum enum_decl ->
+            size_enum calcul program
+              (kt |> RType.extract_parametrics_rktype
+              |> List.combine enum_decl.generics
+              |> List.to_seq |> Hashtbl.of_seq)
+              enum_decl
+        | Rtype_Decl.RDecl_Struct struct_decl ->
+            size_struct calcul program
+              (kt |> RType.extract_parametrics_rktype
+              |> List.combine struct_decl.generics
+              |> List.to_seq |> Hashtbl.of_seq)
+              struct_decl)
+
+  and size_struct calcul program generics struct_decl =
+    struct_decl.rfields
+    |> List.map (fun (_, kt) -> RType.remap_generic_ktype generics kt)
+    |> function
+    | list -> (
+        let size, align, _packed_size =
+          list
+          |> List.fold_left
+               (fun (acc_size, acc_align, acc_packed_size) kt ->
+                 let comming_size = kt |> size `size program in
+                 let comming_align = kt |> size `align program in
+                 let quotient = Int64.unsigned_div acc_size comming_align in
+                 let reminder = Int64.unsigned_rem acc_size comming_align in
+                 let new_pacced_size = comming_size ++ acc_packed_size in
+
+                 let add_size =
+                   if new_pacced_size < acc_size then 0L
+                   else if comming_size < acc_align then acc_align
+                   else comming_size
+                 in
+
+                 let padded_size =
+                   if reminder = 0L || acc_size = 0L then acc_size
+                   else Int64.mul comming_align (quotient ++ 1L)
+                 in
+                 ( padded_size ++ add_size,
+                   max comming_align acc_align,
+                   new_pacced_size ))
+               (0L, 0L, 0L)
+        in
+        match calcul with `size -> size | `align -> align)
+
+  and size_enum calcul program generics enum_decl =
+    enum_decl.rvariants
+    |> List.map (fun (_, kts) ->
+           kts
+           |> List.map (RType.remap_generic_ktype generics)
+           |> List.cons (RTInteger (Unsigned, I32))
+           |> RType.rtuple |> size calcul program)
+    |> List.fold_left max 0L
+
+  let sizeof program ktype = size `size program ktype
+  let alignmentof program ktype = size `align program ktype
+end
 
 let restrict_typed_expression restrict typed_expression =
   {
     typed_expression with
-    rktype = restrict_rktype typed_expression.rktype restrict;
+    rktype = RType.restrict_rktype typed_expression.rktype restrict;
   }
 
 let rec from_ktype = function
@@ -90,7 +171,7 @@ and typed_expression_of_kexpression ~generics_resolver (env : Env.t)
     ?(hint_type = RTUnknow) (expression : kexpression Position.location) =
   {
     rktype =
-      restrict_rktype
+      RType.restrict_rktype
         (expression
         |> typeof ~generics_resolver env current_mod_name prog
         |> from_ktype)
@@ -549,6 +630,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
             |> List.map (fun s -> (s, ()))
             |> List.to_seq |> Hashtbl.of_seq
           in
+          let function_rktype_param = kosu_function.parameters |> List.map (fun (_, {v = kt; _}) -> from_ktype kt) in
           let typed_parameters =
             parameters
             |> List.map
@@ -556,9 +638,12 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
                     ~generics_resolver:new_map_generics env current_module
                     program)
           in
+
+          let hashmap = kosu_function.generics |> List.map (fun s -> s.v, RTUnknow) |> List.to_seq |> Hashtbl.of_seq in
+          let () = List.iter2 (fun {rktype; _} param -> let _ = RType.update_generics hashmap rktype param () in ()) typed_parameters function_rktype_param in
           let typed_parameters =
             kosu_function.parameters
-            |> List.map (fun (_, { v = kt; _ }) -> from_ktype kt)
+            |> List.map (fun (_, { v = kt; _ }) -> kt |> from_ktype |> RType.remap_generic_ktype hashmap )
             |> List.map2
                  (fun typed_exp kt -> restrict_typed_expression kt typed_exp)
                  typed_parameters
@@ -579,7 +664,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
           program expression
       in
 
-      if typed.rktype |> Asttyped.RType.is_builtin_type then
+      if typed.rktype |> RType.is_builtin_type then
         REUn_op (RUMinus typed)
       else REUnOperator_Function_call (RUMinus typed)
   | EUn_op (UNot expression) ->
@@ -588,7 +673,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
           program expression
       in
       let runot = RUNot typed in
-      if typed.rktype |> Asttyped.RType.is_builtin_type then REUn_op runot
+      if typed.rktype |> RType.is_builtin_type then REUn_op runot
       else REUnOperator_Function_call runot
   | EBin_op binop ->
       let rkbin =
@@ -774,10 +859,10 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
             in
             RBDif (ltyped, rtyped)
       in
-      let lhs, rhs = Asttyped.Binop.operands rkbin in
+      let lhs, rhs = Binop.operands rkbin in
       if
-        lhs.rktype |> Asttyped.RType.is_builtin_type |> not
-        || rhs.rktype |> Asttyped.RType.is_builtin_type |> not
+        lhs.rktype |> RType.is_builtin_type |> not
+        || rhs.rktype |> RType.is_builtin_type |> not
       then REBinOperator_Function_call rkbin
       else REBin_op rkbin
 

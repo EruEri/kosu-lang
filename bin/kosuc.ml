@@ -59,7 +59,7 @@ let () =
           raise (Error.Validation_error (filename, e))
       | _, Ok () ->
           let typed_program =
-            try Astconvert.from_program modules
+            try Asttyconvert.from_program modules
             with KosuFrontend.Ast.Error.Ast_error e ->
               let () =
                 Printf.printf "%s\n"
@@ -68,9 +68,9 @@ let () =
               failwith ""
           in
           let () = Printf.printf "Successfult converted\n\n" in
-          let specialised = KosuIrTyped.Asttyped.RProgram.specialise typed_program in
+          let specialised = KosuIrTyped.Asttyhelper.RProgram.specialise typed_program in
           let () = specialised |> List.iter (fun (module_path, rtrue_function_decl) -> 
-            Printf.printf "%s\n%s\n\n" module_path (KosuIrTyped.Asttpprint.string_of_rtrue_func_decl rtrue_function_decl)
+            Printf.printf "%s\n%s\n\n" module_path (KosuIrTyped.Asttypprint.string_of_rtrue_func_decl rtrue_function_decl)
             ) in
           (* let _tac_program = Asttacconv.tac_program_of_rprogram typed_program in *)
           ())

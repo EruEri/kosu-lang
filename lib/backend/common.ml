@@ -1,5 +1,5 @@
 open KosuIrTyped.Asttyped
-open KosuIrTyped.Asttyped.Sizeof
+open KosuIrTyped.Asttyconvert.Sizeof
 open KosuIrTAC.Asttac
 
 type lit = StringL of string | IntL of int64
@@ -16,10 +16,10 @@ let offset_of_field ~generics field rstruct_decl rprogram =
        (fun ((acc_size, acc_align, acc_packed_size, found) as acc)
             (sfield, rktype) ->
          let comming_size =
-           rktype |> RType.remap_generic_ktype generics |> size `size rprogram
+           rktype |> KosuIrTyped.Asttyhelper.RType.remap_generic_ktype generics |> size `size rprogram
          in
          let comming_align =
-           rktype |> RType.remap_generic_ktype generics |> size `align rprogram
+           rktype |> KosuIrTyped.Asttyhelper.RType.remap_generic_ktype generics |> size `align rprogram
          in
          let quotient = Int64.unsigned_div acc_size comming_align in
          let reminder = Int64.unsigned_rem acc_size comming_align in
@@ -59,10 +59,10 @@ let offset_of_tuple_index ~generics index rktypes rprogram =
         (fun ((acc_size, acc_align, acc_packed_size, found) as acc)
             (tindex, rktype) ->
           let comming_size =
-            rktype |> RType.remap_generic_ktype generics |> size `size rprogram
+            rktype |> KosuIrTyped.Asttyhelper.RType.remap_generic_ktype generics |> size `size rprogram
           in
           let comming_align =
-            rktype |> RType.remap_generic_ktype generics |> size `align rprogram
+            rktype |> KosuIrTyped.Asttyhelper.RType.remap_generic_ktype generics |> size `align rprogram
           in
           let quotient = Int64.unsigned_div acc_size comming_align in
           let reminder = Int64.unsigned_rem acc_size comming_align in

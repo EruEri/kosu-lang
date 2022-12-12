@@ -374,7 +374,7 @@ module Arm64FrameManager = struct
     let stack_param_count = stack_param |> List.length in
     let stack_concat = fn_register_params @ locals_var in
     let fake_tuple = stack_concat |> List.map snd in
-    let locals_space =  fake_tuple |> KosuIrTyped.Asttyped.RType.rtuple |> KosuIrTyped.Asttyped.Sizeof.sizeof rprogram in
+    let locals_space =  fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram in
     let map = 
       (stack_concat) 
       |> List.mapi (fun index value -> index, value) 

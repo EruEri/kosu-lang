@@ -18,7 +18,7 @@
 open Asttac
 open Printf
 open KosuFrontend.Ast
-open KosuIrTyped.Asttpprint
+open KosuIrTyped.Asttypprint
 
 let symbole_of_unary unary =
   match unary.unop with TacNot -> "not" | TacUminus -> "(-.)"

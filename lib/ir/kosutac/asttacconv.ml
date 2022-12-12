@@ -16,6 +16,7 @@
 (**********************************************************************************************)
 
 open KosuIrTyped.Asttyped
+open KosuIrTyped.Asttyhelper
 open Asttac
 open Asttachelper
 
@@ -517,7 +518,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         | 0 -> failwith "Never I hope: deferencement without start ??"
         | 1 ->
             let new_tmp = make_inc_tmp count_var in
-            let rtpointee = KosuIrTyped.Asttyped.RType.rtpointee origin_type in
+            let rtpointee = KosuIrTyped.Asttyhelper.RType.rtpointee origin_type in
             ( new_tmp,
               STacDeclaration
                 {
@@ -527,7 +528,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
               :: [] )
         | _ ->
             let new_tmp = make_inc_tmp count_var in
-            let rtpointee = KosuIrTyped.Asttyped.RType.rtpointee origin_type in
+            let rtpointee = KosuIrTyped.Asttyhelper.RType.rtpointee origin_type in
             let result, future_stmt =
               loop ~origin_type:rtpointee ~from:new_tmp (i - 1)
             in
@@ -539,7 +540,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
                 }
               :: future_stmt )
       in
-      let origin_type = KosuIrTyped.Asttyped.RType.npointer n trktype in
+      let origin_type = KosuIrTyped.Asttyhelper.RType.npointer n trktype in
       let restult, stmt = loop ~origin_type ~from:id n in
       (stmt, make_typed_tac_expression trktype (TEIdentifier restult))
   | REBinOperator_Function_call rkbin_op, _ ->
@@ -780,8 +781,8 @@ let tac_operator_decl_of_roperator_decl = function
   | RUnary { op; rfield; return_type; kbody } as self ->
       let label_name =
         Printf.sprintf "%s_%s"
-          (KosuIrTyped.Asttpprint.name_of_roperator self)
-          (KosuIrTyped.Asttpprint.string_of_rktype return_type)
+          (KosuIrTyped.Asttypprint.name_of_roperator self)
+          (KosuIrTyped.Asttypprint.string_of_rktype return_type)
       in
       let map = Hashtbl.create (kbody |> fst |> List.length) in
       let tac_body =
@@ -801,8 +802,8 @@ let tac_operator_decl_of_roperator_decl = function
     self ->
       let label_name =
         Printf.sprintf "%s_%s"
-          (KosuIrTyped.Asttpprint.name_of_roperator self)
-          (KosuIrTyped.Asttpprint.string_of_rktype return_type)
+          (KosuIrTyped.Asttypprint.name_of_roperator self)
+          (KosuIrTyped.Asttypprint.string_of_rktype return_type)
       in
       let map = Hashtbl.create (kbody |> fst |> List.length) in
       let tac_body =

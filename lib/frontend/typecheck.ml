@@ -517,6 +517,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             in
             let () = init_type_parameters |> List.combine e.parameters
             |> List.iter (fun ((_, para_type), init_type) ->
+              (* let () = Printf.printf "init_ktype = %s, expected = %s\n\n" (Pprint.string_of_ktype init_type.v) (Pprint.string_of_ktype para_type.v) in *)
                    if
                      e
                      |> Asthelper.Function.is_type_compatible_hashgen hashtal
