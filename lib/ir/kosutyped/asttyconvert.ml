@@ -1012,7 +1012,7 @@ and from_module_path module_path_list { path; _module = Mod module_nodes } =
   }
 
 and from_program (program : Ast.program) : rprogram =
-  program
+  let rprogram =  program
   |> List.map (fun { filename; module_path } ->
          {
            filename;
@@ -1020,4 +1020,13 @@ and from_program (program : Ast.program) : rprogram =
              from_module_path
                (program |> Asthelper.Program.to_module_path_list)
                module_path;
-         })
+         }) in
+  let specialised_functions = 
+    rprogram 
+    |> Asttyhelper.RProgram.specialise
+    |> Asttyhelper.RProgram.FnSpec.to_seq
+    |> List.of_seq in
+
+  specialised_functions
+    |> List.fold_left (fun acc node -> RProgram.append_function_decl node acc) rprogram
+    |> RProgram.remove_generics

@@ -338,6 +338,15 @@ module Function = struct
       rbody
     }
 
+    let function_decl_of_rtrue_function_decl (fn_decl: rtrue_function_decl): rfunction_decl = 
+      {
+        rfn_name = fn_decl.rfn_name;
+        generics = [];
+        rparameters = fn_decl.rparameters;
+        return_type = fn_decl.return_type;
+        rbody = fn_decl.rbody;
+      }
+
     let rec is_type_compatible_hashgen generic_table (init_type : rktype)
     (expected_type : rktype) (function_decl : rfunction_decl) =
   match (init_type, expected_type) with
@@ -406,7 +415,14 @@ module Rmodule = struct
   open Rtype_Decl
 
   let add_node node = function
-  | RModule rnodes -> RModule (node::rnodes )
+  | RModule rnodes -> RModule (node::rnodes)
+
+  let remove_generics_node = function
+  | RModule rnodes -> RModule (rnodes |> List.filter ( fun rnode -> 
+    match rnode with
+    | RNFunction {generics; _} -> generics = []
+    | _ -> true
+    ))
   let retrieve_non_generics_function = function
   | RModule rnodes -> rnodes |> List.filter_map (fun rnode -> 
       match rnode with
@@ -596,5 +612,29 @@ module RProgram = struct
       
     ) |> List.fold_left FnSpec.union FnSpec.empty
       
-      
+  let remove_generics rprogram = 
+    rprogram |> List.map ( 
+      fun {filename; rmodule_path = {path; rmodule}} -> 
+      {
+        filename;
+        rmodule_path = {
+          path;
+          rmodule = Rmodule.remove_generics_node rmodule
+        }
+      })
+
+  let append_function_decl (module_path, rtrue_function_decl) rprogram = 
+    rprogram |> List.map ( fun {filename; rmodule_path = {path; rmodule}} -> 
+      {
+        filename;
+        rmodule_path = {
+          path;
+          rmodule = 
+            if path = module_path then 
+              Rmodule.add_node (RNFunction (Function.function_decl_of_rtrue_function_decl rtrue_function_decl)) rmodule 
+          else rmodule
+        }
+      }
+    )
+
 end
