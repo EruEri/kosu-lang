@@ -1,11 +1,17 @@
 module type ABI = sig
   type register
   type stack_parameter_order = Ordered | Reversed
+  type register_mode = Value | Adress
+  type adress_mode =
+  | Immediat (* out = *intptr; *)
+  | Prefix (* out = *(++intptr);*)
+  | Postfix (* out = *(intptr++);*)
+
   type condition_code
   type dst
   type src
   type data_size
-  type adress_mode
+
   type register_size = [ `x64 | `x32 ]
 
   type address = {
@@ -21,9 +27,22 @@ module type ABI = sig
   val stack_pointer : register
   val frame_registers : register list
   val return_register : register
+  val indirect_return : register
   val argument_registers : register list
+  val prefered_tmp_reg : register
+  val compute_data_size : KosuIrTyped.Asttyped.rktype -> int64 -> data_size option
+  val second_prefered_tmp_reg : register 
+  val return_register_ktype : int64 -> register
+  val is_register_size: int64 -> bool
+  val register_mode : int64 -> register_mode
   val stack_parameter_order : stack_parameter_order
   val stack_pointer_align : int
+  val dst_of_register: register -> dst
+  val src_of_register: register -> src
+  val src_of_immediat: int64 -> src
+  val src_of_label : string -> src
+
+  val increment_adress: int64 -> address -> address
 
   val create_adress :
     ?offset:Common.imm ->
@@ -53,6 +72,12 @@ module type Instruction = sig
     srcl:ABI.src ->
     srcr:ABI.src ->
     instruction list
+
+  val lea:
+      ?cc: ABI.condition_code ->
+      ABI.dst ->
+      string -> 
+      instruction list  
 
   val isub :
     ?cc:ABI.condition_code ->
@@ -126,7 +151,7 @@ module type Instruction = sig
 
   val ildr :
     ?cc:ABI.condition_code ->
-    ?data_size:ABI.data_size ->
+    ?data_size:ABI.data_size option ->
     ABI.dst ->
     ABI.address -> 
     ABI.adress_mode ->
@@ -134,7 +159,7 @@ module type Instruction = sig
 
   val istr :
     ?cc:ABI.condition_code ->
-    ?data_size:ABI.data_size ->
+    ?data_size:ABI.data_size option ->
     ABI.dst ->
     ABI.address -> 
     ABI.adress_mode ->
@@ -179,6 +204,11 @@ module type FrameManager = sig
     frame_desc ->
     Instruction.ABI.address
 
+  val copy_from_reg:  
+  Instruction.ABI.register ->
+  Instruction.ABI.address ->
+   KosuIrTyped.Asttyped.rktype -> KosuIrTyped.Asttyped.rprogram -> Instruction.instruction list
+
   val function_prologue : fn_register_params:(string * KosuIrTyped.Asttyped.rktype) list -> KosuIrTyped.Asttyped.rprogram -> frame_desc -> Instruction.instruction list
   val function_epilogue : frame_desc -> Instruction.instruction list
 
@@ -191,8 +221,59 @@ end
 
 (**[ `Reg of Instruction.ABI.register | `Lab of string ] *)
 
-module Codegen(FrameManager: FrameManager) = struct
-  let x = 10
+module Make(FrameManager: FrameManager) = struct
+
+  open KosuIrTAC.Asttac
+
+  open FrameManager
+  open Common
+  open Instruction
+  open ABI
+  let tmpreg =  FrameManager.Instruction.ABI.prefered_tmp_reg
+  let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
+
+  let translate_tac_expression ?(target_reg = tmpreg) rprogram (fd: FrameManager.frame_desc) = 
+    function
+    |({tac_expression = TEFalse | TENullptr | TEmpty; expr_rktype = _})  -> target_reg , FrameManager.Instruction.imov (dst_of_register target_reg) (src_of_immediat 0L)
+    |({tac_expression = TETrue; _}) -> target_reg, imov (dst_of_register target_reg) (src_of_immediat 1L)
+    |({tac_expression = TEInt (_, _, int64); _}) -> target_reg, imov (dst_of_register target_reg) (src_of_immediat int64)
+    |({tac_expression = TEIdentifier id; expr_rktype}) -> 
+      let adress = adress_of (id, expr_rktype) fd in
+      let sizeof = sizeofn rprogram expr_rktype in
+      if is_register_size sizeof 
+        then target_reg, ildr ~data_size:(compute_data_size expr_rktype sizeof) (dst_of_register target_reg) adress Immediat
+      else 
+        target_reg, iadd (dst_of_register tmpreg) ~srcl:( adress.base |> src_of_register ) ~srcr:(adress.offset |> Option.map (fun s -> match s with Common.Lit (IntL s) -> s | _ -> 0L ) |> Option.value ~default:0L |> src_of_immediat) 
+    | ({tac_expression = TESizeof kt; _}) -> 
+      let sizeof = sizeofn rprogram kt in
+      target_reg, imov (dst_of_register target_reg) (src_of_immediat sizeof)
+    | _ -> failwith ""
+
+  let translate_tac_rvalue ~(where: address) _current_module rprogram (fd: FrameManager.frame_desc) {rval_rktype; rvalue} =
+    match rvalue with
+    | RVExpression tac_typed_expression -> translate_tac_expression rprogram fd tac_typed_expression
+    | RVStruct {module_path = _; struct_name = _; fields} -> begin 
+      let struct_decl = 
+        match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye rval_rktype rprogram with
+        | Some (RDecl_Struct s) -> s
+        | Some (RDecl_Enum _) -> failwith "Expected to find a struct get an enum"
+        | None -> failwith "Non type decl ??? my validation are very weak" in 
+      let offset_list = fields 
+        |> List.map (fun (field, _) -> offset_of_field field struct_decl rprogram)
+        |> List.tl
+        |> ( fun l -> l @ [0L] )
+      in
+      tmpreg,  fields |> List.mapi (fun index value -> index, value) |> List.fold_left (fun (accumuled_adre, acc) (index, (_field, tte)) -> 
+        let reg_texp, instructions = translate_tac_expression rprogram fd tte in
+        increment_adress (List.nth offset_list index) accumuled_adre , acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
+
+      ) (where, []) |> snd
+    
+    end
+    | RVDiscard | RVLater -> tmpreg, []
+    | _ -> failwith ""
+    
+  let translate_tac_statement _current_module _rprogram (_fd: FrameManager.frame_desc) = failwith ""
 end
 
-module ARMCodegen = Codegen(Arm.Arm64FrameManager)
+module ARMCodegen = Make(Arm.Arm64FrameManager)

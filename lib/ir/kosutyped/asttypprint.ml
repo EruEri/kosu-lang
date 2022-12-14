@@ -80,6 +80,30 @@ let rec string_of_rktype = function
   | RTUnknow -> "unknwon"
   | RTFloat -> "f64"
 
+let rec string_of_label_rktype = function
+| RTParametric_identifier { module_path; parametrics_type; name } ->
+    sprintf "%s_%s %s"
+      (parametrics_type |> List.map string_of_label_rktype |> String.concat ", ")
+      module_path name
+| RTType_Identifier { module_path; name } ->
+    sprintf "%s%s"
+      (if module_path = "" then "" else sprintf "%s_" module_path)
+      name
+| RTInteger (sign, size) ->
+    sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
+| RTPointer ktype -> sprintf "ptr_%s" (string_of_rktype ktype)
+| RTTuple ktypes ->
+    sprintf "(%s)" (ktypes |> List.map string_of_label_rktype |> String.concat "_")
+| RTFunction (parameters, r_type) ->
+    sprintf "(%s) -> %s"
+      (parameters |> List.map string_of_label_rktype |> String.concat "_")
+      (string_of_label_rktype r_type)
+| RTString_lit -> "stringl"
+| RTBool -> "bool"
+| RTUnit -> "unit"
+| RTUnknow -> "unknwon"
+| RTFloat -> "f64"
+
 let rec string_of_rkbody = function
   | (statements : rkstatement list), (expr : typed_expression) ->
       sprintf "{\n  \t%s  \n\t%s\n}"

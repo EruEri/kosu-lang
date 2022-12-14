@@ -16,7 +16,7 @@ type imm = Lit of lit | Lab of string
 type stringlit_label = SLit of string
 type label = Label of string
 
-let offset_of_field ~generics field rstruct_decl rprogram =
+let offset_of_field ?(generics = Hashtbl.create 0) field rstruct_decl rprogram =
   let ( ++ ) = Int64.add in
   let ( -- ) = Int64.sub in
   rstruct_decl.rfields

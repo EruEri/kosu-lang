@@ -326,6 +326,9 @@ and instanciate_generics_binary_op generics = function
 end
 
 module Function = struct
+
+  let label_of_fn_name current_module name typed_list = 
+    Printf.sprintf "_%s.%s_%s" current_module name (typed_list |> List.map Asttypprint.string_of_label_rktype |> String.concat "_")
   
   let true_function_of_rfunction_decl generics (rfunction_decl: rfunction_decl): rtrue_function_decl = let open Generics in
   match rfunction_decl.generics = [] with
@@ -405,6 +408,15 @@ module Function = struct
            lhs rhs
   | lhs, rhs -> lhs = rhs
   
+end
+
+module Renum = struct
+  let tag_of_variant variant (enum_decl: renum_decl) = 
+    enum_decl.rvariants 
+      |> List.mapi (fun i v -> Int32.of_int i,v )
+      |> List.find_map (fun (i,v) -> if v = variant then Some i else None)
+      |> Option.get
+
 end
 
 module Rtype_Decl = struct

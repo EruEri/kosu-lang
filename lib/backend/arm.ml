@@ -1,4 +1,5 @@
 open Common
+open KosuIrTAC.Asttac
 (* open Kosu_frontend.Ast *)
 
 (* for i in $(seq 1 16); do echo "| R$i" >> lib/backend/arm.ml; done *)
@@ -72,6 +73,8 @@ module Arm64ABI = struct
     | R30
     | SP
 
+  type register_mode = Value | Adress
+
   type adress_mode =
     | Immediat (* out = *intptr; *)
     | Prefix (* out = *(++intptr);*)
@@ -140,7 +143,32 @@ module Arm64ABI = struct
 
   let frame_registers = [R29; R30]
   let return_register = R0
+  let indirect_return = R8
 
+  let return_register_ktype = function
+  | 8L | 16L | 32L | 64L -> return_register
+  | _ -> indirect_return
+
+
+
+  let is_register_size = function
+  | 8L | 16L | 32L | 64L -> true
+  | _ -> false
+
+  let register_mode size = if is_register_size size then Value else Adress
+
+  let compute_data_size ktype = function
+  | 8L -> Some (if not @@ KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then SB else B)
+  | 16L -> Some (if not @@ KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then SH else H)
+  | _ -> None
+  let dst_of_register reg = (reg : dst)  
+  let src_of_register register: src = `Register register
+  let src_of_immediat int64: src = `Litteral int64
+  let src_of_label string: src = `Label string 
+
+  let prefered_tmp_reg = R8
+
+  let second_prefered_tmp_reg = R9
   let caller_save =
     [ R0; R1; R2; R3; R4; R5; R6; R7; R8; R9; R10; R11; R12; R13; R14; R15 ]
 
@@ -359,6 +387,11 @@ module Arm64Instruction = struct
         [ ASR { cc; destination = dst; operand1 = reg; operand2 = srcr } ]
     | _ -> failwith "Wrong add format"
 
+  let lea ?cc dst label = 
+    [
+      ADRP {dst; label};
+      ADD {cc; destination = dst; operand1 = dst; operand2 = `Label label}
+    ]
   let icmp ?cc (_dst: ABI.dst) ~srcl ~srcr =
     match (srcl, srcr) with
     | `Litteral _, `Litteral _ ->
@@ -400,7 +433,7 @@ module Arm64Instruction = struct
         [ EOR { cc; destination = dst; operand1 = reg; operand2 = srcr } ]
     | _ -> failwith "Wrong add format"
 
-  let ildr ?cc ?data_size dst adress adress_mode =
+  let ildr ?cc ?(data_size = None) dst adress adress_mode =
     LDR
     {
       cc;
@@ -410,7 +443,7 @@ module Arm64Instruction = struct
       adress_mode;
     }::[]
 
-  let istr ?cc ?data_size src adress adress_mode =
+  let istr ?cc ?(data_size = None) src adress adress_mode =
     STR
     {
       cc;
@@ -579,14 +612,13 @@ module Arm64FrameManager = struct
 
 
     ;;
-    let copy_from_reg reg (adress: Arm64ABI.address) ktype rprogram =
-      let `Register register = reg in
+    let copy_from_reg register (adress: Arm64ABI.address) ktype rprogram =
       let size =  KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
       match size with
       | 8L ->
-        let data_size =  if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then Arm64ABI.B else Arm64ABI.SB in
+        let data_size =  Some (if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then Arm64ABI.B else Arm64ABI.SB) in
         (Instruction.istr ~data_size register adress Immediat)
-      | 16L -> let data_size =  if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then Arm64ABI.H else Arm64ABI.SH in
+      | 16L -> let data_size = Some( if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then Arm64ABI.H else Arm64ABI.SH) in
         (Instruction.istr ~data_size register adress Immediat)
       | 32L | 64L -> 
         (Instruction.istr register adress Immediat)
@@ -596,7 +628,7 @@ module Arm64FrameManager = struct
       let stack_sub = Instruction.isub (SP) ~srcl:(`Register SP) ~srcr:(`Litteral fd.locals_space) in
       let copy_instructions = fn_register_params |> Util.ListHelper.combine_safe Arm64ABI.argument_registers |> List.fold_left (fun acc (register , (name, kt)) -> 
         let whereis = adress_of (name, kt) fd in
-        acc @ (copy_from_reg (`Register register) whereis kt rprogram)
+        acc @ (copy_from_reg (register) whereis kt rprogram)
         ) [] in
       base::stack_sub @ copy_instructions
 
@@ -624,6 +656,14 @@ module Arm64FrameManager = struct
       in
       let call = Instruction.BL { cc = None; label = Label origin} in
       assoc_args_reg_instructions @ [call]
-    
-
 end
+let translate_tac_rvalue _current_module _rprogram (_fd: Arm64FrameManager.frame_desc) =
+
+  let open Arm64FrameManager in
+  let open Instruction in
+  let open ABI in
+  function
+  | RVExpression ({tac_expression = TEFalse | TENullptr | TEmpty; _})  -> R8, imov R8 (src_of_immediat 0L)
+  | RVExpression ({tac_expression = TETrue; _}) -> R8, imov R8 (src_of_immediat 1L)
+  | RVExpression ({tac_expression = TEInt (_, _, int64); _}) -> R8, imov (dst_of_register R8) (src_of_immediat int64)
+  | _ -> failwith ""
