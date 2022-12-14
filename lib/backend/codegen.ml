@@ -6,11 +6,11 @@ module type ABI = sig
   type src
   type data_size
   type adress_mode
-  type register_size = [ `x86 | `x32 ]
+  type register_size = [ `x64 | `x32 ]
 
   type address = {
     offset : Common.imm option;
-    base : register option;
+    base : register;
     idx : register option;
     scale : Common.scale;
   }
@@ -26,8 +26,8 @@ module type ABI = sig
   val stack_pointer_align : int
 
   val create_adress :
-    ?offset:Common.imm option ->
-    ?base:register option ->
+    ?offset:Common.imm ->
+    base:register ->
     ?idx:register option ->
     ?scale:Common.scale ->
     unit ->
@@ -42,106 +42,111 @@ module type Instruction = sig
   type instruction
 
   val imov :
-    ?cc:ABI.condition_code option ->
-    dst:ABI.dst ->
-    src:ABI.src ->
+    ?cc:ABI.condition_code ->
+    ABI.dst ->
+    ABI.src ->
     instruction list
 
   val iadd :
-    ?cc:ABI.condition_code option ->
-    dst:ABI.dst ->
+    ?cc:ABI.condition_code ->
+    ABI.dst ->
     srcl:ABI.src ->
     srcr:ABI.src ->
     instruction list
 
   val isub :
-    ?cc:ABI.condition_code option ->
-    dst:ABI.dst ->
+    ?cc:ABI.condition_code ->
+    ABI.dst ->
     srcl:ABI.src ->
     srcr:ABI.src ->
     instruction list
 
   val imult :
-    ?cc:ABI.condition_code option ->
-    dst:ABI.dst ->
+    ?cc:ABI.condition_code ->
+    ABI.dst ->
     srcl:ABI.src ->
     srcr:ABI.src ->
     instruction list
 
-  val idiv :
-    ?cc:ABI.condition_code option ->
-    dst:ABI.dst ->
+  val isdiv :
+    ?cc:ABI.condition_code ->
+    ABI.dst ->
+    srcl:ABI.src ->
+    srcr:ABI.src ->
+    instruction list
+
+    val iudiv :
+    ?cc:ABI.condition_code ->
+    ABI.dst ->
     srcl:ABI.src ->
     srcr:ABI.src ->
     instruction list
 
   val iasl :
-    ?cc:ABI.condition_code option ->
-    dst:ABI.dst ->
+    ?cc:ABI.condition_code ->
+    ABI.dst ->
     srcl:ABI.src ->
     srcr:ABI.src ->
     instruction list
 
   val iasr :
-    ?cc:ABI.condition_code option ->
-    dst:ABI.dst ->
+    ?cc:ABI.condition_code ->
+    ABI.dst ->
     srcl:ABI.src ->
     srcr:ABI.src ->
     instruction list
 
   val icmp :
-    ?cc:ABI.condition_code option ->
-    dst:ABI.dst ->
+    ?cc:ABI.condition_code ->
+    ABI.dst ->
     srcl:ABI.src ->
     srcr:ABI.src ->
     instruction list
 
   val iand :
-    ?cc:ABI.condition_code option ->
-    dst:ABI.dst ->
+    ?cc:ABI.condition_code ->
+    ABI.dst ->
     srcl:ABI.src ->
     srcr:ABI.src ->
     instruction list
 
   val ior :
-    ?cc:ABI.condition_code option ->
-    dst:ABI.dst ->
+    ?cc:ABI.condition_code ->
+    ABI.dst ->
     srcl:ABI.src ->
     srcr:ABI.src ->
     instruction list
 
   val ixor :
-    ?cc:ABI.condition_code option ->
-    dst:ABI.dst ->
+    ?cc:ABI.condition_code ->
+    ABI.dst ->
     srcl:ABI.src ->
     srcr:ABI.src ->
     instruction list
 
   val ildr :
-    ?cc:ABI.condition_code option ->
-    ?data_size:ABI.data_size option ->
-    dst:ABI.dst ->
-    src:ABI.src ->
-    offset:int ->
-    adress_mode:ABI.adress_mode ->
+    ?cc:ABI.condition_code ->
+    ?data_size:ABI.data_size ->
+    ABI.dst ->
+    ABI.address -> 
+    ABI.adress_mode ->
     instruction list
 
   val istr :
-    ?cc:ABI.condition_code option ->
-    ?data_size:ABI.data_size option ->
-    dst:ABI.dst ->
-    src:ABI.src ->
-    offset:int ->
-    adress_mode:ABI.adress_mode ->
+    ?cc:ABI.condition_code ->
+    ?data_size:ABI.data_size ->
+    ABI.dst ->
+    ABI.address -> 
+    ABI.adress_mode ->
     instruction list
 
   val ijmplabel :
-    ?cc:ABI.condition_code option -> Common.label -> instruction list
+    ?cc:ABI.condition_code -> Common.label -> instruction list
 
   val ijumpreg : ?cc:ABI.condition_code -> ABI.register -> instruction list
 
   val icalllabel :
-    ?cc:ABI.condition_code option -> Common.label -> instruction list
+    ?cc:ABI.condition_code -> Common.label -> instruction list
 
   val icallreg : ?cc:ABI.condition_code -> ABI.register -> instruction list
   val syscall : instruction
@@ -149,14 +154,7 @@ module type Instruction = sig
 end
 
 (* module type AInstruction = functor (ABI : ABI) -> Instruction *)
-
-module IdVar = struct
-  type t = string * KosuIrTyped.Asttyped.rktype
-
-  let compare = compare
-end
-
-module IdVarMap = Map.Make (IdVar)
+module IdVarMap = Common.IdVarMap
 
 module type FrameManager = sig
   module Instruction : sig
@@ -166,7 +164,7 @@ module type FrameManager = sig
   type frame_desc = {
     stack_param_count : int;
     locals_space : int64;
-    stack_map : (string * KosuIrTyped.Asttyped.rktype) IdVarMap.t;
+    stack_map : Instruction.ABI.address IdVarMap.t;
   }
 
   val frame_descriptor :
@@ -177,17 +175,24 @@ module type FrameManager = sig
     frame_desc
 
   val adress_of :
-    rktype:KosuIrTyped.Asttyped.rktype ->
-    string ->
+    string *  KosuIrTyped.Asttyped.rktype ->
     frame_desc ->
     Instruction.ABI.address
 
-  val function_prologue : frame_desc -> Instruction.instruction list
+  val function_prologue : fn_register_params:(string * KosuIrTyped.Asttyped.rktype) list -> KosuIrTyped.Asttyped.rprogram -> frame_desc -> Instruction.instruction list
   val function_epilogue : frame_desc -> Instruction.instruction list
 
   val call_instruction :
+    origin: string ->
+    Instruction.ABI.src list ->
     frame_desc ->
-    origin:[ `Reg | `Lab ] ->
-    args:Instruction.ABI.src ->
     Instruction.instruction list
 end
+
+(**[ `Reg of Instruction.ABI.register | `Lab of string ] *)
+
+module Codegen(FrameManager: FrameManager) = struct
+  let x = 10
+end
+
+module ARMCodegen = Codegen(Arm.Arm64FrameManager)

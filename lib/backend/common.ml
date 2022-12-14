@@ -2,6 +2,14 @@ open KosuIrTyped.Asttyped
 open KosuIrTyped.Asttyconvert.Sizeof
 open KosuIrTAC.Asttac
 
+module IdVar = struct
+  type t = string * KosuIrTyped.Asttyped.rktype
+
+  let compare = compare
+end
+
+module IdVarMap = Map.Make (IdVar)
+
 type lit = StringL of string | IntL of int64
 type scale = [ `One | `Two | `Four | `Eight ]
 type imm = Lit of lit | Lab of string

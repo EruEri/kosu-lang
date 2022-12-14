@@ -1,5 +1,4 @@
 open Common
-open KosuIrTyped.Asttyped
 (* open Kosu_frontend.Ast *)
 
 (* for i in $(seq 1 16); do echo "| R$i" >> lib/backend/arm.ml; done *)
@@ -99,12 +98,12 @@ module Arm64ABI = struct
 
   type dst = register
   type src = [ `Litteral of int64 | `Label of string | `Register of register ]
-  type register_size = [ `x86 | `x32 ]
+  type register_size = [ `x64 | `x32 ]
   type stack_parameter_order = Ordered | Reversed
 
   type address = {
     offset : Common.imm option;
-    base : register option;
+    base : register;
     idx : register option;
     scale : Common.scale;
   }
@@ -112,7 +111,7 @@ module Arm64ABI = struct
   let stack_pointer_align = 16
   let stack_parameter_order = Ordered
 
-  let string_of_register ?(size = `x64) register =
+  let string_of_register ?(size = (`x64: register_size)) register =
     let prefix = match size with `x64 -> 'x' | `x32 -> 'w' in
     match register with
     | R0 -> Printf.sprintf "%c0" prefix
@@ -137,7 +136,9 @@ module Arm64ABI = struct
     | SP -> Printf.sprintf "sp"
 
   let stack_pointer = SP
-  let argument_registers = [ R0; R1; R2; R3; R4; R5; R6; R7 ]
+  let argument_registers = [ R0; R1; R2; R3; R4; R5; R6; R7; R8 ]
+
+  let frame_registers = [R29; R30]
   let return_register = R0
 
   let caller_save =
@@ -145,8 +146,12 @@ module Arm64ABI = struct
 
   let callee_save = [ R30; R29; R16 ]
 
-  let create_adress ?offset ?base ?(idx = None) ?(scale = `One) () =
+  let create_adress ?offset ~base ?(idx = None) ?(scale = `One) () =
     { offset; base; idx; scale }
+
+  let increment_adress off adress = { 
+    adress with offset = adress.offset |> Option.map (fun imm -> match imm with Lit (IntL x) -> Lit (IntL (Int64.add x off)) | t -> t)
+  }
 end
 
 module Arm64Instruction = struct
@@ -181,6 +186,18 @@ module Arm64Instruction = struct
         operand1 : Arm64ABI.register;
         operand2 : Arm64ABI.register;
       }
+    | UDIV of {
+      cc : Arm64ABI.condition_code option;
+      destination : Arm64ABI.register;
+      operand1 : Arm64ABI.register;
+      operand2 : Arm64ABI.register;
+    }
+    | SDIV of {
+      cc : Arm64ABI.condition_code option;
+      destination : Arm64ABI.register;
+      operand1 : Arm64ABI.register;
+      operand2 : Arm64ABI.register;
+    }
     | ASL of {
         cc : Arm64ABI.condition_code option;
         destination : Arm64ABI.register;
@@ -225,18 +242,34 @@ module Arm64Instruction = struct
         data_size : Arm64ABI.data_size option;
         cc : Arm64ABI.condition_code option;
         destination : Arm64ABI.register;
-        source : Arm64ABI.register;
-        offset : int;
+        adress_src : Arm64ABI.address;
         adress_mode : Arm64ABI.adress_mode;
       }
     | STR of {
         data_size : Arm64ABI.data_size option;
         cc : Arm64ABI.condition_code option;
-        destination : Arm64ABI.register;
         source : Arm64ABI.register;
-        offset : int;
+        adress : Arm64ABI.address;
         adress_mode : Arm64ABI.adress_mode;
       }
+    | STP of {
+      x1: Arm64ABI.register;
+      x2: Arm64ABI.register;
+      base: Arm64ABI.register;
+      offset: int;
+      adress_mode : Arm64ABI.adress_mode;
+    }
+    | ADRP of {
+      dst: Arm64ABI.register;
+      label: string;
+    }
+    | LDP of {
+      x1: Arm64ABI.register;
+      x2: Arm64ABI.register;
+      base: Arm64ABI.register;
+      offset: int;
+      adress_mode : Arm64ABI.adress_mode;
+    }
     | B of { cc : Arm64ABI.condition_code option; label : Common.label }
     | BL of { cc : Arm64ABI.condition_code option; label : Common.label }
     | BR of { cc : Arm64ABI.condition_code option; reg : Arm64ABI.register }
@@ -247,7 +280,7 @@ module Arm64Instruction = struct
   let imov ?cc dst src =
     [ Mov { cc; destination = dst; flexsec_operand = src } ]
 
-  let iadd ?cc dst srcl srcr =
+  let iadd ?cc dst ~srcl ~srcr =
     match (srcl, srcr) with
     | `Litteral _, `Litteral _ ->
         let add =
@@ -258,7 +291,7 @@ module Arm64Instruction = struct
         [ ADD { cc; destination = dst; operand1 = reg; operand2 = srcr } ]
     | _ -> failwith "Wrong add format"
 
-  let isub ?cc dst srcl srcr =
+  let isub ?cc dst ~srcl ~srcr =
     match (srcl, srcr) with
     | `Litteral _, `Litteral _ ->
         let add =
@@ -269,7 +302,7 @@ module Arm64Instruction = struct
         [ SUB { cc; destination = dst; operand1 = reg; operand2 = srcr } ]
     | _ -> failwith "Wrong add format"
 
-  let imult ?cc dst srcl srcr =
+  let imult ?cc dst ~srcl ~srcr =
     match (srcl, srcr) with
     | `Litteral _, `Litteral _ ->
         let mov1 = imov ABI.R8 srcl in
@@ -281,18 +314,30 @@ module Arm64Instruction = struct
         MUL { cc; destination = dst; operand1 = reg1; operand2 = reg2 } :: []
     | _ -> failwith "Wrong mult format"
 
-  let _iasr ?cc dst srcl srcr =
+  let iudiv ?cc dst ~srcl ~srcr =
     match (srcl, srcr) with
     | `Litteral _, `Litteral _ ->
-        let add =
-          ASR { cc; destination = dst; operand1 = ABI.R9; operand2 = srcr }
-        in
-        imov ABI.R9 srcl @ (add :: [])
-    | `Register reg, _ ->
-        [ ASR { cc; destination = dst; operand1 = reg; operand2 = srcr } ]
-    | _ -> failwith "Wrong add format"
+      let mov1 = imov ABI.R8 srcl in
+      let mov2 = imov ABI.R9 srcr in
+      mov1 @ mov2
+      @ UDIV { cc; destination = dst; operand1 = ABI.R8; operand2 = ABI.R9 }
+        :: []
+  | `Register reg1, `Register reg2 ->
+      UDIV { cc; destination = dst; operand1 = reg1; operand2 = reg2 } :: []
+  | _ -> failwith "Wrong idv format"
 
-  let iasl ?cc dst srcl srcr =
+  let isdiv ?cc dst ~srcl ~srcr =
+    match (srcl, srcr) with
+    | `Litteral _, `Litteral _ ->
+      let mov1 = imov ABI.R8 srcl in
+      let mov2 = imov ABI.R9 srcr in
+      mov1 @ mov2
+      @ SDIV { cc; destination = dst; operand1 = ABI.R8; operand2 = ABI.R9 }
+        :: []
+  | `Register reg1, `Register reg2 ->
+      SDIV { cc; destination = dst; operand1 = reg1; operand2 = reg2 } :: []
+  | _ -> failwith "Wrong isdv format"
+  let iasl ?cc dst ~srcl ~srcr =
     match (srcl, srcr) with
     | `Litteral _, `Litteral _ ->
         let add =
@@ -303,7 +348,7 @@ module Arm64Instruction = struct
         [ ASL { cc; destination = dst; operand1 = reg; operand2 = srcr } ]
     | _ -> failwith "Wrong add format"
 
-  let iasr ?cc dst srcl srcr =
+  let iasr ?cc dst ~srcl ~srcr =
     match (srcl, srcr) with
     | `Litteral _, `Litteral _ ->
         let add =
@@ -314,7 +359,7 @@ module Arm64Instruction = struct
         [ ASR { cc; destination = dst; operand1 = reg; operand2 = srcr } ]
     | _ -> failwith "Wrong add format"
 
-  let icmp ?cc srcl srcr =
+  let icmp ?cc (_dst: ABI.dst) ~srcl ~srcr =
     match (srcl, srcr) with
     | `Litteral _, `Litteral _ ->
         let add = CMP { cc; operand1 = ABI.R9; operand2 = srcr } in
@@ -322,7 +367,7 @@ module Arm64Instruction = struct
     | `Register reg, _ -> [ CMP { cc; operand1 = reg; operand2 = srcr } ]
     | _ -> failwith "Wrong add format"
 
-  let iand ?cc dst srcl srcr =
+  let iand ?cc dst ~srcl ~srcr =
     match (srcl, srcr) with
     | `Litteral _, `Litteral _ ->
         let add =
@@ -333,7 +378,7 @@ module Arm64Instruction = struct
         [ AND { cc; destination = dst; operand1 = reg; operand2 = srcr } ]
     | _ -> failwith "Wrong add format"
 
-  let ior ?cc dst srcl srcr =
+  let ior ?cc dst ~srcl ~srcr =
     match (srcl, srcr) with
     | `Litteral _, `Litteral _ ->
         let add =
@@ -344,7 +389,7 @@ module Arm64Instruction = struct
         [ ORR { cc; destination = dst; operand1 = reg; operand2 = srcr } ]
     | _ -> failwith "Wrong add format"
 
-  let ixor ?cc dst srcl srcr =
+  let ixor ?cc dst ~srcl ~srcr =
     match (srcl, srcr) with
     | `Litteral _, `Litteral _ ->
         let add =
@@ -355,54 +400,40 @@ module Arm64Instruction = struct
         [ EOR { cc; destination = dst; operand1 = reg; operand2 = srcr } ]
     | _ -> failwith "Wrong add format"
 
-  let ildr ?cc ?data_size dst src offset adress_mode =
-    match src with
-    | `Register reg ->
-        LDR
-          {
-            cc;
-            data_size;
-            destination = dst;
-            source = reg;
-            offset;
-            adress_mode;
-          }
-    | _ -> failwith ""
+  let ildr ?cc ?data_size dst adress adress_mode =
+    LDR
+    {
+      cc;
+      data_size;
+      destination = dst;
+      adress_src = adress;
+      adress_mode;
+    }::[]
 
-  let istr ?cc ?data_size dst src offset adress_mode =
-    match src with
-    | `Register reg ->
-        STR
-          {
-            cc;
-            data_size;
-            destination = dst;
-            source = reg;
-            offset;
-            adress_mode;
-          }
-    | _ -> failwith ""
+  let istr ?cc ?data_size src adress adress_mode =
+    STR
+    {
+      cc;
+      data_size;
+      source = src;
+      adress = adress;
+      adress_mode;
+    }::[]
 
-  let ijmplabel ?cc label = B { cc; label }
-  let ijumpreg ?cc reg = BR { cc; reg }
-  let icalllabel ?cc label = BL { cc; label }
-  let icallreg ?cc reg = BLR { cc; reg }
+  let ijmplabel ?cc label = B { cc; label }::[]
+  let ijumpreg ?cc reg = BR { cc; reg }::[]
+  let icalllabel ?cc label = BL { cc; label }::[]
+  let icallreg ?cc reg = BLR { cc; reg }::[]
   let syscall = SVC
   let ret = RET
 end
 
-module IdVar = struct
-  type t = string * rktype
-
-  let compare = compare
-end
-
-module IdVarMap = Map.Make (IdVar)
 
 module Arm64FrameManager = struct
   module Instruction = struct
     include Arm64Instruction
   end
+  module IdVarMap = Common.IdVarMap
 
   type frame_desc = {
     stack_param_count : int;
@@ -410,7 +441,7 @@ module Arm64FrameManager = struct
     stack_map : Arm64Instruction.ABI.address IdVarMap.t;
   }
 
-  let frame_descriptor ~fn_register_params ~stack_param ~locals_var rprogram =
+  let frame_descriptor ~fn_register_params ~(stack_param: (string * KosuIrTyped.Asttyped.rktype) list) ~locals_var ~rprogram =
     let stack_param_count = stack_param |> List.length in
     let stack_concat = fn_register_params @ locals_var in
     let fake_tuple = stack_concat |> List.map snd in
@@ -431,11 +462,168 @@ module Arm64FrameManager = struct
                Instruction.ABI.create_adress
                  ~offset:
                    (Lit (IntL (locals_space |> Int64.neg |> Int64.add offset)))
-                 ~base:Instruction.ABI.R29 ()
+                 ~base:Instruction.ABI.R30 ()
              in
              IdVarMap.add st adress acc)
            IdVarMap.empty
     in
 
+
+
     { stack_param_count; locals_space; stack_map = map }
+
+    let adress_of (variable,rktype)  frame_desc: Instruction.ABI.address = 
+      IdVarMap.find (variable, rktype) frame_desc.stack_map
+
+    let rec copy_large adress_str base_src_reg size = 
+      if size < 0L
+        then failwith "Negive size to copy"
+    else if size = 0L
+      then []
+    else if size < 16L && size >= 8L
+      then [
+        Instruction.LDR {
+          data_size = Some Arm64ABI.B;
+          cc = None;
+          destination = R9;
+          adress_src = Arm64ABI.create_adress ~offset:(Lit (IntL 0L)) ~base:(base_src_reg) ();
+          adress_mode = Immediat
+        };
+        Instruction.STR {
+          data_size = Some Arm64ABI.B;
+          cc = None;
+          source = R9;
+          adress = adress_str;
+          adress_mode = Immediat
+        } ;
+        Instruction.ADD {
+          cc = None;
+          destination = base_src_reg;
+          operand1 = base_src_reg;
+          operand2 = `Litteral 8L
+        }
+      ] @ (copy_large (Arm64ABI.increment_adress 16L adress_str) base_src_reg (Int64.sub size 16L))
+    else if size < 32L && size >= 16L
+      then [
+        Instruction.LDR {
+          data_size = Some Arm64ABI.H;
+          cc = None;
+          destination = R9;
+          adress_src = Arm64ABI.create_adress ~offset:(Lit (IntL 0L)) ~base:(base_src_reg) ();
+          adress_mode = Immediat
+        };
+        Instruction.STR {
+          data_size = Some Arm64ABI.H;
+          cc = None;
+          source = R9;
+          adress = adress_str;
+          adress_mode = Immediat
+        } ;
+        Instruction.ADD {
+          cc = None;
+          destination = base_src_reg;
+          operand1 = base_src_reg;
+          operand2 = `Litteral 16L
+        }
+      ] @ (copy_large (Arm64ABI.increment_adress 16L adress_str) base_src_reg (Int64.sub size 16L))
+    else if size < 64L && size >= 32L
+      then [
+        Instruction.LDR {
+          data_size = None;
+          cc = None;
+          destination = R9;
+          adress_src = Arm64ABI.create_adress ~offset:(Lit (IntL 0L)) ~base:(base_src_reg) ();
+          adress_mode = Immediat
+        };
+        Instruction.STR {
+          data_size = None;
+          cc = None;
+          source = R9;
+          adress = adress_str;
+          adress_mode = Immediat
+        } ;
+        Instruction.ADD {
+          cc = None;
+          destination = base_src_reg;
+          operand1 = base_src_reg;
+          operand2 = `Litteral 32L
+        }
+      ] @ (copy_large (Arm64ABI.increment_adress 32L adress_str) base_src_reg (Int64.sub size 32L))
+        else (*size >= 64L*) 
+          [
+            Instruction.LDR {
+              data_size = None;
+              cc = None;
+              destination = R9;
+              adress_src = Arm64ABI.create_adress ~offset:(Lit (IntL 0L)) ~base:(base_src_reg) ();
+              adress_mode = Immediat
+            };
+            Instruction.STR {
+              data_size = None;
+              cc = None;
+              source = R9;
+              adress = adress_str;
+              adress_mode = Immediat
+            } ;
+            Instruction.ADD {
+              cc = None;
+              destination = base_src_reg;
+              operand1 = base_src_reg;
+              operand2 = `Litteral 64L
+            }
+          ] @ (copy_large (Arm64ABI.increment_adress 64L adress_str) base_src_reg (Int64.sub size 64L))
+
+
+
+
+
+
+    ;;
+    let copy_from_reg reg (adress: Arm64ABI.address) ktype rprogram =
+      let `Register register = reg in
+      let size =  KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+      match size with
+      | 8L ->
+        let data_size =  if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then Arm64ABI.B else Arm64ABI.SB in
+        (Instruction.istr ~data_size register adress Immediat)
+      | 16L -> let data_size =  if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then Arm64ABI.H else Arm64ABI.SH in
+        (Instruction.istr ~data_size register adress Immediat)
+      | 32L | 64L -> 
+        (Instruction.istr register adress Immediat)
+      | _ -> copy_large adress register size
+    let function_prologue ~fn_register_params rprogram fd = 
+      let base = Instruction.STP {x1 = R29; x2 = R30; base = SP; offset = Int64.to_int (Int64.sub fd.locals_space 16L); adress_mode = Immediat} in
+      let stack_sub = Instruction.isub (SP) ~srcl:(`Register SP) ~srcr:(`Litteral fd.locals_space) in
+      let copy_instructions = fn_register_params |> Util.ListHelper.combine_safe Arm64ABI.argument_registers |> List.fold_left (fun acc (register , (name, kt)) -> 
+        let whereis = adress_of (name, kt) fd in
+        acc @ (copy_from_reg (`Register register) whereis kt rprogram)
+        ) [] in
+      base::stack_sub @ copy_instructions
+
+    let function_epilogue fd = 
+      let base = Instruction.LDP {x1 = R29; x2 = R30; base = SP; offset = Int64.to_int (Int64.sub fd.locals_space 16L); adress_mode = Immediat} in
+      let stack_add = Instruction.iadd (SP) ~srcl:(`Register SP) ~srcr:(`Litteral fd.locals_space) in
+      let return = Instruction.ret in
+
+      base::stack_add @ return::[]
+
+    let call_instruction ~origin args (_fd: frame_desc) = 
+      let numbers_of_reg_params = Instruction.ABI.argument_registers |> List.length in
+      let reg_params, _stack_param = args 
+      |> List.mapi (fun index args -> index, args)
+      |> List.partition_map ( fun (index, reg) -> if index < numbers_of_reg_params then Either.left reg else Either.right reg) in
+
+      let assoc_args_reg_instructions = 
+        reg_params 
+        |> Util.ListHelper.combine_safe Instruction.ABI.argument_registers
+        |> List.fold_left (fun acc (register, src) -> 
+          acc @ (match src with 
+          | `Register reg when reg = register -> []
+          | _ -> Instruction.imov register src)
+        ) []
+      in
+      let call = Instruction.BL { cc = None; label = Label origin} in
+      assoc_args_reg_instructions @ [call]
+    
+
 end
