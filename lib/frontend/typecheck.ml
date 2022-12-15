@@ -243,7 +243,6 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let first_type =
         typeof ~generics_resolver env current_mod_name prog first_expr
       in
-      let () = Printf.printf "First expr type = %s\n\n" (Pprint.string_of_ktype first_type) in 
       let parametrics_types = Type.extract_parametrics_ktype first_type in
       let ktype_def_path = Type.module_path_opt first_type |> Option.get in
       let ktype_name = Type.type_name_opt first_type |> Option.get in
@@ -496,6 +495,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             let () =
               List.iter2
                 (fun kt (_, param_kt) ->
+                  (* let () = Printf.printf "init_ktype = %s, param type = %s\n" (Pprint.string_of_ktype kt.v) (Pprint.string_of_ktype param_kt.v) in *)
                   Ast.Type.update_generics infered_map kt param_kt ())
                 init_type_parameters e.parameters
             in
@@ -551,6 +551,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                          }
                        |> func_error |> raise)
             in
+            (* let () = Printf.printf "infered_map = %s \n\n" (infered_map |> Hashtbl.to_seq |> List.of_seq |> List.map (fun (gene, (_, kt)) -> Printf.sprintf "%s = %s" (gene) (Pprint.string_of_ktype kt)) |> String.concat "\n" ) in  *)
 
             Asthelper.Function.to_return_ktype_hashtab
               ~current_module:current_mod_name ~module_type_path:modules_path.v
