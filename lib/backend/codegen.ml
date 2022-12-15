@@ -1,3 +1,6 @@
+open KosuIrTyped.Asttyped
+open KosuFrontend.Ast
+
 module type ABI = sig
   type register
   type stack_parameter_order = Ordered | Reversed
@@ -257,7 +260,7 @@ module Make(FrameManager: FrameManager) = struct
         match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye rval_rktype rprogram with
         | Some (RDecl_Struct s) -> s
         | Some (RDecl_Enum _) -> failwith "Expected to find a struct get an enum"
-        | None -> failwith "Non type decl ??? my validation are very weak" in 
+        | None -> failwith "Non type decl ??? my validation is very weak" in 
       let offset_list = fields 
         |> List.map (fun (field, _) -> offset_of_field field struct_decl rprogram)
         |> List.tl
@@ -266,10 +269,42 @@ module Make(FrameManager: FrameManager) = struct
       tmpreg,  fields |> List.mapi (fun index value -> index, value) |> List.fold_left (fun (accumuled_adre, acc) (index, (_field, tte)) -> 
         let reg_texp, instructions = translate_tac_expression rprogram fd tte in
         increment_adress (List.nth offset_list index) accumuled_adre , acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
-
       ) (where, []) |> snd
-    
+
     end
+    | RVTuple ttes -> 
+      let ktlis = ttes |> List.map (fun {expr_rktype; _} -> expr_rktype) in
+      let offset_list = ttes |> List.mapi (fun index _value -> 
+        offset_of_tuple_index index ktlis rprogram
+      )      
+      |> List.tl
+      |> ( fun l -> l @ [0L] ) in
+      tmpreg, ttes 
+        |> List.mapi (fun index value -> index, value) 
+        |> List.fold_left (fun (accumuled_adre, acc) (index, tte) -> 
+          let reg_texp, instructions = translate_tac_expression rprogram fd tte in
+        increment_adress (List.nth offset_list index ) accumuled_adre, acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
+        ) (where, []) |> snd
+    | RVEnum {variant; assoc_tac_exprs; _} -> 
+      let enum_decl = 
+        match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye rval_rktype rprogram with
+        | Some (RDecl_Struct _) -> failwith "Expected to find an enum get an struct"
+        | Some (RDecl_Enum e) -> e
+        | None -> failwith "Non type decl ??? my validation is very weak" in 
+      let tag = KosuIrTyped.Asttyhelper.Renum.tag_of_variant variant enum_decl in
+      let enum_tte_list = assoc_tac_exprs |> List.cons {expr_rktype = (RTInteger (Unsigned, I32)); tac_expression = (TEInt (Unsigned, I32, Int64.of_int32 tag))} in
+      let enum_type_list = enum_tte_list |> List.map (fun {expr_rktype; _} -> expr_rktype) in
+      let offset_list = enum_tte_list
+      |> List.mapi (fun index {expr_rktype = _; _} -> offset_of_tuple_index index enum_type_list rprogram)
+      |> List.tl
+      |> ( fun l -> l @ [0L] )
+    in
+      tmpreg, enum_tte_list 
+        |> List.mapi (fun index value -> index, value) 
+        |> List.fold_left (fun (accumuled_adre, acc) (index, tte) -> 
+          let reg_texp, instructions = translate_tac_expression rprogram fd tte in
+        increment_adress (List.nth offset_list index ) accumuled_adre, acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
+        ) (where, []) |> snd
     | RVDiscard | RVLater -> tmpreg, []
     | _ -> failwith ""
     

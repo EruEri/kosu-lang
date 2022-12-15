@@ -414,7 +414,7 @@ module Renum = struct
   let tag_of_variant variant (enum_decl: renum_decl) = 
     enum_decl.rvariants 
       |> List.mapi (fun i v -> Int32.of_int i,v )
-      |> List.find_map (fun (i,v) -> if v = variant then Some i else None)
+      |> List.find_map (fun (i,v) -> if (fst v ) = variant then Some i else None)
       |> Option.get
 
 end

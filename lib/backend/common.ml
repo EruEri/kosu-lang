@@ -62,7 +62,7 @@ let offset_of_field ?(generics = Hashtbl.create 0) field rstruct_decl rprogram =
        (0L, 0L, 0L, false)
   |> fun (x, _, _, _) -> x
 
-let offset_of_tuple_index ~generics index rktypes rprogram =
+let offset_of_tuple_index ?(generics = Hashtbl.create 0) index rktypes rprogram =
   let ( ++ ) = Int64.add in
   let ( -- ) = Int64.sub in
   rktypes
