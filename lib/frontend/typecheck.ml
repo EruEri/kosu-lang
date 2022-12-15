@@ -243,6 +243,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let first_type =
         typeof ~generics_resolver env current_mod_name prog first_expr
       in
+      let () = Printf.printf "First expr type = %s\n\n" (Pprint.string_of_ktype first_type) in 
       let parametrics_types = Type.extract_parametrics_ktype first_type in
       let ktype_def_path = Type.module_path_opt first_type |> Option.get in
       let ktype_name = Type.type_name_opt first_type |> Option.get in

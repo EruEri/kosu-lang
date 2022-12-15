@@ -744,13 +744,20 @@ module Program = struct
 end
 
 module Kbody = struct
-  let remap_body_explicit_type generics current_module kbody =
+
+  let abs_module s mp = 
+    mp |> Position.map (fun m -> if m = "" then s else m )
+
+  let rec remap_body_explicit_type generics current_module kbody =
     let stmts_located, (expr_located : kexpression location) = kbody in
     ( stmts_located
       |> List.map (fun located_stmt ->
              located_stmt
              |> Position.map (fun stmt ->
                     match stmt with
+                    | SDerefAffectation (s, le) -> SDerefAffectation (s, remap_located_expr_explicit_type generics current_module le)
+                    | SDiscard le -> SDiscard (remap_located_expr_explicit_type generics current_module le)
+                    | SAffection (s, le) -> SAffection (s, remap_located_expr_explicit_type generics current_module le)
                     | SDeclaration
                         {
                           is_const;
@@ -768,10 +775,145 @@ module Kbody = struct
                                    (Position.map
                                       (Type.set_module_path generics
                                          current_module));
-                            expression = ex;
+                            expression = 
+                             remap_located_expr_explicit_type generics current_module ex;
                           }
-                    | _ as s -> s)),
-      expr_located )
+                    )),
+      remap_located_expr_explicit_type generics current_module expr_located )
+    and remap_located_expr_explicit_type generics current_module located_expr = 
+    located_expr |> Position.map (remap_expr_explicit_type generics current_module)
+    and remap_expr_explicit_type generics current_module = function
+    | ESizeof (Either.Left ktype) -> ESizeof (Either.Left (ktype |> Position.map (Type.set_module_path generics current_module)))
+    | ESizeof (Either.Right expr) -> ESizeof (Either.Right (expr |> remap_located_expr_explicit_type generics current_module))
+    | EFieldAcces {first_expr; field} -> EFieldAcces {
+      first_expr = remap_located_expr_explicit_type generics current_module first_expr;
+      field;
+    }
+    | EConst_Identifier {modules_path; identifier} -> EConst_Identifier {
+      modules_path = abs_module current_module modules_path;
+      identifier;
+    }
+    | EStruct {modules_path; struct_name; fields} -> EStruct {
+      modules_path = abs_module current_module modules_path;
+      struct_name;
+      fields = fields |> List.map (fun (fn, expr) -> 
+        fn, remap_located_expr_explicit_type generics current_module expr
+        )
+    }
+    | EEnum {modules_path; enum_name; variant; assoc_exprs} -> EEnum {
+      modules_path = abs_module current_module modules_path;
+      enum_name;
+      variant;
+      assoc_exprs = assoc_exprs |> List.map (remap_located_expr_explicit_type generics current_module)
+    }
+    | ETuple lexprs -> ETuple (
+      lexprs |> List.map (remap_located_expr_explicit_type generics current_module)
+    )
+    | EBuiltin_Function_call {fn_name; parameters} -> EBuiltin_Function_call {
+      fn_name;
+      parameters = parameters |> List.map (remap_located_expr_explicit_type generics current_module)
+    }
+    | EFunction_call {modules_path; generics_resolver; fn_name; parameters} -> EFunction_call {
+      modules_path = abs_module current_module modules_path;
+      generics_resolver = generics_resolver |> Option.map (List.map (Position.map (Type.set_module_path generics current_module)));
+      fn_name;
+      parameters = parameters |> List.map (remap_located_expr_explicit_type generics current_module)
+    }
+    | EIf (if_cond, ifbody, elsebody) -> EIf (
+      remap_located_expr_explicit_type generics current_module if_cond,
+        remap_body_explicit_type generics current_module ifbody,
+          remap_body_explicit_type generics current_module elsebody
+    )
+    | ECases {cases; else_case} -> ECases {
+      cases = cases |> List.map (fun (expr, body) -> 
+        remap_located_expr_explicit_type generics current_module expr,
+        remap_body_explicit_type generics current_module body
+        );
+      else_case = remap_body_explicit_type generics current_module else_case
+      }
+    | ESwitch {expression; cases; wildcard_case} -> ESwitch {
+      expression = remap_located_expr_explicit_type generics current_module expression;
+      cases = cases |> List.map (fun (scs, body) -> 
+        scs,
+        remap_body_explicit_type generics current_module body
+        );
+      wildcard_case = wildcard_case |> Option.map (remap_body_explicit_type generics current_module) 
+    }
+    | EUn_op (UMinus expr) -> EUn_op (UMinus (remap_located_expr_explicit_type generics current_module expr))
+    | EUn_op (UNot expr) -> EUn_op (UNot (remap_located_expr_explicit_type generics current_module expr))
+    | EBin_op (BAdd (lhs, rhs)) -> EBin_op (BAdd (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BMinus (lhs, rhs)) -> EBin_op (BMinus (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BMult (lhs, rhs)) -> EBin_op (BMult (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BDiv (lhs, rhs)) -> EBin_op (BDiv (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BMod (lhs, rhs)) -> EBin_op (BMod (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BBitwiseAnd (lhs, rhs)) -> EBin_op (BBitwiseAnd (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BBitwiseOr (lhs, rhs)) -> EBin_op (BBitwiseOr (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BBitwiseXor (lhs, rhs)) -> EBin_op (BBitwiseXor (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BShiftLeft (lhs, rhs)) -> EBin_op (BShiftLeft (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BShiftRight (lhs, rhs)) -> EBin_op (BShiftRight (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BAnd (lhs, rhs)) -> EBin_op (BAnd (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BOr (lhs, rhs)) -> EBin_op (BOr (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BSup (lhs, rhs)) -> EBin_op (BSup (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BSupEq (lhs, rhs)) -> EBin_op (BSupEq (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BInf (lhs, rhs)) -> EBin_op (BInf (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BInfEq (lhs, rhs)) -> EBin_op (BInfEq (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BEqual (lhs, rhs)) -> EBin_op (BEqual (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | EBin_op (BDif (lhs, rhs)) -> EBin_op (BDif (
+      remap_located_expr_explicit_type generics current_module lhs, 
+      remap_located_expr_explicit_type generics current_module rhs
+    ))
+    | _ as t -> t 
 end
 
 module Switch_case = struct
