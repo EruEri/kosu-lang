@@ -369,7 +369,8 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         modules_path
         |> Position.map (fun mp -> if mp = "" then current_mod_name else mp)
       in
-      Asthelper.Enum.to_ktype_hash hashtbl modules_path enum_decl
+      let kt = Asthelper.Enum.to_ktype_hash hashtbl modules_path enum_decl in
+      kt
   | ETuple expected_types ->
       TTuple
         (expected_types
@@ -1455,7 +1456,8 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
               |> switch_error |> raise
           | Error e -> e |> ast_error |> raise
         in
-
+        let params_type = Type.extract_parametrics_ktype expr_type in
+        let mapped_generics = List.combine enum_decl.generics params_type in 
         let () =
           enum_decl.variants
           |> List.iter (fun (variant_name, _) ->
@@ -1468,6 +1470,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                      Ast.Error.Duplicated_case duplicate |> switch_error
                      |> raise)
         in
+        let bound_assoc_var_type_map = mapped_generics 
+        |> List.map Position.assocs_value  
+        |> List.to_seq
+        |> Hashtbl.of_seq
+      in
 
         let generics_mapped =
           expr_type |> Ast.Type.extract_parametrics_ktype
@@ -1563,6 +1570,8 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                                 |> switch_error |> raise)
                           (reduce_binded_variable_combine ass_bin)
                      |> List.map (fun (_, variable_name, ktype) ->
+                      let ktype = ktype |> Position.map (Type.remap_naif_generic_ktype bound_assoc_var_type_map) in 
+                      (* let () = Printf.printf "bound %s : %s\n\n" (variable_name.v) (Pprint.string_of_ktype ktype.v) in *)
                             ( variable_name,
                               ({ is_const = true; ktype = ktype.v }
                                 : Env.variable_info) ))
