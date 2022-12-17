@@ -141,6 +141,8 @@ module Arm64ABI = struct
   let stack_pointer = SP
   let argument_registers = [ R0; R1; R2; R3; R4; R5; R6; R7; R8 ]
 
+  let syscall_arguments_register = [R0; R1; R2; R3; R4; R5]
+
   let frame_registers = [R29; R30]
   let return_register = R0
   let indirect_return = R8
@@ -312,8 +314,9 @@ module Arm64Instruction = struct
     | BL of { cc : Arm64ABI.condition_code option; label : Common.label }
     | BR of { cc : Arm64ABI.condition_code option; reg : Arm64ABI.register }
     | BLR of { cc : Arm64ABI.condition_code option; reg : Arm64ABI.register }
+    | SVC of int64
     | RET
-    | SVC
+
 
   let imov ?cc dst src =
     [ Mov { cc; destination = dst; flexsec_operand = src } ]
@@ -491,7 +494,7 @@ module Arm64Instruction = struct
   let ijumpreg ?cc reg = BR { cc; reg }::[]
   let icalllabel ?cc label = BL { cc; label }::[]
   let icallreg ?cc reg = BLR { cc; reg }::[]
-  let syscall = SVC
+  let syscall ?(code = 0L) () = SVC code
   let ret = RET
 end
 

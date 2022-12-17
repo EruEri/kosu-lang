@@ -32,6 +32,7 @@ module type ABI = sig
   val return_register : register
   val indirect_return : register
   val argument_registers : register list
+  val syscall_arguments_register : register list 
   val prefered_tmp_reg : register
   val compute_data_size : KosuIrTyped.Asttyped.rktype -> int64 -> data_size option
   val second_prefered_tmp_reg : register 
@@ -187,7 +188,7 @@ module type Instruction = sig
     ?cc:ABI.condition_code -> Common.label -> instruction list
 
   val icallreg : ?cc:ABI.condition_code -> ABI.register -> instruction list
-  val syscall : instruction
+  val syscall : ?code: int64 -> unit -> instruction
   val ret : instruction
 end
 
@@ -242,11 +243,14 @@ module Make(FrameManager: FrameManager) = struct
   open Common
   open Instruction
   open ABI
+  module RFD = KosuIrTyped.Asttyhelper.RFunction_Decl
   let tmpreg =  FrameManager.Instruction.ABI.prefered_tmp_reg
   let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
 
-  let translate_tac_expression ?(target_reg = tmpreg) rprogram (fd: FrameManager.frame_desc) = 
+  let translate_tac_expression ~str_lit_map ?(target_reg = tmpreg) rprogram (fd: FrameManager.frame_desc) = 
     function
+    |({tac_expression = TEString s; expr_rktype = _}) -> 
+      target_reg, lea (dst_of_register tmpreg) (Hashtbl.find str_lit_map s)
     |({tac_expression = TEFalse | TENullptr | TEmpty; expr_rktype = _})  -> target_reg , FrameManager.Instruction.imov (dst_of_register target_reg) (src_of_immediat 0L)
     |({tac_expression = TETrue; _}) -> target_reg, imov (dst_of_register target_reg) (src_of_immediat 1L)
     |({tac_expression = TEInt (_, _, int64); _}) -> target_reg, imov (dst_of_register target_reg) (src_of_immediat int64)
@@ -262,18 +266,18 @@ module Make(FrameManager: FrameManager) = struct
       target_reg, imov (dst_of_register target_reg) (src_of_immediat sizeof)
     | _ -> failwith ""
 
-  let rec translate_tac_rvalue ~(where: address) current_module rprogram (fd: FrameManager.frame_desc) {rval_rktype; rvalue} =
+  let rec translate_tac_rvalue ~str_lit_map ~(where: address) current_module rprogram (fd: FrameManager.frame_desc) {rval_rktype; rvalue} =
     match rvalue with
     | RVUminus ttr -> 
-      let last_reg, insts =  translate_tac_rvalue ~where current_module rprogram fd ttr in
+      let last_reg, insts =  translate_tac_rvalue ~str_lit_map ~where current_module rprogram fd ttr in
       let neg_instruction = ineg (dst_of_register last_reg) (src_of_register last_reg) in
       last_reg, insts @ neg_instruction
     | RVNot ttr -> 
-        let last_reg, insts =  translate_tac_rvalue ~where current_module rprogram fd ttr in
+        let last_reg, insts =  translate_tac_rvalue ~str_lit_map ~where current_module rprogram fd ttr in
         let not_instruction = inot (dst_of_register last_reg) (src_of_register last_reg) in
         last_reg, insts @ not_instruction
     
-    | RVExpression tac_typed_expression -> translate_tac_expression rprogram fd tac_typed_expression
+    | RVExpression tac_typed_expression -> translate_tac_expression ~str_lit_map rprogram fd tac_typed_expression
     | RVStruct {module_path = _; struct_name = _; fields} -> begin 
       let struct_decl = 
         match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye rval_rktype rprogram with
@@ -286,11 +290,58 @@ module Make(FrameManager: FrameManager) = struct
         |> ( fun l -> l @ [0L] )
       in
       tmpreg,  fields |> List.mapi (fun index value -> index, value) |> List.fold_left (fun (accumuled_adre, acc) (index, (_field, tte)) -> 
-        let reg_texp, instructions = translate_tac_expression rprogram fd tte in
+        let reg_texp, instructions = translate_tac_expression ~str_lit_map rprogram fd tte in
         increment_adress (List.nth offset_list index) accumuled_adre , acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
       ) (where, []) |> snd
 
     end
+    | RVFunction {module_path; fn_name; generics_resolver = _; tac_parameters} -> 
+      let typed_parameters = tac_parameters |> List.map (fun {expr_rktype; _} -> expr_rktype) in
+      let fn_module = (if module_path = "" then current_module else module_path) in
+      let fn_decl = KosuIrTyped.Asttyhelper.RProgram.find_function_decl_of_name fn_module fn_name rprogram |> Option.get in
+      begin match fn_decl with
+      | RExternal_Decl external_func_decl -> 
+        let fn_label = Printf.sprintf "_%s" (external_func_decl.c_name |> Option.value ~default:(external_func_decl.rsig_name)) in
+        let _ = assert (tac_parameters |> List.length < 9) in
+        let instructions, regs = tac_parameters |> Util.ListHelper.combine_safe argument_registers |> List.fold_left_map (fun acc (reg, tte) -> 
+          let reg, instruction = translate_tac_expression ~str_lit_map ~target_reg:reg rprogram fd tte in 
+          acc @ instruction, src_of_register reg
+        ) [] in
+    
+        let call_instructions = call_instruction ~origin:fn_label regs fd in
+        let return_size = sizeofn rprogram external_func_decl.return_type in
+        let return_reg = return_register_ktype return_size in
+        return_reg, instructions @ call_instructions @ copy_from_reg return_reg where external_func_decl.return_type rprogram
+      | RSyscall_Decl syscall_decl -> 
+        let _ = assert (tac_parameters |> List.length < 5) in
+        let instructions, _regs = tac_parameters |> Util.ListHelper.combine_safe argument_registers |> List.fold_left_map (fun acc (reg, tte) -> 
+          let reg, instruction = translate_tac_expression ~str_lit_map ~target_reg:reg rprogram fd tte in 
+          acc @ instruction, src_of_register reg
+        ) [] in
+        let return_size = sizeofn rprogram syscall_decl.return_type in
+        let return_reg = return_register_ktype return_size in
+        return_reg, instructions @ [syscall ~code:(syscall_decl.opcode) ()] @ copy_from_reg return_reg where syscall_decl.return_type rprogram
+      | RKosufn_Decl _ -> (
+      let function_decl = rprogram |> KosuIrTyped.Asttyhelper.RProgram.find_function_decl_exact_param_types 
+        ~module_name:fn_module
+        ~fn_name
+        ~ktypes: typed_parameters
+        |> Option.get
+    in
+
+    let _ = assert (tac_parameters |> List.length < 9) in
+    let fn_label = KosuIrTyped.Asttyhelper.Function.label_of_fn_name fn_module function_decl in
+    let instructions, regs = tac_parameters |> Util.ListHelper.combine_safe argument_registers |> List.fold_left_map (fun acc (reg, tte) -> 
+      let reg, instruction = translate_tac_expression ~str_lit_map ~target_reg:reg rprogram fd tte in 
+      acc @ instruction, src_of_register reg
+    ) [] in
+
+    let call_instructions = call_instruction ~origin:fn_label regs fd in
+    let return_size = sizeofn rprogram function_decl.return_type in
+    let return_reg = return_register_ktype return_size in
+    return_reg, instructions @ call_instructions @ copy_from_reg return_reg where function_decl.return_type rprogram
+  )
+end
     | RVTuple ttes -> 
       let ktlis = ttes |> List.map (fun {expr_rktype; _} -> expr_rktype) in
       let offset_list = ttes |> List.mapi (fun index _value -> 
@@ -301,9 +352,29 @@ module Make(FrameManager: FrameManager) = struct
       tmpreg, ttes 
         |> List.mapi (fun index value -> index, value) 
         |> List.fold_left (fun (accumuled_adre, acc) (index, tte) -> 
-          let reg_texp, instructions = translate_tac_expression rprogram fd tte in
+          let reg_texp, instructions = translate_tac_expression rprogram ~str_lit_map fd tte in
         increment_adress (List.nth offset_list index ) accumuled_adre, acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
         ) (where, []) |> snd
+    | RVFieldAcess {first_expr = {expr_rktype; tac_expression = TEIdentifier _}; field} -> 
+      let struct_decl = 
+        match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye expr_rktype rprogram with
+        | Some (RDecl_Struct s) -> s
+        | Some (RDecl_Enum _) -> failwith "Expected to find a struct get an enum"
+        | None -> failwith "Non type decl ??? my validation is very weak" in 
+      let sizeof = sizeofn rprogram rval_rktype in
+      let offset = offset_of_field field struct_decl rprogram in
+      let adress = adress_of (field, rval_rktype) fd in
+      let adress = increment_adress offset adress in
+      let size = compute_data_size rval_rktype sizeof in
+      tmpreg, ildr ~data_size:(size) (dst_of_register tmpreg) adress Immediat
+    | RVAdress id -> 
+      let adress = adress_of (id, rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee) fd in
+      tmpreg, ildr (dst_of_register tmpreg) adress Immediat
+    | RVDefer id ->
+      let adress = adress_of (id, rval_rktype |> KosuIrTyped.Asttyhelper.RType.rpointer) fd in
+      let load_instruction = ildr (dst_of_register tmpreg) adress Immediat in
+      let load = ildr (dst_of_register tmpreg) (create_adress ~base:(tmpreg) ~offset:(Lit (IntL (0L))) ()) Immediat in
+     tmpreg, load_instruction @ load
     | RVEnum {variant; assoc_tac_exprs; _} -> 
       let enum_decl = 
         match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye rval_rktype rprogram with
@@ -321,7 +392,7 @@ module Make(FrameManager: FrameManager) = struct
       tmpreg, enum_tte_list 
         |> List.mapi (fun index value -> index, value) 
         |> List.fold_left (fun (accumuled_adre, acc) (index, tte) -> 
-          let reg_texp, instructions = translate_tac_expression rprogram fd tte in
+          let reg_texp, instructions = translate_tac_expression rprogram ~str_lit_map fd tte in
         increment_adress (List.nth offset_list index ) accumuled_adre, acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
         ) (where, []) |> snd
     | RVDiscard | RVLater -> tmpreg, []

@@ -329,6 +329,8 @@ module Function = struct
 
   let label_of_fn_name current_module name typed_list = 
     Printf.sprintf "_%s.%s_%s" current_module name (typed_list |> List.map Asttypprint.string_of_label_rktype |> String.concat "_")
+
+  let label_of_fn_name fn_module (rfunction_decl: rfunction_decl) = label_of_fn_name fn_module rfunction_decl.rfn_name (rfunction_decl.rparameters |> List.map snd)
   
   let true_function_of_rfunction_decl generics (rfunction_decl: rfunction_decl): rtrue_function_decl = let open Generics in
   match rfunction_decl.generics = [] with
@@ -427,8 +429,22 @@ module Rtype_Decl = struct
     | RDecl_Enum s -> s.renum_name
 end
 
+module RFunction_Decl = struct
+  type fn_decl = 
+  | RSyscall_Decl of rsyscall_decl
+  | RExternal_Decl of rexternal_func_decl
+  | RKosufn_Decl of rfunction_decl
+
+  let fn_name = function
+  | RSyscall_Decl {rsyscall_name = n; _}
+  | RKosufn_Decl {rfn_name = n; _} -> n
+  | RExternal_Decl {rsig_name; c_name; _} -> 
+    c_name |> Option.value ~default:rsig_name
+end
+
 module Rmodule = struct
   open Rtype_Decl
+  open RFunction_Decl
 
   let add_node node = function
   | RModule rnodes -> RModule (node::rnodes)
@@ -454,11 +470,27 @@ module Rmodule = struct
       | _ -> None
     ) 
 
+  let retrive_functions_decl = function
+  | RModule rnodes -> rnodes |> List.filter_map (function
+  | RNFunction fn -> Some (RKosufn_Decl fn)
+  | RNExternFunc ef -> Some (RExternal_Decl ef)
+  | RNSyscall scf -> Some (RSyscall_Decl scf)
+  | _ -> None
+  )
+
   let find_function_decl fn_name = function
   | RModule rnodes -> rnodes |> List.find_map (fun rnodes -> 
     match rnodes with
     | RNFunction rfunction_decl when rfunction_decl.rfn_name = fn_name -> Some rfunction_decl
     | _ -> None 
+    )
+
+  let find_function_decl_param_ktype fn_name ktypes = function
+  | RModule rnodes -> rnodes |> List.find_map (fun rnodes -> 
+      match rnodes with
+      | RNFunction rfunction_decl when rfunction_decl.rfn_name = fn_name && 
+      (rfunction_decl.rparameters |> List.map snd |> ( = ) ktypes) -> Some rfunction_decl
+      | _ -> None
     )
 
   let retrieve_type_decl = function
@@ -504,6 +536,25 @@ module RProgram = struct
     |> List.find_map (fun { filename = _; rmodule_path } ->
            if rmodule_path.path = module_name then Some rmodule_path.rmodule
            else None)
+
+  let find_function_decls_in_module module_name rprogram =
+  rprogram
+  |> find_module_of_name module_name
+  |> Option.map( Rmodule.retrive_functions_decl )
+
+  let find_function_decl_of_name module_name fn_name rprogram = 
+    let (>>=) = Option.bind in
+    rprogram 
+    |> find_function_decls_in_module module_name
+    >>= List.find_opt (fun fn_decl -> fn_decl |> RFunction_Decl.fn_name |> ( = ) fn_name
+    )
+
+
+  let find_function_decl_exact_param_types ~module_name ~ktypes ~fn_name rprogram = 
+    let ( >>= ) = Option.bind in
+    rprogram
+    |> find_module_of_name module_name
+    >>= Rmodule.find_function_decl_param_ktype fn_name ktypes
 
   let find_type_decl_from_rktye ktype rprogram =
     if RType.is_builtin_rtype ktype then None
