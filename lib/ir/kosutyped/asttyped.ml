@@ -81,7 +81,7 @@ and rkexpression =
     }
   | RETuple of typed_expression list
   | REBuiltin_Function_call of {
-      fn_name : string;
+      fn_name : Builtin_Function.functions;
       parameters : typed_expression list;
     }
   | REFunction_call of {

@@ -357,7 +357,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
   | EBuiltin_Function_call { fn_name; parameters } ->
       REBuiltin_Function_call
         {
-          fn_name = fn_name.v;
+          fn_name = KosuFrontend.Asthelper.Builtin_Function.builtin_fn_of_fn_name fn_name |> Result.get_ok;
           parameters =
             parameters
             |> List.map

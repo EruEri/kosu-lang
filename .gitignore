@@ -2,3 +2,4 @@ _build
 *.kosu
 .DS_Store
 *.c
+kosuc

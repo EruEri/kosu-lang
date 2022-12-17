@@ -103,6 +103,16 @@ module type Instruction = sig
     srcr:ABI.src ->
     instruction list
 
+  val inot:
+   ?cc: ABI.condition_code ->
+    ABI.dst ->
+    ABI.src -> instruction list
+
+  val ineg:
+  ?cc: ABI.condition_code ->
+    ABI.dst ->
+    ABI.src -> instruction list
+
     val iudiv :
     ?cc:ABI.condition_code ->
     ABI.dst ->
@@ -252,8 +262,17 @@ module Make(FrameManager: FrameManager) = struct
       target_reg, imov (dst_of_register target_reg) (src_of_immediat sizeof)
     | _ -> failwith ""
 
-  let translate_tac_rvalue ~(where: address) _current_module rprogram (fd: FrameManager.frame_desc) {rval_rktype; rvalue} =
+  let rec translate_tac_rvalue ~(where: address) current_module rprogram (fd: FrameManager.frame_desc) {rval_rktype; rvalue} =
     match rvalue with
+    | RVUminus ttr -> 
+      let last_reg, insts =  translate_tac_rvalue ~where current_module rprogram fd ttr in
+      let neg_instruction = ineg (dst_of_register last_reg) (src_of_register last_reg) in
+      last_reg, insts @ neg_instruction
+    | RVNot ttr -> 
+        let last_reg, insts =  translate_tac_rvalue ~where current_module rprogram fd ttr in
+        let not_instruction = inot (dst_of_register last_reg) (src_of_register last_reg) in
+        last_reg, insts @ not_instruction
+    
     | RVExpression tac_typed_expression -> translate_tac_expression rprogram fd tac_typed_expression
     | RVStruct {module_path = _; struct_name = _; fields} -> begin 
       let struct_decl = 

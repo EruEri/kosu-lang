@@ -209,7 +209,7 @@ and string_of_typed_tac_expression { expr_rktype; tac_expression } =
 
 and string_of_tac_rvalue = function
   | RVUminus rvalue -> sprintf "uminus(%s)" (string_of_typed_tac_rvalue rvalue)
-  | RVNeg rvalue -> sprintf "!%s" (string_of_typed_tac_rvalue rvalue)
+  | RVNot rvalue -> sprintf "!%s" (string_of_typed_tac_rvalue rvalue)
   | RVExpression expr -> string_of_typed_tac_expression expr
   | RVFunction { module_path; fn_name; generics_resolver; tac_parameters } ->
       sprintf "%s%s%s(%s)"
@@ -254,7 +254,7 @@ and string_of_tac_rvalue = function
   | RVBuiltinUnop un -> string_of_tac_unary un
   | RVBuiltinBinop bin -> string_of_tac_binary bin
   | RVBuiltinCall { fn_name; parameters } ->
-      sprintf "@%s(%s)" fn_name
+      sprintf "@%s(%s)" (KosuFrontend.Asthelper.Builtin_Function.fn_name_of_built_in_fn fn_name)
         (parameters
         |> List.map string_of_typed_tac_expression
         |> String.concat ", ")

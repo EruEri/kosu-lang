@@ -194,6 +194,16 @@ module Arm64Instruction = struct
         (* Careful int max INT16 *)
         flexsec_operand : Arm64ABI.src;
       }
+    | Not of {
+      cc : Arm64ABI.condition_code option;
+      destination : Arm64ABI.register;
+      source : Arm64ABI.register
+    }
+    | Neg of {
+      cc : Arm64ABI.condition_code option;
+      destination : Arm64ABI.register;
+      source : Arm64ABI.register
+    }
     | ADD of {
         cc : Arm64ABI.condition_code option;
         destination : Arm64ABI.register;
@@ -307,6 +317,30 @@ module Arm64Instruction = struct
 
   let imov ?cc dst src =
     [ Mov { cc; destination = dst; flexsec_operand = src } ]
+
+  let inot ?cc dst src = 
+    match src with
+    | `Litteral _ -> 
+      imov R8 src @ [
+        Not {cc; destination = dst; source = R8}
+      ]
+    | `Register reg_dst  -> 
+      [
+        Not {cc; destination = dst; source = reg_dst}
+      ]
+    | _ -> failwith "Inot label"
+
+    let ineg ?cc dst src = 
+      match src with
+      | `Litteral _ -> 
+        imov R8 src @ [
+          Neg {cc; destination = dst; source = R8}
+        ]
+      | `Register reg_dst  -> 
+        [
+          Neg {cc; destination = dst; source = reg_dst}
+        ]
+      | _ -> failwith "Inot label"
 
   let iadd ?cc dst ~srcl ~srcr =
     match (srcl, srcr) with

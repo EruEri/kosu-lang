@@ -127,7 +127,7 @@ let rec map_fill_string_lit_of_tac_expression map expression () =
 
 and map_fill_string_lit_of_trvalue map trvalue () =
   match trvalue with
-  | RVUminus e | RVNeg e -> map_fill_string_lit_of_trvalue map e.rvalue ()
+  | RVUminus e | RVNot e -> map_fill_string_lit_of_trvalue map e.rvalue ()
   | RVExpression e ->
       map_fill_string_lit_of_tac_expression map e.tac_expression ()
   | RVFunction { tac_parameters; _ } ->

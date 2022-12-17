@@ -92,7 +92,7 @@ and unary = { unop : tac_unop; expr : tac_typed_expression }
 
 and tac_rvalue =
   | RVUminus of tac_typed_rvalue
-  | RVNeg of tac_typed_rvalue
+  | RVNot of tac_typed_rvalue
   | RVExpression of tac_typed_expression
   | RVFunction of tac_fncall
   | RVStruct of {
@@ -107,7 +107,7 @@ and tac_rvalue =
       assoc_tac_exprs : tac_typed_expression list;
     }
   | RVBuiltinCall of {
-      fn_name : string;
+      fn_name : KosuFrontend.Ast.Builtin_Function.functions;
       parameters : tac_typed_expression list;
     }
   | RVTuple of tac_typed_expression list
