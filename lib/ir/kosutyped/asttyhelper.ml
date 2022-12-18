@@ -50,6 +50,10 @@ module RType = struct
   let rpointer p = RTPointer p
   let rtuple tuples = RTTuple tuples
 
+  let is_pointer = function
+  | RTPointer _ -> true
+  | _ -> false
+
   let extract_parametrics_rktype = function
     | RTParametric_identifier { parametrics_type; _ } -> parametrics_type
     | _ -> []

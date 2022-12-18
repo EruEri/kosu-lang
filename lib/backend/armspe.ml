@@ -174,8 +174,13 @@ module Register = struct
   let tmp64reg_2 = Register64 X9
   let tmp32reg_2 = Register32 W9
 
+  let tmp32reg_3 = Register32 W10
+  let tmp64reg_3 = Register64 X10
+
   let tmpreg_of_size = fun size -> if size <= 32L then tmp32reg else tmp64reg
   let tmpreg_of_size_2 = fun size -> if size <= 32L then tmp32reg_2 else tmp64reg_2
+
+  let tmpreg_of_size_3 = fun size -> if size <= 32L then tmp32reg_3 else tmp64reg_3
 
   let tmpreg_of_ktype rprogram ktype = 
     let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
@@ -184,6 +189,10 @@ module Register = struct
   let tmpreg_of_ktype_2 rprogram ktype = 
     let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
     tmpreg_of_size_2 size
+
+    let tmpreg_of_ktype_3 rprogram ktype = 
+      let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+      tmpreg_of_size_3 size
 end
 
 open Register
@@ -228,7 +237,21 @@ module Instruction = struct
     (* Int12 litteral oprand*)
     operand2 : src;
   }
+| ADDS of {
+   
+  destination : Register.register;
+  operand1 : Register.register;
+  (* Int12 litteral oprand*)
+  operand2 : src;
+}
 | SUB of {
+   
+    destination : Register.register;
+    operand1 : Register.register;
+    (* Int12 litteral oprand*)
+    operand2 : src;
+  }
+| SUBS of {
    
     destination : Register.register;
     operand1 : Register.register;
@@ -267,8 +290,13 @@ module Instruction = struct
     (* LIteral range [0-31] *)
     operand2 : src;
   }
+| CSINC of {
+  destination: Register.register;
+  operand1: Register.register;
+  operand2: Register.register;
+  condition: condition_code
+}
 | CMP of {
-   
     operand1 : Register.register;
     operand2 : src;
   }
@@ -741,6 +769,85 @@ module Codegen = struct
         let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r8 rprogram fd blhs in
         let and_instruction = [Instruction (AND {destination = r8; operand1 = left_reg; operand2 = `Register right_reg})] in
         r8, rinstructions @ linstructions @ and_instruction
+      | RVBuiltinBinop {binop = TacBool (TacEqual); blhs; brhs} -> 
+        let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
+        let r9 = tmpreg_of_ktype_2 rprogram brhs.expr_rktype in
+        let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in
+        let zero_reg = reg_of_size (size_of_ktype_size (sizeofn rprogram rval_rktype)) (Register64 XZR) in
+        let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs in
+        let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs in
+        let equal_instruction = [
+          Instruction (SUB {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
+          Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition = NE})
+        ] in
+        r8, rinstructions @ linstructions @ equal_instruction
+      | RVBuiltinBinop {binop = TacBool (TacDiff); blhs; brhs} -> 
+          let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
+          let r9 = tmpreg_of_ktype_2 rprogram brhs.expr_rktype in
+          let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in
+          let zero_reg = reg_of_size (size_of_ktype_size (sizeofn rprogram rval_rktype)) (Register64 XZR) in
+          let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs in
+          let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs in
+          let equal_instruction = [
+            Instruction (SUB {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
+            Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition = EQ})
+          ] in
+          r8, rinstructions @ linstructions @ equal_instruction
+      | RVBuiltinBinop {binop = TacBool (TacSupEq); blhs; brhs} -> 
+        let condition = if KosuIrTyped.Asttyhelper.RType.is_pointer blhs.expr_rktype then CC else LT in 
+        let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
+        let r9 = tmpreg_of_ktype_2 rprogram brhs.expr_rktype in
+        let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in
+        let zero_reg = reg_of_size (size_of_ktype_size (sizeofn rprogram rval_rktype)) (Register64 XZR) in
+        let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs in
+        let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs in
+        let equal_instruction = [
+          Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
+          Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition})
+        ] in
+        r8, rinstructions @ linstructions @ equal_instruction
+      | RVBuiltinBinop {binop = TacBool (TacSup); blhs; brhs} -> 
+        let condition = if KosuIrTyped.Asttyhelper.RType.is_pointer blhs.expr_rktype then LS else LE in 
+        let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
+        let r9 = tmpreg_of_ktype_2 rprogram brhs.expr_rktype in
+        let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in
+        let zero_reg = reg_of_size (size_of_ktype_size (sizeofn rprogram rval_rktype)) (Register64 XZR) in
+        let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs in
+        let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs in
+        let equal_instruction = [
+          Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
+          Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition})
+        ] in
+        r8, rinstructions @ linstructions @ equal_instruction
+      | RVBuiltinBinop {binop = TacBool (TacInf); blhs; brhs} -> 
+        let condition = if KosuIrTyped.Asttyhelper.RType.is_pointer blhs.expr_rktype then CS else GE in 
+        let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
+        let r9 = tmpreg_of_ktype_2 rprogram brhs.expr_rktype in
+        let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in
+        let zero_reg = reg_of_size (size_of_ktype_size (sizeofn rprogram rval_rktype)) (Register64 XZR) in
+        let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs in
+        let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs in
+        let equal_instruction = [
+          Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
+          Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition})
+        ] in
+        r8, rinstructions @ linstructions @ equal_instruction
+      | RVBuiltinBinop {binop = TacBool (TacInfEq); blhs; brhs} -> 
+        let condition = if KosuIrTyped.Asttyhelper.RType.is_pointer blhs.expr_rktype then HI else GT in 
+        let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
+        let r9 = tmpreg_of_ktype_2 rprogram brhs.expr_rktype in
+        let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in
+        let zero_reg = reg_of_size (size_of_ktype_size (sizeofn rprogram rval_rktype)) (Register64 XZR) in
+        let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs in
+        let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs in
+        let equal_instruction = [
+          Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
+          Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition})
+        ] in
+        r8, rinstructions @ linstructions @ equal_instruction
+        
+
+    
       (* | RVBuiltinBinop { binop = TacBool (TacEqual); blhs; brhs} -> 
         let _, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:(second_prefered_tmp_reg) rprogram fd brhs in
         let last_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:(tmpreg) rprogram fd blhs in
