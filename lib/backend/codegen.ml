@@ -396,9 +396,66 @@ end
         increment_adress (List.nth offset_list index ) accumuled_adre, acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
         ) (where, []) |> snd
     | RVDiscard | RVLater -> tmpreg, []
-    | _ -> failwith ""
+    | RVBuiltinBinop { binop = TacBool (TacOr); blhs; brhs} -> 
+      let _, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:(second_prefered_tmp_reg) rprogram fd brhs in
+      let last_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:(tmpreg) rprogram fd blhs in
+      let and_instruction = ior (dst_of_register last_reg) ~srcl:(src_of_register last_reg) ~srcr:(src_of_register second_prefered_tmp_reg) in
+      last_reg, rinstructions @ linstructions @ and_instruction
+    | RVBuiltinBinop { binop = TacBool (TacAnd); blhs; brhs} -> 
+      let _, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:(second_prefered_tmp_reg) rprogram fd brhs in
+      let last_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:(tmpreg) rprogram fd blhs in
+      let and_instruction = iand (dst_of_register last_reg) ~srcl:(src_of_register last_reg) ~srcr:(src_of_register second_prefered_tmp_reg) in
+      last_reg, rinstructions @ linstructions @ and_instruction
+    (* | RVBuiltinBinop { binop = TacBool (TacEqual); blhs; brhs} -> 
+      let _, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:(second_prefered_tmp_reg) rprogram fd brhs in
+      let last_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:(tmpreg) rprogram fd blhs in
+      let  *)
+    | _ -> failwith "Mostly binop"
     
-  let translate_tac_statement _current_module _rprogram (_fd: FrameManager.frame_desc) = failwith ""
+  let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameManager.frame_desc) = function
+  | STacDeclaration {identifier; trvalue} | STacModification {identifier; trvalue} ->
+    let adress = adress_of (identifier, trvalue.rval_rktype) fd in
+    translate_tac_rvalue ~str_lit_map ~where:adress current_module rprogram fd trvalue 
+  | STDerefAffectation {identifier; trvalue} -> 
+    let intermediary_adress = adress_of (identifier, trvalue.rval_rktype) fd in
+    let instructions = ildr (dst_of_register tmpreg) intermediary_adress Immediat in
+    let true_adress = create_adress ~offset:(Lit ( IntL (0L) )) ~base:(tmpreg) () in
+    let last_reg, true_instructions = translate_tac_rvalue ~str_lit_map ~where:true_adress current_module rprogram fd trvalue  in
+    last_reg, instructions @ true_instructions
+  | STIf {
+    statement_for_bool;
+    condition_rvalue = _;
+    goto1 = _;
+    goto2 = _;
+    exit_label = _;
+    if_tac_body = _;
+    else_tac_body = _;
+  } -> 
+    let _stmts_bool = statement_for_bool |> List.fold_left (fun acc stmt -> 
+      acc @ (translate_tac_statement ~str_lit_map current_module rprogram fd stmt |> snd)
+    ) [] in
+
+    failwith "Statement if todo"
+  | STSwitch {
+    statemenets_for_case;
+    condition_switch;
+    sw_cases;
+    wildcard_label = _;
+    wildcard_body = _;
+    sw_exit_label = _
+  } -> 
+    let _, _setup_instructions = statemenets_for_case |> List.fold_left (fun (_, acc_stmts) value -> 
+      let last_reg, insts = translate_tac_statement ~str_lit_map current_module rprogram fd value in
+      last_reg, acc_stmts @ insts
+    ) (tmpreg, []) in
+    let _last_reg, _condition_switch_instruction = translate_tac_expression ~str_lit_map rprogram fd condition_switch in
+    let _align = KosuIrTyped.Asttyconvert.Sizeof.alignmentof rprogram condition_switch.expr_rktype in
+    (* Tag fetch proper doing*)
+    let _last_reg2, _tac_switchs_instructions = sw_cases |> List.fold_left (fun _acc _sw_case -> 
+      failwith ""
+    ) (failwith "") in
+    failwith ""
+  | _ -> failwith ""
 end
 
 module ARMCodegen = Make(Arm.Arm64FrameManager)

@@ -1,54 +1,5 @@
 open Common
-open KosuIrTAC.Asttac
-(* open Kosu_frontend.Ast *)
 
-(* for i in $(seq 1 16); do echo "| R$i" >> lib/backend/arm.ml; done *)
-
-(* type flexsec_operand = [ `Litteral of int | `Register of register ] *)
-
-(*
-   let syscall_instruction = SVC
-
-   module IStack = struct
-     type info = (string * rktype * int) list
-     type t = instruction list
-     type stacks = info * t
-
-     let empty : stacks = ([], [])
-
-     let push_instruction (inst : instruction) (list, stack) : stacks =
-       (list, inst :: stack)
-
-     let current_offset (stacks : stacks) =
-       stacks |> fst |> List.fold_left (fun acc (_, _, off) -> acc + off) 0
-
-     let padding_needed rktype rprogram stacks =
-       let aligmentof =
-         KosuIrTyped.Asttyped.Sizeof.alignmentof rprogram rktype |> Int64.to_int
-       in
-       let current_offset = current_offset stacks in
-       (aligmentof - (current_offset mod aligmentof)) mod aligmentof
-   end *)
-
-(* (**
-   @return Whenether or not the value can be store
-   directly from the register or it needs to be fetched since non trival size are passed by reference before beeing cloned into the stack
-   *)
-   let does_it_hold_in_register program rktype =
-     let sizeof = KosuIrTyped.Asttyped.Sizeof.sizeof program rktype in
-     sizeof <= 64L && (sizeof = 8L || sizeof = 16L || sizeof = 32L || sizeof = 64L)
-
-   let instructions_of_function generics program function_decl =
-     let _stacks = IStack.empty in
-     let combined =
-       generics
-       |> List.combine function_decl.generics
-       |> List.to_seq |> Hashtbl.of_seq
-     in
-     function_decl.rparameters
-     |> List.map (fun (_field, rktype) ->
-            let rktype = RType.remap_generic_ktype combined rktype in
-            if does_it_hold_in_register program rktype then ()) *)
 
 module Arm64ABI = struct
   type register =
@@ -498,7 +449,6 @@ module Arm64Instruction = struct
   let ret = RET
 end
 
-
 module Arm64FrameManager = struct
   module Instruction = struct
     include Arm64Instruction
@@ -694,13 +644,3 @@ module Arm64FrameManager = struct
       let call = Instruction.BL { cc = None; label = Label origin} in
       assoc_args_reg_instructions @ [call]
 end
-let translate_tac_rvalue _current_module _rprogram (_fd: Arm64FrameManager.frame_desc) =
-
-  let open Arm64FrameManager in
-  let open Instruction in
-  let open ABI in
-  function
-  | RVExpression ({tac_expression = TEFalse | TENullptr | TEmpty; _})  -> R8, imov R8 (src_of_immediat 0L)
-  | RVExpression ({tac_expression = TETrue; _}) -> R8, imov R8 (src_of_immediat 1L)
-  | RVExpression ({tac_expression = TEInt (_, _, int64); _}) -> R8, imov (dst_of_register R8) (src_of_immediat int64)
-  | _ -> failwith ""
