@@ -348,8 +348,7 @@ module Instruction = struct
 | LDP of {
   x1: Register.register;
   x2: Register.register;
-  base: Register.register;
-  offset: int;
+  address: address;
   adress_mode : adress_mode;
 }
 | B of { cc : condition_code option; label : Common.label }
@@ -420,6 +419,108 @@ let compute_data_size ktype = function
 | 16L -> Some (if not @@ KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then SH else H)
 | _ -> None
 
+let rec copy_large adress_str base_src_reg size = 
+  if size < 0L
+    then failwith "Negive size to copy"
+else if size = 0L
+  then []
+else if size < 16L && size >= 8L
+  then [
+    Instruction( LDR {
+      data_size = Some B;
+      destination = reg_of_32 W9;
+      adress_src = create_adress (base_src_reg);
+      adress_mode = Immediat
+    });
+    Instruction (Instruction.STR {
+      data_size = Some B;
+      source = reg_of_32 W9;
+      adress = adress_str;
+      adress_mode = Immediat
+    }) ;
+    Instruction (Instruction.ADD {
+      destination = base_src_reg;
+      operand1 = base_src_reg;
+      operand2 = `ILitteral 8L
+    })
+  ] @ (copy_large (increment_adress 16L adress_str) base_src_reg (Int64.sub size 8L))
+else if size < 32L && size >= 16L
+  then [
+    Instruction (Instruction.LDR {
+      data_size = Some H;
+      destination = reg_of_32 W9;
+      adress_src = create_adress base_src_reg;
+      adress_mode = Immediat
+    });
+    Instruction (Instruction.STR {
+      data_size = Some H;
+      source = reg_of_32 W9;
+      adress = adress_str;
+      adress_mode = Immediat
+    }) ;
+    Instruction (Instruction.ADD {
+      destination = base_src_reg;
+      operand1 = base_src_reg;
+      operand2 = `ILitteral 16L
+    })
+  ] @ (copy_large (increment_adress 16L adress_str) base_src_reg (Int64.sub size 16L))
+else if size < 64L && size >= 32L
+  then [
+    Instruction (Instruction.LDR {
+      data_size = None;
+      destination = reg_of_32 W9;
+      adress_src = create_adress  (base_src_reg);
+      adress_mode = Immediat
+    });
+    Instruction (Instruction.STR {
+      data_size = None;
+      source = reg_of_32 W9;
+      adress = adress_str;
+      adress_mode = Immediat
+    }) ;
+    Instruction (Instruction.ADD {
+      destination = base_src_reg;
+      operand1 = base_src_reg;
+      operand2 = `ILitteral 32L
+    })
+  ] @ (copy_large (increment_adress 32L adress_str) base_src_reg (Int64.sub size 32L))
+    else (*size >= 64L*) 
+      [
+        Instruction (Instruction.LDR {
+          data_size = None;
+          destination = reg_of_64 X9;
+          adress_src = create_adress base_src_reg;
+          adress_mode = Immediat
+        });
+        Instruction (Instruction.STR {
+          data_size = None;
+          source = reg_of_32 W9;
+          adress = adress_str;
+          adress_mode = Immediat
+        }) ;
+        Instruction (Instruction.ADD {
+          destination = base_src_reg;
+          operand1 = base_src_reg;
+          operand2 = `ILitteral 64L
+        })
+      ] @ (copy_large (increment_adress 64L adress_str) base_src_reg (Int64.sub size 64L))
+;;
+
+
+let copy_from_reg register (adress: address) ktype rprogram =
+  let size =  KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+  match size with
+  | 8L ->
+    let data_size =  Some (if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then (B: data_size) else SB) in
+    [Instruction (STR {data_size; source = to_32bits register; adress; adress_mode = Immediat})]
+  | 16L -> let data_size = Some( if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then H else SH) in
+    [Instruction (STR {data_size; source = to_32bits register; adress; adress_mode = Immediat})]
+  | 32L -> 
+    [Instruction (STR {data_size = None; source = to_32bits register; adress; adress_mode = Immediat})]
+  | 64L ->
+    [Instruction (STR {data_size = None; source = to_64bits register; adress; adress_mode = Immediat})]
+  | _ -> copy_large adress register size 
+
 
 module FrameManager = struct
   type frame_desc = {
@@ -454,118 +555,34 @@ let frame_descriptor ~fn_register_params ~(stack_param: (string * KosuIrTyped.As
   in
   { stack_param_count; locals_space; stack_map = map }
 
+  let adress_of (variable,rktype)  frame_desc: address = 
+  IdVarMap.find (variable, rktype) frame_desc.stack_map
+
+  let function_prologue ~fn_register_params rprogram fd = 
+    let base = Instruction ( Instruction.STP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = Int64.sub fd.locals_space 16L}; adress_mode = Immediat} ) in
+    let stack_sub = Instruction ( SUB { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral fd.locals_space} ) in
+    let copy_instructions = fn_register_params |> Util.ListHelper.combine_safe argument_registers |> List.fold_left (fun acc (register , (name, kt)) -> 
+      let whereis = adress_of (name, kt) fd in
+      acc @ (copy_from_reg (register) whereis kt rprogram)
+      ) [] in
+    base::stack_sub::copy_instructions
+
+  let function_epilogue fd = 
+    let base = Instruction ( Instruction.LDP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = Int64.sub fd.locals_space 16L}; adress_mode = Immediat} ) in
+    let stack_add = Instruction ( ADD { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral fd.locals_space} ) in
+    let return = Instruction (RET) in
+
+    base::stack_add::return::[]
+
   let call_instruction ~origin _stack_param (_fd: frame_desc) = 
 
     let call = Instruction ( Instruction.BL { cc = None; label = Label origin}) in
     [call]
 
-let adress_of (variable,rktype)  frame_desc: address = 
-  IdVarMap.find (variable, rktype) frame_desc.stack_map
+
 end
 
 module Codegen = struct
-
-  let rec copy_large adress_str base_src_reg size = 
-    if size < 0L
-      then failwith "Negive size to copy"
-  else if size = 0L
-    then []
-  else if size < 16L && size >= 8L
-    then [
-      Instruction( LDR {
-        data_size = Some B;
-        destination = reg_of_32 W9;
-        adress_src = create_adress (base_src_reg);
-        adress_mode = Immediat
-      });
-      Instruction (Instruction.STR {
-        data_size = Some B;
-        source = reg_of_32 W9;
-        adress = adress_str;
-        adress_mode = Immediat
-      }) ;
-      Instruction (Instruction.ADD {
-        destination = base_src_reg;
-        operand1 = base_src_reg;
-        operand2 = `ILitteral 8L
-      })
-    ] @ (copy_large (increment_adress 16L adress_str) base_src_reg (Int64.sub size 8L))
-  else if size < 32L && size >= 16L
-    then [
-      Instruction (Instruction.LDR {
-        data_size = Some H;
-        destination = reg_of_32 W9;
-        adress_src = create_adress base_src_reg;
-        adress_mode = Immediat
-      });
-      Instruction (Instruction.STR {
-        data_size = Some H;
-        source = reg_of_32 W9;
-        adress = adress_str;
-        adress_mode = Immediat
-      }) ;
-      Instruction (Instruction.ADD {
-        destination = base_src_reg;
-        operand1 = base_src_reg;
-        operand2 = `ILitteral 16L
-      })
-    ] @ (copy_large (increment_adress 16L adress_str) base_src_reg (Int64.sub size 16L))
-  else if size < 64L && size >= 32L
-    then [
-      Instruction (Instruction.LDR {
-        data_size = None;
-        destination = reg_of_32 W9;
-        adress_src = create_adress  (base_src_reg);
-        adress_mode = Immediat
-      });
-      Instruction (Instruction.STR {
-        data_size = None;
-        source = reg_of_32 W9;
-        adress = adress_str;
-        adress_mode = Immediat
-      }) ;
-      Instruction (Instruction.ADD {
-        destination = base_src_reg;
-        operand1 = base_src_reg;
-        operand2 = `ILitteral 32L
-      })
-    ] @ (copy_large (increment_adress 32L adress_str) base_src_reg (Int64.sub size 32L))
-      else (*size >= 64L*) 
-        [
-          Instruction (Instruction.LDR {
-            data_size = None;
-            destination = reg_of_64 X9;
-            adress_src = create_adress base_src_reg;
-            adress_mode = Immediat
-          });
-          Instruction (Instruction.STR {
-            data_size = None;
-            source = reg_of_32 W9;
-            adress = adress_str;
-            adress_mode = Immediat
-          }) ;
-          Instruction (Instruction.ADD {
-            destination = base_src_reg;
-            operand1 = base_src_reg;
-            operand2 = `ILitteral 64L
-          })
-        ] @ (copy_large (increment_adress 64L adress_str) base_src_reg (Int64.sub size 64L))
-  ;;
-
-
-  let copy_from_reg register (adress: address) ktype rprogram =
-    let size =  KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
-    match size with
-    | 8L ->
-      let data_size =  Some (if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then (B: data_size) else SB) in
-      [Instruction (STR {data_size; source = to_32bits register; adress; adress_mode = Immediat})]
-    | 16L -> let data_size = Some( if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then H else SH) in
-      [Instruction (STR {data_size; source = to_32bits register; adress; adress_mode = Immediat})]
-    | 32L -> 
-      [Instruction (STR {data_size = None; source = to_32bits register; adress; adress_mode = Immediat})]
-    | 64L ->
-      [Instruction (STR {data_size = None; source = to_64bits register; adress; adress_mode = Immediat})]
-    | _ -> copy_large adress register size 
   (* let function_prologue ~fn_register_params rprogram fd = 
     let base = Instruction.STP {x1 = R29; x2 = R30; base = SP; offset = Int64.to_int (Int64.sub fd.locals_space 16L); adress_mode = Immediat} in
     let stack_sub = Instruction.isub (SP) ~srcl:(`Register SP) ~srcr:(`Litteral fd.locals_space) in
@@ -789,7 +806,7 @@ module Codegen = struct
           let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs in
           let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs in
           let equal_instruction = [
-            Instruction (SUB {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
+            Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
             Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition = EQ})
           ] in
           r8, rinstructions @ linstructions @ equal_instruction
