@@ -359,7 +359,7 @@ module Instruction = struct
 | BL of { cc : condition_code option; label : string }
 | BR of { cc : condition_code option; reg : Register.register }
 | BLR of { cc : condition_code option; reg : Register.register }
-| SVC of int64
+| SVC
 | RET
 
 type comment = 
@@ -654,6 +654,9 @@ module Codegen = struct
         Line_Com (Comment (Printf.sprintf "sizeof %s" (KosuIrTyped.Asttypprint.string_of_rktype kt))); 
         Instruction (Mov {destination = r64; flexsec_operand = `ILitteral sizeof})
       ]
+    | ({tac_expression = TEConst {name; _}; expr_rktype = RTString_lit}) ->
+      let reg64 = to_64bits target_reg in
+      target_reg, load_label name reg64
     | _ -> failwith ""
 
     let rec translate_tac_rvalue ~str_lit_map ~(where: address) current_module rprogram (fd: FrameManager.frame_desc) {rval_rktype; rvalue} =
@@ -715,7 +718,8 @@ module Codegen = struct
           let return_reg = return_register_ktype return_size in
           return_reg, instructions @ [
             Line_Com (Comment ("syscall " ^ syscall_decl.rsyscall_name));
-            Instruction (SVC (syscall_decl.opcode))
+            Instruction (Mov {destination = Register64 X16; flexsec_operand = `ILitteral syscall_decl.opcode});
+            Instruction (SVC)
             ] @ copy_from_reg return_reg where syscall_decl.return_type rprogram
         | RKosufn_Decl _ -> (
         let function_decl = rprogram |> KosuIrTyped.Asttyhelper.RProgram.find_function_decl_exact_param_types 
@@ -1056,6 +1060,8 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
       asm_const_name = rconst_name;
       value = `IntVal (KosuFrontend.Ast.I64, Int64.bits_of_float f)
     })
+  | TNConst {rconst_name = _; value = {rktype = _; rexpression = REstring _s}} ->
+    None
   | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ | _ -> None
   )
 

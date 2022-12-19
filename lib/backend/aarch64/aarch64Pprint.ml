@@ -164,7 +164,7 @@ sprintf "str%s %s , %s"
     sprintf "blr%s %s"
     (cc |> Option.map ( fun cc -> sprintf ".%s" (string_of_condition_code cc)) |> Option.value ~default:"" )
     (string_of_register reg)
-| SVC code -> sprintf "svc %Ld" code
+| SVC -> sprintf "svc #0x80"
 | RET -> "ret"
 
 let string_of_raw_line = function
