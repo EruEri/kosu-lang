@@ -781,8 +781,9 @@ module Codegen = struct
         let tmpreg = tmpreg_of_size sizeof in
         tmpreg, [Instruction (LDR {data_size = size; destination = tmpreg; adress_src = adress; adress_mode = Immediat})]
       | RVAdress id -> 
-        let adress = FrameManager.adress_of (id, rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee) fd in
-        tmp64reg, [Instruction (LDR {data_size = None; destination = tmp64reg; adress_src = adress; adress_mode = Immediat})]
+        let pointee_type = rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee in
+        let adress = FrameManager.adress_of (id, pointee_type) fd in
+        tmp64reg, [Instruction (ADD {destination = tmp64reg; operand1 = adress.base; operand2 = `ILitteral adress.offset; offset = false})] @ copy_from_reg tmp64reg where rval_rktype rprogram 
       | RVDefer id ->
         let adress = FrameManager.adress_of (id, rval_rktype |> KosuIrTyped.Asttyhelper.RType.rpointer) fd in
         let load_instruction = [Instruction (LDR {data_size = None; destination = tmp64reg; adress_src = adress; adress_mode = Immediat})] in
@@ -915,7 +916,7 @@ module Codegen = struct
 let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameManager.frame_desc) = function
       | STacDeclaration {identifier; trvalue} | STacModification {identifier; trvalue} ->
         let adress = FrameManager.adress_of (identifier, trvalue.rval_rktype) fd in
-        let last_reg, instructions =  translate_tac_rvalue ~str_lit_map ~where:adress current_module rprogram fd trvalue in
+        let last_reg, instructions = translate_tac_rvalue ~str_lit_map ~where:adress current_module rprogram fd trvalue in
         last_reg, instructions
       | STDerefAffectation {identifier; trvalue} -> 
         let tmpreg = tmpreg_of_ktype rprogram (KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype) in
@@ -923,7 +924,7 @@ let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameM
         let instructions = Instruction ( LDR { data_size = None; destination = tmpreg; adress_src = intermediary_adress; adress_mode = Immediat} ) in
         let true_adress = create_adress tmpreg in
         let last_reg, true_instructions = translate_tac_rvalue ~str_lit_map ~where:true_adress current_module rprogram fd trvalue  in
-        last_reg, instructions::true_instructions
+        last_reg, (Line_Com (Comment "Defered Start"))::instructions::true_instructions @ [Line_Com (Comment "Defered end")]
       | STIf {
         statement_for_bool;
         condition_rvalue;

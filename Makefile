@@ -1,3 +1,6 @@
+
+.PHONY: hello hello.S
+
 hello: hello.S
 	cc -o $@ $<
 
