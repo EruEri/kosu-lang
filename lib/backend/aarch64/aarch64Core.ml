@@ -790,8 +790,8 @@ module Codegen = struct
         let sizeof = sizeofn rprogram rval_rktype in
         let last_reg = tmpreg_of_size sizeof in
         let data_size = compute_data_size rval_rktype sizeof in
-        let load =   [Instruction (LDR {data_size; destination = last_reg; adress_src = (create_adress tmp64reg); adress_mode = Immediat})] in
-       last_reg, load_instruction @ load
+        let load = [Instruction (LDR {data_size; destination = last_reg; adress_src = (create_adress tmp64reg); adress_mode = Immediat})] in
+       last_reg, load_instruction @ load @ copy_from_reg last_reg where rval_rktype rprogram
       | RVEnum {variant; assoc_tac_exprs; _} -> 
         let enum_decl = 
           match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye rval_rktype rprogram with
