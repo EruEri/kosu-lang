@@ -68,5 +68,7 @@ let () =
               failwith ""
           in
           let () = Printf.printf "Successfult converted\n\n" in
-          let _tac_program = Asttacconv.tac_program_of_rprogram typed_program in
+          let tac_program = Asttacconv.tac_program_of_rprogram typed_program in
+          let asm_program = Aarch64.Aarch64Core.asm_program_of_tac_program tac_program in
+          let () = Aarch64.Aarch64Codegen.compile_asm asm_program in
           ())

@@ -61,6 +61,8 @@ let post_inc n =
 
 let make_inc_tmp n = make_tmp (post_inc n)
 
+
+
 let typed_locale_assoc ~name ~from ~assoc_index_bound ~rktype =
   {
     locale_ty = rktype;
@@ -78,6 +80,11 @@ let make_typed_tac_expression expr_rktype tac_expression =
 
 let make_typed_tac_rvalue rval_rktype rvalue = { rval_rktype; rvalue }
 
+let make_inc_tmp rktype map n = 
+  let variable = make_inc_tmp n in
+  let () =  Hashtbl.add map (variable) (typed_locale_locale variable ~rktype) in
+  variable
+
 let convert_if_allocated ~expr_rktype ~allocated tac_expression =
   match allocated with
   | None -> ([], make_typed_tac_expression expr_rktype tac_expression)
@@ -91,9 +98,9 @@ let convert_if_allocated ~expr_rktype ~allocated tac_expression =
         :: [],
         make_typed_tac_expression rktype (TEIdentifier identifier) )
 
-let create_forward_init ?(rvalue = RVLater) ~count_var typed_expression =
+let create_forward_init ?(rvalue = RVLater) ~map ~count_var typed_expression =
   if Expression.is_typed_expresion_branch typed_expression then
-    let new_tmp = make_inc_tmp count_var in
+    let new_tmp = make_inc_tmp typed_expression.rktype map count_var in
     ( Some (new_tmp, typed_expression.rktype),
       STacDeclaration
         {
@@ -111,7 +118,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
   | REIf (if_typed_expres, if_body, else_body), Some (identifier, id_rktype) ->
       let incremented = post_inc if_count in
       let next_allocated, stmt =
-        create_forward_init ~count_var if_typed_expres
+        create_forward_init ~map ~count_var if_typed_expres
       in
 
       let statement_for_bool, condition_rvalue =
@@ -166,7 +173,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
                  else else_label
                in
                let next_allocated, stmt =
-                 create_forward_init ~count_var case_condition
+                 create_forward_init ~map ~count_var case_condition
                in
 
                let statement_for_condition, tac_condition =
@@ -204,7 +211,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       in
       let sw_exit_label = make_switch_end_label ~switch_count:incremented in
       let next_allocated, forward_push =
-        create_forward_init ~count_var rexpression
+        create_forward_init ~map ~count_var rexpression
       in
       let statemenets_for_case, condition_switch =
         convert_from_typed_expression ~allocated:next_allocated ~switch_count
@@ -293,7 +300,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         typed_expressions
         |> List.map (fun ty_ex ->
                let next_allocated, stmt =
-                 create_forward_init ~count_var ty_ex
+                 create_forward_init ~map ~count_var ty_ex
                in
                let stmt_needed, tac_expression =
                  convert_from_typed_expression ~allocated:next_allocated
@@ -304,7 +311,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
              (fun acc (stmts, value) -> (acc @ stmts, value))
              []
       in
-      let new_tmp = make_inc_tmp count_var in
+      let new_tmp = make_inc_tmp  trktype map count_var in
       let tuple = RVTuple tac_expression in
       let stt =
         STacDeclaration
@@ -324,7 +331,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         parameters
         |> List.map (fun ty_ex ->
                let next_allocated, stmt =
-                 create_forward_init ~count_var ty_ex
+                 create_forward_init ~map ~count_var ty_ex
                in
                let stmt_needed, tac_expression =
                  convert_from_typed_expression ~allocated:next_allocated
@@ -335,7 +342,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
              (fun acc (stmts, value) -> (acc @ stmts, value))
              []
       in
-      let new_tmp = make_inc_tmp count_var in
+      let new_tmp = make_inc_tmp trktype map count_var in
       let call_rvalue =
         RVFunction
           {
@@ -362,7 +369,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         fields
         |> List.map (fun (field, ty_ex) ->
                let next_allocated, stmt =
-                 create_forward_init ~count_var ty_ex
+                 create_forward_init ~map ~count_var ty_ex
                in
                let stmt_needed, tac_expression =
                  convert_from_typed_expression ~allocated:next_allocated
@@ -375,7 +382,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
                (acc @ stmts, (field, tac_expr)))
              []
       in
-      let new_tmp = make_inc_tmp count_var in
+      let new_tmp = make_inc_tmp trktype map count_var in
       let struct_rvalue =
         RVStruct
           { module_path = modules_path; struct_name; fields = tac_fields }
@@ -397,7 +404,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         assoc_exprs
         |> List.map (fun ty_ex ->
                let next_allocated, stmt =
-                 create_forward_init ~count_var ty_ex
+                 create_forward_init ~map ~count_var ty_ex
                in
                let stmt_needed, tac_expression =
                  convert_from_typed_expression ~allocated:next_allocated
@@ -406,7 +413,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
                (stmt @ stmt_needed, tac_expression))
         |> List.fold_left_map (fun acc (smts, value) -> (acc @ smts, value)) []
       in
-      let new_tmp = make_inc_tmp count_var in
+      let new_tmp = make_inc_tmp trktype map count_var in
       let enum_rvalue =
         RVEnum
           { module_path = modules_path; enum_name; variant; assoc_tac_exprs }
@@ -424,12 +431,12 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       in
       (stmts_needed @ (statement :: last_stmt), return)
   | REFieldAcces { first_expr; field }, _ ->
-      let next_allocated, stmt = create_forward_init ~count_var first_expr in
+      let next_allocated, stmt = create_forward_init ~map ~count_var first_expr in
       let needed_statement, tac_expr =
         convert_from_typed_expression ~allocated:next_allocated ~switch_count
           ~cases_count ~map ~if_count ~count_var first_expr
       in
-      let new_tmp = make_inc_tmp count_var in
+      let new_tmp = make_inc_tmp trktype map count_var in
       let field_acces = RVFieldAcess { first_expr = tac_expr; field } in
       let statement =
         STacDeclaration
@@ -444,7 +451,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
       in
       (needed_statement @ stmt @ (statement :: last_stmt), return)
   | REAdress identifier, _ ->
-      let new_tmp = make_inc_tmp count_var in
+      let new_tmp = make_inc_tmp trktype map count_var in
       let adress = RVAdress identifier in
       let statement =
         STacDeclaration
@@ -461,9 +468,9 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
   | REBin_op bin, _ ->
       let operator = Operator.bin_operantor bin in
       let ltyped, rtyped = Operator.typed_operandes bin in
-      let lnext_allocated, lstmt = create_forward_init ~count_var ltyped in
+      let lnext_allocated, lstmt = create_forward_init ~map ~count_var ltyped in
 
-      let rnext_allocated, rstmt = create_forward_init ~count_var rtyped in
+      let rnext_allocated, rstmt = create_forward_init ~map ~count_var rtyped in
       let lstamements_needed, lhs_value =
         convert_from_typed_expression ~allocated:lnext_allocated ~switch_count
           ~cases_count ~map ~if_count ~count_var ltyped
@@ -472,7 +479,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         convert_from_typed_expression ~allocated:rnext_allocated ~switch_count
           ~cases_count ~map ~if_count ~count_var rtyped
       in
-      let new_tmp = make_inc_tmp count_var in
+      let new_tmp = make_inc_tmp trktype map count_var in
       let binary_op =
         RVBuiltinBinop { binop = operator; blhs = lhs_value; brhs = rhs_value }
       in
@@ -493,12 +500,12 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
   | REUn_op unary, _ ->
       let operator = Operator.unary_operator unary in
       let operand = Operator.typed_operand unary in
-      let next_allocated, stmt = create_forward_init ~count_var operand in
+      let next_allocated, stmt = create_forward_init ~map ~count_var operand in
       let need_stmts, lvalue =
         convert_from_typed_expression ~allocated:next_allocated ~switch_count
           ~cases_count ~map ~if_count ~count_var operand
       in
-      let new_tmp = make_inc_tmp count_var in
+      let new_tmp = make_inc_tmp trktype map count_var in
       let unary_op = RVBuiltinUnop { unop = operator; expr = lvalue } in
       let statement =
         STacDeclaration
@@ -517,7 +524,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         match i with
         | 0 -> failwith "Never I hope: deferencement without start ??"
         | 1 ->
-            let new_tmp = make_inc_tmp count_var in
+            let new_tmp = make_inc_tmp trktype map count_var in
             let rtpointee =
               KosuIrTyped.Asttyhelper.RType.rtpointee origin_type
             in
@@ -529,7 +536,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
                 }
               :: [] )
         | _ ->
-            let new_tmp = make_inc_tmp count_var in
+            let new_tmp = make_inc_tmp trktype map count_var in
             let rtpointee =
               KosuIrTyped.Asttyhelper.RType.rtpointee origin_type
             in
@@ -550,9 +557,9 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
   | REBinOperator_Function_call rkbin_op, _ ->
       let operator = Operator.bin_operantor rkbin_op in
       let ltyped, rtyped = Operator.typed_operandes rkbin_op in
-      let lnext_allocated, lstmt = create_forward_init ~count_var ltyped in
+      let lnext_allocated, lstmt = create_forward_init ~map ~count_var ltyped in
 
-      let rnext_allocated, rstmt = create_forward_init ~count_var rtyped in
+      let rnext_allocated, rstmt = create_forward_init ~map ~count_var rtyped in
       let lstamements_needed, lhs_value =
         convert_from_typed_expression ~allocated:lnext_allocated ~switch_count
           ~cases_count ~map ~if_count ~count_var ltyped
@@ -561,7 +568,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         convert_from_typed_expression ~allocated:rnext_allocated ~switch_count
           ~cases_count ~map ~if_count ~count_var rtyped
       in
-      let new_tmp = make_inc_tmp count_var in
+      let new_tmp = make_inc_tmp trktype map count_var in
       let binary_op =
         RVCustomBinop { binop = operator; blhs = lhs_value; brhs = rhs_value }
       in
@@ -582,12 +589,12 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
   | REUnOperator_Function_call rkunary_op, _ ->
       let operator = Operator.unary_operator rkunary_op in
       let operand = Operator.typed_operand rkunary_op in
-      let next_allocated, stmt = create_forward_init ~count_var operand in
+      let next_allocated, stmt = create_forward_init ~map ~count_var operand in
       let need_stmts, lvalue =
         convert_from_typed_expression ~allocated:next_allocated ~switch_count
           ~cases_count ~map ~if_count ~count_var operand
       in
-      let new_tmp = make_inc_tmp count_var in
+      let new_tmp = make_inc_tmp trktype map count_var in
       let unary_op = RVCustomUnop { unop = operator; expr = lvalue } in
       let statement =
         STacDeclaration
@@ -606,7 +613,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         parameters
         |> List.map (fun ty_ex ->
                let next_allocated, stmt =
-                 create_forward_init ~count_var ty_ex
+                 create_forward_init ~map ~count_var ty_ex
                in
                let stmt_needed, tac_expression =
                  convert_from_typed_expression ~allocated:next_allocated
@@ -617,7 +624,7 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
              (fun acc (stmts, value) -> (acc @ stmts, value))
              []
       in
-      let new_tmp = make_inc_tmp count_var in
+      let new_tmp = make_inc_tmp trktype map count_var in
       let call_rvalue =
         RVBuiltinCall { fn_name; parameters = tac_parameters }
       in
@@ -650,7 +657,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
               (typed_locale_locale variable_name ~rktype:typed_expression.rktype)
           in
           let allocated, stmt_opt =
-            create_forward_init ~count_var typed_expression
+            create_forward_init ~map ~count_var typed_expression
           in
           let tac_stmts, tac_expression =
             convert_from_typed_expression ~cases_count ~allocated ~map
@@ -676,7 +683,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
       | RSAffection (identifier, aff_typed_expr) ->
           (* let find_tmp = Hashtbl.find map identifier in *)
           let allocated, forward_push =
-            create_forward_init ~count_var aff_typed_expr
+            create_forward_init ~map ~count_var aff_typed_expr
           in
           let tac_stmts, tac_expression =
             convert_from_typed_expression ~cases_count ~allocated ~map
@@ -700,7 +707,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
                  :: [])
       | RSDiscard discard_typed_expression ->
           let allocated, push_forward =
-            create_forward_init ~count_var ~rvalue:RVDiscard
+            create_forward_init ~map ~count_var ~rvalue:RVDiscard
               discard_typed_expression
           in
           let tac_stmts, _tac_rvalue =
@@ -713,7 +720,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
                (q, types_return))
       | RSDerefAffectation (identifier, deref_typed_expr) ->
           let allocated, forward_declaration =
-            create_forward_init ~count_var deref_typed_expr
+            create_forward_init ~map ~count_var deref_typed_expr
           in
           (* let find_tmp = Hashtbl.find map identifier in *)
           let tac_stmts, tac_expression =
@@ -738,7 +745,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
             body)
   | [] ->
       let allocated, forward_push =
-        create_forward_init ~count_var types_return
+        create_forward_init ~map ~count_var types_return
       in
       let stmts, expr =
         convert_from_typed_expression ~cases_count ~allocated ~map ~count_var

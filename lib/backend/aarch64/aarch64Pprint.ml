@@ -1,6 +1,6 @@
-open Aarch64Codegen
-open Aarch64Codegen.Register
-open Aarch64Codegen.Instruction
+open Aarch64Core
+open Aarch64Core.Register
+open Aarch64Core.Instruction
 open Printf
 
 let string_of_32bits_reg = function
@@ -168,7 +168,24 @@ sprintf "str%s %s , %s"
 | RET -> "ret"
 
 let string_of_raw_line = function
-| Label s -> s 
+| Label s -> s^":" 
 | Instruction s -> "\t"^(string_of_instruction s)
 | Line_Com (Comment s) -> "\t;"^(s)
 | Directive (d) -> "\t."^(d)
+
+let size_directive_of_size = let open KosuFrontend.Ast in function
+| I8 -> "bytes"
+| I16 -> "short"
+| I32 -> "long"
+| I64 -> "quad"
+
+let string_asm_const_decl {asm_const_name; value = `IntVal (size, value)} = 
+  sprintf "%s:\n\t%s %s" asm_const_name (size_directive_of_size size) (sprintf "%LX" value)
+
+
+let string_of_asm_function {asm_name; asm_body} = 
+  sprintf "%s\n%s" asm_name (asm_body |> List.map string_of_raw_line |> String.concat "\n")
+
+let string_of_asm_node = function
+| Afunction f -> string_of_asm_function f
+| AConst c -> string_asm_const_decl c
