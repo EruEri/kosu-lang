@@ -158,7 +158,7 @@ module Register = struct
   | Register64 reg -> Register32 (reg32_of_64 reg)
   | (Register32 _) as t -> t
 
-  let size_of_ktype_size s = if s > 4L then SReg32 else SReg64
+  let size_of_ktype_size s = if s <= 4L then SReg32 else SReg64
   let size_of_reg = function
   | Register32 _ -> SReg32
   | Register64 _ -> SReg64
@@ -422,6 +422,11 @@ let compute_data_size ktype = function
 | 1L -> Some (if not @@ KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then SB else B)
 | 2L -> Some (if not @@ KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then SH else H)
 | _ -> None
+
+let unsigned_data_size = function
+| SH -> H
+| SB -> B
+| t -> t
 
 let rec copy_large adress_str base_src_reg size = 
   if size < 0L
@@ -913,7 +918,7 @@ let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameM
         if_tac_body;
         else_tac_body;
       } -> 
-        let _stmts_bool = statement_for_bool |> List.fold_left (fun acc stmt -> 
+        let stmts_bool = statement_for_bool |> List.fold_left (fun acc stmt -> 
           acc @ (translate_tac_statement ~str_lit_map current_module rprogram fd stmt |> snd)
         ) [] in
         let last_reg, condition_rvalue_inst = translate_tac_expression ~str_lit_map rprogram fd condition_rvalue in 
@@ -923,7 +928,7 @@ let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameM
         let if_block = translate_tac_body ~str_lit_map ~end_label:(Some exit_label) current_module rprogram fd if_tac_body in
         let else_block = translate_tac_body ~str_lit_map ~end_label:(Some exit_label) current_module rprogram fd else_tac_body in
         let exit_label_instr = Label (exit_label) in
-        last_reg, condition_rvalue_inst @ cmp::jmp::jmp2::if_block @ else_block @ [exit_label_instr]
+        last_reg, stmts_bool @ condition_rvalue_inst @ cmp::jmp::jmp2::if_block @ else_block @ [exit_label_instr]
       | STSwitch {
         statemenets_for_case;
         condition_switch;

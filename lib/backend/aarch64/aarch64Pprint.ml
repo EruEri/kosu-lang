@@ -139,7 +139,7 @@ sprintf "ldr%s %s , %s"
 (string_of_adressage adress_mode adress_src)
 | STR {data_size; source; adress; adress_mode} -> 
 sprintf "str%s %s , %s" 
-(data_size |> Option.map string_of_data_size |> Option.value ~default:"")
+(data_size |> Option.map ( fun ds -> string_of_data_size @@ unsigned_data_size ds) |> Option.value ~default:"")
 (string_of_register source)
 (string_of_adressage adress_mode adress)
 | STP {x1; x2; address; adress_mode} -> 

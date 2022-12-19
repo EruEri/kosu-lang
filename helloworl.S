@@ -6,6 +6,11 @@ _main:
 	add x29, sp, #16
 	mov w9, #10
 	str w9 , [x29, #-8]
+	mov w10, #11
+	ldr w9 , [x29, #-8]
+	sub w9, w9, w10
+	csinc w8, w8, wzr, ne
+	strb w8 , [x29, #-20]
 	ldrsb w9 , [x29, #-20]
 	cmp w9, #1
 	b.eq if.0.0
