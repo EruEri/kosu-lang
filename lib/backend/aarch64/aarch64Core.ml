@@ -581,9 +581,10 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
   IdVarMap.find (variable, rktype) frame_desc.stack_map
 
   let function_prologue ~fn_register_params rprogram fd = 
-    let base = Instruction ( Instruction.STP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = Int64.sub (align_16 ( Int64.add 16L fd.locals_space)) 16L}; adress_mode = Immediat} ) in
+    let frame_register_offset = Int64.sub (align_16 ( Int64.add 16L fd.locals_space)) 16L in
+    let base = Instruction ( Instruction.STP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = frame_register_offset}; adress_mode = Immediat} ) in
     let stack_sub = Instruction ( SUB { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral (align_16 ( Int64.add 16L fd.locals_space) )} ) in
-    let alignx29 = Instruction (ADD { destination = Register64 X29; operand1 = Register64 SP; operand2 = `ILitteral 16L; offset = false}) in
+    let alignx29 = Instruction (ADD { destination = Register64 X29; operand1 = Register64 SP; operand2 = `ILitteral frame_register_offset; offset = false}) in
     let copy_instructions = fn_register_params |> Util.ListHelper.combine_safe argument_registers |> List.fold_left (fun acc (register , (name, kt)) -> 
       let whereis = adress_of (name, kt) fd in
       acc @ (copy_from_reg (register) whereis kt rprogram)
