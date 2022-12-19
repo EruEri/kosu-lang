@@ -167,3 +167,8 @@ sprintf "str%s %s , %s"
 | SVC code -> sprintf "svc %Ld" code
 | RET -> "ret"
 
+let string_of_raw_line = function
+| Label s -> s 
+| Instruction s -> "\t"^(string_of_instruction s)
+| Line_Com (Comment s) -> "\t;"^(s)
+| Directive (d) -> "\t."^(d)

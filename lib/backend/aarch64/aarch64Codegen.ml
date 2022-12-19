@@ -532,7 +532,7 @@ module FrameManager = struct
   stack_map : address IdVarMap.t;
 }
 
-let frame_descriptor ~fn_register_params ~(stack_param: (string * KosuIrTyped.Asttyped.rktype) list) ~locals_var ~rprogram =
+let frame_descriptor ~(fn_register_params: (string * KosuIrTyped.Asttyped.rktype) list) ~(stack_param: (string * KosuIrTyped.Asttyped.rktype) list) ~locals_var ~rprogram =
   let stack_param_count = stack_param |> List.length in
   let stack_concat = fn_register_params @ locals_var in
   let fake_tuple = stack_concat |> List.map snd in
@@ -601,7 +601,8 @@ module Codegen = struct
     function
     |({tac_expression = TEString s; expr_rktype = _}) -> 
       let reg64 = to_64bits target_reg in
-      target_reg, load_label (Hashtbl.find str_lit_map s) reg64
+      let SLit str_labl = (Hashtbl.find str_lit_map s) in
+      target_reg, load_label str_labl  reg64
     |({tac_expression = TEFalse | TEmpty; expr_rktype = _}) -> 
        to_32bits target_reg,  Instruction ( Mov {destination = to_32bits target_reg; flexsec_operand = `Register (Register32 WZR) })::[]
     |({tac_expression = TENullptr; expr_rktype = _}) -> 
@@ -976,3 +977,75 @@ and translate_tac_body ~str_lit_map ?(end_label = None) current_module rprogram 
   ) |> Option.value ~default:[] in
   label_instr::stmt_instr @ return_instr @ end_label_inst
 end
+
+type asm_function_decl = {
+  asm_name: string;
+  asm_body: raw_line list;
+}
+type asm_const_decl = {
+  asm_const_name: string;
+  value: [`IntVal of (KosuFrontend.Ast.isize * int64) | `Fvalue of float]
+}
+
+type asm_module_node = 
+| Afunction of asm_function_decl
+| AConst of asm_const_decl
+
+type asm_module = AsmModule of asm_module_node list
+
+type asm_module_path = {
+  apath: string;
+  asm_module: asm_module 
+}
+
+type named_asm_module_path = {
+  filename: string;
+  asm_module_path: asm_module_path;
+  rprogram: KosuIrTyped.Asttyped.rprogram;
+  str_lit_map: (string, stringlit_label) Hashtbl.t;
+}
+
+type asm_program = named_asm_module_path list
+
+let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open KosuIrTyped.Asttyped in function
+| TacModule tac_nodes -> 
+  tac_nodes |> List.filter_map (fun node -> match node with 
+  | TNFunction function_decl -> 
+    let asm_name = KosuIrTAC.Asttachelper.Function.label_of_fn_name current_module function_decl in
+    let fd = FrameManager.frame_descriptor ~fn_register_params:function_decl.rparameters ~stack_param:[] ~locals_var: [] ~rprogram in
+    let prologue = FrameManager.function_prologue ~fn_register_params: function_decl.rparameters rprogram fd in
+    let conversion = Codegen.translate_tac_body ~str_lit_map current_module rprogram fd function_decl.tac_body in
+    let epilogue = FrameManager.function_epilogue fd in
+    Some (Afunction {
+      asm_name;
+      asm_body = prologue @ conversion @ epilogue 
+    })
+  | TNOperator _ -> failwith "TNOperator todo"
+  | TNConst {rconst_name; value = { rktype = RTInteger _; rexpression = REInteger (_ssign, size, value)}} -> 
+    Some (AConst {
+      asm_const_name = rconst_name;
+      value = `IntVal (size, value)
+    })
+  | TNConst {rconst_name; value = { rktype = RTFloat; rexpression = REFloat f}} ->
+    Some (AConst {
+      asm_const_name = rconst_name;
+      value = `Fvalue f
+    })
+  | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ | _ -> None
+  )
+
+let asm_module_path_of_tac_module_path ~str_lit_map rprogram {path; tac_module = tac_module} = {
+  apath = path;
+  asm_module = AsmModule (asm_module_of_tac_module ~str_lit_map path rprogram tac_module)
+}
+
+let asm_program_of_tac_program tac_program = 
+  tac_program |> List.map (fun ({filename; tac_module_path; rprogram} as named) -> 
+    let str_lit_map = map_string_litteral_of_named_rmodule_path named () in
+    {
+      filename;
+      asm_module_path = asm_module_path_of_tac_module_path ~str_lit_map rprogram tac_module_path;
+      rprogram;
+      str_lit_map;
+    }
+  )
