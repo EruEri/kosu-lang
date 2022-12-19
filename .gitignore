@@ -3,4 +3,5 @@ _build
 *.S
 .DS_Store
 *.c
+Mafefile
 kosuc

@@ -820,7 +820,7 @@ module Codegen = struct
         let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs in
         let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs in
         let equal_instruction = [
-          Instruction (SUB {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
+          Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
           Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition = NE})
         ] in
         r8, rinstructions @ linstructions @ equal_instruction @ copy_from_reg r8 where rval_rktype rprogram
