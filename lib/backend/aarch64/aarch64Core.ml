@@ -550,7 +550,7 @@ let align_16 size =
   (16L ** (div ++ modulo) )
 
 
-let frame_descriptor ~(fn_register_params: (string * KosuIrTyped.Asttyped.rktype) list) ~(stack_param: (string * KosuIrTyped.Asttyped.rktype) list) ~locals_var ~rprogram =
+let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * KosuIrTyped.Asttyped.rktype) list) ~(stack_param: (string * KosuIrTyped.Asttyped.rktype) list) ~locals_var rprogram =
   let stack_param_count = stack_param |> List.length in
   let stack_concat = fn_register_params @ locals_var in
   let fake_tuple = stack_concat |> List.map snd in
@@ -558,6 +558,7 @@ let frame_descriptor ~(fn_register_params: (string * KosuIrTyped.Asttyped.rktype
     fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
     |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
   in
+  let locals_space = Int64.add locals_space stack_future_call in
   let map =
     stack_concat
     |> List.mapi (fun index value -> (index, value))
@@ -1039,9 +1040,10 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
 | TacModule tac_nodes -> 
   tac_nodes |> List.filter_map (fun node -> match node with 
   | TNFunction function_decl -> 
+    let stack_param_count = Int64.of_int (function_decl.stack_params_count * 8) in
     let locals_var = function_decl.locale_var |> List.filter_map (fun {locale_ty; locale} -> match locale with Locale s -> Some (s, locale_ty) | _ -> None )in
     let asm_name = KosuIrTAC.Asttachelper.Function.label_of_fn_name current_module function_decl in
-    let fd = FrameManager.frame_descriptor ~fn_register_params:function_decl.rparameters ~stack_param:[] ~locals_var ~rprogram in 
+    let fd = FrameManager.frame_descriptor ~stack_future_call:(stack_param_count) ~fn_register_params:function_decl.rparameters ~stack_param:[] ~locals_var rprogram in 
     let prologue = FrameManager.function_prologue ~fn_register_params: function_decl.rparameters rprogram fd in
     let conversion = Codegen.translate_tac_body ~str_lit_map current_module rprogram fd function_decl.tac_body in
     let epilogue = FrameManager.function_epilogue fd in

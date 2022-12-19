@@ -771,7 +771,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
             if function_return then Some expr else None );
       }
 
-let tac_function_decl_of_rfunction (rfunction_decl : rfunction_decl) =
+let tac_function_decl_of_rfunction current_module rprogram (rfunction_decl : rfunction_decl) =
   let map = Hashtbl.create (rfunction_decl.rbody |> fst |> List.length) in
 
   let tac_body =
@@ -779,16 +779,18 @@ let tac_function_decl_of_rfunction (rfunction_decl : rfunction_decl) =
       ~label_name:rfunction_decl.rfn_name ~map ~count_var:(ref 0)
       ~function_return:true ~if_count rfunction_decl.rbody
   in
+  let stack_params_count = KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module rprogram rfunction_decl.rbody in
   {
     rfn_name = rfunction_decl.rfn_name;
     generics = rfunction_decl.generics;
     rparameters = rfunction_decl.rparameters;
     return_type = rfunction_decl.return_type;
     tac_body;
+    stack_params_count;
     locale_var = map |> Hashtbl.to_seq_values |> List.of_seq;
   }
 
-let tac_operator_decl_of_roperator_decl = function
+let tac_operator_decl_of_roperator_decl current_module rprogram = function
   | RUnary { op; rfield; return_type; kbody } as self ->
       let label_name =
         Printf.sprintf "%s_%s"
@@ -800,12 +802,14 @@ let tac_operator_decl_of_roperator_decl = function
         convert_from_rkbody ~switch_count ~cases_count ~label_name ~map
           ~count_var:(ref 0) ~if_count ~function_return:true kbody
       in
+      let stack_params_count = KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module rprogram kbody in
       TacUnary
         {
           op;
           rfield;
           return_type;
           tac_body;
+          stack_params_count;
           locale_var = map |> Hashtbl.to_seq_values |> List.of_seq;
         }
   | RBinary
@@ -821,23 +825,25 @@ let tac_operator_decl_of_roperator_decl = function
         convert_from_rkbody ~switch_count ~cases_count ~label_name ~map
           ~count_var:(ref 0) ~if_count ~function_return:true kbody
       in
+      let stack_params_count = KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module rprogram kbody in
       TacBinary
         {
           op;
           rfields;
           return_type;
           tac_body;
+          stack_params_count;
           locale_var = map |> Hashtbl.to_seq_values |> List.of_seq;
         }
 
-let rec tac_module_node_from_rmodule_node = function
+let rec tac_module_node_from_rmodule_node current_module rprogram = function
   | RNExternFunc f -> TNExternFunc f
   | RNSyscall f -> TNSyscall f
   | RNStruct s -> TNStruct s
   | RNEnum s -> TNEnum s
   | RNConst s -> TNConst s
   | RNFunction f ->
-      let tmp = tac_function_decl_of_rfunction f in
+      let tmp = tac_function_decl_of_rfunction current_module rprogram f in
       let () =
         Printf.printf "Locales = %s\nBody:\n%s\n"
           (tmp.locale_var
@@ -846,15 +852,15 @@ let rec tac_module_node_from_rmodule_node = function
           (Asttacpprint.string_of_label_tac_body tmp.tac_body)
       in
       TNFunction tmp
-  | RNOperator s -> TNOperator (tac_operator_decl_of_roperator_decl s)
+  | RNOperator s -> TNOperator (tac_operator_decl_of_roperator_decl current_module rprogram s)
 
-and tac_module_path_of_rmodule_path { path; rmodule = RModule module_nodes } =
+and tac_module_path_of_rmodule_path rprogram { path; rmodule = RModule module_nodes } =
   {
     path;
     tac_module =
       TacModule
         (module_nodes
-        |> List.map (fun node -> tac_module_node_from_rmodule_node node));
+        |> List.map (fun node -> tac_module_node_from_rmodule_node path rprogram node));
   }
 
 and tac_program_of_rprogram (rprogram : rprogram) : tac_program =
@@ -862,6 +868,6 @@ and tac_program_of_rprogram (rprogram : rprogram) : tac_program =
   |> List.map (fun { filename; rmodule_path } ->
          {
            filename;
-           tac_module_path = tac_module_path_of_rmodule_path rmodule_path;
+           tac_module_path = tac_module_path_of_rmodule_path rprogram rmodule_path;
            rprogram;
          })

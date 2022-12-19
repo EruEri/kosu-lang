@@ -177,6 +177,7 @@ type tac_function_decl = {
   rparameters : (string * rktype) list;
   return_type : rktype;
   tac_body : tac_body;
+  stack_params_count: int;
   locale_var : tac_typed_locale_variable list;
 }
 
@@ -186,6 +187,7 @@ type tac_operator_decl =
       rfield : string * rktype;
       return_type : rktype;
       tac_body : tac_body;
+      stack_params_count: int;
       locale_var : tac_typed_locale_variable list;
     }
   | TacBinary of {
@@ -193,6 +195,7 @@ type tac_operator_decl =
       rfields : (string * rktype) * (string * rktype);
       return_type : rktype;
       tac_body : tac_body;
+      stack_params_count: int;
       locale_var : tac_typed_locale_variable list;
     }
 
