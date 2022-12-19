@@ -699,16 +699,25 @@ module Codegen = struct
         begin match fn_decl with
         | RExternal_Decl external_func_decl -> 
           let fn_label = Printf.sprintf "_%s" (external_func_decl.c_name |> Option.value ~default:(external_func_decl.rsig_name)) in
-          let _ = assert (tac_parameters |> List.length < 9) in
-          let instructions, regs = tac_parameters |> Util.ListHelper.combine_safe argument_registers |> List.fold_left_map (fun acc (reg, tte) -> 
+          let register_param_count = min (List.length external_func_decl.fn_parameters) (List.length argument_registers) in
+          let args_in_reg, args_on_stack = tac_parameters |> List.mapi (fun index value -> index, value) |> List.partition_map (fun (index, value) -> 
+            if index < register_param_count then Either.left value else Either.right value  
+            ) in
+          
+          let instructions, regs = args_in_reg |> Util.ListHelper.combine_safe argument_registers |> List.fold_left_map (fun acc (reg, tte) -> 
             let reg, instruction = translate_tac_expression ~str_lit_map ~target_reg:reg rprogram fd tte in 
             acc @ instruction, `Register reg
           ) [] in
-      
+          let set_on_stack_instructions = args_on_stack |> List.mapi (fun index tte -> 
+            let last_reg, instructions = translate_tac_expression ~str_lit_map rprogram fd tte in
+            let address = create_adress ~offset:(Int64.of_int (index * 8)) (Register64 SP) in
+            let set = Instruction (STR {data_size = None; source = to_64bits last_reg; adress = address; adress_mode = Immediat}) in
+            instructions @ [set]
+            ) |> List.flatten in 
           let call_instructions = FrameManager.call_instruction ~origin:fn_label regs fd in
           let return_size = sizeofn rprogram external_func_decl.return_type in
           let return_reg = return_register_ktype return_size in
-          return_reg, instructions @ call_instructions @ copy_from_reg return_reg where external_func_decl.return_type rprogram
+          return_reg, instructions @ set_on_stack_instructions @ call_instructions @ copy_from_reg return_reg where external_func_decl.return_type rprogram
         | RSyscall_Decl syscall_decl -> 
           let _ = assert (tac_parameters |> List.length < 5) in
           let instructions, _regs = tac_parameters |> Util.ListHelper.combine_safe argument_registers |> List.fold_left_map (fun acc (reg, tte) -> 
