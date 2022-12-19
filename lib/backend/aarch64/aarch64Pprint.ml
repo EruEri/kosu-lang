@@ -131,7 +131,7 @@ sprintf "orr %s, %s, %s" (string_of_register destination) (string_of_register op
 | EOR {destination; operand1; operand2} ->
 sprintf "eor %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
 | CMP {operand1; operand2} ->
-  sprintf "cmp %s %s" (string_of_register operand1) (string_of_src operand2)
+  sprintf "cmp %s, %s" (string_of_register operand1) (string_of_src operand2)
 | LDR {data_size; destination; adress_src; adress_mode} -> 
 sprintf "ldr%s %s , %s" 
 (data_size |> Option.map string_of_data_size |> Option.value ~default:"")

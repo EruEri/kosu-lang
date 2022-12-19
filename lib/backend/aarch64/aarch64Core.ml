@@ -137,7 +137,7 @@ module Register = struct
 
   let return_register_ktype = function
   | 1L | 2L | 4L -> Register32 W0
-  | 64L -> Register64 X0
+  | 8L -> Register64 X0
   | _ -> Register64 X8
 
   let are_aliased src dst = 
@@ -470,7 +470,7 @@ else if size < 4L && size >= 2L
       offset = false;
     })
   ] @ (copy_large (increment_adress 2L adress_str) base_src_reg (Int64.sub size 2L))
-else if size < 64L && size >= 4L
+else if size < 8L && size >= 4L
   then [
     Instruction (Instruction.LDR {
       data_size = None;
@@ -491,7 +491,7 @@ else if size < 64L && size >= 4L
       operand2 = `ILitteral 4L
     })
   ] @ (copy_large (increment_adress 4L adress_str) base_src_reg (Int64.sub size 4L))
-    else (*size >= 64L*) 
+    else (*size >= 8L*) 
       [
         Instruction (Instruction.LDR {
           data_size = None;
@@ -509,9 +509,9 @@ else if size < 64L && size >= 4L
           destination = base_src_reg;
           operand1 = base_src_reg;
           offset = false;
-          operand2 = `ILitteral 64L
+          operand2 = `ILitteral 8L
         })
-      ] @ (copy_large (increment_adress 64L adress_str) base_src_reg (Int64.sub size 64L))
+      ] @ (copy_large (increment_adress 8L adress_str) base_src_reg (Int64.sub size 8L))
 ;;
 
 
@@ -525,7 +525,7 @@ let copy_from_reg register (adress: address) ktype rprogram =
     [Instruction (STR {data_size; source = to_32bits register; adress; adress_mode = Immediat})]
   | 4L -> 
     [Instruction (STR {data_size = None; source = to_32bits register; adress; adress_mode = Immediat})]
-  | 64L ->
+  | 8L ->
     [Instruction (STR {data_size = None; source = to_64bits register; adress; adress_mode = Immediat})]
   | _ -> copy_large adress register size 
 
@@ -575,7 +575,7 @@ let frame_descriptor ~(fn_register_params: (string * KosuIrTyped.Asttyped.rktype
   IdVarMap.find (variable, rktype) frame_desc.stack_map
 
   let function_prologue ~fn_register_params rprogram fd = 
-    let base = Instruction ( Instruction.STP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = 16L}; adress_mode = Immediat} ) in
+    let base = Instruction ( Instruction.STP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = Int64.sub (align_16 ( Int64.add 16L fd.locals_space)) 16L}; adress_mode = Immediat} ) in
     let stack_sub = Instruction ( SUB { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral (align_16 ( Int64.add 16L fd.locals_space) )} ) in
     let alignx29 = Instruction (ADD { destination = Register64 X29; operand1 = Register64 SP; operand2 = `ILitteral 16L; offset = false}) in
     let copy_instructions = fn_register_params |> Util.ListHelper.combine_safe argument_registers |> List.fold_left (fun acc (register , (name, kt)) -> 
@@ -585,8 +585,9 @@ let frame_descriptor ~(fn_register_params: (string * KosuIrTyped.Asttyped.rktype
       stack_sub::base::alignx29::copy_instructions
 
   let function_epilogue fd = 
-    let base = Instruction ( Instruction.LDP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = 16L}; adress_mode = Immediat} ) in
-    let stack_add = Instruction ( ADD { destination = Register64 SP; offset = false; operand1 = Register64 SP; operand2 = `ILitteral (align_16 ( Int64.add 16L fd.locals_space))} ) in
+    let stack_space = align_16 ( Int64.add 16L fd.locals_space) in
+    let base = Instruction ( Instruction.LDP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = Int64.sub stack_space 16L}; adress_mode = Immediat} ) in
+    let stack_add = Instruction ( ADD { destination = Register64 SP; offset = false; operand1 = Register64 SP; operand2 = `ILitteral stack_space} ) in
     let return = Instruction (RET) in
 
     base::stack_add::return::[]
@@ -921,7 +922,8 @@ let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameM
         let jmp2 = Instruction (B { cc = None; label = goto2}) in
         let if_block = translate_tac_body ~str_lit_map ~end_label:(Some exit_label) current_module rprogram fd if_tac_body in
         let else_block = translate_tac_body ~str_lit_map ~end_label:(Some exit_label) current_module rprogram fd else_tac_body in
-        last_reg, condition_rvalue_inst @ cmp::jmp::jmp2::if_block @ else_block
+        let exit_label_instr = Label (exit_label) in
+        last_reg, condition_rvalue_inst @ cmp::jmp::jmp2::if_block @ else_block @ [exit_label_instr]
       | STSwitch {
         statemenets_for_case;
         condition_switch;
