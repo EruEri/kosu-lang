@@ -524,10 +524,10 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
         match i with
         | 0 -> failwith "Never I hope: deferencement without start ??"
         | 1 ->
-            let new_tmp = make_inc_tmp trktype map count_var in
-            let rtpointee =
-              KosuIrTyped.Asttyhelper.RType.rtpointee origin_type
-            in
+          let rtpointee =
+            KosuIrTyped.Asttyhelper.RType.rtpointee origin_type
+          in
+            let new_tmp = make_inc_tmp rtpointee map count_var in
             ( new_tmp,
               STacDeclaration
                 {
@@ -536,10 +536,11 @@ let rec convert_from_typed_expression ~allocated ~map ~count_var ~if_count
                 }
               :: [] )
         | _ ->
-            let new_tmp = make_inc_tmp trktype map count_var in
-            let rtpointee =
-              KosuIrTyped.Asttyhelper.RType.rtpointee origin_type
-            in
+          let rtpointee =
+            KosuIrTyped.Asttyhelper.RType.rtpointee origin_type
+          in
+            let new_tmp = make_inc_tmp rtpointee map count_var in
+
             let result, future_stmt =
               loop ~origin_type:rtpointee ~from:new_tmp (i - 1)
             in

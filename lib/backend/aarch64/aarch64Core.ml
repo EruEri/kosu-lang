@@ -918,8 +918,8 @@ let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameM
         let last_reg, instructions =  translate_tac_rvalue ~str_lit_map ~where:adress current_module rprogram fd trvalue in
         last_reg, instructions
       | STDerefAffectation {identifier; trvalue} -> 
-        let tmpreg = tmpreg_of_ktype rprogram trvalue.rval_rktype in
-        let intermediary_adress = FrameManager.adress_of (identifier, trvalue.rval_rktype) fd in
+        let tmpreg = tmpreg_of_ktype rprogram (KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype) in
+        let intermediary_adress = FrameManager.adress_of (identifier, KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype) fd in
         let instructions = Instruction ( LDR { data_size = None; destination = tmpreg; adress_src = intermediary_adress; adress_mode = Immediat} ) in
         let true_adress = create_adress tmpreg in
         let last_reg, true_instructions = translate_tac_rvalue ~str_lit_map ~where:true_adress current_module rprogram fd trvalue  in
@@ -1052,6 +1052,7 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
   | TNFunction function_decl -> 
     let stack_param_count = Int64.of_int (function_decl.stack_params_count * 8) in
     let locals_var = function_decl.locale_var |> List.filter_map (fun {locale_ty; locale} -> match locale with Locale s -> Some (s, locale_ty) | _ -> None )in
+    let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in
     let asm_name = KosuIrTAC.Asttachelper.Function.label_of_fn_name current_module function_decl in
     let fd = FrameManager.frame_descriptor ~stack_future_call:(stack_param_count) ~fn_register_params:function_decl.rparameters ~stack_param:[] ~locals_var rprogram in 
     let prologue = FrameManager.function_prologue ~fn_register_params: function_decl.rparameters rprogram fd in
