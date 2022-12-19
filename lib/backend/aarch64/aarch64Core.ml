@@ -616,9 +616,7 @@ module Codegen = struct
     function
     |({tac_expression = TEString s; expr_rktype = _}) -> 
       let reg64 = to_64bits target_reg in
-      let () = Printf.printf "before\n" in 
       let SLit str_labl = (Hashtbl.find str_lit_map s) in
-      let () = Printf.printf "before\n" in
       target_reg, load_label str_labl  reg64
     |({tac_expression = TEFalse | TEmpty; expr_rktype = _}) -> 
        to_32bits target_reg,  Instruction ( Mov {destination = to_32bits target_reg; flexsec_operand = `Register (Register32 WZR) })::[]
@@ -664,7 +662,9 @@ module Codegen = struct
           let not_instruction = [Instruction (Not {destination = last_reg; source = `Register last_reg})] in
           last_reg, insts @ not_instruction
       
-      | RVExpression tac_typed_expression -> translate_tac_expression ~str_lit_map rprogram fd tac_typed_expression
+      | RVExpression tac_typed_expression -> 
+        let last_reg, instructions =  translate_tac_expression ~str_lit_map rprogram fd tac_typed_expression in
+        last_reg, instructions @ copy_from_reg last_reg where tac_typed_expression.expr_rktype rprogram
       | RVStruct {module_path = _; struct_name = _; fields} -> begin 
         let struct_decl = 
           match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye rval_rktype rprogram with
@@ -699,7 +699,6 @@ module Codegen = struct
           let call_instructions = FrameManager.call_instruction ~origin:fn_label regs fd in
           let return_size = sizeofn rprogram external_func_decl.return_type in
           let return_reg = return_register_ktype return_size in
-          let () = Printf.printf "%s : sizeof : %Ld\n" (external_func_decl.rsig_name) (return_size) in 
           return_reg, instructions @ call_instructions @ copy_from_reg return_reg where external_func_decl.return_type rprogram
         | RSyscall_Decl syscall_decl -> 
           let _ = assert (tac_parameters |> List.length < 5) in
@@ -896,7 +895,8 @@ module Codegen = struct
 let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameManager.frame_desc) = function
       | STacDeclaration {identifier; trvalue} | STacModification {identifier; trvalue} ->
         let adress = FrameManager.adress_of (identifier, trvalue.rval_rktype) fd in
-        translate_tac_rvalue ~str_lit_map ~where:adress current_module rprogram fd trvalue 
+        let last_reg, instructions =  translate_tac_rvalue ~str_lit_map ~where:adress current_module rprogram fd trvalue in
+        last_reg, instructions
       | STDerefAffectation {identifier; trvalue} -> 
         let tmpreg = tmpreg_of_ktype rprogram trvalue.rval_rktype in
         let intermediary_adress = FrameManager.adress_of (identifier, trvalue.rval_rktype) fd in
