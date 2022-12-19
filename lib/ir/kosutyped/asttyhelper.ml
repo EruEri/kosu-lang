@@ -448,8 +448,9 @@ module RFunction_Decl = struct
   let fn_name = function
   | RSyscall_Decl {rsyscall_name = n; _}
   | RKosufn_Decl {rfn_name = n; _} -> n
-  | RExternal_Decl {rsig_name; c_name; _} -> 
-    c_name |> Option.value ~default:rsig_name
+  | RExternal_Decl {rsig_name; c_name = _; _} -> 
+    rsig_name
+    (* c_name |> Option.value ~default:rsig_name *)
 end
 
 module Rmodule = struct
