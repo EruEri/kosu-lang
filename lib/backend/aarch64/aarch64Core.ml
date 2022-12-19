@@ -532,6 +532,14 @@ module FrameManager = struct
   stack_map : address IdVarMap.t;
 }
 
+let align_16 size = 
+  let ( ** ) = Int64.mul in
+  let (++) = Int64.add in
+  let div = Int64.unsigned_div size 16L in
+  let modulo = if (Int64.unsigned_rem size 16L) = 0L then 0L else 1L in
+  (16L ** (div ++ modulo) )
+
+
 let frame_descriptor ~(fn_register_params: (string * KosuIrTyped.Asttyped.rktype) list) ~(stack_param: (string * KosuIrTyped.Asttyped.rktype) list) ~locals_var ~rprogram =
   let stack_param_count = stack_param |> List.length in
   let stack_concat = fn_register_params @ locals_var in
@@ -562,17 +570,17 @@ let frame_descriptor ~(fn_register_params: (string * KosuIrTyped.Asttyped.rktype
   IdVarMap.find (variable, rktype) frame_desc.stack_map
 
   let function_prologue ~fn_register_params rprogram fd = 
-    let base = Instruction ( Instruction.STP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = Int64.sub fd.locals_space 2L}; adress_mode = Immediat} ) in
-    let stack_sub = Instruction ( SUB { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral fd.locals_space} ) in
+    let base = Instruction ( Instruction.STP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = 16L}; adress_mode = Immediat} ) in
+    let stack_sub = Instruction ( SUB { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral (align_16 ( Int64.add 16L fd.locals_space) )} ) in
     let copy_instructions = fn_register_params |> Util.ListHelper.combine_safe argument_registers |> List.fold_left (fun acc (register , (name, kt)) -> 
       let whereis = adress_of (name, kt) fd in
       acc @ (copy_from_reg (register) whereis kt rprogram)
       ) [] in
-    base::stack_sub::copy_instructions
+      stack_sub::base::copy_instructions
 
   let function_epilogue fd = 
-    let base = Instruction ( Instruction.LDP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = Int64.sub fd.locals_space 2L}; adress_mode = Immediat} ) in
-    let stack_add = Instruction ( ADD { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral fd.locals_space} ) in
+    let base = Instruction ( Instruction.LDP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = 16L}; adress_mode = Immediat} ) in
+    let stack_add = Instruction ( ADD { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral (align_16 ( Int64.add 16L fd.locals_space))} ) in
     let return = Instruction (RET) in
 
     base::stack_add::return::[]
@@ -1022,7 +1030,7 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
     let epilogue = FrameManager.function_epilogue fd in
     Some (Afunction {
       asm_name;
-      asm_body = prologue @ conversion @ epilogue 
+      asm_body = prologue @ (conversion |> List.tl) @ epilogue 
     })
   | TNOperator _ -> failwith "TNOperator todo"
   | TNConst {rconst_name; value = { rktype = RTInteger _; rexpression = REInteger (_ssign, size, value)}} -> 

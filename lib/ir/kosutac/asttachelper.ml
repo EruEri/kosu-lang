@@ -56,5 +56,7 @@ module Function = struct
   let label_of_fn_name current_module name typed_list = 
     Printf.sprintf "_%s.%s_%s" current_module name (typed_list |> List.map KosuIrTyped.Asttypprint.string_of_label_rktype |> String.concat "_")
 
-  let label_of_fn_name fn_module rfunction_decl = label_of_fn_name fn_module rfunction_decl.rfn_name (rfunction_decl.rparameters |> List.map snd)
+  let label_of_fn_name fn_module rfunction_decl = 
+    if rfunction_decl.rfn_name = "main" then "_main" else
+    label_of_fn_name fn_module rfunction_decl.rfn_name (rfunction_decl.rparameters |> List.map snd)
 end
