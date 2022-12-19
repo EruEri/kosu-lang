@@ -423,6 +423,12 @@ module Renum = struct
       |> List.find_map (fun (i,v) -> if (fst v ) = variant then Some i else None)
       |> Option.get
 
+  let assoc_types_of_variant variant (enum_decl: renum_decl) = 
+    enum_decl.rvariants
+    |> List.find_map (fun (evariant, assoc_type) -> 
+      if evariant = variant then Some assoc_type else None
+    )
+    |> Option.get
 end
 
 module Rtype_Decl = struct

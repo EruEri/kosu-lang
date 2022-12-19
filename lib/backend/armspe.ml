@@ -177,6 +177,9 @@ module Register = struct
   let tmp32reg_3 = Register32 W10
   let tmp64reg_3 = Register64 X10
 
+  let tmp32reg_4 = Register32 W11
+  let tmp64reg_4 = Register64 X11
+
   let tmpreg_of_size = fun size -> if size <= 32L then tmp32reg else tmp64reg
   let tmpreg_of_size_2 = fun size -> if size <= 32L then tmp32reg_2 else tmp64reg_2
 
@@ -351,8 +354,8 @@ module Instruction = struct
   address: address;
   adress_mode : adress_mode;
 }
-| B of { cc : condition_code option; label : Common.label }
-| BL of { cc : condition_code option; label : Common.label }
+| B of { cc : condition_code option; label : string }
+| BL of { cc : condition_code option; label : string }
 | BR of { rcc : condition_code option; eg : Register.register }
 | BLR of { cc : condition_code option; reg : Register.register }
 | SVC of int64
@@ -576,7 +579,7 @@ let frame_descriptor ~fn_register_params ~(stack_param: (string * KosuIrTyped.As
 
   let call_instruction ~origin _stack_param (_fd: frame_desc) = 
 
-    let call = Instruction ( Instruction.BL { cc = None; label = Label origin}) in
+    let call = Instruction ( Instruction.BL { cc = None; label = origin}) in
     [call]
 
 
@@ -778,7 +781,7 @@ module Codegen = struct
         let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd brhs in
         let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r8 rprogram fd blhs in
         let or_instruction = [Instruction (ORR {destination = r8; operand1 = left_reg; operand2 = `Register right_reg})] in
-        r8, rinstructions @ linstructions @ or_instruction
+        r8, rinstructions @ linstructions @ or_instruction @ copy_from_reg r8 where rval_rktype rprogram
       | RVBuiltinBinop { binop = TacBool (TacAnd); blhs; brhs} -> 
         let r9 = tmpreg_of_ktype_2 rprogram brhs.expr_rktype in
         let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in 
@@ -797,7 +800,7 @@ module Codegen = struct
           Instruction (SUB {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
           Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition = NE})
         ] in
-        r8, rinstructions @ linstructions @ equal_instruction
+        r8, rinstructions @ linstructions @ equal_instruction @ copy_from_reg r8 where rval_rktype rprogram
       | RVBuiltinBinop {binop = TacBool (TacDiff); blhs; brhs} -> 
           let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
           let r9 = tmpreg_of_ktype_2 rprogram brhs.expr_rktype in
@@ -809,7 +812,7 @@ module Codegen = struct
             Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
             Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition = EQ})
           ] in
-          r8, rinstructions @ linstructions @ equal_instruction
+          r8, rinstructions @ linstructions @ equal_instruction @ copy_from_reg r8 where rval_rktype rprogram
       | RVBuiltinBinop {binop = TacBool (TacSupEq); blhs; brhs} -> 
         let condition = if KosuIrTyped.Asttyhelper.RType.is_pointer blhs.expr_rktype then CC else LT in 
         let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
@@ -822,7 +825,7 @@ module Codegen = struct
           Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
           Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition})
         ] in
-        r8, rinstructions @ linstructions @ equal_instruction
+        r8, rinstructions @ linstructions @ equal_instruction @ copy_from_reg r8 where rval_rktype rprogram
       | RVBuiltinBinop {binop = TacBool (TacSup); blhs; brhs} -> 
         let condition = if KosuIrTyped.Asttyhelper.RType.is_pointer blhs.expr_rktype then LS else LE in 
         let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
@@ -848,7 +851,7 @@ module Codegen = struct
           Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
           Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition})
         ] in
-        r8, rinstructions @ linstructions @ equal_instruction
+        r8, rinstructions @ linstructions @ equal_instruction @ copy_from_reg r8 where rval_rktype rprogram
       | RVBuiltinBinop {binop = TacBool (TacInfEq); blhs; brhs} -> 
         let condition = if KosuIrTyped.Asttyhelper.RType.is_pointer blhs.expr_rktype then HI else GT in 
         let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
@@ -861,7 +864,7 @@ module Codegen = struct
           Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
           Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition})
         ] in
-        r8, rinstructions @ linstructions @ equal_instruction
+        r8, rinstructions @ linstructions @ equal_instruction @ copy_from_reg r8 where rval_rktype rprogram
         
 
     
@@ -870,5 +873,106 @@ module Codegen = struct
         let last_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:(tmpreg) rprogram fd blhs in
         let  *)
       | _ -> failwith "Mostly binop"
-  
+
+let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameManager.frame_desc) = function
+      | STacDeclaration {identifier; trvalue} | STacModification {identifier; trvalue} ->
+        let adress = FrameManager.adress_of (identifier, trvalue.rval_rktype) fd in
+        translate_tac_rvalue ~str_lit_map ~where:adress current_module rprogram fd trvalue 
+      | STDerefAffectation {identifier; trvalue} -> 
+        let tmpreg = tmpreg_of_ktype rprogram trvalue.rval_rktype in
+        let intermediary_adress = FrameManager.adress_of (identifier, trvalue.rval_rktype) fd in
+        let instructions = Instruction ( LDR { data_size = None; destination = tmpreg; adress_src = intermediary_adress; adress_mode = Immediat} ) in
+        let true_adress = create_adress tmpreg in
+        let last_reg, true_instructions = translate_tac_rvalue ~str_lit_map ~where:true_adress current_module rprogram fd trvalue  in
+        last_reg, instructions::true_instructions
+      | STIf {
+        statement_for_bool;
+        condition_rvalue;
+        goto1;
+        goto2;
+        exit_label;
+        if_tac_body;
+        else_tac_body;
+      } -> 
+        let _stmts_bool = statement_for_bool |> List.fold_left (fun acc stmt -> 
+          acc @ (translate_tac_statement ~str_lit_map current_module rprogram fd stmt |> snd)
+        ) [] in
+        let last_reg, condition_rvalue_inst = translate_tac_expression ~str_lit_map rprogram fd condition_rvalue in 
+        let cmp = Instruction (CMP {operand1 = last_reg; operand2 = `ILitteral 1L}) in
+        let jmp = Instruction (B { cc = Some EQ ; label = goto1}) in
+        let jmp2 = Instruction (B { cc = None; label = goto2}) in
+        let if_block = translate_tac_body ~str_lit_map ~end_label:(Some exit_label) current_module rprogram fd if_tac_body in
+        let else_block = translate_tac_body ~str_lit_map ~end_label:(Some exit_label) current_module rprogram fd else_tac_body in
+        last_reg, condition_rvalue_inst @ cmp::jmp::jmp2::if_block @ else_block
+      | STSwitch {
+        statemenets_for_case;
+        condition_switch;
+        sw_cases;
+        wildcard_label;
+        wildcard_body;
+        sw_exit_label;
+      } -> 
+        let tag_of_variant = KosuIrTyped.Asttyhelper.Renum.tag_of_variant in
+        let enum_decl = 
+          match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye condition_switch.expr_rktype rprogram with
+          | Some (RDecl_Struct _) -> failwith "Expected to find an enum get an struct"
+          | Some (RDecl_Enum e) -> e
+          | None -> failwith "Non type decl ??? my validation is very weak" in 
+        let _, _setup_instructions = statemenets_for_case |> List.fold_left (fun (_, acc_stmts) value -> 
+          let last_reg, insts = translate_tac_statement ~str_lit_map current_module rprogram fd value in
+          last_reg, acc_stmts @ insts
+        ) (tmp64reg, []) in
+        let last_reg, condition_switch_instruction = translate_tac_expression ~str_lit_map rprogram fd condition_switch in
+        let copy_tag = if is_register_size (sizeofn rprogram condition_switch.expr_rktype) then 
+          Instruction (Mov {destination = tmp32reg_4; flexsec_operand = `Register last_reg})
+        else 
+          Instruction (LDR {data_size = None; destination = tmp32reg_4; adress_src = create_adress last_reg; adress_mode = Immediat})
+        in 
+        (* Tag fetch proper doing*)
+        let cmp_instrution_list, fn_block = sw_cases |> List.map (fun sw_case -> 
+          let jump_condition = sw_case.variants_to_match |> List.map (fun mvariant -> 
+            let tag = tag_of_variant mvariant enum_decl in
+            let compare = Instruction (CMP {operand1 = tmp32reg_4; operand2 = `ILitteral (Int64.of_int32 tag)}) in
+            let jump_true = Instruction (B {cc = Some EQ; label = sw_case.sw_goto}) in
+            compare::jump_true::[]
+          ) |> List.flatten in
+          let genete_block = translate_tac_body ~str_lit_map ~end_label:(Some sw_case.sw_exit_label) current_module  rprogram fd sw_case.switch_tac_body in
+          jump_condition, genete_block
+        ) |> List.split |> fun (lhs, rhs) -> List.flatten lhs, (List.flatten rhs) in
+        let wildcard_case_jmp = wildcard_label |> Option.map (fun lab ->  Instruction (B {cc = None; label = lab})) |> Option.to_list in
+        let wildcard_body_block = wildcard_body |> Option.map (fun body -> 
+          translate_tac_body ~str_lit_map ~end_label:(Some sw_exit_label) current_module rprogram fd body
+        ) |> Option.value ~default:[] in
+        tmp64reg, condition_switch_instruction @ copy_tag::cmp_instrution_list @ wildcard_case_jmp @ fn_block @ wildcard_body_block
+      | SCases {cases; else_tac_body = _; exit_label = _} -> 
+        let _ = cases |> List.map (fun scases -> 
+          let setup_next_cmp_instr = scases.condition_label |> Option.map (fun label -> Instruction (B { cc = None; label})) |> Option.to_list in
+          let setup_condition_insts = scases.statement_for_condition |> List.map (fun stmt -> 
+           snd @@ translate_tac_statement ~str_lit_map current_module rprogram fd stmt 
+          ) |> List.flatten in
+          let last_reg, condition = translate_tac_expression ~str_lit_map rprogram fd scases.condition in
+          let cmp = Instruction (CMP {operand1 = last_reg; operand2 = `ILitteral 1L}) in
+          let if_true_instruction = Instruction (B { cc = Some EQ; label = scases.goto}) in
+          let if_false_instruction = Instruction (B {cc = None; label = scases.jmp_false}) in
+          let body_instruction = translate_tac_body ~str_lit_map ~end_label:(Some scases.end_label) current_module rprogram fd scases.tac_body in
+          body_instruction, setup_next_cmp_instr @ setup_condition_insts @ condition @ [cmp; if_true_instruction; if_false_instruction]
+
+        ) in
+        
+        failwith ""
+and translate_tac_body ~str_lit_map ?(end_label = None) current_module rprogram (fd: FrameManager.frame_desc) {label; body} = 
+  let label_instr = Label label in
+  let stmt_instr = body |> fst |> List.map (fun stmt -> snd @@ translate_tac_statement ~str_lit_map current_module rprogram fd stmt) |> List.flatten  in
+  let end_label_inst = end_label |> Option.map (fun lab ->  Instruction (B {cc = None; label = lab})) |> Option.to_list in
+  let return_instr = body |> snd |> Option.map (fun tte -> 
+      let last_reg, instructions = translate_tac_expression ~str_lit_map  rprogram fd tte in
+      let sizeof = sizeofn rprogram tte.expr_rktype in
+      let return_reg = return_register_ktype sizeof in
+      instructions @ (if is_register_size sizeof then 
+        Instruction (Mov {destination = return_reg; flexsec_operand = `Register last_reg})::[]
+      else
+      copy_large (create_adress last_reg) return_reg sizeof
+      )
+  ) |> Option.value ~default:[] in
+  label_instr::stmt_instr @ return_instr @ end_label_inst
 end
