@@ -239,6 +239,7 @@ module Instruction = struct
     operand1 : Register.register;
     (* Int12 litteral oprand*)
     operand2 : src;
+    offset: bool;
   }
 | ADDS of {
    
@@ -377,7 +378,7 @@ type line = (raw_line * comment option)
 let load_label label register = 
   let register = to_64bits register in
   let load =  Instruction ( ADRP {dst = register; label}) in
-  let add = Instruction ( ADD {destination = register; operand1 = register; operand2 = `Label label} ) in
+  let add = Instruction ( ADD {destination = register; operand1 = register; operand2 = `Label label; offset = true;} ) in
   load::add::[]
 
 end
@@ -444,7 +445,8 @@ else if size < 2L && size >= 1L
     Instruction (Instruction.ADD {
       destination = base_src_reg;
       operand1 = base_src_reg;
-      operand2 = `ILitteral 1L
+      operand2 = `ILitteral 1L;
+      offset = false;
     })
   ] @ (copy_large (increment_adress 2L adress_str) base_src_reg (Int64.sub size 1L))
 else if size < 4L && size >= 2L
@@ -464,7 +466,8 @@ else if size < 4L && size >= 2L
     Instruction (Instruction.ADD {
       destination = base_src_reg;
       operand1 = base_src_reg;
-      operand2 = `ILitteral 2L
+      operand2 = `ILitteral 2L;
+      offset = false;
     })
   ] @ (copy_large (increment_adress 2L adress_str) base_src_reg (Int64.sub size 2L))
 else if size < 64L && size >= 4L
@@ -484,6 +487,7 @@ else if size < 64L && size >= 4L
     Instruction (Instruction.ADD {
       destination = base_src_reg;
       operand1 = base_src_reg;
+      offset = false;
       operand2 = `ILitteral 4L
     })
   ] @ (copy_large (increment_adress 4L adress_str) base_src_reg (Int64.sub size 4L))
@@ -504,6 +508,7 @@ else if size < 64L && size >= 4L
         Instruction (Instruction.ADD {
           destination = base_src_reg;
           operand1 = base_src_reg;
+          offset = false;
           operand2 = `ILitteral 64L
         })
       ] @ (copy_large (increment_adress 64L adress_str) base_src_reg (Int64.sub size 64L))
@@ -559,7 +564,7 @@ let frame_descriptor ~(fn_register_params: (string * KosuIrTyped.Asttyped.rktype
            in
            let adress =
              create_adress ~offset:(locals_space |> Int64.neg |> Int64.add offset)
-               (Register64 X30)
+               (Register64 X29)
            in
            IdVarMap.add st adress acc)
          IdVarMap.empty
@@ -572,15 +577,16 @@ let frame_descriptor ~(fn_register_params: (string * KosuIrTyped.Asttyped.rktype
   let function_prologue ~fn_register_params rprogram fd = 
     let base = Instruction ( Instruction.STP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = 16L}; adress_mode = Immediat} ) in
     let stack_sub = Instruction ( SUB { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral (align_16 ( Int64.add 16L fd.locals_space) )} ) in
+    let alignx29 = Instruction (ADD { destination = Register64 X29; operand1 = Register64 SP; operand2 = `ILitteral 16L; offset = false}) in
     let copy_instructions = fn_register_params |> Util.ListHelper.combine_safe argument_registers |> List.fold_left (fun acc (register , (name, kt)) -> 
       let whereis = adress_of (name, kt) fd in
       acc @ (copy_from_reg (register) whereis kt rprogram)
       ) [] in
-      stack_sub::base::copy_instructions
+      stack_sub::base::alignx29::copy_instructions
 
   let function_epilogue fd = 
     let base = Instruction ( Instruction.LDP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = 16L}; adress_mode = Immediat} ) in
-    let stack_add = Instruction ( ADD { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral (align_16 ( Int64.add 16L fd.locals_space))} ) in
+    let stack_add = Instruction ( ADD { destination = Register64 SP; offset = false; operand1 = Register64 SP; operand2 = `ILitteral (align_16 ( Int64.add 16L fd.locals_space))} ) in
     let return = Instruction (RET) in
 
     base::stack_add::return::[]
@@ -635,7 +641,7 @@ module Codegen = struct
           ]
       else 
         rreg, [
-          Instruction (ADD {destination = rreg; operand1 = adress.base; operand2 = `ILitteral adress.offset})
+          Instruction (ADD {destination = rreg; offset = false; operand1 = adress.base; operand2 = `ILitteral adress.offset})
         ]
     | ({tac_expression = TESizeof kt; _}) -> 
       let r64 = to_64bits target_reg in

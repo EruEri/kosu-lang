@@ -104,8 +104,8 @@ let string_of_instruction = function
   sprintf "mvn %s, %s" (string_of_register destination) (string_of_src source)
 | Neg {destination; source} -> 
   sprintf "neg %s, %s" (string_of_register destination) (string_of_register source)
-| ADD {destination; operand1; operand2} ->
-  sprintf "add %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
+| ADD {destination; operand1; operand2; offset} ->
+  sprintf "add %s, %s, %s%s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2) (if offset then "@PAGEOFF" else "")
 | ADDS {destination; operand1; operand2} ->
 sprintf "adds %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
 | SUB {destination; operand1; operand2} ->
@@ -147,7 +147,7 @@ sprintf "str%s %s , %s"
 | LDP {x1; x2; address; adress_mode} -> 
     sprintf "ldp %s, %s, %s" (string_of_register x1) (string_of_register x2) (string_of_adressage adress_mode address)
 | ADRP { dst; label } ->
-  sprintf "adrp %s, %s" (string_of_register dst) label
+  sprintf "adrp %s, %s@PAGE" (string_of_register dst) label
 | B { cc; label} -> 
   sprintf "b%s %s" 
   (cc |> Option.map ( fun cc -> sprintf ".%s" (string_of_condition_code cc)) |> Option.value ~default:"" )
@@ -184,7 +184,7 @@ let string_asm_const_decl {asm_const_name; value = `IntVal (size, value)} =
 
 
 let string_of_asm_function {asm_name; asm_body} = 
-  sprintf "%s\n%s" asm_name (asm_body |> List.map string_of_raw_line |> String.concat "\n")
+  sprintf "\t.globl %s\n\t%s\n%s:\n%s" (asm_name) (".p2align	2") asm_name (asm_body |> List.map string_of_raw_line |> String.concat "\n")
 
 let string_of_asm_node = function
 | Afunction f -> string_of_asm_function f
