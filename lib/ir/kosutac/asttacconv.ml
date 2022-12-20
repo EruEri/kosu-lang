@@ -781,6 +781,10 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
         | STacDeclaration {identifier = tmp_name; trvalue}, 
           STacDeclaration {identifier = true_var; trvalue = {rval_rktype = _; rvalue = RVExpression {expr_rktype = _; tac_expression = TEIdentifier id}}} when tmp_name = id ->
           STacDeclaration {identifier = true_var; trvalue}::(reduce_variable_used_statements q)
+
+          | STacDeclaration {identifier = tmp_name; trvalue}, 
+          STacModification {identifier = true_var; trvalue = {rval_rktype = _; rvalue = RVExpression {expr_rktype = _; tac_expression = TEIdentifier id}}} when tmp_name = id ->
+            STacModification {identifier = true_var; trvalue}::(reduce_variable_used_statements q)
         | _ -> t1::t2::(reduce_variable_used_statements q)
       end 
   and reduce_variable_used_body {label; body = (smtms, expr)} = 
