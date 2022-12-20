@@ -694,6 +694,13 @@ module Codegen = struct
     | ({tac_expression = TEConst {name; _}; expr_rktype = RTString_lit}) ->
       let reg64 = to_64bits target_reg in
       target_reg, load_label name reg64
+    | ({tac_expression = TEConst {name; _}; expr_rktype = RTInteger(_, size) as kt}) ->
+      let data_size = compute_data_size kt (Int64.of_int @@ KosuFrontend.Ast.Isize.size_of_isize size) in
+      let tmp11 = tmp64reg_4 in
+      let load_instruction = load_label name tmp11 in
+      let fetch = (Instruction (LDR {data_size; destination = target_reg; adress_src = create_adress tmp11; adress_mode = Immediat })) in
+      target_reg,  load_instruction @ [fetch]
+
     | _ -> failwith ""
 
     let rec translate_tac_rvalue ~str_lit_map ~(where: address) current_module rprogram (fd: FrameManager.frame_desc) {rval_rktype; rvalue} =
