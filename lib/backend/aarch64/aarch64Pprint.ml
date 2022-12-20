@@ -137,6 +137,11 @@ sprintf "ldr%s %s , %s"
 (data_size |> Option.map string_of_data_size |> Option.value ~default:"")
 (string_of_register destination)
 (string_of_adressage adress_mode adress_src)
+| LDUR {data_size; destination; adress_src; adress_mode} -> 
+  sprintf "ldur%s %s , %s" 
+  (data_size |> Option.map string_of_data_size |> Option.value ~default:"")
+  (string_of_register destination)
+  (string_of_adressage adress_mode adress_src)
 | STR {data_size; source; adress; adress_mode} -> 
 sprintf "str%s %s , %s" 
 (data_size |> Option.map ( fun ds -> string_of_data_size @@ unsigned_data_size ds) |> Option.value ~default:"")

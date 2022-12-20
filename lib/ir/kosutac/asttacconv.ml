@@ -772,6 +772,66 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~count_var
             if function_return then Some expr else None );
       }
 
+  let rec reduce_variable_used_statements stmts = 
+    match stmts with
+    | [] -> []
+    | t::[] -> [t]
+    | t1::t2::q -> 
+      begin match (t1, t2) with
+        | STacDeclaration {identifier = tmp_name; trvalue}, 
+          STacDeclaration {identifier = true_var; trvalue = {rval_rktype = _; rvalue = RVExpression {expr_rktype = _; tac_expression = TEIdentifier id}}} when tmp_name = id ->
+          STacDeclaration {identifier = true_var; trvalue}::(reduce_variable_used_statements q)
+        | _ -> t1::t2::(reduce_variable_used_statements q)
+      end 
+  and reduce_variable_used_body {label; body = (smtms, expr)} = 
+    {
+      label;
+      body = (reduce_variable_used_statements smtms, expr )
+    }
+  and reduce_variable_used_statement = function
+  | STIf {statement_for_bool; condition_rvalue; goto1; goto2; exit_label; if_tac_body; else_tac_body} ->
+    STIf {
+      statement_for_bool = reduce_variable_used_statements statement_for_bool;
+      condition_rvalue;
+      goto1;
+      goto2;
+      exit_label;
+      if_tac_body = reduce_variable_used_body if_tac_body;
+      else_tac_body = reduce_variable_used_body else_tac_body;  
+    }
+  | SCases {cases; else_tac_body; exit_label} ->
+    SCases {
+      cases = cases |> List.map (fun {condition_label; statement_for_condition; condition; goto; jmp_false; end_label; tac_body} -> 
+        {
+          condition_label;
+          statement_for_condition = reduce_variable_used_statements statement_for_condition;
+          condition;
+          goto;
+          jmp_false;
+          end_label;
+          tac_body = reduce_variable_used_body tac_body;
+        });
+        else_tac_body = reduce_variable_used_body else_tac_body;
+        exit_label;
+    }
+  | STSwitch {statemenets_for_case; condition_switch; sw_cases; wildcard_label; wildcard_body; sw_exit_label} -> 
+    STSwitch {
+      statemenets_for_case = reduce_variable_used_statements statemenets_for_case;
+      condition_switch;
+      sw_cases = sw_cases |> List.map (fun {variants_to_match; assoc_bound; sw_goto; sw_exit_label; switch_tac_body} -> 
+        {
+          variants_to_match;
+          assoc_bound;
+          sw_goto;
+          sw_exit_label;
+          switch_tac_body = reduce_variable_used_body switch_tac_body;
+        }
+      );
+      wildcard_label;
+      wildcard_body = wildcard_body |> Option.map reduce_variable_used_body;
+      sw_exit_label
+    }
+  | s -> s
 let tac_function_decl_of_rfunction current_module rprogram (rfunction_decl : rfunction_decl) =
   let map = Hashtbl.create (rfunction_decl.rbody |> fst |> List.length) in
 
@@ -786,10 +846,11 @@ let tac_function_decl_of_rfunction current_module rprogram (rfunction_decl : rfu
     generics = rfunction_decl.generics;
     rparameters = rfunction_decl.rparameters;
     return_type = rfunction_decl.return_type;
-    tac_body;
+    tac_body = reduce_variable_used_body tac_body;
     stack_params_count;
     locale_var = map |> Hashtbl.to_seq_values |> List.of_seq;
   }
+
 
 let tac_operator_decl_of_roperator_decl current_module rprogram = function
   | RUnary { op; rfield; return_type; kbody } as self ->

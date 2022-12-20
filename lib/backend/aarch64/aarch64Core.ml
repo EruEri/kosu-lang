@@ -332,6 +332,13 @@ module Instruction = struct
     adress_src : address;
     adress_mode : adress_mode;
   }
+| LDUR of {
+  data_size : data_size option;
+   
+  destination : Register.register;
+  adress_src : address;
+  adress_mode : adress_mode;
+}
 | STR of {
     data_size : data_size option;
    
@@ -372,8 +379,6 @@ type raw_line =
 | Line_Com of comment
 
 type line = (raw_line * comment option)
-
-
 
 let load_label label register = 
   let register = to_64bits register in
@@ -434,15 +439,15 @@ else if size = 0L
   then []
 else if size < 2L && size >= 1L
   then [
-    Instruction( LDR {
+    Instruction( LDUR {
       data_size = Some B;
-      destination = reg_of_32 W9;
+      destination = reg_of_32 W10;
       adress_src = create_adress (base_src_reg);
       adress_mode = Immediat
     });
     Instruction (Instruction.STR {
       data_size = Some B;
-      source = reg_of_32 W9;
+      source = reg_of_32 W10;
       adress = adress_str;
       adress_mode = Immediat
     }) ;
@@ -452,18 +457,18 @@ else if size < 2L && size >= 1L
       operand2 = `ILitteral 1L;
       offset = false;
     })
-  ] @ (copy_large (increment_adress 2L adress_str) base_src_reg (Int64.sub size 1L))
+  ] @ (copy_large (increment_adress (Int64.neg 2L) adress_str) base_src_reg (Int64.sub size 1L))
 else if size < 4L && size >= 2L
   then [
-    Instruction (Instruction.LDR {
+    Instruction (Instruction.LDUR {
       data_size = Some H;
-      destination = reg_of_32 W9;
+      destination = reg_of_32 W10;
       adress_src = create_adress base_src_reg;
       adress_mode = Immediat
     });
     Instruction (Instruction.STR {
       data_size = Some H;
-      source = reg_of_32 W9;
+      source = reg_of_32 W10;
       adress = adress_str;
       adress_mode = Immediat
     }) ;
@@ -473,18 +478,18 @@ else if size < 4L && size >= 2L
       operand2 = `ILitteral 2L;
       offset = false;
     })
-  ] @ (copy_large (increment_adress 2L adress_str) base_src_reg (Int64.sub size 2L))
+  ] @ (copy_large (increment_adress (Int64.neg 2L) adress_str) base_src_reg (Int64.sub size 2L))
 else if size < 8L && size >= 4L
   then [
-    Instruction (Instruction.LDR {
+    Instruction (Instruction.LDUR {
       data_size = None;
-      destination = reg_of_32 W9;
+      destination = reg_of_32 W10;
       adress_src = create_adress  (base_src_reg);
       adress_mode = Immediat
     });
     Instruction (Instruction.STR {
       data_size = None;
-      source = reg_of_32 W9;
+      source = reg_of_32 W10;
       adress = adress_str;
       adress_mode = Immediat
     }) ;
@@ -494,18 +499,18 @@ else if size < 8L && size >= 4L
       offset = false;
       operand2 = `ILitteral 4L
     })
-  ] @ (copy_large (increment_adress 4L adress_str) base_src_reg (Int64.sub size 4L))
+  ] @ (copy_large (increment_adress (Int64.neg 4L) adress_str) base_src_reg (Int64.sub size 4L))
     else (*size >= 8L*) 
       [
-        Instruction (Instruction.LDR {
+        Instruction (Instruction.LDUR {
           data_size = None;
-          destination = reg_of_64 X9;
+          destination = reg_of_64 X10;
           adress_src = create_adress base_src_reg;
           adress_mode = Immediat
         });
         Instruction (Instruction.STR {
           data_size = None;
-          source = reg_of_32 W9;
+          source = reg_of_64 X10;
           adress = adress_str;
           adress_mode = Immediat
         }) ;
@@ -515,7 +520,7 @@ else if size < 8L && size >= 4L
           offset = false;
           operand2 = `ILitteral 8L
         })
-      ] @ (copy_large (increment_adress 8L adress_str) base_src_reg (Int64.sub size 8L))
+      ] @ (copy_large (increment_adress (Int64.neg 8L) adress_str) base_src_reg (Int64.sub size 8L))
 ;;
 
 
@@ -646,7 +651,7 @@ module Codegen = struct
 
   let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
 
-  let translate_tac_expression ~str_lit_map ?(target_reg = Register32 W9) rprogram (fd: FrameManager.frame_desc) = 
+  let translate_tac_expression ~str_lit_map ?(force_address = false) ?(target_reg = Register32 W9) rprogram (fd: FrameManager.frame_desc) = 
     function
     |({tac_expression = TEString s; expr_rktype = _}) -> 
       let reg64 = to_64bits target_reg in
@@ -667,7 +672,7 @@ module Codegen = struct
       let adress = FrameManager.adress_of (id, expr_rktype) fd in
       let sizeof = sizeofn rprogram expr_rktype in
       let rreg = if sizeof > 4L then to_64bits target_reg else to_32bits target_reg in
-      if is_register_size sizeof 
+      if is_register_size sizeof && (not force_address)
         then 
           rreg, [
             Instruction (LDR {data_size = compute_data_size expr_rktype sizeof; destination = rreg; adress_src = adress; adress_mode = Immediat})
@@ -716,7 +721,7 @@ module Codegen = struct
         let tmpreg = Register64 X9 in
         tmpreg,  fields |> List.mapi (fun index value -> index, value) |> List.fold_left (fun (accumuled_adre, acc) (index, (_field, tte)) -> 
           let reg_texp, instructions = translate_tac_expression ~str_lit_map rprogram fd tte in
-          increment_adress (List.nth offset_list index) accumuled_adre , acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
+          increment_adress (Int64.neg (List.nth offset_list index)) accumuled_adre , acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
         ) (where, []) |> snd
   
       end
@@ -727,10 +732,19 @@ module Codegen = struct
         begin match fn_decl with
         | RExternal_Decl external_func_decl -> 
           let fn_label = Printf.sprintf "_%s" (external_func_decl.c_name |> Option.value ~default:(external_func_decl.rsig_name)) in
+          let fn_register_params, _stack_param = tac_parameters |> List.mapi (fun index -> fun value -> index, value) |> List.partition_map (fun (index, value) -> 
+            if index < 8 then Either.left value else Either.right value
+            ) in
           let register_param_count = min (List.length external_func_decl.fn_parameters) (List.length argument_registers) in
-          let args_in_reg, args_on_stack = tac_parameters |> List.mapi (fun index value -> index, value) |> List.partition_map (fun (index, value) -> 
+          let args_in_reg, args_on_stack = fn_register_params |> List.mapi (fun index value -> index, value) |> List.partition_map (fun (index, value) -> 
             if index < register_param_count then Either.left value else Either.right value  
             ) in
+
+            (* let stack_params_offset = stack_param |> List.map (fun {expr_rktype; _} -> 
+              if KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram expr_rktype > 8L then KosuIrTyped.Asttyhelper.RType.rpointer expr_rktype else expr_rktype
+            ) in
+
+          let stack_store = stack_param |> List.map *)
           
           let instructions, regs = args_in_reg |> Util.ListHelper.combine_safe argument_registers |> List.fold_left_map (fun acc (reg, tte) -> 
             let reg, instruction = translate_tac_expression ~str_lit_map ~target_reg:reg rprogram fd tte in 
@@ -766,6 +780,7 @@ module Codegen = struct
           |> Option.get
       in
       let fn_label = KosuIrTyped.Asttyhelper.Function.label_of_fn_name fn_module function_decl in
+      
       let instructions, regs = tac_parameters |> Util.ListHelper.combine_safe argument_registers |> List.fold_left_map (fun acc (reg, tte) -> 
         let reg, instruction = translate_tac_expression ~str_lit_map ~target_reg:reg rprogram fd tte in 
         acc @ instruction, reg
@@ -791,19 +806,19 @@ module Codegen = struct
             let reg_texp, instructions = translate_tac_expression rprogram ~str_lit_map fd tte in
           increment_adress (List.nth offset_list index ) accumuled_adre, acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
           ) (where, []) |> snd
-      | RVFieldAcess {first_expr = {expr_rktype; tac_expression = TEIdentifier enum}; field} -> 
+      | RVFieldAcess {first_expr = {expr_rktype; tac_expression = _} as tte; field} -> 
         let struct_decl = 
           match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye expr_rktype rprogram with
           | Some (RDecl_Struct s) -> s
           | Some (RDecl_Enum _) -> failwith "Expected to find a struct get an enum"
           | None -> failwith "Non type decl ??? my validation is very weak" in
+        let last_reg , fetch_instructions = translate_tac_expression ~str_lit_map ~force_address:true rprogram fd tte in
         let sizeof = sizeofn rprogram rval_rktype in
         let offset = offset_of_field field struct_decl rprogram in
-        let adress = FrameManager.adress_of (enum, expr_rktype) fd in
-        let adress = increment_adress offset adress in
         let size = compute_data_size rval_rktype sizeof in
         let tmpreg = tmpreg_of_size sizeof in
-        tmpreg, [Instruction (LDR {data_size = size; destination = tmpreg; adress_src = adress; adress_mode = Immediat})] @ copy_from_reg tmpreg adress rval_rktype  rprogram
+        let address = create_adress ~offset last_reg in
+        tmpreg, (Line_Com (Comment ("Field access of "^field)))::fetch_instructions @[Instruction (LDR {data_size = size; destination = tmpreg; adress_src = address; adress_mode = Immediat})] @ copy_from_reg tmpreg address rval_rktype  rprogram
       | RVAdress id -> 
         let pointee_type = rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee in
         let adress = FrameManager.adress_of (id, pointee_type) fd in

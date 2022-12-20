@@ -2,7 +2,7 @@
 .PHONY: hello hello.S
 
 hello: hello.S
-	cc -o $@ $<
+	cc -o $@ $< -g
 
 hello.S: hello.kosu
 	./kosuc $<
