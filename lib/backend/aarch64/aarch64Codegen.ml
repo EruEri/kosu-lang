@@ -1,6 +1,6 @@
 open Aarch64Core
 open Aarch64Pprint
-open KosuBackend.Common
+open Util
 
 
 let export_asm_module {filename; asm_module_path; rprogram = _; str_lit_map} = 

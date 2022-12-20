@@ -1,5 +1,8 @@
+open KosuIrTyped.Asttyconvert.Sizeof
+open KosuIrTAC.Asttachelper.StringLitteral
 open KosuIrTAC.Asttac
-open KosuBackend.Common
+
+open Util
 
 module IdVar = struct
   type t = string * KosuIrTyped.Asttyped.rktype
@@ -708,7 +711,6 @@ module Codegen = struct
         let last_reg, instructions =  translate_tac_expression ~str_lit_map rprogram fd tac_typed_expression in
         last_reg, instructions @ copy_from_reg last_reg where tac_typed_expression.expr_rktype rprogram
       | RVStruct {module_path = _; struct_name = _s; fields} -> begin 
-        let () = Printf.printf "struct name = %s\n\n" _s in 
         let struct_decl = 
           match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye rval_rktype rprogram with
           | Some (RDecl_Struct s) -> s
