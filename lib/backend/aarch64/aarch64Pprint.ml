@@ -185,7 +185,7 @@ let size_directive_of_size = let open KosuFrontend.Ast in function
 | I64 -> "quad"
 
 let string_asm_const_decl {asm_const_name; value = `IntVal (size, value)} = 
-  sprintf "%s:\n\t%s %s" asm_const_name (size_directive_of_size size) (sprintf "%LX" value)
+  sprintf "\t.globl %s\n\t%s\n%s:\n\t.%s %s" asm_const_name (".p2align	2") asm_const_name (size_directive_of_size size) (sprintf "0x%Lx" value)
 
 
 let string_of_asm_function {asm_name; asm_body} = 

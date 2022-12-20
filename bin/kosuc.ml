@@ -69,6 +69,6 @@ let () =
           in
           let () = Printf.printf "Successfult converted\n\n" in
           let tac_program = Asttacconv.tac_program_of_rprogram typed_program in
-          let asm_program = KosuBackend.Arm.Aarch64Core.asm_program_of_tac_program tac_program in
-          let () = Aarch64.Aarch64Codegen.compile_asm asm_program in
+          let () = KosuBackend.Arm.Aarch64Codegen.compile_asm_from_tac tac_program in
           ())
+          
