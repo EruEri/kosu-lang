@@ -708,14 +708,24 @@ module Codegen = struct
         let last_reg, instructions =  translate_tac_expression ~str_lit_map rprogram fd tac_typed_expression in
         last_reg, instructions @ copy_from_reg last_reg where tac_typed_expression.expr_rktype rprogram
       | RVStruct {module_path = _; struct_name = _s; fields} -> begin 
+        let () = Printf.printf "struct name = %s\n\n" _s in 
         let struct_decl = 
           match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye rval_rktype rprogram with
           | Some (RDecl_Struct s) -> s
           | Some (RDecl_Enum _) -> failwith "Expected to find a struct get an enum"
           | None -> failwith "Non type decl ??? my validation is very weak" in 
+        
+          let generics = 
+            rval_rktype 
+            |> KosuIrTyped.Asttyhelper.RType.extract_parametrics_rktype
+            |> List.combine struct_decl.generics
+            |> List.to_seq
+            |> Hashtbl.of_seq
+          in
         let offset_list = fields 
-          |> List.map (fun (field, _) -> offset_of_field field struct_decl rprogram)
+          |> List.map (fun (field, _) -> offset_of_field ~generics field struct_decl rprogram)
         in
+        
         let () = offset_list |> List.map (Printf.sprintf "%Lu") |> String.concat ", " |> Printf.printf "%s off = [%s]\n" _s in
         let tmpreg = Register64 X9 in
         tmpreg,  fields |> List.mapi (fun index value -> index, value) |> List.fold_left (fun (acc) (index, (_field, tte)) -> 
@@ -812,7 +822,16 @@ module Codegen = struct
           | Some (RDecl_Struct s) -> s
           | Some (RDecl_Enum _) -> failwith "Expected to find a struct get an enum"
           | None -> failwith "Non type decl ??? my validation is very weak" in
-        let offset = offset_of_field field struct_decl rprogram in
+
+          let generics = 
+            expr_rktype 
+            |> KosuIrTyped.Asttyhelper.RType.extract_parametrics_rktype
+            |> List.combine struct_decl.generics
+            |> List.to_seq
+            |> Hashtbl.of_seq
+          in
+        
+        let offset = offset_of_field ~generics field struct_decl rprogram in
         let struct_address = FrameManager.adress_of (struct_id, expr_rktype) fd in
         let field_address = increment_adress (Int64.neg offset) struct_address in
         let sizeof = sizeofn rprogram rval_rktype in
