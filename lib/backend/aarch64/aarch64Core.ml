@@ -209,7 +209,7 @@ let create_adress ?(offset = 0L) base =
   {base; offset}
 
 let increment_adress off adress = {
-  adress with offset = Int64.add adress.offset off
+  adress with offset = Int64.sub adress.offset off
 }
 
 module Instruction = struct
@@ -395,8 +395,7 @@ let argument_registers = [
   Register64 X4; 
   Register64 X5; 
   Register64 X6; 
-  Register64 X7; 
-  Register64 X8 
+  Register64 X7 
 ]
 
 let syscall_arguments_register = [
@@ -534,6 +533,18 @@ let copy_from_reg register (adress: address) ktype rprogram =
     [Instruction (STR {data_size = None; source = to_64bits register; adress; adress_mode = Immediat})]
   | _ -> copy_large adress register size 
 
+let load_register register (address: address) ktype ktype_size = match ktype_size with
+| 1L ->
+  let data_size =  Some (if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then (B: data_size) else SB) in
+  [Instruction (LDR {data_size; destination = to_32bits register; adress_src = address; adress_mode = Immediat})]
+| 2L -> let data_size = Some( if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then H else SH) in
+  [Instruction (LDR {data_size; destination = to_32bits register; adress_src = address; adress_mode = Immediat})]
+| 4L -> 
+  [Instruction (LDR {data_size = None; destination = to_32bits register; adress_src = address; adress_mode = Immediat})]
+| 8L ->
+  [Instruction (LDR {data_size = None; destination = to_64bits register; adress_src = address; adress_mode = Immediat})]
+| _ -> []
+
 
 module FrameManager = struct
   type frame_desc = {
@@ -552,7 +563,7 @@ let align_16 size =
 
 let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * KosuIrTyped.Asttyped.rktype) list) ~(stack_param: (string * KosuIrTyped.Asttyped.rktype) list) ~locals_var rprogram =
   let stack_param_count = stack_param |> List.length in
-  let stack_concat = fn_register_params @ locals_var in
+  let stack_concat = fn_register_params @ stack_param @ locals_var in
   let fake_tuple = stack_concat |> List.map snd in
   let locals_space =
     fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
@@ -580,16 +591,32 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
   let adress_of (variable,rktype)  frame_desc: address = 
   IdVarMap.find (variable, rktype) frame_desc.stack_map
 
-  let function_prologue ~fn_register_params rprogram fd = 
+  let function_prologue ~fn_register_params ~stack_params rprogram fd = 
     let frame_register_offset = Int64.sub (align_16 ( Int64.add 16L fd.locals_space)) 16L in
+    let stack_sub_size = align_16 ( Int64.add 16L fd.locals_space) in
     let base = Instruction ( Instruction.STP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = frame_register_offset}; adress_mode = Immediat} ) in
-    let stack_sub = Instruction ( SUB { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral (align_16 ( Int64.add 16L fd.locals_space) )} ) in
+    let stack_sub = Instruction ( SUB { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral stack_sub_size} ) in
     let alignx29 = Instruction (ADD { destination = Register64 X29; operand1 = Register64 SP; operand2 = `ILitteral frame_register_offset; offset = false}) in
+    let stack_params_offset = stack_params |> List.map (fun (_, kt) -> 
+      if KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt > 8L then KosuIrTyped.Asttyhelper.RType.rpointer kt else kt
+    ) in
+    let sp_address = create_adress ~offset:stack_sub_size (Register64 SP) in
+    let copy_stack_params_instruction = stack_params |> List.mapi (fun index value -> index, value)|> List.fold_left (fun acc (index , (name, kt)) -> 
+      let sizeofkt = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt in
+      let offset = offset_of_tuple_index index stack_params_offset rprogram in
+      let future_address_location = adress_of (name, kt) fd in
+      let tmprreg =  tmpreg_of_ktype rprogram kt in
+      let param_stack_address = increment_adress (Int64.neg offset) sp_address in
+      let load_instruction = load_register tmprreg param_stack_address kt sizeofkt in
+      let str_instruction = copy_from_reg tmprreg future_address_location kt rprogram in
+      acc @ str_instruction @ load_instruction
+    ) [] in 
+
     let copy_instructions = fn_register_params |> Util.ListHelper.combine_safe argument_registers |> List.fold_left (fun acc (register , (name, kt)) -> 
       let whereis = adress_of (name, kt) fd in
       acc @ (copy_from_reg (register) whereis kt rprogram)
       ) [] in
-      stack_sub::base::alignx29::copy_instructions
+      stack_sub::base::alignx29::copy_stack_params_instruction @  copy_instructions
 
   let function_epilogue fd = 
     let stack_space = align_16 ( Int64.add 16L fd.locals_space) in
@@ -719,8 +746,7 @@ module Codegen = struct
           let return_size = sizeofn rprogram external_func_decl.return_type in
           let return_reg = return_register_ktype return_size in
           return_reg, instructions @ set_on_stack_instructions @ call_instructions @ copy_from_reg return_reg where external_func_decl.return_type rprogram
-        | RSyscall_Decl syscall_decl -> 
-          let _ = assert (tac_parameters |> List.length < 5) in
+        | RSyscall_Decl syscall_decl ->
           let instructions, _regs = tac_parameters |> Util.ListHelper.combine_safe argument_registers |> List.fold_left_map (fun acc (reg, tte) -> 
             let reg, instruction = translate_tac_expression ~str_lit_map ~target_reg:reg rprogram fd tte in 
             acc @ instruction, reg
@@ -739,8 +765,6 @@ module Codegen = struct
           ~ktypes: typed_parameters
           |> Option.get
       in
-  
-      let _ = assert (tac_parameters |> List.length < 9) in
       let fn_label = KosuIrTyped.Asttyhelper.Function.label_of_fn_name fn_module function_decl in
       let instructions, regs = tac_parameters |> Util.ListHelper.combine_safe argument_registers |> List.fold_left_map (fun acc (reg, tte) -> 
         let reg, instruction = translate_tac_expression ~str_lit_map ~target_reg:reg rprogram fd tte in 
@@ -767,19 +791,19 @@ module Codegen = struct
             let reg_texp, instructions = translate_tac_expression rprogram ~str_lit_map fd tte in
           increment_adress (List.nth offset_list index ) accumuled_adre, acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
           ) (where, []) |> snd
-      | RVFieldAcess {first_expr = {expr_rktype; tac_expression = TEIdentifier _}; field} -> 
+      | RVFieldAcess {first_expr = {expr_rktype; tac_expression = TEIdentifier enum}; field} -> 
         let struct_decl = 
           match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye expr_rktype rprogram with
           | Some (RDecl_Struct s) -> s
           | Some (RDecl_Enum _) -> failwith "Expected to find a struct get an enum"
-          | None -> failwith "Non type decl ??? my validation is very weak" in 
+          | None -> failwith "Non type decl ??? my validation is very weak" in
         let sizeof = sizeofn rprogram rval_rktype in
         let offset = offset_of_field field struct_decl rprogram in
-        let adress = FrameManager.adress_of (field, rval_rktype) fd in
+        let adress = FrameManager.adress_of (enum, expr_rktype) fd in
         let adress = increment_adress offset adress in
         let size = compute_data_size rval_rktype sizeof in
         let tmpreg = tmpreg_of_size sizeof in
-        tmpreg, [Instruction (LDR {data_size = size; destination = tmpreg; adress_src = adress; adress_mode = Immediat})]
+        tmpreg, [Instruction (LDR {data_size = size; destination = tmpreg; adress_src = adress; adress_mode = Immediat})] @ copy_from_reg tmpreg adress rval_rktype  rprogram
       | RVAdress id -> 
         let pointee_type = rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee in
         let adress = FrameManager.adress_of (id, pointee_type) fd in
@@ -1051,12 +1075,16 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
 | TacModule tac_nodes -> 
   tac_nodes |> List.filter_map (fun node -> match node with 
   | TNFunction function_decl -> 
+    let register_param_count = List.length argument_registers in 
+    let fn_register_params, stack_param = function_decl.rparameters |> List.mapi (fun index -> fun value -> index, value) |> List.partition_map (fun (index, value) -> 
+      if index < register_param_count then Either.left value else Either.right value
+      ) in
     let stack_param_count = Int64.of_int (function_decl.stack_params_count * 8) in
     let locals_var = function_decl.locale_var |> List.filter_map (fun {locale_ty; locale} -> match locale with Locale s -> Some (s, locale_ty) | _ -> None )in
     let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in
     let asm_name = KosuIrTAC.Asttachelper.Function.label_of_fn_name current_module function_decl in
-    let fd = FrameManager.frame_descriptor ~stack_future_call:(stack_param_count) ~fn_register_params:function_decl.rparameters ~stack_param:[] ~locals_var rprogram in 
-    let prologue = FrameManager.function_prologue ~fn_register_params: function_decl.rparameters rprogram fd in
+    let fd = FrameManager.frame_descriptor ~stack_future_call:(stack_param_count) ~fn_register_params ~stack_param:stack_param ~locals_var rprogram in 
+    let prologue = FrameManager.function_prologue ~fn_register_params:function_decl.rparameters ~stack_params:stack_param rprogram fd in
     let conversion = Codegen.translate_tac_body ~str_lit_map current_module rprogram fd function_decl.tac_body in
     let epilogue = FrameManager.function_epilogue fd in
     Some (Afunction {

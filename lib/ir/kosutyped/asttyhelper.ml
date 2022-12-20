@@ -580,7 +580,7 @@ module RProgram = struct
              type_name = (rtype_decl |> Rtype_Decl.type_name))
       |> Option.some
 
-      let register_params_count = 9
+      let register_params_count = 8
 
   let rec stack_parameters_in_expression current_module rprogram = function
     | REFunction_call {modules_path; fn_name; parameters; _} -> 
