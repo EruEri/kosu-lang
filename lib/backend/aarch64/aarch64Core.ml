@@ -707,7 +707,7 @@ module Codegen = struct
       | RVExpression tac_typed_expression -> 
         let last_reg, instructions =  translate_tac_expression ~str_lit_map rprogram fd tac_typed_expression in
         last_reg, instructions @ copy_from_reg last_reg where tac_typed_expression.expr_rktype rprogram
-      | RVStruct {module_path = _; struct_name = _; fields} -> begin 
+      | RVStruct {module_path = _; struct_name = _s; fields} -> begin 
         let struct_decl = 
           match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye rval_rktype rprogram with
           | Some (RDecl_Struct s) -> s
@@ -715,14 +715,14 @@ module Codegen = struct
           | None -> failwith "Non type decl ??? my validation is very weak" in 
         let offset_list = fields 
           |> List.map (fun (field, _) -> offset_of_field field struct_decl rprogram)
-          |> List.tl
-          |> ( fun l -> l @ [0L] )
         in
+        let () = offset_list |> List.map (Printf.sprintf "%Lu") |> String.concat ", " |> Printf.printf "%s off = [%s]\n" _s in
         let tmpreg = Register64 X9 in
-        tmpreg,  fields |> List.mapi (fun index value -> index, value) |> List.fold_left (fun (accumuled_adre, acc) (index, (_field, tte)) -> 
+        tmpreg,  fields |> List.mapi (fun index value -> index, value) |> List.fold_left (fun (acc) (index, (_field, tte)) -> 
           let reg_texp, instructions = translate_tac_expression ~str_lit_map rprogram fd tte in
-          increment_adress (Int64.neg (List.nth offset_list index)) accumuled_adre , acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
-        ) (where, []) |> snd
+          let current_address = increment_adress (Int64.neg (List.nth offset_list index)) where in
+           acc @ instructions @ copy_from_reg reg_texp current_address tte.expr_rktype rprogram
+        ) []
   
       end
       | RVFunction {module_path; fn_name; generics_resolver = _; tac_parameters} -> 
@@ -806,19 +806,20 @@ module Codegen = struct
             let reg_texp, instructions = translate_tac_expression rprogram ~str_lit_map fd tte in
           increment_adress (List.nth offset_list index ) accumuled_adre, acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
           ) (where, []) |> snd
-      | RVFieldAcess {first_expr = {expr_rktype; tac_expression = _} as tte; field} -> 
+      | RVFieldAcess {first_expr = {expr_rktype; tac_expression = TEIdentifier struct_id}; field} -> 
         let struct_decl = 
           match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye expr_rktype rprogram with
           | Some (RDecl_Struct s) -> s
           | Some (RDecl_Enum _) -> failwith "Expected to find a struct get an enum"
           | None -> failwith "Non type decl ??? my validation is very weak" in
-        let last_reg , fetch_instructions = translate_tac_expression ~str_lit_map ~force_address:true rprogram fd tte in
-        let sizeof = sizeofn rprogram rval_rktype in
         let offset = offset_of_field field struct_decl rprogram in
+        let struct_address = FrameManager.adress_of (struct_id, expr_rktype) fd in
+        let field_address = increment_adress (Int64.neg offset) struct_address in
+        let sizeof = sizeofn rprogram rval_rktype in
+        
         let size = compute_data_size rval_rktype sizeof in
-        let tmpreg = tmpreg_of_size sizeof in
-        let address = create_adress ~offset last_reg in
-        tmpreg, (Line_Com (Comment ("Field access of "^field)))::fetch_instructions @[Instruction (LDR {data_size = size; destination = tmpreg; adress_src = address; adress_mode = Immediat})] @ copy_from_reg tmpreg address rval_rktype  rprogram
+        let tmpreg = tmpreg_of_size_2 sizeof in
+        tmpreg, (Line_Com (Comment ("Field access of "^field)))::[Instruction (LDR {data_size = size; destination = tmpreg; adress_src = field_address; adress_mode = Immediat})] @ copy_from_reg tmpreg where rval_rktype rprogram
       | RVAdress id -> 
         let pointee_type = rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee in
         let adress = FrameManager.adress_of (id, pointee_type) fd in
