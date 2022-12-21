@@ -896,19 +896,20 @@ module Codegen = struct
         let enum_type_list = enum_tte_list |> List.map (fun {expr_rktype; _} -> expr_rktype) in
         let offset_list = enum_tte_list
         |> List.mapi (fun index {expr_rktype = _; _} -> offset_of_tuple_index index enum_type_list rprogram)
-        |> List.tl
-        |> ( fun l -> l @ [0L] )
       in
+      let () = offset_list |> List.map (Printf.sprintf "%Lu") |> String.concat ", " |> Printf.printf "%s::%s off = [%s]\n" enum_decl.renum_name variant in
       let last_reg = tmpreg_of_size (sizeofn rprogram rval_rktype) in
         last_reg, 
-        where |> Option.map (fun waddress -> 
-          enum_tte_list 
-          |> List.mapi (fun index value -> index, value) 
-          |> List.fold_left (fun (accumuled_adre, acc) (index, tte) -> 
-            let reg_texp, instructions = translate_tac_expression rprogram ~str_lit_map fd tte in
-          increment_adress (List.nth offset_list index ) accumuled_adre, acc @ instructions @ copy_from_reg reg_texp accumuled_adre tte.expr_rktype rprogram
-          ) (waddress, []) |> snd
-        ) |> Option.value ~default:[]
+
+        enum_tte_list |> List.mapi (fun index value -> index, value)  |> List.fold_left (fun acc (index, tte) -> 
+          let reg_texp, instructions = translate_tac_expression rprogram ~str_lit_map fd tte in 
+          let copy_instructions = where |> Option.map (fun waddress -> 
+            let current_address = increment_adress (Int64.neg (List.nth offset_list index)) waddress in
+            copy_from_reg reg_texp current_address tte.expr_rktype rprogram
+          ) |> Option.value ~default:[] in
+          acc @ instructions @ copy_instructions
+        ) []
+
       | RVDiscard | RVLater -> tmp32reg, []
       | RVBuiltinBinop { binop = TacBool (TacOr); blhs; brhs} -> 
         let r9 = tmpreg_of_ktype_2 rprogram brhs.expr_rktype in
