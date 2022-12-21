@@ -597,7 +597,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
   in
   { stack_param_count; locals_space; stack_map = map; discarded_values }
 
-  let adress_of (variable,rktype) frame_desc = 
+  let address_of (variable,rktype) frame_desc = 
   if List.mem (variable, rktype) frame_desc.discarded_values then None else Some (IdVarMap.find (variable, rktype) frame_desc.stack_map)
 
   let function_prologue ~fn_register_params ~stack_params rprogram fd = 
@@ -613,7 +613,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
     let copy_stack_params_instruction = stack_params |> List.mapi (fun index value -> index, value)|> List.fold_left (fun acc (index , (name, kt)) -> 
       let sizeofkt = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt in
       let offset = offset_of_tuple_index index stack_params_offset rprogram in
-      let future_address_location = adress_of (name, kt) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "On stack setup null address") in
+      let future_address_location = address_of (name, kt) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "On stack setup null address") in
       let tmprreg =  tmpreg_of_ktype rprogram kt in
       let param_stack_address = increment_adress (Int64.neg offset) sp_address in
       let load_instruction = load_register tmprreg param_stack_address kt sizeofkt in
@@ -622,7 +622,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
     ) [] in 
 
     let copy_instructions = fn_register_params |> Util.ListHelper.combine_safe argument_registers |> List.fold_left (fun acc (register , (name, kt)) -> 
-      let whereis = adress_of (name, kt) fd  |> (fun adr -> match adr with Some a -> a | None -> failwith "From register setup null address") in
+      let whereis = address_of (name, kt) fd  |> (fun adr -> match adr with Some a -> a | None -> failwith "From register setup null address") in
       acc @ (copy_from_reg (register) whereis kt rprogram)
       ) [] in
       stack_sub::base::alignx29::copy_stack_params_instruction @  copy_instructions
@@ -648,7 +648,7 @@ module Codegen = struct
     let base = Instruction.STP {x1 = R29; x2 = R30; base = SP; offset = Int64.to_int (Int64.sub fd.locals_space 2L); adress_mode = Immediat} in
     let stack_sub = Instruction.isub (SP) ~srcl:(`Register SP) ~srcr:(`Litteral fd.locals_space) in
     let copy_instructions = fn_register_params |> Util.ListHelper.combine_safe Arm64ABI.argument_registers |> List.fold_left (fun acc (register , (name, kt)) -> 
-      let whereis = adress_of (name, kt) fd in
+      let whereis = address_of (name, kt) fd in
       acc @ (copy_from_reg (register) whereis kt rprogram)
       ) [] in
     base::stack_sub @ copy_instructions *)
@@ -673,7 +673,7 @@ module Codegen = struct
       let rreg = match isize with I64 -> to_64bits target_reg | _ -> to_32bits target_reg in
       rreg, Instruction (Mov {destination = rreg; flexsec_operand = `ILitteral int64})::[]
     |({tac_expression = TEIdentifier id; expr_rktype}) -> 
-      let adress = FrameManager.adress_of (id, expr_rktype) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "tte identifier setup null address") in
+      let adress = FrameManager.address_of (id, expr_rktype) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "tte identifier setup null address") in
       let sizeof = sizeofn rprogram expr_rktype in
       let rreg = if sizeof > 4L then to_64bits target_reg else to_32bits target_reg in
       if is_register_size sizeof && (not force_address)
@@ -856,7 +856,7 @@ module Codegen = struct
           in
         
         let offset = offset_of_field ~generics field struct_decl rprogram in
-        let struct_address = FrameManager.adress_of (struct_id, expr_rktype) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "field access null address") in
+        let struct_address = FrameManager.address_of (struct_id, expr_rktype) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "field access null address") in
         let field_address = increment_adress (Int64.neg offset) struct_address in
         let sizeof = sizeofn rprogram rval_rktype in
         
@@ -868,13 +868,13 @@ module Codegen = struct
         tmpreg, (Line_Com (Comment ("Field access of "^field)))::copy_instructions
       | RVAdress id -> 
         let pointee_type = rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee in
-        let adress = FrameManager.adress_of (id, pointee_type) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "address of null address") in
+        let adress = FrameManager.address_of (id, pointee_type) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "address of null address") in
         let copy_instruction =  where |> Option.map (fun waddress -> 
           [Instruction (ADD {destination = tmp64reg; operand1 = adress.base; operand2 = `ILitteral adress.offset; offset = false})] @ copy_from_reg tmp64reg waddress rval_rktype rprogram
           ) |> Option.value ~default:[] in
         tmp64reg, copy_instruction 
       | RVDefer id ->
-        let adress = FrameManager.adress_of (id, rval_rktype |> KosuIrTyped.Asttyhelper.RType.rpointer) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "defer of null address") in
+        let adress = FrameManager.address_of (id, rval_rktype |> KosuIrTyped.Asttyhelper.RType.rpointer) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "defer of null address") in
         let load_instruction = [Instruction (LDR {data_size = None; destination = tmp64reg; adress_src = adress; adress_mode = Immediat})] in
         let sizeof = sizeofn rprogram rval_rktype in
         let last_reg = tmpreg_of_size sizeof in
@@ -1035,12 +1035,12 @@ module Codegen = struct
 
 let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameManager.frame_desc) = function
       | STacDeclaration {identifier; trvalue} | STacModification {identifier; trvalue} ->
-        let address = FrameManager.adress_of (identifier, trvalue.rval_rktype) fd in
+        let address = FrameManager.address_of (identifier, trvalue.rval_rktype) fd in
         let last_reg, instructions = translate_tac_rvalue ~str_lit_map ~where:address current_module rprogram fd trvalue in
         last_reg, instructions
       | STDerefAffectation {identifier; trvalue} -> 
         let tmpreg = tmpreg_of_ktype rprogram (KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype) in
-        let intermediary_adress = FrameManager.adress_of (identifier, KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype) fd in
+        let intermediary_adress = FrameManager.address_of (identifier, KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype) fd in
         let instructions = Instruction ( LDR { data_size = None; destination = tmpreg; adress_src = intermediary_adress |> Option.get; adress_mode = Immediat} ) in
         let true_adress = create_adress tmpreg in
         let last_reg, true_instructions = translate_tac_rvalue ~str_lit_map ~where:(Some true_adress) current_module rprogram fd trvalue  in
