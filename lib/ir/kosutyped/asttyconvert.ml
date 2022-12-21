@@ -22,9 +22,14 @@ open KosuFrontend.Typecheck
 open KosuFrontend.Ast.Env
 open KosuFrontend
 
-module Sizeof = struct
+module Sizeof = struct  
   let ( ++ ) = Int64.add
   let ( -- ) = Int64.sub
+
+
+  let align n b =
+  let m = Int64.unsigned_rem n b in
+  if m = 0L then n else n ++ b -- m
 
   let rec size calcul program rktype =
     match rktype with
@@ -169,7 +174,7 @@ module Sizeof = struct
          (0L, 0L, 0L, false)
     |> fun (x, _, _, _) -> x
   
-  let offset_of_tuple_index ?(generics = Hashtbl.create 0) index rktypes rprogram =
+  let _offset_of_tuple_index ?(generics = Hashtbl.create 0) index rktypes rprogram =
     let ( ++ ) = Int64.add in
     let ( -- ) = Int64.sub in
     rktypes
@@ -215,6 +220,34 @@ module Sizeof = struct
                false ))
          (0L, 0L, 0L, false)
     |> fun (x, _, _, _) -> x
+
+    let offset_of_tuple_index ?(generics = Hashtbl.create 0) index rktypes rprogram = 
+      let ( ++ ) = Int64.add in
+      
+      rktypes
+      |> List.mapi (fun i v -> (i, v))
+      |> List.fold_left (fun ((acc_size, acc_align, found) as acc) (tindex, rktype) -> 
+        let comming_size =
+          rktype
+          |> RType.remap_generic_ktype generics
+          |> size `size rprogram
+        in
+        let comming_align =
+          rktype
+          |> RType.remap_generic_ktype generics
+          |> size `align rprogram
+        in
+
+        let aligned = align acc_size comming_align in
+        let new_align = max acc_align comming_align in
+        
+        if found then acc
+        else if index = tindex 
+          then (aligned, new_align, true)
+        else (aligned ++ comming_size, new_align, found)
+
+
+      ) (0L, 0L, false) |> (function a, _ , _ -> a)
 end
 
 let restrict_typed_expression restrict typed_expression =
