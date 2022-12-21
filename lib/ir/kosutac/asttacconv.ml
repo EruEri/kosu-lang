@@ -719,9 +719,6 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~discarded_val
           let () = 
           match tac_rvalue.tac_expression with 
           | TEIdentifier id -> 
-            let () = Printf.printf "Identifier = %s\n\n" id in
-            
-            let () = Printf.printf "Exist in table = %b\n" (Hashtbl.mem map id) in
             let () = Hashtbl.remove map id in
             let () = Hashtbl.add discarded_value id tac_rvalue.expr_rktype in
             ()
@@ -797,6 +794,10 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~discarded_val
           | STacDeclaration {identifier = tmp_name; trvalue}, 
           STacModification {identifier = true_var; trvalue = {rval_rktype = _; rvalue = RVExpression {expr_rktype = _; tac_expression = TEIdentifier id}}} when tmp_name = id ->
             STacModification {identifier = true_var; trvalue}::(reduce_variable_used_statements q)
+
+        | STacDeclaration {identifier = tmp_name; trvalue}, 
+            STDerefAffectation {identifier = true_var; trvalue = {rval_rktype = _; rvalue = RVExpression {expr_rktype = _; tac_expression = TEIdentifier id}}} when tmp_name = id ->
+              STDerefAffectation {identifier = true_var; trvalue}::(reduce_variable_used_statements q)
         | _ -> t1::t2::(reduce_variable_used_statements q)
       end 
   and reduce_variable_used_body {label; body = (smtms, expr)} = 
