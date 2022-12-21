@@ -128,99 +128,6 @@ module Sizeof = struct
   let sizeof program ktype = size `size program ktype
   let alignmentof program ktype = size `align program ktype
 
-  let offset_of_field ?(generics = Hashtbl.create 0) field rstruct_decl rprogram =
-    let ( ++ ) = Int64.add in
-    let ( -- ) = Int64.sub in
-    rstruct_decl.rfields
-    |> List.fold_left
-         (fun ((acc_size, acc_align, acc_packed_size, found) as acc)
-              (sfield, rktype) ->
-           let comming_size =
-             rktype
-             |> RType.remap_generic_ktype generics
-             |> size `size rprogram
-           in
-           let comming_align =
-             rktype
-             |> RType.remap_generic_ktype generics
-             |> size `align rprogram
-           in
-           let quotient = Int64.unsigned_div acc_size comming_align in
-           let reminder = Int64.unsigned_rem acc_size comming_align in
-           let new_pacced_size = comming_size ++ acc_packed_size in
-  
-           let add_size =
-             if new_pacced_size < acc_size then 0L
-             else if comming_size < acc_align then acc_align
-             else comming_size
-           in
-  
-           let padded_size =
-             if reminder = 0L || acc_size = 0L then acc_size
-             else Int64.mul comming_align (quotient ++ 1L)
-           in
-  
-           if found then acc
-           else if sfield = field then
-             ( padded_size ++ add_size -- comming_size,
-               max comming_align acc_align,
-               new_pacced_size,
-               true )
-           else
-             ( padded_size ++ add_size,
-               max comming_align acc_align,
-               new_pacced_size,
-               false ))
-         (0L, 0L, 0L, false)
-    |> fun (x, _, _, _) -> x
-  
-  let _offset_of_tuple_index ?(generics = Hashtbl.create 0) index rktypes rprogram =
-    let ( ++ ) = Int64.add in
-    let ( -- ) = Int64.sub in
-    rktypes
-    |> List.mapi (fun i v -> (i, v))
-    |> List.fold_left
-         (fun ((acc_size, acc_align, acc_packed_size, found) as acc)
-              (tindex, rktype) ->
-           let comming_size =
-             rktype
-             |> RType.remap_generic_ktype generics
-             |> size `size rprogram
-           in
-           let comming_align =
-             rktype
-             |> RType.remap_generic_ktype generics
-             |> size `align rprogram
-           in
-           let quotient = Int64.unsigned_div acc_size comming_align in
-           let reminder = Int64.unsigned_rem acc_size comming_align in
-           let new_pacced_size = comming_size ++ acc_packed_size in
-  
-           let add_size =
-             if new_pacced_size < acc_size then 0L
-             else if comming_size < acc_align then acc_align
-             else comming_size
-           in
-  
-           let padded_size =
-             if reminder = 0L || acc_size = 0L then acc_size
-             else Int64.mul comming_align (quotient ++ 1L)
-           in
-  
-           if found then acc
-           else if index = tindex then
-             ( padded_size ++ add_size -- comming_size,
-               max comming_align acc_align,
-               new_pacced_size,
-               true )
-           else
-             ( padded_size ++ add_size,
-               max comming_align acc_align,
-               new_pacced_size,
-               false ))
-         (0L, 0L, 0L, false)
-    |> fun (x, _, _, _) -> x
-
     let offset_of_tuple_index ?(generics = Hashtbl.create 0) index rktypes rprogram = 
       let ( ++ ) = Int64.add in
       
@@ -245,9 +152,20 @@ module Sizeof = struct
         else if index = tindex 
           then (aligned, new_align, true)
         else (aligned ++ comming_size, new_align, found)
-
-
       ) (0L, 0L, false) |> (function a, _ , _ -> a)
+
+      let offset_of_field ?(generics = Hashtbl.create 0) field rstruct_decl rprogram = 
+  
+        let field_index = rstruct_decl.rfields 
+        |> List.mapi (fun index value -> index, value) 
+        |> List.find_map (fun (index, (sfield, _)) -> 
+          if field = sfield 
+            then Some index 
+        else None)
+        |> Option.get in
+  
+        let rktypes = rstruct_decl.rfields |> List.map snd in
+        offset_of_tuple_index ~generics field_index rktypes rprogram
 end
 
 let restrict_typed_expression restrict typed_expression =
