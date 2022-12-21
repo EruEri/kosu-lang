@@ -179,6 +179,7 @@ type tac_function_decl = {
   tac_body : tac_body;
   stack_params_count: int;
   locale_var : tac_typed_locale_variable list;
+  discarded_values: (string * rktype) list
 }
 
 type tac_operator_decl =
@@ -189,6 +190,7 @@ type tac_operator_decl =
       tac_body : tac_body;
       stack_params_count: int;
       locale_var : tac_typed_locale_variable list;
+      discarded_values: (string * rktype) list
     }
   | TacBinary of {
       op : parser_binary_op;
@@ -197,6 +199,7 @@ type tac_operator_decl =
       tac_body : tac_body;
       stack_params_count: int;
       locale_var : tac_typed_locale_variable list;
+      discarded_values: (string * rktype) list
     }
 
 type tac_module_node =
