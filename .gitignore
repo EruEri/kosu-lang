@@ -3,6 +3,7 @@ _build
 *.S
 .DS_Store
 *.c
-Mafefile
+Makefile
 kosuc
 size
+hello*
