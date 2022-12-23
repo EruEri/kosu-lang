@@ -12,6 +12,26 @@ end
 
 module IdVarMap = Map.Make (IdVar)
 
+module Immediat = struct
+
+  let mask_6_8bytes = 0xFFFF_0000_0000_0000L
+  let mask_4_6bytes = 0x0000_FFFF_0000_0000L
+  let mask_2_4bytes = 0x0000_0000_FFFF_0000L
+  let mask_0_2bytes = 0x0000_0000_0000_FFFFL
+  let max_16bits_immediat = 65535L
+  let min_16bits_immediat = -65535L
+
+  let is_direct_immediat int16 = 
+  int16 >= min_16bits_immediat && int16 <= max_16bits_immediat
+
+  let split n = 
+    let int16 = Int64.logand mask_0_2bytes n in
+    let int32 = Int64.logand mask_2_4bytes n in
+    let int48 = Int64.logand mask_4_6bytes n in
+    let int64 = Int64.logand mask_6_8bytes n in
+    (Int64.shift_right_logical int64 32, Int64.shift_right_logical int48 16 , Int64.shift_right_logical int32 8 , int16)
+end
+
 type adress_mode =
 | Immediat (* out = *intptr; *)
 | Prefix (* out = *(++intptr);*)
@@ -217,6 +237,10 @@ let increment_adress off adress = {
 
 module Instruction = struct
   
+  type shift = 
+  | SH16
+  | SH32
+  | SH48
 
 
   type instruction =
@@ -225,6 +249,11 @@ module Instruction = struct
     destination : Register.register;
     (* Careful int max INT16 *)
     flexsec_operand : src;
+  }
+  | Movk of {
+    destination : Register.register;
+    operand : src;
+    shift: shift option
   }
 | Not of {
  
@@ -653,9 +682,21 @@ module Codegen = struct
       ) [] in
     base::stack_sub @ copy_instructions *)
 
+    let mov_integer register n = 
+      let open Immediat in
+      if is_direct_immediat n then 
+        Instruction (Mov {destination = register; flexsec_operand = `ILitteral n})::[]
+    else
+      let (int64, int48, int32, int16) = split n in
+      let base = [Instruction (Mov {destination = register; flexsec_operand = `ILitteral int16})] in
+      base
+      |> (fun l -> if int32 = 0L then l else l @ [Instruction (Movk {destination = register; operand = `ILitteral int32; shift = Some SH16})])
+      |> (fun l -> if int48 = 0L then l else l @ [Instruction (Movk {destination = register; operand = `ILitteral int48; shift = Some SH32})])
+      |> (fun l -> if int64 = 0L then l else l @ [Instruction (Movk {destination = register; operand = `ILitteral int32; shift = Some SH16})])
+
   let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
 
-  let translate_tac_expression ~str_lit_map ?(force_address = false) ?(target_reg = Register32 W9) rprogram (fd: FrameManager.frame_desc) = 
+  let translate_tac_expression ~str_lit_map ?(target_reg = Register32 W9) rprogram (fd: FrameManager.frame_desc) = 
     function
     |({tac_expression = TEString s; expr_rktype = _}) -> 
       let reg64 = to_64bits target_reg in
@@ -671,12 +712,12 @@ module Codegen = struct
       s32, Instruction ( Mov { destination = s32; flexsec_operand = `ILitteral 1L})::[]
     |({tac_expression = TEInt (_, isize, int64); _}) -> 
       let rreg = match isize with I64 -> to_64bits target_reg | _ -> to_32bits target_reg in
-      rreg, Instruction (Mov {destination = rreg; flexsec_operand = `ILitteral int64})::[]
+      rreg, mov_integer rreg int64
     |({tac_expression = TEIdentifier id; expr_rktype}) -> 
       let adress = FrameManager.address_of (id, expr_rktype) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "tte identifier setup null address") in
       let sizeof = sizeofn rprogram expr_rktype in
       let rreg = if sizeof > 4L then to_64bits target_reg else to_32bits target_reg in
-      if is_register_size sizeof && (not force_address)
+      if is_register_size sizeof
         then 
           rreg, [
             Instruction (LDR {data_size = compute_data_size expr_rktype sizeof; destination = rreg; adress_src = adress; adress_mode = Immediat})
@@ -1177,7 +1218,7 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
       if index < register_param_count then Either.left value else Either.right value
       ) in
     let stack_param_count = Int64.of_int (function_decl.stack_params_count * 8) in
-    let locals_var = function_decl.locale_var |> List.filter_map (fun {locale_ty; locale} -> match locale with Locale s -> Some (s, locale_ty) | _ -> None )in
+    let locals_var = function_decl.locale_var |> List.map (fun {locale_ty; locale} -> match locale with Locale s -> (s, locale_ty) | Enum_Assoc_id {name; _} -> (name, locale_ty) )in
     let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in
     let asm_name = KosuIrTAC.Asttachelper.Function.label_of_fn_name current_module function_decl in
     let fd = FrameManager.frame_descriptor ~stack_future_call:(stack_param_count) ~fn_register_params ~stack_param:stack_param ~locals_var ~discarded_values:(function_decl.discarded_values) rprogram in 

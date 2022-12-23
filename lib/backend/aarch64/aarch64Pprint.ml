@@ -97,9 +97,15 @@ let string_of_adressage adress_mode {base; offset} =
     (string_of_register base) 
     ((if offset = 0L then None else Some offset)  |> Option.map (sprintf ", #%Ld") |> Option.value ~default:"")
 
+let value_of_shift = function
+| SH16 -> 16
+| SH32 -> 32
+| SH48 -> 48
 let string_of_instruction = function
 | Mov {destination; flexsec_operand} -> 
   sprintf "mov %s, %s" (string_of_register destination) (string_of_src flexsec_operand)
+| Movk {destination; operand; shift} ->
+  sprintf "movk %s, %s%s" (string_of_register destination) (string_of_src operand) (shift |> Option.map (fun sh -> sprintf ", lsl %d" (value_of_shift sh)) |> Option.value ~default:"")
 | Not {destination; source} ->
   sprintf "mvn %s, %s" (string_of_register destination) (string_of_src source)
 | Neg {destination; source} -> 
