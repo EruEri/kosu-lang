@@ -20,12 +20,12 @@ open KosuIrTyped
 open KosuIrTAC
 open KosuCli
 
-let () =
+let code =
   Clap.description "kosuc - The Kosu compiler";
 
-  let _output = Clap.optional_string ~long:"output" ~short:'o' () in
+  let output = Clap.optional_string ~long:"output" ~short:'o' () in
 
-  let _is_target_asm =
+  let is_target_asm =
     Clap.flag ~set_short:'S' ~description:"Produce an assembly file" false
   in
 
@@ -33,13 +33,16 @@ let () =
     Clap.flag ~set_short:'c' ~description:"Produce an object file" false
   in
 
-  let files = Clap.list_string ~description:"files" ~placeholder:"FILES" () in
+  let target_archi = Clap.mandatory Cli.archi_clap_type ~long:"target" ~description:"Architecture compilation target" ~placeholder:"Target" () in
+  let cc = Clap.flag ~set_long:"cc" ~description:"Generate executable by using a C compiler" false in
 
-  Clap.close ();
+  let files = Clap.list_string  ~description:"files" ~placeholder:"FILES" () in
+
+  let () = Clap.close () in
 
   let modules_opt = Cli.files_to_ast_program files in
 
-  match modules_opt with
+  let tac_program =  match modules_opt with
   | Error e -> (
       match e with
       | No_input_file -> raise (Invalid_argument "no Input file")
@@ -69,6 +72,32 @@ let () =
           in
           let () = Printf.printf "Successfult converted\n\n" in
           let tac_program = Asttacconv.tac_program_of_rprogram typed_program in
-          let () = KosuBackend.Arm.Aarch64Codegen.compile_asm_from_tac tac_program in
-          ())
-          
+          tac_program 
+          ) 
+        
+  in
+
+  let code =  match is_target_asm with
+  | true -> begin 
+    match target_archi with
+    | Cli.Arm64e -> 
+      let _files  = Aarch64.Aarch64Codegen.compile_asm_from_tac tac_program in
+      0
+    | Cli.X86_64 -> failwith "X86_64 Support to do"
+  end
+  | false -> 
+    let outfile = output |> Option.value ~default:"a.out" in
+    begin match target_archi with
+    | Cli.X86_64 -> failwith "X86_64 Support to do"
+    | Cli.Arm64e -> begin 
+      if cc then
+        let asm_file = Aarch64.Aarch64Codegen.compile_asm_from_tac_tmp tac_program in
+        Cli.cc_compilation outfile asm_file
+      else
+        failwith "Native compiling pipeline with as and ld to do"
+    end
+  end
+in
+ code ;;
+
+let () = exit code

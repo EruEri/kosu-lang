@@ -19,6 +19,24 @@ open KosuFrontend.Position
 
 type filename_error = Mutiple_dot_in_filename | No_extension | Unknow_error
 
+type archi_target = 
+  | X86_64
+  | Arm64e
+
+let archi_parse = function
+| "x86_64" -> Some X86_64
+| "arm64e" -> Some Arm64e
+| _ -> None
+
+let string_of_archi = function
+| X86_64 -> "x86_64"
+| Arm64e -> "arm64e"
+
+let archi_clap_type = Clap.typ ~name:"target" ~dummy:X86_64  ~parse:archi_parse ~show:string_of_archi
+
+let cc_compilation outputfile files = 
+  Sys.command (Printf.sprintf "cc -o %s %s" outputfile (files |> String.concat " "))
+
 type cli_error =
   | No_input_file
   | Parser_Error of string * position

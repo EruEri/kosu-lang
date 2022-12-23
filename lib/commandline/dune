@@ -17,4 +17,4 @@
 
 (library
  (name kosuCli)
- (libraries kosuFrontend kosuIrTyped kosuIrTAC))
+ (libraries kosuFrontend kosuIrTyped kosuIrTAC clap))
