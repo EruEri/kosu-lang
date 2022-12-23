@@ -235,6 +235,9 @@ let increment_adress off adress = {
   adress with offset = Int64.sub adress.offset off
 }
 
+let asm_const_name current_module const_name = 
+  Printf.sprintf "_%s_%s" const_name (current_module |> String.map (fun c -> if c = ':' then '_' else c))
+
 module Instruction = struct
   
   type shift = 
@@ -412,7 +415,8 @@ type raw_line =
 
 type line = (raw_line * comment option)
 
-let load_label label register = 
+let load_label ?module_path label register = 
+  let label = module_path |> Option.map (fun mp -> asm_const_name mp label) |> Option.value ~default:label in
   let register = to_64bits register in
   let load =  Instruction ( ADRP {dst = register; label}) in
   let add = Instruction ( ADD {destination = register; operand1 = register; operand2 = `Label label; offset = true;} ) in
@@ -733,13 +737,13 @@ module Codegen = struct
         Line_Com (Comment (Printf.sprintf "sizeof %s" (KosuIrTyped.Asttypprint.string_of_rktype kt))); 
         Instruction (Mov {destination = r64; flexsec_operand = `ILitteral sizeof})
       ]
-    | ({tac_expression = TEConst {name; _}; expr_rktype = RTString_lit}) ->
+    | ({tac_expression = TEConst {name; module_path}; expr_rktype = RTString_lit}) ->
       let reg64 = to_64bits target_reg in
-      target_reg, load_label name reg64
-    | ({tac_expression = TEConst {name; _}; expr_rktype = RTInteger(_, size) as kt}) ->
+      target_reg, load_label ~module_path name reg64
+    | ({tac_expression = TEConst {name; module_path}; expr_rktype = RTInteger(_, size) as kt}) ->
       let data_size = compute_data_size kt (Int64.of_int @@ KosuFrontend.Ast.Isize.size_of_isize size) in
       let tmp11 = tmp64reg_4 in
-      let load_instruction = load_label name tmp11 in
+      let load_instruction = load_label ~module_path name tmp11 in
       let fetch = (Instruction (LDR {data_size; destination = target_reg; adress_src = create_adress tmp11; adress_mode = Immediat })) in
       target_reg,  load_instruction @ [fetch]
 
@@ -1232,12 +1236,12 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
   | TNOperator _ -> failwith "TNOperator todo"
   | TNConst {rconst_name; value = { rktype = RTInteger _; rexpression = REInteger (_ssign, size, value)}} -> 
     Some (AConst {
-      asm_const_name = rconst_name;
+      asm_const_name = asm_const_name current_module rconst_name;
       value = `IntVal (size, value)
     })
   | TNConst {rconst_name; value = { rktype = RTFloat; rexpression = REFloat f}} ->
     Some (AConst {
-      asm_const_name = rconst_name;
+      asm_const_name = asm_const_name current_module rconst_name;
       value = `IntVal (KosuFrontend.Ast.I64, Int64.bits_of_float f)
     })
   | TNConst {rconst_name = _; value = {rktype = _; rexpression = REstring _s}} ->
