@@ -24,31 +24,31 @@ let if_count = ref 0
 let cases_count = ref 0
 let switch_count = ref 0
 let make_tmp = Printf.sprintf "$tmp%u"
-let make_goto_label ~count_if = Printf.sprintf "if.%u.%u" count_if
-let make_end_label ~count_if = Printf.sprintf "if.%u.end" count_if
-let make_case_goto_label ~cases_count = Printf.sprintf "case.%u.%u" cases_count
+let make_goto_label ~count_if = Printf.sprintf "Lif.%u.%u" count_if
+let make_end_label ~count_if = Printf.sprintf "Lif.%u.end" count_if
+let make_case_goto_label ~cases_count = Printf.sprintf "Lcase.%u.%u" cases_count
 
 let make_case_goto_cond_label ~cases_count =
-  Printf.sprintf "case.%u.%u.cond" cases_count
+  Printf.sprintf "Lcase.%u.%u.cond" cases_count
 
 (**
   [case.%u.end]    
 *)
-let make_case_end_label ~cases_count = Printf.sprintf "case.%u.end" cases_count
+let make_case_end_label ~cases_count = Printf.sprintf "Lcase.%u.end" cases_count
 
 (**
     [case.%u.else]
 *)
-let make_case_else ~cases_count = Printf.sprintf "case.%u.else" cases_count
+let make_case_else ~cases_count = Printf.sprintf "Lcase.%u.else" cases_count
 
 let make_switch_goto_label ~switch_count =
-  Printf.sprintf "switch.%u.%u" switch_count
+  Printf.sprintf "Lswitch.%u.%u" switch_count
 
 let make_switch_wild_label ~switch_count =
-  Printf.sprintf "switch.%u.wildcard" switch_count
+  Printf.sprintf "Lswitch.%u.wildcard" switch_count
 
 let make_switch_end_label ~switch_count =
-  Printf.sprintf "switch.%u.end" switch_count
+  Printf.sprintf "Lswitch.%u.end" switch_count
 
 (**
   [post_inc] [n] increment [n] by [1] and returns the value of [n] before the incrementation 

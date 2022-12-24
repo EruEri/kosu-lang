@@ -1168,8 +1168,8 @@ let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameM
           translate_tac_body ~str_lit_map ~end_label:(Some sw_exit_label) current_module rprogram fd body
         ) |> Option.value ~default:[] in
         tmp64reg, condition_switch_instruction @ copy_tag::cmp_instrution_list @ wildcard_case_jmp @ fn_block @ wildcard_body_block
-      | SCases {cases; else_tac_body = _; exit_label = _} -> 
-        let _ = cases |> List.map (fun scases -> 
+      | SCases {cases; else_tac_body; exit_label} -> 
+        let cases_body, cases_condition = cases |> List.map (fun scases -> 
           let setup_next_cmp_instr = scases.condition_label |> Option.map (fun label -> Instruction (B { cc = None; label})) |> Option.to_list in
           let setup_condition_insts = scases.statement_for_condition |> List.map (fun stmt -> 
            snd @@ translate_tac_statement ~str_lit_map current_module rprogram fd stmt 
@@ -1180,10 +1180,11 @@ let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameM
           let if_false_instruction = Instruction (B {cc = None; label = scases.jmp_false}) in
           let body_instruction = translate_tac_body ~str_lit_map ~end_label:(Some scases.end_label) current_module rprogram fd scases.tac_body in
           body_instruction, setup_next_cmp_instr @ setup_condition_insts @ condition @ [cmp; if_true_instruction; if_false_instruction]
-
-        ) in
-        
-        failwith ""
+        ) |> List.split |> (fun (lhs, rhs) -> List.flatten lhs, List.flatten rhs) in
+        let _else_jump = Instruction (B {cc = None; label = else_tac_body.label}) in
+        let end_label_instruction = Label (exit_label) in
+        let else_body_instruction = translate_tac_body ~str_lit_map ~end_label:(Some exit_label) current_module rprogram fd else_tac_body in
+        tmp64reg, cases_condition @ cases_body @ else_body_instruction @ [end_label_instruction]
 and translate_tac_body ~str_lit_map ?(end_label = None) current_module rprogram (fd: FrameManager.frame_desc) {label; body} = 
   let label_instr = Label label in
   let stmt_instr = body |> fst |> List.map (fun stmt -> snd @@ translate_tac_statement ~str_lit_map current_module rprogram fd stmt) |> List.flatten  in
