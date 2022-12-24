@@ -78,6 +78,28 @@ type condition_code =
 | AL  (** Always*)
 
 module Register = struct 
+  type registerf64b =
+  | D0
+  | D1
+  | D2
+  | D3
+  | D4
+  | D5
+  | D6
+  | D7
+  | D8 (* XR *)
+  | D9
+  | D10
+  | D11
+  | D12
+  | D13
+  | D14
+  | D15
+  | D16
+  | D29
+  | D30
+  | DZR
+
   type register64b =
   | X0
   | X1
@@ -126,6 +148,7 @@ module Register = struct
   
   
   type register = 
+  | FRegister64 of registerf64b
   | Register64 of register64b
   | Register32 of register32b
 
@@ -175,10 +198,39 @@ module Register = struct
   | XZR -> WZR 
   | SP -> WSP
 
-  let return_register_ktype = function
+  let float64reg_of_64bitsreg = function
+  | X0 -> D0
+  | X1 -> D1
+  | X2 -> D2
+  | X3 -> D3
+  | X4 -> D4
+  | X5 -> D5
+  | X6 -> D6
+  | X7 -> D7
+  | X8 -> D8
+  | X9 -> D9
+  | X10 -> D10
+  | X11 -> D11
+  | X12 -> D12
+  | X13 -> D13
+  | X14 -> D14
+  | X15 -> D15
+  | X16 -> D16
+  | X29 -> D29
+  | X30 -> D30
+  | XZR -> DZR
+  | SP -> failwith "SP has not float equivalent" 
+
+
+  let return_register_ktype ~float = function
+  | _ when float -> FRegister64 D0 
   | 1L | 2L | 4L -> Register32 W0
   | 8L -> Register64 X0
   | _ -> Register64 X8
+
+  let is_f64_reg = function
+  | FRegister64 _ -> true
+  | _ -> false
 
   let are_aliased src dst = 
     match src, dst with
@@ -193,30 +245,44 @@ module Register = struct
   let to_64bits = function
   | Register32 reg -> Register64 (reg64_of_32 reg)
   | (Register64 _) as t -> t
+  | FRegister64 _ as t -> t
 
   let to_32bits = function
+  | FRegister64 _ as t -> t
   | Register64 reg -> Register32 (reg32_of_64 reg)
   | (Register32 _) as t -> t
+
+  let to_64fbits = function
+  | FRegister64 _ as t -> t 
+  | Register32 reg -> FRegister64 (reg |> reg64_of_32 |> float64reg_of_64bitsreg)
+  | Register64 reg64 -> FRegister64 (float64reg_of_64bitsreg reg64)
 
   let size_of_ktype_size s = if s <= 4L then SReg32 else SReg64
   let size_of_reg = function
   | Register32 _ -> SReg32
-  | Register64 _ -> SReg64
+  | Register64 _ | FRegister64 _ -> SReg64
 
   let reg_of_size size reg =
     match size with
     | SReg32 -> to_32bits reg
     | SReg64 -> to_64bits reg
 
+
+  let ftmp64reg = FRegister64 D8
+
   let tmp64reg = Register64 X8
   let tmp32reg = Register32 W8
 
+  let ftmp64reg_2 = FRegister64 D9
   let tmp64reg_2 = Register64 X9
   let tmp32reg_2 = Register32 W9
 
+
+  let ftmp64reg_3 = FRegister64 D10
   let tmp32reg_3 = Register32 W10
   let tmp64reg_3 = Register64 X10
 
+  let ftmp64reg_4 = FRegister64 D11
   let tmp32reg_4 = Register32 W11
   let tmp64reg_4 = Register64 X11
 
@@ -226,20 +292,26 @@ module Register = struct
   let tmpreg_of_size_3 = fun size -> if size <= 4L then tmp32reg_3 else tmp64reg_3
 
   let tmpreg_of_ktype rprogram ktype = 
+    if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg 
+    else
     let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
     tmpreg_of_size size
 
   let tmpreg_of_ktype_2 rprogram ktype = 
+    if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_2 
+    else
     let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
     tmpreg_of_size_2 size
 
     let tmpreg_of_ktype_3 rprogram ktype = 
+      if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_3 
+      else
       let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
       tmpreg_of_size_3 size
 end
 
 open Register
-type src = [ `ILitteral of int64 | `Register of register | `Label of string]
+type src = [ `ILitteral of int64 | `F64Litteral of float | `Register of register | `Label of string]
 type address = {
   base : register;
   offset : int64;
@@ -734,10 +806,14 @@ module Codegen = struct
     |({tac_expression = TEInt (_, isize, int64); _}) -> 
       let rreg = match isize with I64 -> to_64bits target_reg | _ -> to_32bits target_reg in
       rreg, mov_integer rreg int64
+    |({tac_expression = TEFloat float; _}) -> 
+      let f64reg = to_64fbits target_reg in
+      f64reg, Instruction (Mov {destination = f64reg; flexsec_operand = `F64Litteral float})::[]
+
     |({tac_expression = TEIdentifier id; expr_rktype}) -> 
       let adress = FrameManager.address_of (id, expr_rktype) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "tte identifier setup null address") in
       let sizeof = sizeofn rprogram expr_rktype in
-      let rreg = if sizeof > 4L then to_64bits target_reg else to_32bits target_reg in
+      let rreg = if KosuIrTyped.Asttyhelper.RType.is_64bits_float expr_rktype then FRegister64 D9 else if sizeof > 4L then to_64bits target_reg else to_32bits target_reg in
       if is_register_size sizeof
         then 
           rreg, [
@@ -844,7 +920,7 @@ module Codegen = struct
             ) |> List.flatten in 
           let call_instructions = FrameManager.call_instruction ~origin:fn_label regs fd in
           let return_size = sizeofn rprogram external_func_decl.return_type in
-          let return_reg = return_register_ktype return_size in
+          let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float external_func_decl.return_type) return_size in
           let copy_instruction = where |> Option.map (fun waddress -> 
             copy_from_reg return_reg waddress external_func_decl.return_type rprogram
             ) |> Option.value ~default:[] in
@@ -855,7 +931,7 @@ module Codegen = struct
             acc @ instruction, reg
           ) [] in
           let return_size = sizeofn rprogram syscall_decl.return_type in
-          let return_reg = return_register_ktype return_size in
+          let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float syscall_decl.return_type) return_size in
           return_reg, instructions @ [
             Line_Com (Comment ("syscall " ^ syscall_decl.rsyscall_name));
             Instruction (Mov {destination = Register64 X16; flexsec_operand = `ILitteral syscall_decl.opcode});
@@ -877,7 +953,7 @@ module Codegen = struct
   
       let call_instructions = FrameManager.call_instruction ~origin:fn_label regs fd in
       let return_size = sizeofn rprogram function_decl.return_type in
-      let return_reg = return_register_ktype return_size in
+      let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float function_decl.return_type) return_size in
       let copy_instruction = where |> Option.map (fun waddress -> 
         copy_from_reg return_reg waddress function_decl.return_type rprogram
         ) |> Option.value ~default:[] in
@@ -1221,7 +1297,7 @@ and translate_tac_body ~str_lit_map ?(end_label = None) current_module rprogram 
   let return_instr = body |> snd |> Option.map (fun tte -> 
       let last_reg, instructions = translate_tac_expression ~str_lit_map  rprogram fd tte in
       let sizeof = sizeofn rprogram tte.expr_rktype in
-      let return_reg = return_register_ktype sizeof in
+      let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float tte.expr_rktype) sizeof in
       instructions @ (if is_register_size sizeof then 
         Instruction (Mov {destination = return_reg; flexsec_operand = `Register last_reg})::[]
       else

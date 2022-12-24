@@ -20,6 +20,30 @@ open Aarch64Core.Register
 open Aarch64Core.Instruction
 open Printf
 
+
+let string_of_f64bits_reg = function
+| D0 -> "d0"
+| D1 -> "d1"
+| D2 -> "d2"
+| D3 -> "d3"
+| D4 -> "d4"
+| D5 -> "d5"
+| D6 -> "d6"
+| D7 -> "d7"
+| D8 -> "d8"
+| D9 -> "d9"
+| D10 -> "d10"
+| D11 -> "d11"
+| D12 -> "d12"
+| D13 -> "d13"
+| D14 -> "d14"
+| D15 -> "d15"
+| D16 -> "d16"
+| D29 -> "d29" 
+| D30 -> "d30" 
+| DZR -> "dzr" 
+
+
 let string_of_32bits_reg = function
 | W0 -> "w0"
 | W1 -> "w1"
@@ -91,13 +115,18 @@ let string_of_condition_code = function
 | AL -> "al"
 
 let string_of_register = function
+| FRegister64 freg64 -> string_of_f64bits_reg freg64
 | Register32 reg32 -> string_of_32bits_reg reg32
 | Register64 reg64 -> string_of_64bits_reg reg64
 
 let string_of_src = function
+| `F64Litteral float -> Printf.sprintf "#%F" float
 | `ILitteral int64 -> Printf.sprintf "#%Ld" int64
 | `Register reg -> string_of_register reg
 | `Label label -> label
+
+let prefix_of_float register = 
+  if Register.is_f64_reg register then "f" else ""
 
 let string_of_adressage adress_mode {base; offset} = 
   match adress_mode with 
@@ -120,33 +149,33 @@ let value_of_shift = function
 | SH48 -> 48
 let string_of_instruction = function
 | Mov {destination; flexsec_operand} -> 
-  sprintf "mov %s, %s" (string_of_register destination) (string_of_src flexsec_operand)
+  sprintf "%smov %s, %s" (prefix_of_float destination) (string_of_register destination) (string_of_src flexsec_operand)
 | Movk {destination; operand; shift} ->
-  sprintf "movk %s, %s%s" (string_of_register destination) (string_of_src operand) (shift |> Option.map (fun sh -> sprintf ", lsl %d" (value_of_shift sh)) |> Option.value ~default:"")
+  sprintf "%smovk %s, %s%s" (prefix_of_float destination)  (string_of_register destination) (string_of_src operand) (shift |> Option.map (fun sh -> sprintf ", lsl %d" (value_of_shift sh)) |> Option.value ~default:"")
 | Not {destination; source} ->
   sprintf "mvn %s, %s" (string_of_register destination) (string_of_src source)
 | Neg {destination; source} -> 
   sprintf "neg %s, %s" (string_of_register destination) (string_of_register source)
 | ADD {destination; operand1; operand2; offset} ->
-  sprintf "add %s, %s, %s%s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2) (if offset then "@PAGEOFF" else "")
+  sprintf "%sadd %s, %s, %s%s" (prefix_of_float destination)  (string_of_register destination) (string_of_register operand1) (string_of_src operand2) (if offset then "@PAGEOFF" else "")
 | ADDS {destination; operand1; operand2} ->
-sprintf "adds %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
+sprintf "%sadds %s, %s, %s" (prefix_of_float destination)  (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
 | SUB {destination; operand1; operand2} ->
-sprintf "sub %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
+sprintf "%ssub %s, %s, %s" (prefix_of_float destination)  (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
 | SUBS {destination; operand1; operand2} ->
-sprintf "subs %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
+sprintf "%ssubs %s, %s, %s" (prefix_of_float destination)  (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
 | MUL {destination; operand1; operand2} ->
-sprintf "mul %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_register operand2)
+sprintf "%smul %s, %s, %s" (prefix_of_float destination)  (string_of_register destination) (string_of_register operand1) (string_of_register operand2)
 | UDIV {destination; operand1; operand2} ->
   sprintf "udiv %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_register operand2)
 | SDIV {destination; operand1; operand2} ->
-sprintf "sdiv %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_register operand2)
+sprintf "%ssdiv %s, %s, %s" (prefix_of_float destination)  (string_of_register destination) (string_of_register operand1) (string_of_register operand2)
 | ASL {destination; operand1; operand2} ->
 sprintf "asl %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
 | ASR {destination; operand1; operand2} ->
 sprintf "asr %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
 | CSINC {destination; operand1; operand2; condition} ->
-sprintf "csinc %s, %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_register operand2) (string_of_condition_code condition)
+sprintf "%scsinc %s, %s, %s, %s" (prefix_of_float destination)  (string_of_register destination) (string_of_register operand1) (string_of_register operand2) (string_of_condition_code condition)
 | AND {destination; operand1; operand2} ->
   sprintf "and %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
 | ORR {destination; operand1; operand2} ->
@@ -154,7 +183,7 @@ sprintf "orr %s, %s, %s" (string_of_register destination) (string_of_register op
 | EOR {destination; operand1; operand2} ->
 sprintf "eor %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
 | CMP {operand1; operand2} ->
-  sprintf "cmp %s, %s" (string_of_register operand1) (string_of_src operand2)
+  sprintf "%scmp %s, %s" (prefix_of_float operand1)  (string_of_register operand1) (string_of_src operand2)
 | LDR {data_size; destination; adress_src; adress_mode} -> 
 sprintf "ldr%s %s , %s" 
 (data_size |> Option.map string_of_data_size |> Option.value ~default:"")

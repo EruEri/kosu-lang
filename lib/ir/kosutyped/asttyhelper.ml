@@ -22,6 +22,11 @@ module RType = struct
   let is_unsigned_integer = function
   | RTInteger(sign, _) -> sign = Unsigned
   | _ -> false 
+
+  let is_64bits_float = function
+  | RTFloat -> true 
+  | _ -> false
+  
   let is_builtin_type = function
     | RTParametric_identifier _ | RTType_Identifier _ -> false
     | _ -> true
