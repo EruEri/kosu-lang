@@ -82,8 +82,8 @@ let rec string_of_rktype = function
 
 let rec string_of_label_rktype = function
 | RTParametric_identifier { module_path; parametrics_type; name } ->
-    sprintf "%s_%s %s"
-      (parametrics_type |> List.map string_of_label_rktype |> String.concat ", ")
+    sprintf "%s_%s_%s"
+      (parametrics_type |> List.map string_of_label_rktype |> String.concat "__")
       module_path name
 | RTType_Identifier { module_path; name } ->
     sprintf "%s%s"
