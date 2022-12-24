@@ -492,7 +492,7 @@ else if size = 0L
   then []
 else if size < 2L && size >= 1L
   then [
-    Instruction( LDUR {
+    Instruction( LDR {
       data_size = Some B;
       destination = reg_of_32 W10;
       adress_src = create_adress (base_src_reg);
@@ -513,7 +513,7 @@ else if size < 2L && size >= 1L
   ] @ (copy_large (increment_adress (Int64.neg 2L) adress_str) base_src_reg (Int64.sub size 1L))
 else if size < 4L && size >= 2L
   then [
-    Instruction (Instruction.LDUR {
+    Instruction (Instruction.LDR {
       data_size = Some H;
       destination = reg_of_32 W10;
       adress_src = create_adress base_src_reg;
@@ -534,7 +534,7 @@ else if size < 4L && size >= 2L
   ] @ (copy_large (increment_adress (Int64.neg 2L) adress_str) base_src_reg (Int64.sub size 2L))
 else if size < 8L && size >= 4L
   then [
-    Instruction (Instruction.LDUR {
+    Instruction (Instruction.LDR {
       data_size = None;
       destination = reg_of_32 W10;
       adress_src = create_adress  (base_src_reg);
@@ -1137,28 +1137,57 @@ let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameM
         sw_exit_label;
       } -> 
         let tag_of_variant = KosuIrTyped.Asttyhelper.Renum.tag_of_variant in
+        
         let enum_decl = 
           match KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye condition_switch.expr_rktype rprogram with
           | Some (RDecl_Struct _) -> failwith "Expected to find an enum get an struct"
           | Some (RDecl_Enum e) -> e
           | None -> failwith "Non type decl ??? my validation is very weak" in 
-        let _, _setup_instructions = statemenets_for_case |> List.fold_left (fun (_, acc_stmts) value -> 
+        let enum_decl = 
+          let generics = condition_switch.expr_rktype |> KosuIrTyped.Asttyhelper.RType.extract_parametrics_rktype |> List.combine enum_decl.generics in
+          KosuIrTyped.Asttyhelper.Renum.instanciate_enum_decl generics enum_decl 
+        in
+        let exit_label_instruction = Label (sw_exit_label) in
+        let _, setup_instructions = statemenets_for_case |> List.fold_left (fun (_, acc_stmts) value -> 
           let last_reg, insts = translate_tac_statement ~str_lit_map current_module rprogram fd value in
           last_reg, acc_stmts @ insts
         ) (tmp64reg, []) in
         let last_reg, condition_switch_instruction = translate_tac_expression ~str_lit_map rprogram fd condition_switch in
         let copy_tag = if is_register_size (sizeofn rprogram condition_switch.expr_rktype) then 
-          Instruction (Mov {destination = tmp32reg_4; flexsec_operand = `Register last_reg})
+          Instruction (Mov {destination = tmp32reg_4; flexsec_operand = `Register (to_32bits last_reg)})
         else 
           Instruction (LDR {data_size = None; destination = tmp32reg_4; adress_src = create_adress last_reg; adress_mode = Immediat})
-        in 
+        in
+        let switch_variable_name = 
+          match condition_switch.tac_expression with
+          | TEIdentifier id -> id
+          | _ -> failwith "I need to get the id" in
         (* Tag fetch proper doing*)
         let cmp_instrution_list, fn_block = sw_cases |> List.map (fun sw_case -> 
           let jump_condition = sw_case.variants_to_match |> List.map (fun mvariant -> 
             let tag = tag_of_variant mvariant enum_decl in
             let compare = Instruction (CMP {operand1 = tmp32reg_4; operand2 = `ILitteral (Int64.of_int32 tag)}) in
+            let assoc_type_for_variants = KosuIrTyped.Asttyhelper.Renum.assoc_types_of_variant ~tagged:true mvariant enum_decl in
+            let fetch_offset_instruction = sw_case.assoc_bound |> List.map (fun (index, id, ktyte) -> 
+              let offset_a = offset_of_tuple_index (index + 1) assoc_type_for_variants rprogram in
+              let switch_variable_address = FrameManager.address_of (switch_variable_name, condition_switch.expr_rktype) fd |> Option.get in
+              let destination_address = FrameManager.address_of (id, ktyte) fd |> Option.get in
+              let size_of_ktype = sizeofn rprogram ktyte in
+              let data_size = compute_data_size ktyte size_of_ktype in
+              let copy_instructions = 
+                if is_register_size size_of_ktype then
+                
+                 [
+                  Instruction (LDR {data_size; destination = reg_of_size (size_of_ktype_size size_of_ktype) tmp64reg; adress_src = increment_adress (Int64.neg offset_a) (switch_variable_address); adress_mode = Immediat});
+                  Instruction (STR {data_size; source = reg_of_size (size_of_ktype_size size_of_ktype) tmp64reg; adress = destination_address; adress_mode = Immediat })
+                ]
+                else (Instruction (ADD {destination = tmp64reg; operand1 = switch_variable_address.base; operand2 = `ILitteral (Int64.add switch_variable_address.offset offset_a);  offset = false})) :: copy_from_reg tmp64reg destination_address ktyte rprogram
+              in
+
+              copy_instructions
+            ) |> List.flatten in
             let jump_true = Instruction (B {cc = Some EQ; label = sw_case.sw_goto}) in
-            compare::jump_true::[]
+            fetch_offset_instruction @ compare::jump_true::[]
           ) |> List.flatten in
           let genete_block = translate_tac_body ~str_lit_map ~end_label:(Some sw_case.sw_exit_label) current_module  rprogram fd sw_case.switch_tac_body in
           jump_condition, genete_block
@@ -1167,7 +1196,7 @@ let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameM
         let wildcard_body_block = wildcard_body |> Option.map (fun body -> 
           translate_tac_body ~str_lit_map ~end_label:(Some sw_exit_label) current_module rprogram fd body
         ) |> Option.value ~default:[] in
-        tmp64reg, condition_switch_instruction @ copy_tag::cmp_instrution_list @ wildcard_case_jmp @ fn_block @ wildcard_body_block
+        tmp64reg, setup_instructions @ condition_switch_instruction @ copy_tag::cmp_instrution_list @ wildcard_case_jmp @ fn_block @ wildcard_body_block @ [exit_label_instruction]
       | SCases {cases; else_tac_body; exit_label} -> 
         let cases_body, cases_condition = cases |> List.map (fun scases -> 
           let setup_next_cmp_instr = scases.condition_label |> Option.map (fun label -> Instruction (B { cc = None; label})) |> Option.to_list in

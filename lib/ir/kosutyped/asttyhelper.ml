@@ -118,10 +118,6 @@ module RType = struct
         match Hashtbl.find_opt generics_table name with
         | None -> RTType_Identifier { module_path = ""; name }
         | Some rtyp -> rtyp)
-    | RTType_Identifier { module_path = _; name } as t -> (
-        match Hashtbl.find_opt generics_table name with
-        | None -> t
-        | Some typ -> typ)
     | RTParametric_identifier { module_path; parametrics_type; name } ->
         RTParametric_identifier
           {
@@ -417,18 +413,29 @@ module Function = struct
 end
 
 module Renum = struct
+
+  let instanciate_enum_decl generics enum_decl = 
+    let generics = generics |> List.to_seq |> Hashtbl.of_seq in
+  {
+    enum_decl with rvariants = enum_decl.rvariants |> List.map (fun (v, kts) -> 
+      v, kts |> List.map (RType.remap_generic_ktype generics)
+    )
+  }
   let tag_of_variant variant (enum_decl: renum_decl) = 
     enum_decl.rvariants 
       |> List.mapi (fun i v -> Int32.of_int i,v )
       |> List.find_map (fun (i,v) -> if (fst v ) = variant then Some i else None)
       |> Option.get
 
-  let assoc_types_of_variant variant (enum_decl: renum_decl) = 
-    enum_decl.rvariants
+  let assoc_types_of_variant ?(tagged = false) variant (enum_decl: renum_decl) = 
+    let tagtype = if tagged then RTInteger(KosuFrontend.Ast.Signed, KosuFrontend.Ast.I32)::[] else [] in
+    tagtype @
+    (enum_decl.rvariants
     |> List.find_map (fun (evariant, assoc_type) -> 
       if evariant = variant then Some assoc_type else None
     )
-    |> Option.get
+    |> Option.get)
+    
 end
 
 module Rtype_Decl = struct

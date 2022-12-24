@@ -133,7 +133,7 @@ and tac_case = {
 
 and tac_switch = {
   variants_to_match : string list;
-  assoc_bound : (int * rktype) list;
+  assoc_bound : (int * string * rktype) list;
   sw_goto : string;
   sw_exit_label : string;
   switch_tac_body : tac_body;

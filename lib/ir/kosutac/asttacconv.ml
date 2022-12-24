@@ -233,7 +233,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
                in
                let assoc_bound =
                  bounds
-                 |> List.map (fun (index, id, rtype) -> (id, (index, rtype)))
+                 |> List.map (fun (index, id, rtype) -> (id, (index, id, rtype)))
                  |> List.split |> snd
                in
                let switch_tac_body =
