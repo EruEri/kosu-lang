@@ -1237,7 +1237,7 @@ type asm_function_decl = {
 }
 type asm_const_decl = {
   asm_const_name: string;
-  value: [`IntVal of ( KosuFrontend.Ast.isize * int64)]
+  value: [`IntVal of ( KosuFrontend.Ast.isize * int64) | `StrVal of string]
 }
 
 type asm_module_node = 
@@ -1291,8 +1291,13 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
       asm_const_name = asm_const_name current_module rconst_name;
       value = `IntVal (KosuFrontend.Ast.I64, Int64.bits_of_float f)
     })
-  | TNConst {rconst_name = _; value = {rktype = _; rexpression = REstring _s}} ->
-    None
+  | TNConst {rconst_name; value = {rktype = _; rexpression = REstring s}} ->
+    Some (
+      AConst {
+        asm_const_name = asm_const_name current_module rconst_name;
+        value = `StrVal s
+      }
+    )
   | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ | _ -> None
   )
 

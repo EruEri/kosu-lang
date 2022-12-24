@@ -195,8 +195,8 @@ module StringLitteral = struct
     | TNOperator op ->
         let body = OperatorDeclaration.tac_body op in
         map_fill_string_lit_of_tac_body map body ()
-    | TNConst {rconst_name; value = {rktype = RTString_lit; rexpression = REstring s}} ->
-      Hashtbl.add map s (SLit rconst_name)
+    (* | TNConst {rconst_name; value = {rktype = RTString_lit; rexpression = REstring s}} ->
+      Hashtbl.add map s (SLit rconst_name) *)
     | _ -> ()
   
   let map_of_string_litteral_in_module (TacModule rmodule) () =
