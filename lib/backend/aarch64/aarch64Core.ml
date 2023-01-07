@@ -267,7 +267,8 @@ module Register = struct
     | SReg32 -> to_32bits reg
     | SReg64 -> to_64bits reg
 
-
+  let xr = Register64 X8
+  let x29 = Register64 X29
   let ftmp64reg = FRegister64 D8
 
   let tmp64reg = Register64 X8
@@ -693,6 +694,11 @@ module FrameManager = struct
   discarded_values: (string * KosuIrTyped.Asttyped.rktype) list
 }
 
+let indirect_return_var = "@return"
+let indirect_return_type = KosuIrTyped.Asttyped.(RTPointer RTUnknow)
+
+let indirect_return_vt = indirect_return_var, indirect_return_type
+
 let align_16 size = 
   let ( ** ) = Int64.mul in
   let (++) = Int64.add in
@@ -703,7 +709,7 @@ let align_16 size =
 
 let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * KosuIrTyped.Asttyped.rktype) list) ~(stack_param: (string * KosuIrTyped.Asttyped.rktype) list) ~locals_var ~discarded_values rprogram =
   let stack_param_count = stack_param |> List.length in
-  let stack_concat = fn_register_params @ stack_param @ locals_var in
+  let stack_concat = (indirect_return_var, indirect_return_type)::fn_register_params @ stack_param @ locals_var in
   let fake_tuple = stack_concat |> List.map snd in
   let locals_space =
     fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
@@ -737,6 +743,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
     let base = Instruction ( Instruction.STP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = frame_register_offset}; adress_mode = Immediat} ) in
     let stack_sub = Instruction ( SUB { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral stack_sub_size} ) in
     let alignx29 = Instruction (ADD { destination = Register64 X29; operand1 = Register64 SP; operand2 = `ILitteral frame_register_offset; offset = false}) in
+    let store_x8 = Instruction (STR {data_size = None; source = xr; adress = create_adress ~offset:(Int64.neg 8L) x29; adress_mode = Immediat}) in
     let stack_params_offset = stack_params |> List.map (fun (_, kt) -> 
       if KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt > 8L then KosuIrTyped.Asttyhelper.RType.rpointer kt else kt
     ) in
@@ -756,7 +763,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
       let whereis = address_of (name, kt) fd  |> (fun adr -> match adr with Some a -> a | None -> failwith "From register setup null address") in
       acc @ (copy_from_reg (register) whereis kt rprogram)
       ) [] in
-      stack_sub::base::alignx29::copy_stack_params_instruction @  copy_instructions
+      stack_sub::base::alignx29::store_x8::copy_stack_params_instruction @  copy_instructions
 
   let function_epilogue fd = 
     let stack_space = align_16 ( Int64.add 16L fd.locals_space) in
@@ -962,11 +969,22 @@ module Codegen = struct
   
       let call_instructions = FrameManager.call_instruction ~origin:fn_label regs fd in
       let return_size = sizeofn rprogram function_decl.return_type in
-      let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float function_decl.return_type) return_size in
+      let () = Printf.printf "Return size : %s = %Lu" function_decl.rfn_name return_size in
+      if is_register_size return_size 
+        then      
+         let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float function_decl.return_type) return_size in
       let copy_instruction = where |> Option.map (fun waddress -> 
         copy_from_reg return_reg waddress function_decl.return_type rprogram
         ) |> Option.value ~default:[] in
       return_reg, instructions @ call_instructions @ copy_instruction
+    
+    else
+      let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float function_decl.return_type) return_size in
+      let copy_instruction = where |> Option.map (fun waddress -> 
+        let x8_ldr_indirect_adress = Instruction (LDR {data_size = None; destination = Register.xr; adress_src = waddress; adress_mode = Immediat}) in
+          x8_ldr_indirect_adress
+        ) |> Option.to_list in
+      return_reg, instructions @ copy_instruction @ call_instructions
     )
   end
       | RVTuple ttes -> 
@@ -1348,7 +1366,9 @@ and translate_tac_body ~str_lit_map ?(end_label = None) current_module rprogram 
       instructions @ (if is_register_size sizeof then 
         Instruction (Mov {destination = return_reg; flexsec_operand = `Register last_reg})::[]
       else
-      copy_large (create_adress last_reg) return_reg sizeof
+        let x8_address = Option.get @@ FrameManager.(address_of (indirect_return_vt) fd) in 
+        let str = Instruction ( LDR {data_size = None; destination = xr; adress_src = x8_address; adress_mode = Immediat}) in
+      str::copy_large (create_adress last_reg) xr sizeof
       )
   ) |> Option.value ~default:[] in
   label_instr::stmt_instr @ return_instr @ end_label_inst
