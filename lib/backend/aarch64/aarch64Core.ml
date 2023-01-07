@@ -708,7 +708,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
   let stack_concat = if need_xr then (indirect_return_var, indirect_return_type)::stack_concat else stack_concat in
   let fake_tuple = stack_concat |> List.map snd in
   let locals_space =
-    (RTPointer RTUnknow)::fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
+    fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
     |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
   in
   let locals_space = Int64.add locals_space stack_future_call in
@@ -733,6 +733,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
   { stack_param_count; locals_space; stack_map = map; discarded_values; need_xr }
 
   let address_of (variable,rktype) frame_desc = 
+    (* let () = Printf.printf "Lookup => %s : %s\n" (variable) (KosuIrTyped.Asttypprint.string_of_rktype rktype) in *)
   if List.mem (variable, rktype) frame_desc.discarded_values then None else Some (IdVarMap.find (variable, rktype) frame_desc.stack_map)
 
   let function_prologue ~fn_register_params ~stack_params rprogram fd = 

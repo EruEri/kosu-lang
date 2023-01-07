@@ -652,7 +652,7 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
     let epilogue = FrameManager.function_epilogue fd in
     (* let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
     let () = fd.stack_map |> IdVarMap.to_seq |> Seq.iter (fun ((s, kt), adr) -> 
-      Printf.printf "\n%s : %s == [%s, %Ld] \n" 
+      Printf.printf "%s : %s == [%s, %Ld]\n" 
       (s) 
       (KosuIrTyped.Asttypprint.string_of_rktype kt) 
       (Aarch64Pprint.string_of_register adr.base)

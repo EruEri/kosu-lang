@@ -781,6 +781,35 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~discarded_val
             if function_return then Some expr else None );
       }
 
+  let rec is_in_body id {label = _; body = stmts, _ } = 
+    stmts
+    |> List.exists (is_in_declaration id)
+   
+  and is_in_declaration id = function
+  | STacDeclaration {identifier; trvalue = _} 
+  | STacModification {identifier; trvalue = _} 
+  | STDerefAffectation {identifier; trvalue = _}  
+   -> identifier = id
+  | STIf {statement_for_bool; if_tac_body; else_tac_body; _} ->
+    (statement_for_bool |> List.exists (is_in_declaration id))
+    || (is_in_body id if_tac_body)
+    || (is_in_body id else_tac_body)
+  | STSwitch {statemenets_for_case; sw_cases; wildcard_body; _} ->
+    (statemenets_for_case |> List.exists (is_in_declaration id))
+    || (wildcard_body |> Option.map (is_in_body id) |> Option.value ~default:false)
+    || sw_cases |> List.exists (fun {switch_tac_body; assoc_bound; _} -> 
+       is_in_body id switch_tac_body
+       || (assoc_bound |> List.exists (fun (_, n, _) -> n = id))
+      )
+  | SCases {cases; else_tac_body; _} ->
+    (is_in_body id else_tac_body)
+    || cases |> List.exists (fun {statement_for_condition; tac_body; _} -> 
+      statement_for_condition |> List.exists (is_in_declaration id)
+      || (is_in_body id tac_body)
+    )
+  
+
+  
   let rec reduce_variable_used_statements stmts = 
     match stmts with
     | [] -> []
@@ -858,15 +887,26 @@ let tac_function_decl_of_rfunction current_module rprogram (rfunction_decl : rfu
       ~label_name:rfunction_decl.rfn_name ~map ~count_var:(ref 0)
       ~function_return:true ~if_count rfunction_decl.rbody
   in
+  let tac_body = reduce_variable_used_body tac_body in
+  let () = map |> Hashtbl.filter_map_inplace ( fun key value -> 
+    if is_in_body key tac_body then Some value else None
+  ) in
+  let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
+  (* let () = locale_var |> List.map ( fun {locale_ty; locale} ->
+    let s = (function Locale s -> s | Enum_Assoc_id {name; _} -> name) locale in
+    Printf.sprintf "%s : %s" (s) (KosuIrTyped.Asttypprint.string_of_rktype locale_ty)
+  ) |> String.concat "\n" |> Printf.printf "%s\n" in *)
+
+
   let stack_params_count = KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module rprogram rfunction_decl.rbody in
   {
     rfn_name = rfunction_decl.rfn_name;
     generics = rfunction_decl.generics;
     rparameters = rfunction_decl.rparameters;
     return_type = rfunction_decl.return_type;
-    tac_body = reduce_variable_used_body tac_body;
+    tac_body;
     stack_params_count;
-    locale_var = map |> Hashtbl.to_seq_values |> List.of_seq;
+    locale_var;
     discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq
   }
 
