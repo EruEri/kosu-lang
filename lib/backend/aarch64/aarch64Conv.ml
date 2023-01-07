@@ -163,12 +163,28 @@ module Codegen = struct
           let call_instructions = FrameManager.call_instruction ~origin:fn_label regs fd in
           let return_size = sizeofn rprogram external_func_decl.return_type in
           let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float external_func_decl.return_type) return_size in
-          let copy_instruction = where |> Option.map (fun waddress -> 
-            match is_deref with
-            | true -> (Instruction (LDR {data_size = None; destination = xr; adress_src = waddress; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) external_func_decl.return_type rprogram
-            | false  -> copy_from_reg return_reg waddress external_func_decl.return_type rprogram
+          let extern_instructions = begin match is_register_size return_size with
+          | true -> 
+            let copy_instruction = where |> Option.map (fun waddress -> 
+              match is_deref with
+              | true -> (Instruction (LDR {data_size = None; destination = xr; adress_src = waddress; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) external_func_decl.return_type rprogram
+              | false  -> copy_from_reg return_reg waddress external_func_decl.return_type rprogram
             ) |> Option.value ~default:[] in
-          return_reg, instructions @ set_on_stack_instructions @ call_instructions @ copy_instruction
+            return_reg, instructions @ set_on_stack_instructions @ call_instructions @ copy_instruction (* Is not the same check the instructions order*)
+          | false -> 
+            let copy_instruction = where |> Option.map (fun waddress -> 
+                match is_deref with
+                | true -> [
+                  Instruction (LDR {data_size = None; destination = xr; adress_src = waddress; adress_mode = Immediat});
+                  Instruction (LDR {data_size = None; destination = xr; adress_src = create_adress xr; adress_mode = Immediat})
+                ] 
+                | false  -> [Instruction (ADD {destination = Register.xr; operand1 = waddress.base; operand2 = `ILitteral waddress.offset; offset = false})]
+      
+              ) |> Option.value ~default:[] in
+            return_reg, instructions @ set_on_stack_instructions @ copy_instruction @ call_instructions
+            end
+        in 
+          extern_instructions
         | RSyscall_Decl syscall_decl ->
           let instructions, _regs = tac_parameters |> Util.ListHelper.combine_safe argument_registers |> List.fold_left_map (fun acc (reg, tte) -> 
             let reg, instruction = translate_tac_expression ~str_lit_map ~target_reg:reg rprogram fd tte in 
@@ -202,23 +218,28 @@ module Codegen = struct
       let call_instructions = FrameManager.call_instruction ~origin:fn_label regs fd in
       let return_size = sizeofn rprogram function_decl.return_type in
       (* let () = Printf.printf "Return size : %s = %Lu" function_decl.rfn_name return_size in *)
-      if is_register_size return_size 
-        then      
-         let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float function_decl.return_type) return_size in
-      let copy_instruction = where |> Option.map (fun waddress -> 
-        match is_deref with
-        | true -> (Instruction (LDR {data_size = None; destination = xr; adress_src = waddress; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) function_decl.return_type rprogram
-        | false  -> copy_from_reg return_reg waddress function_decl.return_type rprogram
-      ) |> Option.value ~default:[] in
-      return_reg, instructions @ call_instructions @ copy_instruction
-    
-    else
+      begin match is_register_size return_size with
+      | true -> 
+        let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float function_decl.return_type) return_size in
+        let copy_instruction = where |> Option.map (fun waddress -> 
+          match is_deref with
+          | true -> (Instruction (LDR {data_size = None; destination = xr; adress_src = waddress; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) function_decl.return_type rprogram
+          | false  -> copy_from_reg return_reg waddress function_decl.return_type rprogram
+        ) |> Option.value ~default:[] in
+        return_reg, instructions @ call_instructions @ copy_instruction (* Is not the same check the instructions order*)
+      | false -> 
       let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float function_decl.return_type) return_size in
       let copy_instruction = where |> Option.map (fun waddress -> 
-        let x8_ldr_indirect_adress = Instruction (ADD {destination = Register.xr; operand1 = waddress.base; operand2 = `ILitteral waddress.offset; offset = false}) in
-          x8_ldr_indirect_adress
-        ) |> Option.to_list in
+           match is_deref with
+          | true -> [
+            Instruction (LDR {data_size = None; destination = xr; adress_src = waddress; adress_mode = Immediat});
+            Instruction (LDR {data_size = None; destination = xr; adress_src = create_adress xr; adress_mode = Immediat})
+          ] 
+          | false  -> [Instruction (ADD {destination = Register.xr; operand1 = waddress.base; operand2 = `ILitteral waddress.offset; offset = false})]
+
+        ) |> Option.value ~default:[] in
       return_reg, instructions @ copy_instruction @ call_instructions
+      end
     )
   end
       | RVTuple ttes -> 
