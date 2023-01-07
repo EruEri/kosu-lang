@@ -733,8 +733,10 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
   if List.mem (variable, rktype) frame_desc.discarded_values then None else Some (IdVarMap.find (variable, rktype) frame_desc.stack_map)
 
   let function_prologue ~fn_register_params ~stack_params rprogram fd = 
+    let () = Printf.printf "In fp locals space = %Lu\n" fd.locals_space in
     let frame_register_offset = Int64.sub (align_16 ( Int64.add 16L fd.locals_space)) 16L in
     let stack_sub_size = align_16 ( Int64.add 16L fd.locals_space) in
+    let () = Printf.printf "In fp stack align = %Lu\n" stack_sub_size in
     let base = Instruction ( STP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = frame_register_offset}; adress_mode = Immediat} ) in
     let stack_sub = Instruction ( SUB { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral stack_sub_size} ) in
     let alignx29 = Instruction (ADD { destination = Register64 X29; operand1 = Register64 SP; operand2 = `ILitteral frame_register_offset; offset = false}) in

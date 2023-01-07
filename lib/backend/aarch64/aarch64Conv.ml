@@ -600,7 +600,7 @@ and translate_tac_body ~str_lit_map ?(end_label = None) current_module rprogram 
       else
         let x8_address = Option.get @@ FrameManager.(address_of (indirect_return_vt) fd) in 
         let str = Instruction ( LDR {data_size = None; destination = xr; adress_src = x8_address; adress_mode = Immediat}) in
-      str::copy_large (create_adress last_reg) xr sizeof
+      str::copy_large (create_adress xr) last_reg sizeof
       )
   ) |> Option.value ~default:[] in
   label_instr::stmt_instr @ return_instr @ end_label_inst
