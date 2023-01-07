@@ -16,6 +16,7 @@
 (**********************************************************************************************)
 
 open Aarch64Core
+open Aarch64Conv
 open Aarch64Pprint
 open Util
 
@@ -51,10 +52,10 @@ let compile_asm asm_program =
 
 let compile_asm_from_tac_tmp tac_program = 
   tac_program
-  |> Aarch64Core.asm_program_of_tac_program
+  |> Aarch64Conv.asm_program_of_tac_program
   |> compile_asm_tmp
 
 let compile_asm_from_tac tac_program = 
   tac_program 
-    |> Aarch64Core.asm_program_of_tac_program 
+    |> Aarch64Conv.asm_program_of_tac_program 
     |> compile_asm
