@@ -83,7 +83,8 @@ module Codegen = struct
 
     | _ -> failwith ""
 
-    let rec translate_tac_rvalue ~str_lit_map ~(where: address option) current_module rprogram (fd: FrameManager.frame_desc) {rval_rktype; rvalue} =
+    let rec translate_tac_rvalue ?(is_deref = false) ~str_lit_map ~(where: address option) current_module rprogram (fd: FrameManager.frame_desc) {rval_rktype; rvalue} =
+      let _ = is_deref in
       match rvalue with
       | RVUminus ttr -> 
         let last_reg, insts =  translate_tac_rvalue ~str_lit_map ~where current_module rprogram fd ttr in
@@ -163,7 +164,9 @@ module Codegen = struct
           let return_size = sizeofn rprogram external_func_decl.return_type in
           let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float external_func_decl.return_type) return_size in
           let copy_instruction = where |> Option.map (fun waddress -> 
-            copy_from_reg return_reg waddress external_func_decl.return_type rprogram
+            match is_deref with
+            | true -> (Instruction (LDR {data_size = None; destination = xr; adress_src = waddress; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) external_func_decl.return_type rprogram
+            | false  -> copy_from_reg return_reg waddress external_func_decl.return_type rprogram
             ) |> Option.value ~default:[] in
           return_reg, instructions @ set_on_stack_instructions @ call_instructions @ copy_instruction
         | RSyscall_Decl syscall_decl ->
@@ -177,7 +180,11 @@ module Codegen = struct
             Line_Com (Comment ("syscall " ^ syscall_decl.rsyscall_name));
             Instruction (Mov {destination = Register64 X16; flexsec_operand = `ILitteral syscall_decl.opcode});
             Instruction (SVC)
-            ] @  (where |> Option.map (fun waddress -> copy_from_reg return_reg waddress syscall_decl.return_type rprogram) |> Option.value ~default:[] )
+            ] @  (where |> Option.map (fun waddress -> 
+              match is_deref with
+              | true -> (Instruction (LDR {data_size = None; destination = xr; adress_src = waddress; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) syscall_decl.return_type rprogram
+              | false  -> copy_from_reg return_reg waddress syscall_decl.return_type rprogram
+              ) |> Option.value ~default:[] )
         | RKosufn_Decl _ -> (
         let function_decl = rprogram |> KosuIrTyped.Asttyhelper.RProgram.find_function_decl_exact_param_types 
           ~module_name:fn_module
@@ -199,8 +206,10 @@ module Codegen = struct
         then      
          let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float function_decl.return_type) return_size in
       let copy_instruction = where |> Option.map (fun waddress -> 
-        copy_from_reg return_reg waddress function_decl.return_type rprogram
-        ) |> Option.value ~default:[] in
+        match is_deref with
+        | true -> (Instruction (LDR {data_size = None; destination = xr; adress_src = waddress; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) function_decl.return_type rprogram
+        | false  -> copy_from_reg return_reg waddress function_decl.return_type rprogram
+      ) |> Option.value ~default:[] in
       return_reg, instructions @ call_instructions @ copy_instruction
     
     else
@@ -475,8 +484,8 @@ let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameM
         let tmpreg = tmpreg_of_ktype rprogram (KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype) in
         let intermediary_adress = FrameManager.address_of (identifier, KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype) fd in
         let instructions = Instruction ( LDR { data_size = None; destination = tmpreg; adress_src = intermediary_adress |> Option.get; adress_mode = Immediat} ) in
-        let true_adress = create_adress tmpreg in
-        let last_reg, true_instructions = translate_tac_rvalue ~str_lit_map ~where:(Some true_adress) current_module rprogram fd trvalue  in
+        let _true_adress = create_adress tmpreg in
+        let last_reg, true_instructions = translate_tac_rvalue ~str_lit_map ~is_deref:true ~where:(Some (Option.get intermediary_adress)) current_module rprogram fd trvalue  in
         last_reg, (Line_Com (Comment "Defered Start"))::instructions::true_instructions @ [Line_Com (Comment "Defered end")]
       | STIf {
         statement_for_bool;

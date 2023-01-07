@@ -688,7 +688,7 @@ module FrameManager = struct
   discarded_values: (string * KosuIrTyped.Asttyped.rktype) list
 }
 
-let indirect_return_var = "@return"
+let indirect_return_var = "@xreturn"
 let indirect_return_type = KosuIrTyped.Asttyped.(RTPointer RTUnknow)
 
 let indirect_return_vt = indirect_return_var, indirect_return_type
