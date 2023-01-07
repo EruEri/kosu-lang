@@ -330,6 +330,7 @@ module Codegen = struct
         let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs in
         let copy_instructions = where |> Option.map (fun waddress -> 
           let equal_instruction = [
+            Instruction (Mov {destination = r8; flexsec_operand = `ILitteral 0L});
             Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
             Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition = NE})
           ] in
@@ -345,6 +346,7 @@ module Codegen = struct
           let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs in
           let copy_instructions = where |> Option.map (fun waddress -> 
             let equal_instruction = [
+              Instruction (Mov {destination = r8; flexsec_operand = `ILitteral 0L});
               Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
               Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition = EQ})
             ] in
@@ -361,6 +363,7 @@ module Codegen = struct
         let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs in
         let copy_instructions = where |> Option.map (fun waddress -> 
           let equal_instruction = [
+            Instruction (Mov {destination = r8; flexsec_operand = `ILitteral 0L});
             Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
             Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition})
           ] in
@@ -377,6 +380,7 @@ module Codegen = struct
         let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs in
         let copy_instructions = where |> Option.map (fun waddress -> 
           let equal_instruction = [
+            Instruction (Mov {destination = r8; flexsec_operand = `ILitteral 0L});
             Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
             Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition})
           ] in
@@ -393,6 +397,7 @@ module Codegen = struct
         let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs in
         let copy_instructions = where |> Option.map (fun waddress -> 
           let equal_instruction = [
+            Instruction (Mov {destination = r8; flexsec_operand = `ILitteral 0L});
             Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
             Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition})
           ] in
@@ -409,6 +414,7 @@ module Codegen = struct
         let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs in
         let copy_instructions = where |> Option.map (fun waddress -> 
           let equal_instruction = [
+            Instruction (Mov {destination = r8; flexsec_operand = `ILitteral 0L});
             Instruction (SUBS {destination = r9; operand1 = left_reg; operand2 = `Register right_reg });
             Instruction (CSINC {destination = r8; operand1 = r8; operand2 = zero_reg; condition})
           ] in
@@ -616,14 +622,14 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
     let prologue = FrameManager.function_prologue ~fn_register_params:function_decl.rparameters ~stack_params:stack_param rprogram fd in
     let conversion = Codegen.translate_tac_body ~str_lit_map current_module rprogram fd function_decl.tac_body in
     let epilogue = FrameManager.function_epilogue fd in
-    let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
+    (* let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
     let () = fd.stack_map |> IdVarMap.to_seq |> Seq.iter (fun ((s, kt), adr) -> 
       Printf.printf "\n%s : %s == [%s, %Ld] \n" 
       (s) 
       (KosuIrTyped.Asttypprint.string_of_rktype kt) 
       (Aarch64Pprint.string_of_register adr.base)
       (adr.offset) 
-      ) in
+      ) in *)
     Some (Afunction {
       asm_name;
       asm_body = prologue @ (conversion |> List.tl) @ epilogue 
