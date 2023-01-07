@@ -437,9 +437,9 @@ module Codegen = struct
       let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs in
       let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs in
       
-      let copy_instruction = where |> Option.map (fun _waddress -> 
+      let copy_instruction = where |> Option.map (fun waddress -> 
       let add_instruction = Instruction (ADD {destination = r9; operand1 = left_reg; operand2 = `Register right_reg; offset = false }) in
-       [add_instruction]
+       add_instruction::(Instruction.copy_from_reg r9 waddress rval_rktype rprogram )
       ) |>  Option.value ~default:[] in
 
       r9, linstructions @ rinstructions @ copy_instruction
@@ -616,8 +616,9 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
     let prologue = FrameManager.function_prologue ~fn_register_params:function_decl.rparameters ~stack_params:stack_param rprogram fd in
     let conversion = Codegen.translate_tac_body ~str_lit_map current_module rprogram fd function_decl.tac_body in
     let epilogue = FrameManager.function_epilogue fd in
+    let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
     let () = fd.stack_map |> IdVarMap.to_seq |> Seq.iter (fun ((s, kt), adr) -> 
-      Printf.printf "\n%s : %s == [%s, %Lu] \n" 
+      Printf.printf "\n%s : %s == [%s, %Ld] \n" 
       (s) 
       (KosuIrTyped.Asttypprint.string_of_rktype kt) 
       (Aarch64Pprint.string_of_register adr.base)

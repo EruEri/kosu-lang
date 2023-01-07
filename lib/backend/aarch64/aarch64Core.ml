@@ -708,7 +708,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
   let stack_concat = (indirect_return_var, indirect_return_type)::fn_register_params @ stack_param @ locals_var in
   let fake_tuple = stack_concat |> List.map snd in
   let locals_space =
-    fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
+    (RTPointer RTUnknow)::fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
     |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
   in
   let locals_space = Int64.add locals_space stack_future_call in
@@ -739,7 +739,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
     let base = Instruction ( STP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = frame_register_offset}; adress_mode = Immediat} ) in
     let stack_sub = Instruction ( SUB { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral stack_sub_size} ) in
     let alignx29 = Instruction (ADD { destination = Register64 X29; operand1 = Register64 SP; operand2 = `ILitteral frame_register_offset; offset = false}) in
-    let store_x8 = Instruction (STR {data_size = None; source = xr; adress = address_of indirect_return_vt fd |> Option.get; adress_mode = Immediat}) in
+    (* let store_x8 = Instruction (STR {data_size = None; source = xr; adress = address_of indirect_return_vt fd |> Option.get; adress_mode = Immediat}) in *)
     let stack_params_offset = stack_params |> List.map (fun (_, kt) -> 
       if KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt > 8L then KosuIrTyped.Asttyhelper.RType.rpointer kt else kt
     ) in
@@ -759,7 +759,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
       let whereis = address_of (name, kt) fd  |> (fun adr -> match adr with Some a -> a | None -> failwith "From register setup null address") in
       acc @ (copy_from_reg (register) whereis kt rprogram)
       ) [] in
-      stack_sub::base::alignx29::store_x8::copy_stack_params_instruction @  copy_instructions
+      stack_sub::base::alignx29::copy_stack_params_instruction @  copy_instructions
 
   let function_epilogue fd = 
     let stack_space = align_16 ( Int64.add 16L fd.locals_space) in
