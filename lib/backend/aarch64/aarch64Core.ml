@@ -683,6 +683,7 @@ module FrameManager = struct
   type frame_desc = {
   stack_param_count : int;
   locals_space : int64;
+  need_xr: bool;
   stack_map : address IdVarMap.t;
   discarded_values: (string * KosuIrTyped.Asttyped.rktype) list
 }
@@ -700,16 +701,18 @@ let align_16 size =
   (16L ** (div ++ modulo) )
 
 
-let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * KosuIrTyped.Asttyped.rktype) list) ~(stack_param: (string * KosuIrTyped.Asttyped.rktype) list) ~locals_var ~discarded_values rprogram =
+let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * KosuIrTyped.Asttyped.rktype) list) ~(stack_param: (string * KosuIrTyped.Asttyped.rktype) list) ~return_type ~locals_var ~discarded_values rprogram =
   let stack_param_count = stack_param |> List.length in
-  let stack_concat = (indirect_return_var, indirect_return_type)::fn_register_params @ stack_param @ locals_var in
+  let need_xr = return_type |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram |> is_register_size |> not in
+  let stack_concat = fn_register_params @ stack_param @ locals_var in
+  let stack_concat = if need_xr then (indirect_return_var, indirect_return_type)::stack_concat else stack_concat in
   let fake_tuple = stack_concat |> List.map snd in
   let locals_space =
     (RTPointer RTUnknow)::fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
     |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
   in
   let locals_space = Int64.add locals_space stack_future_call in
-  let () = Printf.printf "Locale space = %Lu\n" locals_space in
+  (* let () = Printf.printf "Locale space = %Lu\n" locals_space in *)
   let map =
     stack_concat
     |> List.mapi (fun index value -> (index, value))
@@ -727,7 +730,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
            IdVarMap.add st adress acc)
          IdVarMap.empty
   in
-  { stack_param_count; locals_space; stack_map = map; discarded_values }
+  { stack_param_count; locals_space; stack_map = map; discarded_values; need_xr }
 
   let address_of (variable,rktype) frame_desc = 
   if List.mem (variable, rktype) frame_desc.discarded_values then None else Some (IdVarMap.find (variable, rktype) frame_desc.stack_map)
@@ -738,7 +741,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
     let base = Instruction ( STP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = frame_register_offset}; adress_mode = Immediat} ) in
     let stack_sub = Instruction ( SUB { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral stack_sub_size} ) in
     let alignx29 = Instruction (ADD { destination = Register64 X29; operand1 = Register64 SP; operand2 = `ILitteral frame_register_offset; offset = false}) in
-    let store_x8 = Instruction (STR {data_size = None; source = xr; adress = address_of indirect_return_vt fd |> Option.get; adress_mode = Immediat}) in
+    let store_x8 = if fd.need_xr then  [Instruction (STR {data_size = None; source = xr; adress = address_of indirect_return_vt fd |> Option.get; adress_mode = Immediat})] else [] in
     let stack_params_offset = stack_params |> List.map (fun (_, kt) -> 
       if KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt > 8L then KosuIrTyped.Asttyhelper.RType.rpointer kt else kt
     ) in
@@ -758,7 +761,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
       let whereis = address_of (name, kt) fd  |> (fun adr -> match adr with Some a -> a | None -> failwith "From register setup null address") in
       acc @ (copy_from_reg (register) whereis kt rprogram)
       ) [] in
-      stack_sub::base::alignx29::store_x8::copy_stack_params_instruction @  copy_instructions
+      stack_sub::base::alignx29::[] @ store_x8 @copy_stack_params_instruction @  copy_instructions
 
   let function_epilogue fd = 
     let stack_space = align_16 ( Int64.add 16L fd.locals_space) in

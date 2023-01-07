@@ -616,7 +616,7 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
     let locals_var = function_decl.locale_var |> List.map (fun {locale_ty; locale} -> match locale with Locale s -> (s, locale_ty) | Enum_Assoc_id {name; _} -> (name, locale_ty) )in
     (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
     let asm_name = KosuIrTAC.Asttachelper.Function.label_of_fn_name current_module function_decl in
-    let fd = FrameManager.frame_descriptor ~stack_future_call:(stack_param_count) ~fn_register_params ~stack_param:stack_param ~locals_var ~discarded_values:(function_decl.discarded_values) rprogram in 
+    let fd = FrameManager.frame_descriptor ~stack_future_call:(stack_param_count) ~fn_register_params ~stack_param:stack_param ~return_type:function_decl.return_type ~locals_var ~discarded_values:(function_decl.discarded_values) rprogram in 
     let prologue = FrameManager.function_prologue ~fn_register_params:function_decl.rparameters ~stack_params:stack_param rprogram fd in
     let conversion = Codegen.translate_tac_body ~str_lit_map current_module rprogram fd function_decl.tac_body in
     let epilogue = FrameManager.function_epilogue fd in
