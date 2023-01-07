@@ -19,6 +19,10 @@ open Asttyped
 
 module RType = struct
 
+  let is_any_integer = function
+  | RTInteger _ -> true
+  | _ -> false
+
   let is_unsigned_integer = function
   | RTInteger(sign, _) -> sign = Unsigned
   | _ -> false 

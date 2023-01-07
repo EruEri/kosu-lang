@@ -290,6 +290,7 @@ module Register = struct
   let tmpreg_of_size_2 = fun size -> if size <= 4L then tmp32reg_2 else tmp64reg_2
 
   let tmpreg_of_size_3 = fun size -> if size <= 4L then tmp32reg_3 else tmp64reg_3
+  let tmpreg_of_size_4 = fun size -> if size <= 4L then tmp32reg_4 else tmp64reg_4
 
   let tmpreg_of_ktype rprogram ktype = 
     if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg 
@@ -308,6 +309,12 @@ module Register = struct
       else
       let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
       tmpreg_of_size_3 size
+
+    let tmpreg_of_ktype_4 rprogram ktype = 
+      if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_4 
+      else
+      let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+      tmpreg_of_size_4 size 
 end
 
 open Register
@@ -503,6 +510,8 @@ type raw_line =
 | Line_Com of comment
 
 type line = (raw_line * comment option)
+
+let minstruction ?(_lcomm = "") instr = Instruction instr
 
 let load_label ?module_path label register = 
   let label = module_path |> Option.map (fun mp -> asm_const_name mp label) |> Option.value ~default:label in
@@ -1162,14 +1171,52 @@ module Codegen = struct
           ] in
           equal_instruction @ copy_from_reg r8 waddress rval_rktype rprogram
           ) |> Option.value ~default:[] in
-        r8, rinstructions @ linstructions @ copy_instructions 
+        r8, linstructions @ rinstructions @ copy_instructions 
         
+      | RVBuiltinBinop {binop = TacSelf TacAdd; blhs; brhs}  -> 
 
+        if 
+          KosuIrTyped.Asttyhelper.RType.is_pointer rval_rktype 
+        then failwith "TODO : Pointer arithmetic"
+        else
+        (* let pointee_type = begin match blhs.expr_rktype, brhs.expr_rktype with
+         | RTPointer pointee_type, _ | _, RTPointer pointee_type -> Some pointee_type
+         | _ -> None
+      end
+      in 
+
+      let scale = match pointee_type with 
+        | None -> 1L 
+        | Some p -> sizeofn rprogram p in *)
+      let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
+      let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
+      let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
+      let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs in
+      let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs in
+      
+      let copy_instruction = where |> Option.map (fun waddress -> 
+      let add_instruction = Instruction (ADD {destination = r9; operand1 = left_reg; operand2 = `Register right_reg; offset = false }) in
+      add_instruction::(copy_from_reg r9 waddress rval_rktype rprogram)
+      ) |>  Option.value ~default:[] in
+
+      r9,  linstructions @ rinstructions @ copy_instruction
+      | RVBuiltinBinop {binop = TacSelf TacMinus; blhs; brhs} ->
+        if 
+          KosuIrTyped.Asttyhelper.RType.is_pointer rval_rktype 
+        then failwith "TODO : Pointer arithmetic"
+        else
+          let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
+          let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
+          let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
+          let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs in
+          let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs in
+          
+          let copy_instruction = where |> Option.map (fun waddress -> 
+          let sub_instruction = Instruction (SUB {destination = r9; operand1 = left_reg; operand2 = `Register right_reg }) in
+          sub_instruction::(copy_from_reg r9 waddress rval_rktype rprogram)
+          ) |>  Option.value ~default:[] in
     
-      (* | RVBuiltinBinop { binop = TacBool (TacEqual); blhs; brhs} -> 
-        let _, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:(second_prefered_tmp_reg) rprogram fd brhs in
-        let last_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:(tmpreg) rprogram fd blhs in
-        let  *)
+          r9,  linstructions @ rinstructions @ copy_instruction
       | _ -> failwith "Mostly binop"
 
 let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameManager.frame_desc) = function
