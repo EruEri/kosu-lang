@@ -268,10 +268,8 @@ module Codegen = struct
         let load_instruction = [Instruction (LDR {data_size = None; destination = tmp64reg; adress_src = adress; adress_mode = Immediat})] in
         let sizeof = sizeofn rprogram rval_rktype in
         let last_reg = tmpreg_of_size sizeof in
-        let data_size = compute_data_size rval_rktype sizeof in
         let copy_instructions = where |> Option.map (fun waddress -> 
-          let load = [Instruction (LDR {data_size; destination = last_reg; adress_src = (create_adress tmp64reg); adress_mode = Immediat})] in
-          load_instruction @ load @ copy_from_reg last_reg waddress rval_rktype rprogram
+          load_instruction @ copy_from_reg last_reg waddress rval_rktype rprogram
           ) |> Option.value ~default:[] in
         
        last_reg, copy_instructions
