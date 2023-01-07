@@ -34,8 +34,17 @@ let string_of_archi = function
 
 let archi_clap_type = Clap.typ ~name:"target" ~dummy:X86_64  ~parse:archi_parse ~show:string_of_archi
 
-let cc_compilation outputfile files = 
-  Sys.command (Printf.sprintf "cc -o %s %s" outputfile (files |> String.concat " "))
+let cc_compilation outputfile ~asm ~other = 
+  Sys.command (Printf.sprintf "cc -o %s %s %s" outputfile (asm |> String.concat " ") (other |> String.concat " "))
+
+let ccol_compilation cfiles = 
+  cfiles |> List.map (fun s -> 
+    let tmp_name = Filename.temp_file s ".o" in
+    let code =  Sys.command (Printf.sprintf "cc -c -o %s %s" tmp_name s) in
+    if code == 0 then Ok tmp_name else Error code
+  )
+
+let find_error_code_opt l = l |> List.find_map (function Error code when code <> 0 -> Some code | _ -> None)
 
 type cli_error =
   | No_input_file
