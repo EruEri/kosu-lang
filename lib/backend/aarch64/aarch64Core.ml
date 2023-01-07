@@ -743,7 +743,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
     let base = Instruction ( Instruction.STP {x1 = Register64 X29; x2 = Register64 X30; address = { base = Register64 SP; offset = frame_register_offset}; adress_mode = Immediat} ) in
     let stack_sub = Instruction ( SUB { destination = Register64 SP; operand1 = Register64 SP; operand2 = `ILitteral stack_sub_size} ) in
     let alignx29 = Instruction (ADD { destination = Register64 X29; operand1 = Register64 SP; operand2 = `ILitteral frame_register_offset; offset = false}) in
-    let store_x8 = Instruction (STR {data_size = None; source = xr; adress = create_adress ~offset:(Int64.neg 8L) x29; adress_mode = Immediat}) in
+    let store_x8 = Instruction (STR {data_size = None; source = xr; adress = address_of indirect_return_vt fd |> Option.get; adress_mode = Immediat}) in
     let stack_params_offset = stack_params |> List.map (fun (_, kt) -> 
       if KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt > 8L then KosuIrTyped.Asttyhelper.RType.rpointer kt else kt
     ) in
