@@ -610,22 +610,19 @@ let load_label ?module_path label register =
     ] @ (copy_large (increment_adress (Int64.neg 4L) adress_str) base_src_reg (Int64.sub size 4L))
       else (*size >= 8L*) 
         [
-          Instruction (
-   LDUR {
+          Instruction ( LDR {
             data_size = None;
             destination = reg_of_64 X10;
             adress_src = create_adress base_src_reg;
             adress_mode = Immediat
           });
-          Instruction (
-   STR {
+          Instruction ( STR {
             data_size = None;
             source = reg_of_64 X10;
             adress = adress_str;
             adress_mode = Immediat
           }) ;
-          Instruction (
-   ADD {
+          Instruction ( ADD {
             destination = base_src_reg;
             operand1 = base_src_reg;
             offset = false;

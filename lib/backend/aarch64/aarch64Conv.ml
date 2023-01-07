@@ -206,7 +206,7 @@ module Codegen = struct
     else
       let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float function_decl.return_type) return_size in
       let copy_instruction = where |> Option.map (fun waddress -> 
-        let x8_ldr_indirect_adress = Instruction (LDR {data_size = None; destination = Register.xr; adress_src = waddress; adress_mode = Immediat}) in
+        let x8_ldr_indirect_adress = Instruction (ADD {destination = Register.xr; operand1 = waddress.base; operand2 = `ILitteral waddress.offset; offset = false}) in
           x8_ldr_indirect_adress
         ) |> Option.to_list in
       return_reg, instructions @ copy_instruction @ call_instructions
