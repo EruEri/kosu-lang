@@ -891,7 +891,7 @@ module Codegen = struct
           |> List.map (fun (field, _) -> offset_of_field ~generics field struct_decl rprogram)
         in
         
-        let () = offset_list |> List.map (Printf.sprintf "%Lu") |> String.concat ", " |> Printf.printf "%s off = [%s]\n" _s in
+        (* let () = offset_list |> List.map (Printf.sprintf "%Lu") |> String.concat ", " |> Printf.printf "%s off = [%s]\n" _s in *)
         let tmpreg = Register64 X9 in
         tmpreg,  fields |> List.mapi (fun index value -> index, value) |> List.fold_left (fun (acc) (index, (_field, tte)) -> 
           let reg_texp, instructions = translate_tac_expression ~str_lit_map rprogram fd tte in
@@ -969,7 +969,7 @@ module Codegen = struct
   
       let call_instructions = FrameManager.call_instruction ~origin:fn_label regs fd in
       let return_size = sizeofn rprogram function_decl.return_type in
-      let () = Printf.printf "Return size : %s = %Lu" function_decl.rfn_name return_size in
+      (* let () = Printf.printf "Return size : %s = %Lu" function_decl.rfn_name return_size in *)
       if is_register_size return_size 
         then      
          let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float function_decl.return_type) return_size in
@@ -1062,7 +1062,7 @@ module Codegen = struct
         let offset_list = enum_tte_list
         |> List.mapi (fun index {expr_rktype = _; _} -> offset_of_tuple_index index enum_type_list rprogram)
       in
-      let () = offset_list |> List.map (Printf.sprintf "%Lu") |> String.concat ", " |> Printf.printf "%s::%s off = [%s]\n" enum_decl.renum_name variant in
+      (* let () = offset_list |> List.map (Printf.sprintf "%Lu") |> String.concat ", " |> Printf.printf "%s::%s off = [%s]\n" enum_decl.renum_name variant in *)
       let last_reg = tmpreg_of_size (sizeofn rprogram rval_rktype) in
         last_reg, 
 
@@ -1340,7 +1340,8 @@ let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameM
         tmp64reg, setup_instructions @ condition_switch_instruction @ copy_tag::cmp_instrution_list @ wildcard_case_jmp @ fn_block @ wildcard_body_block @ [exit_label_instruction]
       | SCases {cases; else_tac_body; exit_label} -> 
         let cases_body, cases_condition = cases |> List.map (fun scases -> 
-          let setup_next_cmp_instr = scases.condition_label |> Option.map (fun label -> Instruction (B { cc = None; label})) |> Option.to_list in
+          (* furute optimisation : do only si else branch*)
+          let setup_next_label_instr = scases.condition_label |> Option.map (fun label -> Label label) |> Option.to_list in
           let setup_condition_insts = scases.statement_for_condition |> List.map (fun stmt -> 
            snd @@ translate_tac_statement ~str_lit_map current_module rprogram fd stmt 
           ) |> List.flatten in
@@ -1349,7 +1350,7 @@ let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameM
           let if_true_instruction = Instruction (B { cc = Some EQ; label = scases.goto}) in
           let if_false_instruction = Instruction (B {cc = None; label = scases.jmp_false}) in
           let body_instruction = translate_tac_body ~str_lit_map ~end_label:(Some scases.end_label) current_module rprogram fd scases.tac_body in
-          body_instruction, setup_next_cmp_instr @ setup_condition_insts @ condition @ [cmp; if_true_instruction; if_false_instruction]
+          body_instruction, setup_next_label_instr @ setup_condition_insts @ condition @ [cmp; if_true_instruction; if_false_instruction]
         ) |> List.split |> (fun (lhs, rhs) -> List.flatten lhs, List.flatten rhs) in
         let _else_jump = Instruction (B {cc = None; label = else_tac_body.label}) in
         let end_label_instruction = Label (exit_label) in
@@ -1413,7 +1414,7 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
       ) in
     let stack_param_count = Int64.of_int (function_decl.stack_params_count * 8) in
     let locals_var = function_decl.locale_var |> List.map (fun {locale_ty; locale} -> match locale with Locale s -> (s, locale_ty) | Enum_Assoc_id {name; _} -> (name, locale_ty) )in
-    let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in
+    (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
     let asm_name = KosuIrTAC.Asttachelper.Function.label_of_fn_name current_module function_decl in
     let fd = FrameManager.frame_descriptor ~stack_future_call:(stack_param_count) ~fn_register_params ~stack_param:stack_param ~locals_var ~discarded_values:(function_decl.discarded_values) rprogram in 
     let prologue = FrameManager.function_prologue ~fn_register_params:function_decl.rparameters ~stack_params:stack_param rprogram fd in

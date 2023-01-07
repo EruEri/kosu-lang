@@ -929,13 +929,13 @@ let rec tac_module_node_from_rmodule_node current_module rprogram = function
   | RNConst s -> TNConst s
   | RNFunction f ->
       let tmp = tac_function_decl_of_rfunction current_module rprogram f in
-      let () =
+      (* let () =
         Printf.printf "Locales = %s\nBody:\n%s\n"
           (tmp.locale_var
           |> List.map Asttacpprint.string_of_typed_locale
           |> String.concat ", ")
           (Asttacpprint.string_of_label_tac_body tmp.tac_body)
-      in
+      in *)
       TNFunction tmp
   | RNOperator s -> TNOperator (tac_operator_decl_of_roperator_decl current_module rprogram s)
 
