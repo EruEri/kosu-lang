@@ -613,6 +613,34 @@ module Codegen = struct
           copy_from_reg r9 waddress rval_rktype rprogram
         ) |> Option.value ~default:[] in 
         r9, linstructions @ rinstructions @ xor_instruction::copy_instruction
+      | RVBuiltinBinop {binop = TacSelf TacShiftLeft; blhs; brhs} ->
+        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
+        let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
+        let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
+        let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs in
+        let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs in
+        let shift_left_instruction = Instruction (LSL {destination = r9; operand1 = left_reg; operand2 = `Register right_reg}) in
+        let copy_instruction = where |> Option.map (fun waddress -> 
+          copy_from_reg r9 waddress rval_rktype rprogram
+        ) |> Option.value ~default:[] in 
+        r9, linstructions @ rinstructions @ shift_left_instruction::copy_instruction
+      | RVBuiltinBinop {binop = TacSelf TacShiftRight; blhs; brhs} ->
+        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
+        let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
+        let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
+        let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs in
+        let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs in
+        let shift_left_instruction = 
+          if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer rval_rktype
+            then  
+              Instruction (LSR {destination = r9; operand1 = left_reg; operand2 = `Register right_reg}) 
+          else  
+            Instruction (ASR {destination = r9; operand1 = left_reg; operand2 = `Register right_reg})
+        in
+        let copy_instruction = where |> Option.map (fun waddress -> 
+          copy_from_reg r9 waddress rval_rktype rprogram
+        ) |> Option.value ~default:[] in 
+        r9, linstructions @ rinstructions @ shift_left_instruction::copy_instruction
       | _ -> failwith "Mostly binop"
 
 let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameManager.frame_desc) = function

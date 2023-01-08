@@ -443,13 +443,20 @@ module Instruction = struct
   operand1 : Register.register;
   operand2 : Register.register;
 }
-| ASL of {
+| LSL of {
    
     destination : Register.register;
     operand1 : Register.register;
     (* LIteral range [0-31] *)
     operand2 : src;
   }
+| LSR of {
+   
+  destination : Register.register;
+  operand1 : Register.register;
+  (* LIteral range [0-31] *)
+  operand2 : src;
+}
 | ASR of {
    
     destination : Register.register;

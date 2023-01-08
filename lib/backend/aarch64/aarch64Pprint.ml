@@ -174,10 +174,13 @@ sprintf "%smul %s, %s, %s" (prefix_of_float destination)  (string_of_register de
   sprintf "udiv %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_register operand2)
 | SDIV {destination; operand1; operand2} ->
 sprintf "%ssdiv %s, %s, %s" (prefix_of_float destination)  (string_of_register destination) (string_of_register operand1) (string_of_register operand2)
-| ASL {destination; operand1; operand2} ->
-sprintf "asl %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
+| LSR {destination; operand1; operand2} ->
+  sprintf "lsr %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
+| LSL {destination; operand1; operand2} ->
+sprintf "lsl %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
 | ASR {destination; operand1; operand2} ->
 sprintf "asr %s, %s, %s" (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
+
 | CSINC {destination; operand1; operand2; condition} ->
 sprintf "%scsinc %s, %s, %s, %s" (prefix_of_float destination)  (string_of_register destination) (string_of_register operand1) (string_of_register operand2) (string_of_condition_code condition)
 | AND {destination; operand1; operand2} ->
