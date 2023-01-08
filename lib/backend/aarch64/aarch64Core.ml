@@ -374,6 +374,10 @@ module Instruction = struct
     operand : src;
     shift: shift option
   }
+  | Mvn of {
+    destination : Register.register;
+    operand: src;
+  }
 | Not of {
  
   destination : Register.register;

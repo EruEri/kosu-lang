@@ -150,6 +150,8 @@ let value_of_shift = function
 let string_of_instruction = function
 | Mov {destination; flexsec_operand} -> 
   sprintf "%smov %s, %s" (prefix_of_float destination) (string_of_register destination) (string_of_src flexsec_operand)
+| Mvn {destination; operand} -> 
+    sprintf "%smvn %s, %s" (prefix_of_float destination) (string_of_register destination) (string_of_src operand)
 | Movk {destination; operand; shift} ->
   sprintf "%smovk %s, %s%s" (prefix_of_float destination)  (string_of_register destination) (string_of_src operand) (shift |> Option.map (fun sh -> sprintf ", lsl %d" (value_of_shift sh)) |> Option.value ~default:"")
 | Not {destination; source} ->

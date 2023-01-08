@@ -641,7 +641,30 @@ module Codegen = struct
           copy_from_reg r9 waddress rval_rktype rprogram
         ) |> Option.value ~default:[] in 
         r9, linstructions @ rinstructions @ shift_left_instruction::copy_instruction
-      | _ -> failwith "Mostly binop"
+      | RVBuiltinUnop {unop = TacUminus; expr} ->
+        let r9 = tmpreg_of_ktype_2 rprogram rval_rktype in
+        let r10 = tmpreg_of_ktype_3 rprogram expr.expr_rktype in
+        let last_reg, instructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd expr in
+        let uminus_instructions = Instruction (Neg {destination = r9; source = last_reg}) in
+        let copy_instructions = where |> Option.map (fun waddress -> 
+          copy_from_reg r9 waddress rval_rktype rprogram
+        ) |> Option.value ~default:[] in 
+        r9, instructions @ uminus_instructions::copy_instructions
+      | RVBuiltinUnop {unop = TacNot; expr} ->
+        let r9 = tmpreg_of_ktype_2 rprogram rval_rktype in
+        let r10 = tmpreg_of_ktype_3 rprogram expr.expr_rktype in
+        let last_reg, instructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd expr in
+        let not_instructions = 
+          if KosuIrTyped.Asttyhelper.RType.is_bool rval_rktype 
+            then Instruction (EOR {destination = r9; operand1 = last_reg; operand2 = `ILitteral 1L}) 
+          else
+            Instruction (Mvn {destination = r9; operand = `Register last_reg}) 
+        in
+        let copy_instructions = where |> Option.map (fun waddress -> 
+          copy_from_reg r9 waddress rval_rktype rprogram
+        ) |> Option.value ~default:[] in 
+        r9, instructions @ not_instructions::copy_instructions
+        | _ -> failwith "Mostly binop"
 
 let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameManager.frame_desc) = function
       | STacDeclaration {identifier; trvalue} | STacModification {identifier; trvalue} ->

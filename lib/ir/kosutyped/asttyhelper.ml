@@ -23,6 +23,10 @@ module RType = struct
   | RTInteger _ -> true
   | _ -> false
 
+  let is_bool = function
+  | RTBool -> true 
+  | _ -> false
+  
   let is_unsigned_integer = function
   | RTInteger(sign, _) -> sign = Unsigned
   | _ -> false 
