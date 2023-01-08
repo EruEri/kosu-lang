@@ -348,7 +348,7 @@ let create_adress ?(offset = 0L) base =
   {base; offset}
 
 let increment_adress off adress = {
-  adress with offset = Int64.sub adress.offset off
+  adress with offset = Int64.add adress.offset off
 }
 
 let asm_const_name current_module const_name = 
@@ -565,7 +565,7 @@ let load_label ?module_path label register =
         operand2 = `ILitteral 1L;
         offset = false;
       })
-    ] @ (copy_large (increment_adress (Int64.neg 2L) adress_str) base_src_reg (Int64.sub size 1L))
+    ] @ (copy_large (increment_adress 1L adress_str) base_src_reg (Int64.sub size 1L))
   else if size < 4L && size >= 2L
     then [
       Instruction (LDR {
@@ -586,7 +586,7 @@ let load_label ?module_path label register =
         operand2 = `ILitteral 2L;
         offset = false;
       })
-    ] @ (copy_large (increment_adress (Int64.neg 2L) adress_str) base_src_reg (Int64.sub size 2L))
+    ] @ (copy_large (increment_adress 2L adress_str) base_src_reg (Int64.sub size 2L))
   else if size < 8L && size >= 4L
     then [
       Instruction ( LDR {
@@ -607,7 +607,7 @@ let load_label ?module_path label register =
         offset = false;
         operand2 = `ILitteral 4L
       })
-    ] @ (copy_large (increment_adress (Int64.neg 4L) adress_str) base_src_reg (Int64.sub size 4L))
+    ] @ (copy_large (increment_adress 4L adress_str) base_src_reg (Int64.sub size 4L))
       else (*size >= 8L*) 
         [
           Instruction ( LDR {
@@ -628,7 +628,7 @@ let load_label ?module_path label register =
             offset = false;
             operand2 = `ILitteral 8L
           })
-        ] @ (copy_large (increment_adress (Int64.neg 8L) adress_str) base_src_reg (Int64.sub size 8L))
+        ] @ (copy_large (increment_adress 8L adress_str) base_src_reg (Int64.sub size 8L))
   ;;
   
   
@@ -643,7 +643,7 @@ let load_label ?module_path label register =
     | 4L -> 
       [Instruction (STR {data_size = None; source = to_32bits register; adress; adress_mode = Immediat})]
     | 8L ->
-      [Instruction (STR {data_size = None; source = to_64bits register; adress; adress_mode = Immediat})]
+      [Instruction (STR {data_size = None; source = to_64bits register; adress; adress_mode = Immediat}); Line_Com (Comment "Above")]
     | _ -> copy_large adress register size 
   
   let load_register register (address: address) ktype ktype_size = match ktype_size with
@@ -752,7 +752,7 @@ let frame_descriptor ?(stack_future_call = 0L) ~(fn_register_params: (string * K
       let offset = offset_of_tuple_index index stack_params_offset rprogram in
       let future_address_location = address_of (name, kt) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "On stack setup null address") in
       let tmprreg =  tmpreg_of_ktype rprogram kt in
-      let param_stack_address = increment_adress (Int64.neg offset) sp_address in
+      let param_stack_address = increment_adress offset sp_address in
       let load_instruction = load_register tmprreg param_stack_address kt sizeofkt in
       let str_instruction = copy_from_reg tmprreg future_address_location kt rprogram in
       acc @ str_instruction @ load_instruction

@@ -122,7 +122,7 @@ module Codegen = struct
         tmpreg,  fields |> List.mapi (fun index value -> index, value) |> List.fold_left (fun (acc) (index, (_field, tte)) -> 
           let reg_texp, instructions = translate_tac_expression ~str_lit_map rprogram fd tte in
           let copy_instruction = where |> Option.map (fun waddress -> 
-            let current_address = increment_adress (Int64.neg (List.nth offset_list index)) waddress in
+            let current_address = increment_adress (List.nth offset_list index) waddress in
             copy_from_reg reg_texp current_address tte.expr_rktype rprogram
           ) |> Option.value ~default:[] in
            acc @ instructions @ copy_instruction
@@ -277,7 +277,7 @@ module Codegen = struct
         
         let offset = offset_of_field ~generics field struct_decl rprogram in
         let struct_address = FrameManager.address_of (struct_id, expr_rktype) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "field access null address") in
-        let field_address = increment_adress (Int64.neg offset) struct_address in
+        let field_address = increment_adress offset struct_address in
         let sizeof = sizeofn rprogram rval_rktype in
         
         let size = compute_data_size rval_rktype sizeof in
@@ -296,12 +296,11 @@ module Codegen = struct
       | RVDefer id ->
         let adress = FrameManager.address_of (id, rval_rktype |> KosuIrTyped.Asttyhelper.RType.rpointer) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "defer of null address") in
         let load_instruction = [Instruction (LDR {data_size = None; destination = tmp64reg_2; adress_src = adress; adress_mode = Immediat})] in
-        let load_indirect = 
+        let last_reg, load_indirect = 
           if is_register_size @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram rval_rktype 
-            then [Instruction (LDR {data_size = None; destination = tmp64reg; adress_src = create_adress tmp64reg_2; adress_mode = Immediat})] 
-        else [] in
+            then tmp64reg, [Instruction (LDR {data_size = None; destination = tmp64reg; adress_src = create_adress tmp64reg_2; adress_mode = Immediat})] 
+        else tmp64reg_2, [] in
         (* let sizeof = sizeofn rprogram rval_rktype in *)
-        let last_reg = tmp64reg in
         let copy_instructions = where |> Option.map (fun waddress -> 
           load_instruction @ load_indirect @ copy_from_reg last_reg waddress rval_rktype rprogram
           ) |> Option.value ~default:[] in
@@ -326,7 +325,7 @@ module Codegen = struct
         enum_tte_list |> List.mapi (fun index value -> index, value)  |> List.fold_left (fun acc (index, tte) -> 
           let reg_texp, instructions = translate_tac_expression rprogram ~str_lit_map fd tte in 
           let copy_instructions = where |> Option.map (fun waddress -> 
-            let current_address = increment_adress (Int64.neg (List.nth offset_list index)) waddress in
+            let current_address = increment_adress (List.nth offset_list index) waddress in
             copy_from_reg reg_texp current_address tte.expr_rktype rprogram
           ) |> Option.value ~default:[] in
           acc @ instructions @ copy_instructions
@@ -582,7 +581,7 @@ let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameM
                 if is_register_size size_of_ktype then
                 
                  [
-                  Instruction (LDR {data_size; destination = reg_of_size (size_of_ktype_size size_of_ktype) tmp64reg; adress_src = increment_adress (Int64.neg offset_a) (switch_variable_address); adress_mode = Immediat});
+                  Instruction (LDR {data_size; destination = reg_of_size (size_of_ktype_size size_of_ktype) tmp64reg; adress_src = increment_adress offset_a (switch_variable_address); adress_mode = Immediat});
                   Instruction (STR {data_size; source = reg_of_size (size_of_ktype_size size_of_ktype) tmp64reg; adress = destination_address; adress_mode = Immediat })
                 ]
                 else (Instruction (ADD {destination = tmp64reg; operand1 = switch_variable_address.base; operand2 = `ILitteral (Int64.add switch_variable_address.offset offset_a);  offset = false})) :: copy_from_reg tmp64reg destination_address ktyte rprogram
@@ -654,14 +653,14 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
     let prologue = FrameManager.function_prologue ~fn_register_params:function_decl.rparameters ~stack_params:stack_param rprogram fd in
     let conversion = Codegen.translate_tac_body ~str_lit_map current_module rprogram fd function_decl.tac_body in
     let epilogue = FrameManager.function_epilogue fd in
-    (* let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
+    let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
     let () = fd.stack_map |> IdVarMap.to_seq |> Seq.iter (fun ((s, kt), adr) -> 
       Printf.printf "%s : %s == [%s, %Ld]\n" 
       (s) 
       (KosuIrTyped.Asttypprint.string_of_rktype kt) 
       (Aarch64Pprint.string_of_register adr.base)
       (adr.offset) 
-      ) in *)
+      ) in
     Some (Afunction {
       asm_name;
       asm_body = prologue @ (conversion |> List.tl) @ epilogue 
