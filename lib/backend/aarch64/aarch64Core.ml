@@ -550,8 +550,8 @@ let load_label ?module_path label register =
       Instruction( LDR {
         data_size = Some B;
         destination = reg_of_32 W10;
-        adress_src = create_adress (base_src_reg);
-        adress_mode = Immediat
+        adress_src = create_adress ~offset:(1L) (base_src_reg);
+        adress_mode = Postfix
       });
       Instruction (STR {
         data_size = Some B;
@@ -559,20 +559,14 @@ let load_label ?module_path label register =
         adress = adress_str;
         adress_mode = Immediat
       }) ;
-      Instruction (ADD {
-        destination = base_src_reg;
-        operand1 = base_src_reg;
-        operand2 = `ILitteral 1L;
-        offset = false;
-      })
     ] @ (copy_large (increment_adress 1L adress_str) base_src_reg (Int64.sub size 1L))
   else if size < 4L && size >= 2L
     then [
       Instruction (LDR {
         data_size = Some H;
         destination = reg_of_32 W10;
-        adress_src = create_adress base_src_reg;
-        adress_mode = Immediat
+        adress_src = create_adress ~offset:(2L) base_src_reg;
+        adress_mode = Postfix
       });
       Instruction ( STR {
         data_size = Some H;
@@ -580,20 +574,14 @@ let load_label ?module_path label register =
         adress = adress_str;
         adress_mode = Immediat
       }) ;
-      Instruction ( ADD {
-        destination = base_src_reg;
-        operand1 = base_src_reg;
-        operand2 = `ILitteral 2L;
-        offset = false;
-      })
     ] @ (copy_large (increment_adress 2L adress_str) base_src_reg (Int64.sub size 2L))
   else if size < 8L && size >= 4L
     then [
       Instruction ( LDR {
         data_size = None;
         destination = reg_of_32 W10;
-        adress_src = create_adress  (base_src_reg);
-        adress_mode = Immediat
+        adress_src = create_adress ~offset:(4L) (base_src_reg);
+        adress_mode = Postfix
       });
       Instruction ( STR {
         data_size = None;
@@ -601,20 +589,14 @@ let load_label ?module_path label register =
         adress = adress_str;
         adress_mode = Immediat
       }) ;
-      Instruction ( ADD {
-        destination = base_src_reg;
-        operand1 = base_src_reg;
-        offset = false;
-        operand2 = `ILitteral 4L
-      })
     ] @ (copy_large (increment_adress 4L adress_str) base_src_reg (Int64.sub size 4L))
       else (*size >= 8L*) 
         [
           Instruction ( LDR {
             data_size = None;
             destination = reg_of_64 X10;
-            adress_src = create_adress base_src_reg;
-            adress_mode = Immediat
+            adress_src = create_adress ~offset:(8L) base_src_reg;
+            adress_mode = Postfix
           });
           Instruction ( STR {
             data_size = None;
@@ -622,12 +604,6 @@ let load_label ?module_path label register =
             adress = adress_str;
             adress_mode = Immediat
           }) ;
-          Instruction ( ADD {
-            destination = base_src_reg;
-            operand1 = base_src_reg;
-            offset = false;
-            operand2 = `ILitteral 8L
-          })
         ] @ (copy_large (increment_adress 8L adress_str) base_src_reg (Int64.sub size 8L))
   ;;
   
