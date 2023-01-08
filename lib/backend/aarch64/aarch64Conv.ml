@@ -285,6 +285,7 @@ module Codegen = struct
           [Instruction (LDR {data_size = size; destination = tmpreg; adress_src = field_address; adress_mode = Immediat})] @ copy_from_reg tmpreg waddress rval_rktype rprogram
         ) |> Option.value ~default:[] in
         tmpreg, (Line_Com (Comment ("Field access of "^field)))::copy_instructions
+      | RVFieldAcess _ -> failwith "Wierd : Fields access force struct as an identifier"
       | RVAdress id -> 
         let pointee_type = rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee in
         let adress = FrameManager.address_of (id, pointee_type) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "address of null address") in
@@ -532,6 +533,32 @@ module Codegen = struct
           ) |>  Option.value ~default:[] in
           r9,  linstructions @ rinstructions @ copy_instruction
         end 
+      | RVBuiltinBinop {binop = TacSelf TacMult; blhs; brhs} ->
+        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
+        let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
+        let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
+        let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs in
+        let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs in
+        let mult_instruction = Instruction (MUL {destination = r9; operand1 = left_reg; operand2 = right_reg}) in
+        let copy_instruction = where |> Option.map (fun waddress -> 
+          copy_from_reg r9 waddress rval_rktype rprogram
+        ) |> Option.value ~default:[] in 
+        r9, linstructions @ rinstructions @ mult_instruction::copy_instruction
+      | RVBuiltinBinop {binop = TacSelf TacDiv; blhs; brhs} ->
+          let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
+          let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
+          let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
+          let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs in
+          let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs in
+          let div_instruction = if 
+            KosuIrTyped.Asttyhelper.RType.is_unsigned_integer rval_rktype then
+              Instruction (UDIV {destination = r9; operand1 = left_reg; operand2 = right_reg})  
+            else 
+              Instruction (SDIV {destination = r9; operand1 = left_reg; operand2 = right_reg}) in
+          let copy_instruction = where |> Option.map (fun waddress -> 
+            copy_from_reg r9 waddress rval_rktype rprogram
+          ) |> Option.value ~default:[] in 
+          r9, linstructions @ rinstructions @ div_instruction::copy_instruction
       | _ -> failwith "Mostly binop"
 
 let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameManager.frame_desc) = function
