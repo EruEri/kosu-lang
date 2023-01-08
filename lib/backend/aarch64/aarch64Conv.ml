@@ -83,7 +83,7 @@ module Codegen = struct
 
     | _ -> failwith ""
 
-    let rec translate_tac_rvalue ?(is_deref = false) ~str_lit_map ~(where: address option) current_module rprogram (fd: FrameManager.frame_desc) {rval_rktype; rvalue} =
+    let rec translate_tac_rvalue ?(is_deref = None) ~str_lit_map ~(where: address option) current_module rprogram (fd: FrameManager.frame_desc) {rval_rktype; rvalue} =
       let _ = is_deref in
       match rvalue with
       | RVUminus ttr -> 
@@ -167,18 +167,18 @@ module Codegen = struct
           | true -> 
             let copy_instruction = where |> Option.map (fun waddress -> 
               match is_deref with
-              | true -> (Instruction (LDR {data_size = None; destination = xr; adress_src = waddress; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) external_func_decl.return_type rprogram
-              | false  -> copy_from_reg return_reg waddress external_func_decl.return_type rprogram
+              | Some pointer -> (Instruction (LDR {data_size = None; destination = xr; adress_src = pointer; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) external_func_decl.return_type rprogram
+              | None  -> copy_from_reg return_reg waddress external_func_decl.return_type rprogram
             ) |> Option.value ~default:[] in
             return_reg, instructions @ set_on_stack_instructions @ call_instructions @ copy_instruction (* Is not the same check the instructions order*)
           | false -> 
             let copy_instruction = where |> Option.map (fun waddress -> 
                 match is_deref with
-                | true -> [
-                  Instruction (LDR {data_size = None; destination = xr; adress_src = waddress; adress_mode = Immediat});
+                | Some pointer -> [
+                  Instruction (LDR {data_size = None; destination = xr; adress_src = pointer; adress_mode = Immediat});
                   Instruction (LDR {data_size = None; destination = xr; adress_src = create_adress xr; adress_mode = Immediat})
                 ] 
-                | false  -> [Instruction (ADD {destination = Register.xr; operand1 = waddress.base; operand2 = `ILitteral waddress.offset; offset = false})]
+                | None  -> [Instruction (ADD {destination = Register.xr; operand1 = waddress.base; operand2 = `ILitteral waddress.offset; offset = false})]
       
               ) |> Option.value ~default:[] in
             return_reg, instructions @ set_on_stack_instructions @ copy_instruction @ call_instructions
@@ -198,8 +198,8 @@ module Codegen = struct
             Instruction (SVC)
             ] @  (where |> Option.map (fun waddress -> 
               match is_deref with
-              | true -> (Instruction (LDR {data_size = None; destination = xr; adress_src = waddress; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) syscall_decl.return_type rprogram
-              | false  -> copy_from_reg return_reg waddress syscall_decl.return_type rprogram
+              | Some pointer -> (Instruction (LDR {data_size = None; destination = xr; adress_src = pointer; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) syscall_decl.return_type rprogram
+              | None  -> copy_from_reg return_reg waddress syscall_decl.return_type rprogram
               ) |> Option.value ~default:[] )
         | RKosufn_Decl _ -> (
         let function_decl = rprogram |> KosuIrTyped.Asttyhelper.RProgram.find_function_decl_exact_param_types 
@@ -223,19 +223,19 @@ module Codegen = struct
         let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float function_decl.return_type) return_size in
         let copy_instruction = where |> Option.map (fun waddress -> 
           match is_deref with
-          | true -> (Instruction (LDR {data_size = None; destination = xr; adress_src = waddress; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) function_decl.return_type rprogram
-          | false  -> copy_from_reg return_reg waddress function_decl.return_type rprogram
+          | Some pointer -> (Instruction (LDR {data_size = None; destination = xr; adress_src = pointer; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) function_decl.return_type rprogram
+          | None  -> copy_from_reg return_reg waddress function_decl.return_type rprogram
         ) |> Option.value ~default:[] in
         return_reg, instructions @ call_instructions @ copy_instruction (* Is not the same check the instructions order*)
       | false -> 
       let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float function_decl.return_type) return_size in
       let copy_instruction = where |> Option.map (fun waddress -> 
            match is_deref with
-          | true -> [
-            Instruction (LDR {data_size = None; destination = xr; adress_src = waddress; adress_mode = Immediat});
+          | Some pointer -> [
+            Instruction (LDR {data_size = None; destination = xr; adress_src = pointer; adress_mode = Immediat});
             Instruction (LDR {data_size = None; destination = xr; adress_src = create_adress xr; adress_mode = Immediat})
           ] 
-          | false  -> [Instruction (ADD {destination = Register.xr; operand1 = waddress.base; operand2 = `ILitteral waddress.offset; offset = false})]
+          | None  -> [Instruction (ADD {destination = Register.xr; operand1 = waddress.base; operand2 = `ILitteral waddress.offset; offset = false})]
 
         ) |> Option.value ~default:[] in
       return_reg, instructions @ copy_instruction @ call_instructions
@@ -295,11 +295,15 @@ module Codegen = struct
         tmp64reg, copy_instruction 
       | RVDefer id ->
         let adress = FrameManager.address_of (id, rval_rktype |> KosuIrTyped.Asttyhelper.RType.rpointer) fd |> (fun adr -> match adr with Some a -> a | None -> failwith "defer of null address") in
-        let load_instruction = [Instruction (LDR {data_size = None; destination = tmp64reg; adress_src = adress; adress_mode = Immediat})] in
-        let sizeof = sizeofn rprogram rval_rktype in
-        let last_reg = tmpreg_of_size sizeof in
+        let load_instruction = [Instruction (LDR {data_size = None; destination = tmp64reg_2; adress_src = adress; adress_mode = Immediat})] in
+        let load_indirect = 
+          if is_register_size @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram rval_rktype 
+            then [Instruction (LDR {data_size = None; destination = tmp64reg; adress_src = create_adress tmp64reg_2; adress_mode = Immediat})] 
+        else [] in
+        (* let sizeof = sizeofn rprogram rval_rktype in *)
+        let last_reg = tmp64reg in
         let copy_instructions = where |> Option.map (fun waddress -> 
-          load_instruction @ copy_from_reg last_reg waddress rval_rktype rprogram
+          load_instruction @ load_indirect @ copy_from_reg last_reg waddress rval_rktype rprogram
           ) |> Option.value ~default:[] in
         
        last_reg, copy_instructions
@@ -505,8 +509,8 @@ let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameM
         let tmpreg = tmpreg_of_ktype rprogram (KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype) in
         let intermediary_adress = FrameManager.address_of (identifier, KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype) fd in
         let instructions = Instruction ( LDR { data_size = None; destination = tmpreg; adress_src = intermediary_adress |> Option.get; adress_mode = Immediat} ) in
-        let _true_adress = create_adress tmpreg in
-        let last_reg, true_instructions = translate_tac_rvalue ~str_lit_map ~is_deref:true ~where:(Some (Option.get intermediary_adress)) current_module rprogram fd trvalue  in
+        let true_adress =  (create_adress tmpreg) in
+        let last_reg, true_instructions = translate_tac_rvalue ~str_lit_map ~is_deref:(intermediary_adress) ~where:(Some true_adress) current_module rprogram fd trvalue  in
         last_reg, (Line_Com (Comment "Defered Start"))::instructions::true_instructions @ [Line_Com (Comment "Defered end")]
       | STIf {
         statement_for_bool;
