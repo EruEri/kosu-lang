@@ -399,6 +399,18 @@ module Instruction = struct
   (* Int12 litteral oprand*)
   operand2 : src;
 }
+| MADD of {
+  destination : Register.register;
+  operand1_base: Register.register;
+  operand2: register;
+  scale: register;
+}
+| MSUB of {
+  destination : Register.register;
+  operand1_base: Register.register;
+  operand2: register;
+  scale: register;
+}
 | SUB of {
    
     destination : Register.register;

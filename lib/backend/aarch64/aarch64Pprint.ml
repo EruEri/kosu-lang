@@ -158,6 +158,10 @@ let string_of_instruction = function
   sprintf "neg %s, %s" (string_of_register destination) (string_of_register source)
 | ADD {destination; operand1; operand2; offset} ->
   sprintf "%sadd %s, %s, %s%s" (prefix_of_float destination)  (string_of_register destination) (string_of_register operand1) (string_of_src operand2) (if offset then "@PAGEOFF" else "")
+| MADD {destination; operand1_base; operand2; scale} ->
+    sprintf "madd %s, %s, %s, %s" (string_of_register destination)  (string_of_register operand1_base) (string_of_register operand2) (string_of_register scale)
+| MSUB {destination; operand1_base; operand2; scale} ->
+      sprintf "msub %s, %s, %s, %s" (string_of_register destination)  (string_of_register operand1_base) (string_of_register operand2) (string_of_register scale)
 | ADDS {destination; operand1; operand2} ->
 sprintf "%sadds %s, %s, %s" (prefix_of_float destination)  (string_of_register destination) (string_of_register operand1) (string_of_src operand2)
 | SUB {destination; operand1; operand2} ->

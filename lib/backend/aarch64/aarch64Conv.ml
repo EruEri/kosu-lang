@@ -84,7 +84,6 @@ module Codegen = struct
     | _ -> failwith ""
 
     let rec translate_tac_rvalue ?(is_deref = None) ~str_lit_map ~(where: address option) current_module rprogram (fd: FrameManager.frame_desc) {rval_rktype; rvalue} =
-      let _ = is_deref in
       match rvalue with
       | RVUminus ttr -> 
         let last_reg, insts =  translate_tac_rvalue ~str_lit_map ~where current_module rprogram fd ttr in
@@ -454,37 +453,33 @@ module Codegen = struct
         r8, linstructions @ rinstructions @ copy_instructions 
         
       | RVBuiltinBinop {binop = TacSelf TacAdd; blhs; brhs}  -> 
-
-        if 
-          KosuIrTyped.Asttyhelper.RType.is_pointer rval_rktype 
-        then failwith "TODO : Pointer arithmetic"
-        else
-        (* let pointee_type = begin match blhs.expr_rktype, brhs.expr_rktype with
-         | RTPointer pointee_type, _ | _, RTPointer pointee_type -> Some pointee_type
-         | _ -> None
-      end
-      in 
-
-      let scale = match pointee_type with 
-        | None -> 1L 
-        | Some p -> sizeofn rprogram p in *)
-      let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-      let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
-      let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
-      let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs in
-      let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs in
-      
-      let copy_instruction = where |> Option.map (fun waddress -> 
-      let add_instruction = Instruction (ADD {destination = r9; operand1 = left_reg; operand2 = `Register right_reg; offset = false }) in
-       add_instruction::(Instruction.copy_from_reg r9 waddress rval_rktype rprogram )
-      ) |>  Option.value ~default:[] in
-
-      r9, linstructions @ rinstructions @ copy_instruction
-      | RVBuiltinBinop {binop = TacSelf TacMinus; blhs; brhs} ->
-        if 
-          KosuIrTyped.Asttyhelper.RType.is_pointer rval_rktype 
-        then failwith "TODO : Pointer arithmetic"
-        else
+        begin match KosuIrTyped.Asttyhelper.RType.is_pointer rval_rktype with
+        | true ->          
+           let pointee_size = rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee |>  KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram in
+          let r9 = tmp64reg_2 in
+          let r10 = tmp64reg_3 in
+          let r11 = tmp64reg_4 in
+          let operand_instructions = begin match blhs.expr_rktype with
+            | KosuIrTyped.Asttyped.RTPointer _ -> 
+            let _ptr_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:(r9) rprogram fd blhs in
+            let _nb_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:(r10) rprogram fd brhs in
+            linstructions @ rinstructions 
+          | _ -> failwith ""  
+          end in
+            let add_instructions = 
+              if pointee_size = 1L 
+                then [Instruction (ADD {destination = r9; operand1 = r9; operand2 = `Register r10; offset = false})] 
+            else
+              [
+                Instruction (Mov {destination = r11; flexsec_operand = `ILitteral pointee_size});
+                Instruction (MADD {destination = r9; operand1_base = r9; operand2 = r10; scale = r11})
+              ]
+            in
+          let copy_instruction = where |> Option.map (fun waddress -> 
+            copy_from_reg r9 waddress rval_rktype rprogram
+          ) |> Option.value ~default:[] in 
+        r9, operand_instructions @ add_instructions @ copy_instruction
+        | false ->       
           let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
           let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
           let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
@@ -492,11 +487,51 @@ module Codegen = struct
           let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs in
           
           let copy_instruction = where |> Option.map (fun waddress -> 
-          let sub_instruction = Instruction (SUB {destination = r9; operand1 = left_reg; operand2 = `Register right_reg }) in
-          sub_instruction::(copy_from_reg r9 waddress rval_rktype rprogram)
+          let add_instruction = Instruction (ADD {destination = r9; operand1 = left_reg; operand2 = `Register right_reg; offset = false }) in
+          add_instruction::(Instruction.copy_from_reg r9 waddress rval_rktype rprogram )
           ) |>  Option.value ~default:[] in
-    
+          r9, linstructions @ rinstructions @ copy_instruction
+        end
+      | RVBuiltinBinop {binop = TacSelf TacMinus; blhs; brhs} ->
+        begin match KosuIrTyped.Asttyhelper.RType.is_pointer rval_rktype with
+        | true ->          
+          let pointee_size = rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee |>  KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram in
+         let r9 = tmp64reg_2 in
+         let r10 = tmp64reg_3 in
+         let r11 = tmp64reg_4 in
+         let operand_instructions = begin match blhs.expr_rktype with
+           | KosuIrTyped.Asttyped.RTPointer _ -> 
+           let _ptr_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:(r9) rprogram fd blhs in
+           let _nb_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:(r10) rprogram fd brhs in
+           linstructions @ rinstructions 
+         | _ -> failwith ""  
+         end in
+           let add_instructions = 
+             if pointee_size = 1L 
+               then [Instruction (SUB {destination = r9; operand1 = r9; operand2 = `Register r10})] 
+           else
+             [
+               Instruction (Mov {destination = r11; flexsec_operand = `ILitteral pointee_size});
+               Instruction (MSUB {destination = r9; operand1_base = r9; operand2 = r10; scale = r11})
+             ]
+           in
+         let copy_instruction = where |> Option.map (fun waddress -> 
+           copy_from_reg r9 waddress rval_rktype rprogram
+         ) |> Option.value ~default:[] in 
+       r9, operand_instructions @ add_instructions @ copy_instruction
+       | false ->           
+          let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
+          let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
+          let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
+          let right_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs in
+          let left_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs in
+       
+          let copy_instruction = where |> Option.map (fun waddress -> 
+            let sub_instruction = Instruction (SUB {destination = r9; operand1 = left_reg; operand2 = `Register right_reg }) in
+            sub_instruction::(copy_from_reg r9 waddress rval_rktype rprogram)
+          ) |>  Option.value ~default:[] in
           r9,  linstructions @ rinstructions @ copy_instruction
+        end 
       | _ -> failwith "Mostly binop"
 
 let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameManager.frame_desc) = function
