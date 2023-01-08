@@ -568,7 +568,7 @@ module Codegen = struct
         let div_instruction = 
           if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer rval_rktype 
             then Instruction (UDIV {destination = r9; operand1 = left_reg; operand2 = right_reg}) 
-          else Instruction (UDIV {destination = r9; operand1 = left_reg; operand2 = right_reg}) in
+          else Instruction (SDIV {destination = r9; operand1 = left_reg; operand2 = right_reg}) in
         let modulo_instruction = [
                   (* udiv x2, x0, x1 // Thank you StackOverflow
                 msub x3, x2, x1, x0 *)
