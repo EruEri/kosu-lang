@@ -653,14 +653,14 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
     let prologue = FrameManager.function_prologue ~fn_register_params:function_decl.rparameters ~stack_params:stack_param rprogram fd in
     let conversion = Codegen.translate_tac_body ~str_lit_map current_module rprogram fd function_decl.tac_body in
     let epilogue = FrameManager.function_epilogue fd in
-    let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
+    (* let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
     let () = fd.stack_map |> IdVarMap.to_seq |> Seq.iter (fun ((s, kt), adr) -> 
       Printf.printf "%s : %s == [%s, %Ld]\n" 
       (s) 
       (KosuIrTyped.Asttypprint.string_of_rktype kt) 
       (Aarch64Pprint.string_of_register adr.base)
       (adr.offset) 
-      ) in
+      ) in *)
     Some (Afunction {
       asm_name;
       asm_body = prologue @ (conversion |> List.tl) @ epilogue 

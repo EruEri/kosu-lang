@@ -36,35 +36,7 @@ module Sizeof = struct
     | RTUnit | RTBool | RTUnknow -> 1L
     | RTInteger (_, isize) -> Isize.size_of_isize isize / 8 |> Int64.of_int
     | RTFloat | RTPointer _ | RTString_lit | RTFunction _ -> 8L
-    | RTTuple kts -> (
-        kts |> function
-        | list -> (
-            let size, align, _packed_size =
-              list
-              |> List.fold_left
-                   (fun (acc_size, acc_align, acc_packed_size) kt ->
-                     let comming_size = kt |> size `size program in
-                     let comming_align = kt |> size `align program in
-                     let quotient = Int64.unsigned_div acc_size comming_align in
-                     let reminder = Int64.unsigned_rem acc_size comming_align in
-                     let new_pacced_size = comming_size ++ acc_packed_size in
-
-                     let add_size =
-                       if new_pacced_size < acc_size then 0L
-                       else if comming_size < acc_align then acc_align
-                       else comming_size
-                     in
-
-                     let padded_size =
-                       if reminder = 0L || acc_size = 0L then acc_size
-                       else Int64.mul comming_align (quotient ++ 1L)
-                     in
-                     ( padded_size ++ add_size,
-                       max comming_align acc_align,
-                       new_pacced_size ))
-                   (0L, 0L, 0L)
-            in
-            match calcul with `size -> size | `align -> align))
+    | RTTuple kts -> size_tuple calcul program kts
     | kt -> (
         let type_decl =
           RProgram.find_type_decl_from_rktye kt program |> Option.get
@@ -84,37 +56,27 @@ module Sizeof = struct
               |> List.to_seq |> Hashtbl.of_seq)
               struct_decl)
 
+  and size_tuple calcul program = function
+  | list -> (
+    let size, alignment, _packed_size =
+      list
+      |> List.fold_left
+           (fun (acc_size, acc_align, _acc_packed_size) kt ->
+             let comming_size = kt |> size `size program in
+             let comming_align = kt |> size `align program in
+
+             let aligned = align acc_size comming_align in
+             let new_align = max acc_align comming_align in
+             (aligned ++ comming_size, new_align, _acc_packed_size ++ comming_size)
+             )
+           (0L, 0L, 0L)
+    in
+    match calcul with `size -> align size alignment | `align -> alignment)
+
   and size_struct calcul program generics struct_decl =
     struct_decl.rfields
     |> List.map (fun (_, kt) -> RType.remap_generic_ktype generics kt)
-    |> function
-    | list -> (
-        let size, align, _packed_size =
-          list
-          |> List.fold_left
-               (fun (acc_size, acc_align, acc_packed_size) kt ->
-                 let comming_size = kt |> size `size program in
-                 let comming_align = kt |> size `align program in
-                 let quotient = Int64.unsigned_div acc_size comming_align in
-                 let reminder = Int64.unsigned_rem acc_size comming_align in
-                 let new_pacced_size = comming_size ++ acc_packed_size in
-
-                 let add_size =
-                   if new_pacced_size < acc_size then 0L
-                   else if comming_size < acc_align then acc_align
-                   else comming_size
-                 in
-
-                 let padded_size =
-                   if reminder = 0L || acc_size = 0L then acc_size
-                   else Int64.mul comming_align (quotient ++ 1L)
-                 in
-                 ( padded_size ++ add_size,
-                   max comming_align acc_align,
-                   new_pacced_size ))
-               (0L, 0L, 0L)
-        in
-        match calcul with `size -> size | `align -> align)
+    |> size_tuple calcul program
 
   and size_enum calcul program generics enum_decl =
     enum_decl.rvariants
