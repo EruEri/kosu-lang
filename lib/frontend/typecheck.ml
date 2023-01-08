@@ -336,6 +336,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
              (Position.map_use
                 (typeof ~generics_resolver env current_mod_name prog))
       in
+      let infered_map =
+        enum_decl.generics
+        |> List.mapi (fun index s -> (s.v, (index, TUnknow)))
+        |> List.to_seq |> Hashtbl.of_seq
+      in
       let () =
         enum_decl.variants
         |> List.find_map (fun (var, assoc_types) ->
@@ -354,10 +359,16 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                     found = assoc_exprs |> List.length;
                   }))
         else
+         let () = List.iter2
+          (fun kt (param_kt) ->
+            (* let () = Printf.printf "init_ktype = %s, param type = %s\n" (Pprint.string_of_ktype kt.v) (Pprint.string_of_ktype param_kt.v) in *)
+            Ast.Type.update_generics infered_map kt param_kt ())
+          init_types assoc_types
+        in
           assoc_types |> List.combine init_types
           |> List.iter (fun (init, expected) ->
                  match
-                   Asthelper.Enum.is_type_compatible_hashgen hashtbl init.v
+                   Asthelper.Enum.is_type_compatible_hashgen infered_map init.v
                      expected.v enum_decl
                  with
                  | false ->
@@ -369,7 +380,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         modules_path
         |> Position.map (fun mp -> if mp = "" then current_mod_name else mp)
       in
-      let kt = Asthelper.Enum.to_ktype_hash hashtbl modules_path enum_decl in
+      let kt = Asthelper.Enum.to_ktype_hash infered_map modules_path enum_decl in
       kt
   | ETuple expected_types ->
       TTuple
@@ -554,9 +565,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             in
             (* let () = Printf.printf "infered_map = %s \n\n" (infered_map |> Hashtbl.to_seq |> List.of_seq |> List.map (fun (gene, (_, kt)) -> Printf.sprintf "%s = %s" (gene) (Pprint.string_of_ktype kt)) |> String.concat "\n" ) in  *)
 
-            Asthelper.Function.to_return_ktype_hashtab
+            let kt = Asthelper.Function.to_return_ktype_hashtab
               ~current_module:current_mod_name ~module_type_path:modules_path.v
-              infered_map e
+              infered_map e in
+              (* let () = Printf.printf "cm = %s, mp = %s fn return = %s\n" (current_mod_name) (modules_path.v) (Pprint.string_of_ktype kt) in *)
+            kt
       | Ast.Function_Decl.Decl_External external_func_decl -> (
           if external_func_decl.is_variadic then
             parameters
