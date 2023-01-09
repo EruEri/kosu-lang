@@ -537,6 +537,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
               | Some grc_safe ->
                   List.combine e.generics grc_safe
                   |> List.iteri (fun index (generic_name, field_ktype) ->
+                        let () = Hashtbl.add infered_map (generic_name.v) (index, field_ktype.v) in
                          Hashtbl.add hashtal generic_name.v
                            (index, field_ktype.v))
               | None -> ()
