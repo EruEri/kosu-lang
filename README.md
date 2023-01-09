@@ -15,6 +15,7 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 - [x] Create an intermediate representation using the 3 adress code method 
 - [ ] Write a register allocator throught graph-coloring method (Will be in an other repository, to be used as a depedency)
 - [x] Generate basic Arm64 assembly for MacOs
+- [ ] Handle float and Arm64 integer representation
 - [ ] Generate x86_64 assembly
 - [ ] Fix Immediate encoding and stack base function parameters
 
