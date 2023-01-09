@@ -830,7 +830,7 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
       ) in *)
     Some (Afunction {
       asm_name;
-      asm_body = prologue @ (conversion |> List.tl) @ epilogue 
+      asm_body = [Directive ("cfi_startproc")] @ prologue @ (conversion |> List.tl) @ epilogue @ [Directive "cfi_endproc"]
     })
   | TNOperator _ -> failwith "TNOperator todo"
   | TNConst {rconst_name; value = { rktype = RTInteger _; rexpression = REInteger (_ssign, size, value)}} -> 
