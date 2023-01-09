@@ -20,6 +20,7 @@ open Aarch64Core.Register
 open Aarch64Core.Instruction
 open Printf
 
+let p2align = Printf.sprintf ".p2align %n"
 
 let string_of_f64bits_reg = function
 | D0 -> "d0"
@@ -248,13 +249,13 @@ let size_directive_of_size = let open KosuFrontend.Ast in function
 let string_asm_const_decl {asm_const_name; value} = 
   match value with
   | `IntVal (size, value) ->
-    sprintf "\t.globl %s\n\t%s\n%s:\n\t.%s %s" asm_const_name (".p2align	2") asm_const_name (size_directive_of_size size) (sprintf "0x%Lx" value)
+    sprintf "\t.globl %s\n\t%s\n%s:\n\t.%s %s" asm_const_name (p2align 2) asm_const_name (size_directive_of_size size) (sprintf "0x%Lx" value)
   | `StrVal s ->
-    sprintf "\t.globl %s\n\t%s\n%s:\n\t.asciz \"%s\"" asm_const_name (".p2align	2") asm_const_name s
+    sprintf "\t.globl %s\n\t%s\n%s:\n\t.asciz \"%s\"" asm_const_name (p2align 2) asm_const_name s
 
 
 let string_of_asm_function {asm_name; asm_body} = 
-  sprintf "\t.globl %s\n\t%s\n%s:\n%s" (asm_name) (".p2align	2") asm_name (asm_body |> List.map string_of_raw_line |> String.concat "\n")
+  sprintf "\t.globl %s\n\t%s\n%s:\n%s" (asm_name) (p2align 2) asm_name (asm_body |> List.map string_of_raw_line |> String.concat "\n")
 
 let string_of_asm_node = function
 | Afunction f -> string_of_asm_function f

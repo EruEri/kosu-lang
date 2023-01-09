@@ -664,7 +664,28 @@ module Codegen = struct
           copy_from_reg r9 waddress rval_rktype rprogram
         ) |> Option.value ~default:[] in 
         r9, instructions @ not_instructions::copy_instructions
-        | _ -> failwith "Mostly binop"
+      | RVBuiltinCall {fn_name; parameters} ->
+        let open KosuFrontend.Ast.Builtin_Function in
+        begin match fn_name with
+        | Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 -> 
+          let tte = parameters |> List.hd in
+          let r9 = tmp32reg_2 in
+          let last_reg, instructions = translate_tac_expression ~str_lit_map ~target_reg:(r9) rprogram fd tte in
+          let copy_instructions = where |> Option.map (fun waddress -> 
+            copy_from_reg (to_32bits last_reg) waddress rval_rktype rprogram
+          ) |> Option.value ~default:[] in
+          to_32bits r9, instructions @ copy_instructions
+        | Tos64 | Tou64 | Stringl_ptr -> 
+          let tte = parameters |> List.hd in
+          let r9 = tmp64reg_2 in
+          let last_reg, instructions = translate_tac_expression ~str_lit_map ~target_reg:(r9) rprogram fd tte in
+          let copy_instructions = where |> Option.map (fun waddress -> 
+            copy_from_reg (to_64bits last_reg) waddress rval_rktype rprogram
+          ) |> Option.value ~default:[] in
+          to_64bits r9, instructions @ copy_instructions
+        end 
+        
+      | _ -> failwith ""
 
 let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameManager.frame_desc) = function
       | STacDeclaration {identifier; trvalue} | STacModification {identifier; trvalue} ->
