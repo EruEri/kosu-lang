@@ -474,7 +474,7 @@ module Codegen = struct
             let _ptr_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:(r9) rprogram fd blhs in
             let _nb_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:(r10) rprogram fd brhs in
             linstructions @ rinstructions 
-          | _ -> failwith ""  
+            | _ -> failwith "The typechecker force in pointer arithmetic the pointer to be left side of add"  
           end in
             let add_instructions = 
               if pointee_size = 1L 
@@ -514,7 +514,7 @@ module Codegen = struct
            let _ptr_reg, linstructions = translate_tac_expression ~str_lit_map ~target_reg:(r9) rprogram fd blhs in
            let _nb_reg, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:(r10) rprogram fd brhs in
            linstructions @ rinstructions 
-         | _ -> failwith ""  
+         | _ -> failwith "The typechecker force in pointer arithmetic the pointer to be left side of sub"
          end in
            let add_instructions = 
              if pointee_size = 1L 
