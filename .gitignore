@@ -1,4 +1,10 @@
 _build
 *.kosu
+*.S
 .DS_Store
 *.c
+Makefile
+kosuc
+size
+hello*
+.vscode

@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open Position
 
 type signedness = Signed | Unsigned
@@ -232,6 +231,10 @@ type _module = Mod of module_node list
 type module_path = { path : string; _module : _module }
 type named_module_path = { filename : string; module_path : module_path }
 type program = named_module_path list
+
+module Isize = struct
+  let size_of_isize = function I8 -> 8 | I16 -> 16 | I32 -> 32 | I64 -> 64
+end
 
 module Type_Decl = struct
   type type_decl = Decl_Enum of enum_decl | Decl_Struct of struct_decl
@@ -693,6 +696,29 @@ module Type = struct
            |> List.for_all (fun (k1, k2) -> are_compatible_type k1 k2)
     | _, _ -> lhs === rhs
 
+  let rec update_generics map init_type param_type () =
+    match (init_type.v, param_type.v) with
+    | kt, TType_Identifier { module_path = { v = ""; _ }; name } -> (
+        match Hashtbl.find_opt map name.v with
+        | Some t -> (
+            match t with
+            | index, TUnknow ->
+                let () = Hashtbl.replace map name.v ((index : int), kt) in
+                ()
+            | _ as _t -> ())
+        | None -> ())
+    | ( TParametric_identifier
+          { module_path = lmp; parametrics_type = lpt; name = lname },
+        TParametric_identifier
+          { module_path = rmp; parametrics_type = rpt; name = rname } ) ->
+        if lmp.v <> rmp.v || lname.v <> rname.v || Util.are_diff_lenght lpt rpt
+        then ()
+        else List.iter2 (fun l r -> update_generics map l r ()) lpt rpt
+    | TPointer lhs, TPointer rhs -> update_generics map lhs rhs ()
+    | TTuple lhs, TTuple rhs ->
+        List.iter2 (fun l r -> update_generics map l r ()) lhs rhs
+    | _ -> ()
+
   let equal_fields =
     List.for_all2 (fun ((lfield : string location), lktype) (rfield, rtype) ->
         lfield.v = rfield.v && lktype.v === rtype.v)
@@ -724,7 +750,7 @@ module Type = struct
             module_path =
               {
                 v =
-                  (if current_module = module_path.v then ""
+                  (if module_path.v = "" then current_module
                   else module_type_path);
                 position = module_path.position;
               };
@@ -737,7 +763,7 @@ module Type = struct
               {
                 module_path with
                 v =
-                  (if module_path.v = current_module then ""
+                  (if module_path.v = "" then current_module
                   else module_type_path);
               };
             parametrics_type =
@@ -758,6 +784,37 @@ module Type = struct
         |> Position.map
              (module_path_return_type ~current_module ~module_type_path)
         |> pointer
+    | _ as kt -> kt
+
+  let rec remap_naif_generic_ktype generics_table ktype =
+    match ktype with
+    | TType_Identifier { module_path = { v = ""; position = kposition }; name }
+      -> (
+        match Hashtbl.find_opt generics_table name.v with
+        | None ->
+            TType_Identifier
+              { module_path = { v = ""; position = kposition }; name }
+        | Some typ -> typ)
+    | TType_Identifier { module_path; name } -> (
+        match Hashtbl.find_opt generics_table name.v with
+        | None -> TType_Identifier { module_path; name }
+        | Some typ -> typ)
+    | TParametric_identifier { module_path; parametrics_type; name } ->
+        TParametric_identifier
+          {
+            module_path;
+            parametrics_type =
+              parametrics_type
+              |> List.map
+                   (Position.map (remap_naif_generic_ktype generics_table));
+            name;
+          }
+    | TTuple kts ->
+        TTuple
+          (kts
+          |> List.map (Position.map (remap_naif_generic_ktype generics_table)))
+    | TPointer kt ->
+        kt |> Position.map (remap_naif_generic_ktype generics_table) |> pointer
     | _ as kt -> kt
 
   let rec remap_generic_ktype ~current_module generics_table ktype =

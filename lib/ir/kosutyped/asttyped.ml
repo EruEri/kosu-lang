@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open KosuFrontend.Ast
 
 type rswitch_case =
@@ -82,7 +81,7 @@ and rkexpression =
     }
   | RETuple of typed_expression list
   | REBuiltin_Function_call of {
-      fn_name : string;
+      fn_name : Builtin_Function.functions;
       parameters : typed_expression list;
     }
   | REFunction_call of {
@@ -174,6 +173,13 @@ type rexternal_func_decl = {
   c_name : string option;
 }
 
+type rtrue_function_decl = {
+  rfn_name : string;
+  rparameters : (string * rktype) list;
+  return_type : rktype;
+  rbody : rkbody;
+}
+
 type rconst_decl = { rconst_name : string; value : typed_expression }
 
 type rmodule_node =
@@ -190,95 +196,6 @@ type rmodule_path = { path : string; rmodule : rmodule }
 type named_rmodule_path = { filename : string; rmodule_path : rmodule_path }
 type rprogram = named_rmodule_path list
 
-module RType = struct
-  let is_builtin_type = function
-    | RTParametric_identifier _ | RTType_Identifier _ -> false
-    | _ -> true
-
-  let rec npointer n kt = if n <= 0 then kt else RTPointer (npointer (n-1) kt)
-
-  let rtpointee = function
-  | RTPointer kt -> kt
-  | _ -> failwith "Cannot access pointee type of a none pointer type"
-end
-
-module RSwitch_Case = struct
-  let variant = function
-    | RSC_Enum_Identifier { variant } | RSC_Enum_Identifier_Assoc { variant; _ }
-      ->
-        variant
-end
-
-module Expression = struct
-  let is_expresion_branch = function
-    | RECases _ | RESwitch _ | REIf _ -> true
-    | _ -> false
-
-  let is_typed_expresion_branch { rexpression; _ } =
-    is_expresion_branch rexpression
-end
-
-module Binop = struct
-  let left_operande = function
-    | RBAdd (lhs, _)
-    | RBMinus (lhs, _)
-    | RBMult (lhs, _)
-    | RBDiv (lhs, _)
-    | RBMod (lhs, _)
-    | RBBitwiseOr (lhs, _)
-    | RBBitwiseAnd (lhs, _)
-    | RBBitwiseXor (lhs, _)
-    | RBShiftLeft (lhs, _)
-    | RBShiftRight (lhs, _)
-    | RBAnd (lhs, _)
-    | RBOr (lhs, _)
-    | RBSup (lhs, _)
-    | RBSupEq (lhs, _)
-    | RBInf (lhs, _)
-    | RBInfEq (lhs, _)
-    | RBEqual (lhs, _)
-    | RBDif (lhs, _) ->
-        lhs
-
-  let right_operand = function
-    | RBAdd (_, rhs)
-    | RBMinus (_, rhs)
-    | RBMult (_, rhs)
-    | RBDiv (_, rhs)
-    | RBMod (_, rhs)
-    | RBBitwiseOr (_, rhs)
-    | RBBitwiseAnd (_, rhs)
-    | RBBitwiseXor (_, rhs)
-    | RBShiftLeft (_, rhs)
-    | RBShiftRight (_, rhs)
-    | RBAnd (_, rhs)
-    | RBOr (_, rhs)
-    | RBSup (_, rhs)
-    | RBSupEq (_, rhs)
-    | RBInf (_, rhs)
-    | RBInfEq (_, rhs)
-    | RBEqual (_, rhs)
-    | RBDif (_, rhs) ->
-        rhs
-
-  let operands = function
-    | RBAdd (lhs, rhs)
-    | RBMinus (lhs, rhs)
-    | RBMult (lhs, rhs)
-    | RBDiv (lhs, rhs)
-    | RBMod (lhs, rhs)
-    | RBBitwiseOr (lhs, rhs)
-    | RBBitwiseAnd (lhs, rhs)
-    | RBBitwiseXor (lhs, rhs)
-    | RBShiftLeft (lhs, rhs)
-    | RBShiftRight (lhs, rhs)
-    | RBAnd (lhs, rhs)
-    | RBOr (lhs, rhs)
-    | RBSup (lhs, rhs)
-    | RBSupEq (lhs, rhs)
-    | RBInf (lhs, rhs)
-    | RBInfEq (lhs, rhs)
-    | RBEqual (lhs, rhs)
-    | RBDif (lhs, rhs) ->
-        (lhs, rhs)
-end
+type raw_function =
+  | RFFunction of rtrue_function_decl
+  | RFOperator of roperator_decl

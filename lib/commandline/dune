@@ -15,7 +15,6 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
-
 (library
  (name kosuCli)
- (libraries kosuFrontend))
+ (libraries kosuFrontend kosuIrTyped kosuIrTAC clap))

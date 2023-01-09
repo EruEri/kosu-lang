@@ -15,6 +15,7 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
+type stringlit_label = SLit of string
 
 let rec string_of_chars_aux count result char =
   if count <= 0 then result
@@ -99,6 +100,11 @@ module ListHelper = struct
 
   let inner_count list =
     List.fold_left (fun acc (_, value) -> acc + (value |> List.length)) 0 list
+
+  let rec combine_safe lhs rhs =
+    match (lhs, rhs) with
+    | [], _ | _, [] -> []
+    | t1 :: q1, t2 :: q2 -> (t1, t2) :: combine_safe q1 q2
 end
 
 module Either3 = struct

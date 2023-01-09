@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open Ast
 open Position
 
@@ -460,10 +459,10 @@ module ValidateSyscall = struct
 
   let does_contains_too_much_parameters (syscall_decl : syscall_decl) =
     let length = syscall_decl.parameters |> List.length in
-    if length > 15 then
+    if length > 5 then
       Error.Syscall_Too_much_parameters
-        { syscall_decl; limit = 15; found = length }
-      |> Result.error
+        { syscall_decl; limit = 5; found = length }
+      |> Error.syscall_error |> Result.error
     else Ok ()
 
   let is_valid_syscall_declaration program (current_module_name : string)
@@ -472,7 +471,7 @@ module ValidateSyscall = struct
     ( does_parameters_contains_unit syscall_decl >>= fun () ->
       does_contains_not_c_compatible_type program current_module_name
         syscall_decl )
-    >>= fun () -> does_parameters_contains_unit syscall_decl
+    >>= fun () -> does_contains_too_much_parameters syscall_decl
 end
 
 module ValidateStruct = struct

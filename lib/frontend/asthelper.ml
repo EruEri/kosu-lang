@@ -15,12 +15,11 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open Ast
 open Printf
 open Position
+open Ast.Isize
 
-let size_of_isize = function I8 -> 8 | I16 -> 16 | I32 -> 32 | I64 -> 64
 let f = sprintf "%Ld"
 
 let module_path_of_ktype_opt = function
@@ -656,7 +655,7 @@ module Program = struct
       match lhs with
       | TType_Identifier _ as kt -> (
           let declaration =
-            program |> find_binary_operator Ast.Equal (kt, kt) kt
+            program |> find_binary_operator Ast.Equal (kt, kt) TBool
           in
           match declaration |> Util.ListHelper.inner_count with
           | 0 -> `no_function_found
@@ -674,7 +673,7 @@ module Program = struct
       match lhs with
       | TType_Identifier _ as kt -> (
           let declaration =
-            program |> find_binary_operator Ast.Sup (kt, kt) kt
+            program |> find_binary_operator Ast.Sup (kt, kt) TBool
           in
           match declaration |> Util.ListHelper.inner_count with
           | 0 -> `no_function_found
@@ -697,7 +696,7 @@ module Program = struct
       match lhs with
       | TType_Identifier _ as kt -> (
           let declaration =
-            program |> find_binary_operator Ast.Inf (kt, kt) kt
+            program |> find_binary_operator Ast.Inf (kt, kt) TBool
           in
           match declaration |> Util.ListHelper.inner_count with
           | 0 -> `no_function_found
@@ -745,13 +744,29 @@ module Program = struct
 end
 
 module Kbody = struct
-  let remap_body_explicit_type generics current_module kbody =
+  let abs_module s mp = mp |> Position.map (fun m -> if m = "" then s else m)
+
+  let rec remap_body_explicit_type generics current_module kbody =
     let stmts_located, (expr_located : kexpression location) = kbody in
     ( stmts_located
       |> List.map (fun located_stmt ->
              located_stmt
              |> Position.map (fun stmt ->
                     match stmt with
+                    | SDerefAffectation (s, le) ->
+                        SDerefAffectation
+                          ( s,
+                            remap_located_expr_explicit_type generics
+                              current_module le )
+                    | SDiscard le ->
+                        SDiscard
+                          (remap_located_expr_explicit_type generics
+                             current_module le)
+                    | SAffection (s, le) ->
+                        SAffection
+                          ( s,
+                            remap_located_expr_explicit_type generics
+                              current_module le )
                     | SDeclaration
                         {
                           is_const;
@@ -769,10 +784,219 @@ module Kbody = struct
                                    (Position.map
                                       (Type.set_module_path generics
                                          current_module));
-                            expression = ex;
-                          }
-                    | _ as s -> s)),
-      expr_located )
+                            expression =
+                              remap_located_expr_explicit_type generics
+                                current_module ex;
+                          })),
+      remap_located_expr_explicit_type generics current_module expr_located )
+
+  and remap_located_expr_explicit_type generics current_module located_expr =
+    located_expr
+    |> Position.map (remap_expr_explicit_type generics current_module)
+
+  and remap_expr_explicit_type generics current_module = function
+    | ESizeof (Either.Left ktype) ->
+        ESizeof
+          (Either.Left
+             (ktype
+             |> Position.map (Type.set_module_path generics current_module)))
+    | ESizeof (Either.Right expr) ->
+        ESizeof
+          (Either.Right
+             (expr |> remap_located_expr_explicit_type generics current_module))
+    | EFieldAcces { first_expr; field } ->
+        EFieldAcces
+          {
+            first_expr =
+              remap_located_expr_explicit_type generics current_module
+                first_expr;
+            field;
+          }
+    | EConst_Identifier { modules_path; identifier } ->
+        EConst_Identifier
+          { modules_path = abs_module current_module modules_path; identifier }
+    | EStruct { modules_path; struct_name; fields } ->
+        EStruct
+          {
+            modules_path = abs_module current_module modules_path;
+            struct_name;
+            fields =
+              fields
+              |> List.map (fun (fn, expr) ->
+                     ( fn,
+                       remap_located_expr_explicit_type generics current_module
+                         expr ));
+          }
+    | EEnum { modules_path; enum_name; variant; assoc_exprs } ->
+        EEnum
+          {
+            modules_path = abs_module current_module modules_path;
+            enum_name;
+            variant;
+            assoc_exprs =
+              assoc_exprs
+              |> List.map
+                   (remap_located_expr_explicit_type generics current_module);
+          }
+    | ETuple lexprs ->
+        ETuple
+          (lexprs
+          |> List.map (remap_located_expr_explicit_type generics current_module)
+          )
+    | EBuiltin_Function_call { fn_name; parameters } ->
+        EBuiltin_Function_call
+          {
+            fn_name;
+            parameters =
+              parameters
+              |> List.map
+                   (remap_located_expr_explicit_type generics current_module);
+          }
+    | EFunction_call { modules_path; generics_resolver; fn_name; parameters } ->
+        EFunction_call
+          {
+            modules_path = abs_module current_module modules_path;
+            generics_resolver =
+              generics_resolver
+              |> Option.map
+                   (List.map
+                      (Position.map
+                         (Type.set_module_path generics current_module)));
+            fn_name;
+            parameters =
+              parameters
+              |> List.map
+                   (remap_located_expr_explicit_type generics current_module);
+          }
+    | EIf (if_cond, ifbody, elsebody) ->
+        EIf
+          ( remap_located_expr_explicit_type generics current_module if_cond,
+            remap_body_explicit_type generics current_module ifbody,
+            remap_body_explicit_type generics current_module elsebody )
+    | ECases { cases; else_case } ->
+        ECases
+          {
+            cases =
+              cases
+              |> List.map (fun (expr, body) ->
+                     ( remap_located_expr_explicit_type generics current_module
+                         expr,
+                       remap_body_explicit_type generics current_module body ));
+            else_case =
+              remap_body_explicit_type generics current_module else_case;
+          }
+    | ESwitch { expression; cases; wildcard_case } ->
+        ESwitch
+          {
+            expression =
+              remap_located_expr_explicit_type generics current_module
+                expression;
+            cases =
+              cases
+              |> List.map (fun (scs, body) ->
+                     (scs, remap_body_explicit_type generics current_module body));
+            wildcard_case =
+              wildcard_case
+              |> Option.map (remap_body_explicit_type generics current_module);
+          }
+    | EUn_op (UMinus expr) ->
+        EUn_op
+          (UMinus
+             (remap_located_expr_explicit_type generics current_module expr))
+    | EUn_op (UNot expr) ->
+        EUn_op
+          (UNot (remap_located_expr_explicit_type generics current_module expr))
+    | EBin_op (BAdd (lhs, rhs)) ->
+        EBin_op
+          (BAdd
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BMinus (lhs, rhs)) ->
+        EBin_op
+          (BMinus
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BMult (lhs, rhs)) ->
+        EBin_op
+          (BMult
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BDiv (lhs, rhs)) ->
+        EBin_op
+          (BDiv
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BMod (lhs, rhs)) ->
+        EBin_op
+          (BMod
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BBitwiseAnd (lhs, rhs)) ->
+        EBin_op
+          (BBitwiseAnd
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BBitwiseOr (lhs, rhs)) ->
+        EBin_op
+          (BBitwiseOr
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BBitwiseXor (lhs, rhs)) ->
+        EBin_op
+          (BBitwiseXor
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BShiftLeft (lhs, rhs)) ->
+        EBin_op
+          (BShiftLeft
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BShiftRight (lhs, rhs)) ->
+        EBin_op
+          (BShiftRight
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BAnd (lhs, rhs)) ->
+        EBin_op
+          (BAnd
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BOr (lhs, rhs)) ->
+        EBin_op
+          (BOr
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BSup (lhs, rhs)) ->
+        EBin_op
+          (BSup
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BSupEq (lhs, rhs)) ->
+        EBin_op
+          (BSupEq
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BInf (lhs, rhs)) ->
+        EBin_op
+          (BInf
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BInfEq (lhs, rhs)) ->
+        EBin_op
+          (BInfEq
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BEqual (lhs, rhs)) ->
+        EBin_op
+          (BEqual
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | EBin_op (BDif (lhs, rhs)) ->
+        EBin_op
+          (BDif
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | _ as t -> t
 end
 
 module Switch_case = struct
@@ -1012,6 +1236,15 @@ module Enum = struct
                          if gen_kt === kt.v then Some associated_gen_value
                          else None)
                   |> Option.value ~default:kt))
+
+  let extract_assoc_remap_type_variant generics variant (enum_decl : t) =
+    enum_decl.variants
+    |> List.find_map (fun (case, assoc_type) ->
+           if case.v = variant.v then Some assoc_type else None)
+    |> Option.map (fun assoc_ktypes ->
+           assoc_ktypes
+           |> List.map
+                (Position.map (Ast.Type.remap_naif_generic_ktype generics)))
 
   let is_ktype_generic_level_zero ktype (enum_decl : t) =
     match ktype with
@@ -1454,6 +1687,8 @@ module Function = struct
 
   let rec is_type_compatible_hashgen generic_table (init_type : ktype)
       (expected_type : ktype) (function_decl : t) =
+    (* let () = Printf.printf "fn_name = %s : init_type = %s, expected_type = %s\n" (function_decl.fn_name.v) (Pprint.string_of_ktype init_type) (Pprint.string_of_ktype expected_type) in
+       let () = Printf.printf "TIdentifier = %b\n\n" (match expected_type with TType_Identifier _ -> true | _ -> false) in *)
     let open Ast.Type in
     match (init_type, expected_type) with
     | kt, TType_Identifier { module_path = { v = ""; _ }; name }
@@ -1471,7 +1706,7 @@ module Function = struct
                  in
                  true
                else false
-           | Some (_, find_kt) -> find_kt === kt ->
+           | Some (_, find_kt) -> are_compatible_type find_kt kt ->
         true
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
@@ -1527,6 +1762,10 @@ end
 module ParserOperator = struct
   let string_of_parser_unary = function PNot -> "(!)" | PUMinus -> "(.-)"
 
+  let string_name_of_parser_unary = function
+    | PNot -> "unot"
+    | PUMinus -> "uminus"
+
   let string_of_parser_binary = function
     | Add -> "+"
     | Minus -> "-"
@@ -1541,6 +1780,21 @@ module ParserOperator = struct
     | Sup -> ">"
     | Inf -> "<"
     | Equal -> "=="
+
+  let string_name_of_parser_binary = function
+    | Add -> "add"
+    | Minus -> "sub"
+    | Mult -> "mul"
+    | Div -> "div"
+    | Modulo -> "mod"
+    | BitwiseAnd -> "bwa"
+    | BitwiseOr -> "bwo"
+    | BitwiseXor -> "bwx"
+    | ShiftLeft -> "sfl"
+    | ShiftRight -> "sfr"
+    | Sup -> "sup"
+    | Inf -> "inf"
+    | Equal -> "eql"
 
   let parameters = function
     | Unary u -> u.field |> snd |> fun k -> k :: []

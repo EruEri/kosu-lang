@@ -7,14 +7,17 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 ## Roadmap (For now)
 - [x] Lexer
 - [x] Parser
-- [x] Better syntax error handling
+- [ ] Better syntax error handling
+- [x] Better logic error handling
 - [x] Ast
 - [x] Type checking the Ast
 - [x] Annote the Ast with type
 - [x] Create an intermediate representation using the 3 adress code method 
 - [ ] Write a register allocator throught graph-coloring method (Will be in an other repository, to be used as a depedency)
-- [ ] Assembly generation
-- [ ] Create a website explaining the syntax and the language in general
+- [x] Generate basic Arm64 assembly for MacOs
+- [ ] Generate x86_64 assembly
+- [ ] Fix Immediate encoding and stack base function parameters
+
 
 ## Example
 ```
@@ -61,8 +64,12 @@ fn main() s32 {
   discard print("%s", message);
   $ EXIT_SUCCESS
 }
+```
 
-
+To compile the example above
+```bash
+$ kosuc --target arm64e --cc -o example example.kosu
+$ ./example
 ```
 
 

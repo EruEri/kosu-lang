@@ -16,5 +16,5 @@
 ;**********************************************************************************************;
 
 (library
- (name kosuIrTAC)
- (libraries kosuFrontend kosuIrTyped util))
+ (name aarch64)
+ (libraries kosuIrTyped kosuIrTAC kosuFrontend))

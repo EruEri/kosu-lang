@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open KosuIrTyped.Asttyped
 open KosuFrontend.Ast
 
@@ -47,14 +46,16 @@ type tac_unop = TacNot | TacUminus
 type tac_local_variable =
   | Locale of string
   | Enum_Assoc_id of {
-    name: string;
-    from: tac_typed_expression;
-    assoc_index_bound: int;
-  }
+      name : string;
+      from : tac_typed_expression;
+      assoc_index_bound : int;
+    }
+
 and tac_typed_locale_variable = {
-  locale_ty: rktype;
-  locale: tac_local_variable
+  locale_ty : rktype;
+  locale : tac_local_variable;
 }
+
 and tac_expression =
   | TEFalse
   | TETrue
@@ -66,14 +67,14 @@ and tac_expression =
   | TEString of string
   | TEConst of { module_path : string; name : string }
   | TESizeof of rktype
+
 and tac_typed_expression = {
-  expr_rktype: rktype;
-  tac_expression: tac_expression
+  expr_rktype : rktype;
+  tac_expression : tac_expression;
 }
-and tac_typed_rvalue = {
-  rval_rktype: rktype;
-  rvalue: tac_rvalue;
-}
+
+and tac_typed_rvalue = { rval_rktype : rktype; rvalue : tac_rvalue }
+
 and tac_fncall = {
   module_path : string;
   fn_name : string;
@@ -81,12 +82,17 @@ and tac_fncall = {
   tac_parameters : tac_typed_expression list;
 }
 
-and binary = { binop : tac_binop; blhs : tac_typed_expression; brhs : tac_typed_expression }
+and binary = {
+  binop : tac_binop;
+  blhs : tac_typed_expression;
+  brhs : tac_typed_expression;
+}
+
 and unary = { unop : tac_unop; expr : tac_typed_expression }
 
 and tac_rvalue =
   | RVUminus of tac_typed_rvalue
-  | RVNeg of tac_typed_rvalue
+  | RVNot of tac_typed_rvalue
   | RVExpression of tac_typed_expression
   | RVFunction of tac_fncall
   | RVStruct of {
@@ -101,9 +107,9 @@ and tac_rvalue =
       assoc_tac_exprs : tac_typed_expression list;
     }
   | RVBuiltinCall of {
-    fn_name: string;
-    parameters: tac_typed_expression list;
-  }
+      fn_name : KosuFrontend.Ast.Builtin_Function.functions;
+      parameters : tac_typed_expression list;
+    }
   | RVTuple of tac_typed_expression list
   | RVFieldAcess of { first_expr : tac_typed_expression; field : string }
   | RVAdress of string
@@ -127,7 +133,7 @@ and tac_case = {
 
 and tac_switch = {
   variants_to_match : string list;
-  assoc_bound : (int * rktype) list;
+  assoc_bound : (int * string * rktype) list;
   sw_goto : string;
   sw_exit_label : string;
   switch_tac_body : tac_body;
@@ -160,7 +166,10 @@ and tac_statement =
       sw_exit_label : string;
     }
 
-and tac_body = { label : string; body : tac_statement list * tac_typed_expression option }
+and tac_body = {
+  label : string;
+  body : tac_statement list * tac_typed_expression option;
+}
 
 type tac_function_decl = {
   rfn_name : string;
@@ -168,23 +177,31 @@ type tac_function_decl = {
   rparameters : (string * rktype) list;
   return_type : rktype;
   tac_body : tac_body;
-  locale_var: tac_typed_locale_variable list;
+  stack_params_count : int;
+  locale_var : tac_typed_locale_variable list;
+  discarded_values : (string * rktype) list;
 }
 
 type tac_operator_decl =
   | TacUnary of {
       op : parser_unary_op;
+      asm_name : string;
       rfield : string * rktype;
       return_type : rktype;
       tac_body : tac_body;
-      locale_var: tac_typed_locale_variable list;
+      stack_params_count : int;
+      locale_var : tac_typed_locale_variable list;
+      discarded_values : (string * rktype) list;
     }
   | TacBinary of {
       op : parser_binary_op;
+      asm_name : string;
       rfields : (string * rktype) * (string * rktype);
       return_type : rktype;
       tac_body : tac_body;
-      locale_var: tac_typed_locale_variable list;
+      stack_params_count : int;
+      locale_var : tac_typed_locale_variable list;
+      discarded_values : (string * rktype) list;
     }
 
 type tac_module_node =
@@ -202,6 +219,7 @@ type tac_module_path = { path : string; tac_module : tac_module }
 type named_tacmodule_path = {
   filename : string;
   tac_module_path : tac_module_path;
+  rprogram : KosuIrTyped.Asttyped.rprogram;
 }
 
 type tac_program = named_tacmodule_path list

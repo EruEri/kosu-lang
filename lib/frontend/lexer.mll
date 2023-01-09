@@ -153,7 +153,16 @@ and built_in_function = parse
 | eof {  Not_finished_built_in_function (current_position lexbuf) |> raise }
 and read_string buffer = parse
 | '"' { String_lit (Buffer.contents buffer) }
-| '\\' ( escaped_char as c ){ Buffer.add_string buffer ( (if c = '\\' then "" else "\\")^( lexbuf |> lexeme)); read_string buffer lexbuf }
+(* | '\\' 'n' { 
+    let () = Buffer.add_char buffer '\\' in
+    Buffer.add_char buffer 'n'; 
+    read_string buffer lexbuf 
+} *)
+| '\\' ( escaped_char as c ){ 
+    let () = if c = '\\' then () else Buffer.add_char buffer '\\' in
+    let () = Buffer.add_char buffer c in
+    read_string buffer lexbuf 
+}
 | '\\' { raise ( Unexpected_escaped_char ((current_position lexbuf) , (lexbuf |> lexeme) )) }
 | _ as s { Buffer.add_char buffer s; read_string buffer lexbuf }
 | eof {

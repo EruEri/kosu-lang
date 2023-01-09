@@ -15,53 +15,46 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open Asttyped
 open Printf
 open KosuFrontend.Ast
 open KosuFrontend.Pprint
 
-
 let symbole_of_roperator = function
-  | RUnary { op; _ } ->
-      op |> (function PNot -> "!" | PUMinus -> "(-.)")
-  | RBinary { op; _ } ->
-      op
-      |>  (function
-           | Add -> "+"
-           | Minus -> "-"
-           | Mult -> "*"
-           | Div -> "/"
-           | Modulo -> "%"
-           | BitwiseAnd -> "&"
-           | BitwiseOr -> "|"
-           | BitwiseXor -> "^"
-           | ShiftLeft -> "<<"
-           | ShiftRight -> ">>"
-           | Sup -> ">"
-           | Inf -> "<"
-           | Equal -> "==")
+  | RUnary { op; _ } -> ( op |> function PNot -> "!" | PUMinus -> "(-.)")
+  | RBinary { op; _ } -> (
+      op |> function
+      | Add -> "+"
+      | Minus -> "-"
+      | Mult -> "*"
+      | Div -> "/"
+      | Modulo -> "%"
+      | BitwiseAnd -> "&"
+      | BitwiseOr -> "|"
+      | BitwiseXor -> "^"
+      | ShiftLeft -> "<<"
+      | ShiftRight -> ">>"
+      | Sup -> ">"
+      | Inf -> "<"
+      | Equal -> "==")
 
 let name_of_roperator = function
-| RUnary { op; _ } ->
-    op |> (function PNot -> "not" | PUMinus -> "unminus")
-| RBinary { op; _ } ->
-    op
-    |>  (function
-        | Add -> "add"
-        | Minus -> "minus"
-        | Mult -> "mult"
-        | Div -> "dic"
-        | Modulo -> "module"
-        | BitwiseAnd -> "bitwiseand"
-        | BitwiseOr -> "bitwiseor"
-        | BitwiseXor -> "botwisexor"
-        | ShiftLeft -> "shiftleft"
-        | ShiftRight -> "shiftright"
-        | Sup -> "sup"
-        | Inf -> "inf"
-        | Equal -> "equal")
-
+  | RUnary { op; _ } -> ( op |> function PNot -> "not" | PUMinus -> "unminus")
+  | RBinary { op; _ } -> (
+      op |> function
+      | Add -> "add"
+      | Minus -> "minus"
+      | Mult -> "mult"
+      | Div -> "dic"
+      | Modulo -> "module"
+      | BitwiseAnd -> "bitwiseand"
+      | BitwiseOr -> "bitwiseor"
+      | BitwiseXor -> "botwisexor"
+      | ShiftLeft -> "shiftleft"
+      | ShiftRight -> "shiftright"
+      | Sup -> "sup"
+      | Inf -> "inf"
+      | Equal -> "equal")
 
 let rec string_of_rktype = function
   | RTParametric_identifier { module_path; parametrics_type; name } ->
@@ -81,6 +74,33 @@ let rec string_of_rktype = function
       sprintf "(%s) -> %s"
         (parameters |> List.map string_of_rktype |> String.concat ", ")
         (string_of_rktype r_type)
+  | RTString_lit -> "stringl"
+  | RTBool -> "bool"
+  | RTUnit -> "unit"
+  | RTUnknow -> "unknwon"
+  | RTFloat -> "f64"
+
+let rec string_of_label_rktype = function
+  | RTParametric_identifier { module_path; parametrics_type; name } ->
+      sprintf "%s_%s_%s"
+        (parametrics_type
+        |> List.map string_of_label_rktype
+        |> String.concat "__")
+        module_path name
+  | RTType_Identifier { module_path; name } ->
+      sprintf "%s%s"
+        (if module_path = "" then "" else sprintf "%s_" module_path)
+        name
+  | RTInteger (sign, size) ->
+      sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
+  | RTPointer ktype -> sprintf "ptr_%s" (string_of_rktype ktype)
+  | RTTuple ktypes ->
+      sprintf "(%s)"
+        (ktypes |> List.map string_of_label_rktype |> String.concat "_")
+  | RTFunction (parameters, r_type) ->
+      sprintf "(%s) -> %s"
+        (parameters |> List.map string_of_label_rktype |> String.concat "_")
+        (string_of_label_rktype r_type)
   | RTString_lit -> "stringl"
   | RTBool -> "bool"
   | RTUnit -> "unit"
@@ -190,7 +210,8 @@ and string_of_rkexpression = function
         | None -> ""
         | Some kbody -> sprintf "_ => %s" (string_of_rkbody kbody))
   | REBuiltin_Function_call { fn_name; parameters } ->
-      sprintf "@%s(%s)" fn_name
+      sprintf "@%s(%s)"
+        (KosuFrontend.Asthelper.Builtin_Function.fn_name_of_built_in_fn fn_name)
         (parameters |> List.map string_of_typed_expression |> String.concat ", ")
 
 and string_of_rkbin_op = function
@@ -283,6 +304,15 @@ let string_of_rfunc_decl (function_decl : rfunction_decl) =
   sprintf "fn %s%s(%s)%s%s" function_decl.rfn_name
     (if function_decl.generics = [] then ""
     else sprintf "<%s>" (function_decl.generics |> String.concat ", "))
+    (function_decl.rparameters
+    |> List.map (fun (id, ktype) ->
+           sprintf "%s: %s" id (string_of_rktype ktype))
+    |> String.concat ", ")
+    (function_decl.return_type |> string_of_rktype)
+    (function_decl.rbody |> string_of_rkbody)
+
+let string_of_rtrue_func_decl (function_decl : rtrue_function_decl) =
+  sprintf "fn %s(%s)%s%s" function_decl.rfn_name
     (function_decl.rparameters
     |> List.map (fun (id, ktype) ->
            sprintf "%s: %s" id (string_of_rktype ktype))
