@@ -7,7 +7,8 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 ## Roadmap (For now)
 - [x] Lexer
 - [x] Parser
-- [x] Better syntax error handling
+- [ ] Better syntax error handling
+- [x] Better logic error handling
 - [x] Ast
 - [x] Type checking the Ast
 - [x] Annote the Ast with type
