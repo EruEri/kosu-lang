@@ -791,8 +791,14 @@ module Codegen = struct
       | true -> 
         let copy_instruction = where |> Option.map (fun waddress -> 
           match is_deref with
-          | Some pointer -> (Instruction (LDR {data_size = None; destination = xr; adress_src = pointer; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) return_type rprogram
-          | None  -> [Instruction (EOR {destination = return_reg; operand1 = return_reg; operand2 = `ILitteral 1L})] @ copy_from_reg return_reg waddress return_type rprogram
+          | Some pointer ->
+            let update_result = [
+              Instruction ( LDR {data_size = Some B; destination = Register32 W0; adress_src = pointer; adress_mode = Immediat});
+              Instruction ( EOR {destination = Register32 W0; operand1 = Register32 W0; operand2 = `ILitteral 1L})
+            ] in
+
+             (Instruction (LDR {data_size = None; destination = xr; adress_src = pointer; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) return_type rprogram @ update_result
+          | None  -> Instruction (EOR {destination = return_reg; operand1 = return_reg; operand2 = `ILitteral 1L}):: copy_from_reg return_reg waddress return_type rprogram
         ) |> Option.value ~default:[] in
         return_reg, linstructions @ rinstructions @ call_instruction @ copy_instruction (* Is not the same check the instructions order*)
       | false -> failwith "Unreachable : Sizeof bool hold in register"
@@ -934,6 +940,7 @@ and translate_tac_body ~str_lit_map ?(end_label = None) current_module rprogram 
       else
         let x8_address = Option.get @@ FrameManager.(address_of (indirect_return_vt) fd) in 
         let str = Instruction ( LDR {data_size = None; destination = xr; adress_src = x8_address; adress_mode = Immediat}) in
+
       str::copy_large (create_adress xr) last_reg sizeof
       )
   ) |> Option.value ~default:[] in
@@ -982,7 +989,22 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
       asm_body = [Directive ("cfi_startproc")] @ prologue @ (conversion |> List.tl) @ epilogue @ [Directive "cfi_endproc"]
     })
     
-  | TNOperator _ -> failwith "TNOperator todo"
+  | TNOperator (TacBinary binary as self) -> 
+
+    let stack_param_count = Int64.of_int (binary.stack_params_count * 8) in
+    let locals_var = binary.locale_var |> List.map (fun {locale_ty; locale} -> match locale with Locale s -> (s, locale_ty) | Enum_Assoc_id {name; _} -> (name, locale_ty) )in
+  (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
+    let asm_name = binary.asm_name in
+    let lhs_param, rhs_param = binary.rfields in
+    let fn_register_params = [lhs_param; rhs_param] in
+    let fd = FrameManager.frame_descriptor ~stack_future_call:(stack_param_count) ~fn_register_params ~stack_param:[] ~return_type:binary.return_type ~locals_var ~discarded_values:(binary.discarded_values) rprogram in 
+    let prologue = FrameManager.function_prologue ~fn_register_params ~stack_params:[] rprogram fd in
+    let conversion = Codegen.translate_tac_body ~str_lit_map current_module rprogram fd (KosuIrTAC.Asttachelper.OperatorDeclaration.tac_body self ) in
+    let epilogue = FrameManager.function_epilogue fd in
+    Some (Afunction {
+      asm_name;
+      asm_body = [Directive ("cfi_startproc")] @ prologue @ (conversion |> List.tl) @ epilogue @ [Directive "cfi_endproc"]
+    })
   | TNConst {rconst_name; value = { rktype = RTInteger _; rexpression = REInteger (_ssign, size, value)}} -> 
     Some (AConst {
       asm_const_name = asm_const_name current_module rconst_name;

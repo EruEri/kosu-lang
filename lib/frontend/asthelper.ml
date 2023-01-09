@@ -655,7 +655,7 @@ module Program = struct
       match lhs with
       | TType_Identifier _ as kt -> (
           let declaration =
-            program |> find_binary_operator Ast.Equal (kt, kt) kt
+            program |> find_binary_operator Ast.Equal (kt, kt) TBool
           in
           match declaration |> Util.ListHelper.inner_count with
           | 0 -> `no_function_found
@@ -673,7 +673,7 @@ module Program = struct
       match lhs with
       | TType_Identifier _ as kt -> (
           let declaration =
-            program |> find_binary_operator Ast.Sup (kt, kt) kt
+            program |> find_binary_operator Ast.Sup (kt, kt) TBool
           in
           match declaration |> Util.ListHelper.inner_count with
           | 0 -> `no_function_found
@@ -696,7 +696,7 @@ module Program = struct
       match lhs with
       | TType_Identifier _ as kt -> (
           let declaration =
-            program |> find_binary_operator Ast.Inf (kt, kt) kt
+            program |> find_binary_operator Ast.Inf (kt, kt) TBool
           in
           match declaration |> Util.ListHelper.inner_count with
           | 0 -> `no_function_found
