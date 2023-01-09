@@ -81,28 +81,31 @@ let rec string_of_rktype = function
   | RTFloat -> "f64"
 
 let rec string_of_label_rktype = function
-| RTParametric_identifier { module_path; parametrics_type; name } ->
-    sprintf "%s_%s_%s"
-      (parametrics_type |> List.map string_of_label_rktype |> String.concat "__")
-      module_path name
-| RTType_Identifier { module_path; name } ->
-    sprintf "%s%s"
-      (if module_path = "" then "" else sprintf "%s_" module_path)
-      name
-| RTInteger (sign, size) ->
-    sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
-| RTPointer ktype -> sprintf "ptr_%s" (string_of_rktype ktype)
-| RTTuple ktypes ->
-    sprintf "(%s)" (ktypes |> List.map string_of_label_rktype |> String.concat "_")
-| RTFunction (parameters, r_type) ->
-    sprintf "(%s) -> %s"
-      (parameters |> List.map string_of_label_rktype |> String.concat "_")
-      (string_of_label_rktype r_type)
-| RTString_lit -> "stringl"
-| RTBool -> "bool"
-| RTUnit -> "unit"
-| RTUnknow -> "unknwon"
-| RTFloat -> "f64"
+  | RTParametric_identifier { module_path; parametrics_type; name } ->
+      sprintf "%s_%s_%s"
+        (parametrics_type
+        |> List.map string_of_label_rktype
+        |> String.concat "__")
+        module_path name
+  | RTType_Identifier { module_path; name } ->
+      sprintf "%s%s"
+        (if module_path = "" then "" else sprintf "%s_" module_path)
+        name
+  | RTInteger (sign, size) ->
+      sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
+  | RTPointer ktype -> sprintf "ptr_%s" (string_of_rktype ktype)
+  | RTTuple ktypes ->
+      sprintf "(%s)"
+        (ktypes |> List.map string_of_label_rktype |> String.concat "_")
+  | RTFunction (parameters, r_type) ->
+      sprintf "(%s) -> %s"
+        (parameters |> List.map string_of_label_rktype |> String.concat "_")
+        (string_of_label_rktype r_type)
+  | RTString_lit -> "stringl"
+  | RTBool -> "bool"
+  | RTUnit -> "unit"
+  | RTUnknow -> "unknwon"
+  | RTFloat -> "f64"
 
 let rec string_of_rkbody = function
   | (statements : rkstatement list), (expr : typed_expression) ->
@@ -207,7 +210,8 @@ and string_of_rkexpression = function
         | None -> ""
         | Some kbody -> sprintf "_ => %s" (string_of_rkbody kbody))
   | REBuiltin_Function_call { fn_name; parameters } ->
-      sprintf "@%s(%s)" (KosuFrontend.Asthelper.Builtin_Function.fn_name_of_built_in_fn fn_name)
+      sprintf "@%s(%s)"
+        (KosuFrontend.Asthelper.Builtin_Function.fn_name_of_built_in_fn fn_name)
         (parameters |> List.map string_of_typed_expression |> String.concat ", ")
 
 and string_of_rkbin_op = function

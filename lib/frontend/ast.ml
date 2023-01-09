@@ -711,7 +711,8 @@ module Type = struct
           { module_path = lmp; parametrics_type = lpt; name = lname },
         TParametric_identifier
           { module_path = rmp; parametrics_type = rpt; name = rname } ) ->
-        if lmp.v <> rmp.v || lname.v <> rname.v || Util.are_diff_lenght lpt rpt then ()
+        if lmp.v <> rmp.v || lname.v <> rname.v || Util.are_diff_lenght lpt rpt
+        then ()
         else List.iter2 (fun l r -> update_generics map l r ()) lpt rpt
     | TPointer lhs, TPointer rhs -> update_generics map lhs rhs ()
     | TTuple lhs, TTuple rhs ->
@@ -749,7 +750,7 @@ module Type = struct
             module_path =
               {
                 v =
-                  (if module_path.v = ""  then current_module
+                  (if module_path.v = "" then current_module
                   else module_type_path);
                 position = module_path.position;
               };
@@ -762,7 +763,7 @@ module Type = struct
               {
                 module_path with
                 v =
-                  (if module_path.v = ""  then current_module
+                  (if module_path.v = "" then current_module
                   else module_type_path);
               };
             parametrics_type =

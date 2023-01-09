@@ -359,12 +359,13 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                     found = assoc_exprs |> List.length;
                   }))
         else
-         let () = List.iter2
-          (fun kt (param_kt) ->
-            (* let () = Printf.printf "init_ktype = %s, param type = %s\n" (Pprint.string_of_ktype kt.v) (Pprint.string_of_ktype param_kt.v) in *)
-            Ast.Type.update_generics infered_map kt param_kt ())
-          init_types assoc_types
-        in
+          let () =
+            List.iter2
+              (fun kt param_kt ->
+                (* let () = Printf.printf "init_ktype = %s, param type = %s\n" (Pprint.string_of_ktype kt.v) (Pprint.string_of_ktype param_kt.v) in *)
+                Ast.Type.update_generics infered_map kt param_kt ())
+              init_types assoc_types
+          in
           assoc_types |> List.combine init_types
           |> List.iter (fun (init, expected) ->
                  match
@@ -380,7 +381,9 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         modules_path
         |> Position.map (fun mp -> if mp = "" then current_mod_name else mp)
       in
-      let kt = Asthelper.Enum.to_ktype_hash infered_map modules_path enum_decl in
+      let kt =
+        Asthelper.Enum.to_ktype_hash infered_map modules_path enum_decl
+      in
       kt
   | ETuple expected_types ->
       TTuple
@@ -537,7 +540,10 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
               | Some grc_safe ->
                   List.combine e.generics grc_safe
                   |> List.iteri (fun index (generic_name, field_ktype) ->
-                        let () = Hashtbl.add infered_map (generic_name.v) (index, field_ktype.v) in
+                         let () =
+                           Hashtbl.add infered_map generic_name.v
+                             (index, field_ktype.v)
+                         in
                          Hashtbl.add hashtal generic_name.v
                            (index, field_ktype.v))
               | None -> ()
@@ -564,12 +570,14 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                          }
                        |> func_error |> raise)
             in
-            (* let () = Printf.printf "infered_map = %s \n\n" (infered_map |> Hashtbl.to_seq |> List.of_seq |> List.map (fun (gene, (_, kt)) -> Printf.sprintf "%s = %s" (gene) (Pprint.string_of_ktype kt)) |> String.concat "\n" ) in  *)
 
-            let kt = Asthelper.Function.to_return_ktype_hashtab
-              ~current_module:current_mod_name ~module_type_path:modules_path.v
-              infered_map e in
-              (* let () = Printf.printf "cm = %s, mp = %s fn return = %s\n" (current_mod_name) (modules_path.v) (Pprint.string_of_ktype kt) in *)
+            (* let () = Printf.printf "infered_map = %s \n\n" (infered_map |> Hashtbl.to_seq |> List.of_seq |> List.map (fun (gene, (_, kt)) -> Printf.sprintf "%s = %s" (gene) (Pprint.string_of_ktype kt)) |> String.concat "\n" ) in  *)
+            let kt =
+              Asthelper.Function.to_return_ktype_hashtab
+                ~current_module:current_mod_name
+                ~module_type_path:modules_path.v infered_map e
+            in
+            (* let () = Printf.printf "cm = %s, mp = %s fn return = %s\n" (current_mod_name) (modules_path.v) (Pprint.string_of_ktype kt) in *)
             kt
       | Ast.Function_Decl.Decl_External external_func_decl -> (
           if external_func_decl.is_variadic then
@@ -1471,7 +1479,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
           | Error e -> e |> ast_error |> raise
         in
         let params_type = Type.extract_parametrics_ktype expr_type in
-        let mapped_generics = List.combine enum_decl.generics params_type in 
+        let mapped_generics = List.combine enum_decl.generics params_type in
         let () =
           enum_decl.variants
           |> List.iter (fun (variant_name, _) ->
@@ -1484,11 +1492,11 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                      Ast.Error.Duplicated_case duplicate |> switch_error
                      |> raise)
         in
-        let bound_assoc_var_type_map = mapped_generics 
-        |> List.map Position.assocs_value  
-        |> List.to_seq
-        |> Hashtbl.of_seq
-      in
+        let bound_assoc_var_type_map =
+          mapped_generics
+          |> List.map Position.assocs_value
+          |> List.to_seq |> Hashtbl.of_seq
+        in
 
         let generics_mapped =
           expr_type |> Ast.Type.extract_parametrics_ktype
@@ -1584,8 +1592,13 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                                 |> switch_error |> raise)
                           (reduce_binded_variable_combine ass_bin)
                      |> List.map (fun (_, variable_name, ktype) ->
-                      let ktype = ktype |> Position.map (Type.remap_naif_generic_ktype bound_assoc_var_type_map) in 
-                      (* let () = Printf.printf "bound %s : %s\n\n" (variable_name.v) (Pprint.string_of_ktype ktype.v) in *)
+                            let ktype =
+                              ktype
+                              |> Position.map
+                                   (Type.remap_naif_generic_ktype
+                                      bound_assoc_var_type_map)
+                            in
+                            (* let () = Printf.printf "bound %s : %s\n\n" (variable_name.v) (Pprint.string_of_ktype ktype.v) in *)
                             ( variable_name,
                               ({ is_const = true; ktype = ktype.v }
                                 : Env.variable_info) ))

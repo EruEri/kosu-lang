@@ -254,7 +254,8 @@ and string_of_tac_rvalue = function
   | RVBuiltinUnop un -> string_of_tac_unary un
   | RVBuiltinBinop bin -> string_of_tac_binary bin
   | RVBuiltinCall { fn_name; parameters } ->
-      sprintf "@%s(%s)" (KosuFrontend.Asthelper.Builtin_Function.fn_name_of_built_in_fn fn_name)
+      sprintf "@%s(%s)"
+        (KosuFrontend.Asthelper.Builtin_Function.fn_name_of_built_in_fn fn_name)
         (parameters
         |> List.map string_of_typed_tac_expression
         |> String.concat ", ")

@@ -22,14 +22,13 @@ open KosuFrontend.Typecheck
 open KosuFrontend.Ast.Env
 open KosuFrontend
 
-module Sizeof = struct  
+module Sizeof = struct
   let ( ++ ) = Int64.add
   let ( -- ) = Int64.sub
 
-
   let align n b =
-  let m = Int64.unsigned_rem n b in
-  if m = 0L then n else n ++ b -- m
+    let m = Int64.unsigned_rem n b in
+    if m = 0L then n else n ++ b -- m
 
   let rec size calcul program rktype =
     match rktype with
@@ -57,21 +56,22 @@ module Sizeof = struct
               struct_decl)
 
   and size_tuple calcul program = function
-  | list -> (
-    let size, alignment, _packed_size =
-      list
-      |> List.fold_left
-           (fun (acc_size, acc_align, _acc_packed_size) kt ->
-             let comming_size = kt |> size `size program in
-             let comming_align = kt |> size `align program in
+    | list -> (
+        let size, alignment, _packed_size =
+          list
+          |> List.fold_left
+               (fun (acc_size, acc_align, _acc_packed_size) kt ->
+                 let comming_size = kt |> size `size program in
+                 let comming_align = kt |> size `align program in
 
-             let aligned = align acc_size comming_align in
-             let new_align = max acc_align comming_align in
-             (aligned ++ comming_size, new_align, _acc_packed_size ++ comming_size)
-             )
-           (0L, 0L, 0L)
-    in
-    match calcul with `size -> align size alignment | `align -> alignment)
+                 let aligned = align acc_size comming_align in
+                 let new_align = max acc_align comming_align in
+                 ( aligned ++ comming_size,
+                   new_align,
+                   _acc_packed_size ++ comming_size ))
+               (0L, 0L, 0L)
+        in
+        match calcul with `size -> align size alignment | `align -> alignment)
 
   and size_struct calcul program generics struct_decl =
     struct_decl.rfields
@@ -90,44 +90,45 @@ module Sizeof = struct
   let sizeof program ktype = size `size program ktype
   let alignmentof program ktype = size `align program ktype
 
-    let offset_of_tuple_index ?(generics = Hashtbl.create 0) index rktypes rprogram = 
-      let ( ++ ) = Int64.add in
-      
-      rktypes
-      |> List.mapi (fun i v -> (i, v))
-      |> List.fold_left (fun ((acc_size, acc_align, found) as acc) (tindex, rktype) -> 
-        let comming_size =
-          rktype
-          |> RType.remap_generic_ktype generics
-          |> size `size rprogram
-        in
-        let comming_align =
-          rktype
-          |> RType.remap_generic_ktype generics
-          |> size `align rprogram
-        in
+  let offset_of_tuple_index ?(generics = Hashtbl.create 0) index rktypes
+      rprogram =
+    let ( ++ ) = Int64.add in
 
-        let aligned = align acc_size comming_align in
-        let new_align = max acc_align comming_align in
-        
-        if found then acc
-        else if index = tindex 
-          then (aligned, new_align, true)
-        else (aligned ++ comming_size, new_align, found)
-      ) (0L, 0L, false) |> (function a, _ , _ -> a)
+    rktypes
+    |> List.mapi (fun i v -> (i, v))
+    |> List.fold_left
+         (fun ((acc_size, acc_align, found) as acc) (tindex, rktype) ->
+           let comming_size =
+             rktype |> RType.remap_generic_ktype generics |> size `size rprogram
+           in
+           let comming_align =
+             rktype
+             |> RType.remap_generic_ktype generics
+             |> size `align rprogram
+           in
 
-      let offset_of_field ?(generics = Hashtbl.create 0) field rstruct_decl rprogram = 
-  
-        let field_index = rstruct_decl.rfields 
-        |> List.mapi (fun index value -> index, value) 
-        |> List.find_map (fun (index, (sfield, _)) -> 
-          if field = sfield 
-            then Some index 
-        else None)
-        |> Option.get in
-  
-        let rktypes = rstruct_decl.rfields |> List.map snd in
-        offset_of_tuple_index ~generics field_index rktypes rprogram
+           let aligned = align acc_size comming_align in
+           let new_align = max acc_align comming_align in
+
+           if found then acc
+           else if index = tindex then (aligned, new_align, true)
+           else (aligned ++ comming_size, new_align, found))
+         (0L, 0L, false)
+    |> function
+    | a, _, _ -> a
+
+  let offset_of_field ?(generics = Hashtbl.create 0) field rstruct_decl rprogram
+      =
+    let field_index =
+      rstruct_decl.rfields
+      |> List.mapi (fun index value -> (index, value))
+      |> List.find_map (fun (index, (sfield, _)) ->
+             if field = sfield then Some index else None)
+      |> Option.get
+    in
+
+    let rktypes = rstruct_decl.rfields |> List.map snd in
+    offset_of_tuple_index ~generics field_index rktypes rprogram
 end
 
 let restrict_typed_expression restrict typed_expression =
@@ -363,7 +364,10 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
   | EBuiltin_Function_call { fn_name; parameters } ->
       REBuiltin_Function_call
         {
-          fn_name = KosuFrontend.Asthelper.Builtin_Function.builtin_fn_of_fn_name fn_name |> Result.get_ok;
+          fn_name =
+            KosuFrontend.Asthelper.Builtin_Function.builtin_fn_of_fn_name
+              fn_name
+            |> Result.get_ok;
           parameters =
             parameters
             |> List.map
@@ -1018,21 +1022,24 @@ and from_module_path module_path_list { path; _module = Mod module_nodes } =
   }
 
 and from_program (program : Ast.program) : rprogram =
-  let rprogram =  program
-  |> List.map (fun { filename; module_path } ->
-         {
-           filename;
-           rmodule_path =
-             from_module_path
-               (program |> Asthelper.Program.to_module_path_list)
-               module_path;
-         }) in
-  let specialised_functions = 
-    rprogram 
-    |> Asttyhelper.RProgram.specialise
-    |> Asttyhelper.RProgram.FnSpec.to_seq
-    |> List.of_seq in
+  let rprogram =
+    program
+    |> List.map (fun { filename; module_path } ->
+           {
+             filename;
+             rmodule_path =
+               from_module_path
+                 (program |> Asthelper.Program.to_module_path_list)
+                 module_path;
+           })
+  in
+  let specialised_functions =
+    rprogram |> Asttyhelper.RProgram.specialise
+    |> Asttyhelper.RProgram.FnSpec.to_seq |> List.of_seq
+  in
 
   specialised_functions
-    |> List.fold_left (fun acc node -> RProgram.append_function_decl node acc) rprogram
-    |> RProgram.remove_generics
+  |> List.fold_left
+       (fun acc node -> RProgram.append_function_decl node acc)
+       rprogram
+  |> RProgram.remove_generics

@@ -177,31 +177,31 @@ type tac_function_decl = {
   rparameters : (string * rktype) list;
   return_type : rktype;
   tac_body : tac_body;
-  stack_params_count: int;
+  stack_params_count : int;
   locale_var : tac_typed_locale_variable list;
-  discarded_values: (string * rktype) list
+  discarded_values : (string * rktype) list;
 }
 
 type tac_operator_decl =
   | TacUnary of {
       op : parser_unary_op;
-      asm_name: string;
+      asm_name : string;
       rfield : string * rktype;
       return_type : rktype;
       tac_body : tac_body;
-      stack_params_count: int;
+      stack_params_count : int;
       locale_var : tac_typed_locale_variable list;
-      discarded_values: (string * rktype) list
+      discarded_values : (string * rktype) list;
     }
   | TacBinary of {
       op : parser_binary_op;
-      asm_name: string;
+      asm_name : string;
       rfields : (string * rktype) * (string * rktype);
       return_type : rktype;
       tac_body : tac_body;
-      stack_params_count: int;
+      stack_params_count : int;
       locale_var : tac_typed_locale_variable list;
-      discarded_values: (string * rktype) list
+      discarded_values : (string * rktype) list;
     }
 
 type tac_module_node =

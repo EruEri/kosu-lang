@@ -61,8 +61,6 @@ let post_inc n =
 
 let make_inc_tmp n = make_tmp (post_inc n)
 
-
-
 let typed_locale_assoc ~name ~from ~assoc_index_bound ~rktype =
   {
     locale_ty = rktype;
@@ -80,9 +78,9 @@ let make_typed_tac_expression expr_rktype tac_expression =
 
 let make_typed_tac_rvalue rval_rktype rvalue = { rval_rktype; rvalue }
 
-let make_inc_tmp rktype map n = 
+let make_inc_tmp rktype map n =
   let variable = make_inc_tmp n in
-  let () =  Hashtbl.add map (variable) (typed_locale_locale variable ~rktype) in
+  let () = Hashtbl.add map variable (typed_locale_locale variable ~rktype) in
   variable
 
 let convert_if_allocated ~expr_rktype ~allocated tac_expression =
@@ -110,8 +108,8 @@ let create_forward_init ?(rvalue = RVLater) ~map ~count_var typed_expression =
       :: [] )
   else (None, [])
 
-let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_var ~if_count
-    ~cases_count ~switch_count typed_expression =
+let rec convert_from_typed_expression ~discarded_value ~allocated ~map
+    ~count_var ~if_count ~cases_count ~switch_count typed_expression =
   let trktype = typed_expression.rktype in
   let expr = typed_expression.rexpression in
   match (expr, allocated) with
@@ -122,20 +120,22 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
       in
 
       let statement_for_bool, condition_rvalue =
-        convert_from_typed_expression ~discarded_value ~allocated:next_allocated ~switch_count
-          ~map ~count_var ~if_count ~cases_count if_typed_expres
+        convert_from_typed_expression ~discarded_value ~allocated:next_allocated
+          ~switch_count ~map ~count_var ~if_count ~cases_count if_typed_expres
       in
 
       let goto_label1 = make_goto_label ~count_if:incremented 0 in
       let goto_label2 = make_goto_label ~count_if:incremented 1 in
       let exit_label = make_end_label ~count_if:incremented in
       let if_tac_body =
-        convert_from_rkbody ~discarded_value ~switch_count ~cases_count ~previous_alloc:allocated
-          ~label_name:goto_label1 ~map ~count_var ~if_count if_body
+        convert_from_rkbody ~discarded_value ~switch_count ~cases_count
+          ~previous_alloc:allocated ~label_name:goto_label1 ~map ~count_var
+          ~if_count if_body
       in
       let else_tac_body =
-        convert_from_rkbody ~discarded_value  ~cases_count ~switch_count ~previous_alloc:allocated
-          ~label_name:goto_label2 ~map ~count_var ~if_count else_body
+        convert_from_rkbody ~discarded_value ~cases_count ~switch_count
+          ~previous_alloc:allocated ~label_name:goto_label2 ~map ~count_var
+          ~if_count else_body
       in
       ( STIf
           {
@@ -177,9 +177,9 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
                in
 
                let statement_for_condition, tac_condition =
-                 convert_from_typed_expression ~discarded_value ~allocated:next_allocated
-                   ~switch_count ~map ~count_var ~if_count ~cases_count
-                   case_condition
+                 convert_from_typed_expression ~discarded_value
+                   ~allocated:next_allocated ~switch_count ~map ~count_var
+                   ~if_count ~cases_count case_condition
                in
                let tac_body =
                  convert_from_rkbody ~discarded_value ~cases_count ~switch_count
@@ -197,8 +197,9 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
                })
       in
       let else_tac_body =
-        convert_from_rkbody ~discarded_value ~switch_count ~cases_count ~previous_alloc:allocated
-          ~label_name:else_label ~map ~count_var ~if_count else_case
+        convert_from_rkbody ~discarded_value ~switch_count ~cases_count
+          ~previous_alloc:allocated ~label_name:else_label ~map ~count_var
+          ~if_count else_case
       in
       ( SCases { cases; exit_label = end_label; else_tac_body } :: [],
         make_typed_tac_expression id_rktype (TEIdentifier identifier) )
@@ -214,8 +215,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
         create_forward_init ~map ~count_var rexpression
       in
       let statemenets_for_case, condition_switch =
-        convert_from_typed_expression ~discarded_value ~allocated:next_allocated ~switch_count
-          ~cases_count ~if_count ~count_var ~map rexpression
+        convert_from_typed_expression ~discarded_value ~allocated:next_allocated
+          ~switch_count ~cases_count ~if_count ~count_var ~map rexpression
       in
       let sw_cases =
         cases
@@ -233,7 +234,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
                in
                let assoc_bound =
                  bounds
-                 |> List.map (fun (index, id, rtype) -> (id, (index, id, rtype)))
+                 |> List.map (fun (index, id, rtype) ->
+                        (id, (index, id, rtype)))
                  |> List.split |> snd
                in
                let switch_tac_body =
@@ -261,8 +263,9 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
                let label_name =
                  make_switch_wild_label ~switch_count:incremented
                in
-               convert_from_rkbody ~discarded_value ~previous_alloc:allocated ~cases_count
-                 ~switch_count ~label_name ~map ~count_var ~if_count wild_body)
+               convert_from_rkbody ~discarded_value ~previous_alloc:allocated
+                 ~cases_count ~switch_count ~label_name ~map ~count_var
+                 ~if_count wild_body)
       in
       ( STSwitch
           {
@@ -303,15 +306,16 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
                  create_forward_init ~map ~count_var ty_ex
                in
                let stmt_needed, tac_expression =
-                 convert_from_typed_expression ~discarded_value ~allocated:next_allocated
-                   ~switch_count ~cases_count ~map ~count_var ~if_count ty_ex
+                 convert_from_typed_expression ~discarded_value
+                   ~allocated:next_allocated ~switch_count ~cases_count ~map
+                   ~count_var ~if_count ty_ex
                in
                (stmt @ stmt_needed, tac_expression))
         |> List.fold_left_map
              (fun acc (stmts, value) -> (acc @ stmts, value))
              []
       in
-      let new_tmp = make_inc_tmp  trktype map count_var in
+      let new_tmp = make_inc_tmp trktype map count_var in
       let tuple = RVTuple tac_expression in
       let stt =
         STacDeclaration
@@ -334,8 +338,9 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
                  create_forward_init ~map ~count_var ty_ex
                in
                let stmt_needed, tac_expression =
-                 convert_from_typed_expression ~discarded_value ~allocated:next_allocated
-                   ~switch_count ~cases_count ~map ~count_var ~if_count ty_ex
+                 convert_from_typed_expression ~discarded_value
+                   ~allocated:next_allocated ~switch_count ~cases_count ~map
+                   ~count_var ~if_count ty_ex
                in
                (stmt @ stmt_needed, tac_expression))
         |> List.fold_left_map
@@ -372,8 +377,9 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
                  create_forward_init ~map ~count_var ty_ex
                in
                let stmt_needed, tac_expression =
-                 convert_from_typed_expression ~discarded_value ~allocated:next_allocated
-                   ~switch_count ~cases_count ~map ~count_var ~if_count ty_ex
+                 convert_from_typed_expression ~discarded_value
+                   ~allocated:next_allocated ~switch_count ~cases_count ~map
+                   ~count_var ~if_count ty_ex
                in
 
                (field, (stmt @ stmt_needed, tac_expression)))
@@ -407,8 +413,9 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
                  create_forward_init ~map ~count_var ty_ex
                in
                let stmt_needed, tac_expression =
-                 convert_from_typed_expression ~discarded_value ~allocated:next_allocated
-                   ~switch_count ~cases_count ~map ~count_var ~if_count ty_ex
+                 convert_from_typed_expression ~discarded_value
+                   ~allocated:next_allocated ~switch_count ~cases_count ~map
+                   ~count_var ~if_count ty_ex
                in
                (stmt @ stmt_needed, tac_expression))
         |> List.fold_left_map (fun acc (smts, value) -> (acc @ smts, value)) []
@@ -431,10 +438,12 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
       in
       (stmts_needed @ (statement :: last_stmt), return)
   | REFieldAcces { first_expr; field }, _ ->
-      let next_allocated, stmt = create_forward_init ~map ~count_var first_expr in
+      let next_allocated, stmt =
+        create_forward_init ~map ~count_var first_expr
+      in
       let needed_statement, tac_expr =
-        convert_from_typed_expression ~discarded_value ~allocated:next_allocated ~switch_count
-          ~cases_count ~map ~if_count ~count_var first_expr
+        convert_from_typed_expression ~discarded_value ~allocated:next_allocated
+          ~switch_count ~cases_count ~map ~if_count ~count_var first_expr
       in
       let new_tmp = make_inc_tmp trktype map count_var in
       let field_acces = RVFieldAcess { first_expr = tac_expr; field } in
@@ -472,12 +481,14 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
 
       let rnext_allocated, rstmt = create_forward_init ~map ~count_var rtyped in
       let lstamements_needed, lhs_value =
-        convert_from_typed_expression ~discarded_value ~allocated:lnext_allocated ~switch_count
-          ~cases_count ~map ~if_count ~count_var ltyped
+        convert_from_typed_expression ~discarded_value
+          ~allocated:lnext_allocated ~switch_count ~cases_count ~map ~if_count
+          ~count_var ltyped
       in
       let rstamements_needed, rhs_value =
-        convert_from_typed_expression ~discarded_value ~allocated:rnext_allocated ~switch_count
-          ~cases_count ~map ~if_count ~count_var rtyped
+        convert_from_typed_expression ~discarded_value
+          ~allocated:rnext_allocated ~switch_count ~cases_count ~map ~if_count
+          ~count_var rtyped
       in
       let new_tmp = make_inc_tmp trktype map count_var in
       let binary_op =
@@ -502,8 +513,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
       let operand = Operator.typed_operand unary in
       let next_allocated, stmt = create_forward_init ~map ~count_var operand in
       let need_stmts, lvalue =
-        convert_from_typed_expression ~discarded_value ~allocated:next_allocated ~switch_count
-          ~cases_count ~map ~if_count ~count_var operand
+        convert_from_typed_expression ~discarded_value ~allocated:next_allocated
+          ~switch_count ~cases_count ~map ~if_count ~count_var operand
       in
       let new_tmp = make_inc_tmp trktype map count_var in
       let unary_op = RVBuiltinUnop { unop = operator; expr = lvalue } in
@@ -524,9 +535,9 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
         match i with
         | 0 -> failwith "Never I hope: deferencement without start ??"
         | 1 ->
-          let rtpointee =
-            KosuIrTyped.Asttyhelper.RType.rtpointee origin_type
-          in
+            let rtpointee =
+              KosuIrTyped.Asttyhelper.RType.rtpointee origin_type
+            in
             let new_tmp = make_inc_tmp rtpointee map count_var in
             ( new_tmp,
               STacDeclaration
@@ -536,9 +547,9 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
                 }
               :: [] )
         | _ ->
-          let rtpointee =
-            KosuIrTyped.Asttyhelper.RType.rtpointee origin_type
-          in
+            let rtpointee =
+              KosuIrTyped.Asttyhelper.RType.rtpointee origin_type
+            in
             let new_tmp = make_inc_tmp rtpointee map count_var in
 
             let result, future_stmt =
@@ -562,12 +573,14 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
 
       let rnext_allocated, rstmt = create_forward_init ~map ~count_var rtyped in
       let lstamements_needed, lhs_value =
-        convert_from_typed_expression ~discarded_value ~allocated:lnext_allocated ~switch_count
-          ~cases_count ~map ~if_count ~count_var ltyped
+        convert_from_typed_expression ~discarded_value
+          ~allocated:lnext_allocated ~switch_count ~cases_count ~map ~if_count
+          ~count_var ltyped
       in
       let rstamements_needed, rhs_value =
-        convert_from_typed_expression ~discarded_value ~allocated:rnext_allocated ~switch_count
-          ~cases_count ~map ~if_count ~count_var rtyped
+        convert_from_typed_expression ~discarded_value
+          ~allocated:rnext_allocated ~switch_count ~cases_count ~map ~if_count
+          ~count_var rtyped
       in
       let new_tmp = make_inc_tmp trktype map count_var in
       let binary_op =
@@ -592,8 +605,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
       let operand = Operator.typed_operand rkunary_op in
       let next_allocated, stmt = create_forward_init ~map ~count_var operand in
       let need_stmts, lvalue =
-        convert_from_typed_expression ~discarded_value ~allocated:next_allocated ~switch_count
-          ~cases_count ~map ~if_count ~count_var operand
+        convert_from_typed_expression ~discarded_value ~allocated:next_allocated
+          ~switch_count ~cases_count ~map ~if_count ~count_var operand
       in
       let new_tmp = make_inc_tmp trktype map count_var in
       let unary_op = RVCustomUnop { unop = operator; expr = lvalue } in
@@ -617,8 +630,9 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
                  create_forward_init ~map ~count_var ty_ex
                in
                let stmt_needed, tac_expression =
-                 convert_from_typed_expression ~discarded_value ~allocated:next_allocated
-                   ~switch_count ~cases_count ~map ~count_var ~if_count ty_ex
+                 convert_from_typed_expression ~discarded_value
+                   ~allocated:next_allocated ~switch_count ~cases_count ~map
+                   ~count_var ~if_count ty_ex
                in
                (stmt @ stmt_needed, tac_expression))
         |> List.fold_left_map
@@ -645,9 +659,9 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map ~count_va
       failwith
         "Compiler code Error: Cannot create branch without previous allocation"
 
-and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~discarded_value ~count_var
-    ~if_count ~cases_count ~switch_count ?(function_return = false)
-    (rkbody : rkbody) =
+and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
+    ~discarded_value ~count_var ~if_count ~cases_count ~switch_count
+    ?(function_return = false) (rkbody : rkbody) =
   let stmts, types_return = rkbody in
   match stmts with
   | stmt :: q -> (
@@ -661,14 +675,15 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~discarded_val
             create_forward_init ~map ~count_var typed_expression
           in
           let tac_stmts, tac_expression =
-            convert_from_typed_expression ~discarded_value ~cases_count ~allocated ~map
-              ~count_var ~if_count ~switch_count typed_expression
+            convert_from_typed_expression ~discarded_value ~cases_count
+              ~allocated ~map ~count_var ~if_count ~switch_count
+              typed_expression
           in
 
           let body =
-            convert_from_rkbody ~discarded_value ~switch_count ~cases_count ~previous_alloc
-              ~label_name ~map ~count_var ~if_count ~function_return
-              (q, types_return)
+            convert_from_rkbody ~discarded_value ~switch_count ~cases_count
+              ~previous_alloc ~label_name ~map ~count_var ~if_count
+              ~function_return (q, types_return)
           in
           add_statements_to_tac_body
             (stmt_opt @ tac_stmts
@@ -687,13 +702,13 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~discarded_val
             create_forward_init ~map ~count_var aff_typed_expr
           in
           let tac_stmts, tac_expression =
-            convert_from_typed_expression ~discarded_value ~cases_count ~allocated ~map
-              ~count_var ~if_count ~switch_count aff_typed_expr
+            convert_from_typed_expression ~discarded_value ~cases_count
+              ~allocated ~map ~count_var ~if_count ~switch_count aff_typed_expr
           in
           let body =
-            convert_from_rkbody ~discarded_value ~switch_count ~cases_count ~previous_alloc
-              ~label_name ~map ~count_var ~if_count ~function_return
-              (q, types_return)
+            convert_from_rkbody ~discarded_value ~switch_count ~cases_count
+              ~previous_alloc ~label_name ~map ~count_var ~if_count
+              ~function_return (q, types_return)
           in
           body
           |> add_statements_to_tac_body
@@ -712,35 +727,39 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~discarded_val
               discard_typed_expression
           in
           let tac_stmts, tac_rvalue =
-            convert_from_typed_expression ~discarded_value ~cases_count ~allocated ~map
-              ~count_var ~if_count ~switch_count discard_typed_expression
+            convert_from_typed_expression ~discarded_value ~cases_count
+              ~allocated ~map ~count_var ~if_count ~switch_count
+              discard_typed_expression
           in
-          
-          let () = 
-          match tac_rvalue.tac_expression with 
-          | TEIdentifier id -> 
-            let () = Hashtbl.remove map id in
-            let () = Hashtbl.add discarded_value id tac_rvalue.expr_rktype in
-            ()
-          | _ -> ()  
-        in 
+
+          let () =
+            match tac_rvalue.tac_expression with
+            | TEIdentifier id ->
+                let () = Hashtbl.remove map id in
+                let () =
+                  Hashtbl.add discarded_value id tac_rvalue.expr_rktype
+                in
+                ()
+            | _ -> ()
+          in
           add_statements_to_tac_body (push_forward @ tac_stmts)
-            (convert_from_rkbody ~discarded_value ~cases_count ~previous_alloc ~label_name ~map
-               ~count_var ~if_count ~switch_count ~function_return
-               (q, types_return))
+            (convert_from_rkbody ~discarded_value ~cases_count ~previous_alloc
+               ~label_name ~map ~count_var ~if_count ~switch_count
+               ~function_return (q, types_return))
       | RSDerefAffectation (identifier, deref_typed_expr) ->
           let allocated, forward_declaration =
             create_forward_init ~map ~count_var deref_typed_expr
           in
           (* let find_tmp = Hashtbl.find map identifier in *)
           let tac_stmts, tac_expression =
-            convert_from_typed_expression ~discarded_value ~cases_count ~allocated ~map
-              ~count_var ~if_count ~switch_count deref_typed_expr
+            convert_from_typed_expression ~discarded_value ~cases_count
+              ~allocated ~map ~count_var ~if_count ~switch_count
+              deref_typed_expr
           in
           let body =
-            convert_from_rkbody ~discarded_value ~switch_count ~previous_alloc ~label_name ~map
-              ~count_var ~if_count ~cases_count ~function_return
-              (q, types_return)
+            convert_from_rkbody ~discarded_value ~switch_count ~previous_alloc
+              ~label_name ~map ~count_var ~if_count ~cases_count
+              ~function_return (q, types_return)
           in
           add_statements_to_tac_body
             (forward_declaration @ tac_stmts
@@ -758,8 +777,8 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~discarded_val
         create_forward_init ~map ~count_var types_return
       in
       let stmts, expr =
-        convert_from_typed_expression ~discarded_value ~cases_count ~allocated ~map ~count_var
-          ~if_count ~switch_count types_return
+        convert_from_typed_expression ~discarded_value ~cases_count ~allocated
+          ~map ~count_var ~if_count ~switch_count types_return
       in
       let penultimate_stmt =
         match previous_alloc with
@@ -781,124 +800,207 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map ~discarded_val
             if function_return then Some expr else None );
       }
 
-  let rec is_in_body id {label = _; body = stmts, _ } = 
-    stmts
-    |> List.exists (is_in_declaration id)
-   
-  and is_in_declaration id = function
-  | STacDeclaration {identifier; trvalue = _} 
-  | STacModification {identifier; trvalue = _} 
-  | STDerefAffectation {identifier; trvalue = _}  
-   -> identifier = id
-  | STIf {statement_for_bool; if_tac_body; else_tac_body; _} ->
-    (statement_for_bool |> List.exists (is_in_declaration id))
-    || (is_in_body id if_tac_body)
-    || (is_in_body id else_tac_body)
-  | STSwitch {statemenets_for_case; sw_cases; wildcard_body; _} ->
-    (statemenets_for_case |> List.exists (is_in_declaration id))
-    || (wildcard_body |> Option.map (is_in_body id) |> Option.value ~default:false)
-    || sw_cases |> List.exists (fun {switch_tac_body; assoc_bound; _} -> 
-       is_in_body id switch_tac_body
-       || (assoc_bound |> List.exists (fun (_, n, _) -> n = id))
-      )
-  | SCases {cases; else_tac_body; _} ->
-    (is_in_body id else_tac_body)
-    || cases |> List.exists (fun {statement_for_condition; tac_body; _} -> 
-      statement_for_condition |> List.exists (is_in_declaration id)
-      || (is_in_body id tac_body)
-    )
-  
+let rec is_in_body id { label = _; body = stmts, _ } =
+  stmts |> List.exists (is_in_declaration id)
 
-  
-  let rec reduce_variable_used_statements stmts = 
-    match stmts with
-    | [] -> []
-    | t::[] -> [t]
-    | t1::t2::q -> 
-      begin match (t1, t2) with
-        | STacDeclaration {identifier = tmp_name; trvalue}, 
-          STacDeclaration {identifier = true_var; trvalue = {rval_rktype = _; rvalue = RVExpression {expr_rktype = _; tac_expression = TEIdentifier id}}} when tmp_name = id ->
-          STacDeclaration {identifier = true_var; trvalue}::(reduce_variable_used_statements q)
+and is_in_declaration id = function
+  | STacDeclaration { identifier; trvalue = _ }
+  | STacModification { identifier; trvalue = _ }
+  | STDerefAffectation { identifier; trvalue = _ } ->
+      identifier = id
+  | STIf { statement_for_bool; if_tac_body; else_tac_body; _ } ->
+      statement_for_bool |> List.exists (is_in_declaration id)
+      || is_in_body id if_tac_body
+      || is_in_body id else_tac_body
+  | STSwitch { statemenets_for_case; sw_cases; wildcard_body; _ } ->
+      statemenets_for_case |> List.exists (is_in_declaration id)
+      || wildcard_body
+         |> Option.map (is_in_body id)
+         |> Option.value ~default:false
+      || sw_cases
+         |> List.exists (fun { switch_tac_body; assoc_bound; _ } ->
+                is_in_body id switch_tac_body
+                || assoc_bound |> List.exists (fun (_, n, _) -> n = id))
+  | SCases { cases; else_tac_body; _ } ->
+      is_in_body id else_tac_body
+      || cases
+         |> List.exists (fun { statement_for_condition; tac_body; _ } ->
+                statement_for_condition |> List.exists (is_in_declaration id)
+                || is_in_body id tac_body)
 
-          | STacDeclaration {identifier = tmp_name; trvalue}, 
-          STacModification {identifier = true_var; trvalue = {rval_rktype = _; rvalue = RVExpression {expr_rktype = _; tac_expression = TEIdentifier id}}} when tmp_name = id ->
-            STacModification {identifier = true_var; trvalue}::(reduce_variable_used_statements q)
+let rec reduce_variable_used_statements stmts =
+  match stmts with
+  | [] -> []
+  | t :: [] -> [ t ]
+  | t1 :: t2 :: q -> (
+      match (t1, t2) with
+      | ( STacDeclaration { identifier = tmp_name; trvalue },
+          STacDeclaration
+            {
+              identifier = true_var;
+              trvalue =
+                {
+                  rval_rktype = _;
+                  rvalue =
+                    RVExpression
+                      { expr_rktype = _; tac_expression = TEIdentifier id };
+                };
+            } )
+        when tmp_name = id ->
+          STacDeclaration { identifier = true_var; trvalue }
+          :: reduce_variable_used_statements q
+      | ( STacDeclaration { identifier = tmp_name; trvalue },
+          STacModification
+            {
+              identifier = true_var;
+              trvalue =
+                {
+                  rval_rktype = _;
+                  rvalue =
+                    RVExpression
+                      { expr_rktype = _; tac_expression = TEIdentifier id };
+                };
+            } )
+        when tmp_name = id ->
+          STacModification { identifier = true_var; trvalue }
+          :: reduce_variable_used_statements q
+      | ( STacDeclaration { identifier = tmp_name; trvalue },
+          STDerefAffectation
+            {
+              identifier = true_var;
+              trvalue =
+                {
+                  rval_rktype = _;
+                  rvalue =
+                    RVExpression
+                      { expr_rktype = _; tac_expression = TEIdentifier id };
+                };
+            } )
+        when tmp_name = id ->
+          STDerefAffectation { identifier = true_var; trvalue }
+          :: reduce_variable_used_statements q
+      | _ -> t1 :: t2 :: reduce_variable_used_statements q)
 
-        | STacDeclaration {identifier = tmp_name; trvalue}, 
-            STDerefAffectation {identifier = true_var; trvalue = {rval_rktype = _; rvalue = RVExpression {expr_rktype = _; tac_expression = TEIdentifier id}}} when tmp_name = id ->
-              STDerefAffectation {identifier = true_var; trvalue}::(reduce_variable_used_statements q)
-        | _ -> t1::t2::(reduce_variable_used_statements q)
-      end 
-  and reduce_variable_used_body {label; body = (smtms, expr)} = 
-    {
-      label;
-      body = (reduce_variable_used_statements smtms, expr )
-    }
-  and reduce_variable_used_statement = function
-  | STIf {statement_for_bool; condition_rvalue; goto1; goto2; exit_label; if_tac_body; else_tac_body} ->
-    STIf {
-      statement_for_bool = reduce_variable_used_statements statement_for_bool;
-      condition_rvalue;
-      goto1;
-      goto2;
-      exit_label;
-      if_tac_body = reduce_variable_used_body if_tac_body;
-      else_tac_body = reduce_variable_used_body else_tac_body;  
-    }
-  | SCases {cases; else_tac_body; exit_label} ->
-    SCases {
-      cases = cases |> List.map (fun {condition_label; statement_for_condition; condition; goto; jmp_false; end_label; tac_body} -> 
-        {
-          condition_label;
-          statement_for_condition = reduce_variable_used_statements statement_for_condition;
-          condition;
-          goto;
-          jmp_false;
-          end_label;
-          tac_body = reduce_variable_used_body tac_body;
-        });
-        else_tac_body = reduce_variable_used_body else_tac_body;
+and reduce_variable_used_body { label; body = smtms, expr } =
+  { label; body = (reduce_variable_used_statements smtms, expr) }
+
+and reduce_variable_used_statement = function
+  | STIf
+      {
+        statement_for_bool;
+        condition_rvalue;
+        goto1;
+        goto2;
         exit_label;
-    }
-  | STSwitch {statemenets_for_case; condition_switch; sw_cases; wildcard_label; wildcard_body; sw_exit_label} -> 
-    STSwitch {
-      statemenets_for_case = reduce_variable_used_statements statemenets_for_case;
-      condition_switch;
-      sw_cases = sw_cases |> List.map (fun {variants_to_match; assoc_bound; sw_goto; sw_exit_label; switch_tac_body} -> 
+        if_tac_body;
+        else_tac_body;
+      } ->
+      STIf
         {
-          variants_to_match;
-          assoc_bound;
-          sw_goto;
-          sw_exit_label;
-          switch_tac_body = reduce_variable_used_body switch_tac_body;
+          statement_for_bool =
+            reduce_variable_used_statements statement_for_bool;
+          condition_rvalue;
+          goto1;
+          goto2;
+          exit_label;
+          if_tac_body = reduce_variable_used_body if_tac_body;
+          else_tac_body = reduce_variable_used_body else_tac_body;
         }
-      );
-      wildcard_label;
-      wildcard_body = wildcard_body |> Option.map reduce_variable_used_body;
-      sw_exit_label
-    }
+  | SCases { cases; else_tac_body; exit_label } ->
+      SCases
+        {
+          cases =
+            cases
+            |> List.map
+                 (fun
+                   {
+                     condition_label;
+                     statement_for_condition;
+                     condition;
+                     goto;
+                     jmp_false;
+                     end_label;
+                     tac_body;
+                   }
+                 ->
+                   {
+                     condition_label;
+                     statement_for_condition =
+                       reduce_variable_used_statements statement_for_condition;
+                     condition;
+                     goto;
+                     jmp_false;
+                     end_label;
+                     tac_body = reduce_variable_used_body tac_body;
+                   });
+          else_tac_body = reduce_variable_used_body else_tac_body;
+          exit_label;
+        }
+  | STSwitch
+      {
+        statemenets_for_case;
+        condition_switch;
+        sw_cases;
+        wildcard_label;
+        wildcard_body;
+        sw_exit_label;
+      } ->
+      STSwitch
+        {
+          statemenets_for_case =
+            reduce_variable_used_statements statemenets_for_case;
+          condition_switch;
+          sw_cases =
+            sw_cases
+            |> List.map
+                 (fun
+                   {
+                     variants_to_match;
+                     assoc_bound;
+                     sw_goto;
+                     sw_exit_label;
+                     switch_tac_body;
+                   }
+                 ->
+                   {
+                     variants_to_match;
+                     assoc_bound;
+                     sw_goto;
+                     sw_exit_label;
+                     switch_tac_body = reduce_variable_used_body switch_tac_body;
+                   });
+          wildcard_label;
+          wildcard_body = wildcard_body |> Option.map reduce_variable_used_body;
+          sw_exit_label;
+        }
   | s -> s
-let tac_function_decl_of_rfunction current_module rprogram (rfunction_decl : rfunction_decl) =
+
+let tac_function_decl_of_rfunction current_module rprogram
+    (rfunction_decl : rfunction_decl) =
   let map = Hashtbl.create (rfunction_decl.rbody |> fst |> List.length) in
 
-  let discarded_value = Hashtbl.create (5) in
+  let discarded_value = Hashtbl.create 5 in
   let tac_body =
     convert_from_rkbody ~discarded_value ~switch_count ~cases_count
       ~label_name:rfunction_decl.rfn_name ~map ~count_var:(ref 0)
       ~function_return:true ~if_count rfunction_decl.rbody
   in
   let tac_body = reduce_variable_used_body tac_body in
-  let () = map |> Hashtbl.filter_map_inplace ( fun key value -> 
-    if is_in_body key tac_body then Some value else None
-  ) in
+  let () =
+    map
+    |> Hashtbl.filter_map_inplace (fun key value ->
+           if is_in_body key tac_body then Some value else None)
+  in
   let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
+
   (* let () = locale_var |> List.map ( fun {locale_ty; locale} ->
-    let s = (function Locale s -> s | Enum_Assoc_id {name; _} -> name) locale in
-    Printf.sprintf "%s : %s" (s) (KosuIrTyped.Asttypprint.string_of_rktype locale_ty)
-  ) |> String.concat "\n" |> Printf.printf "%s\n" in *)
-
-
-  let stack_params_count = KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module rprogram rfunction_decl.rbody in
+       let s = (function Locale s -> s | Enum_Assoc_id {name; _} -> name) locale in
+       Printf.sprintf "%s : %s" (s) (KosuIrTyped.Asttypprint.string_of_rktype locale_ty)
+     ) |> String.concat "\n" |> Printf.printf "%s\n" in *)
+  let stack_params_count =
+    KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
+      rprogram rfunction_decl.rbody
+  in
   {
     rfn_name = rfunction_decl.rfn_name;
     generics = rfunction_decl.generics;
@@ -907,25 +1009,32 @@ let tac_function_decl_of_rfunction current_module rprogram (rfunction_decl : rfu
     tac_body;
     stack_params_count;
     locale_var;
-    discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq
+    discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
   }
-
 
 let tac_operator_decl_of_roperator_decl current_module rprogram = function
   | RUnary { op; rfield; return_type; kbody } as self ->
-      let asm_name = KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator self in
+      let asm_name =
+        KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator self
+      in
       let map = Hashtbl.create (kbody |> fst |> List.length) in
-      let discarded_value = Hashtbl.create (5) in
+      let discarded_value = Hashtbl.create 5 in
       let tac_body =
-        convert_from_rkbody ~discarded_value ~switch_count ~cases_count ~label_name:asm_name ~map
-          ~count_var:(ref 0) ~if_count ~function_return:true kbody
+        convert_from_rkbody ~discarded_value ~switch_count ~cases_count
+          ~label_name:asm_name ~map ~count_var:(ref 0) ~if_count
+          ~function_return:true kbody
       in
       let tac_body = reduce_variable_used_body tac_body in
-      let () = map |> Hashtbl.filter_map_inplace ( fun key value -> 
-        if is_in_body key tac_body then Some value else None
-      ) in
+      let () =
+        map
+        |> Hashtbl.filter_map_inplace (fun key value ->
+               if is_in_body key tac_body then Some value else None)
+      in
       let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
-      let stack_params_count = KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module rprogram kbody in
+      let stack_params_count =
+        KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
+          rprogram kbody
+      in
       TacUnary
         {
           op;
@@ -935,25 +1044,33 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
           tac_body;
           stack_params_count;
           locale_var;
-          discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq
+          discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
         }
   | RBinary
       { op; rfields = ((_f1, _), (_f2, _)) as rfields; return_type; kbody } as
     self ->
-      let asm_name = KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator self in
+      let asm_name =
+        KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator self
+      in
       let map = Hashtbl.create (kbody |> fst |> List.length) in
-      let discarded_value = Hashtbl.create (5) in
+      let discarded_value = Hashtbl.create 5 in
       let tac_body =
-        convert_from_rkbody ~discarded_value ~switch_count ~cases_count ~label_name:asm_name ~map
-          ~count_var:(ref 0) ~if_count ~function_return:true kbody
+        convert_from_rkbody ~discarded_value ~switch_count ~cases_count
+          ~label_name:asm_name ~map ~count_var:(ref 0) ~if_count
+          ~function_return:true kbody
       in
 
       let tac_body = reduce_variable_used_body tac_body in
-      let () = map |> Hashtbl.filter_map_inplace ( fun key value -> 
-        if is_in_body key tac_body then Some value else None
-      ) in
+      let () =
+        map
+        |> Hashtbl.filter_map_inplace (fun key value ->
+               if is_in_body key tac_body then Some value else None)
+      in
       let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
-      let stack_params_count = KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module rprogram kbody in
+      let stack_params_count =
+        KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
+          rprogram kbody
+      in
       TacBinary
         {
           op;
@@ -963,7 +1080,7 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
           tac_body;
           stack_params_count;
           locale_var;
-          discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq
+          discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
         }
 
 let rec tac_module_node_from_rmodule_node current_module rprogram = function
@@ -975,22 +1092,25 @@ let rec tac_module_node_from_rmodule_node current_module rprogram = function
   | RNFunction f ->
       let tmp = tac_function_decl_of_rfunction current_module rprogram f in
       (* let () =
-        Printf.printf "Locales = %s\nBody:\n%s\n"
-          (tmp.locale_var
-          |> List.map Asttacpprint.string_of_typed_locale
-          |> String.concat ", ")
-          (Asttacpprint.string_of_label_tac_body tmp.tac_body)
-      in *)
+           Printf.printf "Locales = %s\nBody:\n%s\n"
+             (tmp.locale_var
+             |> List.map Asttacpprint.string_of_typed_locale
+             |> String.concat ", ")
+             (Asttacpprint.string_of_label_tac_body tmp.tac_body)
+         in *)
       TNFunction tmp
-  | RNOperator s -> TNOperator (tac_operator_decl_of_roperator_decl current_module rprogram s)
+  | RNOperator s ->
+      TNOperator (tac_operator_decl_of_roperator_decl current_module rprogram s)
 
-and tac_module_path_of_rmodule_path rprogram { path; rmodule = RModule module_nodes } =
+and tac_module_path_of_rmodule_path rprogram
+    { path; rmodule = RModule module_nodes } =
   {
     path;
     tac_module =
       TacModule
         (module_nodes
-        |> List.map (fun node -> tac_module_node_from_rmodule_node path rprogram node));
+        |> List.map (fun node ->
+               tac_module_node_from_rmodule_node path rprogram node));
   }
 
 and tac_program_of_rprogram (rprogram : rprogram) : tac_program =
@@ -998,6 +1118,7 @@ and tac_program_of_rprogram (rprogram : rprogram) : tac_program =
   |> List.map (fun { filename; rmodule_path } ->
          {
            filename;
-           tac_module_path = tac_module_path_of_rmodule_path rprogram rmodule_path;
+           tac_module_path =
+             tac_module_path_of_rmodule_path rprogram rmodule_path;
            rprogram;
          })
