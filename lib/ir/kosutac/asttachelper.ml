@@ -48,6 +48,18 @@ end
 module OperatorDeclaration = struct
   type t = Asttac.tac_operator_decl
 
+  let label_of_operator = function
+  | TacUnary {op; rfield = (_, rktype); return_type; _} -> 
+    Printf.sprintf "_%s.%s__%s" 
+    (KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_unary op)
+    (KosuIrTyped.Asttypprint.string_of_label_rktype rktype)
+    (KosuIrTyped.Asttypprint.string_of_label_rktype return_type)
+  | TacBinary {op; rfields = ((_, ltype), (_, rtype)); return_type; _} -> 
+    Printf.sprintf "_%s.%s_%s__%s"
+    (KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_binary op)
+    (KosuIrTyped.Asttypprint.string_of_label_rktype ltype)
+    (KosuIrTyped.Asttypprint.string_of_label_rktype rtype)
+    (KosuIrTyped.Asttypprint.string_of_label_rktype return_type)
   let tac_body = function
     | TacUnary { tac_body; _ } | TacBinary { tac_body; _ } -> tac_body
 end

@@ -1679,6 +1679,8 @@ end
 module ParserOperator = struct
   let string_of_parser_unary = function PNot -> "(!)" | PUMinus -> "(.-)"
 
+  let string_name_of_parser_unary = function PNot -> "unot" | PUMinus -> "uminus"
+
   let string_of_parser_binary = function
     | Add -> "+"
     | Minus -> "-"
@@ -1693,6 +1695,21 @@ module ParserOperator = struct
     | Sup -> ">"
     | Inf -> "<"
     | Equal -> "=="
+
+    let string_name_of_parser_binary = function
+    | Add -> "add"
+    | Minus -> "sub"
+    | Mult -> "mul"
+    | Div -> "div"
+    | Modulo -> "mod"
+    | BitwiseAnd -> "bwa"
+    | BitwiseOr -> "bwo"
+    | BitwiseXor -> "bwx"
+    | ShiftLeft -> "sfl"
+    | ShiftRight -> "sfr"
+    | Sup -> "sup"
+    | Inf -> "inf"
+    | Equal -> "eql"
 
   let parameters = function
     | Unary u -> u.field |> snd |> fun k -> k :: []

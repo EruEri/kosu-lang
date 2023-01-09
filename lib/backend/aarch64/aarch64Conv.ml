@@ -685,7 +685,8 @@ module Codegen = struct
           to_64bits r9, instructions @ copy_instructions
         end 
         
-      | _ -> failwith ""
+      | RVCustomBinop _ -> failwith ""
+      | RVCustomUnop _ -> failwith ""
 
 let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameManager.frame_desc) = function
       | STacDeclaration {identifier; trvalue} | STacModification {identifier; trvalue} ->

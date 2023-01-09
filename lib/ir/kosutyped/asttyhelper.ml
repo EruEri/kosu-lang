@@ -509,6 +509,12 @@ module Rmodule = struct
   | _ -> None
   )
 
+  let retrive_operator_decl = function
+  | RModule rnodes -> rnodes |> List.filter_map (function
+  | RNOperator e -> Some e
+  | _ -> None 
+  )
+
   let find_function_decl fn_name = function
   | RModule rnodes -> rnodes |> List.find_map (fun rnodes -> 
     match rnodes with
@@ -601,6 +607,33 @@ module RProgram = struct
       |> Option.some
 
       let register_params_count = 8
+
+  
+  let find_binary_operator_decl (op : KosuFrontend.Ast.parser_binary_op) (lhs, rhs)  ~r_type rprogram = 
+    rprogram
+    |> List.map (fun {filename = _; rmodule_path} -> 
+      rmodule_path.rmodule
+      |> Rmodule.retrive_operator_decl
+      |> List.filter (function
+        | RUnary _ -> false
+        | RBinary record -> 
+          let (_, kt1), (_, kt2) = record.rfields in
+          op = record.op && record.return_type = r_type && lhs = kt1 && rhs = kt2
+        )
+    ) |> List.flatten
+
+    let find_unary_operator_decl (op : KosuFrontend.Ast.parser_unary_op) lhs ~r_type rprogram = 
+      rprogram
+      |> List.map (fun {filename = _; rmodule_path} -> 
+        rmodule_path.rmodule
+        |> Rmodule.retrive_operator_decl
+        |> List.filter (function
+          | RBinary _ -> false
+          | RUnary record -> 
+            let _, kt1 = record.rfield in
+            op = record.op && record.return_type = r_type && lhs = kt1
+          )
+      ) |> List.flatten
 
   let rec stack_parameters_in_expression current_module rprogram = function
     | REFunction_call {modules_path; fn_name; parameters; _} -> 
