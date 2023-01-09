@@ -731,7 +731,75 @@ module Codegen = struct
           end
       in 
       operator_instructions
-      | RVCustomBinop _ -> failwith "Binary ??"
+      | RVCustomBinop ( {binop = TacSelf _ | TacBool TacSup | TacBool TacInf | TacBool TacEqual; _} as self ) -> 
+        let open KosuIrTAC.Asttachelper.Operator in
+        let op_decls = KosuIrTyped.Asttyhelper.RProgram.find_binary_operator_decl
+        (parser_binary_op_of_tac_binary_op self.binop)
+        (self.blhs.expr_rktype, self.brhs.expr_rktype)
+        ~r_type:rval_rktype rprogram in
+        let op_decl = match op_decls with
+        | t::[] -> t
+        | _ -> failwith "What the type checker has done: No binary op declaration" in
+        let fn_label = KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator op_decl in
+        let _, linstructions = translate_tac_expression ~str_lit_map ~target_reg:(Register64 X0) rprogram fd self.blhs in
+        let _, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:(Register64 X1) rprogram fd self.brhs in
+
+        let call_instruction = FrameManager.call_instruction ~origin:fn_label [] fd in
+        let return_type =  (KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl) in
+        let return_size = sizeofn rprogram return_type in
+        let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float return_type) return_size in
+        let operator_instructions = begin match is_register_size return_size with
+        | true -> 
+          let copy_instruction = where |> Option.map (fun waddress -> 
+            match is_deref with
+            | Some pointer -> (Instruction (LDR {data_size = None; destination = xr; adress_src = pointer; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) return_type rprogram
+            | None  -> copy_from_reg return_reg waddress return_type rprogram
+          ) |> Option.value ~default:[] in
+          return_reg, linstructions @ rinstructions @ call_instruction @ copy_instruction (* Is not the same check the instructions order*)
+        | false -> 
+          let copy_instruction = where |> Option.map (fun waddress -> 
+              match is_deref with
+              | Some pointer -> [
+                Instruction (LDR {data_size = None; destination = xr; adress_src = pointer; adress_mode = Immediat});
+                Instruction (LDR {data_size = None; destination = xr; adress_src = create_adress xr; adress_mode = Immediat})
+              ] 
+              | None  -> [Instruction (ADD {destination = Register.xr; operand1 = waddress.base; operand2 = `ILitteral waddress.offset; offset = false})]
+    
+            ) |> Option.value ~default:[] in
+          return_reg, linstructions @ rinstructions @ copy_instruction @ call_instruction
+          end
+      in 
+      operator_instructions
+     | RVCustomBinop ( {binop = TacBool TacDiff; _} as self) -> 
+      let open KosuIrTAC.Asttachelper.Operator in
+      let op_decls = KosuIrTyped.Asttyhelper.RProgram.find_binary_operator_decl
+      (parser_binary_op_of_tac_binary_op self.binop)
+      (self.blhs.expr_rktype, self.brhs.expr_rktype)
+      ~r_type:rval_rktype rprogram in
+      let op_decl = match op_decls with
+      | t::[] -> t
+      | _ -> failwith "What the type checker has done: No binary op declaration" in
+      let fn_label = KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator op_decl in
+      let _, linstructions = translate_tac_expression ~str_lit_map ~target_reg:(Register64 X0) rprogram fd self.blhs in
+      let _, rinstructions = translate_tac_expression ~str_lit_map ~target_reg:(Register64 X1) rprogram fd self.brhs in
+
+      let call_instruction = FrameManager.call_instruction ~origin:fn_label [] fd in
+      let return_type =  (KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl) in
+      let return_size = sizeofn rprogram return_type in
+      let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float return_type) return_size in
+      let operator_instructions = begin match is_register_size return_size with
+      | true -> 
+        let copy_instruction = where |> Option.map (fun waddress -> 
+          match is_deref with
+          | Some pointer -> (Instruction (LDR {data_size = None; destination = xr; adress_src = pointer; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) return_type rprogram
+          | None  -> [Instruction (EOR {destination = return_reg; operand1 = return_reg; operand2 = `ILitteral 1L})] @ copy_from_reg return_reg waddress return_type rprogram
+        ) |> Option.value ~default:[] in
+        return_reg, linstructions @ rinstructions @ call_instruction @ copy_instruction (* Is not the same check the instructions order*)
+      | false -> failwith "Unreachable : Sizeof bool hold in register"
+        end
+    in 
+    operator_instructions
+     | _ -> failwith "Todo : Redefinition of supeq and infeq => Deep change into ast"  
       
 
 let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameManager.frame_desc) = function
