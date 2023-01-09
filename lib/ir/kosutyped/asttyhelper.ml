@@ -161,6 +161,25 @@ module Expression = struct
     is_expresion_branch rexpression
 end
 
+module OperatorDeclaration = struct
+
+  let op_return_type = function
+  | RUnary {return_type; _} | RBinary { return_type; _} -> return_type
+  
+  let label_of_operator = function
+  | RUnary {op; rfield = (_, rktype); return_type; _} -> 
+    Printf.sprintf "_%s.%s__%s" 
+    (KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_unary op)
+    (Asttypprint.string_of_label_rktype rktype)
+    (Asttypprint.string_of_label_rktype return_type)
+  | RBinary {op; rfields = ((_, ltype), (_, rtype)); return_type; _} -> 
+    Printf.sprintf "_%s.%s_%s__%s"
+    (KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_binary op)
+    (Asttypprint.string_of_label_rktype ltype)
+    (Asttypprint.string_of_label_rktype rtype)
+    (Asttypprint.string_of_label_rktype return_type)
+end
+
 module Binop = struct
   let left_operande = function
     | RBAdd (lhs, _)

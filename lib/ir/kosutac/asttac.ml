@@ -185,6 +185,7 @@ type tac_function_decl = {
 type tac_operator_decl =
   | TacUnary of {
       op : parser_unary_op;
+      asm_name: string;
       rfield : string * rktype;
       return_type : rktype;
       tac_body : tac_body;
@@ -194,6 +195,7 @@ type tac_operator_decl =
     }
   | TacBinary of {
       op : parser_binary_op;
+      asm_name: string;
       rfields : (string * rktype) * (string * rktype);
       return_type : rktype;
       tac_body : tac_body;

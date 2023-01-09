@@ -913,51 +913,56 @@ let tac_function_decl_of_rfunction current_module rprogram (rfunction_decl : rfu
 
 let tac_operator_decl_of_roperator_decl current_module rprogram = function
   | RUnary { op; rfield; return_type; kbody } as self ->
-      let label_name =
-        Printf.sprintf "%s_%s"
-          (KosuIrTyped.Asttypprint.name_of_roperator self)
-          (KosuIrTyped.Asttypprint.string_of_rktype return_type)
-      in
+      let asm_name = KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator self in
       let map = Hashtbl.create (kbody |> fst |> List.length) in
       let discarded_value = Hashtbl.create (5) in
       let tac_body =
-        convert_from_rkbody ~discarded_value ~switch_count ~cases_count ~label_name ~map
+        convert_from_rkbody ~discarded_value ~switch_count ~cases_count ~label_name:asm_name ~map
           ~count_var:(ref 0) ~if_count ~function_return:true kbody
       in
+      let tac_body = reduce_variable_used_body tac_body in
+      let () = map |> Hashtbl.filter_map_inplace ( fun key value -> 
+        if is_in_body key tac_body then Some value else None
+      ) in
+      let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
       let stack_params_count = KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module rprogram kbody in
       TacUnary
         {
           op;
+          asm_name;
           rfield;
           return_type;
           tac_body;
           stack_params_count;
-          locale_var = map |> Hashtbl.to_seq_values |> List.of_seq;
+          locale_var;
           discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq
         }
   | RBinary
       { op; rfields = ((_f1, _), (_f2, _)) as rfields; return_type; kbody } as
     self ->
-      let label_name =
-        Printf.sprintf "%s_%s"
-          (KosuIrTyped.Asttypprint.name_of_roperator self)
-          (KosuIrTyped.Asttypprint.string_of_rktype return_type)
-      in
+      let asm_name = KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator self in
       let map = Hashtbl.create (kbody |> fst |> List.length) in
       let discarded_value = Hashtbl.create (5) in
       let tac_body =
-        convert_from_rkbody ~discarded_value ~switch_count ~cases_count ~label_name ~map
+        convert_from_rkbody ~discarded_value ~switch_count ~cases_count ~label_name:asm_name ~map
           ~count_var:(ref 0) ~if_count ~function_return:true kbody
       in
+
+      let tac_body = reduce_variable_used_body tac_body in
+      let () = map |> Hashtbl.filter_map_inplace ( fun key value -> 
+        if is_in_body key tac_body then Some value else None
+      ) in
+      let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
       let stack_params_count = KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module rprogram kbody in
       TacBinary
         {
           op;
+          asm_name;
           rfields;
           return_type;
           tac_body;
           stack_params_count;
-          locale_var = map |> Hashtbl.to_seq_values |> List.of_seq;
+          locale_var;
           discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq
         }
 

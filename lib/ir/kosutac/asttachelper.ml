@@ -20,6 +20,29 @@ open Asttac
 open Util
 
 module Operator = struct
+  let parser_unary_op_of_tac_unary_op = let open KosuFrontend.Ast in
+   function
+  | TacNot -> PNot
+  | TacUminus -> PUMinus
+
+  let parser_binary_op_of_tac_binary_op = let open KosuFrontend.Ast in
+  function
+  | TacSelf TacAdd -> Add
+  | TacSelf TacMinus -> Minus
+  | TacSelf TacMult -> Mult
+  | TacSelf TacDiv -> Div
+  | TacSelf TacModulo -> Modulo
+  | TacSelf TacBitwiseOr -> BitwiseOr
+  | TacSelf TacBitwiseAnd -> BitwiseAnd
+  | TacSelf TacBitwiseXor -> BitwiseXor
+  | TacSelf TacShiftLeft -> ShiftLeft
+  | TacSelf TacShiftRight -> ShiftRight
+  | TacBool TacSup | TacBool TacSupEq -> Sup
+  | TacBool TacInf  | TacBool TacInfEq -> Inf
+  | TacBool TacEqual  | TacBool TacDiff -> Equal
+  | _ -> failwith "Operator not Overridable"
+
+
   let bin_operantor = function
     | RBAdd _ -> TacSelf TacAdd
     | RBMinus _ -> TacSelf TacMinus
@@ -47,19 +70,6 @@ end
 
 module OperatorDeclaration = struct
   type t = Asttac.tac_operator_decl
-
-  let label_of_operator = function
-  | TacUnary {op; rfield = (_, rktype); return_type; _} -> 
-    Printf.sprintf "_%s.%s__%s" 
-    (KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_unary op)
-    (KosuIrTyped.Asttypprint.string_of_label_rktype rktype)
-    (KosuIrTyped.Asttypprint.string_of_label_rktype return_type)
-  | TacBinary {op; rfields = ((_, ltype), (_, rtype)); return_type; _} -> 
-    Printf.sprintf "_%s.%s_%s__%s"
-    (KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_binary op)
-    (KosuIrTyped.Asttypprint.string_of_label_rktype ltype)
-    (KosuIrTyped.Asttypprint.string_of_label_rktype rtype)
-    (KosuIrTyped.Asttypprint.string_of_label_rktype return_type)
   let tac_body = function
     | TacUnary { tac_body; _ } | TacBinary { tac_body; _ } -> tac_body
 end

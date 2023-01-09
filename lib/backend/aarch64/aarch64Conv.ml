@@ -135,11 +135,11 @@ module Codegen = struct
         begin match fn_decl with
         | RExternal_Decl external_func_decl -> 
           let fn_label = Printf.sprintf "_%s" (external_func_decl.c_name |> Option.value ~default:(external_func_decl.rsig_name)) in
-          let fn_register_params, _stack_param = tac_parameters |> List.mapi (fun index -> fun value -> index, value) |> List.partition_map (fun (index, value) -> 
+          (* let fn_register_params, _stack_param = tac_parameters |> List.mapi (fun index -> fun value -> index, value) |> List.partition_map (fun (index, value) -> 
             if index < 8 then Either.left value else Either.right value
-            ) in
+            ) in *)
           let register_param_count = min (List.length external_func_decl.fn_parameters) (List.length argument_registers) in
-          let args_in_reg, args_on_stack = fn_register_params |> List.mapi (fun index value -> index, value) |> List.partition_map (fun (index, value) -> 
+          let args_in_reg, args_on_stack = tac_parameters |> List.mapi (fun index value -> index, value) |> List.partition_map (fun (index, value) -> 
             if index < register_param_count then Either.left value else Either.right value  
             ) in
 
@@ -684,9 +684,46 @@ module Codegen = struct
           ) |> Option.value ~default:[] in
           to_64bits r9, instructions @ copy_instructions
         end 
-        
-      | RVCustomBinop _ -> failwith ""
-      | RVCustomUnop _ -> failwith ""
+      | RVCustomUnop record -> 
+        let open KosuIrTAC.Asttachelper.Operator in
+        let op_decls = KosuIrTyped.Asttyhelper.RProgram.find_unary_operator_decl 
+        (parser_unary_op_of_tac_unary_op record.unop)
+        (record.expr.expr_rktype)
+        ~r_type:rval_rktype
+        rprogram in
+        let op_decl = match op_decls with
+        | t::[] -> t
+        | _ -> failwith "What the type checker has done: No unary op declaration" in
+        let fn_label = KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator op_decl in
+        let _, instructions = translate_tac_expression ~str_lit_map ~target_reg:(Register64 X0) rprogram fd record.expr in
+        let call_instruction = FrameManager.call_instruction ~origin:fn_label [] fd in
+        let return_type =  (KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl) in
+        let return_size = sizeofn rprogram return_type in
+        let return_reg = return_register_ktype ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float return_type) return_size in
+        let operator_instructions = begin match is_register_size return_size with
+        | true -> 
+          let copy_instruction = where |> Option.map (fun waddress -> 
+            match is_deref with
+            | Some pointer -> (Instruction (LDR {data_size = None; destination = xr; adress_src = pointer; adress_mode = Immediat}))::copy_from_reg return_reg (create_adress xr) return_type rprogram
+            | None  -> copy_from_reg return_reg waddress return_type rprogram
+          ) |> Option.value ~default:[] in
+          return_reg, instructions @ call_instruction @ copy_instruction (* Is not the same check the instructions order*)
+        | false -> 
+          let copy_instruction = where |> Option.map (fun waddress -> 
+              match is_deref with
+              | Some pointer -> [
+                Instruction (LDR {data_size = None; destination = xr; adress_src = pointer; adress_mode = Immediat});
+                Instruction (LDR {data_size = None; destination = xr; adress_src = create_adress xr; adress_mode = Immediat})
+              ] 
+              | None  -> [Instruction (ADD {destination = Register.xr; operand1 = waddress.base; operand2 = `ILitteral waddress.offset; offset = false})]
+    
+            ) |> Option.value ~default:[] in
+          return_reg, instructions @ copy_instruction @ call_instruction
+          end
+      in 
+      operator_instructions
+      | RVCustomBinop _ -> failwith "Binary ??"
+      
 
 let rec translate_tac_statement ~str_lit_map current_module rprogram (fd: FrameManager.frame_desc) = function
       | STacDeclaration {identifier; trvalue} | STacModification {identifier; trvalue} ->
@@ -854,6 +891,20 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram  = let open Ko
       asm_name;
       asm_body = [Directive ("cfi_startproc")] @ prologue @ (conversion |> List.tl) @ epilogue @ [Directive "cfi_endproc"]
     })
+  | TNOperator (TacUnary unary_decl as self) ->     
+    let stack_param_count = Int64.of_int (unary_decl.stack_params_count * 8) in
+    let locals_var = unary_decl.locale_var |> List.map (fun {locale_ty; locale} -> match locale with Locale s -> (s, locale_ty) | Enum_Assoc_id {name; _} -> (name, locale_ty) )in
+  (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
+    let asm_name = unary_decl.asm_name in
+    let fd = FrameManager.frame_descriptor ~stack_future_call:(stack_param_count) ~fn_register_params:[unary_decl.rfield] ~stack_param:[] ~return_type:unary_decl.return_type ~locals_var ~discarded_values:(unary_decl.discarded_values) rprogram in 
+    let prologue = FrameManager.function_prologue ~fn_register_params:[unary_decl.rfield] ~stack_params:[] rprogram fd in
+    let conversion = Codegen.translate_tac_body ~str_lit_map current_module rprogram fd (KosuIrTAC.Asttachelper.OperatorDeclaration.tac_body self ) in
+    let epilogue = FrameManager.function_epilogue fd in
+    Some (Afunction {
+      asm_name;
+      asm_body = [Directive ("cfi_startproc")] @ prologue @ (conversion |> List.tl) @ epilogue @ [Directive "cfi_endproc"]
+    })
+    
   | TNOperator _ -> failwith "TNOperator todo"
   | TNConst {rconst_name; value = { rktype = RTInteger _; rexpression = REInteger (_ssign, size, value)}} -> 
     Some (AConst {
