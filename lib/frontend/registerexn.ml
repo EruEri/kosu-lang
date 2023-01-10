@@ -25,9 +25,9 @@ let register_kosu_error filename () =
             e |> string_of_validation_error |> Printf.sprintf "%s"
             |> Printf.sprintf "\nFile \"%s\", %s" filename
             |> Option.some
-        | Lexer.Syntax_Error {position; message} -> 
+        | Lexer.Syntax_Error {position; current_lexeme; message} -> 
             let s = string_of_position_error position in
-            Printf.sprintf "\nFile \"%s\", %s\nSyntax Error : %s" filename s message
+            Printf.sprintf "\nFile \"%s\", %s : Unexpected \"%s\"\nSyntax Error : %s" filename s current_lexeme message
             |> Option.some
         | Lexer.Forbidden_char (position, char) ->
             let s = position |> string_of_position_error in

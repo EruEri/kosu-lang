@@ -25,10 +25,12 @@ let rec parse lexbuf ( checkpoint : Ast._module I.checkpoint) =
     parse lexbuf checkpoint
   | I.HandlingError env -> 
     let position = Position.current_position lexbuf in
+    let current_lexeme = Lexing.lexeme lexbuf in 
     let err = get_parse_error env in
     raise (
       Syntax_Error {
         position;
+        current_lexeme;
         message = err
       }
     )
@@ -36,9 +38,11 @@ let rec parse lexbuf ( checkpoint : Ast._module I.checkpoint) =
   | I.Accepted v -> v
   | I.Rejected -> 
     let position = Position.current_position lexbuf in
+    let current_lexeme = Lexing.lexeme lexbuf in 
     raise (
       Syntax_Error {
         position = position;
+        current_lexeme;
         message = "Parser reject the input"
       }
     ) 
