@@ -457,15 +457,7 @@ ktype:
             parametrics_type = l;
             name = id
         }
-    } 
-    // | LPARENT l=separated_nonempty_list(COMMA, located(ktype)) RPARENT 
-    // modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) { 
-    //     TParametric_identifier {
-    //         module_path = modules_path |> Position.map( String.concat "::" ) ;
-    //         parametrics_type = l;
-    //         name = id
-    //     }
-    // }
+    }
     | LPARENT l=separated_nonempty_list(COMMA, located(ktype) ) RPARENT { 
         match l with
         | [] -> TUnit
