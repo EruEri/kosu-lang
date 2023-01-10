@@ -86,7 +86,10 @@ let module_path_of_file filename =
        source |> Result.ok
      with e -> Error (File_error (filename, e)))
   >>= fun lexbuf ->
-    try Parser.modul Lexer.main lexbuf |> Result.ok with
+    try KosuParser.parse lexbuf (Parser.Incremental.modul lexbuf.lex_curr_p) |> Result.ok with
+    | Lexer.Syntax_Error {coordinate = _; message} as e -> 
+      let () = Printf.printf "Error message = %s\n" message in
+      Lexer_Error e |> Result.error
     | Parser.Error ->
         Parser_Error (filename, Position.current_position lexbuf)
         |> Result.error

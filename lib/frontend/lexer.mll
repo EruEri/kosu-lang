@@ -20,6 +20,7 @@
     open Parser
     open Lexing
     open Position
+    open Util
 
     exception Lexical_error of position*string
     exception Forbidden_char of position*char
@@ -30,6 +31,10 @@
     exception Unclosed_string of position
     exception Unclosed_comment of position
 
+    exception Syntax_Error of {
+        coordinate: coordinate option;
+        message: string;
+    }
 
   let next_line_and f lexbuf =
     Lexing.new_line lexbuf;

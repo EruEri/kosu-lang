@@ -17,6 +17,11 @@
 
 type stringlit_label = SLit of string
 
+type coordinate = {
+  line : int;
+  column: int
+}
+
 let rec string_of_chars_aux count result char =
   if count <= 0 then result
   else string_of_chars_aux (count - 1) (Printf.sprintf "%c%s" char result) char
