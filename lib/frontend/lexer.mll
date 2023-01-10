@@ -30,6 +30,11 @@
     exception Unclosed_string of position
     exception Unclosed_comment of position
 
+    exception Syntax_Error of {
+        position: Position.position;
+        current_lexeme: string;
+        message: string;
+    }
 
   let next_line_and f lexbuf =
     Lexing.new_line lexbuf;

@@ -19,6 +19,8 @@
 %{
     open Ast
     open Position
+    (* menhir --list-errors lib/frontend/parser.mly > lib/frontend/parser.messages *)
+    (* dune build @update_messsages *)
 %}
 
 
@@ -68,7 +70,7 @@
 %left PLUS MINUS
 %left MULT DIV MOD
 %nonassoc UMINUS NOT
-%left MINUSUP DOT
+%left DOT
 // %nonassoc ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
 
 %start modul
@@ -95,14 +97,13 @@ module_nodes:
     | operator_decl { NOperator $1 }
     | syscall_decl { NSyscall $1 }
     | function_decl { NFunction $1 }
-    | sig_decl { NSigFun $1 }
     | const_decl { NConst $1 }
 ;;
 
 enum_decl:
-    | ENUM generics_opt=option( LPARENT l=separated_nonempty_list(COMMA, located(IDENT)) RPARENT { l }) LBRACE 
+    | ENUM name=located(IDENT) generics_opt=option( delimited(INF, separated_nonempty_list(COMMA, located(IDENT) ), SUP)) LBRACE 
     variants=separated_list(COMMA,enum_assoc) 
-    RBRACE name=located(IDENT) SEMICOLON { 
+    RBRACE { 
         let generics = generics_opt |> Option.value ~default: [] in
         {
             enum_name = name;
@@ -122,9 +123,9 @@ enum_assoc:
 ;;
 
 struct_decl:
-    | STRUCT generics_opt=option( LPARENT l=separated_nonempty_list(COMMA, located(IDENT) ) RPARENT { l }) LBRACE
+    | STRUCT name=located(IDENT) generics_opt=option( delimited(INF, separated_nonempty_list(COMMA, located(IDENT) ), SUP)) LBRACE
     fields=separated_list(COMMA, id=located(IDENT) COLON kt=located(ktype) { id, kt  })
-    RBRACE name=located(IDENT) SEMICOLON {
+    RBRACE  {
         {
             struct_name = name;
             generics = generics_opt |> Option.value ~default: [];
@@ -200,7 +201,7 @@ function_call:
         }
 
 fun_kbody:
-    | EQUAL located(expr) SEMICOLON { [], $2 }
+    | EQUAL located(expr) option(SEMICOLON) { [], $2 }
     | kbody { $1 }
 
 kbody:
@@ -220,8 +221,8 @@ statement:
 ;;
 
 syscall_decl:
-    | SYSCALL syscall_name=located(IDENT) parameters=delimited(LPARENT, separated_list(COMMA, ct=located(ctype) { ct  }), RPARENT ) return_type=located( option(ctype) ) 
-       LBRACE SYSCALL LPARENT opcode=located(Integer_lit) RPARENT RBRACE {
+    | SYSCALL syscall_name=located(IDENT) parameters=delimited(LPARENT, separated_list(COMMA, ct=located(ctype) { ct  }), RPARENT ) return_type=located( option(ctype) ) EQUAL opcode=located(Integer_lit) option(SEMICOLON)
+    {
         {
             syscall_name;
             parameters;
@@ -243,16 +244,6 @@ function_decl:
         }
     }
 ;;
-sig_decl:
-    | SIG name=IDENT generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=IDENT {id}), SUP ) { d })  
-    parameters=delimited(LPARENT, separated_list(COMMA, ktype ), RPARENT ) return_type=ktype SEMICOLON {
-        {
-            sig_name = name;
-            generics = generics_opt |> Option.value ~default: [];
-            parameters;
-            return_type;
-        }
-    }
 const_decl:
     | CONST located(Constant) EQUAL located(Integer_lit) SEMICOLON {
         let sign, size, _ = $4.v in
@@ -460,8 +451,7 @@ ktype:
         } 
      }
     | MULT located(ktype) { TPointer $2 }
-    | LPARENT l=separated_nonempty_list(COMMA, located(ktype)) RPARENT 
-    modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) { 
+    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) INF l=separated_nonempty_list(COMMA, located(ktype)) SUP {
         TParametric_identifier {
             module_path = modules_path |> Position.map( String.concat "::" ) ;
             parametrics_type = l;
@@ -470,7 +460,7 @@ ktype:
     }
     | LPARENT l=separated_nonempty_list(COMMA, located(ktype) ) RPARENT { 
         match l with
-        | [] -> failwith "Cannot not be empty"
+        | [] -> TUnit
         | t::[] -> t.v
         | l -> TTuple (l) 
     }

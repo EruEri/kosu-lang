@@ -1010,7 +1010,6 @@ and from_module_node current_module (prog : module_path list) =
            Printf.printf "%s\n\n" (Asttpprint.string_of_rfunc_decl rfuntion)
          in *)
       RNFunction rfuntion
-  | NSigFun _ -> failwith "To Delete in AST"
 
 and from_module_path module_path_list { path; _module = Mod module_nodes } =
   {

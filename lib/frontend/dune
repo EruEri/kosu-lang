@@ -23,13 +23,57 @@
  (flags --table --explain)
  (infer true))
 
-; (rule
-;  (targets kosu_parser_messages.ml)
-;  (deps parser.messages parser.mly)
+; (rule 
+;  (targets parser.messages)
+;  (deps parser.mly)
 ;  (action
-;   (with-stdout-to
-;    %{targets}
-;    (run menhir --compile-errors %{deps}))))
+;   (with-stdout-to %{targets}
+;   (run menhir --list-errors %{deps})
+;   )))
+
+
+
+ ; Convenience rule to generate a fresh messages file,
+; and update an already existing one.
+(rule
+  (target new.messages)
+  (deps
+          (:parser parser.mly))
+  (action (with-stdout-to %{target}
+          (run menhir
+                      %{parser} --base %{parser} --list-errors)))
+)
+
+(rule
+  (target updated.messages)
+  (deps
+          (:parser parser.mly)
+          (:msg parser.messages))
+  (action (with-stdout-to %{target}
+          (run menhir
+                      %{parser} --base %{parser} --update-errors %{msg})))
+)
+
+(rule
+  (target parser.messages.updated)
+  (deps
+          (:parser parser.mly)
+          (:new new.messages)
+          (:updated updated.messages)
+  )
+  (action (with-stdout-to %{target}
+          (run menhir
+                      %{parser} --base %{parser} --merge-errors %{new} --merge-errors %{updated})))
+)
+
+
+(rule
+ (targets kosu_parser_messages.ml)
+ (deps parser.messages parser.mly)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run menhir --compile-errors %{deps}))))
 
 (library
  (name kosuFrontend)

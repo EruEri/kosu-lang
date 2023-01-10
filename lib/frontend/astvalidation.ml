@@ -895,7 +895,7 @@ end
 let validate_module_node program (current_module_name : string)
     (node : Ast.module_node) =
   match node with
-  | NConst _ | NSigFun _ -> Ok ()
+  | NConst _ -> Ok ()
   | NExternFunc external_func_decl ->
       ValidateExternalFunction.is_valid_external_function_declaration program
         current_module_name external_func_decl

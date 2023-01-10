@@ -7,7 +7,7 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 ## Roadmap (For now)
 - [x] Lexer
 - [x] Parser
-- [ ] Better syntax error handling
+- [x] Better syntax error handling
 - [x] Better logic error handling
 - [x] Ast
 - [x] Type checking the Ast
@@ -15,9 +15,8 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 - [x] Create an intermediate representation using the 3 adress code method 
 - [ ] Write a register allocator throught graph-coloring method (Will be in an other repository, to be used as a depedency)
 - [x] Generate basic Arm64 assembly for MacOs
-- [ ] Handle float and Arm64 integer representation
 - [ ] Generate x86_64 assembly
-- [ ] Fix Immediate encoding and stack base function parameters
+- [ ] Fix Immediate encoding and stack base function parameters on arm64
 
 
 ## Example
@@ -25,22 +24,22 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 
 const EXIT_SUCCESS = 0;
 
-enum (wrapper) {
+enum option<wrapper> {
   some(wrapper),
   none
-} option;
+}
 
-struct { 
+struct point { 
   x: s8,
   y: u8
-} point;
+}
 
 external malloc(u64) anyptr;
 
 external print(stringl; ...) s32 = "printf";
 
 
-fn default<t>(option: (t) option, default: t) t {
+fn default<t>(option: option<t>, default: t) t {
     $ switch (option) {
         .none => { $ default }
         .some(x) => { $ x }
@@ -62,7 +61,7 @@ fn main() s32 {
   */
   const message_opt = .some("Hello world");
   const message = message_opt |> default("Never");
-  discard print("%s", message);
+  discard print("%s\n", message);
   $ EXIT_SUCCESS
 }
 ```
