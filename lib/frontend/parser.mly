@@ -19,6 +19,7 @@
 %{
     open Ast
     open Position
+    (* menhir --list-errors lib/frontend/parser.mly > lib/frontend/parser.messages *)
 %}
 
 
@@ -200,7 +201,7 @@ function_call:
         }
 
 fun_kbody:
-    | EQUAL located(expr) SEMICOLON { [], $2 }
+    | EQUAL located(expr) option(SEMICOLON) { [], $2 }
     | kbody { $1 }
 
 kbody:
@@ -220,8 +221,8 @@ statement:
 ;;
 
 syscall_decl:
-    | SYSCALL syscall_name=located(IDENT) parameters=delimited(LPARENT, separated_list(COMMA, ct=located(ctype) { ct  }), RPARENT ) return_type=located( option(ctype) ) 
-       LBRACE SYSCALL LPARENT opcode=located(Integer_lit) RPARENT RBRACE {
+    | SYSCALL syscall_name=located(IDENT) parameters=delimited(LPARENT, separated_list(COMMA, ct=located(ctype) { ct  }), RPARENT ) return_type=located( option(ctype) ) EQUAL opcode=located(Integer_lit) option(SEMICOLON)
+    {
         {
             syscall_name;
             parameters;
