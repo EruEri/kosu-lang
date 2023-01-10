@@ -19,43 +19,47 @@ open Pprint
 open Pprinterr
 
 let register_kosu_error filename () =
-  Printexc.register_printer (fun exn ->
-      match exn with
-      | Astvalidation.Error.Validation_error (filename, e) ->
-          e |> string_of_validation_error |> Printf.sprintf "%s"
-          |> Printf.sprintf "\nFile \"%s\", %s" filename
-          |> Option.some
-      | Lexer.Forbidden_char (position, char) ->
-          let s = position |> string_of_position_error in
-          Printf.sprintf "%s: Forbidden character : %c" s char
-          |> Printf.sprintf "\nFile \"%s\", %s" filename
-          |> Option.some
-      | Lexer.Unexpected_escaped_char (position, lexeme) ->
-          let s = position |> string_of_position_error in
-          Printf.sprintf "%s: Unexpected Escaped character: %s" s lexeme
-          |> Printf.sprintf "\nFile \"%s\", %s" filename
-          |> Option.some
-      | Lexer.Invalid_keyword_for_build_in_function (position, id) ->
-          let s = position |> string_of_position_error in
-          Printf.sprintf "%s: Invalid Keyword For Builtin Function: %s" s id
-          |> Printf.sprintf "\nFile \"%s\", %s" filename
-          |> Option.some
-      | Lexer.Invalid_litteral_for_build_in_function (position, litteral) ->
-          let s = position |> string_of_position_error in
-          Printf.sprintf "%s: Invalid Litteral For Builtin Function: %c" s
-            litteral
-          |> Printf.sprintf "\nFile \"%s\", %s" filename
-          |> Option.some
-      | Lexer.Not_finished_built_in_function position ->
-          position |> string_of_position_error
-          |> Printf.sprintf "%s: Builtin function not finished"
-          |> Option.some
-      | Lexer.Unclosed_comment position ->
-          position |> string_of_position_error
-          |> Printf.sprintf "%s: Comments not terminated"
-          |> Option.some
-      | Lexer.Unclosed_string position ->
-          position |> string_of_position_error
-          |> Printf.sprintf "%s: String litteral not terminated"
-          |> Option.some
-      | _ -> None)
+    Printexc.register_printer (fun exn ->
+        match exn with
+        | Astvalidation.Error.Validation_error (filename, e) ->
+            e |> string_of_validation_error |> Printf.sprintf "%s"
+            |> Printf.sprintf "\nFile \"%s\", %s" filename
+            |> Option.some
+        | Lexer.Syntax_Error {position; message} -> 
+            let s = string_of_position_error position in
+            Printf.sprintf "\nFile \"%s\", %s\nSyntax Error : %s" filename s message
+            |> Option.some
+        | Lexer.Forbidden_char (position, char) ->
+            let s = position |> string_of_position_error in
+            Printf.sprintf "%s: Forbidden character : %c" s char
+            |> Printf.sprintf "\nFile \"%s\", %s" filename
+            |> Option.some
+        | Lexer.Unexpected_escaped_char (position, lexeme) ->
+            let s = position |> string_of_position_error in
+            Printf.sprintf "%s: Unexpected Escaped character: %s" s lexeme
+            |> Printf.sprintf "\nFile \"%s\", %s" filename
+            |> Option.some
+        | Lexer.Invalid_keyword_for_build_in_function (position, id) ->
+            let s = position |> string_of_position_error in
+            Printf.sprintf "%s: Invalid Keyword For Builtin Function: %s" s id
+            |> Printf.sprintf "\nFile \"%s\", %s" filename
+            |> Option.some
+        | Lexer.Invalid_litteral_for_build_in_function (position, litteral) ->
+            let s = position |> string_of_position_error in
+            Printf.sprintf "%s: Invalid Litteral For Builtin Function: %c" s
+                litteral
+            |> Printf.sprintf "\nFile \"%s\", %s" filename
+            |> Option.some
+        | Lexer.Not_finished_built_in_function position ->
+            position |> string_of_position_error
+            |> Printf.sprintf "\nFile \"%s\" %s: Builtin function not finished" filename
+            |> Option.some
+        | Lexer.Unclosed_comment position ->
+            position |> string_of_position_error
+            |> Printf.sprintf "\nFile \"%s\" %s: Comments not terminated" filename
+            |> Option.some
+        | Lexer.Unclosed_string position ->
+            position |> string_of_position_error
+            |> Printf.sprintf "\nFile \"%s\" %s: String litteral not terminated" filename
+            |> Option.some
+        | _ -> None)

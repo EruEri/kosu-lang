@@ -81,15 +81,12 @@ let module_path_of_file filename =
        let file = open_in filename in
        let source = Lexing.from_channel file in
        at_exit (fun () ->
-           print_endline "At end closed";
            close_in file);
        source |> Result.ok
      with e -> Error (File_error (filename, e)))
   >>= fun lexbuf ->
     try KosuParser.parse lexbuf (Parser.Incremental.modul lexbuf.lex_curr_p) |> Result.ok with
-    | Lexer.Syntax_Error {coordinate = Some coordinate; message} as e -> 
-      let () = Printf.printf "Line = %d, Column = %d\n" coordinate.line coordinate.column in
-      let () = Printf.printf "Error message = %s\n" message in
+    | Lexer.Syntax_Error _ as e -> 
       Lexer_Error e |> Result.error
     | Parser.Error ->
         Parser_Error (filename, Position.current_position lexbuf)

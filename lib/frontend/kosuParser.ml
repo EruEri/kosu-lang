@@ -1,6 +1,5 @@
 open Lexing
 open Lexer
-open Util
 
 
 module I = Parser.MenhirInterpreter
@@ -25,20 +24,21 @@ let rec parse lexbuf ( checkpoint : Ast._module I.checkpoint) =
     let checkpoint = I.resume checkpoint in
     parse lexbuf checkpoint
   | I.HandlingError env -> 
-    let line, column = Position.get_lexing_position lexbuf in
+    let position = Position.current_position lexbuf in
     let err = get_parse_error env in
     raise (
       Syntax_Error {
-        coordinate = (Some {line; column});
+        position;
         message = err
       }
     )
 
   | I.Accepted v -> v
   | I.Rejected -> 
+    let position = Position.current_position lexbuf in
     raise (
       Syntax_Error {
-        coordinate = None;
+        position = position;
         message = "Parser reject the input"
       }
     ) 

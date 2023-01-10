@@ -20,7 +20,6 @@
     open Parser
     open Lexing
     open Position
-    open Util
 
     exception Lexical_error of position*string
     exception Forbidden_char of position*char
@@ -32,7 +31,8 @@
     exception Unclosed_comment of position
 
     exception Syntax_Error of {
-        coordinate: coordinate option;
+        position: Position.position;
+        current_lexeme: string;
         message: string;
     }
 

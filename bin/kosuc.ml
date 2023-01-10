@@ -88,7 +88,6 @@ let code =
                 in
                 failwith "failwith"
             in
-            let () = Printf.printf "Successfult converted\n\n" in
             let tac_program =
               Asttacconv.tac_program_of_rprogram typed_program
             in
