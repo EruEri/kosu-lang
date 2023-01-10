@@ -69,7 +69,7 @@
 %left PLUS MINUS
 %left MULT DIV MOD
 %nonassoc UMINUS NOT
-%left MINUSUP DOT
+%left DOT
 // %nonassoc ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
 
 %start modul
@@ -101,9 +101,9 @@ module_nodes:
 ;;
 
 enum_decl:
-    | ENUM generics_opt=option( LPARENT l=separated_nonempty_list(COMMA, located(IDENT)) RPARENT { l }) LBRACE 
+    | ENUM name=located(IDENT) generics_opt=option( delimited(INF, separated_nonempty_list(COMMA, located(IDENT) ), SUP)) LBRACE 
     variants=separated_list(COMMA,enum_assoc) 
-    RBRACE name=located(IDENT) SEMICOLON { 
+    RBRACE { 
         let generics = generics_opt |> Option.value ~default: [] in
         {
             enum_name = name;
@@ -123,9 +123,9 @@ enum_assoc:
 ;;
 
 struct_decl:
-    | STRUCT generics_opt=option( LPARENT l=separated_nonempty_list(COMMA, located(IDENT) ) RPARENT { l }) LBRACE
+    | STRUCT name=located(IDENT) generics_opt=option( delimited(INF, separated_nonempty_list(COMMA, located(IDENT) ), SUP)) LBRACE
     fields=separated_list(COMMA, id=located(IDENT) COLON kt=located(ktype) { id, kt  })
-    RBRACE name=located(IDENT) SEMICOLON {
+    RBRACE  {
         {
             struct_name = name;
             generics = generics_opt |> Option.value ~default: [];
@@ -461,17 +461,24 @@ ktype:
         } 
      }
     | MULT located(ktype) { TPointer $2 }
-    | LPARENT l=separated_nonempty_list(COMMA, located(ktype)) RPARENT 
-    modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) { 
+    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) INF l=separated_nonempty_list(COMMA, located(ktype)) SUP {
         TParametric_identifier {
             module_path = modules_path |> Position.map( String.concat "::" ) ;
             parametrics_type = l;
             name = id
         }
-    }
+    } 
+    // | LPARENT l=separated_nonempty_list(COMMA, located(ktype)) RPARENT 
+    // modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) { 
+    //     TParametric_identifier {
+    //         module_path = modules_path |> Position.map( String.concat "::" ) ;
+    //         parametrics_type = l;
+    //         name = id
+    //     }
+    // }
     | LPARENT l=separated_nonempty_list(COMMA, located(ktype) ) RPARENT { 
         match l with
-        | [] -> failwith "Cannot not be empty"
+        | [] -> TUnit
         | t::[] -> t.v
         | l -> TTuple (l) 
     }
