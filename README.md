@@ -7,7 +7,7 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 ## Roadmap (For now)
 - [x] Lexer
 - [x] Parser
-- [ ] Better syntax error handling
+- [x] Better syntax error handling
 - [x] Better logic error handling
 - [x] Ast
 - [x] Type checking the Ast
@@ -25,22 +25,22 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 
 const EXIT_SUCCESS = 0;
 
-enum (wrapper) {
+enum option<wrapper> {
   some(wrapper),
   none
-} option;
+}
 
-struct { 
+struct point { 
   x: s8,
   y: u8
-} point;
+}
 
 external malloc(u64) anyptr;
 
 external print(stringl; ...) s32 = "printf";
 
 
-fn default<t>(option: (t) option, default: t) t {
+fn default<t>(option: option<t>, default: t) t {
     $ switch (option) {
         .none => { $ default }
         .some(x) => { $ x }
@@ -62,7 +62,7 @@ fn main() s32 {
   */
   const message_opt = .some("Hello world");
   const message = message_opt |> default("Never");
-  discard print("%s", message);
+  discard print("%s\n", message);
   $ EXIT_SUCCESS
 }
 ```
