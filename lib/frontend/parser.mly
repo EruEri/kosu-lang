@@ -20,6 +20,7 @@
     open Ast
     open Position
     (* menhir --list-errors lib/frontend/parser.mly > lib/frontend/parser.messages *)
+    (* dune build @update_messsages *)
 %}
 
 
@@ -96,7 +97,6 @@ module_nodes:
     | operator_decl { NOperator $1 }
     | syscall_decl { NSyscall $1 }
     | function_decl { NFunction $1 }
-    | sig_decl { NSigFun $1 }
     | const_decl { NConst $1 }
 ;;
 
@@ -244,16 +244,6 @@ function_decl:
         }
     }
 ;;
-sig_decl:
-    | SIG name=IDENT generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=IDENT {id}), SUP ) { d })  
-    parameters=delimited(LPARENT, separated_list(COMMA, ktype ), RPARENT ) return_type=ktype SEMICOLON {
-        {
-            sig_name = name;
-            generics = generics_opt |> Option.value ~default: [];
-            parameters;
-            return_type;
-        }
-    }
 const_decl:
     | CONST located(Constant) EQUAL located(Integer_lit) SEMICOLON {
         let sign, size, _ = $4.v in

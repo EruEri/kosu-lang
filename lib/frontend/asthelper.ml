@@ -70,12 +70,6 @@ module Module = struct
         |> List.filter_map (fun node ->
                match node with Ast.NConst s -> Some s | _ -> None)
 
-  let retrieve_sig_decl = function
-    | Ast.Mod nodes ->
-        nodes
-        |> List.filter_map (fun node ->
-               match node with Ast.NSigFun s -> Some s | _ -> None)
-
   let retrieve_type_decl = function
     | Ast.Mod nodes ->
         nodes
@@ -1916,7 +1910,6 @@ module AstModif = struct
         NStruct
           (Struct.rename_parameter_explicit_module new_module_path struct_decl)
     | NConst c -> NConst c
-    | NSigFun s -> NSigFun s
 end
 
 module Sizeof = struct

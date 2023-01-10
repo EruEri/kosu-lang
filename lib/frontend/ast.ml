@@ -222,7 +222,6 @@ type module_node =
   | NFunction of function_decl
   | NOperator of operator_decl
   | NSyscall of syscall_decl
-  | NSigFun of sig_decl
   | NStruct of struct_decl
   | NEnum of enum_decl
   | NConst of const_decl
