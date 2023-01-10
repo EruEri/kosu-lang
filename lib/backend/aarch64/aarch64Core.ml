@@ -812,10 +812,14 @@ module FrameManager = struct
                offset_of_tuple_index ~generics:(Hashtbl.create 0) index
                  fake_tuple rprogram
              in
-             let adress =
+             let x29_relative_address = (locals_space |> Int64.neg |> Int64.add offset) in
+             let adress = if x29_relative_address > -256L then
                create_adress
                  ~offset:(locals_space |> Int64.neg |> Int64.add offset)
                  (Register64 X29)
+                else 
+                  create_adress ~offset:(Int64.add stack_future_call offset)
+                  (Register64 SP)
              in
              (* let () = Printf.printf "-> %s : %s == [x29, %Ld] \n" (fst st) (KosuIrTyped.Asttypprint.string_of_rktype @@ snd @@ st) (offset) in *)
              IdVarMap.add st adress acc)
