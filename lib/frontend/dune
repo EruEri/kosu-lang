@@ -55,7 +55,7 @@
 )
 
 (rule
-  (target perser.messages.updated)
+  (target parser.messages.updated)
   (deps
           (:parser parser.mly)
           (:new new.messages)

@@ -20,7 +20,7 @@ modul: SYSCALL XOR
 ## SYSCALL
 ##
 
-Expected "identifier" after "syscall"
+Expecting "identifier" after "syscall"
 
 modul: SYSCALL IDENT XOR
 ##
@@ -32,7 +32,7 @@ modul: SYSCALL IDENT XOR
 ## SYSCALL IDENT
 ##
 
-Expected "(" after the syscall identifier
+Expecting "(" after the syscall identifier
 
 modul: SYSCALL IDENT LPARENT XOR
 ##
@@ -44,7 +44,7 @@ modul: SYSCALL IDENT LPARENT XOR
 ## SYSCALL IDENT LPARENT
 ##
 
-<YOUR SYNTAX ERROR MESSAGE HERE>
+Expecting "type identifier"
 
 modul: EXTERNAL IDENT LPARENT Module_IDENT XOR
 ##
@@ -57,7 +57,7 @@ modul: EXTERNAL IDENT LPARENT Module_IDENT XOR
 ## Module_IDENT
 ##
 
-<YOUR SYNTAX ERROR MESSAGE HERE>
+Expecting "::", "." or "Constant"
 
 modul: EXTERNAL IDENT LPARENT Module_IDENT DOUBLECOLON XOR
 ##
@@ -69,7 +69,7 @@ modul: EXTERNAL IDENT LPARENT Module_IDENT DOUBLECOLON XOR
 ## Module_IDENT DOUBLECOLON
 ##
 
-<YOUR SYNTAX ERROR MESSAGE HERE>
+Expecting "Module name"
 
 modul: EXTERNAL IDENT LPARENT MULT XOR
 ##
@@ -81,7 +81,7 @@ modul: EXTERNAL IDENT LPARENT MULT XOR
 ## MULT
 ##
 
-<YOUR SYNTAX ERROR MESSAGE HERE>
+Expecting "Kosu type"
 
 
 
@@ -109,7 +109,7 @@ modul: EXTERNAL IDENT LPARENT Module_IDENT DOT
 ## In state 10, spurious reduction of production loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT)) -> separated_nonempty_list(DOUBLECOLON,Module_IDENT)
 ##
 
-<YOUR SYNTAX ERROR MESSAGE HERE>
+Expecting "Type idenfier"
 
 modul: SYSCALL IDENT LPARENT RPARENT XOR
 ##
@@ -121,7 +121,7 @@ modul: SYSCALL IDENT LPARENT RPARENT XOR
 ## SYSCALL IDENT LPARENT loption(separated_nonempty_list(COMMA,__anonymous_10)) RPARENT
 ##
 
-<YOUR SYNTAX ERROR MESSAGE HERE>
+Expecting "Syscall return type" or "="
 
 modul: SYSCALL IDENT LPARENT RPARENT IDENT XOR
 ##
@@ -133,7 +133,7 @@ modul: SYSCALL IDENT LPARENT RPARENT IDENT XOR
 ## SYSCALL IDENT LPARENT loption(separated_nonempty_list(COMMA,__anonymous_10)) RPARENT option(ctype)
 ##
 
-<YOUR SYNTAX ERROR MESSAGE HERE>
+Expecting "="
 
 modul: SYSCALL IDENT LPARENT RPARENT EQUAL XOR
 ##
@@ -145,7 +145,7 @@ modul: SYSCALL IDENT LPARENT RPARENT EQUAL XOR
 ## SYSCALL IDENT LPARENT loption(separated_nonempty_list(COMMA,__anonymous_10)) RPARENT option(ctype) EQUAL
 ##
 
-<YOUR SYNTAX ERROR MESSAGE HERE>
+Expecting "Syscall code"
 
 modul: SYSCALL IDENT LPARENT RPARENT EQUAL Integer_lit XOR
 ##
