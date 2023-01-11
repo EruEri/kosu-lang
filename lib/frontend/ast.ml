@@ -89,6 +89,10 @@ and kexpression =
   | EAdress of string location
   | EDeference of int * string location
   | EWhile of kexpression location * kbody
+  | ELambda of {
+    params: (string location * (ktype location option)) list;
+    kbody: kbody
+  }
   | EIdentifier of {
       modules_path : string location;
       identifier : string location;

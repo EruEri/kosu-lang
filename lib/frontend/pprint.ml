@@ -140,6 +140,11 @@ and string_of_kexpression = function
       sprintf "sizeof(%s)" s
   | EString s -> s
   | EAdress x -> sprintf "&%s" x.v
+  | ELambda {params; kbody} -> 
+    sprintf "|%s| %s" (params |> List.map (fun (p, kt_op_loc) -> 
+      sprintf "%s%s" p.v (kt_op_loc |> Option.map (fun kt -> sprintf ": %s" (string_of_ktype kt.v)) |> Option.value ~default:"")
+    ) |> String.concat ", ")
+    (string_of_kbody kbody)
   | EDeference (indirection, id) ->
       sprintf "%s%s" (Util.string_of_chars indirection '*') id.v
   | EIdentifier { modules_path; identifier }

@@ -155,10 +155,8 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
 (**
   Return the type of an expression
   @raise Ast_error
-  @raise No_Occurence : if a type declartion wasn't found or a variant is not in enum variants
-  @raise Too_Many_Occurence: if several type declarations matching was found
 *)
-and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
+and typeof ?(_lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_name : string)
     (prog : module_path list) (expression : kexpression location) =
   match expression.v with
   | Empty -> TUnit
@@ -214,6 +212,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       match env |> Env.flat_context |> List.assoc_opt id.v with
       | None -> raise (ast_error (Undefined_Identifier id))
       | Some t -> loop indirection_count t.ktype)
+  | ELambda {params = _; kbody = _ } -> failwith ""
   | EIdentifier { modules_path = _; identifier } -> (
       env |> Env.flat_context
       |> List.assoc_opt identifier.v

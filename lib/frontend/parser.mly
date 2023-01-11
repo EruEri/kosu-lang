@@ -69,6 +69,7 @@
 %left SHIFTLEFT SHIFTRIGHT
 %left PLUS MINUS
 %left MULT DIV MOD
+%left LAMBDA_REDUCTION
 %nonassoc UMINUS NOT
 %left DOT
 // %nonassoc ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
@@ -214,6 +215,10 @@ fun_kbody:
     | EQUAL located(expr) option(SEMICOLON) { [], $2 }
     | kbody { $1 }
 
+lambda_kbody:
+    | located(expr) %prec LAMBDA_REDUCTION { [], $1 }
+    | kbody { $1 }
+
 kbody:
     | delimited(LBRACE, l=list(located(statement)) DOLLAR e=located(expr) { l , e } , RBRACE)  { $1 }
 statement:
@@ -295,6 +300,12 @@ expr:
     | SIZEOF delimited(LPARENT, t=located(ktype) { t } , RPARENT) { ESizeof (Either.Left $2)  }
     | nonempty_list(MULT) located(IDENT) { 
         EDeference ( $1 |> List.length , $2)
+    }
+    | delimited(PIPE, separated_list(COMMA, p=located(IDENT) kt=option(preceded(COLON, located(ktype)) )  {p, kt} ) ,PIPE) MINUSUP lambda_kbody {
+        ELambda {
+            params = $1;
+            kbody = $3
+        }
     }
     | AMPERSAND located(IDENT) { EAdress $2 }
     | WHILE delimited(LPARENT, located(expr), RPARENT) kbody {
@@ -471,6 +482,9 @@ ktype:
             name = id
         } 
      }
+    | FUNCTION params=delimited(PIPE, separated_list(COMMA, located(ktype)), PIPE) MINUSUP r=located(ktype) {
+        TFunction (params, r)
+    }
     | MULT located(ktype) { TPointer $2 }
     | modules_path=module_path id=located(IDENT) l=delimited(LPARENT, separated_nonempty_list(COMMA, located(ktype)), RPARENT )  {
         TParametric_identifier {

@@ -353,6 +353,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
                      typed_expression_of_kexpression ~generics_resolver env
                        current_module program expr ));
         }
+  | ELambda {params = _; kbody = _} -> failwith "Asttyconvert : Todo Lambda Expression"
   | EEnum { modules_path; enum_name; variant; assoc_exprs } ->
       REEnum
         {
