@@ -34,6 +34,7 @@
         position: Position.position;
         current_lexeme: string;
         message: string;
+        state: int option
     }
 
   let next_line_and f lexbuf =

@@ -7,10 +7,11 @@ module I = Parser.MenhirInterpreter
 
 let get_parse_error env =
   match I.stack env with
-  | lazy Nil -> "Invalid syntax"
+  | lazy Nil -> "Invalid syntax", None
   | lazy (Cons (I.Element (state, _element, _, _), _)) ->
-      try (Kosu_parser_messages.message (I.number state)) with
-      | Not_found -> "invalid syntax (no specific message for this eror)"
+    let nb_state = (I.number state) in
+      try (Kosu_parser_messages.message nb_state), Some nb_state with
+      | Not_found -> "invalid syntax (no specific message for this eror)", None
 
 let rec parse lexbuf ( checkpoint : Ast._module I.checkpoint) = 
   match checkpoint with
@@ -26,12 +27,13 @@ let rec parse lexbuf ( checkpoint : Ast._module I.checkpoint) =
   | I.HandlingError env -> 
     let position = Position.current_position lexbuf in
     let current_lexeme = Lexing.lexeme lexbuf in 
-    let err = get_parse_error env in
+    let err, state = get_parse_error env in
     raise (
       Syntax_Error {
         position;
         current_lexeme;
-        message = err
+        message = err;
+        state;
       }
     )
 
@@ -43,6 +45,7 @@ let rec parse lexbuf ( checkpoint : Ast._module I.checkpoint) =
       Syntax_Error {
         position = position;
         current_lexeme;
-        message = "Parser reject the input"
+        message = "Parser reject the input";
+        state = None
       }
     ) 
