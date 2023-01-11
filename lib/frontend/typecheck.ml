@@ -33,6 +33,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
   let statements, final_expr = kbody in
   match statements with
   | stamement :: q -> (
+    let () = Printf.printf "%s\n" (string_of_kstatement stamement.v) in
       match stamement.v with
       | SDiscard expr ->
           ignore (typeof ~generics_resolver env current_mod_name program expr);
@@ -42,7 +43,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
           let type_init =
             expression
             |> Position.map_use
-                 (typeof ~generics_resolver env current_mod_name program)
+                 (typeof ~lambda_type:explicit_type ~generics_resolver env current_mod_name program)
           in
           (* let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Pprint.string_of_ktype type_init.v) (Asthelper.Sizeof.sizeof current_mod_name program type_init.v) (Asthelper.Sizeof.alignmentof current_mod_name program type_init.v) in *)
           if env |> Env.is_identifier_exists variable_name.v then
@@ -156,7 +157,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
   Return the type of an expression
   @raise Ast_error
 *)
-and typeof ?(_lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_name : string)
+and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_name : string)
     (prog : module_path list) (expression : kexpression location) =
   match expression.v with
   | Empty -> TUnit
@@ -212,7 +213,40 @@ and typeof ?(_lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_
       match env |> Env.flat_context |> List.assoc_opt id.v with
       | None -> raise (ast_error (Undefined_Identifier id))
       | Some t -> loop indirection_count t.ktype)
-  | ELambda {params = _; kbody = _ } -> failwith ""
+  | ELambda {params; kbody} -> 
+    let open Env in
+    let params_explicit_type, explicit_type_return_type = 
+      match lambda_type with
+      | None -> None, None
+      | Some ({v = TFunction (lambad_param_explit, r); position = _ } ) -> print_endline "Yes\n" ; Some lambad_param_explit, Some r
+      | Some _ -> failwith "Todo Error: Explicit type should be an function" in 
+    
+      let paramas_typed =
+         match params_explicit_type with
+         | None -> params |> List.map (fun (s, kt_loc_option) -> 
+          s, (match kt_loc_option with Some kt_loc -> kt_loc | None -> failwith "Need explicit type on parameters or statement")
+          )
+          | Some lambda_param_explits -> 
+          let () = if Util.are_diff_lenght lambda_param_explits params then failwith "Arity between parameters and explicit type is wrong" else () in
+          params |> List.combine lambda_param_explits |> List.map (fun (given_statement_type, (s, kt_loc_opt)) -> 
+            s, kt_loc_opt |> Option.map (fun kt_loc -> 
+              if not @@ Ast.Type.are_compatible_type given_statement_type.v kt_loc.v then failwith "Incomptabile type between explicit instatement en inner lambda"
+              else
+                kt_loc |> Position.map (fun kt -> Ast.Type.restrict_type kt given_statement_type.v)
+            ) |> Option.value ~default:given_statement_type
+          )
+          in
+
+      let clo_env = env |> Env.push_context (paramas_typed |> List.map (fun (s, kt) -> 
+        s.v, {is_const = true; ktype = kt.v}
+        )) in
+        
+      let body_ktype = typeof_kbody ~generics_resolver clo_env current_mod_name prog ~return_type:(explicit_type_return_type |> Option.map Position.value)  kbody in
+      TFunction (
+        paramas_typed |> List.map (snd),
+       {v = body_ktype; position = Position.dummy}
+      )
+      
   | EIdentifier { modules_path = _; identifier } -> (
       env |> Env.flat_context
       |> List.assoc_opt identifier.v
