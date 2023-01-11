@@ -20,6 +20,8 @@ open KosuIrTyped
 open KosuIrTAC
 open KosuCli
 
+
+let () = KosuFrontend.Registerexn.register_kosu_error ()
 let code =
   Clap.description "kosuc - The Kosu compiler";
 
@@ -68,10 +70,6 @@ let code =
             Printf.eprintf "%s\n" s;
             raise exn
         | Filename_error _ -> raise (Invalid_argument "Filename Error")
-        | Parser_Error (filename, position) ->
-            position |> KosuFrontend.Pprint.string_of_position_error
-            |> Printf.eprintf "File \"%s\", %s: Parser Error\n" filename;
-            raise (Invalid_argument "Parser Error")
         | Lexer_Error e -> raise e)
     | Ok modules -> (
         match valide_program modules with

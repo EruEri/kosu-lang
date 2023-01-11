@@ -16,11 +16,16 @@ let get_parse_error env =
 let rec parse lexbuf ( checkpoint : Ast._module I.checkpoint) = 
   match checkpoint with
   | I.InputNeeded _env ->
-    let token = Lexer.main lexbuf in
-    let startp = lexbuf.lex_start_p
-    and endp = lexbuf.lex_curr_p in 
-    let checkpoint = I.offer checkpoint (token, startp, endp) in
-    parse lexbuf checkpoint
+    begin try 
+      let token = Lexer.token lexbuf in
+        let startp = lexbuf.lex_start_p
+        and endp = lexbuf.lex_curr_p in 
+        let checkpoint = I.offer checkpoint (token, startp, endp) in
+        parse lexbuf checkpoint
+      with 
+      | Lexer.Raw_Lexer_Error e -> Result.Error e
+      | _ -> failwith "Uncatched Lexer Error"
+    end
   | I.Shifting _ | I.AboutToReduce _ -> 
     let checkpoint = I.resume checkpoint in
     parse lexbuf checkpoint
@@ -28,7 +33,7 @@ let rec parse lexbuf ( checkpoint : Ast._module I.checkpoint) =
     let position = Position.current_position lexbuf in
     let current_lexeme = Lexing.lexeme lexbuf in 
     let err, state = get_parse_error env in
-    raise (
+    Result.error (
       Syntax_Error {
         position;
         current_lexeme;
@@ -37,11 +42,11 @@ let rec parse lexbuf ( checkpoint : Ast._module I.checkpoint) =
       }
     )
 
-  | I.Accepted v -> v
+  | I.Accepted v -> Ok v
   | I.Rejected -> 
     let position = Position.current_position lexbuf in
     let current_lexeme = Lexing.lexeme lexbuf in 
-    raise (
+    Result.error (
       Syntax_Error {
         position = position;
         current_lexeme;

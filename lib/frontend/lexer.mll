@@ -21,21 +21,30 @@
     open Lexing
     open Position
 
-    exception Lexical_error of position*string
-    exception Forbidden_char of position*char
-    exception Unexpected_escaped_char of position*string
-    exception Invalid_keyword_for_build_in_function of position*string
-    exception Invalid_litteral_for_build_in_function of position*char
-    exception Not_finished_built_in_function of position
-    exception Unclosed_string of position
-    exception Unclosed_comment of position
+    type lexer_error =
+    | Forbidden_char of position*char
+    | Unexpected_escaped_char of position*string
+    | Invalid_keyword_for_build_in_function of position*string
+    | Invalid_litteral_for_build_in_function of position*char
+    | Not_finished_built_in_function of position
+    | Unclosed_string of position
+    | Unclosed_comment of position
 
-    exception Syntax_Error of {
+    | Syntax_Error of {
         position: Position.position;
         current_lexeme: string;
         message: string;
         state: int option
     }
+
+    exception Raw_Lexer_Error of lexer_error
+
+    exception Lexer_Error of {
+        filename : string;
+        error: lexer_error
+    }
+
+    let raw_lexer_error e = Raw_Lexer_Error e
 
   let next_line_and f lexbuf =
     Lexing.new_line lexbuf;
@@ -71,12 +80,12 @@ let blank   = [' ' '\009' '\012']
 
 let whitespace = [' ' '\t' '\r' '\n']+
 
-rule main = parse
+rule token = parse
 | newline {  
     (* let _ = if ( String.contains s '\n') then (line := !line + 1) else () in  *)
-    next_line_and main lexbuf 
+    next_line_and token lexbuf 
 }
-| blank+ { main lexbuf }
+| blank+ { token lexbuf }
 | "(" { LPARENT }
 | ")" { RPARENT }
 | "{" { LBRACE }
@@ -145,18 +154,18 @@ rule main = parse
         Hashtbl.find keywords s
     with Not_found -> IDENT s
 }
-| _ as c { raise (Forbidden_char( (current_position lexbuf), c) ) }
+| _ as c { (Forbidden_char( (current_position lexbuf), c) )  |> raw_lexer_error |> raise  }
 | eof { EOF }
 and built_in_function = parse
 | identifiant as s {
     match Hashtbl.find_opt keywords s with
     | None -> BUILTIN s
-    | Some _ -> raise (Invalid_keyword_for_build_in_function ((current_position lexbuf) , s) )
+    | Some _ -> (Invalid_keyword_for_build_in_function ((current_position lexbuf) , s) |> raw_lexer_error |> raise )
 }
 | _ as lit {
-    raise (Invalid_litteral_for_build_in_function ( current_position lexbuf ,lit))
+     (Invalid_litteral_for_build_in_function ( current_position lexbuf ,lit)  |> raw_lexer_error |> raise )
 }
-| eof {  Not_finished_built_in_function (current_position lexbuf) |> raise }
+| eof {  Not_finished_built_in_function (current_position lexbuf)  |> raw_lexer_error |> raise }
 and read_string buffer = parse
 | '"' { String_lit (Buffer.contents buffer) }
 (* | '\\' 'n' { 
@@ -169,19 +178,19 @@ and read_string buffer = parse
     let () = Buffer.add_char buffer c in
     read_string buffer lexbuf 
 }
-| '\\' { raise ( Unexpected_escaped_char ((current_position lexbuf) , (lexbuf |> lexeme) )) }
+| '\\' { ( Unexpected_escaped_char ((current_position lexbuf) , (lexbuf |> lexeme) ))  |> raw_lexer_error |> raise }
 | _ as s { Buffer.add_char buffer s; read_string buffer lexbuf }
 | eof {
-    raise (Unclosed_string (current_position lexbuf))  
+    (Unclosed_string (current_position lexbuf)  |> raw_lexer_error |> raise )  
 }
 and single_line_comment = parse
-| newline { next_line_and main lexbuf }
+| newline { next_line_and token lexbuf }
 | _ { single_line_comment lexbuf}
 | eof { EOF }
 and multiple_line_comment = parse 
-| "*/" { main lexbuf }
+| "*/" { token lexbuf }
 | newline { next_line_and multiple_line_comment lexbuf}
 | _ { multiple_line_comment lexbuf }
 | eof {
-    raise  (Unclosed_comment (current_position lexbuf) )
+     (Unclosed_comment (current_position lexbuf) |> raw_lexer_error |> raise )
 }
