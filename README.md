@@ -24,7 +24,7 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 
 const EXIT_SUCCESS = 0;
 
-enum option<wrapper> {
+enum option(wrapper) {
   some(wrapper),
   none
 }
@@ -39,7 +39,7 @@ external malloc(u64) anyptr;
 external print(stringl; ...) s32 = "printf";
 
 
-fn default<t>(option: option<t>, default: t) t {
+fn default<t>(option: option(t), default: t) t {
     $ switch (option) {
         .none => { $ default }
         .some(x) => { $ x }
