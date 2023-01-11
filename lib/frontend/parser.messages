@@ -188,7 +188,7 @@ modul: STRUCT XOR
 ##
 ## Ends in an error in state: 37.
 ##
-## struct_decl -> STRUCT . IDENT option(delimited(INF,separated_nonempty_list(COMMA,located(IDENT)),SUP)) LBRACE loption(separated_nonempty_list(COMMA,__anonymous_1)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
+## struct_decl -> STRUCT . IDENT option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) LBRACE loption(separated_nonempty_list(COMMA,__anonymous_1)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
 ## The known suffix of the stack is as follows:
 ## STRUCT
@@ -200,71 +200,26 @@ modul: STRUCT IDENT XOR
 ##
 ## Ends in an error in state: 38.
 ##
-## struct_decl -> STRUCT IDENT . option(delimited(INF,separated_nonempty_list(COMMA,located(IDENT)),SUP)) LBRACE loption(separated_nonempty_list(COMMA,__anonymous_1)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
+## struct_decl -> STRUCT IDENT . option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) LBRACE loption(separated_nonempty_list(COMMA,__anonymous_1)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
 ## The known suffix of the stack is as follows:
 ## STRUCT IDENT
 ##
 
-Expecting "<" or "{"
+Expecting "(" or "{"
 
-modul: ENUM IDENT INF XOR
-##
-## Ends in an error in state: 39.
-##
-## option(delimited(INF,separated_nonempty_list(COMMA,located(IDENT)),SUP)) -> INF . separated_nonempty_list(COMMA,located(IDENT)) SUP [ LBRACE ]
-##
-## The known suffix of the stack is as follows:
-## INF
-##
 
-Expecting "Generic name identifier"
 
-modul: ENUM IDENT INF IDENT XOR
-##
-## Ends in an error in state: 40.
-##
-## separated_nonempty_list(COMMA,located(IDENT)) -> IDENT . [ SUP ]
-## separated_nonempty_list(COMMA,located(IDENT)) -> IDENT . COMMA separated_nonempty_list(COMMA,located(IDENT)) [ SUP ]
-##
-## The known suffix of the stack is as follows:
-## IDENT
-##
 
-Expecting ">" or ","
-
-modul: ENUM IDENT INF IDENT COMMA XOR
-##
-## Ends in an error in state: 41.
-##
-## separated_nonempty_list(COMMA,located(IDENT)) -> IDENT COMMA . separated_nonempty_list(COMMA,located(IDENT)) [ SUP ]
-##
-## The known suffix of the stack is as follows:
-## IDENT COMMA
-##
-
-Expecting "Generic name identifier"
-
-modul: STRUCT IDENT INF IDENT SUP XOR
-##
-## Ends in an error in state: 45.
-##
-## struct_decl -> STRUCT IDENT option(delimited(INF,separated_nonempty_list(COMMA,located(IDENT)),SUP)) . LBRACE loption(separated_nonempty_list(COMMA,__anonymous_1)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
-##
-## The known suffix of the stack is as follows:
-## STRUCT IDENT option(delimited(INF,separated_nonempty_list(COMMA,located(IDENT)),SUP))
-##
-
-Expecting "{"
 
 modul: STRUCT IDENT LBRACE XOR
 ##
 ## Ends in an error in state: 46.
 ##
-## struct_decl -> STRUCT IDENT option(delimited(INF,separated_nonempty_list(COMMA,located(IDENT)),SUP)) LBRACE . loption(separated_nonempty_list(COMMA,__anonymous_1)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
+## struct_decl -> STRUCT IDENT option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) LBRACE . loption(separated_nonempty_list(COMMA,__anonymous_1)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
 ## The known suffix of the stack is as follows:
-## STRUCT IDENT option(delimited(INF,separated_nonempty_list(COMMA,located(IDENT)),SUP)) LBRACE
+## STRUCT IDENT option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) LBRACE
 ##
 
 Expecting "Enum variant" or "}"
@@ -2171,8 +2126,8 @@ modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT Constant RPARENT LBRA
 ##
 ## Ends in an error in state: 213.
 ##
-## s_case -> DOT . IDENT [ COMMA ARROWFUNC ]
-## s_case -> DOT . IDENT LPARENT separated_nonempty_list(COMMA,__anonymous_20) RPARENT [ COMMA ARROWFUNC ]
+## s_case -> DOT . IDENT [ PIPE ARROWFUNC ]
+## s_case -> DOT . IDENT LPARENT separated_nonempty_list(COMMA,__anonymous_20) RPARENT [ PIPE ARROWFUNC ]
 ##
 ## The known suffix of the stack is as follows:
 ## DOT
@@ -2184,8 +2139,8 @@ modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT Constant RPARENT LBRA
 ##
 ## Ends in an error in state: 214.
 ##
-## s_case -> DOT IDENT . [ COMMA ARROWFUNC ]
-## s_case -> DOT IDENT . LPARENT separated_nonempty_list(COMMA,__anonymous_20) RPARENT [ COMMA ARROWFUNC ]
+## s_case -> DOT IDENT . [ PIPE ARROWFUNC ]
+## s_case -> DOT IDENT . LPARENT separated_nonempty_list(COMMA,__anonymous_20) RPARENT [ PIPE ARROWFUNC ]
 ##
 ## The known suffix of the stack is as follows:
 ## DOT IDENT
@@ -2197,7 +2152,7 @@ modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT Constant RPARENT LBRA
 ##
 ## Ends in an error in state: 215.
 ##
-## s_case -> DOT IDENT LPARENT . separated_nonempty_list(COMMA,__anonymous_20) RPARENT [ COMMA ARROWFUNC ]
+## s_case -> DOT IDENT LPARENT . separated_nonempty_list(COMMA,__anonymous_20) RPARENT [ PIPE ARROWFUNC ]
 ##
 ## The known suffix of the stack is as follows:
 ## DOT IDENT LPARENT
@@ -2259,11 +2214,11 @@ modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT Constant RPARENT LBRA
 ##
 ## Ends in an error in state: 225.
 ##
-## nonempty_list(__anonymous_18) -> separated_nonempty_list(COMMA,s_case) ARROWFUNC . kbody [ WILDCARD RBRACE ]
-## nonempty_list(__anonymous_18) -> separated_nonempty_list(COMMA,s_case) ARROWFUNC . kbody nonempty_list(__anonymous_18) [ WILDCARD RBRACE ]
+## nonempty_list(__anonymous_18) -> separated_nonempty_list(PIPE,s_case) ARROWFUNC . kbody [ WILDCARD RBRACE ]
+## nonempty_list(__anonymous_18) -> separated_nonempty_list(PIPE,s_case) ARROWFUNC . kbody nonempty_list(__anonymous_18) [ WILDCARD RBRACE ]
 ##
 ## The known suffix of the stack is as follows:
-## separated_nonempty_list(COMMA,s_case) ARROWFUNC
+## separated_nonempty_list(PIPE,s_case) ARROWFUNC
 ##
 
 Expecting "{"
@@ -2272,11 +2227,11 @@ modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT Constant RPARENT LBRA
 ##
 ## Ends in an error in state: 226.
 ##
-## nonempty_list(__anonymous_18) -> separated_nonempty_list(COMMA,s_case) ARROWFUNC kbody . [ WILDCARD RBRACE ]
-## nonempty_list(__anonymous_18) -> separated_nonempty_list(COMMA,s_case) ARROWFUNC kbody . nonempty_list(__anonymous_18) [ WILDCARD RBRACE ]
+## nonempty_list(__anonymous_18) -> separated_nonempty_list(PIPE,s_case) ARROWFUNC kbody . [ WILDCARD RBRACE ]
+## nonempty_list(__anonymous_18) -> separated_nonempty_list(PIPE,s_case) ARROWFUNC kbody . nonempty_list(__anonymous_18) [ WILDCARD RBRACE ]
 ##
 ## The known suffix of the stack is as follows:
-## separated_nonempty_list(COMMA,s_case) ARROWFUNC kbody
+## separated_nonempty_list(PIPE,s_case) ARROWFUNC kbody
 ##
 
 Expecting "_", "{", or "."
@@ -2285,26 +2240,15 @@ modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT Constant RPARENT LBRA
 ##
 ## Ends in an error in state: 227.
 ##
-## separated_nonempty_list(COMMA,s_case) -> s_case . [ ARROWFUNC ]
-## separated_nonempty_list(COMMA,s_case) -> s_case . COMMA separated_nonempty_list(COMMA,s_case) [ ARROWFUNC ]
+## separated_nonempty_list(PIPE,s_case) -> s_case . [ ARROWFUNC ]
+## separated_nonempty_list(PIPE,s_case) -> s_case . PIPE separated_nonempty_list(PIPE,s_case) [ ARROWFUNC ]
 ##
 ## The known suffix of the stack is as follows:
 ## s_case
 ##
 
-Expecting "=>" or "."
+Expecting "=>" or "|"
 
-modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT Constant RPARENT LBRACE DOT IDENT COMMA XOR
-##
-## Ends in an error in state: 228.
-##
-## separated_nonempty_list(COMMA,s_case) -> s_case COMMA . separated_nonempty_list(COMMA,s_case) [ ARROWFUNC ]
-##
-## The known suffix of the stack is as follows:
-## s_case COMMA
-##
-
-Expecting "."
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT Constant RPARENT LBRACE DOT IDENT ARROWFUNC LBRACE DOLLAR Constant RBRACE WILDCARD XOR
 ##
@@ -3133,7 +3077,7 @@ modul: ENUM XOR
 ##
 ## Ends in an error in state: 320.
 ##
-## enum_decl -> ENUM . IDENT option(delimited(INF,separated_nonempty_list(COMMA,located(IDENT)),SUP)) LBRACE loption(separated_nonempty_list(COMMA,enum_assoc)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
+## enum_decl -> ENUM . IDENT option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) LBRACE loption(separated_nonempty_list(COMMA,enum_assoc)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
 ## The known suffix of the stack is as follows:
 ## ENUM
@@ -3145,34 +3089,23 @@ modul: ENUM IDENT XOR
 ##
 ## Ends in an error in state: 321.
 ##
-## enum_decl -> ENUM IDENT . option(delimited(INF,separated_nonempty_list(COMMA,located(IDENT)),SUP)) LBRACE loption(separated_nonempty_list(COMMA,enum_assoc)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
+## enum_decl -> ENUM IDENT . option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) LBRACE loption(separated_nonempty_list(COMMA,enum_assoc)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
 ## The known suffix of the stack is as follows:
 ## ENUM IDENT
 ##
 
-Expecting "<" or "{"
+Expecting "(" or "{"
 
-modul: ENUM IDENT INF IDENT SUP XOR
-##
-## Ends in an error in state: 322.
-##
-## enum_decl -> ENUM IDENT option(delimited(INF,separated_nonempty_list(COMMA,located(IDENT)),SUP)) . LBRACE loption(separated_nonempty_list(COMMA,enum_assoc)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
-##
-## The known suffix of the stack is as follows:
-## ENUM IDENT option(delimited(INF,separated_nonempty_list(COMMA,located(IDENT)),SUP))
-##
-
-Expecting "{"
 
 modul: ENUM IDENT LBRACE XOR
 ##
 ## Ends in an error in state: 323.
 ##
-## enum_decl -> ENUM IDENT option(delimited(INF,separated_nonempty_list(COMMA,located(IDENT)),SUP)) LBRACE . loption(separated_nonempty_list(COMMA,enum_assoc)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
+## enum_decl -> ENUM IDENT option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) LBRACE . loption(separated_nonempty_list(COMMA,enum_assoc)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
 ## The known suffix of the stack is as follows:
-## ENUM IDENT option(delimited(INF,separated_nonempty_list(COMMA,located(IDENT)),SUP)) LBRACE
+## ENUM IDENT option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) LBRACE
 ##
 
 Expecting "variant name" or "}"
@@ -3334,3 +3267,214 @@ modul: ENUM IDENT LBRACE RBRACE XOR
 ##
 
 Expecting "struct", "enum", "syscall", "fn", "const", "external", "operator"
+
+modul: EXTERNAL IDENT LPARENT MULT MULT XOR
+##
+## Ends in an error in state: 8.
+##
+## ktype -> MULT . ktype [ SUP SEMICOLON RPARENT RBRACE LBRACE EQUAL COMMA ]
+##
+## The known suffix of the stack is as follows:
+## MULT
+##
+
+Expecting "Type"
+
+modul: EXTERNAL IDENT LPARENT MULT LPARENT XOR
+##
+## Ends in an error in state: 9.
+##
+## ktype -> LPARENT . separated_nonempty_list(COMMA,located(ktype)) RPARENT [ SUP SEMICOLON RPARENT RBRACE LBRACE EQUAL COMMA ]
+##
+## The known suffix of the stack is as follows:
+## LPARENT
+##
+
+Expecting "Type"
+ 
+modul: EXTERNAL IDENT LPARENT MULT LPARENT IDENT SUP
+##
+## Ends in an error in state: 11.
+##
+## ktype -> LPARENT separated_nonempty_list(COMMA,located(ktype)) . RPARENT [ SUP SEMICOLON RPARENT RBRACE LBRACE EQUAL COMMA ]
+##
+## The known suffix of the stack is as follows:
+## LPARENT separated_nonempty_list(COMMA,located(ktype))
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 14, spurious reduction of production ktype -> loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT)) IDENT
+## In state 18, spurious reduction of production separated_nonempty_list(COMMA,located(ktype)) -> ktype
+##
+
+Expecting ")"
+
+modul: EXTERNAL IDENT LPARENT MULT Module_IDENT DOT
+##
+## Ends in an error in state: 13.
+##
+## ktype -> loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT)) . IDENT [ SUP SEMICOLON RPARENT RBRACE LBRACE EQUAL COMMA ]
+## ktype -> loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT)) . IDENT LPARENT separated_nonempty_list(COMMA,located(ktype)) RPARENT [ SUP SEMICOLON RPARENT RBRACE LBRACE EQUAL COMMA ]
+##
+## The known suffix of the stack is as follows:
+## loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT))
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 4, spurious reduction of production separated_nonempty_list(DOUBLECOLON,Module_IDENT) -> Module_IDENT
+## In state 10, spurious reduction of production loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT)) -> separated_nonempty_list(DOUBLECOLON,Module_IDENT)
+##
+
+Expecting "Type identifier"
+
+modul: EXTERNAL IDENT LPARENT MULT IDENT XOR
+##
+## Ends in an error in state: 14.
+##
+## ktype -> loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT)) IDENT . [ SUP SEMICOLON RPARENT RBRACE LBRACE EQUAL COMMA ]
+## ktype -> loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT)) IDENT . LPARENT separated_nonempty_list(COMMA,located(ktype)) RPARENT [ SUP SEMICOLON RPARENT RBRACE LBRACE EQUAL COMMA ]
+##
+## The known suffix of the stack is as follows:
+## loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT)) IDENT
+##
+
+Expecting ">", ";", ")", "}", "=", "," or "("
+
+modul: EXTERNAL IDENT LPARENT MULT IDENT LPARENT XOR
+##
+## Ends in an error in state: 15.
+##
+## ktype -> loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT)) IDENT LPARENT . separated_nonempty_list(COMMA,located(ktype)) RPARENT [ SUP SEMICOLON RPARENT RBRACE LBRACE EQUAL COMMA ]
+##
+## The known suffix of the stack is as follows:
+## loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT)) IDENT LPARENT
+##
+
+Expecting "Type"
+
+modul: EXTERNAL IDENT LPARENT MULT IDENT LPARENT IDENT SUP
+##
+## Ends in an error in state: 16.
+##
+## ktype -> loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT)) IDENT LPARENT separated_nonempty_list(COMMA,located(ktype)) . RPARENT [ SUP SEMICOLON RPARENT RBRACE LBRACE EQUAL COMMA ]
+##
+## The known suffix of the stack is as follows:
+## loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT)) IDENT LPARENT separated_nonempty_list(COMMA,located(ktype))
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 14, spurious reduction of production ktype -> loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT)) IDENT
+## In state 18, spurious reduction of production separated_nonempty_list(COMMA,located(ktype)) -> ktype
+##
+
+Expecting ")"
+
+modul: EXTERNAL IDENT LPARENT MULT LPARENT IDENT SEMICOLON
+##
+## Ends in an error in state: 18.
+##
+## separated_nonempty_list(COMMA,located(ktype)) -> ktype . [ SUP RPARENT ]
+## separated_nonempty_list(COMMA,located(ktype)) -> ktype . COMMA separated_nonempty_list(COMMA,located(ktype)) [ SUP RPARENT ]
+##
+## The known suffix of the stack is as follows:
+## ktype
+##
+## WARNING: This example involves spurious reductions.
+## This implies that, although the LR(1) items shown above provide an
+## accurate view of the past (what has been recognized so far), they
+## may provide an INCOMPLETE view of the future (what was expected next).
+## In state 14, spurious reduction of production ktype -> loption(separated_nonempty_list(DOUBLECOLON,Module_IDENT)) IDENT
+##
+
+Expecting ">", ")" or "."
+
+modul: EXTERNAL IDENT LPARENT MULT LPARENT IDENT COMMA XOR
+##
+## Ends in an error in state: 19.
+##
+## separated_nonempty_list(COMMA,located(ktype)) -> ktype COMMA . separated_nonempty_list(COMMA,located(ktype)) [ SUP RPARENT ]
+##
+## The known suffix of the stack is as follows:
+## ktype COMMA
+##
+
+Expecting "Type"
+
+modul: ENUM IDENT LPARENT XOR
+##
+## Ends in an error in state: 39.
+##
+## option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) -> LPARENT . separated_nonempty_list(COMMA,located(IDENT)) RPARENT [ LBRACE ]
+##
+## The known suffix of the stack is as follows:
+## LPARENT
+##
+
+Expecting "identifier"
+
+modul: ENUM IDENT LPARENT IDENT XOR
+##
+## Ends in an error in state: 40.
+##
+## separated_nonempty_list(COMMA,located(IDENT)) -> IDENT . [ RPARENT ]
+## separated_nonempty_list(COMMA,located(IDENT)) -> IDENT . COMMA separated_nonempty_list(COMMA,located(IDENT)) [ RPARENT ]
+##
+## The known suffix of the stack is as follows:
+## IDENT
+##
+
+Expecting "(" or "."
+
+modul: ENUM IDENT LPARENT IDENT COMMA XOR
+##
+## Ends in an error in state: 41.
+##
+## separated_nonempty_list(COMMA,located(IDENT)) -> IDENT COMMA . separated_nonempty_list(COMMA,located(IDENT)) [ RPARENT ]
+##
+## The known suffix of the stack is as follows:
+## IDENT COMMA
+##
+
+Expecting "bound variable"
+
+modul: STRUCT IDENT LPARENT IDENT RPARENT XOR
+##
+## Ends in an error in state: 45.
+##
+## struct_decl -> STRUCT IDENT option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) . LBRACE loption(separated_nonempty_list(COMMA,__anonymous_1)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
+##
+## The known suffix of the stack is as follows:
+## STRUCT IDENT option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT))
+##
+
+Expecting "{"
+
+modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT Constant RPARENT LBRACE DOT IDENT PIPE XOR
+##
+## Ends in an error in state: 228.
+##
+## separated_nonempty_list(PIPE,s_case) -> s_case PIPE . separated_nonempty_list(PIPE,s_case) [ ARROWFUNC ]
+##
+## The known suffix of the stack is as follows:
+## s_case PIPE
+##
+
+Expecting "."
+
+modul: ENUM IDENT LPARENT IDENT RPARENT XOR
+##
+## Ends in an error in state: 322.
+##
+## enum_decl -> ENUM IDENT option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) . LBRACE loption(separated_nonempty_list(COMMA,enum_assoc)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
+##
+## The known suffix of the stack is as follows:
+## ENUM IDENT option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT))
+##
+
+Expecting "{"

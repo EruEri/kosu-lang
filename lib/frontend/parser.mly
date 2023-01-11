@@ -33,7 +33,7 @@
 %token <string> Module_IDENT 
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
-%token ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR
+%token ENUM EXTERNAL FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR
 %token TRIPLEDOT
 %token COMMA
 %token PIPESUP
@@ -101,7 +101,7 @@ module_nodes:
 ;;
 
 enum_decl:
-    | ENUM name=located(IDENT) generics_opt=option( delimited(INF, separated_nonempty_list(COMMA, located(IDENT) ), SUP)) LBRACE 
+    | ENUM name=located(IDENT) generics_opt=option( delimited(LPARENT, separated_nonempty_list(COMMA, located(IDENT) ), RPARENT)) LBRACE 
     variants=separated_list(COMMA,enum_assoc) 
     RBRACE { 
         let generics = generics_opt |> Option.value ~default: [] in
@@ -123,7 +123,7 @@ enum_assoc:
 ;;
 
 struct_decl:
-    | STRUCT name=located(IDENT) generics_opt=option( delimited(INF, separated_nonempty_list(COMMA, located(IDENT) ), SUP)) LBRACE
+    | STRUCT name=located(IDENT) generics_opt=option( delimited(LPARENT, separated_nonempty_list(COMMA, located(IDENT) ), RPARENT)) LBRACE
     fields=separated_list(COMMA, id=located(IDENT) COLON kt=located(ktype) { id, kt  })
     RBRACE  {
         {
@@ -383,7 +383,7 @@ expr:
             (* $4 |> Option.map (fun e -> (SExpression e)::[] ) *)
         )
     }
-    | SWITCH delimited(LPARENT, located(expr), RPARENT) LBRACE nonempty_list(cases=separated_nonempty_list(COMMA, s_case) ARROWFUNC stmts=kbody { cases, stmts } ) 
+    | SWITCH delimited(LPARENT, located(expr), RPARENT) LBRACE nonempty_list(cases=separated_nonempty_list(PIPE, s_case) ARROWFUNC stmts=kbody { cases, stmts } ) 
         wildcard_case=option(WILDCARD ARROWFUNC d=kbody { d } ) RBRACE { 
         ESwitch {
             expression = $2;
@@ -451,7 +451,7 @@ ktype:
         } 
      }
     | MULT located(ktype) { TPointer $2 }
-    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) INF l=separated_nonempty_list(COMMA, located(ktype)) SUP {
+    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) l=delimited(LPARENT, separated_nonempty_list(COMMA, located(ktype)), RPARENT )  {
         TParametric_identifier {
             module_path = modules_path |> Position.map( String.concat "::" ) ;
             parametrics_type = l;
