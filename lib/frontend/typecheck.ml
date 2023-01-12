@@ -29,7 +29,7 @@ open Pprint
 let rec typeof_kbody ~generics_resolver (env : Env.t)
     (current_mod_name : string) (program : module_path list)
     ?(return_type = None) (kbody : kbody) =
-  (* let () = Printf.printf "env %s\n" (Pprint.string_of_env env) in *)
+  let () = Printf.printf "env %s\n" (Pprint.string_of_env env) in
   let statements, final_expr = kbody in
   match statements with
   | stamement :: q -> (
@@ -40,6 +40,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
           typeof_kbody ~generics_resolver env current_mod_name program
             ~return_type (q, final_expr)
       | SDeclaration { is_const; variable_name; explicit_type; expression } ->
+          let () = Printf.printf "Is explicit : %b\n" (Option.is_some explicit_type) in
           let type_init =
             expression
             |> Position.map_use
@@ -136,6 +137,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
                   current_mod_name program ~return_type (q, final_expr)))
   | [] -> (
       (* Printf.printf "Final expr\n"; *)
+      let () = Printf.printf "Final expr = %s\n" (string_of_kexpression final_expr.v) in
       let final_expr_type =
         typeof ~generics_resolver env current_mod_name program final_expr
       in
@@ -213,7 +215,8 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
       match env |> Env.flat_context |> List.assoc_opt id.v with
       | None -> raise (ast_error (Undefined_Identifier id))
       | Some t -> loop indirection_count t.ktype)
-  | ELambda {params; kbody} -> 
+  | ELambda {params; kbody } -> 
+    let () = Printf.printf "kb = %s\n\n" (string_of_kbody kbody) in
     let open Env in
     let params_explicit_type, explicit_type_return_type = 
       match lambda_type with
@@ -222,8 +225,10 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
       | Some _ -> failwith "Todo Error: Explicit type should be an function" in 
     
       let paramas_typed =
+        let () = Printf.printf "Inner Is explicit : %b\n" (Option.is_some params_explicit_type) in
          match params_explicit_type with
          | None -> params |> List.map (fun (s, kt_loc_option) -> 
+          let () = Printf.printf "Field = %s\n" s.v in 
           s, (match kt_loc_option with Some kt_loc -> kt_loc | None -> failwith "Need explicit type on parameters or statement")
           )
           | Some lambda_param_explits -> 

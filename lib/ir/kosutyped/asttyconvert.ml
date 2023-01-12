@@ -222,7 +222,7 @@ and rkbody_of_kbody ~generics_resolver (env : Env.t) current_module
           (RSDiscard mapped :: stmts_remains, future_expr)
       | SDeclaration { is_const; variable_name; explicit_type; expression } ->
           let type_of_expression =
-            typeof ~generics_resolver env current_module program expression
+            typeof ~lambda_type:explicit_type ~generics_resolver env current_module program expression
           in
           let variable_type =
             match explicit_type with

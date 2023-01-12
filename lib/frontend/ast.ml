@@ -699,6 +699,9 @@ module Type = struct
         && List.combine t1 t2
            |> List.map Position.assocs_value
            |> List.for_all (fun (k1, k2) -> are_compatible_type k1 k2)
+    | TFunction (plhs, lr) , TFunction (prhs, rr) when Util.are_same_lenght plhs prhs -> 
+      are_compatible_type lr.v rr.v &&
+      List.for_all2 (fun pl pr -> are_compatible_type pl.v pr.v) plhs prhs
     | _, _ -> lhs === rhs
 
   let rec update_generics map init_type param_type () =
