@@ -641,6 +641,13 @@ module Rmodule = struct
              | RNExternFunc ef -> Some (RExternal_Decl ef)
              | RNSyscall scf -> Some (RSyscall_Decl scf)
              | _ -> None)
+  let retrieve_const_decl = function
+  | RModule rnodes ->
+      rnodes
+      |> List.filter_map (function
+          | RNConst s -> Some s
+          | _ -> None
+          )
 
   let retrive_operator_decl = function
     | RModule rnodes ->
@@ -750,6 +757,15 @@ module RProgram = struct
              type_name = (rtype_decl |> Rtype_Decl.type_name))
       |> Option.some
 
+  let find_const_decl ~name ~module_path rprogram = 
+    let (>>=) = Option.bind in
+    rprogram |> 
+      find_module_of_name 
+      module_path
+      |> Option.map (fun md -> 
+        md |> Rmodule.retrieve_const_decl
+      )
+      >>= List.find_opt (fun const_decl -> const_decl.rconst_name = name)
   let register_params_count = 8
 
   let find_binary_operator_decl (op : KosuFrontend.Ast.parser_binary_op)

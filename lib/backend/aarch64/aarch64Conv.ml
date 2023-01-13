@@ -188,19 +188,38 @@ module Codegen = struct
           compute_data_size kt
             (Int64.of_int @@ KosuFrontend.Ast.Isize.size_of_isize size)
         in
-        let tmp11 = tmp64reg_4 in
-        let load_instruction = load_label ~module_path name tmp11 in
-        let fetch =
-          Instruction
-            (LDR
-               {
-                 data_size;
-                 destination = target_reg;
-                 adress_src = create_adress tmp11;
-                 adress_mode = Immediat;
-               })
-        in
-        (target_reg, load_instruction @ [ fetch ])
+        (* let open KosuIrTyped.Asttyped in *)
+        let const_decl = 
+          match rprogram |> KosuIrTyped.Asttyhelper.RProgram.find_const_decl ~name ~module_path with
+          | None -> failwith (Printf.sprintf "No const decl for %s::%s" module_path name)
+          | Some s -> s in
+
+        let int_value =
+          match const_decl.value.rexpression with
+          | REInteger (_, _, value) -> value
+          | _ -> failwith "Not an Integer" in
+
+        if int_value > 65535L || int_value < -65535L then
+          let tmp11 = tmp64reg_4 in
+          let load_instruction = load_label ~module_path name tmp11 in
+          let fetch =
+            Instruction
+              (LDR
+                {
+                  data_size;
+                  destination = target_reg;
+                  adress_src = create_adress tmp11;
+                  adress_mode = Immediat;
+                })
+          in
+          (target_reg, load_instruction @ [ fetch ])
+        else
+          let rreg =
+            match size with
+            | I64 -> to_64bits target_reg
+            | _ -> to_32bits target_reg
+          in
+          (rreg, mov_integer rreg int_value)
     | _ -> failwith ""
 
   let rec translate_tac_rvalue ?(is_deref = None) ~str_lit_map
