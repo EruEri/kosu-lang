@@ -225,7 +225,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let consts_opt =
         (if modules_path.v = "" then
          Some (prog |> Asthelper.Program.module_of_string current_mod_name)
-        else prog |> Asthelper.Program.module_of_string_opt current_mod_name)
+        else prog |> Asthelper.Program.module_of_string_opt modules_path.v)
         |> Option.map Asthelper.Module.retrieve_const_decl
       in
 
