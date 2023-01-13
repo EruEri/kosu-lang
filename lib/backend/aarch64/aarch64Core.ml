@@ -15,13 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module IdVar = struct
-  type t = string * KosuIrTyped.Asttyped.rktype
-
-  let compare = compare
-end
-
-module IdVarMap = Map.Make (IdVar)
+module IdVar = Common.IdVar
+module IdVarMap = Common.IdVarMap
 
 module Immediat = struct
   let mask_6_8bytes = 0xFFFF_0000_0000_0000L

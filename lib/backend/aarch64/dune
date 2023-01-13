@@ -17,4 +17,4 @@
 
 (library
  (name aarch64)
- (libraries kosuIrTyped kosuIrTAC kosuFrontend))
+ (libraries kosuIrTyped kosuIrTAC kosuFrontend common))
