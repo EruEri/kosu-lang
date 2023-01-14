@@ -33,28 +33,53 @@ module Register = struct
     size: data_size;
     reg: raw_register
   }
+
+
+  (* %rdi, %rsi, %rdx, %rcx, %r8, %r9 *)
+  let argument_registers = [
+    RDI;
+    RSI;
+    RDX;
+    RCX;
+    R8;
+    R9
+  ]
+
+  let sized_rgister size register = {
+    size; reg = register
+  }
+  
 end
 
-open Register
-
-type address = {
+module Operande = struct
+  type address = {
   offset: int64 option;
-  base: register;
+  base: Register.register;
   index: int64 option;
   scale: int option;
-}
+  }
 
-type src = [
-  `ILitteral of int64
-  | `F64Litteral of float
-  | `Register of register
-  | `Label of string
-]
+  type src = [
+    `ILitteral of int64
+    | `F64Litteral of float
+    | `Register of Register.register
+    | `Label of string
+    | `Address of address
+  ]
 
-type dst = [
-  `Register of register
-  | `Address of address
-]
+  type dst = [
+    `Register of Register.register
+    | `Address of address
+  ]
+
+  let is_adress = function
+  | `Address _ -> true
+  | _ -> false
+
+
+end
+
+
 
 type condition_code = 
   | E
@@ -71,6 +96,9 @@ type condition_code =
   | BE
 
 module Instruction = struct
+  open Register
+  open Operande
+  
   type instruction = 
   | Mov of {
     size: data_size;
@@ -166,4 +194,25 @@ module Instruction = struct
   | Cltd
   | Cqto
   | Ret
+end
+
+module FrameManager = struct
+  open Instruction
+  open Register
+  open Operande
+  open KosuIrTyped.Asttyconvert.Sizeof
+
+  type frame_desc = {
+    stack_param_count : int;
+    locals_space : int64;
+    need_xr : bool;
+    stack_map : address IdVarMap.t;
+    discarded_values : (string * KosuIrTyped.Asttyped.rktype) list;
+  }
+
+  let indirect_return_var = "@xreturn"
+  let indirect_return_type = KosuIrTyped.Asttyped.(RTPointer RTUnknow)
+  let indirect_return_vt = (indirect_return_var, indirect_return_type)
+
+
 end
