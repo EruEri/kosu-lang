@@ -53,10 +53,10 @@ end
 
 module Operande = struct
   type address = {
-  offset: int64 option;
+  offset: int64;
   base: Register.register;
   index: int64 option;
-  scale: int option;
+  scale: int;
   }
 
   type src = [
@@ -76,6 +76,7 @@ module Operande = struct
   | `Address _ -> true
   | _ -> false
 
+  let create_address ?(offset = 0L) base = {offset; base; index = None; scale = 1}
 
 end
 
@@ -196,8 +197,10 @@ module Instruction = struct
   | Ret
 end
 
+let is_register_size = function 1L | 2L | 4L | 8L -> true | _ -> false
+
 module FrameManager = struct
-  open Instruction
+  (* open Instruction *)
   open Register
   open Operande
   open KosuIrTyped.Asttyconvert.Sizeof
@@ -205,7 +208,7 @@ module FrameManager = struct
   type frame_desc = {
     stack_param_count : int;
     locals_space : int64;
-    need_xr : bool;
+    need_result_ptr : bool;
     stack_map : address IdVarMap.t;
     discarded_values : (string * KosuIrTyped.Asttyped.rktype) list;
   }
@@ -213,6 +216,60 @@ module FrameManager = struct
   let indirect_return_var = "@xreturn"
   let indirect_return_type = KosuIrTyped.Asttyped.(RTPointer RTUnknow)
   let indirect_return_vt = (indirect_return_var, indirect_return_type)
+
+  let frame_descriptor ?(stack_future_call = 0L)
+  ~(fn_register_params : (string * KosuIrTyped.Asttyped.rktype) list)
+  ~(stack_param : (string * KosuIrTyped.Asttyped.rktype) list) ~return_type
+  ~locals_var ~discarded_values rprogram =
+  let open Operande in
+
+    let stack_param_count = stack_param |> List.length in
+    let need_result_ptr = return_type
+    |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+    |> is_register_size |> not
+  in
+
+  let stack_concat = fn_register_params @ stack_param @ locals_var in
+
+  let stack_concat =
+    if need_result_ptr then
+      (indirect_return_var, indirect_return_type) :: stack_concat
+    else stack_concat
+  in
+
+  let fake_tuple = stack_concat |> List.map snd in
+  let locals_space =
+    fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
+    |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+  in
+  let locals_space = Int64.add locals_space stack_future_call in
+
+  let map =
+    stack_concat
+    |> List.mapi (fun index value -> (index, value))
+    |> List.fold_left
+         (fun acc (index, st) ->
+           let offset =
+             offset_of_tuple_index ~generics:(Hashtbl.create 0) index
+               fake_tuple rprogram
+           in
+           let rbp_relative_address = (locals_space |> Int64.neg |> Int64.add offset) in
+           let address = create_address ~offset:rbp_relative_address ({size = Q; reg = RBP}) in
+           IdVarMap.add st address acc)
+         IdVarMap.empty
+  in
+  {
+    stack_param_count;
+    locals_space;
+    stack_map = map;
+    discarded_values;
+    need_result_ptr;
+  }
+
+  let address_of (variable, rktype) frame_desc =
+    (* let () = Printf.printf "Lookup => %s : %s\n" (variable) (KosuIrTyped.Asttypprint.string_of_rktype rktype) in *)
+    if List.mem (variable, rktype) frame_desc.discarded_values then None
+    else Some (IdVarMap.find (variable, rktype) frame_desc.stack_map)
 
 
 end
