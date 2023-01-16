@@ -9,6 +9,21 @@ type data_size =
 | D
 | Q
 
+let data_size_of_int64 = function
+| 1L -> Some B
+| 2L -> Some W
+| 4L -> Some D
+| 8L -> Some Q
+| _ -> None
+
+let int64_of_data_size = function
+| B -> 1L
+| W -> 2L
+| D -> 4L
+| Q -> 8L
+
+let is_register_size = function 1L | 2L | 4L | 8L -> true | _ -> false
+
 module Register = struct
   type raw_register = 
   | RAX
@@ -45,10 +60,41 @@ module Register = struct
     R9
   ]
 
-  let sized_rgister size register = {
+  let sized_register size register = {
     size; reg = register
   }
+
+  let rbpq = {
+    size = Q; reg = RBP
+  }
+
+  let rspq = {
+    size = Q;
+    reg = RSP
+  }
+
+  let rdiq = {
+    size = Q;
+    reg = RDI
+  }
+
+  (** Rax *)
+  let tmp_rax size = 
+    let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
+    sized_register data_size RAX
+
+  let tmp_r9 size = 
+    let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
+    sized_register data_size R9
   
+  (** R10 *)
+  let tmp_r10 size = 
+    let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
+    sized_register data_size R10
+
+  let tmp_r11 size =
+      let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
+      sized_register data_size R11
 end
 
 module Operande = struct
@@ -77,6 +123,10 @@ module Operande = struct
   | _ -> false
 
   let create_address ?(offset = 0L) base = {offset; base; index = None; scale = 1}
+
+  let increment_adress by address =  {
+    address with offset = Int64.add address.offset by
+  }
 
 end
 
@@ -121,33 +171,33 @@ module Instruction = struct
   }
   | Add of {
     size: data_size;
-    lhs: dst;
-    rhs: src;
+    destination: dst;
+    source: src;
   }
   | Sub of {
     size: data_size;
-    lhs: dst;
-    rhs: src;
+    destination: dst;
+    source: src;
   }
   | IMul of {
     size: data_size;
-    lhs: register;
-    rhs: src;
+    destination: register;
+    source: src;
   }
   | Xor of {
     size: data_size;
-    lhs: dst;
-    rhs: src;
+    destination: dst;
+    source: src;
   }
   | Or of {
     size: data_size;
-    lhs: dst;
-    rhs: src;
+    destination: dst;
+    source: src;
   }  
   | And of {
     size: data_size;
-    lhs: dst;
-    rhs: src;
+    destination: dst;
+    source: src;
   }
   | IDivl of {
     (* l | q *)
@@ -197,7 +247,52 @@ module Instruction = struct
   | Ret
 end
 
-let is_register_size = function 1L | 2L | 4L | 8L -> true | _ -> false
+type comment = Comment of string
+
+type raw_line =
+  | Instruction of Instruction.instruction
+  | Directive of string
+  | Label of string
+  | Line_Com of comment
+
+  let rec copy_large ~address_str ~base_address_reg size = 
+    if size < 0L then failwith "X86_64 : Negative size to copy"
+    else if size = 0L then []
+    else 
+      let dsize =  size |> data_size_of_int64 |> Option.value ~default:Q in
+      let moved_size = int64_of_data_size dsize in
+      let sized_rax = (Register.tmp_rax size) in
+      [
+        Instruction (Mov {size = dsize; source = `Address base_address_reg; destination = `Register sized_rax });
+        Instruction (Mov {size = dsize; source = `Register sized_rax; destination =  `Address address_str})
+      ] @ copy_large 
+        ~address_str:(Operande.increment_adress moved_size address_str) 
+        ~base_address_reg:(Operande.increment_adress moved_size base_address_reg)
+        (Int64.sub size moved_size)
+  
+  (** 
+    Copy the value in [register] at address [address]
+    The function supposes that value in register is either the plain value if the value can be held in a register 
+    or its address 
+      
+  *)
+  let copy_from_reg (register: Register.register) address ktype rprogram =
+    let open Instruction in 
+  let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+  match size with
+  | s when is_register_size s -> 
+    let data_size = Option.get @@ data_size_of_int64 s in
+    [
+      Instruction (Mov {size = data_size; destination = `Address address; source = `Register register })
+    ]
+  | _ -> copy_large ~address_str:address ~base_address_reg:(Operande.create_address register) size
+
+  let load_register register (address : Operande.address) ktype_size =
+    let data_size = ktype_size |> data_size_of_int64 |> Option.value ~default:Q in
+    [
+      Instruction (Mov {size = data_size; source = `Address address; destination = `Register register})
+    ]
+
 
 module FrameManager = struct
   (* open Instruction *)
@@ -230,12 +325,6 @@ module FrameManager = struct
   in
 
   let stack_concat = fn_register_params @ stack_param @ locals_var in
-
-  let stack_concat =
-    if need_result_ptr then
-      (indirect_return_var, indirect_return_type) :: stack_concat
-    else stack_concat
-  in
 
   let fake_tuple = stack_concat |> List.map snd in
   let locals_space =
@@ -272,4 +361,67 @@ module FrameManager = struct
     else Some (IdVarMap.find (variable, rktype) frame_desc.stack_map)
 
 
+    (** 
+        Assumption on [fn_register_params] 
+          already containing [rdi] if return type cannot be contain in [rax] 
+    *)
+    let function_prologue ~fn_register_params ~stack_params rprogram fd = 
+      let stack_sub_size = Common.align_16 (Int64.add 16L fd.locals_space) in
+      let base = Instruction (Push {size = Q; source = `Register rbpq}) in
+
+      let sp_sub = [
+        Instruction (Mov {size = Q; destination = `Register rspq; source = `Register rbpq});
+        Instruction (Sub {size = Q; destination = `Register rspq; source = `ILitteral stack_sub_size })
+      ] 
+    in
+
+    let copy_reg_instruction = 
+      fn_register_params 
+      |> Util.ListHelper.combine_safe argument_registers
+      |> List.fold_left (fun acc (register, (name, kt)) -> 
+        let whereis =  match address_of (name, kt) fd with
+        | Some a -> a
+        | None -> failwith "X86_64: No stack allocated for this variable"
+        in
+        acc @ copy_from_reg {size = Q; reg = register} whereis kt rprogram
+      ) [] 
+    in
+    let stack_params_offset =
+      stack_params
+      |> List.map (fun (_, kt) ->
+             if KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt > 8L then
+               KosuIrTyped.Asttyhelper.RType.rpointer kt
+             else kt)
+    in
+    let sp_address = Operande.create_address ~offset:(Int64.add 16L stack_sub_size) rspq in
+    let copy_stack_params_instruction =
+      stack_params
+      |> List.mapi (fun index value -> (index, value))
+      |> List.fold_left
+           (fun acc (index, (name, kt)) ->
+             let sizeofkt =
+               KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt
+             in
+             let offset =
+               offset_of_tuple_index index stack_params_offset rprogram
+             in
+             let future_address_location =
+               address_of (name, kt) fd |> fun adr ->
+               match adr with
+               | Some a -> a
+               | None -> failwith "On stack setup null address"
+             in
+             
+             let tmprreg = tmp_rax sizeofkt in
+             let param_stack_address = increment_adress offset sp_address in
+             let load_instruction =
+               load_register tmprreg param_stack_address sizeofkt
+             in
+             let str_instruction =
+               copy_from_reg tmprreg future_address_location kt rprogram
+             in
+             acc @ str_instruction @ load_instruction)
+           []
+    in
+      base::sp_sub @ copy_reg_instruction @ copy_stack_params_instruction
 end
