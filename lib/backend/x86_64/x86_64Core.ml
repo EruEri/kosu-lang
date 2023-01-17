@@ -142,6 +142,8 @@ module Operande = struct
     | `Address of address
   ]
 
+  let dummy_dst : dst = `Register {size = D; reg = R10} 
+
   let is_adress = function
   | `Address _ -> true
   | _ -> false
@@ -170,6 +172,10 @@ module Operande = struct
   let resize_dst data_size: dst -> dst = function
   | `Address _ as addr -> addr
   | `Register reg -> `Register (Register.resize_register data_size reg)
+
+  let increment_dst_address by: dst -> dst = function
+  | `Register _ as reg -> reg
+  | `Address addr -> `Address (increment_adress by addr)
 
 end
 
