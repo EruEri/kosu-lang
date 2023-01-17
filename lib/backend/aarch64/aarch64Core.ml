@@ -335,8 +335,9 @@ let increment_adress off adress =
   { adress with offset = Int64.add adress.offset off }
 
 let asm_const_name current_module const_name =
-  Printf.sprintf "_%s_%s" const_name
+  Printf.sprintf "_%s_%s" 
     (current_module |> String.map (fun c -> if c = ':' then '_' else c))
+    const_name
 
 module Instruction = struct
   type shift = SH16 | SH32 | SH48

@@ -220,7 +220,7 @@ module Codegen = struct
             | _ -> to_32bits target_reg
           in
           (rreg, mov_integer rreg int_value)
-    | _ -> failwith ""
+    | _ -> failwith "Other expression"
 
   let rec translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       ~(where : address option) current_module rprogram

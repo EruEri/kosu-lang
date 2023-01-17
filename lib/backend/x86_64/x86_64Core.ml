@@ -22,6 +22,12 @@ let int64_of_data_size = function
 | D -> 4L
 | Q -> 8L
 
+let data_size_of_isize = let open KosuFrontend.Ast in function
+| I8 -> B
+| I16 -> W
+| I32 -> D
+| I64 -> Q
+
 let is_register_size = function 1L | 2L | 4L | 8L -> true | _ -> false
 
 module Register = struct
@@ -64,6 +70,10 @@ module Register = struct
     size; reg = register
   }
 
+  let resize_register size register = {
+    register with size
+  }
+
   let rbpq = {
     size = Q; reg = RBP
   }
@@ -76,6 +86,16 @@ module Register = struct
   let rdiq = {
     size = Q;
     reg = RDI
+  }
+
+  let ripq = {
+    size = Q;
+    reg = RIP
+  }
+
+  let raxq = {
+    size = Q;
+    reg = RAX
   }
 
   (** Rax *)
@@ -98,8 +118,12 @@ module Register = struct
 end
 
 module Operande = struct
+  type addr_offset = 
+  | Addr_label of (string * int64)
+  | Offset of int64
+
   type address = {
-  offset: int64;
+  offset:  addr_offset;
   base: Register.register;
   index: int64 option;
   scale: int;
@@ -122,11 +146,30 @@ module Operande = struct
   | `Address _ -> true
   | _ -> false
 
-  let create_address ?(offset = 0L) base = {offset; base; index = None; scale = 1}
+  let create_address_offset ?(offset = 0L) base = {
+    offset= Offset offset; 
+    base; 
+    index = None; 
+    scale = 1
+  }
+
+  let create_address_label ~label ?(offset = 0L) base = {
+    offset = Addr_label (label, offset);
+    base;
+    index = None;
+    scale = 1
+  }
 
   let increment_adress by address =  {
-    address with offset = Int64.add address.offset by
+    address with offset = 
+    match address.offset with
+    | Offset o -> Offset (Int64.add by o)
+    | Addr_label (s, o) -> Addr_label (s, Int64.add o by)
   }
+
+  let resize_dst data_size: dst -> dst = function
+  | `Address _ as addr -> addr
+  | `Register reg -> `Register (Register.resize_register data_size reg)
 
 end
 
@@ -158,7 +201,7 @@ module Instruction = struct
   }
   | Lea of {
     size: data_size;
-    source : dst;
+    source : address;
     destination: register;
   }
   | Neg of {
@@ -285,13 +328,34 @@ type raw_line =
     [
       Instruction (Mov {size = data_size; destination = `Address address; source = `Register register })
     ]
-  | _ -> copy_large ~address_str:address ~base_address_reg:(Operande.create_address register) size
+  | _ -> copy_large ~address_str:address ~base_address_reg:(Operande.create_address_offset register) size
 
   let load_register register (address : Operande.address) ktype_size =
     let data_size = ktype_size |> data_size_of_int64 |> Option.value ~default:Q in
     [
       Instruction (Mov {size = data_size; source = `Address address; destination = `Register register})
     ]
+
+    let asm_const_name current_module const_name =
+      Printf.sprintf "_%s_%s" 
+        (current_module |> String.map (fun c -> if c = ':' then '_' else c))
+        const_name
+
+  let address_of_const const_name = 
+    Operande.create_address_label ~label:const_name (Register.ripq)       
+
+  let load_label ?module_path label (dst: Operande.dst) =
+    let label = 
+      module_path 
+      |> Option.map (fun mp -> asm_const_name mp label)
+      |> Option.value ~default:label in 
+  match dst with
+  | `Register reg -> [Instruction (Lea {size = Q; destination = reg; source = address_of_const label})]
+  | `Address addr -> [
+    Instruction (Lea {size = Q; destination = Register.raxq; source = address_of_const label});
+    Instruction (Mov {size = Q; destination = `Address addr; source = `Register Register.raxq})
+  ]
+    
 
 
 module FrameManager = struct
@@ -343,7 +407,7 @@ module FrameManager = struct
                fake_tuple rprogram
            in
            let rbp_relative_address = (locals_space |> Int64.neg |> Int64.add offset) in
-           let address = create_address ~offset:rbp_relative_address ({size = Q; reg = RBP}) in
+           let address = create_address_offset ~offset:rbp_relative_address ({size = Q; reg = RBP}) in
            IdVarMap.add st address acc)
          IdVarMap.empty
   in
@@ -393,7 +457,7 @@ module FrameManager = struct
                KosuIrTyped.Asttyhelper.RType.rpointer kt
              else kt)
     in
-    let sp_address = Operande.create_address ~offset:(Int64.add 16L stack_sub_size) rspq in
+    let sp_address = Operande.create_address_offset ~offset:(Int64.add 16L stack_sub_size) rspq in
     let copy_stack_params_instruction =
       stack_params
       |> List.mapi (fun index value -> (index, value))
@@ -424,4 +488,10 @@ module FrameManager = struct
            []
     in
       base::sp_sub @ copy_reg_instruction @ copy_stack_params_instruction
+
+  let function_epilogue _fd = 
+    let base = Instruction (Mov {size = Q; destination = `Register rspq; source = `Register rbpq}) in
+    let pop = Instruction (Pop {size = Q; destination = `Register rbpq}) in
+    let return = Instruction Ret in
+    base::pop::return::[]
 end
