@@ -9,6 +9,7 @@ open Util
 let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
 
 module Make(Spec: Common.AsmSpecification) = struct
+
   let translate_tac_expression ~str_lit_map ?(target_dst = (`Register {size = D; reg = R10} : dst))
   rprogram (fd: FrameManager.frame_desc) = function
   | { tac_expression = TEString s; expr_rktype = _ } ->
@@ -118,7 +119,42 @@ in
   last_dst,tte_instructions @ copy_if_addre 
     
 
-
+let translate_tac_binop ~str_lit_map ~cc ~blhs ~brhs ~where rval_rktype rprogram fd  = 
+      let r10 = tmp_r10_ktype rprogram brhs.expr_rktype in
+      let rax = tmp_rax_ktype rprogram brhs.expr_rktype in
+      let data_size = data_size_of_int64_def @@ sizeofn rprogram rval_rktype in
+      let _right_reg, rinstructions =
+        translate_tac_expression ~str_lit_map ~target_dst:(`Register r10)rprogram fd brhs
+      in
+      let _left_reg, linstructions =
+        translate_tac_expression ~str_lit_map ~target_dst:(`Register rax) rprogram fd blhs
+      in
+      let copy_instructions =
+        where
+        |> Option.map (fun waddress ->
+                let equal_instruction =
+                  [
+                    Instruction (
+                      Cmp {
+                        size = data_size;
+                        lhs = `Register (resize_register data_size rax);
+                        rhs = `Register (resize_register data_size r10)
+                      }
+                    )
+                    ;
+                    Instruction (
+                      Set {
+                        cc = cc;
+                        register = rax;
+                      }
+                    )
+                  ]
+                in
+                equal_instruction
+                @ copy_from_reg rax waddress rval_rktype rprogram)
+        |> Option.value ~default:[]
+      in
+      rinstructions @ linstructions @ copy_instructions
    
 
 let translate_tac_rvalue ?(is_deref = None) ~str_lit_map 
@@ -667,76 +703,44 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
           |> Option.value ~default:[]
         in
         rinstructions @ linstructions @ copy_instructions
-    | RVBuiltinBinop { binop = TacBool TacEqual; blhs; brhs } ->
-      let r10 = tmp_r10_ktype rprogram brhs.expr_rktype in
-      let r11 = tmp_r11_ktype rprogram blhs.expr_rktype in
-      let rax = tmp_rax_ktype rprogram brhs.expr_rktype in
-      let _right_reg, rinstructions =
-        translate_tac_expression ~str_lit_map ~target_dst:(`Register r10)rprogram fd brhs
-      in
-      let _left_reg, linstructions =
-        translate_tac_expression ~str_lit_map ~target_dst:(`Register r11) rprogram fd blhs
-      in
-      let copy_instructions =
-        where
-        |> Option.map (fun waddress ->
-                let equal_instruction =
-                  [
-                    Instruction (
-                      Cmp {
-                        size = B;
-                        lhs = `Register (resize_register B rax);
-                        rhs = `Register (resize_register B r11)
-                      }
-                    )
-                    ;
-                    Instruction (
-                      Sete {
-                        register = rax;
-                      }
-                    )
-                  ]
-                in
-                equal_instruction
-                @ copy_from_reg rax waddress rval_rktype rprogram)
-        |> Option.value ~default:[]
-      in
-      rinstructions @ linstructions @ copy_instructions
-    | RVBuiltinBinop { binop = TacBool TacDiff; blhs; brhs } ->
-      let r10 = tmp_r10_ktype rprogram brhs.expr_rktype in
-      let r11 = tmp_r11_ktype rprogram blhs.expr_rktype in
-      let rax = tmp_rax_ktype rprogram brhs.expr_rktype in
-      let _right_reg, rinstructions =
-        translate_tac_expression ~str_lit_map ~target_dst:(`Register r10)rprogram fd brhs
-      in
-      let _left_reg, linstructions =
-        translate_tac_expression ~str_lit_map ~target_dst:(`Register r11) rprogram fd blhs
-      in
-      let copy_instructions =
-        where
-        |> Option.map (fun waddress ->
-                let equal_instruction =
-                  [
-                    Instruction (
-                      Cmp {
-                        size = B;
-                        lhs = `Register (resize_register B rax);
-                        rhs = `Register (resize_register B r11)
-                      }
-                    )
-                    ;
-                    Instruction (
-                      Setz {
-                        register = rax;
-                      }
-                    )
-                  ]
-                in
-                equal_instruction
-                @ copy_from_reg rax waddress rval_rktype rprogram)
-        |> Option.value ~default:[]
-      in
-      rinstructions @ linstructions @ copy_instructions
+    | RVBuiltinBinop { binop = TacBool bool_binop; blhs; brhs } ->
+      let is_ptr = KosuIrTyped.Asttyhelper.RType.is_pointer blhs.expr_rktype || KosuIrTyped.Asttyhelper.RType.is_pointer brhs.expr_rktype in
+      let cc = Option.get @@ Condition_Code.cc_of_tac_bin ~is_ptr bool_binop in
+      translate_tac_binop ~str_lit_map ~cc ~blhs ~brhs ~where rval_rktype rprogram fd
+     | RVBuiltinUnop { unop = TacUminus; expr } ->
+        let rax = tmp_rax_ktype rprogram expr.expr_rktype in
+        let last_reg, instructions =
+          translate_tac_expression ~str_lit_map ~target_dst:(`Register rax) rprogram fd expr
+        in
+        let last_reg = Operande.register_of_dst last_reg in
+        let uminus_instructions =
+          Instruction (Neg { size = last_reg.size; source = last_reg })
+        in
+        let copy_instructions =
+          where
+          |> Option.map (fun waddress ->
+                 copy_from_reg last_reg waddress rval_rktype rprogram)
+          |> Option.value ~default:[]
+        in
+        instructions @ (uminus_instructions :: copy_instructions)
+
+      | RVBuiltinUnop { unop = TacNot; expr } ->
+        let rax = tmp_rax_ktype rprogram expr.expr_rktype in
+        let last_reg, instructions =
+          translate_tac_expression ~str_lit_map ~target_dst:(`Register rax) rprogram fd expr
+        in
+        let last_reg = Operande.register_of_dst last_reg in
+        let uminus_instructions =
+          Instruction (Not { size = last_reg.size; source = last_reg })
+        in
+        let copy_instructions =
+          where
+          |> Option.map (fun waddress ->
+                 copy_from_reg last_reg waddress rval_rktype rprogram)
+          |> Option.value ~default:[]
+        in
+        instructions @ (uminus_instructions :: copy_instructions)
+
     | _ -> failwith ""
 end
 

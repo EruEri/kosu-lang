@@ -177,11 +177,15 @@ module Operande = struct
   | _ -> false
 
   let create_address_offset ?(offset = 0L) base = {
-    offset= Offset offset; 
+    offset = Offset offset; 
     base; 
     index = None; 
     scale = 1
   }
+
+  let register_of_dst: dst -> Register.register = function
+  | `Address _ -> raise (Invalid_argument "The destination is an address not a register")
+  | `Register reg -> reg
 
   let create_address_label ~label ?(offset = 0L) base = {
     offset = Addr_label (label, offset);
@@ -208,8 +212,8 @@ module Operande = struct
 end
 
 
-
-type condition_code = 
+module Condition_Code = struct
+  type condition_code = 
   | E
   | NE
   | S
@@ -223,9 +227,23 @@ type condition_code =
   | B
   | BE
 
+  let cc_of_tac_bin ?(is_ptr = false) = let open KosuIrTAC.Asttac in function
+  | TacOr | TacAnd -> None
+  | TacEqual -> Some E
+  | TacDiff -> Some NE
+  | TacSupEq -> Some (if is_ptr then B else L)
+  | TacSup -> Some (if is_ptr then BE else LE)
+  | TacInf -> Some (if is_ptr then AE else GE)
+  | TacInfEq -> Some (if is_ptr then A else G)
+
+end
+
+
+
 module Instruction = struct
   open Register
   open Operande
+  open Condition_Code
   
   type instruction = 
   | Mov of {
@@ -233,11 +251,9 @@ module Instruction = struct
     source: src;
     destination: dst
   }
-  | Sete of {
+  | Set of {
+    cc: condition_code;
     register: Register.register
-  }
-  | Setz of {
-    register: register
   }
   | Lea of {
     size: data_size;
