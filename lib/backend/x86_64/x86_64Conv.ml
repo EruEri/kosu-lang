@@ -121,13 +121,13 @@ in
 
    
 
-let translate_tac_rvalue ?(_is_deref = None) ~str_lit_map 
+let translate_tac_rvalue ?(is_deref = None) ~str_lit_map 
   ~(where : address option) current_module rprogram
   (fd : FrameManager.frame_desc) {rvalue; rval_rktype} = 
     match rvalue with
     | RVExpression tte ->
       let size_to_move = sizeofn rprogram tte.expr_rktype in
-      let last_dst, instructions = where |> Option.map (fun waddress -> 
+      let _last_dst, instructions = where |> Option.map (fun waddress -> 
         let last_dst, tte_instructions = 
           translate_tac_expression ~str_lit_map ~target_dst:(`Address waddress) rprogram fd tte in 
           let copy_instructions = match last_dst with
@@ -135,7 +135,7 @@ let translate_tac_rvalue ?(_is_deref = None) ~str_lit_map
           | `Register reg -> copy_large ~address_str:waddress ~base_address_reg:(create_address_offset reg) size_to_move in 
           last_dst, tte_instructions @ copy_instructions
       ) |> Option.value ~default:(dummy_dst, []) in
-      last_dst, instructions
+      instructions
     | RVStruct {module_path = _; struct_name = _; fields} ->
       let struct_decl =
         match
@@ -170,7 +170,7 @@ let translate_tac_rvalue ?(_is_deref = None) ~str_lit_map
           ) |> Option.value ~default:[] in
           acc @ instructions
         ) [] in
-      dummy_dst, instructions
+      instructions
     | RVFunction { module_path; fn_name; generics_resolver = _; tac_parameters } -> (
       let _typed_parameters =
         tac_parameters |> List.map (fun { expr_rktype; _ } -> expr_rktype)
@@ -179,20 +179,140 @@ let translate_tac_rvalue ?(_is_deref = None) ~str_lit_map
         if module_path = "" then current_module else module_path
       in
       let fn_decl =
-        KosuIrTyped.Asttyhelper.RProgram.find_function_decl_of_name fn_module
+        Option.get @@ KosuIrTyped.Asttyhelper.RProgram.find_function_decl_of_name fn_module
           fn_name rprogram
-        |> Option.get
       in
+      let available_register_params = if fd.need_result_ptr then List.tl Register.argument_registers else Register.argument_registers in
+      let available_register_count = List.length available_register_params in
+      let return_size = sizeofn rprogram rval_rktype in
       match fn_decl with
       | RExternal_Decl external_func_decl -> 
-        let _fn_label = Spec.label_of_external_function external_func_decl in 
-        let _register_param_count = List.length argument_registers in
-        let _tac_parameters = 
-          if not fd.need_result_ptr then tac_parameters
-          else 
-            failwith "" in
+        let fn_label = Spec.label_of_external_function external_func_decl in 
+        let args_in_reg, _args_on_stack = tac_parameters
+        |> List.mapi (fun index value -> (index, value))
+        |> List.partition_map (fun (index, value) ->
+               if index < available_register_count then Either.left value
+               else Either.right value)
+      in
+      let set_in_reg_instructions = 
+        args_in_reg 
+        |> Util.ListHelper.combine_safe available_register_params
+        |> List.fold_left (fun acc (reg, tte) ->
+          let data_size = Option.value ~default:Q @@ data_size_of_int64 @@ sizeofn rprogram tte.expr_rktype in
+          let _last_reg, instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register {size = data_size; reg}) rprogram fd tte in
+          acc @ instructions
+        ) [] in
+
+      let set_on_stack_instructions = [] (* TODO *) in
+      let count_float_parameters = tac_parameters |> List.fold_left (fun acc tte -> 
+        acc + if KosuIrTyped.Asttyhelper.RType.is_64bits_float tte.expr_rktype then 1 else 0
+      ) 0 |> Int64.of_int in
+
+      let variadic_float_use_instruction = if external_func_decl.is_variadic then 
+        [Instruction (Mov {size = B; destination = `Register (sized_register B RAX); source = `ILitteral count_float_parameters})] 
+      else 
+        [] 
+      in  
+
+      let call_instructions = FrameManager.call_instruction ~origin:(`Label fn_label) [] fd in
+
+      let return_reg_data_size = Option.value ~default:Q @@ data_size_of_int64 @@ sizeofn rprogram rval_rktype in
+      let return_reg = sized_register return_reg_data_size RAX in
+      
+      let extern_instructions = 
+        match KosuIrTyped.Asttyconvert.Sizeof.discardable_size return_size with
+        | true ->
+            let copy_instruction =
+              where
+              |> Option.map (fun waddress ->
+                     match is_deref with
+                     | Some pointer ->
+                         Instruction
+                           (Mov
+                              {
+                                size = Q;
+                                destination = `Register rdiq;
+                                source = `Address pointer;
+                              })
+                         :: copy_from_reg return_reg (create_address_offset rdiq)
+                              external_func_decl.return_type rprogram
+                     | None ->
+                         copy_from_reg return_reg waddress
+                           external_func_decl.return_type rprogram)
+              |> Option.value ~default:[]
+            in
+            ( set_in_reg_instructions @ set_on_stack_instructions @ variadic_float_use_instruction  @ call_instructions
+              @ copy_instruction)
+        | false -> 
+          let copy_instruction =
+            where
+            |> Option.map (fun waddress ->
+                   match is_deref with
+                   | Some pointer ->
+                       [
+                         Instruction
+                           (
+                            Mov {
+                              size = Q;
+                              destination = `Register rdiq;
+                              source = `Address pointer
+                            }
+                           );
+                         Instruction
+                           (
+                            Mov {
+                              size = Q;
+                              destination = `Register rdiq;
+                              source = `Address (create_address_offset rdiq)
+                            }
+                           );
+                       ]
+                   | None ->
+                       [
+                         Instruction (
+                          Lea {
+                            size = Q;
+                            destination = rdiq;
+                            source = waddress 
+                          }
+                         );
+                       ])
+            |> Option.value ~default:[]
+          in
+          ( set_in_reg_instructions @ set_on_stack_instructions @ copy_instruction
+            @ call_instructions )
+    in
+        extern_instructions
+      | RSyscall_Decl syscall_decl -> 
+        let set_on_reg_instructions =
+        tac_parameters
+        |> Util.ListHelper.combine_safe syscall_arguments_register
+        |> List.fold_left
+             (fun acc (reg, tte) ->
+              let data_size = Option.value ~default:Q @@ data_size_of_int64 @@ sizeofn rprogram tte.expr_rktype in
+              let _last_reg, instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register {size = data_size; reg}) rprogram fd tte in
+              acc @ instructions
+          ) []
+      in
+      let move_code_syscall_instructions = [
+        Line_Com (Comment ("syscall " ^ syscall_decl.rsyscall_name));
+        Instruction (Mov {size = D; source = `ILitteral syscall_decl.opcode; destination = `Register (sized_register D RAX)});
+        Instruction Syscall
+      ] in
+      let return_reg_data_size = Option.value ~default:Q @@ data_size_of_int64 @@ sizeofn rprogram rval_rktype in
+      
+      let copy_result_instruction = where |> Option.map (fun waddress -> 
+        let return_reg = sized_register return_reg_data_size RAX in
+        let r9 = (tmp_r9 8L) in
+        match is_deref with
+        | Some pointer -> 
+          Instruction (Mov {size = Q; destination = `Register r9  ; source = `Address pointer})
+          :: copy_from_reg return_reg (create_address_offset r9) syscall_decl.return_type rprogram
+        | None -> copy_from_reg return_reg waddress syscall_decl.return_type rprogram
+      ) |> Option.value ~default:[] in
+      set_on_reg_instructions @ move_code_syscall_instructions @ copy_result_instruction
+      | RKosufn_Decl _ -> 
         failwith ""
-      | _ -> failwith ""
     )
 
     | _ -> failwith ""

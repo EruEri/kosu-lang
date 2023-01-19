@@ -66,6 +66,15 @@ module Register = struct
     R9
   ]
 
+  let syscall_arguments_register = [
+    RBX;
+    RCX;
+    RDX;
+    RSI;
+    RDI;
+    RBP
+  ]
+
   let sized_register size register = {
     size; reg = register
   }
@@ -291,6 +300,7 @@ module Instruction = struct
   | Call of {
     what: [`Register of register | `Label of string ];
   }
+  | Syscall
   | Cltd
   | Cqto
   | Ret
@@ -431,6 +441,11 @@ module FrameManager = struct
     else Some (IdVarMap.find (variable, rktype) frame_desc.stack_map)
 
 
+    let call_instruction ~origin _stack_param (_fd : frame_desc) =
+      let call = Instruction (Call { what = origin }) in
+      [ call ]
+
+    
     (** 
         Assumption on [fn_register_params] 
           already containing [rdi] if return type cannot be contain in [rax] 

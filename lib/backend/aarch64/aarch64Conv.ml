@@ -2030,7 +2030,7 @@ module Codegen = struct
                {
                  data_size = None;
                  destination = tmpreg;
-                 adress_src = intermediary_adress |> Option.get;
+                 adress_src = Option.get intermediary_adress ;
                  adress_mode = Immediat;
                })
         in
