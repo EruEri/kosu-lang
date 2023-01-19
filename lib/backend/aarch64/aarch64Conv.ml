@@ -23,6 +23,9 @@ open KosuIrTAC.Asttachelper.StringLitteral
 open KosuIrTAC.Asttac
 open Util
 
+module AsmProgram = Common.AsmProgram(Aarch64Core.Instruction) 
+open AsmProgram
+
 module Codegen = struct
   let mov_integer register n =
     let open Immediat in
@@ -2491,7 +2494,7 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram =
                  in
                  let epilogue = FrameManager.function_epilogue fd in
                  Some
-                   (Afunction
+                   (AsmProgram.Afunction
                       {
                         asm_name;
                         asm_body =

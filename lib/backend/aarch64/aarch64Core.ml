@@ -967,29 +967,3 @@ module FrameManager = struct
     let call = Instruction (BL { cc = None; label = origin }) in
     [ call ]
 end
-
-type asm_function_decl = {
-  asm_name : string;
-  asm_body : Instruction.raw_line list;
-}
-
-type asm_const_decl = {
-  asm_const_name : string;
-  value : [ `IntVal of KosuFrontend.Ast.isize * int64 | `StrVal of string ];
-}
-
-type asm_module_node =
-  | Afunction of asm_function_decl
-  | AConst of asm_const_decl
-
-type asm_module = AsmModule of asm_module_node list
-type asm_module_path = { apath : string; asm_module : asm_module }
-
-type named_asm_module_path = {
-  filename : string;
-  asm_module_path : asm_module_path;
-  rprogram : KosuIrTyped.Asttyped.rprogram;
-  str_lit_map : (string, Util.stringlit_label) Hashtbl.t;
-}
-
-type asm_program = named_asm_module_path list

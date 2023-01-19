@@ -20,6 +20,9 @@ open Aarch64Core.Register
 open Aarch64Core.Instruction
 open Printf
 
+module AsmProgram = Common.AsmProgram(Aarch64Core.Instruction) 
+open AsmProgram
+
 let p2align = Printf.sprintf ".p2align %n"
 
 let string_of_f64bits_reg = function

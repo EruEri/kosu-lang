@@ -1,169 +1,89 @@
-(* open Common
-open KosuIrTyped.Asttyconvert.Sizeof
-open KosuIrTAC.Asttachelper.StringLitteral
-open KosuIrTAC.Asttac
 open Util
-
-module type Register = sig
-  type register
-
-  val argument_registers: register list
-
-  val syscall_arguments_register: register list
-
-  val indirect_return_reg: register
-
-  (* val reg64_of_reg: register -> register
-  val reg32_of_reg: register -> register
-  val reg16_of_reg: register -> register
-  val reg8_of_reg: register -> register *)
-
-  val is_calee_saved: register
-end
-
-module type Instruction = sig
-  type instruction
-end
-
-module type ABI = sig
-    module Instruction : sig
-      include Instruction
-    end
-end
-
-module type Address = sig
-  module Register : sig
-    include Register
-  end 
-
-  type address
-
-  val create_address: ?offset: int64 -> Register.register
-
-  val increment_adress: int64 -> address -> address
-end
-
-module type FrameManager = sig
-
-  module Address : sig
-    include Address
-  end
-
-  module Instruction : sig 
-    include Instruction
-  end
-
-  type frame_desc
-  type instruction = Instruction.instruction
-  type address = Address.address
-
-  val frame_descriptor: ?stack_future_call:int64 
-    -> fn_register_params:Common.IdVar.t list
-    -> stack_param: Common.IdVar.t list
-    -> return_ktype: KosuIrTyped.Asttyped.rktype
-    -> locale_var:Common.IdVar.t list
-    -> discarded_values:Common.IdVar.t
-    -> KosuIrTyped.Asttyped.rprogram
-    -> frame_desc
-
-  val address_of: Common.IdVar.t -> frame_desc -> address option
-
-  val fonction_prologue: fn_register_params: Common.IdVar.t list
-    -> stack_params: Common.IdVar.t list
-    -> KosuIrTyped.Asttyped.rprogram
-    -> frame_desc
-    -> instruction list
-
-  val fonction_epilogue: frame_desc -> instruction list
-end
-
-module type InstrutionSelector = sig
+open KosuIrTAC.Asttac
 
 
-  module Address : sig
-    include Address
-  end
+module type AsmProgram = sig
 
-  module Instruction : sig 
-    include Instruction
-  end
+  type asm_function_decl
+  type asm_module
+  type asm_module_node
+  type asm_module_path
+ 
+  type named_asm_module_path
+  type asm_program = named_asm_module_path list
 
-  
-  type register = Address.Register.register
-  type instruction = Instruction.instruction
-  type address = Address.address
-  type dst
-  type src
-  
-  
-  type condition_code
-
-  val mov: src -> dst -> instruction list
-
-  val mvn: src -> dst -> instruction list
-
-  val not: src -> dst -> instruction list
-
-  val neg: src -> dst -> instruction list
-
-  val add: lhs:src -> rhs:src -> dst -> instruction list
-
-  val adds: lhs:src -> rhs:src -> dst -> instruction list
-
-  val madd: base:src -> operande:src -> scale:src -> dst -> instruction list
-
-  val msub: base:src -> operande:src -> scale:src -> dst -> instruction list
-
-  val sub: lhs:src -> rhs:src -> dst -> instruction list
-
-  val subs: lhs:src -> rhs:src -> dst -> instruction list
-
-  val mul: lhs:src -> rhs:src -> dst -> instruction list
-
-  val udiv: lhs:src -> rhs:src -> dst -> instruction list
-
-  val idiv: lhs:src -> rhs:src -> dst -> instruction list
-
-  val losl: lhs:src -> rhs:src -> dst -> instruction list
-
-  val losr: lhs:src -> rhs:src -> dst -> instruction list
-
-  val aosr: lhs:src -> rhs:src -> dst -> instruction list
-
-  val cmp: src -> src -> instruction list
-
-  val loand: lhs:src -> rhs:src -> dst -> instruction list
-
-  val loxor: lhs:src -> rhs:src -> dst -> instruction list 
-
-  val loor: lhs:src -> rhs:src -> dst -> instruction list
-
-  val b: condition_code option -> string -> instruction list
-
-  val bl: condition_code option -> string -> instruction list
-
-  val br: condition_code option -> register -> instruction list
-
-  val blr: condition_code option -> register -> instruction list
-
-  val ret: instruction list
-
-  val syscall: int64 option -> instruction list
-
-  val load_label: ?module_path:string -> string -> dst -> dst * instruction list
-
-  val tmpreg: is_float:bool -> dst
-  val tmpreg2: is_float:bool -> dst
-  val tmpreg3: is_float:bool -> dst
-  val tmpreg4: is_float:bool -> dst
+  val asm_program_of_tac_program: tac_program -> asm_program
+  val sort_asm_module: asm_module_node list -> asm_module_node list
+  val string_litteral_section_start: string
+  val string_litteral_section_end: string
+  val string_of_asm_node: asm_module_node -> string
+  val string_litteral_directive: (string -> stringlit_label -> string)
+  val filename_of_named_asm_module_path: named_asm_module_path -> string
+  val asm_module_path_of_named_asm_module_path: named_asm_module_path -> asm_module
+  val str_lit_map_of_name_asm_module: named_asm_module_path -> (string, stringlit_label) Hashtbl.t
+  val asm_module_node_list_of_asm_module: asm_module -> asm_module_node list
  
 end
 
-module Make(IS: InstrutionSelector)(FM: FrameManager)(Register: Register) = struct
+
+module Make(AsmProgram: AsmProgram) = struct
+  open AsmProgram
+  let export_asm_module_opened_file file named_asm_module_path = 
+    let str_lit_map = str_lit_map_of_name_asm_module named_asm_module_path in
+    let asm_module_nodes = named_asm_module_path 
+      |> AsmProgram.asm_module_path_of_named_asm_module_path 
+      |> AsmProgram.asm_module_node_list_of_asm_module 
+    in
+    let rnodes  = AsmProgram.sort_asm_module (asm_module_nodes) in
+    let () = rnodes |> List.iter (fun node -> 
+      Printf.fprintf file "%s\n\n" (string_of_asm_node node)
+    ) in
+
+    let () = Printf.fprintf file "\n\t%s\n" string_litteral_section_start in
+    let () = str_lit_map |> Hashtbl.to_seq |> Seq.iter (fun (str, SLit label) -> 
+      let string_directive = string_litteral_directive str (SLit label) in
+        Printf.fprintf file "%s:\n\t %s \"%s\"\n\n" label string_directive str
+      )
+    in
+    let () = Printf.fprintf file "\n%s\n" string_litteral_section_end in
+    ()
+    ;;
+
+  let export_asm_module_tmp named_asm_module_path =
+    let filename =
+      named_asm_module_path 
+      |> filename_of_named_asm_module_path
+      |> String.map (fun c ->
+             if Char.escaped c = Filename.dir_sep then '_' else c)
+    in
+    let filename, file = Filename.open_temp_file filename ".S" in
+    let () = export_asm_module_opened_file file named_asm_module_path in
+    let () = close_out file in
+    filename
+  ;;
+
+  let export_asm_module named_asm_module_path =
+    let filename =
+      named_asm_module_path 
+      |> filename_of_named_asm_module_path
+    in
+    let file = open_out filename in
+    let () = export_asm_module_opened_file file named_asm_module_path in
+    let () = close_out file in
+    filename
+
+  let compile_asm_tmp asm_program =
+    asm_program |> List.map (fun asm_module -> export_asm_module_tmp asm_module)
   
-  let translate_tac_expression ~str_lit_map ?(target_reg = IS.tmpreg ~is_float:false) rprogram (fd: FM.frame_desc) = function
-  | {tac_expression = TEString s; _} 
-    ->     
-    let (SLit str_labl) = Hashtbl.find str_lit_map s in
-    IS.load_label str_labl target_reg    
-end *)
+  let compile_asm asm_program =
+    asm_program |> List.map (fun asm_module -> export_asm_module asm_module)
+  
+  let compile_asm_from_tac_tmp tac_program =
+    tac_program |> asm_program_of_tac_program |> compile_asm_tmp
+  
+  let compile_asm_from_tac tac_program =
+    tac_program |> asm_program_of_tac_program |> compile_asm
+end
+
+
+module Aarch64Codegen = Make(Aarch64.Aarch64Codegen.Codegen)
