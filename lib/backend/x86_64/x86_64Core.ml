@@ -6,13 +6,13 @@ module IdVarMap = Common.IdVarMap
 type data_size = 
 | B
 | W
-| D
+| L
 | Q
 
 let data_size_of_int64 = function
 | 1L -> Some B
 | 2L -> Some W
-| 4L -> Some D
+| 4L -> Some L
 | 8L -> Some Q
 | _ -> None
 
@@ -22,13 +22,13 @@ let data_size_of_int64_def ?(default = Q) size =
 let int64_of_data_size = function
 | B -> 1L
 | W -> 2L
-| D -> 4L
+| L -> 4L
 | Q -> 8L
 
 let data_size_of_isize = let open KosuFrontend.Ast in function
 | I8 -> B
 | I16 -> W
-| I32 -> D
+| I32 -> L
 | I64 -> Q
 
 let is_register_size = function 1L | 2L | 4L | 8L -> true | _ -> false
@@ -157,20 +157,21 @@ module Operande = struct
   scale: int;
   }
 
-  type src = [
-    `ILitteral of int64
-    | `F64Litteral of float
-    | `Register of Register.register
-    | `Label of string
-    | `Address of address
-  ]
 
   type dst = [
     `Register of Register.register
     | `Address of address
   ]
 
-  let dummy_dst : dst = `Register {size = D; reg = R10} 
+  type src = [
+    `ILitteral of int64
+    | `F64Litteral of float
+    | `Label of string
+    | dst
+  ]
+
+
+  let dummy_dst : dst = `Register {size = L; reg = R10} 
 
   let is_adress = function
   | `Address _ -> true
@@ -308,12 +309,12 @@ module Instruction = struct
   | IDivl of {
     (* l | q *)
     size: data_size;
-    divivor: src;
+    divisor: src;
   }
   | Div of {
     (* l | q *)
     size: data_size;
-    divivor: src;
+    divisor: src;
   }
   (* Shift Left *)
   | Sal of {
@@ -357,6 +358,17 @@ module Instruction = struct
   | Cltd
   | Cqto
   | Ret
+
+  let division_split = function
+  | Q -> Cqto
+  | _ -> Cltd
+
+  let division_instruction ~unsigned size divisor = 
+    match unsigned, size with
+    | false, Q -> Instruction (IDivl {size = Q; divisor})
+    | true, Q -> Instruction (Div {size = Q; divisor})
+    | false, _ -> Instruction (IDivl {size = L; divisor})
+    | true, _ -> Instruction (Div {size = L; divisor})
 
   let ins_add ~size ~destination ~source = [
     Instruction (Add {size; destination; source })

@@ -10,7 +10,7 @@ let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
 
 module Make(Spec: Common.AsmSpecification) = struct
 
-  let translate_tac_expression ~str_lit_map ?(target_dst = (`Register {size = D; reg = R10} : dst))
+  let translate_tac_expression ~str_lit_map ?(target_dst = (`Register {size = L; reg = R10} : dst))
   rprogram (fd: FrameManager.frame_desc) = function
   | { tac_expression = TEString s; expr_rktype = _ } ->
     let (SLit str_labl) = Hashtbl.find str_lit_map s in
@@ -356,7 +356,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       in
       let move_code_syscall_instructions = [
         Line_Com (Comment ("syscall " ^ syscall_decl.rsyscall_name));
-        Instruction (Mov {size = D; source = `ILitteral syscall_decl.opcode; destination = `Register (sized_register D RAX)});
+        Instruction (Mov {size = L; source = `ILitteral syscall_decl.opcode; destination = `Register (sized_register L RAX)});
         Instruction Syscall
       ] in
       let return_reg_data_size = Option.value ~default:Q @@ data_size_of_int64 @@ sizeofn rprogram rval_rktype in
@@ -770,6 +770,54 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
           @ scale_instruction 
           @ (operator_function_instruction ~size:size_reg.size ~destination:ptr_reg ~source:(`Register size_reg)) 
     end
+    | RVBuiltinBinop {binop = TacSelf TacDiv; blhs = dividende; brhs = divisor} -> 
+      let unsigned = KosuIrTyped.Asttyhelper.RType.is_unsigned_integer dividende.expr_rktype in
+      let last_reg9, divisor_instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register (tmp_r10 8L) ) rprogram fd divisor in
+      let raw_data_size = data_size_of_int64_def @@ sizeofn rprogram dividende.expr_rktype in
+      let scaled_data_size = match raw_data_size with
+      | Q -> Q
+      | _ -> L 
+    in 
+
+      let _, instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register raxq) rprogram fd dividende in
+      let setup_div = Instruction (division_split scaled_data_size) in
+      
+      let r9 = register_of_dst last_reg9 in
+      let divi_instruction = division_instruction ~unsigned scaled_data_size (`Register r9) in
+
+      let copy_instructions =
+        where
+        |> Option.map (fun waddress ->
+          copy_from_reg (resize_register raw_data_size raxq) waddress rval_rktype rprogram
+          )
+        |> Option.value ~default:[]
+      in
+    instructions @ divisor_instructions @ setup_div::divi_instruction::copy_instructions
+
+    | RVBuiltinBinop {binop = TacSelf TacModulo; blhs = dividende; brhs = divisor} -> 
+      let unsigned = KosuIrTyped.Asttyhelper.RType.is_unsigned_integer dividende.expr_rktype in
+      let last_reg9, divisor_instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register (tmp_r10 8L) ) rprogram fd divisor in
+      let raw_data_size = data_size_of_int64_def @@ sizeofn rprogram dividende.expr_rktype in
+      let scaled_data_size = match raw_data_size with
+      | Q -> Q
+      | _ -> L 
+    in 
+
+      let _, instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register raxq) rprogram fd dividende in
+      let setup_div = Instruction (division_split scaled_data_size) in
+      
+      let r9 = register_of_dst last_reg9 in
+      let divi_instruction = division_instruction ~unsigned scaled_data_size (`Register r9) in
+
+      let copy_instructions =
+        where
+        |> Option.map (fun waddress ->
+          copy_from_reg (sized_register raw_data_size RDX) waddress rval_rktype rprogram
+          )
+        |> Option.value ~default:[]
+      in
+    instructions @ divisor_instructions @ setup_div::divi_instruction::copy_instructions
+
      | RVBuiltinUnop { unop = TacUminus; expr } ->
         let rax = tmp_rax_ktype rprogram expr.expr_rktype in
         let last_reg, instructions =
