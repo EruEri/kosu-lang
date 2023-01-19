@@ -171,6 +171,9 @@ module Operande = struct
   ]
 
 
+  let src_of_dst: dst -> src = function
+  | `Address addr -> `Address addr | `Register reg -> `Register reg
+
   let dummy_dst : dst = `Register {size = L; reg = R10} 
 
   let is_adress = function
@@ -194,6 +197,10 @@ module Operande = struct
     index = None;
     scale = 1
   }
+
+  let address_of_dst: dst -> address = function
+  | `Address addr -> addr
+  | `Register reg -> create_address_offset reg
 
   let increment_adress by address =  {
     address with offset = 

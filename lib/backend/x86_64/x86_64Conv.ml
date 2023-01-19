@@ -877,5 +877,202 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
         instructions @ copy_instructions
     )
     | _ -> failwith ""
+
+
+    let rec translate_tac_statement ~str_lit_map current_module rprogram
+      (fd : FrameManager.frame_desc) = function
+      | STacDeclaration { identifier; trvalue }
+      | STacModification { identifier; trvalue } ->
+          let address =
+            FrameManager.address_of (identifier, trvalue.rval_rktype) fd
+          in
+          let instructions =
+            translate_tac_rvalue ~str_lit_map ~where:address current_module
+              rprogram fd trvalue
+          in
+          instructions
+      | STDerefAffectation { identifier; trvalue } ->
+        let tmpreg =
+          tmp_r9_ktype rprogram
+            (KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype)
+        in
+        let intermediary_adress =
+          FrameManager.address_of
+            ( identifier,
+              KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype )
+            fd
+        in
+        let instructions =
+          Instruction
+            (LDR
+                {
+                  data_size = None;
+                  destination = tmpreg;
+                  adress_src = Option.get intermediary_adress ;
+                  adress_mode = Immediat;
+                })
+        in
+        let true_adress = create_address_offset tmpreg in
+        let true_instructions =
+          translate_tac_rvalue ~str_lit_map ~is_deref:intermediary_adress
+            ~where:(Some true_adress) current_module rprogram fd trvalue
+        in
+          Line_Com (Comment "Defered Start") :: instructions
+          :: true_instructions
+          @ [ Line_Com (Comment "Defered end") ]
+
+    | STIf
+    {
+      statement_for_bool;
+      condition_rvalue;
+      goto1;
+      goto2;
+      exit_label;
+      if_tac_body;
+      else_tac_body;
+    } ->
+    let stmts_bool =
+      statement_for_bool
+      |> List.fold_left
+            (fun acc stmt ->
+              acc
+              @ (translate_tac_statement ~str_lit_map current_module rprogram
+                  fd stmt
+                ))
+            []
+    in
+    let last_reg, condition_rvalue_inst =
+      translate_tac_expression ~str_lit_map rprogram fd condition_rvalue
+    in
+    let data_size = match last_reg with | `Address _ -> Q | `Register reg -> reg.size in 
+    let lhs = src_of_dst last_reg in
+    let cmp =
+      Instruction (Cmp { size = data_size; lhs; rhs = `ILitteral 1L })
+    in
+    let jmp = Instruction (Jmp { cc = Some E; where = `Label goto1 }) in
+    let jmp2 = Instruction (Jmp { cc = None; where = `Label goto2 }) in
+    let if_block =
+      translate_tac_body ~str_lit_map ~end_label:(Some exit_label)
+        current_module rprogram fd if_tac_body
+    in
+    let else_block =
+      translate_tac_body ~str_lit_map ~end_label:(Some exit_label)
+        current_module rprogram fd else_tac_body
+    in
+    let exit_label_instr = Label exit_label in
+      stmts_bool @ condition_rvalue_inst
+      @ (cmp :: jmp :: jmp2 :: if_block)
+      @ else_block @ [ exit_label_instr ]
+
+    | SCases { cases; else_tac_body; exit_label } ->
+      let cases_body, cases_condition =
+        cases
+        |> List.map (fun scases ->
+                (* furute optimisation : do only si else branch*)
+                let setup_next_label_instr =
+                  scases.condition_label
+                  |> Option.map (fun label -> Label label)
+                  |> Option.to_list
+                in
+                let setup_condition_insts =
+                  scases.statement_for_condition
+                  |> List.map (fun stmt ->
+                     translate_tac_statement ~str_lit_map current_module
+                              rprogram fd stmt)
+                  |> List.flatten
+                in
+                let last_reg, condition =
+                  translate_tac_expression ~str_lit_map rprogram fd
+                    scases.condition
+                in
+                let lhs = src_of_dst last_reg in
+                let cmp =
+                  Instruction
+                    (Cmp { size = B; lhs; rhs = `ILitteral 1L })
+                in
+                let if_true_instruction =
+                  Instruction (Jmp { cc = Some E; where = `Label scases.goto })
+                in
+                let if_false_instruction =
+                  Instruction (Jmp { cc = None; where = `Label scases.jmp_false })
+                in
+                let body_instruction =
+                  translate_tac_body ~str_lit_map
+                    ~end_label:(Some scases.end_label) current_module rprogram
+                    fd scases.tac_body
+                in
+                ( body_instruction,
+                  setup_next_label_instr @ setup_condition_insts @ condition
+                  @ [ cmp; if_true_instruction; if_false_instruction ] ))
+        |> List.split
+        |> fun (lhs, rhs) -> (List.flatten lhs, List.flatten rhs)
+      in
+      let _else_jump =
+        Instruction (Jmp { cc = None; where = `Label else_tac_body.label })
+      in
+      let end_label_instruction = Label exit_label in
+      let else_body_instruction =
+        translate_tac_body ~str_lit_map ~end_label:(Some exit_label)
+          current_module rprogram fd else_tac_body
+      in
+        cases_condition @ cases_body @ else_body_instruction
+        @ [ end_label_instruction ]
+
+
+  and translate_tac_body ~str_lit_map ?(end_label = None) current_module
+      rprogram (fd : FrameManager.frame_desc) { label; body } =
+    let label_instr = Label label in
+    let stmt_instr =
+      body |> fst
+      |> List.map (fun stmt ->
+         translate_tac_statement ~str_lit_map current_module rprogram fd
+                  stmt)
+      |> List.flatten
+    in
+    let end_label_inst =
+      end_label
+      |> Option.map (fun lab -> Instruction (Jmp { cc = None; where = `Label lab }))
+      |> Option.to_list
+    in
+    let return_instr =
+      body |> snd
+      |> Option.map (fun tte ->
+             let last_reg, instructions =
+               translate_tac_expression ~str_lit_map rprogram fd tte
+             in
+             let sizeof = sizeofn rprogram tte.expr_rktype in
+             let return_reg =
+               tmp_rax
+                 sizeof
+             in
+             instructions
+             @
+             if is_register_size sizeof then
+               Instruction
+                 (Mov
+                    {
+                      size = return_reg.size;
+                      destination = `Register return_reg;
+                      source = src_of_dst last_reg;
+                    })
+               :: []
+             else
+               let x8_address =
+                 Option.get @@ FrameManager.(address_of indirect_return_vt fd)
+               in
+               let str =
+                 Instruction
+                   (Mov
+                      {
+                        size = Q;
+                        destination = `Register rdiq;
+                        source = `Address x8_address;
+                      })
+               in
+
+               str :: copy_large ~address_str:(create_address_offset rdiq) ~base_address_reg:(address_of_dst last_reg) sizeof)
+      |> Option.value ~default:[]
+    in
+    (label_instr :: stmt_instr) @ return_instr @ end_label_inst
 end
 
