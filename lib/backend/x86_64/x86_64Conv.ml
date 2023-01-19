@@ -863,22 +863,18 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       let open KosuFrontend.Ast.Builtin_Function in
       match fn_name with
       | Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64 | Stringl_ptr  ->
-        failwith ""
-          (* let tte = parameters |> List.hd in
-          let r9 = tmp32reg_2 in
-          let last_reg, instructions =
-            translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd
-              tte
-          in
-          let copy_instructions =
-            where
-            |> Option.map (fun waddress ->
-                    copy_from_reg (to_32bits last_reg) waddress rval_rktype
-                      rprogram)
-            |> Option.value ~default:[]
-          in
-          (to_32bits r9, instructions @ copy_instructions)
-    ) *)
+        let paramter = List.hd parameters in
+        let data_size = data_size_of_isize @@ KosuFrontend.Ast.Builtin_Function.isize_of_functions fn_name in
+        let target_reg_rax = sized_register data_size RAX in
+        let _, instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register target_reg_rax) rprogram fd paramter in
+        let copy_instructions =
+          where
+          |> Option.map (fun waddress ->
+                 copy_from_reg target_reg_rax waddress rval_rktype
+                   rprogram)
+          |> Option.value ~default:[]
+        in
+        instructions @ copy_instructions
     )
     | _ -> failwith ""
 end
