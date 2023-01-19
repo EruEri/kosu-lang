@@ -343,7 +343,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       let call_instructions = FrameManager.call_instruction ~origin:(`Label fn_label) [] fd in
       let return_reg_data_size = Option.value ~default:Q @@ data_size_of_int64 @@ sizeofn rprogram rval_rktype in
       let return_reg = sized_register return_reg_data_size RAX in
-      let extern_instructions = 
+      let kosu_fn_instructions = 
         match KosuIrTyped.Asttyconvert.Sizeof.discardable_size return_size with
         | true ->
             let copy_instruction =
@@ -406,9 +406,337 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
           ( set_in_reg_instructions @ set_on_stack_instructions @ copy_instruction
             @ call_instructions )
     in
-        extern_instructions
+      kosu_fn_instructions
     )
+    | RVTuple ttes ->
+      let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in
+      let offset_list =
+        ttes
+        |> List.mapi (fun index _value ->
+               offset_of_tuple_index index ktlis rprogram)
+        |> List.tl
+        |> fun l -> l @ [ 0L ]
+      in
+        where
+        |> Option.map (fun waddress ->
+               ttes
+               |> List.mapi (fun index value -> (index, value))
+               |> List.fold_left
+                    (fun (accumuled_adre, acc) (index, tte) ->
+                      let reg_texp, instructions =
+                        translate_tac_expression rprogram ~str_lit_map ~target_dst:(`Address accumuled_adre) fd tte
+                      in
+                      let increment_adress = increment_adress (List.nth offset_list index) accumuled_adre in
+                      let acc_plus = acc @ instructions in
+                       match reg_texp with
+                      | `Address _ -> increment_adress, acc_plus
+                      | `Register reg ->
+                      ( increment_adress ,
+                        acc_plus @ copy_from_reg reg accumuled_adre tte.expr_rktype rprogram )
+                      ) (waddress, [])
+                    
+               |> snd)
+        |> Option.value ~default:[]
+        | RVFieldAcess
+        {
+          first_expr = { expr_rktype; tac_expression = TEIdentifier struct_id };
+          field;
+        } ->
+        let struct_decl =
+          match
+            KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
+              expr_rktype rprogram
+          with
+          | Some (RDecl_Struct s) -> s
+          | Some (RDecl_Enum _) ->
+              failwith "Expected to find a struct get an enum"
+          | None -> failwith "Non type decl ??? my validation is very weak"
+        in
 
+        let generics =
+          expr_rktype
+          |> KosuIrTyped.Asttyhelper.RType.extract_parametrics_rktype
+          |> List.combine struct_decl.generics
+          |> List.to_seq |> Hashtbl.of_seq
+        in
+
+        let offset = offset_of_field ~generics field struct_decl rprogram in
+        let struct_address =
+          FrameManager.address_of (struct_id, expr_rktype) fd |> fun adr ->
+          match adr with
+          | Some a -> a
+          | None -> failwith "field access null address"
+        in
+        let field_address = increment_adress offset struct_address in
+        let sizeof = sizeofn rprogram rval_rktype in
+
+        let size = data_size_of_int64_def sizeof in
+        let tmpreg = tmp_r10 sizeof in
+        let copy_instructions =
+          where
+          |> Option.map (fun waddress ->
+                 [
+                 Instruction (Mov {
+                    size;
+                    destination = `Register tmpreg;
+                    source = `Address field_address
+                 }) 
+                 ]
+                 @ copy_from_reg tmpreg waddress rval_rktype rprogram)
+          |> Option.value ~default:[]
+        in
+        Line_Com (Comment ("Field access of " ^ field)) :: copy_instructions
+        
+    | RVFieldAcess _ ->
+        failwith "Wierd : Fields access force struct as an identifier"
+
+        | RVAdress id ->
+          let pointee_type =
+            rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee
+          in
+          let adress =
+            FrameManager.address_of (id, pointee_type) fd |> fun adr ->
+            match adr with
+            | Some a -> a
+            | None -> failwith "address of null address"
+          in
+          let copy_instruction =
+            where
+            |> Option.map (fun waddress ->
+              [
+                Instruction (Lea {
+                  size = Q;
+                  destination = raxq;
+                  source = adress
+                })
+              ]
+                   @ copy_from_reg raxq waddress rval_rktype rprogram)
+            |> Option.value ~default:[]
+          in
+          copy_instruction
+    | RVDefer id ->
+      let adress =
+        FrameManager.address_of
+          (id, rval_rktype |> KosuIrTyped.Asttyhelper.RType.rpointer)
+          fd
+        |> fun adr ->
+        match adr with
+        | Some a -> a
+        | None -> failwith "defer of null address"
+      in
+      let r10q = (tmp_r10 8L) in
+      let load_instruction =
+        [ 
+          Instruction (Mov {
+            size = Q;
+            destination = `Register r10q;
+            source = `Address adress
+          })
+        ]
+      in
+      let last_reg, load_indirect =
+        if
+          is_register_size
+          @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram rval_rktype
+        then
+          ( raxq,
+            [
+              Instruction (
+                Mov {
+                  size = Q;
+                  destination = `Register raxq;
+                  source = `Address (create_address_offset r10q)
+                }
+              )
+            ] )
+        else (r10q, [])
+      in
+
+      let copy_instructions =
+        where
+        |> Option.map (fun waddress ->
+                load_instruction @ load_indirect
+                @ copy_from_reg last_reg waddress rval_rktype rprogram)
+        |> Option.value ~default:[]
+      in
+
+      copy_instructions
+    | RVEnum { variant; assoc_tac_exprs; _ } ->
+      let enum_decl =
+        match
+          KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
+            rval_rktype rprogram
+        with
+        | Some (RDecl_Struct _) ->
+            failwith "Expected to find an enum get an struct"
+        | Some (RDecl_Enum e) -> e
+        | None -> failwith "Non type decl ??? my validation is very weak"
+      in
+      let tag =
+        KosuIrTyped.Asttyhelper.Renum.tag_of_variant variant enum_decl
+      in
+      let enum_tte_list =
+        assoc_tac_exprs
+        |> List.cons
+              {
+                expr_rktype = RTInteger (Unsigned, I32);
+                tac_expression = TEInt (Unsigned, I32, Int64.of_int32 tag);
+              }
+      in
+      let enum_type_list =
+        enum_tte_list |> List.map (fun { expr_rktype; _ } -> expr_rktype)
+      in
+      let offset_list =
+        enum_tte_list
+        |> List.mapi (fun index { expr_rktype = _; _ } ->
+                offset_of_tuple_index index enum_type_list rprogram)
+      in
+      (* let () = offset_list |> List.map (Printf.sprintf "%Lu") |> String.concat ", " |> Printf.printf "%s::%s off = [%s]\n" enum_decl.renum_name variant in *)
+      where
+      |> Option.map (fun waddress ->
+             enum_tte_list
+             |> List.mapi (fun index value -> (index, value))
+             |> List.fold_left
+                  (fun (accumuled_adre, acc) (index, tte) ->
+                    let reg_texp, instructions =
+                      translate_tac_expression rprogram ~str_lit_map ~target_dst:(`Address accumuled_adre) fd tte
+                    in
+                    let increment_adress = increment_adress (List.nth offset_list index) accumuled_adre in
+                    let acc_plus = acc @ instructions in
+                     match reg_texp with
+                    | `Address _ -> increment_adress, acc_plus
+                    | `Register reg ->
+                    ( increment_adress ,
+                      acc_plus @ copy_from_reg reg accumuled_adre tte.expr_rktype rprogram )
+                    ) (waddress, [])
+                  
+             |> snd)
+      |> Option.value ~default:[]
+    | RVDiscard | RVLater -> []
+    | RVBuiltinBinop { binop = TacBool TacOr; blhs; brhs } ->
+      let r9 = tmp_r9_ktype rprogram brhs.expr_rktype in
+      let rax = tmp_rax_ktype rprogram blhs.expr_rktype in
+      let _right_reg, rinstructions =
+        translate_tac_expression ~str_lit_map ~target_dst:(`Register r9) rprogram fd brhs
+      in
+      let left_reg, linstructions =
+        translate_tac_expression ~str_lit_map ~target_dst:(`Register rax) rprogram fd blhs
+      in
+      let copy_instructions =
+        where
+        |> Option.map (fun waddress ->
+               let or_instruction =
+                 [
+                  Instruction (
+                    Or {
+                      size = B;
+                      destination = left_reg;
+                      source = `Register (resize_register B r9)
+                    }
+                  )
+                 ]
+               in
+               or_instruction @ copy_from_reg rax waddress rval_rktype rprogram)
+        |> Option.value ~default:[]
+      in
+      rinstructions @ linstructions @ copy_instructions
+      | RVBuiltinBinop { binop = TacBool TacAnd; blhs; brhs } ->
+        let r9 = tmp_r9_ktype rprogram brhs.expr_rktype in
+        let rax = tmp_rax_ktype rprogram blhs.expr_rktype in
+        let _right_reg, rinstructions =
+          translate_tac_expression ~str_lit_map ~target_dst:(`Register r9) rprogram fd brhs
+        in
+        let left_reg, linstructions =
+          translate_tac_expression ~str_lit_map ~target_dst:(`Register rax) rprogram fd blhs
+        in
+        let copy_instructions =
+          where
+          |> Option.map (fun waddress ->
+                 let or_instruction =
+                   [
+                    Instruction (
+                      And {
+                        size = B;
+                        destination = left_reg;
+                        source = `Register (resize_register B r9)
+                      }
+                    )
+                   ]
+                 in
+                 or_instruction @ copy_from_reg rax waddress rval_rktype rprogram)
+          |> Option.value ~default:[]
+        in
+        rinstructions @ linstructions @ copy_instructions
+    | RVBuiltinBinop { binop = TacBool TacEqual; blhs; brhs } ->
+      let r10 = tmp_r10_ktype rprogram brhs.expr_rktype in
+      let r11 = tmp_r11_ktype rprogram blhs.expr_rktype in
+      let rax = tmp_rax_ktype rprogram brhs.expr_rktype in
+      let _right_reg, rinstructions =
+        translate_tac_expression ~str_lit_map ~target_dst:(`Register r10)rprogram fd brhs
+      in
+      let _left_reg, linstructions =
+        translate_tac_expression ~str_lit_map ~target_dst:(`Register r11) rprogram fd blhs
+      in
+      let copy_instructions =
+        where
+        |> Option.map (fun waddress ->
+                let equal_instruction =
+                  [
+                    Instruction (
+                      Cmp {
+                        size = B;
+                        lhs = `Register (resize_register B rax);
+                        rhs = `Register (resize_register B r11)
+                      }
+                    )
+                    ;
+                    Instruction (
+                      Sete {
+                        register = rax;
+                      }
+                    )
+                  ]
+                in
+                equal_instruction
+                @ copy_from_reg rax waddress rval_rktype rprogram)
+        |> Option.value ~default:[]
+      in
+      rinstructions @ linstructions @ copy_instructions
+    | RVBuiltinBinop { binop = TacBool TacDiff; blhs; brhs } ->
+      let r10 = tmp_r10_ktype rprogram brhs.expr_rktype in
+      let r11 = tmp_r11_ktype rprogram blhs.expr_rktype in
+      let rax = tmp_rax_ktype rprogram brhs.expr_rktype in
+      let _right_reg, rinstructions =
+        translate_tac_expression ~str_lit_map ~target_dst:(`Register r10)rprogram fd brhs
+      in
+      let _left_reg, linstructions =
+        translate_tac_expression ~str_lit_map ~target_dst:(`Register r11) rprogram fd blhs
+      in
+      let copy_instructions =
+        where
+        |> Option.map (fun waddress ->
+                let equal_instruction =
+                  [
+                    Instruction (
+                      Cmp {
+                        size = B;
+                        lhs = `Register (resize_register B rax);
+                        rhs = `Register (resize_register B r11)
+                      }
+                    )
+                    ;
+                    Instruction (
+                      Setz {
+                        register = rax;
+                      }
+                    )
+                  ]
+                in
+                equal_instruction
+                @ copy_from_reg rax waddress rval_rktype rprogram)
+        |> Option.value ~default:[]
+      in
+      rinstructions @ linstructions @ copy_instructions
     | _ -> failwith ""
 end
 

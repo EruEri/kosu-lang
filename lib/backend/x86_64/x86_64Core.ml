@@ -16,6 +16,9 @@ let data_size_of_int64 = function
 | 8L -> Some Q
 | _ -> None
 
+let data_size_of_int64_def ?(default = Q) size = 
+  Option.value ~default @@ data_size_of_int64 size
+
 let int64_of_data_size = function
 | B -> 1L
 | W -> 2L
@@ -112,18 +115,34 @@ module Register = struct
     let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
     sized_register data_size RAX
 
+  let tmp_rax_ktype rpogram ktype = 
+      let size = data_size_of_int64_def @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype in
+      sized_register size RAX
+
   let tmp_r9 size = 
     let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
     sized_register data_size R9
+
+  let tmp_r9_ktype rpogram ktype = 
+    let size = data_size_of_int64_def @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype in
+    sized_register size R9
   
   (** R10 *)
   let tmp_r10 size = 
     let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
     sized_register data_size R10
 
+  let tmp_r10_ktype rpogram ktype = 
+    let size = data_size_of_int64_def @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype in
+    sized_register size R10
   let tmp_r11 size =
       let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
       sized_register data_size R11
+
+
+let tmp_r11_ktype rpogram ktype = 
+  let size = data_size_of_int64_def @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype in
+  sized_register size R11
 end
 
 module Operande = struct
@@ -214,6 +233,12 @@ module Instruction = struct
     source: src;
     destination: dst
   }
+  | Sete of {
+    register: Register.register
+  }
+  | Setz of {
+    register: register
+  }
   | Lea of {
     size: data_size;
     source : address;
@@ -292,6 +317,11 @@ module Instruction = struct
   | Pop of {
     size: data_size;
     destination: dst;
+  }
+  | Cmp of {
+    size: data_size;
+    lhs: src;
+    rhs: src;
   }
   | Jmp of {
     cc: condition_code option;
