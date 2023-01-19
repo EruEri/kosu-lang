@@ -312,7 +312,101 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       ) |> Option.value ~default:[] in
       set_on_reg_instructions @ move_code_syscall_instructions @ copy_result_instruction
       | RKosufn_Decl _ -> 
-        failwith ""
+        let typed_parameters =
+          tac_parameters |> List.map (fun { expr_rktype; _ } -> expr_rktype)
+        in
+        let function_decl =
+          rprogram
+          |> KosuIrTyped.Asttyhelper.RProgram
+             .find_function_decl_exact_param_types ~module_name:fn_module
+               ~fn_name ~ktypes:typed_parameters
+          |> Option.get
+        in
+        let fn_label = Spec.label_of_kosu_function ~module_path function_decl in
+        let args_in_reg, _args_on_stack =
+        tac_parameters
+        |> List.mapi (fun index value -> (index, value))
+        |> List.partition_map (fun (index, value) ->
+               if index < available_register_count then Either.left value
+               else Either.right value)
+      in
+      let set_in_reg_instructions = 
+        args_in_reg 
+        |> Util.ListHelper.combine_safe available_register_params
+        |> List.fold_left (fun acc (reg, tte) ->
+          let data_size = Option.value ~default:Q @@ data_size_of_int64 @@ sizeofn rprogram tte.expr_rktype in
+          let _last_reg, instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register {size = data_size; reg}) rprogram fd tte in
+          acc @ instructions
+        ) [] in
+
+      let set_on_stack_instructions = [] (* TODO *) in
+      let call_instructions = FrameManager.call_instruction ~origin:(`Label fn_label) [] fd in
+      let return_reg_data_size = Option.value ~default:Q @@ data_size_of_int64 @@ sizeofn rprogram rval_rktype in
+      let return_reg = sized_register return_reg_data_size RAX in
+      let extern_instructions = 
+        match KosuIrTyped.Asttyconvert.Sizeof.discardable_size return_size with
+        | true ->
+            let copy_instruction =
+              where
+              |> Option.map (fun waddress ->
+                     match is_deref with
+                     | Some pointer ->
+                         Instruction
+                           (Mov
+                              {
+                                size = Q;
+                                destination = `Register rdiq;
+                                source = `Address pointer;
+                              })
+                         :: copy_from_reg return_reg (create_address_offset rdiq)
+                              function_decl.return_type rprogram
+                     | None ->
+                         copy_from_reg return_reg waddress
+                           function_decl.return_type rprogram)
+              |> Option.value ~default:[]
+            in
+            ( set_in_reg_instructions @ set_on_stack_instructions  @ call_instructions
+              @ copy_instruction)
+        | false -> 
+          let copy_instruction =
+            where
+            |> Option.map (fun waddress ->
+                   match is_deref with
+                   | Some pointer ->
+                       [
+                         Instruction
+                           (
+                            Mov {
+                              size = Q;
+                              destination = `Register rdiq;
+                              source = `Address pointer
+                            }
+                           );
+                         Instruction
+                           (
+                            Mov {
+                              size = Q;
+                              destination = `Register rdiq;
+                              source = `Address (create_address_offset rdiq)
+                            }
+                           );
+                       ]
+                   | None ->
+                       [
+                         Instruction (
+                          Lea {
+                            size = Q;
+                            destination = rdiq;
+                            source = waddress 
+                          }
+                         );
+                       ])
+            |> Option.value ~default:[]
+          in
+          ( set_in_reg_instructions @ set_on_stack_instructions @ copy_instruction
+            @ call_instructions )
+    in
+        extern_instructions
     )
 
     | _ -> failwith ""
