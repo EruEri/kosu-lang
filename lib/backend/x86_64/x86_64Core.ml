@@ -245,7 +245,14 @@ module Instruction = struct
   open Operande
   open Condition_Code
   
-  type instruction = 
+  type comment = Comment of string
+
+  and raw_line =
+    | Instruction of instruction
+    | Directive of string
+    | Label of string
+    | Line_Com of comment
+  and instruction = 
   | Mov of {
     size: data_size;
     source: src;
@@ -311,19 +318,19 @@ module Instruction = struct
   (* Shift Left *)
   | Sal of {
     size: data_size;
-    immediat: int;
+    shift: src;
     destination: dst;
   }
   (* Arithmetic right shift *)
   | Sar of {
     size: data_size;
-    immediat: int;
+    shift: src;
     destination: dst;
   }
   (* Logical right shift *)
   | Shr of {
     size: data_size;
-    immediat: int;
+    shift: src;
     destination: dst;
   }
   | Push of {
@@ -350,17 +357,62 @@ module Instruction = struct
   | Cltd
   | Cqto
   | Ret
+
+  let ins_add ~size ~destination ~source = [
+    Instruction (Add {size; destination; source })
+  ]
+
+  let ins_sub ~size ~destination ~source = [
+    Instruction (Sub {size; destination; source })
+  ]
+
+  let ins_bitwiseand ~size ~destination ~source = [
+    Instruction (And {size; destination; source })
+  ]
+
+  let ins_bitwiseor ~size ~destination ~source = [
+    Instruction (Or {size; destination; source })
+  ]
+
+
+  let ins_bitwisexor ~size ~destination ~source = [
+    Instruction (Xor {size; destination; source })
+  ]
+
+
+  let ins_shiftleft ~size ~destination ~source = [
+    Instruction (Sal {size; destination; shift = source })
+  ]
+
+  let ins_shift_signed_right ~size ~destination ~source = [
+    Instruction (Sar {size; destination; shift = source })
+  ]
+
+  let ins_shift_unsigned_right ~size ~destination ~source = [
+    Instruction (Shr {size; destination; shift = source })
+  ]
+
+  let ins_mult ~size ~destination ~source = [
+    let  reg = register_of_dst destination in
+    Instruction (IMul {size; destination = reg; source })
+  ]
+
+  let binop_instruction_of_tacself ?(unsigned = false) = let open KosuIrTAC.Asttac in function
+  | TacAdd -> ins_add
+  | TacMinus -> ins_sub
+  | TacMult -> ins_mult
+  | TacBitwiseAnd -> ins_bitwiseand
+  | TacBitwiseOr -> ins_bitwiseor
+  | TacBitwiseXor -> ins_bitwisexor
+  | TacShiftLeft -> ins_shiftleft
+  | TacShiftRight -> if unsigned then ins_shift_signed_right else ins_shift_unsigned_right 
+  | _ -> failwith "Binop cannot be factorised"
 end
 
-type comment = Comment of string
 
-type raw_line =
-  | Instruction of Instruction.instruction
-  | Directive of string
-  | Label of string
-  | Line_Com of comment
 
   let rec copy_large ~address_str ~base_address_reg size = 
+    let open Instruction in
     if size < 0L then failwith "X86_64 : Negative size to copy"
     else if size = 0L then []
     else 
@@ -393,6 +445,7 @@ type raw_line =
   | _ -> copy_large ~address_str:address ~base_address_reg:(Operande.create_address_offset register) size
 
   let load_register register (address : Operande.address) ktype_size =
+    let open Instruction in
     let data_size = ktype_size |> data_size_of_int64 |> Option.value ~default:Q in
     [
       Instruction (Mov {size = data_size; source = `Address address; destination = `Register register})
@@ -407,6 +460,7 @@ type raw_line =
     Operande.create_address_label ~label:const_name (Register.ripq)       
 
   let load_label ?module_path label (dst: Operande.dst) =
+    let open Instruction in
     let label = 
       module_path 
       |> Option.map (fun mp -> asm_const_name mp label)
@@ -488,6 +542,7 @@ module FrameManager = struct
 
 
     let call_instruction ~origin _stack_param (_fd : frame_desc) =
+      let open Instruction in
       let call = Instruction (Call { what = origin }) in
       [ call ]
 
@@ -497,6 +552,7 @@ module FrameManager = struct
           already containing [rdi] if return type cannot be contain in [rax] 
     *)
     let function_prologue ~fn_register_params ~stack_params rprogram fd = 
+      let open Instruction in
       let stack_sub_size = Common.align_16 (Int64.add 16L fd.locals_space) in
       let base = Instruction (Push {size = Q; source = `Register rbpq}) in
 
@@ -557,6 +613,7 @@ module FrameManager = struct
       base::sp_sub @ copy_reg_instruction @ copy_stack_params_instruction
 
   let function_epilogue _fd = 
+    let open Instruction in
     let base = Instruction (Mov {size = Q; destination = `Register rspq; source = `Register rbpq}) in
     let pop = Instruction (Pop {size = Q; destination = `Register rbpq}) in
     let return = Instruction Ret in

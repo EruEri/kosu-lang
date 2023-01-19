@@ -155,6 +155,30 @@ let translate_tac_binop ~str_lit_map ~cc ~blhs ~brhs ~where rval_rktype rprogram
         |> Option.value ~default:[]
       in
       rinstructions @ linstructions @ copy_instructions
+
+let translate_tac_binop_self ~str_lit_map ~blhs ~brhs ~where fbinop rval_rktype rprogram fd = 
+  let r10 = tmp_r10_ktype rprogram blhs.expr_rktype in
+  let rax = tmp_rax_ktype rprogram brhs.expr_rktype in
+  let right_reg, rinstructions =
+    translate_tac_expression ~str_lit_map ~target_dst:(`Register r10) rprogram fd brhs
+  in
+  let left_reg, linstructions =
+    translate_tac_expression ~str_lit_map ~target_dst:(`Register rax) rprogram fd blhs
+  in
+
+  let left_reg = Operande.register_of_dst left_reg in
+  let right_reg = Operande.register_of_dst right_reg in
+
+  let mult_instruction = fbinop ~size:(left_reg.size) ~destination:(`Register left_reg) ~source:(`Register right_reg) in
+  let copy_instruction =
+    where
+    |> Option.map (fun waddress ->
+           copy_from_reg left_reg waddress rval_rktype rprogram)
+    |> Option.value ~default:[]
+  in
+  
+  linstructions @ rinstructions @ (mult_instruction @ copy_instruction)
+  
    
 
 let translate_tac_rvalue ?(is_deref = None) ~str_lit_map 
@@ -707,6 +731,45 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       let is_ptr = KosuIrTyped.Asttyhelper.RType.is_pointer blhs.expr_rktype || KosuIrTyped.Asttyhelper.RType.is_pointer brhs.expr_rktype in
       let cc = Option.get @@ Condition_Code.cc_of_tac_bin ~is_ptr bool_binop in
       translate_tac_binop ~str_lit_map ~cc ~blhs ~brhs ~where rval_rktype rprogram fd
+
+    | RVBuiltinBinop {binop = TacSelf (TacMult | TacBitwiseAnd | TacBitwiseOr | TacBitwiseXor | TacShiftLeft | TacShiftRight as self_binop); blhs; brhs} -> 
+      (* let size = data_size_of_int64_def @@ sizeofn rprogram blhs.expr_rktype in *)
+      let is_unsigned = KosuIrTyped.Asttyhelper.RType.is_unsigned_integer blhs.expr_rktype in
+      let binop_func = binop_instruction_of_tacself ~unsigned:is_unsigned self_binop in
+      translate_tac_binop_self ~str_lit_map ~blhs ~brhs ~where binop_func rval_rktype rprogram fd
+    | RVBuiltinBinop {binop = TacSelf ( TacAdd | TacMinus as self_binop); blhs; brhs } -> 
+      begin  match KosuIrTyped.Asttyhelper.RType.is_pointer rval_rktype with
+      | false -> 
+        let binop_func = binop_instruction_of_tacself self_binop in
+        translate_tac_binop_self ~str_lit_map ~blhs ~brhs ~where binop_func rval_rktype rprogram fd
+      | true -> 
+        let pointee_size =
+          rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee
+          |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+        in
+        let ptr_reg, linstructions =
+        translate_tac_expression ~str_lit_map ~target_dst:(`Register raxq)
+          rprogram fd blhs
+      in
+      let nb_reg, rinstructions =
+        translate_tac_expression ~str_lit_map ~target_dst:(`Register (tmp_r10 8L))
+          rprogram fd brhs
+      in
+
+      let size_reg = register_of_dst nb_reg in
+
+      let operator_function_instruction = binop_instruction_of_tacself self_binop in
+
+      let scale_instruction = 
+        if pointee_size = 1L then [] 
+        else 
+          ins_mult ~size:size_reg.size ~destination:(`Register size_reg) ~source:(`ILitteral pointee_size) 
+      in 
+        linstructions 
+          @ rinstructions 
+          @ scale_instruction 
+          @ (operator_function_instruction ~size:size_reg.size ~destination:ptr_reg ~source:(`Register size_reg)) 
+    end
      | RVBuiltinUnop { unop = TacUminus; expr } ->
         let rax = tmp_rax_ktype rprogram expr.expr_rktype in
         let last_reg, instructions =
