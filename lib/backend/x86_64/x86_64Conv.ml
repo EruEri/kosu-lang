@@ -765,10 +765,17 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
         else 
           ins_mult ~size:size_reg.size ~destination:(`Register size_reg) ~source:(`ILitteral pointee_size) 
       in 
+
+      let ptr_true_reg = register_of_dst ptr_reg in
+      let copy_instructions = where |> Option.map (fun waddress -> 
+        copy_from_reg (resize_register Q ptr_true_reg) waddress rval_rktype rprogram
+      ) |> Option.value ~default:[]
+      in
         linstructions 
           @ rinstructions 
           @ scale_instruction 
           @ (operator_function_instruction ~size:size_reg.size ~destination:ptr_reg ~source:(`Register size_reg)) 
+          @ copy_instructions
     end
     | RVBuiltinBinop {binop = TacSelf TacDiv; blhs = dividende; brhs = divisor} -> 
       let unsigned = KosuIrTyped.Asttyhelper.RType.is_unsigned_integer dividende.expr_rktype in
@@ -852,6 +859,27 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
         in
         instructions @ (uminus_instructions :: copy_instructions)
 
+    | RVBuiltinCall { fn_name; parameters } -> (
+      let open KosuFrontend.Ast.Builtin_Function in
+      match fn_name with
+      | Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64 | Stringl_ptr  ->
+        failwith ""
+          (* let tte = parameters |> List.hd in
+          let r9 = tmp32reg_2 in
+          let last_reg, instructions =
+            translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd
+              tte
+          in
+          let copy_instructions =
+            where
+            |> Option.map (fun waddress ->
+                    copy_from_reg (to_32bits last_reg) waddress rval_rktype
+                      rprogram)
+            |> Option.value ~default:[]
+          in
+          (to_32bits r9, instructions @ copy_instructions)
+    ) *)
+    )
     | _ -> failwith ""
 end
 
