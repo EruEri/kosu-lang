@@ -8,24 +8,12 @@ open Util
 
 let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
 
-(**
-  This module specifies the difference in label name convenient
-  Moslty between MacOs and Linux with the use or not of an underscore    
-*)
-module type AsmSpecification = sig
-  val label_prefix: string
-
-  val label_of_external_fn: string -> string
-  val label_of_constant: module_path:string -> string -> string
-  val main: string
-end
-
-module Make(Spec: AsmSpecification) = struct
+module Make(Spec: Common.AsmSpecification) = struct
   let translate_tac_expression ~str_lit_map ?(target_dst = (`Register {size = D; reg = R10} : dst))
   rprogram (fd: FrameManager.frame_desc) = function
   | { tac_expression = TEString s; expr_rktype = _ } ->
     let (SLit str_labl) = Hashtbl.find str_lit_map s in
-    target_dst, load_label str_labl target_dst
+    target_dst, load_label (Spec.label_of_constant str_labl) target_dst
 | { tac_expression = TEFalse | TEmpty; expr_rktype = _ } ->
   begin match target_dst with
   | (`Register reg ) as rreg -> target_dst, [
@@ -93,7 +81,7 @@ end
     tac_expression = TEConst { name; module_path };
     expr_rktype = RTString_lit;
   } ->   
-    target_dst, load_label ~module_path name target_dst
+    target_dst, load_label (Spec.label_of_constant ~module_path name) target_dst
 | {
     tac_expression = TEConst { name; module_path };
     expr_rktype = RTInteger (_, size);
@@ -133,7 +121,7 @@ in
 
    
 
-let rec translate_tac_rvalue ?(is_deref = None) ~str_lit_map 
+let translate_tac_rvalue ?(_is_deref = None) ~str_lit_map 
   ~(where : address option) current_module rprogram
   (fd : FrameManager.frame_desc) {rvalue; rval_rktype} = 
     match rvalue with
@@ -184,7 +172,7 @@ let rec translate_tac_rvalue ?(is_deref = None) ~str_lit_map
         ) [] in
       dummy_dst, instructions
     | RVFunction { module_path; fn_name; generics_resolver = _; tac_parameters } -> (
-      let typed_parameters =
+      let _typed_parameters =
         tac_parameters |> List.map (fun { expr_rktype; _ } -> expr_rktype)
       in
       let fn_module =
@@ -197,9 +185,12 @@ let rec translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       in
       match fn_decl with
       | RExternal_Decl external_func_decl -> 
-        let fn_label = Spec.label_of_external_fn 
-        (external_func_decl.c_name |> Option.value ~default: external_func_decl.rsig_name) in
-        let register_param_count = List.length argument_registers in
+        let _fn_label = Spec.label_of_external_function external_func_decl in 
+        let _register_param_count = List.length argument_registers in
+        let _tac_parameters = 
+          if not fd.need_result_ptr then tac_parameters
+          else 
+            failwith "" in
         failwith ""
       | _ -> failwith ""
     )

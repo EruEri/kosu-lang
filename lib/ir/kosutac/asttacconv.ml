@@ -109,7 +109,7 @@ let create_forward_init ?(rvalue = RVLater) ~map ~count_var typed_expression =
   else (None, [])
 
 let rec convert_from_typed_expression ~discarded_value ~allocated ~map
-    ~count_var ~if_count ~cases_count ~switch_count typed_expression =
+    ~count_var ~if_count ~cases_count ~switch_count ~rprogram typed_expression =
   let trktype = typed_expression.rktype in
   let expr = typed_expression.rexpression in
   match (expr, allocated) with
@@ -121,7 +121,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
 
       let statement_for_bool, condition_rvalue =
         convert_from_typed_expression ~discarded_value ~allocated:next_allocated
-          ~switch_count ~map ~count_var ~if_count ~cases_count if_typed_expres
+          ~switch_count ~map ~count_var ~if_count ~cases_count  ~rprogram if_typed_expres
       in
 
       let goto_label1 = make_goto_label ~count_if:incremented 0 in
@@ -130,11 +130,11 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       let if_tac_body =
         convert_from_rkbody ~discarded_value ~switch_count ~cases_count
           ~previous_alloc:allocated ~label_name:goto_label1 ~map ~count_var
-          ~if_count if_body
+          ~if_count ~rprogram if_body
       in
       let else_tac_body =
         convert_from_rkbody ~discarded_value ~cases_count ~switch_count
-          ~previous_alloc:allocated ~label_name:goto_label2 ~map ~count_var
+          ~previous_alloc:allocated ~label_name:goto_label2 ~map ~count_var ~rprogram
           ~if_count else_body
       in
       ( STIf
@@ -179,12 +179,12 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                let statement_for_condition, tac_condition =
                  convert_from_typed_expression ~discarded_value
                    ~allocated:next_allocated ~switch_count ~map ~count_var
-                   ~if_count ~cases_count case_condition
+                   ~if_count ~cases_count ~rprogram case_condition
                in
                let tac_body =
                  convert_from_rkbody ~discarded_value ~cases_count ~switch_count
                    ~previous_alloc:allocated ~label_name:label ~map ~count_var
-                   ~if_count rkbody
+                   ~if_count ~rprogram rkbody
                in
                {
                  condition_label = self_condition_label;
@@ -199,7 +199,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       let else_tac_body =
         convert_from_rkbody ~discarded_value ~switch_count ~cases_count
           ~previous_alloc:allocated ~label_name:else_label ~map ~count_var
-          ~if_count else_case
+          ~if_count ~rprogram else_case
       in
       ( SCases { cases; exit_label = end_label; else_tac_body } :: [],
         make_typed_tac_expression id_rktype (TEIdentifier identifier) )
@@ -216,7 +216,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       in
       let statemenets_for_case, condition_switch =
         convert_from_typed_expression ~discarded_value ~allocated:next_allocated
-          ~switch_count ~cases_count ~if_count ~count_var ~map rexpression
+          ~switch_count ~cases_count ~if_count ~count_var ~map ~rprogram rexpression
       in
       let sw_cases =
         cases
@@ -240,7 +240,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                in
                let switch_tac_body =
                  convert_from_rkbody ~discarded_value ~previous_alloc:allocated
-                   ~label_name:sw_goto ~map ~count_var ~if_count ~cases_count
+                   ~label_name:sw_goto ~rprogram ~map ~count_var ~if_count ~cases_count
                    ~switch_count kbody
                in
                {
@@ -265,7 +265,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                in
                convert_from_rkbody ~discarded_value ~previous_alloc:allocated
                  ~cases_count ~switch_count ~label_name ~map ~count_var
-                 ~if_count wild_body)
+                 ~if_count ~rprogram wild_body)
       in
       ( STSwitch
           {
@@ -308,7 +308,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                let stmt_needed, tac_expression =
                  convert_from_typed_expression ~discarded_value
                    ~allocated:next_allocated ~switch_count ~cases_count ~map
-                   ~count_var ~if_count ty_ex
+                   ~count_var ~if_count ~rprogram ty_ex
                in
                (stmt @ stmt_needed, tac_expression))
         |> List.fold_left_map
@@ -340,7 +340,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                let stmt_needed, tac_expression =
                  convert_from_typed_expression ~discarded_value
                    ~allocated:next_allocated ~switch_count ~cases_count ~map
-                   ~count_var ~if_count ty_ex
+                   ~count_var ~if_count ~rprogram ty_ex
                in
                (stmt @ stmt_needed, tac_expression))
         |> List.fold_left_map
@@ -379,7 +379,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                let stmt_needed, tac_expression =
                  convert_from_typed_expression ~discarded_value
                    ~allocated:next_allocated ~switch_count ~cases_count ~map
-                   ~count_var ~if_count ty_ex
+                   ~count_var ~if_count ~rprogram ty_ex
                in
 
                (field, (stmt @ stmt_needed, tac_expression)))
@@ -415,7 +415,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                let stmt_needed, tac_expression =
                  convert_from_typed_expression ~discarded_value
                    ~allocated:next_allocated ~switch_count ~cases_count ~map
-                   ~count_var ~if_count ty_ex
+                   ~count_var ~if_count ~rprogram ty_ex
                in
                (stmt @ stmt_needed, tac_expression))
         |> List.fold_left_map (fun acc (smts, value) -> (acc @ smts, value)) []
@@ -443,7 +443,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       in
       let needed_statement, tac_expr =
         convert_from_typed_expression ~discarded_value ~allocated:next_allocated
-          ~switch_count ~cases_count ~map ~if_count ~count_var first_expr
+          ~switch_count ~cases_count ~map ~if_count ~count_var ~rprogram first_expr
       in
       let new_tmp = make_inc_tmp trktype map count_var in
       let field_acces = RVFieldAcess { first_expr = tac_expr; field } in
@@ -483,12 +483,12 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       let lstamements_needed, lhs_value =
         convert_from_typed_expression ~discarded_value
           ~allocated:lnext_allocated ~switch_count ~cases_count ~map ~if_count
-          ~count_var ltyped
+          ~count_var ~rprogram ltyped
       in
       let rstamements_needed, rhs_value =
         convert_from_typed_expression ~discarded_value
           ~allocated:rnext_allocated ~switch_count ~cases_count ~map ~if_count
-          ~count_var rtyped
+          ~count_var ~rprogram rtyped
       in
       let new_tmp = make_inc_tmp trktype map count_var in
       let binary_op =
@@ -514,7 +514,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       let next_allocated, stmt = create_forward_init ~map ~count_var operand in
       let need_stmts, lvalue =
         convert_from_typed_expression ~discarded_value ~allocated:next_allocated
-          ~switch_count ~cases_count ~map ~if_count ~count_var operand
+          ~switch_count ~cases_count ~map ~if_count ~count_var ~rprogram operand
       in
       let new_tmp = make_inc_tmp trktype map count_var in
       let unary_op = RVBuiltinUnop { unop = operator; expr = lvalue } in
@@ -575,12 +575,12 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       let lstamements_needed, lhs_value =
         convert_from_typed_expression ~discarded_value
           ~allocated:lnext_allocated ~switch_count ~cases_count ~map ~if_count
-          ~count_var ltyped
+          ~count_var ~rprogram ltyped
       in
       let rstamements_needed, rhs_value =
         convert_from_typed_expression ~discarded_value
           ~allocated:rnext_allocated ~switch_count ~cases_count ~map ~if_count
-          ~count_var rtyped
+          ~count_var ~rprogram rtyped
       in
       let new_tmp = make_inc_tmp trktype map count_var in
       let binary_op =
@@ -606,7 +606,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       let next_allocated, stmt = create_forward_init ~map ~count_var operand in
       let need_stmts, lvalue =
         convert_from_typed_expression ~discarded_value ~allocated:next_allocated
-          ~switch_count ~cases_count ~map ~if_count ~count_var operand
+          ~switch_count ~cases_count ~map ~if_count ~count_var ~rprogram operand
       in
       let new_tmp = make_inc_tmp trktype map count_var in
       let unary_op = RVCustomUnop { unop = operator; expr = lvalue } in
@@ -632,7 +632,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                let stmt_needed, tac_expression =
                  convert_from_typed_expression ~discarded_value
                    ~allocated:next_allocated ~switch_count ~cases_count ~map
-                   ~count_var ~if_count ty_ex
+                   ~count_var ~if_count ~rprogram ty_ex
                in
                (stmt @ stmt_needed, tac_expression))
         |> List.fold_left_map
@@ -661,7 +661,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
 
 and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
     ~discarded_value ~count_var ~if_count ~cases_count ~switch_count
-    ?(function_return = false) (rkbody : rkbody) =
+    ?(function_return = false) ~rprogram (rkbody : rkbody) =
   let stmts, types_return = rkbody in
   match stmts with
   | stmt :: q -> (
@@ -676,13 +676,13 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
           in
           let tac_stmts, tac_expression =
             convert_from_typed_expression ~discarded_value ~cases_count
-              ~allocated ~map ~count_var ~if_count ~switch_count
+              ~allocated ~map ~count_var ~if_count ~switch_count ~rprogram
               typed_expression
           in
 
           let body =
             convert_from_rkbody ~discarded_value ~switch_count ~cases_count
-              ~previous_alloc ~label_name ~map ~count_var ~if_count
+              ~previous_alloc ~label_name ~map ~count_var ~if_count ~rprogram
               ~function_return (q, types_return)
           in
           add_statements_to_tac_body
@@ -703,12 +703,12 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
           in
           let tac_stmts, tac_expression =
             convert_from_typed_expression ~discarded_value ~cases_count
-              ~allocated ~map ~count_var ~if_count ~switch_count aff_typed_expr
+              ~allocated ~map ~count_var ~if_count ~switch_count ~rprogram aff_typed_expr
           in
           let body =
             convert_from_rkbody ~discarded_value ~switch_count ~cases_count
               ~previous_alloc ~label_name ~map ~count_var ~if_count
-              ~function_return (q, types_return)
+              ~function_return ~rprogram (q, types_return)
           in
           body
           |> add_statements_to_tac_body
@@ -728,13 +728,14 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
           in
           let tac_stmts, tac_rvalue =
             convert_from_typed_expression ~discarded_value ~cases_count
-              ~allocated ~map ~count_var ~if_count ~switch_count
+              ~allocated ~map ~count_var ~if_count ~switch_count ~rprogram
               discard_typed_expression
           in
 
+          let sizeof_discard = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram discard_typed_expression.rktype in
           let () =
             match tac_rvalue.tac_expression with
-            | TEIdentifier id ->
+            | TEIdentifier id when KosuIrTyped.Asttyconvert.Sizeof.discardable_size sizeof_discard  ->
                 let () = Hashtbl.remove map id in
                 let () =
                   Hashtbl.add discarded_value id tac_rvalue.expr_rktype
@@ -744,7 +745,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
           in
           add_statements_to_tac_body (push_forward @ tac_stmts)
             (convert_from_rkbody ~discarded_value ~cases_count ~previous_alloc
-               ~label_name ~map ~count_var ~if_count ~switch_count
+               ~label_name ~map ~count_var ~if_count ~rprogram ~switch_count
                ~function_return (q, types_return))
       | RSDerefAffectation (identifier, deref_typed_expr) ->
           let allocated, forward_declaration =
@@ -753,12 +754,12 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
           (* let find_tmp = Hashtbl.find map identifier in *)
           let tac_stmts, tac_expression =
             convert_from_typed_expression ~discarded_value ~cases_count
-              ~allocated ~map ~count_var ~if_count ~switch_count
+              ~allocated ~map ~count_var ~if_count ~switch_count ~rprogram
               deref_typed_expr
           in
           let body =
             convert_from_rkbody ~discarded_value ~switch_count ~previous_alloc
-              ~label_name ~map ~count_var ~if_count ~cases_count
+              ~label_name ~map ~count_var ~if_count ~cases_count ~rprogram
               ~function_return (q, types_return)
           in
           add_statements_to_tac_body
@@ -778,7 +779,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
       in
       let stmts, expr =
         convert_from_typed_expression ~discarded_value ~cases_count ~allocated
-          ~map ~count_var ~if_count ~switch_count types_return
+          ~map ~count_var ~if_count ~switch_count ~rprogram types_return
       in
       let penultimate_stmt =
         match previous_alloc with
@@ -981,7 +982,7 @@ let tac_function_decl_of_rfunction current_module rprogram
 
   let discarded_value = Hashtbl.create 5 in
   let tac_body =
-    convert_from_rkbody ~discarded_value ~switch_count ~cases_count
+    convert_from_rkbody ~discarded_value ~switch_count ~cases_count ~rprogram
       ~label_name:rfunction_decl.rfn_name ~map ~count_var:(ref 0)
       ~function_return:true ~if_count rfunction_decl.rbody
   in
@@ -1021,7 +1022,7 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
       let discarded_value = Hashtbl.create 5 in
       let tac_body =
         convert_from_rkbody ~discarded_value ~switch_count ~cases_count
-          ~label_name:asm_name ~map ~count_var:(ref 0) ~if_count
+          ~label_name:asm_name ~map ~count_var:(ref 0) ~if_count ~rprogram
           ~function_return:true kbody
       in
       let tac_body = reduce_variable_used_body tac_body in
@@ -1056,7 +1057,7 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
       let discarded_value = Hashtbl.create 5 in
       let tac_body =
         convert_from_rkbody ~discarded_value ~switch_count ~cases_count
-          ~label_name:asm_name ~map ~count_var:(ref 0) ~if_count
+          ~label_name:asm_name ~map ~count_var:(ref 0) ~if_count ~rprogram
           ~function_return:true kbody
       in
 
