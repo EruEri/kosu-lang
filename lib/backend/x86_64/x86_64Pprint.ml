@@ -62,7 +62,7 @@ let string_of_register register = Printf.sprintf "%%%s" (string_of_register regi
 
 let string_of_address_offset = function
 | Addr_label (label, offset) -> Printf.sprintf "%s%s" label (if offset = 0L then "" else Printf.sprintf "+%Lu" offset)
-| Offset offset -> Printf.sprintf "%Lu" offset
+| Offset offset -> Printf.sprintf "%Ld" offset
 
 let string_of_address {offset; base; index; scale} = 
   Printf.sprintf "%s(%s%s%s)"
@@ -77,7 +77,7 @@ let string_of_dst: dst -> string = function
 
 let string_of_src: src -> string = function
 | #dst as dst -> string_of_dst dst
-| `ILitteral n -> sprintf "$%Lu" n
+| `ILitteral n -> sprintf "$%Ld" n
 | `F64Litteral f -> sprintf "%f" f
 | `Label l -> l
 
@@ -96,7 +96,7 @@ let string_of_condition_code = function
 | BE -> "be"
 
 let string_of_condition_code_opt = function
-| None -> ""
+| None -> "mp"
 | Some s -> string_of_condition_code s 
 
 let string_of_jmp_operande = function
@@ -144,7 +144,7 @@ let string_of_instruction = function
                             | Cmp {size; lhs; rhs} -> 
                               sprintf "cmp%s %s, %s" (string_of_data_size size) (string_of_src lhs) (string_of_src rhs)
                               | Jmp {cc; where} ->
-                                sprintf "jmp%s %s" (string_of_condition_code_opt cc) (string_of_jmp_operande where)
+                                sprintf "j%s %s" (string_of_condition_code_opt cc) (string_of_jmp_operande where)
                                 | Call {what} ->
                                   sprintf "call %s" (string_of_jmp_operande what)
                                   | Syscall -> "syscall"

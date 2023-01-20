@@ -41,11 +41,11 @@ module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
 
   let label_of_constant ?module_path const_name = 
     Printf.sprintf "%s%s" 
-    (module_path |> Option.map (Printf.sprintf "%s:_") |> Option.value ~default:"")
+    (module_path |> Option.map (Printf.sprintf "%s._") |> Option.value ~default:"")
     const_name
   let label_of_function ~label_prefix ~main ~module_path ~fn_name ~signature ~return_ktype = 
     if fn_name = "main" then main else
-    Printf.sprintf "%s%s:%s_%s__%s" 
+    Printf.sprintf "%s%s.%s_%s__%s" 
       label_prefix
       module_path
       fn_name
