@@ -20,6 +20,8 @@ open KosuIrTyped
 open KosuIrTAC
 open KosuCli
 
+module Mac0SX86 = KosuBackend.Codegen.Make( KosuBackend.X86.X86_64Codegen.Codegen(AsmSpec.X86MacOsAsmSpec) ) 
+module LinuxX86 = KosuBackend.Codegen.Make( KosuBackend.X86.X86_64Codegen.Codegen(AsmSpec.X86_64LinuxAsmSpec) )
 
 let () = KosuFrontend.Registerexn.register_kosu_error ()
 let code =
@@ -101,7 +103,17 @@ let code =
               KosuBackend.Codegen.Aarch64Codegen.compile_asm_from_tac tac_program
             in
             0
-        | Cli.X86_64 -> failwith "X86_64 Support to do")
+        | Cli.X86_64l ->           
+          let _files =
+            LinuxX86.compile_asm_from_tac tac_program
+         in
+        0
+        | Cli.X86_64m -> 
+          let _files =
+            Mac0SX86.compile_asm_from_tac tac_program
+          in
+          0
+        )
     | false -> (
         let c_obj_files = Cli.ccol_compilation ccol in
         let error_code = Cli.find_error_code_opt c_obj_files in
@@ -111,7 +123,24 @@ let code =
 
           let outfile = output |> Option.value ~default:"a.out" in
           match target_archi with
-          | Cli.X86_64 -> failwith "X86_64 Support to do"
+          | Cli.X86_64m -> (           
+            if cc then
+              let asm_file =
+                Mac0SX86.compile_asm_from_tac_tmp tac_program
+              in
+              Cli.cc_compilation outfile ~asm:asm_file
+                ~other:(other_files @ obj_file)
+            else failwith "Native compiling pipeline with as and ld to do"
+          )
+          | Cli.X86_64l -> (           
+            if cc then
+              let asm_file =
+                LinuxX86.compile_asm_from_tac_tmp tac_program
+              in
+              Cli.cc_compilation outfile ~asm:asm_file
+                ~other:(other_files @ obj_file)
+            else failwith "Native compiling pipeline with as and ld to do"
+          )
           | Cli.Arm64e ->
               if cc then
                 let asm_file =
@@ -119,7 +148,8 @@ let code =
                 in
                 Cli.cc_compilation outfile ~asm:asm_file
                   ~other:(other_files @ obj_file)
-              else failwith "Native compiling pipeline with as and ld to do")
+              else failwith "Native compiling pipeline with as and ld to do"
+        )
   in
   code
 
