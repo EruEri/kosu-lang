@@ -12,6 +12,8 @@ module IdVarMap = Map.Make (IdVar)
 *)
 module type AsmSpecification = sig
 
+  val comment_prefix: string
+
   val string_litteral_section_start: string
 
   val string_litteral_section_end: string

@@ -155,7 +155,7 @@ let string_of_instruction = function
 let string_of_raw_line = function
   | Label s -> s ^ ":"
   | Instruction s -> "\t" ^ string_of_instruction s
-  | Line_Com (Comment s) -> "\t;" ^ s
+  | Line_Com (Comment s) -> "\t"^ AsmSpec.comment_prefix ^ " " ^ s
   | Directive d -> "\t." ^ d
 
 let size_directive_of_size =

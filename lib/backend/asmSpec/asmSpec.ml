@@ -18,10 +18,14 @@
 open KosuIrTyped.Asttyped
 
 module type X86_64_Spec = sig
+  val comment_prefix: string
+
   val label_prefix: string
+
   val main: string
 
   val p2align: string
+  
   val p2align_function: string
 
   val string_litteral_section_end: string
@@ -75,6 +79,7 @@ end
 
 
 module X86_64LinuxAsmSpec = X86_64Spec_Make(struct
+  let comment_prefix = "#"
   let label_prefix = ""
   let main = "main"
 
@@ -89,6 +94,8 @@ module X86_64LinuxAsmSpec = X86_64Spec_Make(struct
 end) 
 
 module X86MacOsAsmSpec = X86_64Spec_Make(struct
+
+  let comment_prefix = ";"
   let label_prefix = "_"
   let main = "_main"
 
