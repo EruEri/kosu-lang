@@ -94,7 +94,7 @@ module X86MacOsAsmSpec = X86_64Spec_Make(struct
 
   let p2align = "?"
 
-  let p2align_function = "?"
+  let p2align_function = ".p2align 4, 0x90"
 
   let string_litteral_section_start = ".section\t__TEXT,__cstring,cstring_literals,"
 

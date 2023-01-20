@@ -42,7 +42,7 @@ module Make(AsmProgram: AsmProgram) = struct
     let () = Printf.fprintf file "\n\t%s\n" string_litteral_section_start in
     let () = str_lit_map |> Hashtbl.to_seq |> Seq.iter (fun (str, SLit label) -> 
       let string_directive = string_litteral_directive str (SLit label) in
-        Printf.fprintf file "%s:\n\t %s \"%s\"\n\n" label string_directive str
+        Printf.fprintf file "%s:\n\t%s \"%s\"\n\n" label string_directive str
       )
     in
     let () = Printf.fprintf file "\n%s\n" string_litteral_section_end in

@@ -167,13 +167,15 @@ let size_directive_of_size =
   let string_asm_const_decl { asm_const_name; value } =
     match value with
     | `IntVal (size, value) ->
-        sprintf "%s:\n\t .%s %s\n\t. align %u" 
-          asm_const_name 
-          (size_directive_of_size size)
-          (sprintf "0x%Lu" value)
-          (KosuFrontend.Ast.Isize.size_of_isize size / 8)
+        sprintf "\n\t.global %s\n\t.align %u\n%s:\n\t.%s %s"
+        asm_const_name
+        (KosuFrontend.Ast.Isize.size_of_isize size / 8)
+        asm_const_name 
+        (size_directive_of_size size)
+        (sprintf "0x%Lu" value)
     | `StrVal s ->
-        sprintf "%s:\n\t.string %s\n\t.align 8"
+        sprintf "\n\t.global %s\n\t.align 8\n%s:\n\t.string %s"
+        asm_const_name
         asm_const_name
         s
 
