@@ -85,7 +85,7 @@ module X86_64LinuxAsmSpec = X86_64Spec_Make(struct
   let string_litteral_section_start = ""
 
   let string_litteral_section_end = ""
-  let string_litteral_directive (_:string) (_ : Util.stringlit_label) = "string"
+  let string_litteral_directive (_:string) (_ : Util.stringlit_label) = ".string"
 end) 
 
 module X86MacOsAsmSpec = X86_64Spec_Make(struct

@@ -77,7 +77,7 @@ let string_of_dst: dst -> string = function
 
 let string_of_src: src -> string = function
 | #dst as dst -> string_of_dst dst
-| `ILitteral n -> sprintf "%Lu" n
+| `ILitteral n -> sprintf "$%Lu" n
 | `F64Litteral f -> sprintf "%f" f
 | `Label l -> l
 
@@ -140,7 +140,7 @@ let string_of_instruction = function
                         | Push {size; source} ->
                           sprintf "push%s %s" (string_of_data_size size) (string_of_src source)
                           | Pop {size; destination} ->
-                            sprintf "push%s %s" (string_of_data_size size) (string_of_dst destination)
+                            sprintf "pop%s %s" (string_of_data_size size) (string_of_dst destination)
                             | Cmp {size; lhs; rhs} -> 
                               sprintf "cmp%s %s, %s" (string_of_data_size size) (string_of_src lhs) (string_of_src rhs)
                               | Jmp {cc; where} ->

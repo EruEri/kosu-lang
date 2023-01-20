@@ -589,7 +589,7 @@ module FrameManager = struct
       let base = Instruction (Push {size = Q; source = `Register rbpq}) in
 
       let sp_sub = [
-        Instruction (Mov {size = Q; destination = `Register rspq; source = `Register rbpq});
+        Instruction (Mov {size = Q; source = `Register rspq; destination = `Register rbpq});
         Instruction (Sub {size = Q; destination = `Register rspq; source = `ILitteral stack_sub_size })
       ] 
     in
