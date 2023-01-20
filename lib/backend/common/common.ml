@@ -11,6 +11,9 @@ module IdVarMap = Map.Make (IdVar)
   Moslty between MacOs and Linux with the use or not of an underscore    
 *)
 module type AsmSpecification = sig
+  val p2align: string
+
+  val p2align_function: string
   val label_prefix: string
 
   val label_of_constant: ?module_path:string -> string -> string

@@ -53,6 +53,19 @@ module Register = struct
   | R15
   | RIP
 
+  let is_numerical_register = function
+  | R9
+  | R10
+  | R11
+  | R12
+  | R13
+  | R14
+  | R15 -> true
+  | _ -> false
+
+  let full_letter_reg = function
+  | reg -> not @@ is_numerical_register reg
+
   type register = {
     size: data_size;
     reg: raw_register
@@ -151,9 +164,9 @@ module Operande = struct
   | Offset of int64
 
   type address = {
-  offset:  addr_offset;
+  offset: addr_offset;
   base: Register.register;
-  index: int64 option;
+  index: Register.register option;
   scale: int;
   }
 

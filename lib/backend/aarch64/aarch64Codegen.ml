@@ -15,12 +15,10 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-open Aarch64Conv
 open Aarch64Pprint
 open Util
-open AsmProgram
 
-let export_asm_module { filename; asm_module_path; rprogram = _; str_lit_map } =
+(* let export_asm_module { filename; asm_module_path; rprogram = _; str_lit_map } =
   let file = open_out filename in
   let (AsmModule rnodes) = sort_asm_module asm_module_path.asm_module in
   let () =
@@ -76,7 +74,7 @@ let compile_asm_from_tac_tmp tac_program =
   tac_program |> Aarch64Conv.asm_program_of_tac_program |> compile_asm_tmp
 
 let compile_asm_from_tac tac_program =
-  tac_program |> Aarch64Conv.asm_program_of_tac_program |> compile_asm
+  tac_program |> Aarch64Conv.asm_program_of_tac_program |> compile_asm *)
 
 
 module Codegen = struct

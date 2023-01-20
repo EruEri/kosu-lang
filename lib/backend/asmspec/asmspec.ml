@@ -20,11 +20,18 @@ open KosuIrTyped.Asttyped
 module type X86_64_Spec = sig
   val label_prefix: string
   val main: string
+
+  val p2align: string
+  val p2align_function: string
 end
 
 module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
 
   include X86_Spec
+
+  let p2align = ".p2align 4, 0x90"
+
+
 
   let label_of_constant ?module_path const_name = 
     Printf.sprintf "%s%s" 
@@ -64,9 +71,17 @@ end
 module X86_64LinuxAsmSpec = X86_64Spec_Make(struct
   let label_prefix = ""
   let main = ""
+
+  let p2align = ""
+
+  let p2align_function = ""
 end) 
 
 module X86MacOsAsmSpec = X86_64Spec_Make(struct
   let label_prefix = "_"
   let main = "_main"
+
+  let p2align = "?"
+
+  let p2align_function = "?"
 end)
