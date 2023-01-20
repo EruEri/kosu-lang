@@ -607,7 +607,9 @@ module FrameManager = struct
         | Some a -> a
         | None -> failwith "X86_64: No stack allocated for this variable"
         in
-        acc @ copy_from_reg {size = Q; reg = register} whereis kt rprogram
+        let data_size = data_size_of_int64_def @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt in 
+        let sized_regiser = sized_register data_size register in
+        acc @ copy_from_reg sized_regiser whereis kt rprogram
       ) [] 
     in
     let stack_params_offset =
