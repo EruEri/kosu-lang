@@ -25,7 +25,7 @@ module type X86_64_Spec = sig
   val main: string
 
   val p2align: string
-  
+
   val p2align_function: string
 
   val string_litteral_section_end: string
@@ -57,7 +57,7 @@ module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
       (KosuIrTyped.Asttypprint.string_of_label_rktype return_ktype)
 
       let label_of_external_function rextern_func_decl = 
-        rextern_func_decl.c_name |> Option.value ~default:rextern_func_decl.rsig_name
+        rextern_func_decl.c_name |> Option.value ~default:rextern_func_decl.rsig_name |> Printf.sprintf "%s%s" label_prefix
     
       let label_of_kosu_function ~module_path (rfunction_decl: KosuIrTyped.Asttyped.rfunction_decl) =
         label_of_function ~module_path 
