@@ -23,6 +23,12 @@ module type X86_64_Spec = sig
 
   val p2align: string
   val p2align_function: string
+
+  val string_litteral_section_end: string
+
+  val string_litteral_section_start: string
+
+  val string_litteral_directive: string -> Util.stringlit_label -> string
 end
 
 module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
@@ -38,7 +44,7 @@ module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
     (module_path |> Option.map (Printf.sprintf "%s:_") |> Option.value ~default:"")
     const_name
   let label_of_function ~label_prefix ~main ~module_path ~fn_name ~signature ~return_ktype = 
-    let fn_name = if fn_name = "main" then main else fn_name in
+    if fn_name = "main" then main else
     Printf.sprintf "%s%s:%s_%s__%s" 
       label_prefix
       module_path
@@ -70,11 +76,16 @@ end
 
 module X86_64LinuxAsmSpec = X86_64Spec_Make(struct
   let label_prefix = ""
-  let main = ""
+  let main = "main"
 
   let p2align = ""
 
   let p2align_function = ""
+
+  let string_litteral_section_start = ""
+
+  let string_litteral_section_end = ""
+  let string_litteral_directive (_:string) (_ : Util.stringlit_label) = "string"
 end) 
 
 module X86MacOsAsmSpec = X86_64Spec_Make(struct
@@ -84,4 +95,10 @@ module X86MacOsAsmSpec = X86_64Spec_Make(struct
   let p2align = "?"
 
   let p2align_function = "?"
+
+  let string_litteral_section_start = ".section\t__TEXT,__cstring,cstring_literals,"
+
+  let string_litteral_section_end = ".subsections_via_symbols"
+
+  let string_litteral_directive (_:string) (_ : Util.stringlit_label) = ".asciz"
 end)

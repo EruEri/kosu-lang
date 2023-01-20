@@ -15,8 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-open Util
-
 module Codegen(AsmSpec: Common.AsmSpecification) = struct
 
   module X86_64 = X86_64Conv.Make(AsmSpec)
@@ -32,13 +30,13 @@ module Codegen(AsmSpec: Common.AsmSpecification) = struct
     let AsmModule x =  X86_64.sort_asm_module (AsmModule asm_module) in
     x
 
-  let string_litteral_section_start = ".section\t__TEXT,__cstring,cstring_literals,"
+  let string_of_asm_node = X86_64Pprint.string_of_asm_node 
 
-  let string_litteral_section_end = ".subsections_via_symbols"
+  let string_litteral_section_start = AsmSpec.string_litteral_section_start
 
-  let string_of_asm_node = X86_64Pprint.string_of_asm_node
+  let string_litteral_section_end = AsmSpec.string_litteral_section_end
 
-  let string_litteral_directive (_: string) (_: stringlit_label) = "asciz" 
+  let string_litteral_directive = AsmSpec.string_litteral_directive
 
   let filename_of_named_asm_module_path namp = namp.filename
   let asm_module_path_of_named_asm_module_path namp = namp.asm_module_path.asm_module

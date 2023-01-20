@@ -57,6 +57,8 @@ let string_of_register register =
       | "rdx" -> "dl"
       | other -> Printf.sprintf "%sl" (String.sub other 1 2)
 
+let string_of_register register = Printf.sprintf "%%%s" (string_of_register register)
+
 
 let string_of_address_offset = function
 | Addr_label (label, offset) -> Printf.sprintf "%s%s" label (if offset = 0L then "" else Printf.sprintf "+%Lu" offset)
