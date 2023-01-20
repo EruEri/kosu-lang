@@ -17,7 +17,8 @@ module Make(Spec: Common.AsmSpecification) = struct
   rprogram (fd: FrameManager.frame_desc) = function
   | { tac_expression = TEString s; expr_rktype = _ } ->
     let (SLit str_labl) = Hashtbl.find str_lit_map s in
-    target_dst, load_label (Spec.label_of_constant str_labl) target_dst
+    let resized_dst = resize_dst Q target_dst in
+    resized_dst, load_label (Spec.label_of_constant str_labl) resized_dst
 | { tac_expression = TEFalse | TEmpty; expr_rktype = _ } ->
   begin match target_dst with
   | (`Register reg ) as rreg -> target_dst, [
@@ -37,10 +38,12 @@ end
   ]
 end
 | { tac_expression = TETrue; _ } -> 
-  target_dst, [ Instruction ( Mov {size = B; destination = target_dst; source = `ILitteral 1L}) ]
+  let resized_dst = resize_dst B target_dst in
+  resized_dst, [ Instruction ( Mov {size = B; destination = resized_dst; source = `ILitteral 1L}) ]
 | { tac_expression = TEInt (_, isize, int64); _ } ->
     let size = data_size_of_isize isize in
-    target_dst, [Instruction (Mov {size; destination = target_dst; source = `ILitteral int64})]
+    let resized_dst = resize_dst size target_dst in
+    resized_dst, [Instruction (Mov {size; destination = resized_dst; source = `ILitteral int64})]
 | { tac_expression = TEFloat _float; _ } ->
   failwith "X86_64: Mov Float todo"
 | { tac_expression = TEIdentifier id; expr_rktype } ->
@@ -54,18 +57,23 @@ end
     let data_size = Option.value ~default:Q @@ data_size_of_int64 sizeof in
     begin match is_register_size sizeof with
     true -> ( 
+      let target_dst = resize_dst data_size target_dst in
       match target_dst with
       | `Register _ as reg -> target_dst, [ Instruction (Mov {size = data_size; destination = reg; source = `Address adress})]
-      | `Address addr -> target_dst, [
-        Instruction (Mov {size = data_size; destination = `Register raxq; source = `Address addr});
-        Instruction (Mov {size = data_size; destination = target_dst; source = `Register raxq})
+      | `Address addr -> target_dst, 
+      let sized_rax = resize_register data_size raxq in
+      [
+        Instruction (Mov {size = data_size; destination = `Register sized_rax; source = `Address addr});
+        Instruction (Mov {size = data_size; destination = target_dst; source = `Register sized_rax})
       ]
     )
     | false -> (
       match target_dst with
       | `Register reg -> 
-        `Register (resize_register Q reg ), [
-          Instruction (Lea {size = Q; source = adress; destination = reg})
+        let resied_reg = resize_register Q reg in
+        `Register resied_reg, [
+          Line_Com (Comment "Here");
+          Instruction (Lea {size = Q; source = adress; destination = resied_reg})
         ]
       | `Address _ ->
         `Register (raxq), [
@@ -77,6 +85,7 @@ end
  
 | { tac_expression = TESizeof kt; _ } ->
     let sizeof = sizeofn rprogram kt in
+    let target_dst = resize_dst Q target_dst in
     target_dst, [
       Line_Com (Comment "Sizeof ");
       Instruction (Mov {size = Q; destination = target_dst; source = `ILitteral sizeof})
@@ -85,12 +94,14 @@ end
     tac_expression = TEConst { name; module_path };
     expr_rktype = RTString_lit;
   } ->   
+    let target_dst = resize_dst Q target_dst in
     target_dst, load_label (Spec.label_of_constant ~module_path name) target_dst
 | {
     tac_expression = TEConst { name; module_path };
     expr_rktype = RTInteger (_, size);
   } ->
     let data_size = data_size_of_isize size in
+    let target_dst = resize_dst data_size target_dst in
     let const_decl = 
       match rprogram |> KosuIrTyped.Asttyhelper.RProgram.find_const_decl ~name ~module_path with
       | None -> failwith (Printf.sprintf "No const decl for %s::%s" module_path name)
@@ -132,6 +143,7 @@ let translate_tac_binop ~str_lit_map ~cc ~blhs ~brhs ~where rval_rktype rprogram
       let _left_reg, linstructions =
         translate_tac_expression ~str_lit_map ~target_dst:(`Register rax) rprogram fd blhs
       in
+      let raxb = resize_register B rax in
       let copy_instructions =
         where
         |> Option.map (fun waddress ->
@@ -148,13 +160,13 @@ let translate_tac_binop ~str_lit_map ~cc ~blhs ~brhs ~where rval_rktype rprogram
                     Instruction (
                       Set {
                         cc = cc;
-                        register = rax;
+                        register = raxb;
                       }
                     )
                   ]
                 in
                 equal_instruction
-                @ copy_from_reg rax waddress rval_rktype rprogram)
+                @ copy_from_reg raxb waddress rval_rktype rprogram)
         |> Option.value ~default:[]
       in
       rinstructions @ linstructions @ copy_instructions
@@ -947,9 +959,9 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       translate_tac_expression ~str_lit_map rprogram fd condition_rvalue
     in
     let data_size = match last_reg with | `Address _ -> Q | `Register reg -> reg.size in 
-    let lhs = src_of_dst last_reg in
+    let rhs = src_of_dst last_reg in
     let cmp =
-      Instruction (Cmp { size = data_size; lhs; rhs = `ILitteral 1L })
+      Instruction (Cmp { size = data_size; rhs ; lhs = `ILitteral 1L })
     in
     let jmp = Instruction (Jmp { cc = Some E; where = `Label goto1 }) in
     let jmp2 = Instruction (Jmp { cc = None; where = `Label goto2 }) in
@@ -988,9 +1000,10 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
                     scases.condition
                 in
                 let lhs = src_of_dst last_reg in
+                let rhs = resize_src B lhs in
                 let cmp =
                   Instruction
-                    (Cmp { size = B; lhs; rhs = `ILitteral 1L })
+                    (Cmp { size = B; rhs; lhs = `ILitteral 1L })
                 in
                 let if_true_instruction =
                   Instruction (Jmp { cc = Some E; where = `Label scases.goto })
@@ -1100,8 +1113,8 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
                           (Cmp
                               {
                                 size = L;
-                                lhs = `Register (sized_register L R10);
-                                rhs = `ILitteral (Int64.of_int32 tag);
+                                rhs = `Register (sized_register L R10);
+                                lhs = `ILitteral (Int64.of_int32 tag);
                               })
                       in
                       let assoc_type_for_variants =

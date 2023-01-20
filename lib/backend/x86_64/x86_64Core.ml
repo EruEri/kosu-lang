@@ -226,6 +226,11 @@ module Operande = struct
   | `Address _ as addr -> addr
   | `Register reg -> `Register (Register.resize_register data_size reg)
 
+
+  let resize_src data_size: src -> src = function
+  | #dst as dst -> dst |> resize_dst data_size |> src_of_dst
+  | a -> a  
+
   let increment_dst_address by: dst -> dst = function
   | `Register _ as reg -> reg
   | `Address addr -> `Address (increment_adress by addr)
