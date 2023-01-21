@@ -590,12 +590,11 @@ module FrameManager = struct
     *)
     let function_prologue ~fn_register_params ~stack_params rprogram fd = 
       let open Instruction in
-      let stack_sub_size = Common.align_16 (Int64.add 16L fd.locals_space) in
       let base = Instruction (Push {size = Q; source = `Register rbpq}) in
-
+      let sub_align = Common.align_16 fd.locals_space in
       let sp_sub = [
         Instruction (Mov {size = Q; source = `Register rspq; destination = `Register rbpq});
-        Instruction (Sub {size = Q; destination = `Register rspq; source = `ILitteral stack_sub_size })
+        Instruction (Sub {size = Q; destination = `Register rspq; source = `ILitteral sub_align })
       ] 
     in
 
@@ -619,7 +618,7 @@ module FrameManager = struct
                KosuIrTyped.Asttyhelper.RType.rpointer kt
              else kt)
     in
-    let sp_address = Operande.create_address_offset ~offset:(Int64.add 16L stack_sub_size) rspq in
+    let sp_address = Operande.create_address_offset ~offset:(Int64.add 16L sub_align) rspq in
     let copy_stack_params_instruction =
       stack_params
       |> List.mapi (fun index value -> (index, value))
