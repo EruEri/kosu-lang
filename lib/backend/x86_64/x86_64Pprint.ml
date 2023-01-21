@@ -172,7 +172,7 @@ let size_directive_of_size =
         (KosuFrontend.Ast.Isize.size_of_isize size / 8)
         asm_const_name 
         (size_directive_of_size size)
-        (sprintf "0x%Lu" value)
+        (sprintf "%Ld" value)
     | `StrVal s ->
         sprintf "\n\t.global %s\n\t.align 8\n%s:\n\t.string %s"
         asm_const_name

@@ -13,6 +13,9 @@ open X86Program
 
 module Make(Spec: Common.AsmSpecification) = struct
 
+
+module X86_64Pprint = X86_64Pprint.Make(Spec)
+
   let translate_tac_expression ~str_lit_map ?(target_dst = (`Register {size = L; reg = R10} : dst))
   rprogram (fd: FrameManager.frame_desc) = function
   | { tac_expression = TEString s; expr_rktype = _ } ->
@@ -60,10 +63,11 @@ end
       let target_dst = resize_dst data_size target_dst in
       match target_dst with
       | `Register _ as reg -> target_dst, [ Instruction (Mov {size = data_size; destination = reg; source = `Address adress})]
-      | `Address addr -> target_dst, 
+      | `Address _ -> target_dst, 
       let sized_rax = resize_register data_size raxq in
       [
-        Instruction (Mov {size = data_size; destination = `Register sized_rax; source = `Address addr});
+        Instruction (Mov {size = data_size; destination = `Register sized_rax; source = `Address adress});
+        (* Line_Com (Comment "Miiddle"); *)
         Instruction (Mov {size = data_size; destination = target_dst; source = `Register sized_rax})
       ]
     )
@@ -72,7 +76,7 @@ end
       | `Register reg -> 
         let resied_reg = resize_register Q reg in
         `Register resied_reg, [
-          Line_Com (Comment "Here");
+          (* Line_Com (Comment "Here"); *)
           Instruction (Lea {size = Q; source = adress; destination = resied_reg})
         ]
       | `Address _ ->
@@ -673,16 +677,17 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
              |> List.mapi (fun index value -> (index, value))
              |> List.fold_left
                   (fun (accumuled_adre, acc) (index, tte) ->
-                    let reg_texp, instructions =
-                      translate_tac_expression rprogram ~str_lit_map ~target_dst:(`Address accumuled_adre) fd tte
-                    in
                     let increment_adress = increment_adress (List.nth offset_list index) accumuled_adre in
+                    let reg_texp, instructions =
+                      translate_tac_expression rprogram ~str_lit_map ~target_dst:(`Address increment_adress) fd tte
+                    in
+                   
                     let acc_plus = acc @ instructions in
                      match reg_texp with
                     | `Address _ -> increment_adress, acc_plus
                     | `Register reg ->
                     ( increment_adress ,
-                      acc_plus @ copy_from_reg reg accumuled_adre tte.expr_rktype rprogram )
+                      acc_plus @ copy_from_reg reg increment_adress tte.expr_rktype rprogram )
                     ) (waddress, [])
                   
              |> snd)
@@ -1090,9 +1095,9 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
         Instruction
           (Mov
               {
-                size = Q;
-                destination = `Register (sized_register Q R10);
-                source = src_of_dst last_dst;
+                size = L;
+                destination = `Register (sized_register L R10);
+                source = `Address (address_of_dst last_dst);
               })
     in
     let switch_variable_name =
@@ -1314,11 +1319,11 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
                      let epilogue = FrameManager.function_epilogue fd in
                      (* let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
                         let () = fd.stack_map |> IdVarMap.to_seq |> Seq.iter (fun ((s, kt), adr) ->
-                          Printf.printf "%s : %s == [%s, %Ld]\n"
+                          Printf.printf "%s : %s == [%s, %s]\n"
                           (s)
                           (KosuIrTyped.Asttypprint.string_of_rktype kt)
-                          (Aarch64Pprint.string_of_register adr.base)
-                          (adr.offset)
+                          (X86_64Pprint.string_of_register adr.base)
+                          (X86_64Pprint.string_of_address_offset adr.offset)
                           ) in *)
                      Some
                        (Afunction
