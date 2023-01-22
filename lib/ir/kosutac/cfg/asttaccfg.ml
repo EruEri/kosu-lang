@@ -1,16 +1,22 @@
 open KosuIrTAC.Asttac
 
+module LabelSet = Set.Make(struct
+  type t = string
+
+  let compare = Stdlib.compare
+end)
+
 type cfg_statement =
 | CFG_STacDeclaration of { identifier : string; trvalue : tac_typed_rvalue }
 | CFG_STacModification of { identifier : string; trvalue : tac_typed_rvalue }
 | CFG_STDerefAffectation of { identifier : string; trvalue : tac_typed_rvalue }
-
-type basic_block_end = 
-| Bbe_if of {
+| CFG_If of {
   condition: tac_typed_expression;
   if_label: string;
   else_label: string;
 }
+
+type basic_block_end = 
 | Bbe_return of tac_typed_expression
 
 and basic_block = {
@@ -35,47 +41,47 @@ let fake_label () =
 
 
 module Convert = struct
-  let rec of_tac_statements ~end_label stmts = match stmts with 
-  | [] -> [], None , []
+  let rec of_tac_statements ~end_label (stmts, return) = match stmts with 
+  | [] -> [], Option.to_list end_label , return, []
   | (stmt::q) as stmts -> begin match stmt with
     | STacDeclaration {identifier; trvalue} -> begin match end_label with
-      | None -> 
-        let future_stmts, basic_block_end, generated_bb = of_tac_statements ~end_label q in
-        CFG_STacDeclaration {identifier; trvalue}::future_stmts, basic_block_end, generated_bb @ []
-      | Some label -> 
-        [], 
-        None, 
-        of_tac_body ~end_label:None {label; body = (stmts, None)}    
+      | _ -> 
+        let future_stmts, follewed, final_return, generated_bb = of_tac_statements ~end_label (q, return) in
+        CFG_STacDeclaration {identifier; trvalue}::future_stmts, follewed, final_return, generated_bb @ []   
     end
     | STacModification {identifier; trvalue} -> begin match end_label with
       | None -> 
-        let future_stmts, basic_block_end, generated_bb = of_tac_statements ~end_label q in
-        CFG_STacModification {identifier; trvalue}::future_stmts, basic_block_end, generated_bb @ []
+        let future_stmts, basic_block_end, final_return, generated_bb = of_tac_statements ~end_label (q, return) in
+        CFG_STacModification {identifier; trvalue}::future_stmts, basic_block_end, final_return, generated_bb @ []
       | Some label -> 
         [], 
-        None, 
-        of_tac_body ~end_label:None {label; body = (stmts, None)}    
+        label::[], 
+        None,
+        of_tac_body ~end_label:None {label; body = (stmts, return)}    
     end
     | STDerefAffectation {identifier; trvalue} -> begin match end_label with
       | None -> 
-        let future_stmts, basic_block_end, generated_bb = of_tac_statements ~end_label q in
-        CFG_STDerefAffectation {identifier; trvalue}::future_stmts, basic_block_end, generated_bb @ []
+        let future_stmts, basic_block_end, final_return, generated_bb = of_tac_statements ~end_label (q, return) in
+        CFG_STDerefAffectation {identifier; trvalue}::future_stmts, basic_block_end, final_return, generated_bb @ []
       | Some label -> 
         [], 
-        None, 
-        of_tac_body ~end_label:None {label; body = (stmts, None)}    
+        label::[], 
+        None,
+        of_tac_body ~end_label:None {label; body = (stmts, return)}    
     end
     | STIf {statement_for_bool; condition_rvalue; goto1; goto2; if_tac_body; else_tac_body; exit_label} ->
       begin match end_label with
       | None ->       
-        let cfg_pre_condtion_stmts, _basic_block_end, generated = of_tac_statements ~end_label statement_for_bool in
-        cfg_pre_condtion_stmts, 
-        Some (Bbe_if {condition = condition_rvalue; if_label = goto1; else_label = goto2}), 
+        let cfg_pre_condtion_stmts, _basic_block_end, _final_return, generated = of_tac_statements ~end_label (statement_for_bool, return) in
+        cfg_pre_condtion_stmts @ CFG_If {condition = condition_rvalue; if_label = goto1; else_label = goto2}::[], 
+        if_tac_body.label::else_tac_body.label::[], 
+        None,
         (of_tac_body ~end_label:(Some exit_label) if_tac_body) @ (of_tac_body ~end_label:(Some exit_label) else_tac_body ) @ generated
       | Some label -> 
         [],
+        if_tac_body.label::else_tac_body.label::[],
         None,
-        (of_tac_body ~end_label:None {label; body = (stmts, None)})
+        (of_tac_body ~end_label:None {label; body = (stmts, return)})
       
       end
 
@@ -84,12 +90,12 @@ module Convert = struct
   end
 
   and of_tac_body ~end_label ({label; body} : tac_body) = 
-  let cfg_statements, _basic_block_end, genereted = of_tac_statements ~end_label (fst body) in
+  let cfg_statements, followed, return , genereted = of_tac_statements ~end_label body in
   {
       label;
       cfg_statements;
-      followed_by = end_label |> Option.to_list;
-    ending = body |> snd |> Option.map (fun return -> Bbe_return return);
+      followed_by = followed @ (end_label |> Option.to_list);
+    ending =  return |> Option.map (fun tte -> Bbe_return tte);
   }::genereted
 
   let of_tac_body tac_body = 
@@ -127,13 +133,13 @@ module CfgPprint = struct
 | CFG_STacModification {identifier; trvalue} ->
   let tac_decl = STacModification {identifier; trvalue} in
   KosuIrTAC.Asttacpprint.string_of_tac_statement tac_decl
-
-let string_of_basic_block_end = function
-| Bbe_if {condition; if_label; else_label} -> 
-  Printf.sprintf "if %s goto %s\ngoto %s" 
+| CFG_If {condition; if_label; else_label} -> 
+  Printf.sprintf "if %s goto %s\n\tgoto %s" 
     (KosuIrTAC.Asttacpprint.string_of_typed_tac_expression condition)
     if_label
     else_label
+
+let string_of_basic_block_end = function
 | Bbe_return tte -> Printf.sprintf "return %s" 
   (KosuIrTAC.Asttacpprint.string_of_typed_tac_expression tte)
 
