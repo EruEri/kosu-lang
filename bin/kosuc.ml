@@ -27,7 +27,14 @@ let () = KosuFrontend.Registerexn.register_kosu_error ()
 let code =
   Clap.description "kosuc - The Kosu compiler";
 
-  let output = Clap.optional_string ~long:"output" ~short:'o' () in
+
+  let target_archi =
+    Clap.mandatory Cli.archi_clap_type ~long:"target" ~short:'t'
+      ~description:"Architecture compilation target" ~placeholder:"Target" ()
+  in
+
+  let no_std = Clap.flag ~set_long:"no-std" ~description:"Don't include the standard librairy files" false in
+
 
   let is_target_asm =
     Clap.flag ~set_short:'S' ~description:"Produce an assembly file" false
@@ -37,14 +44,13 @@ let code =
     Clap.flag ~set_short:'c' ~description:"Produce an object file" false
   in
 
-  let target_archi =
-    Clap.mandatory Cli.archi_clap_type ~long:"target" ~short:'t'
-      ~description:"Architecture compilation target" ~placeholder:"Target" ()
-  in
   let cc =
     Clap.flag ~set_long:"cc"
       ~description:"Generate executable by using a C compiler" false
   in
+
+  let output = Clap.optional_string ~long:"output" ~short:'o' () in
+
   let ccol =
     Clap.list_string ~long:"ccol"
       ~description:
@@ -53,15 +59,19 @@ let code =
       ~placeholder:"C Files" ()
   in
 
+  
+
   let files = Clap.list_string ~description:"files" ~placeholder:"FILES" () in
+
+  let () = Clap.close () in
 
   let kosu_files, other_files =
     files |> List.partition (fun s -> s |> Filename.extension |> ( = ) ".kosu")
   in
 
-  let () = Clap.close () in
+  let _std_file = Cli.fetch_std_file ~no_std () in
 
-  let modules_opt = Cli.files_to_ast_program kosu_files in
+  let modules_opt = Cli.files_to_ast_program (kosu_files) in
 
   let tac_program =
     match modules_opt with

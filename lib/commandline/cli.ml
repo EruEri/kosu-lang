@@ -19,6 +19,8 @@
 type filename_error = Mutiple_dot_in_filename | No_extension | Unknow_error
 type archi_target = Arm64e | X86_64m | X86_64
 
+let std_global_variable = "KOSU_STD_PATH"
+
 let archi_parse = function
   | "x86_64m" -> Some X86_64m
   | "x86_64" -> Some X86_64
@@ -112,3 +114,15 @@ let files_to_ast_program (files : string list) =
            |> KosuFrontend.Astvalidation.Help.program_remove_implicit_type_path
             )
       | Some error -> Error error)
+
+let fetch_std_file ~no_std () = 
+  let std_path = Sys.getenv_opt std_global_variable in
+  if no_std || (Option.is_none std_path ) 
+    then []
+  else
+    let std_path = Option.get std_path in
+    let file_in_dir = Sys.readdir std_path in
+    file_in_dir |> Array.fold_left (fun acc file ->
+      if file |> Filename.extension |> ( = ) ".kosu" then file::acc
+      else acc
+    ) []
