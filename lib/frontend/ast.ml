@@ -750,7 +750,7 @@ module Type = struct
               {
                 v =
                   (if module_path.v = "" then current_module
-                  else module_type_path);
+                  else module_path.v);
                 position = module_path.position;
               };
             name;
@@ -763,7 +763,7 @@ module Type = struct
                 module_path with
                 v =
                   (if module_path.v = "" then current_module
-                  else module_type_path);
+                  else module_path.v);
               };
             parametrics_type =
               parametrics_type

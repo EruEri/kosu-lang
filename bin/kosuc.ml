@@ -38,7 +38,7 @@ let code =
   in
 
   let target_archi =
-    Clap.mandatory Cli.archi_clap_type ~long:"target"
+    Clap.mandatory Cli.archi_clap_type ~long:"target" ~short:'t'
       ~description:"Architecture compilation target" ~placeholder:"Target" ()
   in
   let cc =
@@ -103,7 +103,7 @@ let code =
               KosuBackend.Codegen.Aarch64Codegen.compile_asm_from_tac tac_program
             in
             0
-        | Cli.X86_64l ->           
+        | Cli.X86_64 ->           
           let _files =
             LinuxX86.compile_asm_from_tac tac_program
          in
@@ -132,7 +132,7 @@ let code =
                 ~other:(other_files @ obj_file)
             else failwith "Native compiling pipeline with as and ld to do"
           )
-          | Cli.X86_64l -> (           
+          | Cli.X86_64 -> (           
             if cc then
               let asm_file =
                 LinuxX86.compile_asm_from_tac_tmp tac_program
