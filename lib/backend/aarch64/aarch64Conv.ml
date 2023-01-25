@@ -1804,7 +1804,7 @@ module Codegen = struct
           | t :: [] -> t
           | _ ->
               failwith
-                "What the type checker has done: No binary op declaration"
+                "What the type checker has done: No binary op declaration | Too much"
         in
         let fn_label =
           KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator op_decl
@@ -2419,7 +2419,14 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram =
                           | Locale s -> (s, locale_ty)
                           | Enum_Assoc_id { name; _ } -> (name, locale_ty))
                  in
-                 (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
+                 (* let () = locals_var 
+                  |> List.map (fun (s, kt) -> 
+                      Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)
+                  ) 
+                  |> String.concat ", " 
+                  |> Printf.printf "%s : locale variables = [%s]\n" 
+                  function_decl.rfn_name 
+                in *)
                  let asm_name = 
                   FnLabel.label_of_tac_function ~module_path:current_module function_decl
                  in
@@ -2508,7 +2515,13 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram =
                           | Locale s -> (s, locale_ty)
                           | Enum_Assoc_id { name; _ } -> (name, locale_ty))
                  in
-                 (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
+                 (* let () = locals_var 
+                  |> List.map (fun (s, kt) -> 
+                      Printf.sprintf "%s : %s\n" (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) 
+                      |> String.concat ", " 
+                      |> Printf.printf "%s : locale variables = [%s]\n" 
+                      binary.asm_name
+                  in *)
                  let asm_name = binary.asm_name in
                  let lhs_param, rhs_param = binary.rfields in
                  let fn_register_params = [ lhs_param; rhs_param ] in

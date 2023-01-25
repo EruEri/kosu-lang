@@ -835,7 +835,13 @@ let rec reduce_variable_used_statements stmts =
   | t :: [] -> [ t ]
   | t1 :: t2 :: q -> (
       match (t1, t2) with
-      | ( STacDeclaration { identifier = tmp_name; trvalue },
+      (* Cancelled because of case 
+         const x = 10;
+         const z = x;
+
+         x is deleted
+      *)
+      (* | ( STacDeclaration { identifier = tmp_name; trvalue },
           STacDeclaration
             {
               identifier = true_var;
@@ -849,7 +855,7 @@ let rec reduce_variable_used_statements stmts =
             } )
         when tmp_name = id ->
           STacDeclaration { identifier = true_var; trvalue }
-          :: reduce_variable_used_statements q
+          :: reduce_variable_used_statements q *)
       | ( STacDeclaration { identifier = tmp_name; trvalue },
           STacModification
             {
