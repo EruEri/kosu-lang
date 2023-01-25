@@ -69,9 +69,9 @@ let code =
     files |> List.partition (fun s -> s |> Filename.extension |> ( = ) ".kosu")
   in
 
-  let _std_file = Cli.fetch_std_file ~no_std () in
+  let std_file = Cli.fetch_std_file ~no_std () in
 
-  let modules_opt = Cli.files_to_ast_program (kosu_files) in
+  let modules_opt = Cli.files_to_ast_program (kosu_files @ std_file) in
 
   let tac_program =
     match modules_opt with

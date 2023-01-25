@@ -88,6 +88,7 @@ let module_path_of_file filename =
         String.sub filename prefix_len (filename_len - prefix_len)
    else filename
 in
+  (* let () = Printf.printf "filename = %s\nchomped = %s\n" filename  chomped_filename in *)
   let open KosuFrontend in
   let open KosuFrontend.Ast in
   let ( >>= ) = Result.bind in
@@ -118,7 +119,7 @@ in
     [Kosu_frontend.Astvalidation.Help.program_remove_implicit_type_path]
 *)
 let files_to_ast_program (files : string list) =
-  files |> List.map (module_path_of_file) |> function
+  files |> List.map module_path_of_file |> function
   | [] -> Error No_input_file
   | l -> (
       match
@@ -142,7 +143,7 @@ let fetch_std_file ~no_std () =
     let file_in_dir = Sys.readdir std_path in
     file_in_dir |> Array.fold_left (fun acc file ->
       if file |> Filename.extension |> ( = ) ".kosu" then 
-        let file = Printf.sprintf "%s%s%s" std_global_variable (Filename.dir_sep) file in
+        let file = Printf.sprintf "%s%s%s" std_path (Filename.dir_sep) file in
         file::acc
       else acc
     ) []
