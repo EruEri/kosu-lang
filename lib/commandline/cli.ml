@@ -21,6 +21,8 @@ type archi_target = Arm64e | X86_64m | X86_64
 
 let std_global_variable = "KOSU_STD_PATH"
 
+let std_path = Sys.getenv_opt std_global_variable
+
 let archi_parse = function
   | "x86_64m" -> Some X86_64m
   | "x86_64" -> Some X86_64
@@ -74,6 +76,18 @@ let convert_filename_to_path filename =
   |> Result.map f
 
 let module_path_of_file filename =
+  let chomped_filename = match std_path with
+  | None -> filename
+  | Some path ->
+    if String.starts_with ~prefix:path filename 
+      then 
+        let filename_len = String.length filename in
+        let dir_sep_len = String.length @@ Filename.dir_sep in
+        let path_len = String.length path in
+        let prefix_len = path_len + dir_sep_len in
+        String.sub filename prefix_len (filename_len - prefix_len)
+   else filename
+in
   let open KosuFrontend in
   let open KosuFrontend.Ast in
   let ( >>= ) = Result.bind in
@@ -91,8 +105,11 @@ let module_path_of_file filename =
     )
   )
   >>= fun _module ->
-  filename |> convert_filename_to_path
-  |> Result.map (fun path -> { filename; module_path = { path; _module } })
+  chomped_filename 
+  |> convert_filename_to_path
+  |> Result.map (fun path -> 
+    { filename; module_path = { path; _module } }
+  )
   |> Result.map_error (fun e -> Filename_error e)
 
 (**
@@ -101,7 +118,7 @@ let module_path_of_file filename =
     [Kosu_frontend.Astvalidation.Help.program_remove_implicit_type_path]
 *)
 let files_to_ast_program (files : string list) =
-  files |> List.map module_path_of_file |> function
+  files |> List.map (module_path_of_file) |> function
   | [] -> Error No_input_file
   | l -> (
       match
@@ -115,14 +132,17 @@ let files_to_ast_program (files : string list) =
             )
       | Some error -> Error error)
 
+
+
 let fetch_std_file ~no_std () = 
-  let std_path = Sys.getenv_opt std_global_variable in
   if no_std || (Option.is_none std_path ) 
     then []
   else
     let std_path = Option.get std_path in
     let file_in_dir = Sys.readdir std_path in
     file_in_dir |> Array.fold_left (fun acc file ->
-      if file |> Filename.extension |> ( = ) ".kosu" then file::acc
+      if file |> Filename.extension |> ( = ) ".kosu" then 
+        let file = Printf.sprintf "%s%s%s" std_global_variable (Filename.dir_sep) file in
+        file::acc
       else acc
     ) []
