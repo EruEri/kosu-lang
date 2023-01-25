@@ -23,6 +23,8 @@ let std_global_variable = "KOSU_STD_PATH"
 
 let std_path = Sys.getenv_opt std_global_variable
 
+let is_kosu_file file = file |> Filename.extension |> ( = ) ".kosu"
+
 let archi_parse = function
   | "x86_64m" -> Some X86_64m
   | "x86_64" -> Some X86_64
@@ -135,15 +137,25 @@ let files_to_ast_program (files : string list) =
 
 
 
+let rec fetch_kosu_file direname () = 
+  let file_in_dir = Sys.readdir direname in
+  let kosu_files = file_in_dir |> Array.fold_left (fun acc_kosu_files file ->
+    let file = Printf.sprintf "%s%s%s" direname (Filename.dir_sep) (file) in
+    if Sys.is_directory file then
+      acc_kosu_files @ (fetch_kosu_file file () )
+    else 
+      if is_kosu_file file 
+        then
+          file::acc_kosu_files
+    else
+      acc_kosu_files
+  ) [] in
+  kosu_files
+
+
 let fetch_std_file ~no_std () = 
   if no_std || (Option.is_none std_path ) 
     then []
   else
     let std_path = Option.get std_path in
-    let file_in_dir = Sys.readdir std_path in
-    file_in_dir |> Array.fold_left (fun acc file ->
-      if file |> Filename.extension |> ( = ) ".kosu" then 
-        let file = Printf.sprintf "%s%s%s" std_path (Filename.dir_sep) file in
-        file::acc
-      else acc
-    ) []
+    fetch_kosu_file std_path ()
