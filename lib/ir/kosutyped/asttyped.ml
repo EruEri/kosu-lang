@@ -139,6 +139,7 @@ type renum_decl = {
 type rfunction_decl = {
   rfn_name : string;
   generics : string list;
+  true_generics: bool;
   rparameters : (string * rktype) list;
   return_type : rktype;
   rbody : rkbody;
@@ -175,6 +176,7 @@ type rexternal_func_decl = {
 
 type rtrue_function_decl = {
   rfn_name : string;
+  rmaped_generics: rktype list;
   rparameters : (string * rktype) list;
   return_type : rktype;
   rbody : rkbody;

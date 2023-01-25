@@ -967,3 +967,39 @@ module FrameManager = struct
     let call = Instruction (BL { cc = None; label = origin }) in
     [ call ]
 end
+
+module FnLabel = struct 
+  let label_prefix = "_"
+
+  let main = "_main"
+
+  open KosuIrTyped.Asttyped
+  let label_of_constant ?module_path const_name = 
+    Printf.sprintf "%s%s" 
+    (module_path |> Option.map (Printf.sprintf "%s._") |> Option.value ~default:"")
+    const_name
+  let label_of_function ~label_prefix ~main ~module_path ~fn_name ~generics = 
+    if fn_name = "main" then main else
+    Printf.sprintf "%s%s.%s%s" 
+      label_prefix
+      module_path
+      ( if generics = [] then "" else generics |> String.concat "." |> Printf.sprintf "_%s_")
+      fn_name
+
+      let label_of_external_function rextern_func_decl = 
+        rextern_func_decl.c_name |> Option.value ~default:rextern_func_decl.rsig_name |> Printf.sprintf "%s%s" label_prefix
+    
+      let label_of_kosu_function ~module_path (rfunction_decl: KosuIrTyped.Asttyped.rfunction_decl) =
+        label_of_function ~module_path 
+          ~main
+          ~label_prefix
+          ~fn_name:rfunction_decl.rfn_name 
+          ~generics: rfunction_decl.generics
+    
+      let label_of_tac_function ~module_path (tac_function_decl: KosuIrTAC.Asttac.tac_function_decl) =
+        label_of_function ~module_path 
+        ~main
+        ~label_prefix
+        ~fn_name:tac_function_decl.rfn_name 
+        ~generics:tac_function_decl.generics
+end

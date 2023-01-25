@@ -1003,6 +1003,7 @@ and from_module_node current_module (prog : module_path list) =
         {
           rfn_name = fn_name.v;
           generics = generics |> List.map Position.value;
+          true_generics = generics <> [];
           rparameters =
             parameters
             |> List.map (fun (lf, lkt) ->

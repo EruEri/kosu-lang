@@ -325,10 +325,7 @@ module Codegen = struct
         in
         match fn_decl with
         | RExternal_Decl external_func_decl ->
-            let fn_label =
-              Printf.sprintf "_%s"
-                (external_func_decl.c_name
-                |> Option.value ~default:external_func_decl.rsig_name)
+            let fn_label = FnLabel.label_of_external_function external_func_decl
             in
             (* let fn_register_params, _stack_param = tac_parameters |> List.mapi (fun index -> fun value -> index, value) |> List.partition_map (fun (index, value) ->
                if index < 8 then Either.left value else Either.right value
@@ -526,9 +523,8 @@ module Codegen = struct
                    ~fn_name ~ktypes:typed_parameters
               |> Option.get
             in
-            let fn_label =
-              KosuIrTyped.Asttyhelper.Function.label_of_fn_name fn_module
-                function_decl
+            let fn_label = 
+              FnLabel.label_of_kosu_function ~module_path function_decl
             in
 
             let instructions, regs =
@@ -2424,9 +2420,8 @@ let asm_module_of_tac_module ~str_lit_map current_module rprogram =
                           | Enum_Assoc_id { name; _ } -> (name, locale_ty))
                  in
                  (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
-                 let asm_name =
-                   KosuIrTAC.Asttachelper.Function.label_of_fn_name
-                     current_module function_decl
+                 let asm_name = 
+                  FnLabel.label_of_tac_function ~module_path:current_module function_decl
                  in
                  let fd =
                    FrameManager.frame_descriptor
