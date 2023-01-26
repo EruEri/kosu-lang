@@ -23,10 +23,14 @@ open Asttachelper
 let if_count = ref 0
 let cases_count = ref 0
 let switch_count = ref 0
-let make_tmp = Printf.sprintf "$tmp%u"
+
+let tmp_var_prefix = "$tmp"
+let make_tmp = Printf.sprintf "%s%u" tmp_var_prefix
 let make_goto_label ~count_if = Printf.sprintf "Lif.%u.%u" count_if
 let make_end_label ~count_if = Printf.sprintf "Lif.%u.end" count_if
 let make_case_goto_label ~cases_count = Printf.sprintf "Lcase.%u.%u" cases_count
+
+let is_tmp_var = String.starts_with ~prefix:tmp_var_prefix
 
 let make_case_goto_cond_label ~cases_count =
   Printf.sprintf "Lcase.%u.%u.cond" cases_count
@@ -841,7 +845,7 @@ let rec reduce_variable_used_statements stmts =
 
          x is deleted
       *)
-      (* | ( STacDeclaration { identifier = tmp_name; trvalue },
+      | ( STacDeclaration { identifier = tmp_name; trvalue },
           STacDeclaration
             {
               identifier = true_var;
@@ -853,9 +857,9 @@ let rec reduce_variable_used_statements stmts =
                       { expr_rktype = _; tac_expression = TEIdentifier id };
                 };
             } )
-        when tmp_name = id ->
+        when tmp_name = id && is_tmp_var tmp_name ->
           STacDeclaration { identifier = true_var; trvalue }
-          :: reduce_variable_used_statements q *)
+          :: reduce_variable_used_statements q
       | ( STacDeclaration { identifier = tmp_name; trvalue },
           STacModification
             {
@@ -868,7 +872,7 @@ let rec reduce_variable_used_statements stmts =
                       { expr_rktype = _; tac_expression = TEIdentifier id };
                 };
             } )
-        when tmp_name = id ->
+        when tmp_name = id && is_tmp_var tmp_name ->
           STacModification { identifier = true_var; trvalue }
           :: reduce_variable_used_statements q
       | ( STacDeclaration { identifier = tmp_name; trvalue },
@@ -883,7 +887,7 @@ let rec reduce_variable_used_statements stmts =
                       { expr_rktype = _; tac_expression = TEIdentifier id };
                 };
             } )
-        when tmp_name = id ->
+        when tmp_name = id && is_tmp_var tmp_name ->
           STDerefAffectation { identifier = true_var; trvalue }
           :: reduce_variable_used_statements q
       | _ -> t1 :: t2 :: reduce_variable_used_statements q)
