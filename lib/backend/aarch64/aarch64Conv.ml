@@ -225,31 +225,10 @@ module Codegen = struct
           (rreg, mov_integer rreg int_value)
     | _ -> failwith "Other expression"
 
-  let rec translate_tac_rvalue ?(is_deref = None) ~str_lit_map
+  let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       ~(where : address option) current_module rprogram
       (fd : FrameManager.frame_desc) { rval_rktype; rvalue } =
     match rvalue with
-    | RVUminus ttr ->
-        let last_reg, insts =
-          translate_tac_rvalue ~str_lit_map ~where current_module rprogram fd
-            ttr
-        in
-        let neg_instruction =
-          [ Instruction (Neg { destination = last_reg; source = last_reg }) ]
-        in
-        (last_reg, insts @ neg_instruction)
-    | RVNot ttr ->
-        let last_reg, insts =
-          translate_tac_rvalue ~str_lit_map ~where current_module rprogram fd
-            ttr
-        in
-        let not_instruction =
-          [
-            Instruction
-              (Not { destination = last_reg; source = `Register last_reg });
-          ]
-        in
-        (last_reg, insts @ not_instruction)
     | RVExpression tac_typed_expression ->
         let last_reg, instructions =
           translate_tac_expression ~str_lit_map rprogram fd tac_typed_expression

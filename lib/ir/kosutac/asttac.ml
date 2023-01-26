@@ -91,8 +91,6 @@ and binary = {
 and unary = { unop : tac_unop; expr : tac_typed_expression }
 
 and tac_rvalue =
-  | RVUminus of tac_typed_rvalue
-  | RVNot of tac_typed_rvalue
   | RVExpression of tac_typed_expression
   | RVFunction of tac_fncall
   | RVStruct of {
