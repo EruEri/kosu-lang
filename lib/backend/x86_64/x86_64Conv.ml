@@ -1249,7 +1249,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
                     {
                       size = return_reg.size;
                       destination = `Register return_reg;
-                      source = src_of_dst last_reg;
+                      source = src_of_dst @@ resize_dst return_reg.size last_reg;
                     })
                :: []
              else
