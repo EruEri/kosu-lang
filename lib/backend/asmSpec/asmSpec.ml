@@ -92,7 +92,7 @@ end)
 
 module X86MacOsAsmSpec = X86_64Spec_Make(struct
 
-  let comment_prefix = ";"
+  let comment_prefix = "#"
   let label_prefix = "_"
   let main = "_main"
 

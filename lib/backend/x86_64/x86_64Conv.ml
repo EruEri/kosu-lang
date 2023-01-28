@@ -1099,7 +1099,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
               {
                 size = L;
                 destination = `Register (sized_register L R10);
-                source = src_of_dst last_dst;
+                source =  src_of_dst  @@ resize_dst L last_dst;
               })
       else
         Instruction

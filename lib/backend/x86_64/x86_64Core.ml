@@ -123,6 +123,10 @@ module Register = struct
     reg = RAX
   }
 
+  let is_aliased lhs rhs = 
+    lhs.reg = rhs.reg
+
+
   (** Rax *)
   let tmp_rax size = 
     let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
@@ -477,7 +481,7 @@ end
   | s when is_register_size s -> 
     let data_size = Option.get @@ data_size_of_int64 s in
     [
-      Instruction (Mov {size = data_size; destination = `Address address; source = `Register register })
+      Instruction (Mov {size = data_size; destination = `Address address; source = `Register (Register.resize_register data_size register) })
     ]
   | _ -> copy_large ~address_str:address ~base_address_reg:(Operande.create_address_offset register) size
 
