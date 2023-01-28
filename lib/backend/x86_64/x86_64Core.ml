@@ -541,6 +541,12 @@ module FrameManager = struct
     |> is_register_size |> not
   in
 
+  (* let () = Printf.printf "ktype : %s size = %Lu = need = %b\n" 
+  (KosuIrTyped.Asttypprint.string_of_rktype return_type)
+  (sizeof rprogram return_type)
+  (need_result_ptr)
+in *)
+
   let stack_concat = fn_register_params @ stack_param @ locals_var in
 
   let fake_tuple = stack_concat |> List.map snd in
@@ -573,9 +579,12 @@ module FrameManager = struct
   }
 
   let address_of (variable, rktype) frame_desc =
-    (* let () = Printf.printf "Lookup => %s : %s\n" (variable) (KosuIrTyped.Asttypprint.string_of_rktype rktype) in *)
     if List.mem (variable, rktype) frame_desc.discarded_values then None
-    else Some (IdVarMap.find (variable, rktype) frame_desc.stack_map)
+    else Some (
+      try 
+        IdVarMap.find (variable, rktype) frame_desc.stack_map
+    with Not_found -> failwith (Printf.sprintf "Not found: %s : %s" variable (KosuIrTyped.Asttypprint.string_of_rktype rktype))
+    )
 
 
     let call_instruction ~origin _stack_param (_fd : frame_desc) =
@@ -597,11 +606,15 @@ module FrameManager = struct
         Instruction (Sub {size = Q; destination = `Register rspq; source = `ILitteral sub_align })
       ] 
     in
-
+    let _is_indirect_return = match List.nth_opt fn_register_params 0 with
+    | Some t when t = indirect_return_vt -> true
+    | _ -> false 
+  in
     let copy_reg_instruction = 
       fn_register_params 
       |> Util.ListHelper.combine_safe argument_registers
-      |> List.fold_left (fun acc (register, (name, kt)) -> 
+      |> List.mapi Util.couple
+      |> List.fold_left (fun acc (_, (register, (name, kt))) -> 
         let whereis =  match address_of (name, kt) fd with
         | Some a -> a
         | None -> failwith "X86_64: No stack allocated for this variable"

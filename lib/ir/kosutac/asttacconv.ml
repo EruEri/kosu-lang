@@ -890,7 +890,7 @@ let rec reduce_variable_used_statements stmts =
         when tmp_name = id && is_tmp_var tmp_name ->
           STDerefAffectation { identifier = true_var; trvalue }
           :: reduce_variable_used_statements q
-      | _ -> t1 :: t2 :: reduce_variable_used_statements q)
+      | _ -> t1 :: reduce_variable_used_statements (t2::q) )
 
 and reduce_variable_used_body { label; body = smtms, expr } =
   { label; body = (reduce_variable_used_statements smtms, expr) }

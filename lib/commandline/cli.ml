@@ -38,7 +38,7 @@ let archi_clap_type =
 
 let cc_compilation outputfile ~asm ~other =
   Sys.command
-    (Printf.sprintf "cc -o %s %s %s" outputfile
+    (Printf.sprintf "cc -g -o %s %s %s" outputfile
        (asm |> String.concat " ")
        (other |> String.concat " "))
 

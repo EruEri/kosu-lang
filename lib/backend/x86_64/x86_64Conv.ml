@@ -80,9 +80,9 @@ end
           Instruction (Lea {size = Q; source = adress; destination = resied_reg})
         ]
       | `Address _ ->
-        `Register (raxq), [
+        `Register ( tmp_r11 8L), [
           Line_Com (Comment "Mov identifier larger than reg");
-          Instruction (Lea {size = Q; source = adress; destination = raxq})
+          Instruction (Lea {size = Q; source = adress; destination = tmp_r11 8L})
         ] 
     )
     end
@@ -261,7 +261,12 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
         Option.get @@ KosuIrTyped.Asttyhelper.RProgram.find_function_decl_of_name fn_module
           fn_name rprogram
       in
-      let available_register_params = if fd.need_result_ptr then List.tl Register.argument_registers else Register.argument_registers in
+      let need_pass_rdi = rval_rktype |> sizeofn rprogram |> is_register_size |> not in
+      let available_register_params = if need_pass_rdi then 
+          List.tl Register.argument_registers 
+        else 
+          Register.argument_registers 
+      in
       let available_register_count = List.length available_register_params in
       let return_size = sizeofn rprogram rval_rktype in
       match fn_decl with
@@ -402,6 +407,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
           |> Option.get
         in
         let fn_label = Spec.label_of_kosu_function ~module_path function_decl in
+        (* let is_reg_size = rval_rktype |> sizeofn rprogram |> is_register_size in *)
         let args_in_reg, _args_on_stack =
         tac_parameters
         |> List.mapi (fun index value -> (index, value))
@@ -416,14 +422,18 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
           let data_size = Option.value ~default:Q @@ data_size_of_int64 @@ sizeofn rprogram tte.expr_rktype in
           let _last_reg, instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register {size = data_size; reg}) rprogram fd tte in
           acc @ instructions
-        ) [] in
-
+        ) []  in
+      (* let set_in_reg_instructions = if need_pass_rdi then 
+          (Instruction (Lea {size = Q; source = Option.get where; destination = rdiq}))::set_in_reg_instructions 
+        else set_in_reg_instructions 
+      in *)
       let set_on_stack_instructions = [] (* TODO *) in
       let call_instructions = FrameManager.call_instruction ~origin:(`Label fn_label) [] fd in
+      let fn_call_comm = (Line_Com (Comment (Printf.sprintf "%s::%s call end" module_path fn_name))) in 
       let return_reg_data_size = Option.value ~default:Q @@ data_size_of_int64 @@ sizeofn rprogram rval_rktype in
       let return_reg = sized_register return_reg_data_size RAX in
       let kosu_fn_instructions = 
-        match KosuIrTyped.Asttyconvert.Sizeof.discardable_size return_size with
+        match is_register_size return_size with
         | true ->
             let copy_instruction =
               where
@@ -485,7 +495,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
           ( set_in_reg_instructions @ set_on_stack_instructions @ copy_instruction
             @ call_instructions )
     in
-      kosu_fn_instructions
+      kosu_fn_instructions @ [fn_call_comm]
     )
     | RVTuple ttes ->
       let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in
@@ -927,7 +937,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
             (Mov
                 {
                   size = Q;
-                  destination = `Register raxq;
+                  destination = `Register tmpreg;
                   source = `Address (Option.get intermediary_adress) ;
                 })
         in
@@ -1279,9 +1289,16 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
           |> List.filter_map (fun node ->
                  match node with
                  | TNFunction function_decl ->
+                    let rparameters = if 
+                      is_register_size (sizeofn rprogram function_decl.return_type) 
+                    then
+                      function_decl.rparameters
+                    else
+                      X86_64Core.FrameManager.indirect_return_vt::function_decl.rparameters
+                    in 
                      let register_param_count = List.length argument_registers in
                      let fn_register_params, stack_param =
-                       function_decl.rparameters
+                      rparameters
                        |> List.mapi (fun index value -> (index, value))
                        |> List.partition_map (fun (index, value) ->
                               if index < register_param_count then Either.left value
@@ -1289,7 +1306,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
                      in
                      let stack_param_count =
                        Int64.of_int (function_decl.stack_params_count * 8)
-                     in
+                     in  
                      let locals_var =
                        function_decl.locale_var
                        |> List.map (fun { locale_ty; locale } ->
@@ -1300,6 +1317,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
                      (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
                      let asm_name = Spec.label_of_tac_function ~module_path:current_module function_decl
                      in
+                     (* let () = Printf.printf "%s::%s\n" current_module function_decl.rfn_name in *)
                      let fd =
                        FrameManager.frame_descriptor
                          ~stack_future_call:stack_param_count ~fn_register_params
@@ -1309,9 +1327,9 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
                      in
                      let prologue =
                        FrameManager.function_prologue
-                         ~fn_register_params:function_decl.rparameters
+                         ~fn_register_params
                          ~stack_params:stack_param rprogram fd
-                     in
+                     in                     
                      let conversion =
                        translate_tac_body ~str_lit_map current_module
                          rprogram fd function_decl.tac_body

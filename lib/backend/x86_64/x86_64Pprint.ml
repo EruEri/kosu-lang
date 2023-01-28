@@ -136,7 +136,7 @@ let string_of_instruction = function
                     | IDivl {size; divisor} ->
                       sprintf "idiv%s %s" (string_of_data_size size) (string_of_src divisor)
                       | Div {size; divisor} ->
-                        sprintf "idiv%s %s" (string_of_data_size size) (string_of_src divisor)
+                        sprintf "div%s %s" (string_of_data_size size) (string_of_src divisor)
                         | Push {size; source} ->
                           sprintf "push%s %s" (string_of_data_size size) (string_of_src source)
                           | Pop {size; destination} ->

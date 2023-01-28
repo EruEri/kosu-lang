@@ -47,15 +47,13 @@ module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
     Printf.sprintf "%s%s" 
     (module_path |> Option.map (Printf.sprintf "%s._") |> Option.value ~default:"")
     const_name
-  let label_of_function ~label_prefix ~main ~module_path ~fn_name ~signature ~return_ktype ~generics = 
+  let label_of_function ~label_prefix ~main ~module_path ~fn_name ~generics = 
     if fn_name = "main" then main else
-    Printf.sprintf "%s%s.__%s__%s_%s__%s" 
-      label_prefix
-      module_path
-      (generics |> String.concat ".")
-      fn_name
-      (signature |> List.map KosuIrTyped.Asttypprint.string_of_label_rktype |> String.concat "_")
-      (KosuIrTyped.Asttypprint.string_of_label_rktype return_ktype)
+      Printf.sprintf "%s%s.%s%s" 
+        label_prefix
+        module_path
+        ( if generics = [] then "" else generics |> String.concat "." |> Printf.sprintf "_%s_")
+        fn_name
 
       let label_of_external_function rextern_func_decl = 
         rextern_func_decl.c_name |> Option.value ~default:rextern_func_decl.rsig_name |> Printf.sprintf "%s%s" label_prefix
@@ -65,8 +63,6 @@ module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
           ~main
           ~label_prefix
           ~fn_name:rfunction_decl.rfn_name 
-          ~signature:(List.map snd rfunction_decl.rparameters)
-          ~return_ktype:(rfunction_decl.return_type)
           ~generics: rfunction_decl.generics
     
       let label_of_tac_function ~module_path (tac_function_decl: KosuIrTAC.Asttac.tac_function_decl) =
@@ -74,8 +70,6 @@ module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
         ~main
         ~label_prefix
         ~fn_name:tac_function_decl.rfn_name 
-        ~signature:(List.map snd tac_function_decl.rparameters)
-        ~return_ktype:(tac_function_decl.return_type)
         ~generics:tac_function_decl.generics
 end
 
