@@ -686,21 +686,21 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
              enum_tte_list
              |> List.mapi (fun index value -> (index, value))
              |> List.fold_left
-                  (fun (accumuled_adre, acc) (index, tte) ->
-                    let increment_adress = increment_adress (List.nth offset_list index) accumuled_adre in
+                  (fun  (acc) (index, tte) ->
+                    let offset = (List.nth offset_list index) in
+                    let incremented_adress = increment_adress offset waddress in
                     let reg_texp, instructions =
-                      translate_tac_expression rprogram ~str_lit_map ~target_dst:(`Address increment_adress) fd tte
+                      translate_tac_expression rprogram ~str_lit_map ~target_dst:(`Address incremented_adress) fd tte
                     in
                    
                     let acc_plus = acc @ instructions in
                      match reg_texp with
-                    | `Address _ -> increment_adress, acc_plus
+                    | `Address _ ->  acc_plus
                     | `Register reg ->
-                    ( increment_adress ,
-                      acc_plus @ copy_from_reg reg increment_adress tte.expr_rktype rprogram )
-                    ) (waddress, [])
-                  
-             |> snd)
+                    ( 
+                      acc_plus @ copy_from_reg reg incremented_adress tte.expr_rktype rprogram )
+                    )  []
+                )
       |> Option.value ~default:[]
     | RVDiscard | RVLater -> []
     | RVBuiltinBinop { binop = TacBool TacOr; blhs; brhs } ->
