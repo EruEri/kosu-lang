@@ -506,26 +506,27 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
         |> List.tl
         |> fun l -> l @ [ 0L ]
       in
-        where
-        |> Option.map (fun waddress ->
-               ttes
-               |> List.mapi (fun index value -> (index, value))
-               |> List.fold_left
-                    (fun (accumuled_adre, acc) (index, tte) ->
-                      let reg_texp, instructions =
-                        translate_tac_expression rprogram ~str_lit_map ~target_dst:(`Address accumuled_adre) fd tte
-                      in
-                      let increment_adress = increment_adress (List.nth offset_list index) accumuled_adre in
-                      let acc_plus = acc @ instructions in
-                       match reg_texp with
-                      | `Address _ -> increment_adress, acc_plus
-                      | `Register reg ->
-                      ( increment_adress ,
-                        acc_plus @ copy_from_reg reg accumuled_adre tte.expr_rktype rprogram )
-                      ) (waddress, [])
-                    
-               |> snd)
-        |> Option.value ~default:[]
+      where
+      |> Option.map (fun waddress ->
+             ttes
+             |> List.mapi (fun index value -> (index, value))
+             |> List.fold_left
+                  (fun  (acc) (index, tte) ->
+                    let offset = (List.nth offset_list index) in
+                    let incremented_adress = increment_adress offset waddress in
+                    let reg_texp, instructions =
+                      translate_tac_expression rprogram ~str_lit_map ~target_dst:(`Address incremented_adress) fd tte
+                    in
+                   
+                    let acc_plus = acc @ instructions in
+                     match reg_texp with
+                    | `Address _ ->  acc_plus
+                    | `Register reg ->
+                    ( 
+                      acc_plus @ copy_from_reg reg incremented_adress tte.expr_rktype rprogram )
+                    )  []
+                )
+      |> Option.value ~default:[]
         | RVFieldAcess
         {
           first_expr = { expr_rktype; tac_expression = TEIdentifier struct_id };
