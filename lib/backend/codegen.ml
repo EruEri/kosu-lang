@@ -28,6 +28,15 @@ end
 
 module Make(AsmProgram: AsmProgram) = struct
   open AsmProgram
+
+  let is_asm_module_empty asm_module = 
+    let str_lit_map = str_lit_map_of_name_asm_module asm_module in
+    let asm_module_nodes = asm_module 
+    |> AsmProgram.asm_module_path_of_named_asm_module_path 
+    |> AsmProgram.asm_module_node_list_of_asm_module 
+  in
+  List.length asm_module_nodes = 0 && Hashtbl.length str_lit_map = 0
+
   let export_asm_module_opened_file file named_asm_module_path = 
     let str_lit_map = str_lit_map_of_name_asm_module named_asm_module_path in
     let asm_module_nodes = named_asm_module_path 
@@ -56,10 +65,13 @@ module Make(AsmProgram: AsmProgram) = struct
       |> String.map (fun c ->
              if Char.escaped c = Filename.dir_sep then '_' else c)
     in
-    let filename, file = Filename.open_temp_file filename ".S" in
-    let () = export_asm_module_opened_file file named_asm_module_path in
-    let () = close_out file in
-    filename
+    match is_asm_module_empty named_asm_module_path with
+    | true -> None
+    | false -> 
+      let filename, file = Filename.open_temp_file filename ".S" in
+      let () = export_asm_module_opened_file file named_asm_module_path in
+      let () = close_out file in
+      Some filename
   ;;
 
   let export_asm_module named_asm_module_path =
@@ -67,16 +79,19 @@ module Make(AsmProgram: AsmProgram) = struct
       named_asm_module_path 
       |> filename_of_named_asm_module_path
     in
-    let file = open_out filename in
-    let () = export_asm_module_opened_file file named_asm_module_path in
-    let () = close_out file in
-    filename
+    match is_asm_module_empty named_asm_module_path with
+    | true -> None
+    | false -> 
+      let file = open_out filename in
+      let () = export_asm_module_opened_file file named_asm_module_path in
+      let () = close_out file in
+      Some filename
 
   let compile_asm_tmp asm_program =
-    asm_program |> List.map (fun asm_module -> export_asm_module_tmp asm_module)
+    asm_program |> List.filter_map (fun asm_module -> export_asm_module_tmp asm_module)
   
   let compile_asm asm_program =
-    asm_program |> List.map (fun asm_module -> export_asm_module asm_module)
+    asm_program |> List.filter_map (fun asm_module -> export_asm_module asm_module)
   
   let compile_asm_from_tac_tmp tac_program =
     tac_program |> asm_program_of_tac_program |> compile_asm_tmp
