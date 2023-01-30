@@ -76,6 +76,17 @@ let code =
   )
   in
 
+  let module LinkerOption = (
+    val (
+      match target_archi with
+      | Cli.X86_64m | Arm64e -> (module LdSpec.MacOSLdSpec)
+      | Cli.X86_64 -> (module LdSpec.LinuxLdSpec)
+    ) 
+    : KosuBackend.Compil.LinkerOption
+  ) in
+
+  let module Compiler = KosuBackend.Compil.Make(Codegen)(LinkerOption) in
+
 
   let kosu_files, other_files =
     files |> List.partition (fun s -> s |> Filename.extension |> ( = ) ".kosu")
@@ -119,26 +130,12 @@ let code =
   let code =
     match is_target_asm with
     | true -> (
-      let _files = Codegen.compile_asm_from_tac tac_program in
-      0
+      Compiler.generate_asm_only tac_program ()
       )
     | false -> (
-        let c_obj_files = Cli.ccol_compilation ccol in
-        let error_code = Cli.find_error_code_opt c_obj_files in
-        if Option.is_some error_code then Option.get error_code
-        else
-          let obj_file = c_obj_files |> List.map Result.get_ok in
-
-          let outfile = output |> Option.value ~default:"a.out" in
-
-          if cc then
-            let asm_file =
-              Codegen.compile_asm_from_tac_tmp tac_program
-            in
-            Cli.cc_compilation outfile ~asm:asm_file
-              ~other:(other_files @ obj_file)
-          else failwith "Native compiling pipeline with as and ld to do"
-        )
+      let compilation = Compiler.compilation ~cc in
+      compilation ~outfile:output ~debug:true ~ccol ~other:other_files tac_program
+      )
   in
   code
 
