@@ -22,6 +22,8 @@ open KosuCli
 
 module Mac0SX86 = KosuBackend.Codegen.Make( KosuBackend.X86.X86_64Codegen.Codegen(AsmSpec.X86MacOsAsmSpec) ) 
 module LinuxX86 = KosuBackend.Codegen.Make( KosuBackend.X86.X86_64Codegen.Codegen(AsmSpec.X86_64LinuxAsmSpec) )
+module MacOSAarch64 = KosuBackend.Codegen.Make(Aarch64.Aarch64Codegen.Codegen)
+
 
 let () = KosuFrontend.Registerexn.register_kosu_error ()
 let code =
@@ -58,12 +60,22 @@ let code =
          files"
       ~placeholder:"C Files" ()
   in
-
   
 
   let files = Clap.list_string ~description:"files" ~placeholder:"FILES" () in
 
   let () = Clap.close () in
+
+  let module Codegen = (
+    val (match target_archi with
+    | Cli.X86_64 -> (module LinuxX86)
+    | Cli.X86_64m -> (module Mac0SX86)
+    | Cli.Arm64e -> (module MacOSAarch64)
+    )
+    : KosuBackend.Codegen.S
+  )
+  in
+
 
   let kosu_files, other_files =
     files |> List.partition (fun s -> s |> Filename.extension |> ( = ) ".kosu")
@@ -107,23 +119,9 @@ let code =
   let code =
     match is_target_asm with
     | true -> (
-        match target_archi with
-        | Cli.Arm64e ->
-            let _files =
-              KosuBackend.Codegen.Aarch64Codegen.compile_asm_from_tac tac_program
-            in
-            0
-        | Cli.X86_64 ->           
-          let _files =
-            LinuxX86.compile_asm_from_tac tac_program
-         in
-        0
-        | Cli.X86_64m -> 
-          let _files =
-            Mac0SX86.compile_asm_from_tac tac_program
-          in
-          0
-        )
+      let _files = Codegen.compile_asm_from_tac tac_program in
+      0
+      )
     | false -> (
         let c_obj_files = Cli.ccol_compilation ccol in
         let error_code = Cli.find_error_code_opt c_obj_files in
@@ -132,33 +130,14 @@ let code =
           let obj_file = c_obj_files |> List.map Result.get_ok in
 
           let outfile = output |> Option.value ~default:"a.out" in
-          match target_archi with
-          | Cli.X86_64m -> (           
-            if cc then
-              let asm_file =
-                Mac0SX86.compile_asm_from_tac_tmp tac_program
-              in
-              Cli.cc_compilation outfile ~asm:asm_file
-                ~other:(other_files @ obj_file)
-            else failwith "Native compiling pipeline with as and ld to do"
-          )
-          | Cli.X86_64 -> (           
-            if cc then
-              let asm_file =
-                LinuxX86.compile_asm_from_tac_tmp tac_program
-              in
-              Cli.cc_compilation outfile ~asm:asm_file
-                ~other:(other_files @ obj_file)
-            else failwith "Native compiling pipeline with as and ld to do"
-          )
-          | Cli.Arm64e ->
-              if cc then
-                let asm_file =
-                  KosuBackend.Codegen.Aarch64Codegen.compile_asm_from_tac_tmp tac_program
-                in
-                Cli.cc_compilation outfile ~asm:asm_file
-                  ~other:(other_files @ obj_file)
-              else failwith "Native compiling pipeline with as and ld to do"
+
+          if cc then
+            let asm_file =
+              Codegen.compile_asm_from_tac_tmp tac_program
+            in
+            Cli.cc_compilation outfile ~asm:asm_file
+              ~other:(other_files @ obj_file)
+          else failwith "Native compiling pipeline with as and ld to do"
         )
   in
   code

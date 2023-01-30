@@ -25,8 +25,14 @@ module type AsmProgram = sig
  
 end
 
+module type S = sig
 
-module Make(AsmProgram: AsmProgram) = struct
+  val compile_asm_from_tac_tmp: tac_program -> string list
+  val compile_asm_from_tac: tac_program -> string list
+end
+
+
+module Make(AsmProgram: AsmProgram): S = struct
   open AsmProgram
 
   let is_asm_module_empty asm_module = 
@@ -99,6 +105,3 @@ module Make(AsmProgram: AsmProgram) = struct
   let compile_asm_from_tac tac_program =
     tac_program |> asm_program_of_tac_program |> compile_asm
 end
-
-
-module Aarch64Codegen = Make(Aarch64.Aarch64Codegen.Codegen)
