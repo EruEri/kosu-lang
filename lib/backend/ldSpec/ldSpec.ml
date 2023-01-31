@@ -32,5 +32,8 @@ module LinuxLdSpec : KosuBackend.Compil.LinkerOption = struct
 
   let ld_command = "ld"
 
-  let options = []
+  let options = [
+    "-entry=main";
+    "lc"
+  ]
 end
