@@ -1,0 +1,33 @@
+external printf(stringl; ...) s32;
+
+fn test_s8(lhs: s8, rhs: s8) {
+    const add = lhs + rhs;
+    const minus = lhs - rhs;
+    const div = lhs / rhs;
+    const modulo = lhs % rhs;
+    const or = lhs | rhs;
+    const and = lhs & rhs;
+    const xor = lhs ^ rhs;
+
+    discard printf("s8: %hhd + %hhd = %hhd\n", lhs , rhs , add);
+    discard printf("s8: %hhd - %hhd = %hhd\n", lhs , rhs , minus);
+    discard printf("s8: %hhd / %hhd = %hhd\n", lhs , rhs , div);
+    discard printf("s8: %hhd %% %hhd = %hhd\n", lhs , rhs , modulo);
+    discard printf("s8: %hhd | %hhd = %hhd\n", lhs , rhs , or);
+    discard printf("s8: %hhd & %hhd = %hhd\n", lhs , rhs , and);
+    discard printf("s8: %hhd ^ %hhd = %hhd\n\n", lhs , rhs , xor);
+
+
+
+    $ empty
+}
+
+
+fn main() s32 {
+    // test s8
+    discard test_s8(56s8, 44s8);
+    discard test_s8(-65s8, 43s8);
+    discard test_s8(43s8, -21s8);
+    discard test_s8(-56s8, -44s8);
+    $ 0
+}
