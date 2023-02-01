@@ -1,0 +1,31 @@
+external printf(stringl; ...) s32;
+
+
+fn string_of_bool(b: bool) stringl = 
+    if (b) {
+        $ "true"
+    } else {
+        $ "false"
+    }
+
+fn test_s32(lhs: s32, rhs: s32) {
+    const cmp_1_lt_2 = lhs < rhs;
+    const cmp_1_le_2 = lhs <= rhs;
+    const cmp_1_gt_2 = lhs > rhs;
+    const cmp_1_ge_2 = lhs >= rhs;
+    const cmp_1_eq_2 = lhs == rhs;
+    const cmp_1_df_2 = lhs != rhs;
+
+    discard printf("s32: %d < %d : %s\n",  lhs, rhs, string_of_bool(cmp_1_lt_2) );
+    discard printf("s32: %d <= %d : %s\n", lhs, rhs, string_of_bool(cmp_1_le_2) );
+    discard printf("s32: %d > %d : %s\n",  lhs, rhs, string_of_bool(cmp_1_gt_2) );
+    discard printf("s32: %d >= %d : %s\n", lhs, rhs, string_of_bool(cmp_1_ge_2) );
+    discard printf("s32: %d == %d : %s\n", lhs, rhs, string_of_bool(cmp_1_eq_2) );
+    discard printf("s32: %d != %d : %s\n", lhs, rhs, string_of_bool(cmp_1_df_2) );
+    $ ()
+} 
+
+fn main() s32 {
+    discard test_s32(3, 5);
+    $ 0
+}

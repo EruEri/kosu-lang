@@ -21,6 +21,8 @@
 
 (name kosu_lang)
 
+(cram enable)
+
 (generate_opam_files true)
 
 (source

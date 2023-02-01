@@ -811,7 +811,7 @@ module FrameManager = struct
              let x29_relative_address = (locals_space |> Int64.neg |> Int64.add offset) in
              let adress = if x29_relative_address > -256L then
                create_adress
-                 ~offset:(locals_space |> Int64.neg |> Int64.add offset)
+                 ~offset:(locals_space |> Int64.neg |> Int64.add offset |> Int64.add stack_future_call)
                  (Register64 X29)
                 else 
                   create_adress ~offset:(Int64.add stack_future_call offset)
@@ -978,6 +978,10 @@ module FnLabel = struct
   let main = "_main"
 
   open KosuIrTyped.Asttyped
+
+  (** Replace the `:` in the path name by `_` *)
+  let asm_module_path = String.map (fun c -> if c = ':' then '_' else c)
+  
   let label_of_constant ?module_path const_name = 
     Printf.sprintf "%s%s" 
     (module_path |> Option.map (Printf.sprintf "%s._") |> Option.value ~default:"")
@@ -986,7 +990,7 @@ module FnLabel = struct
     if fn_name = "main" then main else
     Printf.sprintf "%s%s.%s%s" 
       label_prefix
-      module_path
+      (asm_module_path module_path )
       ( if generics = [] then "" else generics |> String.concat "." |> Printf.sprintf "_%s_")
       fn_name
 
