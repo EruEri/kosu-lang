@@ -18,12 +18,9 @@
 
  (cram
   ( enabled_if (and (= %{system} macosx) (= %{architecture} arm64)) )
-  ( deps test_cmp.kosu )
+  ( deps (glob_files *.kosu) )
  )
 
-(rule
- (deps (file %{workspace_root}/test/files/test_cmp.kosu) )
- (target test_cmp.kosu)
- (action
- (copy %{deps} %{target})
-  ))
+(copy_files ../../files/*.kosu)
+
+  
