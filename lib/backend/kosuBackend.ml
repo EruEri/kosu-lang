@@ -1,7 +1,7 @@
 (**********************************************************************************************)
 (*                                                                                            *)
 (* This file is part of Kosu                                                                  *)
-(* Copyright (C) 2022 Yves Ndiaye                                                             *)
+(* Copyright (C) 2022-2023 Yves Ndiaye                                                        *)
 (*                                                                                            *)
 (* Kosu is free software: you can redistribute it and/or modify it under the terms            *)
 (* of the GNU General Public License as published by the Free Software Foundation,            *)
@@ -15,4 +15,20 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-include Aarch64
+
+module X86_64 = struct
+  include X86_64
+end
+
+
+module Aarch64 = struct
+  include Aarch64
+end
+
+module Codegen = struct
+  include Codegen
+end
+
+module Compil = struct
+  include Compil
+end

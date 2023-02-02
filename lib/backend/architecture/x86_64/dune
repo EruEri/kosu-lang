@@ -15,10 +15,6 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
-
- (cram
-  ( enabled_if (and (= %{system} macosx) (= %{architecture} amd64)) )
-  ( deps (glob_files *.kosu) )
- )
-
-(copy_files ../../files/*.kosu)
+(library
+ (name x86_64)
+ (libraries kosuIrTyped kosuIrTAC kosuFrontend common))

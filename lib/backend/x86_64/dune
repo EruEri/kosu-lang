@@ -1,3 +1,0 @@
-(library
- (name x86_64)
- (libraries kosuIrTyped kosuIrTAC kosuFrontend common))

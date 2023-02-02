@@ -15,4 +15,25 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-include X86_64
+module MacOSLdSpec : KosuBackend.Compil.LinkerOption = struct
+  type option = string
+  let string_of_option = Fun.id
+  let ld_command = "ld"
+
+  let options = [
+    "syslibroot $(xcrun --sdk macosx --show-sdk-path)";
+    "lSystem"
+  ]
+end
+
+module LinuxLdSpec : KosuBackend.Compil.LinkerOption = struct
+  type option = string
+  let string_of_option = Fun.id
+
+  let ld_command = "ld"
+
+  let options = [
+    "-entry=main";
+    "lc"
+  ]
+end
