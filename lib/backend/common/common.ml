@@ -19,6 +19,8 @@ module type AsmSpecification = sig
   val string_litteral_section_end: string
 
   val string_litteral_directive: string
+
+  val size_directive_of_size: KosuFrontend.Ast.isize -> string
   val p2align: string
 
   val p2align_function: string

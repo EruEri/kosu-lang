@@ -33,6 +33,8 @@ module type X86_64_Spec = sig
   val string_litteral_section_start: string
 
   val string_litteral_directive: string
+
+  val size_directive_of_size: KosuFrontend.Ast.isize -> string
 end
 
 module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
@@ -88,6 +90,11 @@ module X86_64LinuxAsmSpec = X86_64Spec_Make(struct
 
   let string_litteral_section_end = ""
   let string_litteral_directive = ".string"
+
+
+  let size_directive_of_size =
+  let open KosuFrontend.Ast in
+  function I8 -> "bytes" | I16 -> "value" | I32 -> "long" | I64 -> "quad"
 end) 
 
 module X86MacOsAsmSpec = X86_64Spec_Make(struct
@@ -105,4 +112,8 @@ module X86MacOsAsmSpec = X86_64Spec_Make(struct
   let string_litteral_section_end = ".subsections_via_symbols"
 
   let string_litteral_directive = ".asciz"
+
+  let size_directive_of_size =
+    let open KosuFrontend.Ast in
+    function I8 -> "byte" | I16 -> "value" | I32 -> "long" | I64 -> "quad"
 end)

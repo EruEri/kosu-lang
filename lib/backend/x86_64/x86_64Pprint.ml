@@ -158,9 +158,7 @@ let string_of_raw_line = function
   | Line_Com (Comment s) -> "\t"^ AsmSpec.comment_prefix ^ " " ^ s
   | Directive d -> "\t." ^ d
 
-let size_directive_of_size =
-  let open KosuFrontend.Ast in
-  function I8 -> "bytes" | I16 -> "value" | I32 -> "long" | I64 -> "quad"
+
 
 
 
@@ -171,7 +169,7 @@ let size_directive_of_size =
         asm_const_name
         (KosuFrontend.Ast.Isize.size_of_isize size / 8)
         (asm_const_name) 
-        (size_directive_of_size size)
+        (AsmSpec.size_directive_of_size size)
         (sprintf "%Ld" value)
     | `StrVal s ->
         sprintf "\n\t.global %s\n\t.align 8\n%s:\n\t%s \"%s\""
