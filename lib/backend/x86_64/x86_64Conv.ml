@@ -810,7 +810,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
     end
     | RVBuiltinBinop {binop = TacSelf TacDiv; blhs = dividende; brhs = divisor} -> 
       let unsigned = KosuIrTyped.Asttyhelper.RType.is_unsigned_integer dividende.expr_rktype in
-      let last_reg9, divisor_instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register (tmp_r10 8L) ) rprogram fd divisor in
+      let last_reg10, divisor_instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register (tmp_r10 8L) ) rprogram fd divisor in
       let raw_data_size = data_size_of_int64_def @@ sizeofn rprogram dividende.expr_rktype in
       let scaled_data_size = match raw_data_size with
       | Q -> Q
@@ -820,8 +820,8 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       let _, instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register raxq) rprogram fd dividende in
       let setup_div = Instruction (division_split scaled_data_size) in
       
-      let r9 = register_of_dst last_reg9 in
-      let divi_instruction = division_instruction ~unsigned scaled_data_size (`Register r9) in
+      let r10 = register_of_dst last_reg10 in
+      let divi_instruction = division_instruction ~unsigned scaled_data_size (`Register  (resize_register scaled_data_size r10)) in
 
       let copy_instructions =
         where
@@ -834,7 +834,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
 
     | RVBuiltinBinop {binop = TacSelf TacModulo; blhs = dividende; brhs = divisor} -> 
       let unsigned = KosuIrTyped.Asttyhelper.RType.is_unsigned_integer dividende.expr_rktype in
-      let last_reg9, divisor_instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register (tmp_r10 8L) ) rprogram fd divisor in
+      let last_reg10, divisor_instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register (tmp_r10 8L) ) rprogram fd divisor in
       let raw_data_size = data_size_of_int64_def @@ sizeofn rprogram dividende.expr_rktype in
       let scaled_data_size = match raw_data_size with
       | Q -> Q
@@ -844,8 +844,8 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       let _, instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register raxq) rprogram fd dividende in
       let setup_div = Instruction (division_split scaled_data_size) in
       
-      let r9 = register_of_dst last_reg9 in
-      let divi_instruction = division_instruction ~unsigned scaled_data_size (`Register r9) in
+      let r10 = register_of_dst last_reg10 in
+      let divi_instruction = division_instruction ~unsigned scaled_data_size (`Register (resize_register scaled_data_size r10)) in
 
       let copy_instructions =
         where
