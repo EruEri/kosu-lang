@@ -34,7 +34,7 @@ module type AsmProgram = sig
   val string_litteral_section_start: string
   val string_litteral_section_end: string
   val string_of_asm_node: asm_module_node -> string
-  val string_litteral_directive: (string -> stringlit_label -> string)
+  val string_litteral_directive: string
   val filename_of_named_asm_module_path: named_asm_module_path -> string
   val asm_module_path_of_named_asm_module_path: named_asm_module_path -> asm_module
   val str_lit_map_of_name_asm_module: named_asm_module_path -> (string, stringlit_label) Hashtbl.t
@@ -73,7 +73,7 @@ module Make(AsmProgram: AsmProgram): S = struct
 
     let () = Printf.fprintf file "\n\t%s\n" string_litteral_section_start in
     let () = str_lit_map |> Hashtbl.to_seq |> Seq.iter (fun (str, SLit label) -> 
-      let string_directive = string_litteral_directive str (SLit label) in
+      let string_directive = string_litteral_directive in
         Printf.fprintf file "%s:\n\t%s \"%s\"\n\n" label string_directive str
       )
     in

@@ -16,7 +16,6 @@
 (**********************************************************************************************)
 
 open Aarch64Pprint
-open Util
 
 (* let export_asm_module { filename; asm_module_path; rprogram = _; str_lit_map } =
   let file = open_out filename in
@@ -95,7 +94,7 @@ module Codegen = struct
 
   let string_of_asm_node = string_of_asm_node
 
-  let string_litteral_directive (_: string) (_: stringlit_label) = ".asciz" 
+  let string_litteral_directive = ".asciz" 
 
   let filename_of_named_asm_module_path namp = namp.filename
   let asm_module_path_of_named_asm_module_path namp = namp.asm_module_path.asm_module

@@ -32,7 +32,7 @@ module type X86_64_Spec = sig
 
   val string_litteral_section_start: string
 
-  val string_litteral_directive: string -> Util.stringlit_label -> string
+  val string_litteral_directive: string
 end
 
 module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
@@ -87,7 +87,7 @@ module X86_64LinuxAsmSpec = X86_64Spec_Make(struct
   let string_litteral_section_start = ""
 
   let string_litteral_section_end = ""
-  let string_litteral_directive (_:string) (_ : Util.stringlit_label) = ".string"
+  let string_litteral_directive = ".string"
 end) 
 
 module X86MacOsAsmSpec = X86_64Spec_Make(struct
@@ -104,5 +104,5 @@ module X86MacOsAsmSpec = X86_64Spec_Make(struct
 
   let string_litteral_section_end = ".subsections_via_symbols"
 
-  let string_litteral_directive (_:string) (_ : Util.stringlit_label) = ".asciz"
+  let string_litteral_directive = ".asciz"
 end)

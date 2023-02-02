@@ -1,5 +1,7 @@
 external printf(stringl; ...) s32;
 
+const MESSAGE = "Hello world";
+
 fn test_s8_aux(lhs: s8, rhs: s8) {
     const add = lhs + rhs;
     const minus = lhs - rhs;
@@ -8,7 +10,10 @@ fn test_s8_aux(lhs: s8, rhs: s8) {
     const or = lhs | rhs;
     const and = lhs & rhs;
     const xor = lhs ^ rhs;
+    // const w_ptr = @stringlptr(MESSAGE) + 7s8;
+    // const char = *w_ptr;
 
+    // discard printf("s8: w == %c\n", char);
     discard printf("s8: %hhd + %hhd = %hhd\n", lhs , rhs , add);
     discard printf("s8: %hhd - %hhd = %hhd\n", lhs , rhs , minus);
     discard printf("s8: %hhd / %hhd = %hhd\n", lhs , rhs , div);
@@ -16,6 +21,8 @@ fn test_s8_aux(lhs: s8, rhs: s8) {
     discard printf("s8: %hhd | %hhd = %hhd\n", lhs , rhs , or);
     discard printf("s8: %hhd & %hhd = %hhd\n", lhs , rhs , and);
     discard printf("s8: %hhd ^ %hhd = %hhd\n\n", lhs , rhs , xor);
+    
+
     $ empty
 }
 
@@ -36,6 +43,10 @@ fn test_u8_aux(lhs: u8, rhs: u8) {
     const and = lhs & rhs;
     const xor = lhs ^ rhs;
 
+    // const w_ptr = @stringlptr(MESSAGE) + 7u8;
+    // const char = *w_ptr;
+
+    // discard printf("s8: w == %c\n", char);
     discard printf("u8: %hhu + %hhu = %hhu\n", lhs , rhs , add);
     discard printf("u8: %hhu - %hhu = %hhu\n", lhs , rhs , minus);
     discard printf("u8: %hhu / %hhu = %hhu\n", lhs , rhs , div);

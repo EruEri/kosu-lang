@@ -787,14 +787,17 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
           rprogram fd brhs
       in
 
-      let size_reg = register_of_dst nb_reg in
+      (* If not set to zero before : If the register size is lower than 32 bits: It seems that unused bits aren't zerroed extented*)
+      let null_instruction = Instruction (Mov {size = Q; source = `ILitteral 0L; destination = `Register (tmp_r10 8L)}) in
+
+      let size_reg = register_of_dst @@ resize_dst Q nb_reg in
 
       let operator_function_instruction = binop_instruction_of_tacself self_binop in
 
       let scale_instruction = 
         if pointee_size = 1L then [] 
         else 
-          ins_mult ~size:size_reg.size ~destination:(`Register size_reg) ~source:(`ILitteral pointee_size) 
+          ins_mult ~size:Q ~destination:(`Register (resize_register Q size_reg)) ~source:(`ILitteral pointee_size) 
       in 
 
       let ptr_true_reg = register_of_dst ptr_reg in
@@ -803,7 +806,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       ) |> Option.value ~default:[]
       in
         linstructions 
-          @ rinstructions 
+          @ null_instruction::rinstructions 
           @ scale_instruction 
           @ (operator_function_instruction ~size:size_reg.size ~destination:ptr_reg ~source:(`Register size_reg)) 
           @ copy_instructions
@@ -1446,7 +1449,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
                        (AConst
                           {
                             asm_const_name =
-                              asm_const_name current_module rconst_name;
+                              Spec.label_of_constant ~module_path:current_module rconst_name;
                             value = `IntVal (size, value);
                           })
                  | TNConst
@@ -1458,7 +1461,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
                        (AConst
                           {
                             asm_const_name =
-                              asm_const_name current_module rconst_name;
+                              Spec.label_of_constant ~module_path:current_module rconst_name;
                             value =
                               `IntVal (KosuFrontend.Ast.I64, Int64.bits_of_float f);
                           })
@@ -1471,7 +1474,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
                        (AConst
                           {
                             asm_const_name =
-                              asm_const_name current_module rconst_name;
+                              Spec.label_of_constant ~module_path:current_module rconst_name;
                             value = `StrVal s;
                           })
                  | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ | _ -> None)

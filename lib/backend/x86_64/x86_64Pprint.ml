@@ -170,13 +170,14 @@ let size_directive_of_size =
         sprintf "\n\t.global %s\n\t.align %u\n%s:\n\t.%s %s"
         asm_const_name
         (KosuFrontend.Ast.Isize.size_of_isize size / 8)
-        asm_const_name 
+        (asm_const_name) 
         (size_directive_of_size size)
         (sprintf "%Ld" value)
     | `StrVal s ->
-        sprintf "\n\t.global %s\n\t.align 8\n%s:\n\t.string %s"
+        sprintf "\n\t.global %s\n\t.align 8\n%s:\n\t%s \"%s\""
         asm_const_name
         asm_const_name
+        (AsmSpec.string_litteral_directive)
         s
 
 let string_of_asm_function { asm_name; asm_body } =
