@@ -94,7 +94,7 @@ module X86_64LinuxAsmSpec = X86_64Spec_Make(struct
 
   let size_directive_of_size =
   let open KosuFrontend.Ast in
-  function I8 -> "bytes" | I16 -> "value" | I32 -> "long" | I64 -> "quad"
+  function I8 -> "byte" | I16 -> "value" | I32 -> "long" | I64 -> "quad"
 end) 
 
 module X86MacOsAsmSpec = X86_64Spec_Make(struct
