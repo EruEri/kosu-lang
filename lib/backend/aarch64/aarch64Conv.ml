@@ -1429,9 +1429,9 @@ module Codegen = struct
               (MSUB
                  {
                    destination = r9;
-                   operand1_base = r9;
+                   operand1_base = left_reg;
                    operand2 = right_reg;
-                   scale = left_reg;
+                   scale = r9;
                  });
           ]
         in

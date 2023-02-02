@@ -189,12 +189,14 @@ let string_of_instruction = function
         (string_of_register operand2)
         (string_of_register scale)
         (string_of_register operand1_base)
+  (* rd = ra + rn × rm *)
   | MSUB { destination; operand1_base; operand2; scale } ->
       sprintf "msub %s, %s, %s, %s"
         (string_of_register destination)
         (string_of_register operand2)
         (string_of_register scale)
         (string_of_register operand1_base)
+        
   | ADDS { destination; operand1; operand2 } ->
       sprintf "%sadds %s, %s, %s"
         (prefix_of_float destination)
