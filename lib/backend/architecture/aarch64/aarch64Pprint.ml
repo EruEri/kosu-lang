@@ -335,7 +335,7 @@ let string_of_raw_line = function
 
 let size_directive_of_size =
   let open KosuFrontend.Ast in
-  function I8 -> "bytes" | I16 -> "short" | I32 -> "long" | I64 -> "quad"
+  function I8 -> "byte" | I16 -> "short" | I32 -> "long" | I64 -> "quad"
 
 let string_asm_const_decl { asm_const_name; value } =
   match value with
