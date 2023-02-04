@@ -47,7 +47,7 @@ module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
 
   let label_of_constant ?module_path const_name = 
     Printf.sprintf "%s%s" 
-    (module_path |> Option.map (Printf.sprintf "%s._") |> Option.value ~default:"")
+    (module_path |> Option.map (Printf.sprintf "%s%s._" label_prefix) |> Option.value ~default:"")
     const_name
   let label_of_function ~label_prefix ~main ~module_path ~fn_name ~generics = 
     if fn_name = "main" then main else
@@ -73,6 +73,29 @@ module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
         ~label_prefix
         ~fn_name:tac_function_decl.rfn_name 
         ~generics:tac_function_decl.generics
+
+        let label_of_bin_operator (op: KosuFrontend.Ast.parser_binary_op) ktypes = 
+          Printf.sprintf "%s%s.%s" 
+          label_prefix 
+          (KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_binary op)
+          (ktypes |> List.map KosuIrTyped.Asttypprint.string_of_label_rktype |> String.concat "_")
+
+          let label_of_unary_operator (op: KosuFrontend.Ast.parser_unary_op) ktypes = 
+            Printf.sprintf "%s%s.%s" 
+            label_prefix 
+            (KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_unary op)
+            (ktypes |> List.map KosuIrTyped.Asttypprint.string_of_label_rktype |> String.concat "_")
+
+        let label_of_kosu_operator ~(module_path: string) = let open KosuIrTyped.Asttyped in let _ = module_path in
+          function
+          | RUnary {op; rfield; return_type; _ } -> label_of_unary_operator op [snd rfield; return_type]
+          | RBinary {op; rfields; return_type; _} -> label_of_bin_operator op [snd @@ fst rfields; snd @@ snd rfields; return_type]
+        let label_of_tac_operator ~(module_path: string) = 
+          let open KosuIrTAC.Asttac in
+          let _ = module_path in (* Silence unsued warning *)
+          function
+          | TacUnary {op; rfield; return_type; _} -> label_of_unary_operator op [snd rfield; return_type]
+          | TacBinary {op; rfields; return_type; _} -> label_of_bin_operator op [snd @@ fst rfields; snd @@ snd rfields; return_type]
 end
 
 

@@ -883,9 +883,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
           | _ ->
               failwith "What the type checker has done: No unary op declaration"
         in
-        let fn_label =
-          KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator op_decl
-        in
+        let fn_label = Spec.label_of_kosu_operator ~module_path:current_module op_decl in
         let return_type =
           KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl
         in
@@ -937,9 +935,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
               failwith
                 "What the type checker has done: No binary op declaration | Too much"
         in
-        let fn_label =
-          KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator op_decl
-        in
+        let fn_label = Spec.label_of_kosu_operator ~module_path:current_module op_decl in
         let return_type =
           KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl
         in
@@ -1430,7 +1426,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
                               | Enum_Assoc_id { name; _ } -> (name, locale_ty))
                      in
                      (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
-                     let asm_name = unary_decl.asm_name in
+                     let asm_name = Spec.label_of_tac_operator ~module_path:current_module self in
                      let fn_register_params = [ unary_decl.rfield ] in
                      let fn_register_params = if 
                       is_register_size (sizeofn rprogram unary_decl.return_type) 
@@ -1477,7 +1473,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
                               | Enum_Assoc_id { name; _ } -> (name, locale_ty))
                      in
                      (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
-                     let asm_name = binary.asm_name in
+                     let asm_name = Spec.label_of_tac_operator ~module_path:current_module self in
                      let lhs_param, rhs_param = binary.rfields in
                      let fn_register_params = [ lhs_param; rhs_param ] in
                      let fn_register_params = if 

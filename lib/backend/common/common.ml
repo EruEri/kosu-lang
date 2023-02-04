@@ -47,9 +47,14 @@ module type AsmSpecification = sig
 
   val label_of_external_function: KosuIrTyped.Asttyped.rexternal_func_decl -> string
 
+  (** This function should produce the same label name taht [label_of_tac_function] if the kosu function is the conterpart as the tac one  *)
   val label_of_kosu_function: module_path:string -> KosuIrTyped.Asttyped.rfunction_decl -> string
 
+  (** This function should produce the same label name taht [label_of_kosu_function] if the tac function is the conterpart as the kosu one  *)
   val label_of_tac_function: module_path:string -> KosuIrTAC.Asttac.tac_function_decl -> string
+
+  val label_of_kosu_operator: module_path:string -> KosuIrTyped.Asttyped.roperator_decl -> string
+  val label_of_tac_operator: module_path:string -> KosuIrTAC.Asttac.tac_operator_decl -> string
   val main: string
 end
 
