@@ -134,6 +134,11 @@ module Register = struct
     reg = RDI
   }
 
+  let rsiq = {
+    size = Q;
+    reg = RSI
+  }
+
   let ripq = {
     size = Q;
     reg = RIP
@@ -147,6 +152,9 @@ module Register = struct
   let is_aliased lhs rhs = 
     lhs.reg = rhs.reg
 
+  let return_register ktype rprogram = 
+    let return_size = KosuIrTyped.Asttyconvert.Sizeof.sizeof ktype rprogram in
+    return_size |> data_size_of_int64 |> Option.map (fun size -> resize_register size raxq)
 
   (** Rax *)
   let tmp_rax size = 
@@ -527,6 +535,11 @@ end
       Instruction (Mov {size = data_size; destination = `Address address; source = `Register (Register.resize_register data_size register) })
     ]
   | _ -> copy_large ~address_str:address ~base_address_reg:(Operande.create_address_offset register) size
+
+  let copy_from_reg_opt (register) address ktype rprogram = 
+    match register with
+    | None -> []
+    | Some reg -> copy_from_reg reg address ktype rprogram
 
   let load_register register (address : Operande.address) ktype_size =
     let open Instruction in

@@ -935,6 +935,83 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
         in
         instructions @ copy_instructions
     )
+    | RVCustomUnop unary -> (
+      let open KosuIrTAC.Asttachelper.Operator in
+      let op_decls = 
+        KosuIrTyped.Asttyhelper.RProgram.find_unary_operator_decl 
+        (parser_unary_op_of_tac_unary_op unary.unop)
+        unary.expr.expr_rktype ~r_type:rval_rktype rprogram in
+
+        let op_decl =
+          match op_decls with
+          | t :: [] -> t
+          | _ ->
+              failwith "What the type checker has done: No unary op declaration"
+        in
+        let fn_label =
+          KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator op_decl
+        in
+        let return_type =
+          KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl
+        in
+        let return_size = sizeofn rprogram return_type in
+        let return_reg = return_register rprogram rval_rktype
+        in
+        let object_params_regs = if is_register_size return_size then rdiq else rsiq in
+        let _, instructions =
+          translate_tac_expression ~str_lit_map ~target_dst:(`Register object_params_regs)
+            rprogram fd unary.expr
+        in
+        let call_instruction =
+          FrameManager.call_instruction ~origin:(`Label fn_label) [] fd
+        in
+
+
+        let operator_instructions =
+          match is_register_size return_size with
+          | true ->
+              let copy_instruction =
+                where
+                |> Option.map (fun waddress ->
+                       match is_deref with
+                       | Some pointer ->
+                           Instruction
+                             ( Mov
+                             { size = Q; destination = `Register rdiq; source = `Address pointer};
+                             )
+                           :: copy_from_reg_opt return_reg (create_address_offset rdiq)
+                                return_type rprogram
+                       | None ->
+                           copy_from_reg_opt return_reg waddress return_type
+                             rprogram)
+                |> Option.value ~default:[]
+              in
+              
+                instructions @ call_instruction @ copy_instruction
+                (* Is not the same check the instructions order*) 
+          | false ->
+              let copy_instruction =
+                where
+                |> Option.map (fun waddress ->
+                       match is_deref with
+                       | Some pointer ->
+                           [
+                           Instruction (Mov { size = Q; destination = `Register rdiq; source = `Address pointer}) 
+                       ;
+                        Instruction (Mov { size = Q; destination = `Register rdiq; source = `Address (create_address_offset rdiq)})
+                       ;
+                           ]
+                       | None ->
+                           [
+                            Instruction (Lea {size = Q; destination = rdiq; source = waddress} )
+                            
+                           ])
+                |> Option.value ~default:[]
+              in
+              instructions @ copy_instruction @ call_instruction
+        in
+        operator_instructions
+    )
     | _ -> failwith ""
 
 
@@ -1394,16 +1471,23 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
                      in
                      (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
                      let asm_name = unary_decl.asm_name in
+                     let fn_register_params = [ unary_decl.rfield ] in
+                     let fn_register_params = if 
+                      is_register_size (sizeofn rprogram unary_decl.return_type) 
+                        then fn_register_params 
+                      else 
+                        X86_64Core.FrameManager.indirect_return_vt::fn_register_params 
+                      in
                      let fd =
                        FrameManager.frame_descriptor
                          ~stack_future_call:stack_param_count
-                         ~fn_register_params:[ unary_decl.rfield ] ~stack_param:[]
+                         ~fn_register_params ~stack_param:[]
                          ~return_type:unary_decl.return_type ~locals_var
                          ~discarded_values:unary_decl.discarded_values rprogram
                      in
                      let prologue =
                        FrameManager.function_prologue
-                         ~fn_register_params:[ unary_decl.rfield ] ~stack_params:[]
+                         ~fn_register_params ~stack_params:[]
                          rprogram fd
                      in
                      let conversion =
@@ -1436,6 +1520,12 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
                      let asm_name = binary.asm_name in
                      let lhs_param, rhs_param = binary.rfields in
                      let fn_register_params = [ lhs_param; rhs_param ] in
+                     let fn_register_params = if 
+                      is_register_size (sizeofn rprogram binary.return_type) 
+                        then fn_register_params 
+                      else 
+                        X86_64Core.FrameManager.indirect_return_vt::fn_register_params 
+                      in
                      let fd =
                        FrameManager.frame_descriptor
                          ~stack_future_call:stack_param_count ~fn_register_params
