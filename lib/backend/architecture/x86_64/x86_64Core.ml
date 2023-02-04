@@ -33,6 +33,10 @@ let data_size_of_int64 = function
 | 8L -> Some Q
 | _ -> None
 
+let need_long_promotion = function
+| B | W -> true
+| _ -> false
+
 let data_size_of_int64_def ?(default = Q) size = 
   Option.value ~default @@ data_size_of_int64 size
 
@@ -214,6 +218,10 @@ module Operande = struct
   | `Address _ -> true
   | _ -> false
 
+  let is_register = function
+  | `Register _ -> true
+  | _ -> false
+
   let create_address_offset ?(offset = 0L) base = {
     offset = Offset offset; 
     base; 
@@ -301,6 +309,16 @@ module Instruction = struct
     | Line_Com of comment
   and instruction = 
   | Mov of {
+    size: data_size;
+    source: src;
+    destination: dst
+  }
+  | Movsl of {
+    size: data_size;
+    source: src;
+    destination: dst
+  }
+  | Movzl of {
     size: data_size;
     source: src;
     destination: dst
@@ -465,6 +483,14 @@ module Instruction = struct
   | TacShiftLeft -> ins_shiftleft
   | TacShiftRight -> if unsigned then ins_shift_signed_right else ins_shift_unsigned_right 
   | _ -> failwith "Binop cannot be factorised"
+
+  let mov_promote_sign ~sign ~size ~src dst = match size with
+  | W | B when is_register dst -> begin match sign with
+    | KosuFrontend.Ast.Signed -> Instruction ( Movsl {size; destination = resize_dst L dst; source = src} )::[]
+    | KosuFrontend.Ast.Unsigned -> Instruction ( Movzl {size; destination = resize_dst L dst; source = src} )::[]
+  end 
+  | _ -> Instruction (Mov {size; source = src; destination = dst})::[]
+  
 end
 
 

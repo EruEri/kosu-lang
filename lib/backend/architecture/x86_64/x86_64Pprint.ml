@@ -124,6 +124,10 @@ let string_of_jmp_operande = function
 let string_of_instruction = function
 | Mov { size; source; destination } -> 
   sprintf "mov%s %s, %s" (string_of_data_size size) (string_of_src source) (string_of_dst destination)
+| Movsl { size; source; destination } -> 
+  sprintf "movs%sl %s, %s" (string_of_data_size size) (string_of_src source) (string_of_dst destination)
+| Movzl { size; source; destination } -> 
+  sprintf "movz%sl %s, %s" (string_of_data_size size) (string_of_src source) (string_of_dst destination)
 | Set {cc; register} ->
   sprintf "set%s %s" (string_of_condition_code cc) (string_of_register register)
 | Lea {size; source; destination} ->

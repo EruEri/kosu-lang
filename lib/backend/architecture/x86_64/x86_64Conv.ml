@@ -63,7 +63,8 @@ end
 | { tac_expression = TEInt (_, isize, int64); _ } ->
     let size = data_size_of_isize isize in
     let resized_dst = resize_dst size target_dst in
-    resized_dst, [Instruction (Mov {size; destination = resized_dst; source = `ILitteral int64})]
+    let scaled_data_size = (function Q -> Q | _ -> L) size in
+    resized_dst, [Instruction ( Mov {size = scaled_data_size; source = (`ILitteral int64); destination = resize_dst scaled_data_size target_dst}) ]
 | { tac_expression = TEFloat _float; _ } ->
   failwith "X86_64: Mov Float todo"
 | { tac_expression = TEIdentifier id; expr_rktype } ->
@@ -78,8 +79,15 @@ end
     begin match is_register_size sizeof with
     true -> ( 
       let target_dst = resize_dst data_size target_dst in
+
+      let is_integer = KosuIrTyped.Asttyhelper.RType.is_any_integer expr_rktype in
       match target_dst with
-      | `Register _ as reg -> target_dst, [ Instruction (Mov {size = data_size; destination = reg; source = `Address adress})]
+      | `Register _ as reg -> target_dst, 
+      if is_integer then 
+        let sign, _ = Option.get @@ KosuIrTyped.Asttyhelper.RType.integer_info expr_rktype in
+        mov_promote_sign ~sign ~size:data_size ~src:(`Address adress) reg 
+        else 
+          [ Instruction (Mov {size = data_size; destination = reg; source = `Address adress})]
       | `Address _ -> target_dst, 
       let sized_rax = resize_register data_size raxq in
       [
