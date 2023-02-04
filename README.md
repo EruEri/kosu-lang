@@ -15,8 +15,10 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 - [x] Create an intermediate representation using the 3 adress code method 
 - [ ] Write a register allocator throught graph-coloring method (Will be in an other repository, to be used as a depedency)
 - [x] Generate basic Arm64 assembly for MacOs
-- [ ] Generate x86_64 assembly
+- [x] Generate basic x86_64 assembly
+- [ ] Fix Syntax issues
 - [ ] Fix Immediate encoding and stack base function parameters on arm64
+- [ ] Implement Float for both architecture
 
 
 ## Example
@@ -66,9 +68,19 @@ fn main() s32 {
 }
 ```
 
-To compile the example above
+To compile the example above on MacOS (M1)
 ```bash
-$ kosuc --target arm64e --cc -o example example.kosu
+$ kosuc -t arm64e -o example example.kosu
+$ ./example
+```
+On MacOS (Intel)
+```bash
+$ kosuc --target x86_64m -o example example.kosu
+$ ./example
+```
+On Linux (x86_64) and probably FreeBSD (x86_64)
+```bash
+$ kosuc --target x86_64 --cc -o example example.kosu
 $ ./example
 ```
 
