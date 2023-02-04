@@ -33,6 +33,69 @@ module Make(Spec: Common.AsmSpecification) = struct
 
 module X86_64Pprint = X86_64Pprint.Make(Spec)
 
+
+let copy_result ~where ~register ~rval_rktype rprogram = 
+  where
+  |> Option.map (fun waddress ->
+    copy_from_reg register waddress rval_rktype rprogram
+    )
+  |> Option.value ~default:[]
+
+let return_function_instruction_reg_size ~where ~is_deref ~return_reg ~return_type rprogram = 
+  where
+  |> Option.map (fun waddress ->
+         match is_deref with
+         | Some pointer ->
+             Instruction
+               (Mov
+                  {
+                    size = Q;
+                    destination = `Register rdiq;
+                    source = `Address pointer;
+                  })
+             :: copy_from_reg return_reg (create_address_offset rdiq)
+                  return_type rprogram
+         | None ->
+             copy_from_reg return_reg waddress
+               return_type rprogram)
+  |> Option.value ~default:[]
+
+let return_function_instruction_none_reg_size ~where ~is_deref = 
+  where
+  |> Option.map (fun waddress ->
+         match is_deref with
+         | Some pointer ->
+             [
+               Instruction
+                 (
+                  Mov {
+                    size = Q;
+                    destination = `Register rdiq;
+                    source = `Address pointer
+                  }
+                 );
+               Instruction
+                 (
+                  Mov {
+                    size = Q;
+                    destination = `Register rdiq;
+                    source = `Address (create_address_offset rdiq)
+                  }
+                 );
+             ]
+         | None ->
+             [
+               Instruction (
+                Lea {
+                  size = Q;
+                  destination = rdiq;
+                  source = waddress 
+                }
+               );
+             ])
+  |> Option.value ~default:[]
+
+
   let translate_tac_expression ~str_lit_map ?(target_dst = (`Register {size = L; reg = R10} : dst))
   rprogram (fd: FrameManager.frame_desc) = function
   | { tac_expression = TEString s; expr_rktype = _ } ->
@@ -331,64 +394,14 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       let extern_instructions = 
         match KosuIrTyped.Asttyconvert.Sizeof.discardable_size return_size with
         | true ->
-            let copy_instruction =
-              where
-              |> Option.map (fun waddress ->
-                     match is_deref with
-                     | Some pointer ->
-                         Instruction
-                           (Mov
-                              {
-                                size = Q;
-                                destination = `Register rdiq;
-                                source = `Address pointer;
-                              })
-                         :: copy_from_reg return_reg (create_address_offset rdiq)
-                              external_func_decl.return_type rprogram
-                     | None ->
-                         copy_from_reg return_reg waddress
-                           external_func_decl.return_type rprogram)
-              |> Option.value ~default:[]
+            let copy_instruction = return_function_instruction_reg_size ~where ~is_deref ~return_reg ~return_type:external_func_decl.return_type rprogram
             in
             ( set_in_reg_instructions @ set_on_stack_instructions @ variadic_float_use_instruction  @ call_instructions
               @ copy_instruction)
         | false -> 
-          let copy_instruction =
-            where
-            |> Option.map (fun waddress ->
-                   match is_deref with
-                   | Some pointer ->
-                       [
-                         Instruction
-                           (
-                            Mov {
-                              size = Q;
-                              destination = `Register rdiq;
-                              source = `Address pointer
-                            }
-                           );
-                         Instruction
-                           (
-                            Mov {
-                              size = Q;
-                              destination = `Register rdiq;
-                              source = `Address (create_address_offset rdiq)
-                            }
-                           );
-                       ]
-                   | None ->
-                       [
-                         Instruction (
-                          Lea {
-                            size = Q;
-                            destination = rdiq;
-                            source = waddress 
-                          }
-                         );
-                       ])
-            |> Option.value ~default:[]
+          let set_indirect_return_instruction = return_function_instruction_none_reg_size ~where ~is_deref
           in
-          ( set_in_reg_instructions @ set_on_stack_instructions @ copy_instruction
+          ( set_in_reg_instructions @ set_on_stack_instructions @ set_indirect_return_instruction
             @ call_instructions )
     in
         extern_instructions
@@ -460,64 +473,14 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       let kosu_fn_instructions = 
         match is_register_size return_size with
         | true ->
-            let copy_instruction =
-              where
-              |> Option.map (fun waddress ->
-                     match is_deref with
-                     | Some pointer ->
-                         Instruction
-                           (Mov
-                              {
-                                size = Q;
-                                destination = `Register rdiq;
-                                source = `Address pointer;
-                              })
-                         :: copy_from_reg return_reg (create_address_offset rdiq)
-                              function_decl.return_type rprogram
-                     | None ->
-                         copy_from_reg return_reg waddress
-                           function_decl.return_type rprogram)
-              |> Option.value ~default:[]
+            let copy_instruction = return_function_instruction_reg_size ~where ~is_deref ~return_reg ~return_type:function_decl.return_type rprogram
             in
             ( set_in_reg_instructions @ set_on_stack_instructions  @ call_instructions
               @ copy_instruction)
         | false -> 
-          let copy_instruction =
-            where
-            |> Option.map (fun waddress ->
-                   match is_deref with
-                   | Some pointer ->
-                       [
-                         Instruction
-                           (
-                            Mov {
-                              size = Q;
-                              destination = `Register rdiq;
-                              source = `Address pointer
-                            }
-                           );
-                         Instruction
-                           (
-                            Mov {
-                              size = Q;
-                              destination = `Register rdiq;
-                              source = `Address (create_address_offset rdiq)
-                            }
-                           );
-                       ]
-                   | None ->
-                       [
-                         Instruction (
-                          Lea {
-                            size = Q;
-                            destination = rdiq;
-                            source = waddress 
-                          }
-                         );
-                       ])
-            |> Option.value ~default:[]
-          in
-          ( set_in_reg_instructions @ set_on_stack_instructions @ copy_instruction
+          let set_indirect_return_instructions = return_function_instruction_none_reg_size ~where ~is_deref in
+          
+          ( set_in_reg_instructions @ set_on_stack_instructions @ set_indirect_return_instructions
             @ call_instructions )
     in
       kosu_fn_instructions @ [fn_call_comm]
@@ -826,9 +789,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       in 
 
       let ptr_true_reg = register_of_dst ptr_reg in
-      let copy_instructions = where |> Option.map (fun waddress -> 
-        copy_from_reg (resize_register Q ptr_true_reg) waddress rval_rktype rprogram
-      ) |> Option.value ~default:[]
+      let copy_instructions = copy_result ~where ~register:(resize_register Q ptr_true_reg) ~rval_rktype rprogram
       in
         linstructions 
           @ null_instruction::rinstructions 
@@ -851,12 +812,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       let r10 = register_of_dst last_reg10 in
       let divi_instruction = division_instruction ~unsigned scaled_data_size (`Register  (resize_register scaled_data_size r10)) in
 
-      let copy_instructions =
-        where
-        |> Option.map (fun waddress ->
-          copy_from_reg (resize_register raw_data_size raxq) waddress rval_rktype rprogram
-          )
-        |> Option.value ~default:[]
+      let copy_instructions = copy_result ~where ~register:(resize_register raw_data_size raxq) ~rval_rktype rprogram
       in
     instructions @ divisor_instructions @ setup_div::divi_instruction::copy_instructions
 
@@ -875,12 +831,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       let r10 = register_of_dst last_reg10 in
       let divi_instruction = division_instruction ~unsigned scaled_data_size (`Register (resize_register scaled_data_size r10)) in
 
-      let copy_instructions =
-        where
-        |> Option.map (fun waddress ->
-          copy_from_reg (sized_register raw_data_size RDX) waddress rval_rktype rprogram
-          )
-        |> Option.value ~default:[]
+      let copy_instructions = copy_result ~where ~register:(sized_register raw_data_size RDX) ~rval_rktype rprogram 
       in
     instructions @ divisor_instructions @ setup_div::divi_instruction::copy_instructions
 
@@ -893,12 +844,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
         let uminus_instructions =
           Instruction (Neg { size = last_reg.size; source = last_reg })
         in
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 copy_from_reg last_reg waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
+        let copy_instructions = copy_result ~where ~register:last_reg ~rval_rktype rprogram in
         instructions @ (uminus_instructions :: copy_instructions)
 
       | RVBuiltinUnop { unop = TacNot; expr } ->
@@ -910,12 +856,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
         let uminus_instructions =
           Instruction (Not { size = last_reg.size; source = last_reg })
         in
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 copy_from_reg last_reg waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
+        let copy_instructions = copy_result ~where ~register:last_reg ~rval_rktype rprogram in
         instructions @ (uminus_instructions :: copy_instructions)
 
     | RVBuiltinCall { fn_name; parameters } -> (
@@ -926,13 +867,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
         let data_size = data_size_of_isize @@ KosuFrontend.Ast.Builtin_Function.isize_of_functions fn_name in
         let target_reg_rax = sized_register data_size RAX in
         let _, instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register target_reg_rax) rprogram fd paramter in
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 copy_from_reg target_reg_rax waddress rval_rktype
-                   rprogram)
-          |> Option.value ~default:[]
-        in
+        let copy_instructions = copy_result ~where ~register:(target_reg_rax) ~rval_rktype rprogram in
         instructions @ copy_instructions
     )
     | RVCustomUnop unary -> (
@@ -970,49 +905,74 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
         let operator_instructions =
           match is_register_size return_size with
           | true ->
-              let copy_instruction =
-                where
-                |> Option.map (fun waddress ->
-                       match is_deref with
-                       | Some pointer ->
-                           Instruction
-                             ( Mov
-                             { size = Q; destination = `Register rdiq; source = `Address pointer};
-                             )
-                           :: copy_from_reg_opt return_reg (create_address_offset rdiq)
-                                return_type rprogram
-                       | None ->
-                           copy_from_reg_opt return_reg waddress return_type
-                             rprogram)
-                |> Option.value ~default:[]
+              let copy_instruction = return_function_instruction_reg_size ~where ~is_deref ~return_reg:(Option.get return_reg) ~return_type rprogram
               in
               
                 instructions @ call_instruction @ copy_instruction
                 (* Is not the same check the instructions order*) 
           | false ->
-              let copy_instruction =
-                where
-                |> Option.map (fun waddress ->
-                       match is_deref with
-                       | Some pointer ->
-                           [
-                           Instruction (Mov { size = Q; destination = `Register rdiq; source = `Address pointer}) 
-                       ;
-                        Instruction (Mov { size = Q; destination = `Register rdiq; source = `Address (create_address_offset rdiq)})
-                       ;
-                           ]
-                       | None ->
-                           [
-                            Instruction (Lea {size = Q; destination = rdiq; source = waddress} )
-                            
-                           ])
-                |> Option.value ~default:[]
+              let set_indirect_return_instructions = return_function_instruction_none_reg_size ~where ~is_deref
               in
-              instructions @ copy_instruction @ call_instruction
+              instructions @ set_indirect_return_instructions @ call_instruction
         in
         operator_instructions
     )
-    | _ -> failwith ""
+    | RVCustomBinop
+    ({
+       binop =
+         TacSelf _ | TacBool TacSup | TacBool TacInf | TacBool TacEqual;
+       _;
+     } as self) ->
+    let open KosuIrTAC.Asttachelper.Operator in
+    let op_decls =
+      KosuIrTyped.Asttyhelper.RProgram.find_binary_operator_decl
+        (parser_binary_op_of_tac_binary_op self.binop)
+        (self.blhs.expr_rktype, self.brhs.expr_rktype)
+        ~r_type:rval_rktype rprogram
+    in
+    let op_decl =
+          match op_decls with
+          | t :: [] -> t
+          | _ ->
+              failwith
+                "What the type checker has done: No binary op declaration | Too much"
+        in
+        let fn_label =
+          KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator op_decl
+        in
+        let return_type =
+          KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl
+        in
+        let return_size = sizeofn rprogram return_type in
+        let return_reg = return_register rprogram return_type in
+        
+
+        let r0, r1  = if is_register_size return_size then rdiq, rsiq else rsiq, rdxq in
+        let _, lhs_instructions =
+        translate_tac_expression ~str_lit_map ~target_dst:(`Register r0)
+          rprogram fd self.blhs
+      in
+        let _, rhs_instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register r1) rprogram fd self.blhs in
+      let call_instruction =
+        FrameManager.call_instruction ~origin:(`Label fn_label) [] fd
+      in
+
+
+      let operator_instructions =
+        match is_register_size return_size with
+        | true ->
+            let copy_instruction = return_function_instruction_reg_size ~where ~is_deref ~return_reg:(Option.get return_reg) ~return_type rprogram
+            in
+            
+            lhs_instructions @ rhs_instructions @ call_instruction @ copy_instruction
+              (* Is not the same check the instructions order*) 
+        | false ->
+            let set_indirect_return_instructions = return_function_instruction_none_reg_size ~where ~is_deref
+            in
+            lhs_instructions @ rhs_instructions @ set_indirect_return_instructions @ call_instruction
+      in
+      operator_instructions
+    | RVCustomBinop _ -> failwith "Custom comparison operator will be refactor higher in the AST"
 
 
     let rec translate_tac_statement ~str_lit_map current_module rprogram

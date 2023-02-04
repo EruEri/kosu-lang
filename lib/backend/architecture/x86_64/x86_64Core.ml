@@ -144,6 +144,11 @@ module Register = struct
     reg = RIP
   }
 
+  let rdxq = {
+    size = Q;
+    reg = RDX
+  }
+
   let raxq = {
     size = Q;
     reg = RAX
