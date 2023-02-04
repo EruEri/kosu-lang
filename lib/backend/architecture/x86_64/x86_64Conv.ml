@@ -104,8 +104,8 @@ let return_function_instruction_none_reg_size ~where ~is_deref =
     resized_dst, load_label (Spec.label_of_constant str_labl) resized_dst
 | { tac_expression = TEFalse | TEmpty; expr_rktype = _ } ->
   begin match target_dst with
-  | (`Register reg ) as rreg -> target_dst, [
-    Instruction (Xor {size = reg.size; source = rreg; destination = rreg })
+  | (`Register _ ) as rreg -> target_dst, [
+    Instruction (Xor {size = L; source = resize_src L rreg; destination = resize_dst L rreg })
   ]
   | (`Address _) as addr -> target_dst, [
     Instruction (Mov {size = B; destination = addr; source = `ILitteral 0L})
@@ -122,7 +122,7 @@ end
 end
 | { tac_expression = TETrue; _ } -> 
   let resized_dst = resize_dst B target_dst in
-  resized_dst, [ Instruction ( Mov {size = B; destination = resized_dst; source = `ILitteral 1L}) ]
+  resized_dst, [ Instruction ( Mov {size = L; destination = resize_dst L resized_dst; source = `ILitteral 1L}) ]
 | { tac_expression = TEInt (_, isize, int64); _ } ->
     let size = data_size_of_isize isize in
     let resized_dst = resize_dst size target_dst in
@@ -952,7 +952,7 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
         translate_tac_expression ~str_lit_map ~target_dst:(`Register r0)
           rprogram fd self.blhs
       in
-        let _, rhs_instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register r1) rprogram fd self.blhs in
+        let _, rhs_instructions = translate_tac_expression ~str_lit_map ~target_dst:(`Register r1) rprogram fd self.brhs in
       let call_instruction =
         FrameManager.call_instruction ~origin:(`Label fn_label) [] fd
       in
