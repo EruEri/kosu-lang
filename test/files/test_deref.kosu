@@ -1,0 +1,21 @@
+external printf(stringl; ...) s32;
+
+fn string_of_bool(b : bool) stringl = if (b) { $ "true" } else { $ "false" }
+
+fn return_567() s32 = 567;
+
+fn main() s32 {
+    var b = true;
+    var ptr_b = &b;
+    *ptr_b = false;
+    discard printf("expected false : get %s\n", string_of_bool(b));
+    b = true;
+    discard printf("expected true : get %s\n", string_of_bool(b));
+
+    var n = 0;
+    var ptr_n = &n;
+    *ptr_n = return_567();
+    discard printf("expected 567: get %d\n", n);
+    
+    $ 0
+}
