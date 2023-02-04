@@ -97,9 +97,10 @@ fn test_s8() {
     discard test_s8_aux(0s8, 2s8);
     discard test_s8_aux(65s8, 87s8);
     discard test_s8_aux(4s8, 4s8);
-    discard test_s8_aux(78s8, 147s8);
     discard test_s8_aux(0s8, 0s8);
     discard test_s8_aux(1s8, 1s8);
+    discard test_s8_aux(-7s8, -7s8);
+    discard test_s8_aux(-5s8, -7s8);
     $ empty
 }
 
