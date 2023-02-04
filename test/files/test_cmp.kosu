@@ -8,7 +8,75 @@ fn string_of_bool(b: bool) stringl =
         $ "false"
     }
 
-fn test_s32(lhs: s32, rhs: s32) {
+fn test_s8_aux(lhs: s8, rhs: s8) {
+    const cmp_1_lt_2 = lhs < rhs;
+    const cmp_1_le_2 = lhs <= rhs;
+    const cmp_1_gt_2 = lhs > rhs;
+    const cmp_1_ge_2 = lhs >= rhs;
+    const cmp_1_eq_2 = lhs == rhs;
+    const cmp_1_df_2 = lhs != rhs;
+
+    discard printf("s8: %d < %d : %s\n",  lhs, rhs, string_of_bool(cmp_1_lt_2) );
+    discard printf("s8: %d <= %d : %s\n", lhs, rhs, string_of_bool(cmp_1_le_2) );
+    discard printf("s8: %d > %d : %s\n",  lhs, rhs, string_of_bool(cmp_1_gt_2) );
+    discard printf("s8: %d >= %d : %s\n", lhs, rhs, string_of_bool(cmp_1_ge_2) );
+    discard printf("s8: %d == %d : %s\n", lhs, rhs, string_of_bool(cmp_1_eq_2) );
+    discard printf("s8: %d != %d : %s\n\n", lhs, rhs, string_of_bool(cmp_1_df_2) );
+    $ ()
+}
+
+fn test_u8_aux(lhs: u8, rhs: u8) {
+    const cmp_1_lt_2 = lhs < rhs;
+    const cmp_1_le_2 = lhs <= rhs;
+    const cmp_1_gt_2 = lhs > rhs;
+    const cmp_1_ge_2 = lhs >= rhs;
+    const cmp_1_eq_2 = lhs == rhs;
+    const cmp_1_df_2 = lhs != rhs;
+
+    discard printf("u8: %d < %d : %s\n",  lhs, rhs, string_of_bool(cmp_1_lt_2) );
+    discard printf("u8: %d <= %d : %s\n", lhs, rhs, string_of_bool(cmp_1_le_2) );
+    discard printf("u8: %d > %d : %s\n",  lhs, rhs, string_of_bool(cmp_1_gt_2) );
+    discard printf("u8: %d >= %d : %s\n", lhs, rhs, string_of_bool(cmp_1_ge_2) );
+    discard printf("u8: %d == %d : %s\n", lhs, rhs, string_of_bool(cmp_1_eq_2) );
+    discard printf("u8: %d != %d : %s\n\n", lhs, rhs, string_of_bool(cmp_1_df_2) );
+    $ ()
+}
+
+fn test_s16_aux(lhs: s16, rhs: s16) {
+    const cmp_1_lt_2 = lhs < rhs;
+    const cmp_1_le_2 = lhs <= rhs;
+    const cmp_1_gt_2 = lhs > rhs;
+    const cmp_1_ge_2 = lhs >= rhs;
+    const cmp_1_eq_2 = lhs == rhs;
+    const cmp_1_df_2 = lhs != rhs;
+
+    discard printf("s16: %d < %d : %s\n",  lhs, rhs, string_of_bool(cmp_1_lt_2) );
+    discard printf("s16: %d <= %d : %s\n", lhs, rhs, string_of_bool(cmp_1_le_2) );
+    discard printf("s16: %d > %d : %s\n",  lhs, rhs, string_of_bool(cmp_1_gt_2) );
+    discard printf("s16: %d >= %d : %s\n", lhs, rhs, string_of_bool(cmp_1_ge_2) );
+    discard printf("s16: %d == %d : %s\n", lhs, rhs, string_of_bool(cmp_1_eq_2) );
+    discard printf("s16: %d != %d : %s\n\n", lhs, rhs, string_of_bool(cmp_1_df_2) );
+    $ ()
+} 
+
+fn test_u16_aux(lhs: u16, rhs: u16) {
+    const cmp_1_lt_2 = lhs < rhs;
+    const cmp_1_le_2 = lhs <= rhs;
+    const cmp_1_gt_2 = lhs > rhs;
+    const cmp_1_ge_2 = lhs >= rhs;
+    const cmp_1_eq_2 = lhs == rhs;
+    const cmp_1_df_2 = lhs != rhs;
+
+    discard printf("u16: %d < %d : %s\n",  lhs, rhs, string_of_bool(cmp_1_lt_2) );
+    discard printf("u16: %d <= %d : %s\n", lhs, rhs, string_of_bool(cmp_1_le_2) );
+    discard printf("u16: %d > %d : %s\n",  lhs, rhs, string_of_bool(cmp_1_gt_2) );
+    discard printf("u16: %d >= %d : %s\n", lhs, rhs, string_of_bool(cmp_1_ge_2) );
+    discard printf("u16: %d == %d : %s\n", lhs, rhs, string_of_bool(cmp_1_eq_2) );
+    discard printf("u16: %d != %d : %s\n\n", lhs, rhs, string_of_bool(cmp_1_df_2) );
+    $ ()
+}
+
+fn test_s32_aux(lhs: s32, rhs: s32) {
     const cmp_1_lt_2 = lhs < rhs;
     const cmp_1_le_2 = lhs <= rhs;
     const cmp_1_gt_2 = lhs > rhs;
@@ -21,11 +89,66 @@ fn test_s32(lhs: s32, rhs: s32) {
     discard printf("s32: %d > %d : %s\n",  lhs, rhs, string_of_bool(cmp_1_gt_2) );
     discard printf("s32: %d >= %d : %s\n", lhs, rhs, string_of_bool(cmp_1_ge_2) );
     discard printf("s32: %d == %d : %s\n", lhs, rhs, string_of_bool(cmp_1_eq_2) );
-    discard printf("s32: %d != %d : %s\n", lhs, rhs, string_of_bool(cmp_1_df_2) );
+    discard printf("s32: %d != %d : %s\n\n", lhs, rhs, string_of_bool(cmp_1_df_2) );
     $ ()
-} 
+}
+
+fn test_s8() {
+    discard test_s8_aux(0s8, 2s8);
+    discard test_s8_aux(65s8, 87s8);
+    discard test_s8_aux(4s8, 4s8);
+    discard test_s8_aux(78s8, 147s8);
+    discard test_s8_aux(0s8, 0s8);
+    discard test_s8_aux(1s8, 1s8);
+    $ empty
+}
+
+fn test_u8() {
+    discard test_u8_aux(0u8, 2u8);
+    discard test_u8_aux(65u8, 87u8);
+    discard test_u8_aux(4u8, 4u8);
+    discard test_u8_aux(78u8, 147u8);
+    discard test_u8_aux(0u8, 0u8);
+    discard test_u8_aux(1u8, 1u8);
+    $ empty
+}
+
+fn test_s16() {
+    discard test_s16_aux(0s16, 2s16);
+    discard test_s16_aux(65s16, 87s16);
+    discard test_s16_aux(4s16, 4s16);
+    discard test_s16_aux(78s16, 147s16);
+    discard test_s16_aux(0s16, 0s16);
+    discard test_s16_aux(1s16, 1s16);
+    $ empty
+}
+
+fn test_u16() {
+    discard test_u16_aux(0u16, 2u16);
+    discard test_u16_aux(65u16, 87u16);
+    discard test_u16_aux(4u16, 4u16);
+    discard test_u16_aux(78u16, 147u16);
+    discard test_u16_aux(0u16, 0u16);
+    discard test_u16_aux(1u16, 1u16);
+    $ empty
+}
+
+fn test_s32() {
+    discard test_s32_aux(0, 2);
+    discard test_s32_aux(65, 87);
+    discard test_s32_aux(4, 4);
+    discard test_s32_aux(78, 147);
+    discard test_s32_aux(0, 0);
+    discard test_s32_aux(1, 1);
+    $ empty
+}
+
 
 fn main() s32 {
-    discard test_s32(3, 5);
+    discard test_s8();
+    discard test_u8();
+    discard test_s16();
+    discard test_u16();
+    discard test_s32();
     $ 0
 }

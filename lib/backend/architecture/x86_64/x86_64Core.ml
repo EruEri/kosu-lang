@@ -286,10 +286,10 @@ module Condition_Code = struct
   | TacOr | TacAnd -> None
   | TacEqual -> Some E
   | TacDiff -> Some NE
-  | TacSupEq -> Some (if is_ptr then B else L)
-  | TacSup -> Some (if is_ptr then BE else LE)
-  | TacInf -> Some (if is_ptr then AE else GE)
-  | TacInfEq -> Some (if is_ptr then A else G)
+  | TacSup -> Some (if is_ptr then B else L)
+  | TacSupEq -> Some (if is_ptr then BE else LE)
+  | TacInfEq -> Some (if is_ptr then AE else GE)
+  | TacInf -> Some (if is_ptr then A else G)
 
 end
 
