@@ -18,10 +18,13 @@
 
 module type LinkerOption = sig
 
-  type option
+  type linker_option
   val ld_command: string
-  val options: option list
-  val string_of_option: option -> string
+  val options: linker_option list
+  val string_of_option: linker_option -> string
+
+  (** Message to output if the native compilation pipeline is dissable*)
+  val disable: string option
 end
 
 module Make(Codegen : Codegen.S)(LD: LinkerOption) = struct
@@ -59,6 +62,10 @@ module Make(Codegen : Codegen.S)(LD: LinkerOption) = struct
   end
 
   let native_compilation ?(outfile = None) ?(debug = false) ?(ccol = []) ~other tac_prgram = 
+    let () = match LD.disable with
+    | Some message -> Printf.eprintf "%s\n" message; exit 1
+    | None -> ()
+    in
     let _ = debug in
     let out_file = (outfile |> Option.value ~default:output_file) in
     let c_obj_files =
