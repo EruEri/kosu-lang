@@ -18,15 +18,16 @@
 open KosuIrTyped.Asttyped
 
 module type X86_64_Spec = sig
+
+  val function_directives: string -> string list
+
+  val constant_directives: string -> [ `IntVal of KosuFrontend.Ast.isize * int64 | `StrVal of string ] -> string list
+
   val comment_prefix: string
 
   val label_prefix: string
 
   val main: string
-
-  val p2align: string
-
-  val p2align_function: string
 
   val string_litteral_section_end: string
 
@@ -40,10 +41,6 @@ end
 module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
 
   include X86_Spec
-
-  let p2align = ".p2align 4, 0x90"
-
-
 
   let label_of_constant ?module_path const_name = 
     Printf.sprintf "%s%s" 
@@ -101,13 +98,24 @@ end
 
 
 module X86_64LinuxAsmSpec = X86_64Spec_Make(struct
+
+  let function_directives fn_name = [
+    Printf.sprintf ".globl %s" fn_name;
+  ]
+
+  let constant_directives const_name = function
+  | `IntVal (size, _) -> [
+    Printf.sprintf ".globl %s" const_name;
+    Printf.sprintf ".align %u" (KosuFrontend.Ast.Isize.size_of_isize size)
+  ]
+  | `StrVal _ -> [
+    Printf.sprintf ".globl %s" const_name;
+    Printf.sprintf ".align %u" 8
+  ] 
+
   let comment_prefix = "#"
   let label_prefix = ""
   let main = "main"
-
-  let p2align = ""
-
-  let p2align_function = ""
 
   let string_litteral_section_start = ""
 
@@ -121,14 +129,24 @@ module X86_64LinuxAsmSpec = X86_64Spec_Make(struct
 end) 
 
 module X86MacOsAsmSpec = X86_64Spec_Make(struct
+  let function_directives fn_name = [
+    Printf.sprintf ".globl %s" fn_name;
+    ".p2align 4, 0x90"
+  ]
+
+  let constant_directives const_name = function
+  | `IntVal (size, _) -> [
+    Printf.sprintf ".globl %s" const_name;
+    Printf.sprintf ".align %u" (KosuFrontend.Ast.Isize.size_of_isize size)
+  ]
+  | `StrVal _ -> [
+    Printf.sprintf ".globl %s" const_name;
+    Printf.sprintf ".align %u" 8
+  ] 
 
   let comment_prefix = "#"
   let label_prefix = "_"
   let main = "_main"
-
-  let p2align = "?"
-
-  let p2align_function = ".p2align 4, 0x90"
 
   let string_litteral_section_start = ".section\t__TEXT,__cstring,cstring_literals,"
 

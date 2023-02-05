@@ -186,22 +186,23 @@ let string_of_raw_line = function
 
   let string_asm_const_decl { asm_const_name; value } =
     match value with
-    | `IntVal (size, value) ->
-        sprintf "\n\t.global %s\n\t.align %u\n%s:\n\t.%s %s"
-        asm_const_name
-        (KosuFrontend.Ast.Isize.size_of_isize size / 8)
+    | `IntVal (size, int_value) ->
+        sprintf "\n\t%s\n%s:\n\t.%s %s"
+        (AsmSpec.constant_directives asm_const_name value |> String.concat "\n\t")
         (asm_const_name) 
         (AsmSpec.size_directive_of_size size)
-        (sprintf "%Ld" value)
+        (sprintf "%Ld" int_value)
     | `StrVal s ->
-        sprintf "\n\t.global %s\n\t.align 8\n%s:\n\t%s \"%s\""
-        asm_const_name
+        sprintf "\n\t%s\n%s:\n\t%s \"%s\""
+        (AsmSpec.constant_directives asm_const_name value |> String.concat "\n\t")
         asm_const_name
         (AsmSpec.string_litteral_directive)
         s
 
 let string_of_asm_function { asm_name; asm_body } =
-  sprintf "\t.globl %s\n\t%s\n%s:\n%s" asm_name AsmSpec.p2align_function asm_name
+  sprintf "\t%s\n%s:\n%s" 
+    (AsmSpec.function_directives asm_name |> String.concat "\n\t")
+    asm_name
     (asm_body |> List.map string_of_raw_line |> String.concat "\n")
 
 let string_of_asm_node = function

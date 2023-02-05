@@ -24,10 +24,14 @@ end
 module IdVarMap = Map.Make (IdVar)
 
 (**
-  This module specifies the difference in label name convenient
+  This module specifies the difference in label name convention
   Moslty between MacOs and Linux with the use or not of an underscore    
 *)
 module type AsmSpecification = sig
+
+  val function_directives: string -> string list
+
+  val constant_directives: string -> [ `IntVal of KosuFrontend.Ast.isize * int64 | `StrVal of string ] -> string list
 
   val comment_prefix: string
 
@@ -38,9 +42,6 @@ module type AsmSpecification = sig
   val string_litteral_directive: string
 
   val size_directive_of_size: KosuFrontend.Ast.isize -> string
-  val p2align: string
-
-  val p2align_function: string
   val label_prefix: string
 
   val label_of_constant: ?module_path:string -> string -> string
