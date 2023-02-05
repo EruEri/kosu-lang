@@ -57,7 +57,7 @@ let () =
                 failwith "failwith"
             in
             let tac_program =
-              Asttacconv.tac_program_of_rprogram typed_program
+              Asttacconv.tac_program_of_rprogram ~dump_ast:true typed_program
             in
             tac_program)
   in
