@@ -55,12 +55,14 @@ type cfg_statement =
 type cfg_live_statetment = 
   cfg_statement * liveness_info
 
-type basic_block_end = 
-| BBe_if of {
+type bbe_if = {
   condition: tac_typed_expression;
   if_label: string;
   else_label: string;
 }
+
+type basic_block_end = 
+| BBe_if of bbe_if
 | Bbe_return of tac_typed_expression
 
 type 'a basic_block = {
@@ -97,40 +99,59 @@ module Convert = struct
     basic_block with cfg_statements = basic_block.cfg_statements @ [statement]
   }
   
-  let rec of_tac_statements ~start_label ~end_label ~cfg_statements (stmts, return) = match stmts with 
+  let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements (stmts, return) = match stmts with 
     | [] -> let block =  {
       label = start_label;
       cfg_statements = List.rev cfg_statements;
-      followed_by = (match end_label with None -> StringSet.empty | Some s -> StringSet.singleton s);
-      ending = (match return with None -> None | Some tte -> Some (Bbe_return tte) )
+      followed_by = StringSet.of_list end_labels;
+      ending = (match return with 
+        None -> begin 
+          match ending with 
+          | None -> None
+          | Some ending -> Some (BBe_if ending)
+
+        end 
+        | Some tte -> Some (Bbe_return tte) )
     } in
     BasicBlockSet.singleton block
   | (stmt::q) as _stmts -> begin match stmt with
     | STacDeclaration {identifier; trvalue} -> begin 
       let declaration = CFG_STacDeclaration {identifier; trvalue} in
-      of_tac_statements ~start_label ~end_label ~cfg_statements:(declaration::cfg_statements) (q, return)
+      of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements:(declaration::cfg_statements) (q, return)
     end
     | STacModification {identifier; trvalue} -> begin 
       let modification = CFG_STacModification {identifier; trvalue} in
-      of_tac_statements ~start_label ~end_label ~cfg_statements:(modification::cfg_statements) (q, return)
+      of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements:(modification::cfg_statements) (q, return)
   end
     | STDerefAffectation {identifier; trvalue} -> begin 
       let derefaffect = CFG_STDerefAffectation {identifier; trvalue} in
-      of_tac_statements ~start_label ~end_label ~cfg_statements:(derefaffect::cfg_statements) (q, return)
+      of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements:(derefaffect::cfg_statements) (q, return)
   end
-    | STIf {statement_for_bool = _; condition_rvalue = _; goto1 = _; goto2 = _; if_tac_body = _; else_tac_body = _; exit_label = _} ->
-      begin failwith ""
+    | STIf {statement_for_bool; condition_rvalue; goto1; goto2; if_tac_body; else_tac_body; exit_label} ->
+      let continuation = 
+        of_tac_statements ~start_label ~end_labels:[goto1; goto2]
+        ~ending:(Some {condition = condition_rvalue; if_label = goto1; else_label = goto2}) 
+        ~cfg_statements (statement_for_bool, None)
+      in
+      let if_blocks = of_tac_body ~end_labels:[exit_label] if_tac_body in
+      let else_blocks = of_tac_body ~end_labels:[exit_label] else_tac_body in 
+
+      let blocks_continuation = of_tac_statements ~start_label:exit_label ~end_labels ~ending ~cfg_statements:[] (q, return) in
       
-      end
+      continuation
+      |> BasicBlockSet.union if_blocks
+      |> BasicBlockSet.union else_blocks
+      |> BasicBlockSet.union blocks_continuation
+
 
     | _ -> failwith ""
   
   end
 
-  and of_tac_body ~end_label ({label; body} : tac_body) = of_tac_statements ~start_label:label ~end_label ~cfg_statements:[] body
+  and of_tac_body ~end_labels ({label; body} : tac_body) = of_tac_statements ~ending:None ~start_label:label ~end_labels ~cfg_statements:[] body
 
   let of_tac_body tac_body = 
-    let basic_blocks = of_tac_body ~end_label:None tac_body in
+    let basic_blocks = of_tac_body ~end_labels:[] tac_body in
     {
       entry_block = tac_body.label;
       blocks = basic_blocks;
