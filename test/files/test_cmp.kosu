@@ -1,4 +1,4 @@
-external printf(stringl; ...) s32;
+external printf(format: stringl; ...) s32;
 
 
 fn string_of_bool(b: bool) stringl = 

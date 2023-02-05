@@ -90,6 +90,16 @@ modul:
   Position.located_value $startpos $endpos x
 };;
 
+%inline module_path:
+    | mp=located( loption(terminated(separated_nonempty_list(DOUBLECOLON, Module_IDENT), DOT)) ) { mp |> Position.map( String.concat "::") }
+    // | mp=located( terminated(separated_list(DOUBLECOLON, Module_IDENT), DOT)) { mp |> Position.map( String.concat "::") }
+
+%inline typed_parameter_loc(X):
+    | WILDCARD COLON x=located(X) { x }
+    | IDENT COLON x=located(X)  { x }
+    // | x=located(X) { x }
+
+
 module_nodes:
     | enum_decl { NEnum $1 }
     | struct_decl { NStruct $1 }
@@ -135,8 +145,8 @@ struct_decl:
 ;;
 
 external_func_decl:
-    | EXTERNAL id=located(IDENT) LPARENT ctypes=separated_list(COMMA, located(ctype)) varia=option( p=preceded(SEMICOLON, TRIPLEDOT { () }) { p } ) 
-    RPARENT r_type=located(option(ctype)) c_name=option(EQUAL s=String_lit { s }) SEMICOLON {
+    | EXTERNAL id=located(IDENT) LPARENT ctypes=separated_list(COMMA, typed_parameter_loc(ctype)) varia=option( p=preceded(SEMICOLON, TRIPLEDOT { () }) { p } ) 
+    RPARENT r_type=located(option(ctype)) c_name=option(EQUAL s=String_lit { s }) option(SEMICOLON) {
         {
             sig_name = id;
             fn_parameters = ctypes;
@@ -193,7 +203,7 @@ declarer:
 ;;
 
 function_call:
-    modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) 
+    modules_path=module_path
         fn_name=located(IDENT) 
         generics_resolver=option(DOUBLECOLON INF s=separated_nonempty_list(COMMA, located(ktype)) SUP { s } ) 
         LPARENT exprs=separated_list(COMMA, located(expr) ) RPARENT {
@@ -221,7 +231,7 @@ statement:
 ;;
 
 syscall_decl:
-    | SYSCALL syscall_name=located(IDENT) parameters=delimited(LPARENT, separated_list(COMMA, ct=located(ctype) { ct  }), RPARENT ) return_type=located( option(ctype) ) EQUAL opcode=located(Integer_lit) option(SEMICOLON)
+    | SYSCALL syscall_name=located(IDENT) parameters=delimited(LPARENT, separated_list(COMMA, typed_parameter_loc(ctype)), RPARENT ) return_type=located( option(ctype) ) EQUAL opcode=located(Integer_lit) option(SEMICOLON)
     {
         {
             syscall_name;
@@ -245,7 +255,7 @@ function_decl:
     }
 ;;
 const_decl:
-    | CONST located(Constant) EQUAL located(Integer_lit) SEMICOLON {
+    | CONST located(Constant) EQUAL located(Integer_lit) option(SEMICOLON) {
         let sign, size, _ = $4.v in
         {
             const_name = $2;
@@ -253,14 +263,14 @@ const_decl:
             value = $4 |> Position.map (fun (sign, size, value) -> EInteger (sign, size, value) ) ;
         }
     }
-    | CONST located(Constant) EQUAL located(String_lit) SEMICOLON {
+    | CONST located(Constant) EQUAL located(String_lit) option(SEMICOLON) {
         {
             const_name = $2;
             explicit_type = TString_lit;
             value = $4 |> Position.map (fun s -> EString s)
         }
     }
-    | CONST located(Constant) EQUAL located(Float_lit) SEMICOLON {
+    | CONST located(Constant) EQUAL located(Float_lit) option(SEMICOLON) {
         {
             const_name = $2;
             explicit_type = TFloat;
@@ -322,45 +332,53 @@ expr:
     | function_call {
         let modules_path, fn_name, generics_resolver, exprs = $1 in
         EFunction_call {
-            modules_path = modules_path |> Position.map( String.concat "::");
+            modules_path;
             generics_resolver;
             fn_name;
             parameters = exprs
         }
     }
-    | l=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) {
-        EIdentifier { 
-            modules_path = l |> Position.map( String.concat "::" ) ;
-            identifier = id
-        }
+    | l=module_path id=located(IDENT) {
+        if l.v = "" then 
+            EIdentifier { 
+                modules_path = l ;
+                identifier = id
+            }
+        else 
+            EEnum {
+                modules_path = l;
+                enum_name = None;
+                variant = id;
+                assoc_exprs = []
+            } 
 
     }
-    | l=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(Constant) {
+    | l=module_path id=located(Constant) {
         EConst_Identifier {
-            modules_path = l |> Position.map( String.concat "::" ) ;
+            modules_path = l ;
             identifier = id
         }
     }
     | located(expr) PIPESUP function_call {
         let modules_path, fn_name, generics_resolver, exprs = $3 in
         EFunction_call {
-            modules_path = modules_path |> Position.map( String.concat "::");
+            modules_path;
             generics_resolver;
             fn_name;
             parameters = $1::exprs
         }
     }
-    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) struct_name=located(IDENT) fields=delimited(LBRACE, separated_list(COMMA, id=located(IDENT) either_color_equal  expr=located(expr) { id, expr } ) , RBRACE) {
+    | modules_path=module_path struct_name=located(IDENT) fields=delimited(LBRACE, separated_list(COMMA, id=located(IDENT) either_color_equal  expr=located(expr) { id, expr } ) , RBRACE) {
         EStruct {
-            modules_path = modules_path |> Position.map( String.concat "::" );
+            modules_path;
             struct_name;
             fields
         }
     }
     
-    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) enum_name=enum_resolver variant=located(IDENT) assoc_exprs=option(delimited(LPARENT, separated_nonempty_list(COMMA, located(expr)) ,RPARENT)) {
+    | modules_path=module_path enum_name=enum_resolver variant=located(IDENT) assoc_exprs=option(delimited(LPARENT, separated_nonempty_list(COMMA, located(expr)) ,RPARENT)) {
         EEnum {
-            modules_path = modules_path |> Position.map( String.concat "::" );
+            modules_path;
             enum_name;
             variant;
             assoc_exprs = assoc_exprs |> Option.value ~default: []
@@ -408,7 +426,7 @@ s_case:
     }
 
 ctype:
-    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) { 
+    | modules_path=module_path id=located(IDENT) { 
         match id.v with
         | "f64" -> TFloat
         | "unit" -> TUnit
@@ -424,14 +442,14 @@ ctype:
         | "s64" -> TInteger( Signed, I64)
         | "u64" -> TInteger( Unsigned, I64)
         | _ -> TType_Identifier {
-            module_path = modules_path |> Position.map( String.concat "::" ) ;
+            module_path = modules_path ;
             name = id
         }
      }
     | MULT located(ktype) { TPointer $2 } 
 
 ktype:
-    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) {
+    | modules_path=module_path id=located(IDENT) {
         match id.v with
         | "f64" -> TFloat
         | "unit" -> TUnit
@@ -446,14 +464,14 @@ ktype:
         | "u64" -> TInteger( Unsigned, I64)
         | "stringl" -> TString_lit
         | _ -> TType_Identifier {
-            module_path = modules_path |> Position.map( String.concat "::" ) ;
+            module_path = modules_path;
             name = id
         } 
      }
     | MULT located(ktype) { TPointer $2 }
-    | modules_path=located(separated_list(DOUBLECOLON, Module_IDENT)) id=located(IDENT) l=delimited(LPARENT, separated_nonempty_list(COMMA, located(ktype)), RPARENT )  {
+    | modules_path=module_path id=located(IDENT) l=delimited(LPARENT, separated_nonempty_list(COMMA, located(ktype)), RPARENT )  {
         TParametric_identifier {
-            module_path = modules_path |> Position.map( String.concat "::" ) ;
+            module_path = modules_path;
             parametrics_type = l;
             name = id
         }

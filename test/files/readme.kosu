@@ -10,9 +10,9 @@ struct point {
   y: u8
 }
 
-external malloc(u64) anyptr;
+external malloc(_: u64) anyptr;
 
-external print(stringl; ...) s32 = "printf";
+external print(format: stringl; ...) s32 = "printf";
 
 
 fn default<t>(option: option(t), default: t) t {

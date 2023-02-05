@@ -63,8 +63,8 @@ let digit = ['0'-'9']
 let loLetter = ['a'-'z']
 let upLetter = ['A'-'Z']
 let identifiant = (loLetter | '_') (loLetter | upLetter | digit | "_")*
-let module_identifier = (upLetter) (loLetter | digit | "_")*
-let constante = upLetter (upLetter | "_")*
+let module_identifier = (upLetter) (loLetter | digit | "_" | upLetter )*
+let constante = upLetter (upLetter | "_" | digit)*
 let escaped_char =  ['n' 'r' 't' '\\' '0' '\'' '\"']
 let float_literal = (digit) (digit | "_" )* (('.') (digit | "_")*  | ('e' | 'E')  ('+' | '-') digit (digit | '_')*)
 
@@ -143,11 +143,11 @@ rule token = parse
 | (number as n) {
     Integer_lit(Ast.Signed, Ast.I32, Int64.of_string n)
 }
-| module_identifier as s {
-    Module_IDENT s
-}
 | constante as s {
     Constant s
+}
+| module_identifier as s {
+    Module_IDENT s
 }
 | identifiant as s {
     try 

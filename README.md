@@ -16,7 +16,11 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 - [ ] Write a register allocator throught graph-coloring method (Will be in an other repository, to be used as a depedency)
 - [x] Generate basic Arm64 assembly for MacOs
 - [x] Generate basic x86_64 assembly
-- [ ] Fix Syntax issues
+- [x] Fix Syntax issues
+- [ ] Integer size inference
+- [ ] Add while loop
+- [ ] Add anonymous function
+- [ ] Add array Literral
 - [ ] Fix Immediate encoding and stack base function parameters on arm64
 - [ ] Implement Float for both architecture
 
@@ -36,9 +40,9 @@ struct point {
   y: u8
 }
 
-external malloc(u64) anyptr;
+external malloc(_: u64) anyptr;
 
-external print(stringl; ...) s32 = "printf";
+external print(format: stringl; ...) s32 = "printf";
 
 
 fn default<t>(option: option(t), default: t) t {
@@ -65,6 +69,7 @@ fn main() s32 {
   const message = message_opt |> default("Never");
   discard print("%s\n", message);
   $ EXIT_SUCCESS
+} EXIT_SUCCESS
 }
 ```
 
