@@ -146,7 +146,7 @@ struct_decl:
 
 external_func_decl:
     | EXTERNAL id=located(IDENT) LPARENT ctypes=separated_list(COMMA, typed_parameter_loc(ctype)) varia=option( p=preceded(SEMICOLON, TRIPLEDOT { () }) { p } ) 
-    RPARENT r_type=located(option(ctype)) c_name=option(EQUAL s=String_lit { s }) SEMICOLON {
+    RPARENT r_type=located(option(ctype)) c_name=option(EQUAL s=String_lit { s }) option(SEMICOLON) {
         {
             sig_name = id;
             fn_parameters = ctypes;
@@ -255,7 +255,7 @@ function_decl:
     }
 ;;
 const_decl:
-    | CONST located(Constant) EQUAL located(Integer_lit) SEMICOLON {
+    | CONST located(Constant) EQUAL located(Integer_lit) option(SEMICOLON) {
         let sign, size, _ = $4.v in
         {
             const_name = $2;
@@ -263,14 +263,14 @@ const_decl:
             value = $4 |> Position.map (fun (sign, size, value) -> EInteger (sign, size, value) ) ;
         }
     }
-    | CONST located(Constant) EQUAL located(String_lit) SEMICOLON {
+    | CONST located(Constant) EQUAL located(String_lit) option(SEMICOLON) {
         {
             const_name = $2;
             explicit_type = TString_lit;
             value = $4 |> Position.map (fun s -> EString s)
         }
     }
-    | CONST located(Constant) EQUAL located(Float_lit) SEMICOLON {
+    | CONST located(Constant) EQUAL located(Float_lit) option(SEMICOLON) {
         {
             const_name = $2;
             explicit_type = TFloat;
