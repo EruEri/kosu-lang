@@ -20,12 +20,23 @@ open KosuIrTyped
 open KosuIrTAC
 open KosuCli
 
+module Mac0SX86 = KosuBackend.Codegen.Make( KosuBackend.X86_64.X86_64Codegen.Codegen(AsmSpec.X86MacOsAsmSpec) ) 
+module LinuxX86 = KosuBackend.Codegen.Make( KosuBackend.X86_64.X86_64Codegen.Codegen(AsmSpec.X86_64LinuxAsmSpec) )
+module MacOSAarch64 = KosuBackend.Codegen.Make(KosuBackend.Aarch64.Aarch64Codegen.Codegen)
+
 
 let () = KosuFrontend.Registerexn.register_kosu_error ()
 let code =
   Clap.description "kosuc - The Kosu compiler";
 
-  let output = Clap.optional_string ~long:"output" ~short:'o' () in
+
+  let target_archi =
+    Clap.mandatory Cli.archi_clap_type ~long:"target" ~short:'t'
+      ~description:"Architecture compilation target" ~placeholder:"Target" ()
+  in
+
+  let no_std = Clap.flag ~set_long:"no-std" ~description:"Don't include the standard librairy files" false in
+
 
   let is_target_asm =
     Clap.flag ~set_short:'S' ~description:"Produce an assembly file" false
@@ -35,14 +46,13 @@ let code =
     Clap.flag ~set_short:'c' ~description:"Produce an object file" false
   in
 
-  let target_archi =
-    Clap.mandatory Cli.archi_clap_type ~long:"target"
-      ~description:"Architecture compilation target" ~placeholder:"Target" ()
-  in
   let cc =
     Clap.flag ~set_long:"cc"
       ~description:"Generate executable by using a C compiler" false
   in
+
+  let output = Clap.optional_string ~long:"output" ~short:'o' () in
+
   let ccol =
     Clap.list_string ~long:"ccol"
       ~description:
@@ -50,16 +60,41 @@ let code =
          files"
       ~placeholder:"C Files" ()
   in
+  
 
   let files = Clap.list_string ~description:"files" ~placeholder:"FILES" () in
+
+  let () = Clap.close () in
+
+  let module Codegen = (
+    val (match target_archi with
+    | Cli.X86_64 -> (module LinuxX86)
+    | Cli.X86_64m -> (module Mac0SX86)
+    | Cli.Arm64e -> (module MacOSAarch64)
+    )
+    : KosuBackend.Codegen.S
+  )
+  in
+
+  let module LinkerOption = (
+    val (
+      match target_archi with
+      | Cli.X86_64m | Arm64e -> (module LdSpec.MacOSLdSpec)
+      | Cli.X86_64 -> (module LdSpec.LinuxLdSpec)
+    ) 
+    : KosuBackend.Compil.LinkerOption
+  ) in
+
+  let module Compiler = KosuBackend.Compil.Make(Codegen)(LinkerOption) in
+
 
   let kosu_files, other_files =
     files |> List.partition (fun s -> s |> Filename.extension |> ( = ) ".kosu")
   in
 
-  let () = Clap.close () in
+  let std_file = Cli.fetch_std_file ~no_std () in
 
-  let modules_opt = Cli.files_to_ast_program kosu_files in
+  let modules_opt = Cli.files_to_ast_program (kosu_files @ std_file) in
 
   let tac_program =
     match modules_opt with
@@ -95,31 +130,12 @@ let code =
   let code =
     match is_target_asm with
     | true -> (
-        match target_archi with
-        | Cli.Arm64e ->
-            let _files =
-              Aarch64.Aarch64Codegen.compile_asm_from_tac tac_program
-            in
-            0
-        | Cli.X86_64 -> failwith "X86_64 Support to do")
+      Compiler.generate_asm_only tac_program ()
+      )
     | false -> (
-        let c_obj_files = Cli.ccol_compilation ccol in
-        let error_code = Cli.find_error_code_opt c_obj_files in
-        if Option.is_some error_code then Option.get error_code
-        else
-          let obj_file = c_obj_files |> List.map Result.get_ok in
-
-          let outfile = output |> Option.value ~default:"a.out" in
-          match target_archi with
-          | Cli.X86_64 -> failwith "X86_64 Support to do"
-          | Cli.Arm64e ->
-              if cc then
-                let asm_file =
-                  Aarch64.Aarch64Codegen.compile_asm_from_tac_tmp tac_program
-                in
-                Cli.cc_compilation outfile ~asm:asm_file
-                  ~other:(other_files @ obj_file)
-              else failwith "Native compiling pipeline with as and ld to do")
+      let compilation = Compiler.compilation ~cc in
+      compilation ~outfile:output ~debug:true ~ccol ~other:other_files tac_program
+      )
   in
   code
 

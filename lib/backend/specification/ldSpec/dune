@@ -16,5 +16,5 @@
 ;**********************************************************************************************;
 
 (library
- (name aarch64)
- (libraries kosuIrTyped kosuIrTAC kosuFrontend))
+ (name ldSpec)
+ (libraries kosuBackend))

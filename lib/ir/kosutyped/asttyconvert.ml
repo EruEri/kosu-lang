@@ -129,6 +129,14 @@ module Sizeof = struct
 
     let rktypes = rstruct_decl.rfields |> List.map snd in
     offset_of_tuple_index ~generics field_index rktypes rprogram
+
+  (* To refacto later in functor*)
+  (* on X86 and Arm64: if the retuned_value can be held in R0 and R1 (RAX, RCX)*)
+  (* If so, there is no need to pass the address of the destination to the function*)
+  (* Therefore : the retunred values dont need to be on the stack since there are discarded*)
+  let discardable_size = function
+  | 1L | 2L | 4L | 8L | 9L | 10L | 12L | 16L -> true
+  | _ -> false
 end
 
 let restrict_typed_expression restrict typed_expression =
@@ -995,6 +1003,7 @@ and from_module_node current_module (prog : module_path list) =
         {
           rfn_name = fn_name.v;
           generics = generics |> List.map Position.value;
+          true_generics = generics <> [];
           rparameters =
             parameters
             |> List.map (fun (lf, lkt) ->

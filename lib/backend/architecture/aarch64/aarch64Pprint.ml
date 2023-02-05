@@ -20,6 +20,9 @@ open Aarch64Core.Register
 open Aarch64Core.Instruction
 open Printf
 
+module AsmProgram = Common.AsmProgram(Aarch64Core.Instruction) 
+open AsmProgram
+
 let p2align = Printf.sprintf ".p2align %n"
 
 let string_of_f64bits_reg = function
@@ -186,12 +189,16 @@ let string_of_instruction = function
         (string_of_register operand2)
         (string_of_register scale)
         (string_of_register operand1_base)
+  (* rd = ra + rn × rm *)
+  (* rd, rn, rm, ra *)
+  (* { destination = operand2; scale; operand1_base } *)
   | MSUB { destination; operand1_base; operand2; scale } ->
       sprintf "msub %s, %s, %s, %s"
         (string_of_register destination)
         (string_of_register operand2)
         (string_of_register scale)
         (string_of_register operand1_base)
+        
   | ADDS { destination; operand1; operand2 } ->
       sprintf "%sadds %s, %s, %s"
         (prefix_of_float destination)
@@ -328,7 +335,7 @@ let string_of_raw_line = function
 
 let size_directive_of_size =
   let open KosuFrontend.Ast in
-  function I8 -> "bytes" | I16 -> "short" | I32 -> "long" | I64 -> "quad"
+  function I8 -> "byte" | I16 -> "short" | I32 -> "long" | I64 -> "quad"
 
 let string_asm_const_decl { asm_const_name; value } =
   match value with

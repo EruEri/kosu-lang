@@ -15,9 +15,6 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
-(executable
- (public_name kosuc)
- (name kosuc)
- (libraries kosuFrontend kosuIrTyped kosuBackend kosuIrTAC kosuCli clap asmSpec ldSpec common)
- (flags
-  (:standard -g)))
+(library
+ (name aarch64)
+ (libraries kosuIrTyped kosuIrTAC kosuFrontend common))

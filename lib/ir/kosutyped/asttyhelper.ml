@@ -25,6 +25,10 @@ module RType = struct
     | RTInteger (sign, _) -> sign = Unsigned
     | _ -> false
 
+  let integer_info = function
+  | RTInteger (sign, size) -> Some (sign, size)
+  | _ -> None
+
   let is_64bits_float = function RTFloat -> true | _ -> false
 
   let is_builtin_type = function
@@ -468,6 +472,7 @@ module Function = struct
     | true ->
         {
           rfn_name = rfunction_decl.rfn_name;
+          rmaped_generics = [];
           rparameters = rfunction_decl.rparameters;
           return_type = rfunction_decl.return_type;
           rbody = rfunction_decl.rbody;
@@ -485,13 +490,19 @@ module Function = struct
         let rbody =
           instanciate_generics_kbody assoc_generics rfunction_decl.rbody
         in
-        { rfn_name = rfunction_decl.rfn_name; rparameters; return_type; rbody }
+        { rfn_name = rfunction_decl.rfn_name; 
+          rmaped_generics = generics;
+          rparameters; 
+          return_type; 
+          rbody 
+          }
 
   let function_decl_of_rtrue_function_decl (fn_decl : rtrue_function_decl) :
       rfunction_decl =
     {
       rfn_name = fn_decl.rfn_name;
-      generics = [];
+      generics = fn_decl.rmaped_generics |> List.map (Asttypprint.string_of_label_rktype);
+      true_generics = false;
       rparameters = fn_decl.rparameters;
       return_type = fn_decl.return_type;
       rbody = fn_decl.rbody;
@@ -613,7 +624,7 @@ module Rmodule = struct
           (rnodes
           |> List.filter (fun rnode ->
                  match rnode with
-                 | RNFunction { generics; _ } -> generics = []
+                 | RNFunction { true_generics; _ } -> not true_generics
                  | _ -> true))
 
   let retrieve_non_generics_function = function
@@ -626,6 +637,7 @@ module Rmodule = struct
                      (RFFunction
                         {
                           rfn_name = rfunction_decl.rfn_name;
+                          rmaped_generics = [];
                           rparameters = rfunction_decl.rparameters;
                           return_type = rfunction_decl.return_type;
                           rbody = rfunction_decl.rbody;
@@ -689,6 +701,7 @@ end
 module RProgram = struct
   type fn_signature = {
     fn_name : string;
+    generics: string list;
     params : rktype list;
     return_type : rktype;
   }
@@ -696,6 +709,7 @@ module RProgram = struct
   let signature_of_rfunction_decl (rfunction_decl : rfunction_decl) =
     {
       fn_name = rfunction_decl.rfn_name;
+      generics = rfunction_decl.generics;
       params = rfunction_decl.rparameters |> List.map snd;
       return_type = rfunction_decl.return_type;
     }
@@ -703,6 +717,7 @@ module RProgram = struct
   let signature_of_rtrue_function_decl (rfunction_decl : rtrue_function_decl) =
     {
       fn_name = rfunction_decl.rfn_name;
+      generics = rfunction_decl.rmaped_generics |> List.map Asttypprint.string_of_label_rktype;
       params = rfunction_decl.rparameters |> List.map snd;
       return_type = rfunction_decl.return_type;
     }
@@ -795,13 +810,13 @@ module RProgram = struct
     |> List.flatten
 
   let rec stack_parameters_in_expression current_module rprogram = function
-    | REFunction_call { modules_path; fn_name; parameters; _ } -> (
+    | REFunction_call { modules_path; fn_name; parameters; generics_resolver = _ } -> (
         let cmodule =
           if modules_path = "" then current_module else modules_path
         in
         let ktypes = parameters |> List.map (fun { rktype; _ } -> rktype) in
         let fn_decl =
-          find_function_decl_of_name cmodule fn_name rprogram |> Option.get
+          rprogram |> find_function_decl_of_name cmodule fn_name  |> (function Some s -> s | None -> failwith "814" )
         in
         match fn_decl with
         | RSyscall_Decl _ -> 0
@@ -932,7 +947,7 @@ module RProgram = struct
         in
         rprogram
         |> find_module_of_name function_module
-        |> Option.get
+        |> (function Some s -> s | None -> failwith "Ici ?")
         |> Rmodule.find_function_decl fn_name
         |> fun function_decl_opt ->
         match function_decl_opt with

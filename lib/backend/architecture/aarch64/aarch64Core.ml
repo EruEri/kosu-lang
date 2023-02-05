@@ -15,13 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module IdVar = struct
-  type t = string * KosuIrTyped.Asttyped.rktype
-
-  let compare = compare
-end
-
-module IdVarMap = Map.Make (IdVar)
+module IdVar = Common.IdVar
+module IdVarMap = Common.IdVarMap
 
 module Immediat = struct
   let mask_6_8bytes = 0xFFFF_0000_0000_0000L
@@ -340,8 +335,9 @@ let increment_adress off adress =
   { adress with offset = Int64.add adress.offset off }
 
 let asm_const_name current_module const_name =
-  Printf.sprintf "_%s_%s" const_name
+  Printf.sprintf "_%s_%s" 
     (current_module |> String.map (fun c -> if c = ':' then '_' else c))
+    const_name
 
 module Instruction = struct
   type shift = SH16 | SH32 | SH48
@@ -815,7 +811,7 @@ module FrameManager = struct
              let x29_relative_address = (locals_space |> Int64.neg |> Int64.add offset) in
              let adress = if x29_relative_address > -256L then
                create_adress
-                 ~offset:(locals_space |> Int64.neg |> Int64.add offset)
+                 ~offset:(locals_space |> Int64.neg |> Int64.add offset |> Int64.add stack_future_call)
                  (Register64 X29)
                 else 
                   create_adress ~offset:(Int64.add stack_future_call offset)
@@ -836,7 +832,11 @@ module FrameManager = struct
   let address_of (variable, rktype) frame_desc =
     (* let () = Printf.printf "Lookup => %s : %s\n" (variable) (KosuIrTyped.Asttypprint.string_of_rktype rktype) in *)
     if List.mem (variable, rktype) frame_desc.discarded_values then None
-    else Some (IdVarMap.find (variable, rktype) frame_desc.stack_map)
+    else Some (
+      try 
+        IdVarMap.find (variable, rktype) frame_desc.stack_map
+    with Not_found -> failwith (Printf.sprintf "Not found: %s : %s" variable (KosuIrTyped.Asttypprint.string_of_rktype rktype))
+    )
 
   let function_prologue ~fn_register_params ~stack_params rprogram fd =
     let frame_register_offset =
@@ -972,28 +972,42 @@ module FrameManager = struct
     [ call ]
 end
 
-type asm_function_decl = {
-  asm_name : string;
-  asm_body : Instruction.raw_line list;
-}
+module FnLabel = struct 
+  let label_prefix = "_"
 
-type asm_const_decl = {
-  asm_const_name : string;
-  value : [ `IntVal of KosuFrontend.Ast.isize * int64 | `StrVal of string ];
-}
+  let main = "_main"
 
-type asm_module_node =
-  | Afunction of asm_function_decl
-  | AConst of asm_const_decl
+  open KosuIrTyped.Asttyped
 
-type asm_module = AsmModule of asm_module_node list
-type asm_module_path = { apath : string; asm_module : asm_module }
+  (** Replace the `:` in the path name by `_` *)
+  let asm_module_path = String.map (fun c -> if c = ':' then '_' else c)
+  
+  let label_of_constant ?module_path const_name = 
+    Printf.sprintf "%s%s" 
+    (module_path |> Option.map (Printf.sprintf "%s._") |> Option.value ~default:"")
+    const_name
+  let label_of_function ~label_prefix ~main ~module_path ~fn_name ~generics = 
+    if fn_name = "main" then main else
+    Printf.sprintf "%s%s.%s%s" 
+      label_prefix
+      (asm_module_path module_path )
+      ( if generics = [] then "" else generics |> String.concat "." |> Printf.sprintf "_%s_")
+      fn_name
 
-type named_asm_module_path = {
-  filename : string;
-  asm_module_path : asm_module_path;
-  rprogram : KosuIrTyped.Asttyped.rprogram;
-  str_lit_map : (string, Util.stringlit_label) Hashtbl.t;
-}
-
-type asm_program = named_asm_module_path list
+      let label_of_external_function rextern_func_decl = 
+        rextern_func_decl.c_name |> Option.value ~default:rextern_func_decl.rsig_name |> Printf.sprintf "%s%s" label_prefix
+    
+      let label_of_kosu_function ~module_path (rfunction_decl: KosuIrTyped.Asttyped.rfunction_decl) =
+        label_of_function ~module_path 
+          ~main
+          ~label_prefix
+          ~fn_name:rfunction_decl.rfn_name 
+          ~generics: rfunction_decl.generics
+    
+      let label_of_tac_function ~module_path (tac_function_decl: KosuIrTAC.Asttac.tac_function_decl) =
+        label_of_function ~module_path 
+        ~main
+        ~label_prefix
+        ~fn_name:tac_function_decl.rfn_name 
+        ~generics:tac_function_decl.generics
+end

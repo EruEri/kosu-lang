@@ -1,7 +1,7 @@
 (**********************************************************************************************)
 (*                                                                                            *)
 (* This file is part of Kosu                                                                  *)
-(* Copyright (C) 2022 Yves Ndiaye                                                             *)
+(* Copyright (C) 2022-2023 Yves Ndiaye                                                        *)
 (*                                                                                            *)
 (* Kosu is free software: you can redistribute it and/or modify it under the terms            *)
 (* of the GNU General Public License as published by the Free Software Foundation,            *)
@@ -14,3 +14,29 @@
 (* If not, see <http://www.gnu.org/licenses/>.                                                *)
 (*                                                                                            *)
 (**********************************************************************************************)
+
+module MacOSLdSpec : KosuBackend.Compil.LinkerOption = struct
+  type linker_option = string
+  let string_of_option = Fun.id
+  let ld_command = "ld"
+
+  let options = [
+    "syslibroot $(xcrun --sdk macosx --show-sdk-path)";
+    "lSystem"
+  ]
+
+  let disable = None
+end
+
+module LinuxLdSpec : KosuBackend.Compil.LinkerOption = struct
+  type linker_option = string
+  let string_of_option = Fun.id
+
+  let ld_command = "ld"
+
+  let options = [
+    "-entry=main";
+    "lc"
+  ]
+  let disable = Some ("Native compilation pipeline doesn't currently work on Linux, USE `--cc` option")
+end

@@ -1,5 +1,4 @@
 _build
-*.kosu
 *.S
 .DS_Store
 *.c

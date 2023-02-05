@@ -15,12 +15,9 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-open Aarch64Core
-open Aarch64Conv
 open Aarch64Pprint
-open Util
 
-let export_asm_module { filename; asm_module_path; rprogram = _; str_lit_map } =
+(* let export_asm_module { filename; asm_module_path; rprogram = _; str_lit_map } =
   let file = open_out filename in
   let (AsmModule rnodes) = sort_asm_module asm_module_path.asm_module in
   let () =
@@ -76,4 +73,32 @@ let compile_asm_from_tac_tmp tac_program =
   tac_program |> Aarch64Conv.asm_program_of_tac_program |> compile_asm_tmp
 
 let compile_asm_from_tac tac_program =
-  tac_program |> Aarch64Conv.asm_program_of_tac_program |> compile_asm
+  tac_program |> Aarch64Conv.asm_program_of_tac_program |> compile_asm *)
+
+
+module Codegen = struct
+
+  module AsmProgram = Common.AsmProgram(Aarch64Core.Instruction)
+  include AsmProgram
+  open AsmProgram
+
+  let asm_program_of_tac_program = Aarch64Conv.asm_program_of_tac_program
+  let asm_module_of_tac_module = Aarch64Conv.asm_module_of_tac_module
+  let sort_asm_module asm_module = 
+    let AsmModule x =  Aarch64Conv.sort_asm_module (AsmModule asm_module) in
+    x
+
+  let string_litteral_section_start = ".section\t__TEXT,__cstring,cstring_literals,"
+
+  let string_litteral_section_end = ".subsections_via_symbols"
+
+  let string_of_asm_node = string_of_asm_node
+
+  let string_litteral_directive = ".asciz" 
+
+  let filename_of_named_asm_module_path namp = namp.filename
+  let asm_module_path_of_named_asm_module_path namp = namp.asm_module_path.asm_module
+  let str_lit_map_of_name_asm_module namp = namp.str_lit_map
+  let asm_module_node_list_of_asm_module = function
+  | AsmModule rnodes -> rnodes
+end

@@ -1,0 +1,121 @@
+external printf(stringl; ...) s32;
+
+const MESSAGE = "Hello world";
+
+const W_OFFSET_SB = 6s8;
+const W_OFFSET_UB = 6u8;
+
+const W_OFFSET_SH = 6s8;
+
+fn test_s8_aux(lhs: s8, rhs: s8) {
+    const add = lhs + rhs;
+    const minus = lhs - rhs;
+    const div = lhs / rhs;
+    const modulo = lhs % rhs;
+    const or = lhs | rhs;
+    const and = lhs & rhs;
+    const xor = lhs ^ rhs;
+
+    discard printf("s8: %hhd + %hhd = %hhd\n", lhs , rhs , add);
+    discard printf("s8: %hhd - %hhd = %hhd\n", lhs , rhs , minus);
+    discard printf("s8: %hhd / %hhd = %hhd\n", lhs , rhs , div);
+    discard printf("s8: %hhd %% %hhd = %hhd\n", lhs , rhs , modulo);
+    discard printf("s8: %hhd | %hhd = %hhd\n", lhs , rhs , or);
+    discard printf("s8: %hhd & %hhd = %hhd\n", lhs , rhs , and);
+    discard printf("s8: %hhd ^ %hhd = %hhd\n\n", lhs , rhs , xor);
+    
+
+    $ empty
+}
+
+fn test_s8() {
+    const w_ptr = @stringlptr(MESSAGE) + W_OFFSET_SB;
+    const char = *w_ptr;
+    discard printf("s8: w == %c\n", char);
+    discard test_s8_aux(56s8, 44s8);
+    discard test_s8_aux(-65s8, 43s8);
+    discard test_s8_aux(43s8, -21s8);
+    discard test_s8_aux(-56s8, -44s8);
+    $ empty
+}
+
+fn test_u8_aux(lhs: u8, rhs: u8) {
+    const add = lhs + rhs;
+    const minus = lhs - rhs;
+    const div = lhs / rhs;
+    const modulo = lhs % rhs;
+    const or = lhs | rhs;
+    const and = lhs & rhs;
+    const xor = lhs ^ rhs;
+
+    discard printf("u8: %hhu + %hhu = %hhu\n", lhs , rhs , add);
+    discard printf("u8: %hhu - %hhu = %hhu\n", lhs , rhs , minus);
+    discard printf("u8: %hhu / %hhu = %hhu\n", lhs , rhs , div);
+    discard printf("u8: %hhu %% %hhu = %hhu\n", lhs , rhs , modulo);
+    discard printf("u8: %hhu | %hhu = %hhu\n", lhs , rhs , or);
+    discard printf("u8: %hhu & %hhu = %hhu\n", lhs , rhs , and);
+    discard printf("u8: %hhu ^ %hhu = %hhu\n\n", lhs , rhs , xor);
+    $ empty
+}
+
+fn test_u8() {
+
+    const w_ptr = @stringlptr(MESSAGE) + W_OFFSET_UB;
+    const char = *w_ptr;
+    discard printf("u8: w == %c\n", char);
+    discard test_u8_aux(56u8, 44u8);
+    discard test_u8_aux(47u8, 231u8);
+    discard test_u8_aux(192u8, 152u8);
+    discard test_u8_aux(154u8, 42u8);
+    // discard test_u8_aux(-65u8, 43u8);
+    // discard test_u8_aux(43u8, -21u8);
+    // discard test_u8_aux(-56u8, -44u8); Exception because unsigned integer cannot unary minus
+
+    $ empty
+}
+
+fn test_s16_aux(lhs: s16, rhs: s16) {
+    const add = lhs + rhs;
+    const minus = lhs - rhs;
+    const div = lhs / rhs;
+    const modulo = lhs % rhs;
+    const or = lhs | rhs;
+    const and = lhs & rhs;
+    const xor = lhs ^ rhs;
+
+    discard printf("s16: %hd + %hd = %hd\n", lhs , rhs , add);
+    discard printf("s16: %hd - %hd = %hd\n", lhs , rhs , minus);
+    discard printf("s16: %hd / %hd = %hd\n", lhs , rhs , div);
+    discard printf("s16: %hd %% %hd = %hd\n", lhs , rhs , modulo);
+    discard printf("s16: %hd | %hd = %hd\n", lhs , rhs , or);
+    discard printf("s16: %hd & %hd = %hd\n", lhs , rhs , and);
+    discard printf("s16: %hd ^ %hd = %hd\n\n", lhs , rhs , xor);
+    $ empty
+}
+
+fn test_s16(){
+    const w_ptr = @stringlptr(MESSAGE) + W_OFFSET_SB;
+    const char = *w_ptr;
+    discard printf("s16: w == %c\n", char);
+    discard test_s16_aux(56s16, 44s16);
+    discard test_s16_aux(-65s16, 43s16);
+    discard test_s16_aux(43s16, -21s16);
+    discard test_s16_aux(-56s16, -44s16);
+    $ ()
+}
+
+
+
+
+
+
+fn main() s32 {
+    // test s8
+    discard test_s8();
+    // test u8
+    discard test_u8();
+    // test s16
+    discard test_s16();
+
+    $ 0
+}

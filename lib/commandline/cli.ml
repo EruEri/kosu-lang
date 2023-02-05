@@ -17,21 +17,28 @@
 
 
 type filename_error = Mutiple_dot_in_filename | No_extension | Unknow_error
-type archi_target = X86_64 | Arm64e
+type archi_target = Arm64e | X86_64m | X86_64
+
+let std_global_variable = "KOSU_STD_PATH"
+
+let std_path = Sys.getenv_opt std_global_variable
+
+let is_kosu_file file = file |> Filename.extension |> ( = ) ".kosu"
 
 let archi_parse = function
+  | "x86_64m" -> Some X86_64m
   | "x86_64" -> Some X86_64
   | "arm64e" -> Some Arm64e
   | _ -> None
 
-let string_of_archi = function X86_64 -> "x86_64" | Arm64e -> "arm64e"
+let string_of_archi = function X86_64m | X86_64 -> "x86_64" | Arm64e -> "arm64e"
 
 let archi_clap_type =
   Clap.typ ~name:"target" ~dummy:X86_64 ~parse:archi_parse ~show:string_of_archi
 
 let cc_compilation outputfile ~asm ~other =
   Sys.command
-    (Printf.sprintf "cc -o %s %s %s" outputfile
+    (Printf.sprintf "cc -g -o %s %s %s" outputfile
        (asm |> String.concat " ")
        (other |> String.concat " "))
 
@@ -71,6 +78,19 @@ let convert_filename_to_path filename =
   |> Result.map f
 
 let module_path_of_file filename =
+  let chomped_filename = match std_path with
+  | None -> filename
+  | Some path ->
+    if String.starts_with ~prefix:path filename 
+      then 
+        let filename_len = String.length filename in
+        let dir_sep_len = String.length @@ Filename.dir_sep in
+        let path_len = String.length path in
+        let prefix_len = path_len + dir_sep_len in
+        String.sub filename prefix_len (filename_len - prefix_len)
+   else filename
+in
+  (* let () = Printf.printf "filename = %s\nchomped = %s\n" filename  chomped_filename in *)
   let open KosuFrontend in
   let open KosuFrontend.Ast in
   let ( >>= ) = Result.bind in
@@ -88,8 +108,11 @@ let module_path_of_file filename =
     )
   )
   >>= fun _module ->
-  filename |> convert_filename_to_path
-  |> Result.map (fun path -> { filename; module_path = { path; _module } })
+  chomped_filename 
+  |> convert_filename_to_path
+  |> Result.map (fun path -> 
+    { filename; module_path = { path; _module } }
+  )
   |> Result.map_error (fun e -> Filename_error e)
 
 (**
@@ -111,3 +134,28 @@ let files_to_ast_program (files : string list) =
            |> KosuFrontend.Astvalidation.Help.program_remove_implicit_type_path
             )
       | Some error -> Error error)
+
+
+
+let rec fetch_kosu_file direname () = 
+  let file_in_dir = Sys.readdir direname in
+  let kosu_files = file_in_dir |> Array.fold_left (fun acc_kosu_files file ->
+    let file = Printf.sprintf "%s%s%s" direname (Filename.dir_sep) (file) in
+    if Sys.is_directory file then
+      acc_kosu_files @ (fetch_kosu_file file () )
+    else 
+      if is_kosu_file file 
+        then
+          file::acc_kosu_files
+    else
+      acc_kosu_files
+  ) [] in
+  kosu_files
+
+
+let fetch_std_file ~no_std () = 
+  if no_std || (Option.is_none std_path ) 
+    then []
+  else
+    let std_path = Option.get std_path in
+    fetch_kosu_file std_path ()

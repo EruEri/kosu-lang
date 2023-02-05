@@ -208,8 +208,6 @@ and string_of_typed_tac_expression { expr_rktype; tac_expression } =
     (string_of_rktype expr_rktype)
 
 and string_of_tac_rvalue = function
-  | RVUminus rvalue -> sprintf "uminus(%s)" (string_of_typed_tac_rvalue rvalue)
-  | RVNot rvalue -> sprintf "!%s" (string_of_typed_tac_rvalue rvalue)
   | RVExpression expr -> string_of_typed_tac_expression expr
   | RVFunction { module_path; fn_name; generics_resolver; tac_parameters } ->
       sprintf "%s%s%s(%s)"
