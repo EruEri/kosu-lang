@@ -2782,6 +2782,7 @@ modul: FUNCTION IDENT LPARENT RPARENT LBRACE DISCARD EMPTY SYSCALL
 ##
 
 Expecting "binary operator" or ";"
+Hint: Maybe you have forgotten the ";"
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE DISCARD EMPTY SEMICOLON XOR
 ##
@@ -2827,6 +2828,7 @@ modul: FUNCTION IDENT LPARENT RPARENT LBRACE CONST IDENT EQUAL EMPTY SYSCALL
 ##
 
 Expecting "binary operator" or ";"
+Hint: Maybe you have forgotten the ";"
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE DOLLAR EMPTY SYSCALL
 ##
@@ -3299,7 +3301,8 @@ modul: FUNCTION IDENT LPARENT RPARENT EQUAL IDENT WILDCARD
 ## loption(terminated(separated_nonempty_list(DOUBLECOLON,Module_IDENT),DOT)) IDENT
 ##
 
-Expecting "<", "{" "("
+Expecting "<binary operator>" "<", "{" "(" or ";"
+Hint: Maybe you have forgotten the ";"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IDENT LBRACE XOR
 ##
