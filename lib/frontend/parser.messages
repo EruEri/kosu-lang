@@ -1305,6 +1305,7 @@ modul: EXTERNAL IDENT LPARENT IDENT XOR
 ##
 
 Expecting ":"
+Hint: Maybe you have forgotten the parameter name
 
 modul: EXTERNAL IDENT LPARENT IDENT COLON XOR
 ##

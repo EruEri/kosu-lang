@@ -36,9 +36,9 @@ struct point {
   y: u8
 }
 
-external malloc(u64) anyptr;
+external malloc(_: u64) anyptr;
 
-external print(stringl; ...) s32 = "printf";
+external print(format: stringl; ...) s32 = "printf";
 
 
 fn default<t>(option: option(t), default: t) t {
@@ -65,6 +65,7 @@ fn main() s32 {
   const message = message_opt |> default("Never");
   discard print("%s\n", message);
   $ EXIT_SUCCESS
+} EXIT_SUCCESS
 }
 ```
 
