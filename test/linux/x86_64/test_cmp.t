@@ -21,13 +21,6 @@ A random test
   s8: 4 == 4 : true
   s8: 4 != 4 : false
   
-  s8: 78 < -109 : false
-  s8: 78 <= -109 : false
-  s8: 78 > -109 : true
-  s8: 78 >= -109 : true
-  s8: 78 == -109 : false
-  s8: 78 != -109 : true
-  
   s8: 0 < 0 : false
   s8: 0 <= 0 : true
   s8: 0 > 0 : false
@@ -41,6 +34,20 @@ A random test
   s8: 1 >= 1 : true
   s8: 1 == 1 : true
   s8: 1 != 1 : false
+  
+  s8: -7 < -7 : false
+  s8: -7 <= -7 : true
+  s8: -7 > -7 : false
+  s8: -7 >= -7 : true
+  s8: -7 == -7 : true
+  s8: -7 != -7 : false
+  
+  s8: -5 < -7 : false
+  s8: -5 <= -7 : false
+  s8: -5 > -7 : true
+  s8: -5 >= -7 : true
+  s8: -5 == -7 : false
+  s8: -5 != -7 : true
   
   u8: 0 < 2 : true
   u8: 0 <= 2 : true
