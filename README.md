@@ -69,7 +69,6 @@ fn main() s32 {
   const message = message_opt |> default("Never");
   discard print("%s\n", message);
   $ EXIT_SUCCESS
-} EXIT_SUCCESS
 }
 ```
 
