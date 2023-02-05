@@ -174,7 +174,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       in
       ( STIf
           {
-            statement_for_bool = statement_for_bool @ stmt;
+            statement_for_bool = stmt @ statement_for_bool ;
             condition_rvalue;
             goto1 = goto_label1;
             goto2 = goto_label2;
@@ -704,6 +704,10 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       failwith
         "Compiler code Error: Cannot create branch without previous allocation"
 
+(**
+    convert a rkbofy to a tac body
+    This function mostly unfold most the nested expression (.ie if) to a more flat representation 
+*)
 and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
     ~discarded_value ~count_var ~if_count ~cases_count ~switch_count
     ?(function_return = false) ~rprogram (rkbody : rkbody) =
