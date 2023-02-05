@@ -71,11 +71,15 @@ type 'a basic_block = {
 
 }
 
-and 'a cfg = {
-  entry_block: string;
-  blocks: 'a basic_block list
-}
+module BasicBlockSet = Set.Make(struct
+  type t = cfg_statement basic_block
+  let compare (lhs: t) (rhs: t) = String.compare lhs.label rhs.label
+  end)
 
+  type cfg = {
+  entry_block: string;
+  blocks: BasicBlockSet.t
+}
 let fake_label_counter = ref 0
 
 let fake_label () = 
@@ -93,14 +97,26 @@ module Convert = struct
     basic_block with cfg_statements = basic_block.cfg_statements @ [statement]
   }
   
-  let of_tac_statements ~start_label ~end_label (stmts, _return) = ignore start_label; ignore end_label; match stmts with 
-  | [] -> failwith "enmpty"
-  | (stmt::_q) as _stmts -> begin match stmt with
-    | STacDeclaration {identifier = _; trvalue = _} -> begin failwith ""
+  let rec of_tac_statements ~start_label ~end_label ~cfg_statements (stmts, return) = match stmts with 
+    | [] -> let block =  {
+      label = start_label;
+      cfg_statements = List.rev cfg_statements;
+      followed_by = (match end_label with None -> StringSet.empty | Some s -> StringSet.singleton s);
+      ending = (match return with None -> None | Some tte -> Some (Bbe_return tte) )
+    } in
+    BasicBlockSet.singleton block
+  | (stmt::q) as _stmts -> begin match stmt with
+    | STacDeclaration {identifier; trvalue} -> begin 
+      let declaration = CFG_STacDeclaration {identifier; trvalue} in
+      of_tac_statements ~start_label ~end_label ~cfg_statements:(declaration::cfg_statements) (q, return)
     end
-    | STacModification {identifier = _; trvalue = _} -> begin failwith ""
+    | STacModification {identifier; trvalue} -> begin 
+      let modification = CFG_STacModification {identifier; trvalue} in
+      of_tac_statements ~start_label ~end_label ~cfg_statements:(modification::cfg_statements) (q, return)
   end
-    | STDerefAffectation {identifier = _; trvalue = _} -> begin failwith ""
+    | STDerefAffectation {identifier; trvalue} -> begin 
+      let derefaffect = CFG_STDerefAffectation {identifier; trvalue} in
+      of_tac_statements ~start_label ~end_label ~cfg_statements:(derefaffect::cfg_statements) (q, return)
   end
     | STIf {statement_for_bool = _; condition_rvalue = _; goto1 = _; goto2 = _; if_tac_body = _; else_tac_body = _; exit_label = _} ->
       begin failwith ""
@@ -111,7 +127,7 @@ module Convert = struct
   
   end
 
-  and of_tac_body ~end_label ({label = _; body = _} : tac_body) = ignore end_label; failwith "OF tac body todo"
+  and of_tac_body ~end_label ({label; body} : tac_body) = of_tac_statements ~start_label:label ~end_label ~cfg_statements:[] body
 
   let of_tac_body tac_body = 
     let basic_blocks = of_tac_body ~end_label:None tac_body in
@@ -138,7 +154,7 @@ end
 
 
 module CfgPprint = struct
-  (* let string_of_cfg_statement = function
+  let string_of_cfg_statement = function
 | CFG_STacDeclaration {identifier; trvalue} ->
   let tac_decl = STacDeclaration {identifier; trvalue} in
   KosuIrTAC.Asttacpprint.string_of_tac_statement tac_decl
@@ -148,29 +164,26 @@ module CfgPprint = struct
 | CFG_STacModification {identifier; trvalue} ->
   let tac_decl = STacModification {identifier; trvalue} in
   KosuIrTAC.Asttacpprint.string_of_tac_statement tac_decl
-| CFG_If {condition; if_label; else_label} -> 
-  Printf.sprintf "if %s goto %s\n\tgoto %s" 
-    (KosuIrTAC.Asttacpprint.string_of_typed_tac_expression condition)
-    if_label
-    else_label
 
 let string_of_basic_block_end = function
 | Bbe_return tte -> Printf.sprintf "return %s" 
   (KosuIrTAC.Asttacpprint.string_of_typed_tac_expression tte)
+| BBe_if {condition; if_label; else_label} ->   Printf.sprintf "if %s goto %s\n\tgoto %s" 
+  (KosuIrTAC.Asttacpprint.string_of_typed_tac_expression condition)
+  if_label
+  else_label
 
 let string_of_basic_block bb =
   Printf.sprintf "follow : [%s]\n%s:\n\t%s\n\t%s"
-  (bb.followed_by |> String.concat ", ")
+  (bb.followed_by |> StringSet.elements |> String.concat ", ")
   (bb.label)
   (bb.cfg_statements |> List.map string_of_cfg_statement |> String.concat "\n\t")
-  (bb.ending |> Option.map string_of_basic_block_end |> Option.value ~default:"") *)
-
-  let string_of_basic_block _ = ""
+  (bb.ending |> Option.map string_of_basic_block_end |> Option.value ~default:"")
 
 let string_of_cfg cfg = 
   Printf.sprintf "entry: %s\n\n%s"
   cfg.entry_block
-  (cfg.blocks |> List.map string_of_basic_block |> String.concat "\n\n")
+  (cfg.blocks |> BasicBlockSet.elements |> List.map string_of_basic_block |> String.concat "\n\n")
 
 let string_of_named_cfg named_cfgs =
   named_cfgs |> List.map (fun (filename, cgfs) ->
