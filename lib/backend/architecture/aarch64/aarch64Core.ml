@@ -984,7 +984,7 @@ module FnLabel = struct
   
   let label_of_constant ?module_path const_name = 
     Printf.sprintf "%s%s" 
-    (module_path |> Option.map (Printf.sprintf "%s._") |> Option.value ~default:"")
+    (module_path |> Option.map asm_module_path |> Option.map (Printf.sprintf "%s._") |> Option.value ~default:"")
     const_name
   let label_of_function ~label_prefix ~main ~module_path ~fn_name ~generics = 
     if fn_name = "main" then main else
