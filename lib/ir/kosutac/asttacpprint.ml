@@ -118,7 +118,7 @@ and string_of_tac_statement = function
         else_tac_body;
       } ->
       let buffer = Buffer.create 64 in
-      let () = Buffer.add_string buffer "### Start inner statement if\n" in
+      (* let () = Buffer.add_string buffer "### Start inner statement if\n" in *)
       let () =
         statement_for_bool
         |> List.iter (fun stmt ->

@@ -142,9 +142,41 @@ module Convert = struct
       |> BasicBlockSet.union if_blocks
       |> BasicBlockSet.union else_blocks
       |> BasicBlockSet.union blocks_continuation
+    | SCases {cases = {condition_label; statement_for_condition; condition; goto; jmp_false; end_label; tac_body}::tac_cases; else_tac_body; exit_label} -> 
+      let () = match condition_label with
+      | None -> ()
+      | Some s -> failwith @@ (Printf.sprintf "First cases with a label name ? : %s" s) 
+    in
+    let continuation = of_tac_statements ~start_label ~end_labels:[goto; jmp_false] 
+      ~ending:(Some {condition = condition; if_label = goto; else_label = jmp_false})
+      ~cfg_statements (statement_for_condition, None) in
+    let first_block_body = of_tac_body ~end_labels:[end_label] tac_body in
 
+    let blocks_continuation = of_tac_statements ~start_label:exit_label ~end_labels ~ending ~cfg_statements:[] (q, return) in
 
-    | _ -> failwith ""
+    let cases_basic_block = tac_cases |> List.fold_left (fun acc {condition_label; statement_for_condition; condition; goto; jmp_false; end_label; tac_body} -> 
+      let start_label = match condition_label with Some s -> s | None -> "Very wierd start label for cases should be None" in
+      let block_condition = of_tac_statements ~start_label:start_label ~end_labels:[goto; jmp_false] 
+          ~ending:(Some {condition; if_label = goto; else_label = jmp_false})
+          ~cfg_statements:[] (statement_for_condition, None) in
+        let block = of_tac_body ~end_labels:[end_label] tac_body in
+        acc
+        |> BasicBlockSet.union block_condition
+        |> BasicBlockSet.union block
+    ) BasicBlockSet.empty in
+
+    let else_basic_block = of_tac_body ~end_labels:[exit_label] else_tac_body in
+
+      continuation
+      |> BasicBlockSet.union first_block_body
+      |> BasicBlockSet.union cases_basic_block
+      |> BasicBlockSet.union else_basic_block
+      |> BasicBlockSet.union blocks_continuation
+
+    | SCases {cases = []; else_tac_body = _; exit_label = _} -> failwith "Unreachable code: Syntax for at least a branch"
+    | STSwitch _ -> failwith "switch todo"
+
+    
   
   end
 
