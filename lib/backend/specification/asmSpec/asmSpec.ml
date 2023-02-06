@@ -42,15 +42,18 @@ module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
 
   include X86_Spec
 
+    (** Replace the `:` in the path name by `_` *)
+    let asm_module_path = String.map (fun c -> if c = ':' then '_' else c)
+
   let label_of_constant ?module_path const_name = 
     Printf.sprintf "%s%s" 
-    (module_path |> Option.map (Printf.sprintf "%s%s._" label_prefix) |> Option.value ~default:"")
+    (module_path |> Option.map asm_module_path |> Option.map (Printf.sprintf "%s%s._" label_prefix) |> Option.value ~default:"")
     const_name
   let label_of_function ~label_prefix ~main ~module_path ~fn_name ~generics = 
     if fn_name = "main" then main else
       Printf.sprintf "%s%s.%s%s" 
         label_prefix
-        module_path
+        (asm_module_path module_path)
         ( if generics = [] then "" else generics |> String.concat "." |> Printf.sprintf "_%s_")
         fn_name
 
