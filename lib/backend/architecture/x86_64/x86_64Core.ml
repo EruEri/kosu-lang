@@ -104,12 +104,12 @@ module Register = struct
   ]
 
   let syscall_arguments_register = [
-    RBX;
-    RCX;
-    RDX;
-    RSI;
     RDI;
-    RBP
+    RSI;
+    RDX;
+    R10;
+    R8;
+    R9
   ]
 
   let sized_register size register = {
