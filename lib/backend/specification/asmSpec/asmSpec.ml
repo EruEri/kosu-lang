@@ -106,7 +106,7 @@ module X86_64LinuxAsmSpec = X86_64Spec_Make(struct
   let constant_directives const_name = function
   | `IntVal (size, _) -> [
     Printf.sprintf ".globl %s" const_name;
-    Printf.sprintf ".align %u" (KosuFrontend.Ast.Isize.size_of_isize size)
+    Printf.sprintf ".align %u" (KosuFrontend.Ast.Isize.size_of_isize size / 8)
   ]
   | `StrVal _ -> [
     Printf.sprintf ".globl %s" const_name;
@@ -137,7 +137,7 @@ module X86MacOsAsmSpec = X86_64Spec_Make(struct
   let constant_directives const_name = function
   | `IntVal (size, _) -> [
     Printf.sprintf ".globl %s" const_name;
-    Printf.sprintf ".align %u" (KosuFrontend.Ast.Isize.size_of_isize size)
+    Printf.sprintf ".align %u" (KosuFrontend.Ast.Isize.size_of_isize size / 8)
   ]
   | `StrVal _ -> [
     Printf.sprintf ".globl %s" const_name;
