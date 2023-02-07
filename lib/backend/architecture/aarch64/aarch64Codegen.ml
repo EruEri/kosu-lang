@@ -15,70 +15,12 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-open Aarch64Pprint
+module Codegen(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
 
-(* let export_asm_module { filename; asm_module_path; rprogram = _; str_lit_map } =
-  let file = open_out filename in
-  let (AsmModule rnodes) = sort_asm_module asm_module_path.asm_module in
-  let () =
-    rnodes
-    |> List.iter (fun node ->
-           Printf.fprintf file "%s\n\n" (string_of_asm_node node))
-  in
-  let () =
-    Printf.fprintf file "\n\t.section\t__TEXT,__cstring,cstring_literals\n"
-  in
-  let () =
-    str_lit_map |> Hashtbl.to_seq
-    |> Seq.iter (fun (str, SLit label) ->
-           Printf.fprintf file "%s:\n\t .asciz \"%s\"\n\n" label str)
-  in
-  let () = Printf.fprintf file "\n.subsections_via_symbols\n" in
-  let () = close_out file in
-  filename
-
-let export_asm_module_tmp
-    { filename; asm_module_path; rprogram = _; str_lit_map } =
-  let filename =
-    filename
-    |> String.map (fun c ->
-           if Char.escaped c = Filename.dir_sep then '_' else c)
-  in
-  let filename, file = Filename.open_temp_file filename ".S" in
-  let (AsmModule rnodes) = sort_asm_module asm_module_path.asm_module in
-  let () =
-    rnodes
-    |> List.iter (fun node ->
-           Printf.fprintf file "%s\n\n" (string_of_asm_node node))
-  in
-  let () =
-    Printf.fprintf file "\n\t.section\t__TEXT,__cstring,cstring_literals\n"
-  in
-  let () =
-    str_lit_map |> Hashtbl.to_seq
-    |> Seq.iter (fun (str, SLit label) ->
-           Printf.fprintf file "%s:\n\t .asciz \"%s\"\n\n" label str)
-  in
-  let () = Printf.fprintf file "\n.subsections_via_symbols\n" in
-  let () = close_out file in
-  filename
-
-let compile_asm_tmp asm_program =
-  asm_program |> List.map (fun asm_module -> export_asm_module_tmp asm_module)
-
-let compile_asm asm_program =
-  asm_program |> List.map (fun asm_module -> export_asm_module asm_module)
-
-let compile_asm_from_tac_tmp tac_program =
-  tac_program |> Aarch64Conv.asm_program_of_tac_program |> compile_asm_tmp
-
-let compile_asm_from_tac tac_program =
-  tac_program |> Aarch64Conv.asm_program_of_tac_program |> compile_asm *)
-
-
-module Codegen = struct
-
+  module Pprint = Aarch64Pprint.Make(AsmSpec)
   module AsmProgram = Common.AsmProgram(Aarch64Core.Instruction)
+  module Aarch64Conv = Aarch64Conv.Make(AsmSpec)
+
   include AsmProgram
   open AsmProgram
 
@@ -88,11 +30,11 @@ module Codegen = struct
     let AsmModule x =  Aarch64Conv.sort_asm_module (AsmModule asm_module) in
     x
 
-  let string_litteral_section_start = ".section\t__TEXT,__cstring,cstring_literals,"
+  let string_litteral_section_start = AsmSpec.string_litteral_section_start
 
-  let string_litteral_section_end = ".subsections_via_symbols"
+  let string_litteral_section_end = AsmSpec.string_litteral_section_end
 
-  let string_of_asm_node = string_of_asm_node
+  let string_of_asm_node = Pprint.string_of_asm_node
 
   let string_litteral_directive = ".asciz" 
 

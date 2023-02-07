@@ -23,7 +23,7 @@ open Printf
 module AsmProgram = Common.AsmProgram(Aarch64Core.Instruction) 
 open AsmProgram
 
-let p2align = Printf.sprintf ".p2align %n"
+module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
 
 let string_of_f64bits_reg = function
   | D0 -> "d0"
@@ -333,25 +333,30 @@ let string_of_raw_line = function
   | Line_Com (Comment s) -> "\t;" ^ s
   | Directive d -> "\t." ^ d
 
-let size_directive_of_size =
-  let open KosuFrontend.Ast in
-  function I8 -> "byte" | I16 -> "short" | I32 -> "long" | I64 -> "quad"
-
-let string_asm_const_decl { asm_const_name; value } =
-  match value with
-  | `IntVal (size, value) ->
-      sprintf "\t.globl %s\n\t%s\n%s:\n\t.%s %s" asm_const_name (p2align 2)
+  let string_asm_const_decl { asm_const_name; value } =
+    match value with
+    | `IntVal (size, int_value) ->
+        sprintf "\n\t%s\n%s:\n\t.%s %s"
+        (AsmSpec.constant_directives asm_const_name value |> String.concat "\n\t")
+        (asm_const_name) 
+        (AsmSpec.size_directive_of_size size)
+        (sprintf "0x%LX" int_value)
+    | `StrVal s ->
+        sprintf "\n\t%s\n%s:\n\t%s \"%s\""
+        (AsmSpec.constant_directives asm_const_name value |> String.concat "\n\t")
         asm_const_name
-        (size_directive_of_size size)
-        (sprintf "0x%Lx" value)
-  | `StrVal s ->
-      sprintf "\t.globl %s\n\t%s\n%s:\n\t.asciz \"%s\"" asm_const_name
-        (p2align 2) asm_const_name s
+        (AsmSpec.string_litteral_directive)
+        s
 
-let string_of_asm_function { asm_name; asm_body } =
-  sprintf "\t.globl %s\n\t%s\n%s:\n%s" asm_name (p2align 2) asm_name
-    (asm_body |> List.map string_of_raw_line |> String.concat "\n")
+  let string_of_asm_function { asm_name; asm_body } =
+    sprintf "\t%s\n%s:\n%s" 
+      (AsmSpec.function_directives asm_name |> String.concat "\n\t")
+      asm_name
+      (asm_body |> List.map string_of_raw_line |> String.concat "\n")
 
 let string_of_asm_node = function
   | Afunction f -> string_of_asm_function f
   | AConst c -> string_asm_const_decl c
+
+  
+end
