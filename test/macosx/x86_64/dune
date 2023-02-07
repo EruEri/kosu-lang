@@ -18,7 +18,7 @@
 
  (cram
   ( enabled_if (and (= %{system} macosx) (= %{architecture} amd64)) )
-  ( deps (glob_files *.kosu) )
+  ( deps (glob_files_rec *.kosu) )
  )
 
 (copy_files ../../files/*.kosu)
