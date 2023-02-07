@@ -747,8 +747,8 @@ let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
         in
         rinstructions @ linstructions @ copy_instructions
     | RVBuiltinBinop { binop = TacBool bool_binop; blhs; brhs } ->
-      let is_ptr = KosuIrTyped.Asttyhelper.RType.is_pointer blhs.expr_rktype || KosuIrTyped.Asttyhelper.RType.is_pointer brhs.expr_rktype in
-      let cc = Option.get @@ Condition_Code.cc_of_tac_bin ~is_ptr bool_binop in
+      let is_unsigned = KosuIrTyped.Asttyhelper.RType.is_raw_unsigned blhs.expr_rktype || KosuIrTyped.Asttyhelper.RType.is_raw_unsigned brhs.expr_rktype in
+      let cc = Option.get @@ Condition_Code.cc_of_tac_bin ~is_unsigned bool_binop in
       translate_tac_binop ~str_lit_map ~cc ~blhs ~brhs ~where rval_rktype rprogram fd
 
     | RVBuiltinBinop {binop = TacSelf (TacMult | TacBitwiseAnd | TacBitwiseOr | TacBitwiseXor | TacShiftLeft | TacShiftRight as self_binop); blhs; brhs} -> 

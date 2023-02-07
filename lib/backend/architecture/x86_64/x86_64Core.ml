@@ -295,14 +295,14 @@ module Condition_Code = struct
   | B
   | BE
 
-  let cc_of_tac_bin ?(is_ptr = false) = let open KosuIrTAC.Asttac in function
+  let cc_of_tac_bin ?(is_unsigned = false) = let open KosuIrTAC.Asttac in function
   | TacOr | TacAnd -> None
   | TacEqual -> Some E
   | TacDiff -> Some NE
-  | TacSup -> Some (if is_ptr then B else L)
-  | TacSupEq -> Some (if is_ptr then BE else LE)
-  | TacInfEq -> Some (if is_ptr then AE else GE)
-  | TacInf -> Some (if is_ptr then A else G)
+  | TacSup -> Some (if is_unsigned then B else L)
+  | TacSupEq -> Some (if is_unsigned then BE else LE)
+  | TacInfEq -> Some (if is_unsigned then AE else GE)
+  | TacInf -> Some (if is_unsigned then A else G)
 
 end
 

@@ -18,6 +18,14 @@
 open Asttyped
 
 module RType = struct
+
+  (**
+     @returns If the type represents an unsigned value (.ie pointer or unsigned integer) 
+  *)
+  let is_raw_unsigned = function
+  | RTInteger _ | RTPointer _ -> true
+  | _ -> false
+
   let is_any_integer = function RTInteger _ -> true | _ -> false
   let is_bool = function RTBool -> true | _ -> false
 
