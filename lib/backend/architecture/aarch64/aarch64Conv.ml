@@ -83,6 +83,13 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
 
   let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
 
+  let copy_result ?(before_copy = fun _ -> []) ~where ~register ~rval_rktype rprogram = 
+    where
+    |> Option.map (fun waddress ->
+      (before_copy waddress) @ copy_from_reg register waddress rval_rktype rprogram
+      )
+    |> Option.value ~default:[]
+
   let translate_tac_expression ~str_lit_map ?(target_reg = Register32 W9)
       rprogram (fd : FrameManager.frame_desc) = function
     | { tac_expression = TEString s; expr_rktype = _ } ->
@@ -225,6 +232,59 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           (rreg, mov_integer rreg int_value)
     | _ -> failwith "Other expression"
 
+    let translate_tac_binop ~str_lit_map ~cc ~blhs ~brhs ~where ~rval_rktype rprogram fd = 
+      let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
+      let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
+      let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in
+      let zero_reg =
+        reg_of_size
+          (size_of_ktype_size (sizeofn rprogram blhs.expr_rktype))
+          (Register64 XZR)
+      in
+      let right_reg, rinstructions =
+        translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs
+      in
+      let left_reg, linstructions =
+        translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs
+      in
+      let equal_instruction =
+        [
+          Instruction
+            (Mov
+               { destination = r8; flexsec_operand = `ILitteral 0L });
+          Instruction
+            (SUBS
+               {
+                 destination = r9;
+                 operand1 = left_reg;
+                 operand2 = `Register right_reg;
+               });
+          Instruction
+            (CSINC
+               {
+                 destination = r8;
+                 operand1 = r8;
+                 operand2 = zero_reg;
+                 condition = cc;
+               });
+        ]
+      in
+      copy_result ~before_copy:(fun _ -> linstructions @ rinstructions @ equal_instruction) ~where ~register:r8 ~rval_rktype rprogram
+
+      let translate_tac_binop_self ~str_lit_map ~blhs ~brhs ~where ~rval_rktype fbinop rprogram fd = 
+        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
+        let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
+        let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
+        let right_reg, rinstructions =
+          translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs
+        in
+        let left_reg, linstructions =
+          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs
+        in
+        let binop_instructtio = fbinop ~destination:r9 ~operand1: left_reg ~operand2:right_reg in
+        let before_copy = fun _ -> linstructions @ rinstructions @ binop_instructtio in
+        copy_result ~before_copy ~where ~register:r9 ~rval_rktype rprogram
+
   let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
       ~(where : address option) current_module rprogram
       (fd : FrameManager.frame_desc) { rval_rktype; rvalue } =
@@ -233,14 +293,9 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let last_reg, instructions =
           translate_tac_expression ~str_lit_map rprogram fd tac_typed_expression
         in
-        let copy_instruction =
-          where
-          |> Option.map (fun waddress ->
-                 copy_from_reg last_reg waddress
-                   tac_typed_expression.expr_rktype rprogram)
-          |> Option.value ~default:[]
+        let copy_instruction = copy_result ~where ~register:last_reg ~rval_rktype rprogram
         in
-        (last_reg, instructions @ copy_instruction)
+        instructions @ copy_instruction
     | RVStruct { module_path = _; struct_name = _s; fields } ->
         let struct_decl =
           match
@@ -266,8 +321,6 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
 
         (* let () = offset_list |> List.map (Printf.sprintf "%Lu") |> String.concat ", " |> Printf.printf "%s off = [%s]\n" _s in *)
-        let tmpreg = Register64 X9 in
-        ( tmpreg,
           fields
           |> List.mapi (fun index value -> (index, value))
           |> List.fold_left
@@ -275,20 +328,10 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                  let reg_texp, instructions =
                    translate_tac_expression ~str_lit_map rprogram fd tte
                  in
-                 let copy_instruction =
-                   where
-                   |> Option.map (fun waddress ->
-                          let current_address =
-                            increment_adress
-                              (List.nth offset_list index)
-                              waddress
-                          in
-                          copy_from_reg reg_texp current_address tte.expr_rktype
-                            rprogram)
-                   |> Option.value ~default:[]
+                 let copy_instruction = copy_result ~where:(where |> Option.map (increment_adress (List.nth offset_list index))) ~register:reg_texp ~rval_rktype:tte.expr_rktype rprogram
                  in
                  acc @ instructions @ copy_instruction)
-               [] )
+               [] 
     | RVFunction { module_path; fn_name; generics_resolver = _; tac_parameters }
       -> (
         let typed_parameters =
@@ -397,10 +440,10 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                                  external_func_decl.return_type rprogram)
                     |> Option.value ~default:[]
                   in
-                  ( return_reg,
+                 
                     instructions @ set_on_stack_instructions @ call_instructions
                     @ copy_instruction
-                    (* Is not the same check the instructions order*) )
+                    (* Is not the same check the instructions order*)
               | false ->
                   let copy_instruction =
                     where
@@ -438,9 +481,7 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                                ])
                     |> Option.value ~default:[]
                   in
-                  ( return_reg,
-                    instructions @ set_on_stack_instructions @ copy_instruction
-                    @ call_instructions )
+                    instructions @ set_on_stack_instructions @ copy_instruction @ call_instructions
             in
             extern_instructions
         | RSyscall_Decl syscall_decl ->
@@ -464,7 +505,6 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                      syscall_decl.return_type)
                 return_size
             in
-            ( return_reg,
               instructions
               @ [
                   Line_Com (Comment ("syscall " ^ syscall_decl.rsyscall_name));
@@ -493,7 +533,7 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                        | None ->
                            copy_from_reg return_reg waddress
                              syscall_decl.return_type rprogram)
-                |> Option.value ~default:[]) )
+                |> Option.value ~default:[])
         | RKosufn_Decl _ -> (
             let function_decl =
               rprogram
@@ -553,17 +593,9 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                                function_decl.return_type rprogram)
                   |> Option.value ~default:[]
                 in
-                ( return_reg,
                   instructions @ call_instructions @ copy_instruction
-                  (* Is not the same check the instructions order*) )
+                  (* Is not the same check the instructions order*)
             | false ->
-                let return_reg =
-                  return_register_ktype
-                    ~float:
-                      (KosuIrTyped.Asttyhelper.RType.is_64bits_float
-                         function_decl.return_type)
-                    return_size
-                in
                 let copy_instruction =
                   where
                   |> Option.map (fun waddress ->
@@ -600,8 +632,8 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                              ])
                   |> Option.value ~default:[]
                 in
-                (return_reg, instructions @ copy_instruction @ call_instructions)
-            ))
+                instructions @ copy_instruction @ call_instructions)
+            )
     | RVTuple ttes ->
         let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in
         let offset_list =
@@ -611,8 +643,6 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           |> List.tl
           |> fun l -> l @ [ 0L ]
         in
-        let last_reg = tmpreg_of_size (sizeofn rprogram rval_rktype) in
-        ( last_reg,
           where
           |> Option.map (fun waddress ->
                  ttes
@@ -630,7 +660,7 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                               tte.expr_rktype rprogram ))
                       (waddress, [])
                  |> snd)
-          |> Option.value ~default:[] )
+          |> Option.value ~default:[]
     | RVFieldAcess
         {
           first_expr = { expr_rktype; tac_expression = TEIdentifier struct_id };
@@ -666,25 +696,18 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
 
         let size = compute_data_size rval_rktype sizeof in
         let tmpreg = tmpreg_of_size_2 sizeof in
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 [
-                   Instruction
-                     (LDR
-                        {
-                          data_size = size;
-                          destination = tmpreg;
-                          adress_src = field_address;
-                          adress_mode = Immediat;
-                        });
-                 ]
-                 @ copy_from_reg tmpreg waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
+        let copy_instructions = copy_result ~before_copy:(fun _ -> [
+          Instruction
+            (LDR
+               {
+                 data_size = size;
+                 destination = tmpreg;
+                 adress_src = field_address;
+                 adress_mode = Immediat;
+               });
+        ]) ~where ~register:tmpreg ~rval_rktype rprogram
         in
-        ( tmpreg,
-          Line_Com (Comment ("Field access of " ^ field)) :: copy_instructions
-        )
+        Line_Com (Comment ("Field access of " ^ field)) :: copy_instructions
     | RVFieldAcess _ ->
         failwith "Wierd : Fields access force struct as an identifier"
     | RVAdress id ->
@@ -697,23 +720,18 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           | Some a -> a
           | None -> failwith "address of null address"
         in
-        let copy_instruction =
-          where
-          |> Option.map (fun waddress ->
-                 [
-                   Instruction
-                     (ADD
-                        {
-                          destination = tmp64reg;
-                          operand1 = adress.base;
-                          operand2 = `ILitteral adress.offset;
-                          offset = false;
-                        });
-                 ]
-                 @ copy_from_reg tmp64reg waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
+        let copy_instruction = copy_result ~before_copy:(fun _ -> [
+          Instruction
+            (ADD
+               {
+                 destination = tmp64reg;
+                 operand1 = adress.base;
+                 operand2 = `ILitteral adress.offset;
+                 offset = false;
+               });
+        ]) ~where ~register:tmp64reg ~rval_rktype rprogram
         in
-        (tmp64reg, copy_instruction)
+        copy_instruction
     | RVDefer id ->
         let adress =
           FrameManager.address_of
@@ -755,15 +773,10 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           else (tmp64reg_2, [])
         in
         (* let sizeof = sizeofn rprogram rval_rktype in *)
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 load_instruction @ load_indirect
-                 @ copy_from_reg last_reg waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
+        let copy_instructions = copy_result ~before_copy:(fun _ -> load_instruction @ load_indirect) ~where ~register:last_reg ~rval_rktype rprogram
         in
 
-        (last_reg, copy_instructions)
+        copy_instructions
     | RVEnum { variant; assoc_tac_exprs; _ } ->
         let enum_decl =
           match
@@ -795,8 +808,6 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                  offset_of_tuple_index index enum_type_list rprogram)
         in
         (* let () = offset_list |> List.map (Printf.sprintf "%Lu") |> String.concat ", " |> Printf.printf "%s::%s off = [%s]\n" enum_decl.renum_name variant in *)
-        let last_reg = tmpreg_of_size (sizeofn rprogram rval_rktype) in
-        ( last_reg,
           enum_tte_list
           |> List.mapi (fun index value -> (index, value))
           |> List.fold_left
@@ -804,22 +815,15 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                  let reg_texp, instructions =
                    translate_tac_expression rprogram ~str_lit_map fd tte
                  in
-                 let copy_instructions =
-                   where
-                   |> Option.map (fun waddress ->
-                          let current_address =
-                            increment_adress
-                              (List.nth offset_list index)
-                              waddress
-                          in
-                          copy_from_reg reg_texp current_address tte.expr_rktype
-                            rprogram)
-                   |> Option.value ~default:[]
+                 let copy_instructions = copy_result 
+                  ~where:(where |> Option.map (increment_adress (List.nth offset_list index))) 
+                  ~register:reg_texp 
+                  ~rval_rktype:tte.expr_rktype rprogram
                  in
                  acc @ instructions @ copy_instructions)
-               [] )
-    | RVDiscard | RVLater -> (tmp32reg, [])
-    | RVBuiltinBinop { binop = TacBool TacOr; blhs; brhs } ->
+               [] 
+    | RVDiscard | RVLater -> []
+    | RVBuiltinBinop { binop = TacBool (TacOr | TacAnd as tac_bool); blhs; brhs } ->
         let r9 = tmpreg_of_ktype_2 rprogram brhs.expr_rktype in
         let r8 = tmpreg_of_ktype rprogram blhs.expr_rktype in
         let right_reg, rinstructions =
@@ -828,578 +832,58 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let left_reg, linstructions =
           translate_tac_expression ~str_lit_map ~target_reg:r8 rprogram fd blhs
         in
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 let or_instruction =
-                   [
-                     Instruction
-                       (ORR
-                          {
-                            destination = r8;
-                            operand1 = left_reg;
-                            operand2 = `Register right_reg;
-                          });
-                   ]
-                 in
-                 or_instruction @ copy_from_reg r8 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
+        let and_or_instruction = and_or_or_instruction tac_bool ~destination:r8 ~operand1:left_reg ~operand2:right_reg in
+        let copy_instructions = copy_result ~before_copy:(fun _ -> linstructions @ rinstructions @ and_or_instruction) ~where ~register:r8 ~rval_rktype rprogram in
+        
+        copy_instructions
+    | RVBuiltinBinop {binop = TacBool bool_binop; blhs; brhs} -> 
+      let is_unsigned = KosuIrTyped.Asttyhelper.RType.is_raw_unsigned blhs.expr_rktype || KosuIrTyped.Asttyhelper.RType.is_raw_unsigned brhs.expr_rktype in
+      let cc = Option.get @@ Condition_Code.cc_of_tac_bin ~is_unsigned bool_binop in
+      translate_tac_binop ~str_lit_map ~cc ~blhs ~brhs ~where ~rval_rktype rprogram fd
+    | RVBuiltinBinop {binop = TacSelf (TacMult | TacBitwiseAnd | TacBitwiseOr | TacBitwiseXor | TacShiftLeft | TacShiftRight as self_binop); blhs; brhs} -> 
+      let is_unsigned = KosuIrTyped.Asttyhelper.RType.is_unsigned_integer blhs.expr_rktype in
+      let binop_func = binop_instruction_of_tacself ~unsigned:is_unsigned self_binop in
+      translate_tac_binop_self ~str_lit_map ~blhs ~brhs ~where ~rval_rktype binop_func rprogram fd
+    | RVBuiltinBinop {binop = TacSelf ( TacAdd | TacMinus as self_binop); blhs; brhs } -> 
+      begin match KosuIrTyped.Asttyhelper.RType.is_pointer rval_rktype with
+      | false -> 
+        let binop_func = binop_instruction_of_tacself self_binop in
+        translate_tac_binop_self ~str_lit_map ~blhs ~brhs ~where ~rval_rktype binop_func  rprogram fd
+      | true ->             
+        let pointee_size =
+          rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee
+          |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
         in
-        (r8, rinstructions @ linstructions @ copy_instructions)
-    | RVBuiltinBinop { binop = TacBool TacAnd; blhs; brhs } ->
-        let r9 = tmpreg_of_ktype_2 rprogram brhs.expr_rktype in
-        let r8 = tmpreg_of_ktype rprogram blhs.expr_rktype in
-        let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd brhs
-        in
-        let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r8 rprogram fd blhs
-        in
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 let or_instruction =
-                   [
-                     Instruction
-                       (AND
-                          {
-                            destination = r8;
-                            operand1 = left_reg;
-                            operand2 = `Register right_reg;
-                          });
-                   ]
-                 in
-                 or_instruction @ copy_from_reg r8 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        (r8, rinstructions @ linstructions @ copy_instructions)
-    | RVBuiltinBinop { binop = TacBool TacEqual; blhs; brhs } ->
-        let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
-        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-        let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in
-        let zero_reg =
-          reg_of_size
-            (size_of_ktype_size (sizeofn rprogram blhs.expr_rktype))
-            (Register64 XZR)
-        in
-        let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs
-        in
-        let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs
-        in
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 let equal_instruction =
-                   [
-                     Instruction
-                       (Mov
-                          { destination = r8; flexsec_operand = `ILitteral 0L });
-                     Instruction
-                       (SUBS
-                          {
-                            destination = r9;
-                            operand1 = left_reg;
-                            operand2 = `Register right_reg;
-                          });
-                     Instruction
-                       (CSINC
-                          {
-                            destination = r8;
-                            operand1 = r8;
-                            operand2 = zero_reg;
-                            condition = NE;
-                          });
-                   ]
-                 in
-                 equal_instruction
-                 @ copy_from_reg r8 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        (r8, rinstructions @ linstructions @ copy_instructions)
-    | RVBuiltinBinop { binop = TacBool TacDiff; blhs; brhs } ->
-        let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
-        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-        let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in
-        let zero_reg =
-          reg_of_size
-            (size_of_ktype_size (sizeofn rprogram blhs.expr_rktype))
-            (Register64 XZR)
-        in
-        let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs
-        in
-        let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs
-        in
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 let equal_instruction =
-                   [
-                     Instruction
-                       (Mov
-                          { destination = r8; flexsec_operand = `ILitteral 0L });
-                     Instruction
-                       (SUBS
-                          {
-                            destination = r9;
-                            operand1 = left_reg;
-                            operand2 = `Register right_reg;
-                          });
-                     Instruction
-                       (CSINC
-                          {
-                            destination = r8;
-                            operand1 = r8;
-                            operand2 = zero_reg;
-                            condition = EQ;
-                          });
-                   ]
-                 in
-                 equal_instruction
-                 @ copy_from_reg r8 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        (r8, rinstructions @ linstructions @ copy_instructions)
-    | RVBuiltinBinop { binop = TacBool TacSupEq; blhs; brhs } ->
-        let condition =
-          if KosuIrTyped.Asttyhelper.RType.is_pointer blhs.expr_rktype then CC
-          else LT
-        in
-        let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
-        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-        let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in
-        let zero_reg =
-          reg_of_size
-            (size_of_ktype_size (sizeofn rprogram blhs.expr_rktype))
-            (Register64 XZR)
-        in
-        let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs
-        in
-        let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs
-        in
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 let equal_instruction =
-                   [
-                     Instruction
-                       (Mov
-                          { destination = r8; flexsec_operand = `ILitteral 0L });
-                     Instruction
-                       (SUBS
-                          {
-                            destination = r9;
-                            operand1 = left_reg;
-                            operand2 = `Register right_reg;
-                          });
-                     Instruction
-                       (CSINC
-                          {
-                            destination = r8;
-                            operand1 = r8;
-                            operand2 = zero_reg;
-                            condition;
-                          });
-                   ]
-                 in
-                 equal_instruction
-                 @ copy_from_reg r8 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        (r8, rinstructions @ linstructions @ copy_instructions)
-    | RVBuiltinBinop { binop = TacBool TacSup; blhs; brhs } ->
-        let condition =
-          if KosuIrTyped.Asttyhelper.RType.is_pointer blhs.expr_rktype then LS
-          else LE
-        in
-        let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
-        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-        let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in
-        let zero_reg =
-          reg_of_size
-            (size_of_ktype_size (sizeofn rprogram blhs.expr_rktype))
-            (Register64 XZR)
-        in
-        let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs
-        in
-        let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs
-        in
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 let equal_instruction =
-                   [
-                     Instruction
-                       (Mov
-                          { destination = r8; flexsec_operand = `ILitteral 0L });
-                     Instruction
-                       (SUBS
-                          {
-                            destination = r9;
-                            operand1 = left_reg;
-                            operand2 = `Register right_reg;
-                          });
-                     Instruction
-                       (CSINC
-                          {
-                            destination = r8;
-                            operand1 = r8;
-                            operand2 = zero_reg;
-                            condition;
-                          });
-                   ]
-                 in
-                 equal_instruction
-                 @ copy_from_reg r8 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        (r8, rinstructions @ linstructions @ copy_instructions)
-    | RVBuiltinBinop { binop = TacBool TacInf; blhs; brhs } ->
-        let condition =
-          if KosuIrTyped.Asttyhelper.RType.is_pointer blhs.expr_rktype then CS
-          else GE
-        in
-        let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
-        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-        let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in
-        let zero_reg =
-          reg_of_size
-            (size_of_ktype_size (sizeofn rprogram blhs.expr_rktype))
-            (Register64 XZR)
-        in
-        let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs
-        in
-        let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs
-        in
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 let equal_instruction =
-                   [
-                     Instruction
-                       (Mov
-                          { destination = r8; flexsec_operand = `ILitteral 0L });
-                     Instruction
-                       (SUBS
-                          {
-                            destination = r9;
-                            operand1 = left_reg;
-                            operand2 = `Register right_reg;
-                          });
-                     Instruction
-                       (CSINC
-                          {
-                            destination = r8;
-                            operand1 = r8;
-                            operand2 = zero_reg;
-                            condition;
-                          });
-                   ]
-                 in
-                 equal_instruction
-                 @ copy_from_reg r8 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        (r8, rinstructions @ linstructions @ copy_instructions)
-    | RVBuiltinBinop { binop = TacBool TacInfEq; blhs; brhs } ->
-        let condition =
-          if KosuIrTyped.Asttyhelper.RType.is_pointer blhs.expr_rktype then HI
-          else GT
-        in
-        let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
-        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-        let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in
-        let zero_reg =
-          reg_of_size
-            (size_of_ktype_size (sizeofn rprogram blhs.expr_rktype))
-            (Register64 XZR)
-        in
-        let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs
-        in
-        let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs
-        in
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 let equal_instruction =
-                   [
-                     Instruction
-                       (Mov
-                          { destination = r8; flexsec_operand = `ILitteral 0L });
-                     Instruction
-                       (SUBS
-                          {
-                            destination = r9;
-                            operand1 = left_reg;
-                            operand2 = `Register right_reg;
-                          });
-                     Instruction
-                       (CSINC
-                          {
-                            destination = r8;
-                            operand1 = r8;
-                            operand2 = zero_reg;
-                            condition;
-                          });
-                   ]
-                 in
-                 equal_instruction
-                 @ copy_from_reg r8 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        (r8, linstructions @ rinstructions @ copy_instructions)
-    | RVBuiltinBinop { binop = TacSelf TacAdd; blhs; brhs } -> (
-        match KosuIrTyped.Asttyhelper.RType.is_pointer rval_rktype with
-        | true ->
-            let pointee_size =
-              rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee
-              |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+      let r9 = tmp64reg_2 in
+      let r10 = tmp64reg_3 in
+      let r11 = tmp64reg_4 in
+      let operand_instructions =
+        match blhs.expr_rktype with
+        | KosuIrTyped.Asttyped.RTPointer _ ->
+            let _ptr_reg, linstructions =
+              translate_tac_expression ~str_lit_map ~target_reg:r9
+                rprogram fd blhs
             in
-            let r9 = tmp64reg_2 in
-            let r10 = tmp64reg_3 in
-            let r11 = tmp64reg_4 in
-            let operand_instructions =
-              match blhs.expr_rktype with
-              | KosuIrTyped.Asttyped.RTPointer _ ->
-                  let _ptr_reg, linstructions =
-                    translate_tac_expression ~str_lit_map ~target_reg:r9
-                      rprogram fd blhs
-                  in
-                  let _nb_reg, rinstructions =
-                    translate_tac_expression ~str_lit_map ~target_reg:r10
-                      rprogram fd brhs
-                  in
-                  linstructions @ rinstructions
-              | _ ->
-                  failwith
-                    "The typechecker force in pointer arithmetic the pointer \
-                     to be left side of add"
+            let _nb_reg, rinstructions =
+              translate_tac_expression ~str_lit_map ~target_reg:r10
+                rprogram fd brhs
             in
-            let add_instructions =
-              if pointee_size = 1L then
-                [
-                  Instruction
-                    (ADD
-                       {
-                         destination = r9;
-                         operand1 = r9;
-                         operand2 = `Register r10;
-                         offset = false;
-                       });
-                ]
-              else
-                [
-                  Instruction
-                    (Mov
-                       {
-                         destination = r11;
-                         flexsec_operand = `ILitteral pointee_size;
-                       });
-                  Instruction
-                    (MADD
-                       {
-                         destination = r9;
-                         operand1_base = r9;
-                         operand2 = r10;
-                         scale = r11;
-                       });
-                ]
-            in
-            let copy_instruction =
-              where
-              |> Option.map (fun waddress ->
-                     copy_from_reg r9 waddress rval_rktype rprogram)
-              |> Option.value ~default:[]
-            in
-            (r9, operand_instructions @ add_instructions @ copy_instruction)
-        | false ->
-            let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-            let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
-            let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
-            let right_reg, rinstructions =
-              translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd
-                brhs
-            in
-            let left_reg, linstructions =
-              translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd
-                blhs
-            in
-
-            let copy_instruction =
-              where
-              |> Option.map (fun waddress ->
-                     let add_instruction =
-                       Instruction
-                         (ADD
-                            {
-                              destination = r9;
-                              operand1 = left_reg;
-                              operand2 = `Register right_reg;
-                              offset = false;
-                            })
-                     in
-                     add_instruction
-                     :: Instruction.copy_from_reg r9 waddress rval_rktype
-                          rprogram)
-              |> Option.value ~default:[]
-            in
-            (r9, linstructions @ rinstructions @ copy_instruction))
-    | RVBuiltinBinop { binop = TacSelf TacMinus; blhs; brhs } -> (
-        match KosuIrTyped.Asttyhelper.RType.is_pointer rval_rktype with
-        | true ->
-            let pointee_size =
-              rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee
-              |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
-            in
-            let r9 = tmp64reg_2 in
-            let r10 = tmp64reg_3 in
-            let r11 = tmp64reg_4 in
-            let operand_instructions =
-              match blhs.expr_rktype with
-              | KosuIrTyped.Asttyped.RTPointer _ ->
-                  let _ptr_reg, linstructions =
-                    translate_tac_expression ~str_lit_map ~target_reg:r9
-                      rprogram fd blhs
-                  in
-                  let _nb_reg, rinstructions =
-                    translate_tac_expression ~str_lit_map ~target_reg:r10
-                      rprogram fd brhs
-                  in
-                  linstructions @ rinstructions
-              | _ ->
-                  failwith
-                    "The typechecker force in pointer arithmetic the pointer \
-                     to be left side of sub"
-            in
-            let add_instructions =
-              if pointee_size = 1L then
-                [
-                  Instruction
-                    (SUB
-                       {
-                         destination = r9;
-                         operand1 = r9;
-                         operand2 = `Register r10;
-                       });
-                ]
-              else
-                [
-                  Instruction
-                    (Mov
-                       {
-                         destination = r11;
-                         flexsec_operand = `ILitteral pointee_size;
-                       });
-                  Instruction
-                    (MSUB
-                       {
-                         destination = r9;
-                         operand1_base = r9;
-                         operand2 = r10;
-                         scale = r11;
-                       });
-                ]
-            in
-            let copy_instruction =
-              where
-              |> Option.map (fun waddress ->
-                     copy_from_reg r9 waddress rval_rktype rprogram)
-              |> Option.value ~default:[]
-            in
-            (r9, operand_instructions @ add_instructions @ copy_instruction)
-        | false ->
-            let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-            let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
-            let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
-            let right_reg, rinstructions =
-              translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd
-                brhs
-            in
-            let left_reg, linstructions =
-              translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd
-                blhs
-            in
-
-            let copy_instruction =
-              where
-              |> Option.map (fun waddress ->
-                     let sub_instruction =
-                       Instruction
-                         (SUB
-                            {
-                              destination = r9;
-                              operand1 = left_reg;
-                              operand2 = `Register right_reg;
-                            })
-                     in
-                     sub_instruction
-                     :: copy_from_reg r9 waddress rval_rktype rprogram)
-              |> Option.value ~default:[]
-            in
-            (r9, linstructions @ rinstructions @ copy_instruction))
-    | RVBuiltinBinop { binop = TacSelf TacMult; blhs; brhs } ->
-        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-        let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
-        let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
-        let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs
-        in
-        let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs
-        in
-        let mult_instruction =
-          Instruction
-            (MUL { destination = r9; operand1 = left_reg; operand2 = right_reg })
-        in
-        let copy_instruction =
-          where
-          |> Option.map (fun waddress ->
-                 copy_from_reg r9 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        ( r9,
-          linstructions @ rinstructions @ (mult_instruction :: copy_instruction)
-        )
-    | RVBuiltinBinop { binop = TacSelf TacDiv; blhs; brhs } ->
-        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-        let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
-        let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
-        let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs
-        in
-        let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs
-        in
-        let div_instruction =
-          if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer rval_rktype then
-            Instruction
-              (UDIV
-                 { destination = r9; operand1 = left_reg; operand2 = right_reg })
-          else
-            Instruction
-              (SDIV
-                 { destination = r9; operand1 = left_reg; operand2 = right_reg })
-        in
-        let copy_instruction =
-          where
-          |> Option.map (fun waddress ->
-                 copy_from_reg r9 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        ( r9,
-          linstructions @ rinstructions @ (div_instruction :: copy_instruction)
-        )
+            linstructions @ rinstructions
+        | _ ->
+            failwith
+              "The typechecker force in pointer arithmetic the pointer \
+               to be left side of add"
+      in
+      let add_or_sub_instructions = if pointee_size = 1L then
+        binop_instruction_of_tacself self_binop ~destination:r9 ~operand1:r9 ~operand2:r10
+      else
+        (instruction @@ Mov {destination = r11; flexsec_operand = `ILitteral pointee_size})
+        ::
+        mult_add_or_sub self_binop ~destination:r9 ~operand1_base:r9 ~operand2:r10 ~scale:r11
+      in
+      let before_copy = fun _ -> operand_instructions @ add_or_sub_instructions in
+      copy_result ~before_copy ~where ~register:r9 ~rval_rktype rprogram
+    end
     | RVBuiltinBinop { binop = TacSelf TacModulo; blhs; brhs } ->
         let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
         let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
@@ -1435,164 +919,8 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                  });
           ]
         in
-        let copy_instruction =
-          where
-          |> Option.map (fun waddress ->
-                 copy_from_reg r9 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        ( r9,
-          linstructions @ rinstructions @ modulo_instruction @ copy_instruction
-        )
-    | RVBuiltinBinop { binop = TacSelf TacBitwiseAnd; blhs; brhs } ->
-        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-        let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
-        let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
-        let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs
-        in
-        let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs
-        in
-        let and_instruction =
-          Instruction
-            (AND
-               {
-                 destination = r9;
-                 operand1 = left_reg;
-                 operand2 = `Register right_reg;
-               })
-        in
-        let copy_instruction =
-          where
-          |> Option.map (fun waddress ->
-                 copy_from_reg r9 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        ( r9,
-          linstructions @ rinstructions @ (and_instruction :: copy_instruction)
-        )
-    | RVBuiltinBinop { binop = TacSelf TacBitwiseOr; blhs; brhs } ->
-        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-        let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
-        let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
-        let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs
-        in
-        let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs
-        in
-        let or_instruction =
-          Instruction
-            (ORR
-               {
-                 destination = r9;
-                 operand1 = left_reg;
-                 operand2 = `Register right_reg;
-               })
-        in
-        let copy_instruction =
-          where
-          |> Option.map (fun waddress ->
-                 copy_from_reg r9 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        ( r9,
-          linstructions @ rinstructions @ (or_instruction :: copy_instruction)
-        )
-    | RVBuiltinBinop { binop = TacSelf TacBitwiseXor; blhs; brhs } ->
-        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-        let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
-        let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
-        let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs
-        in
-        let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs
-        in
-        let xor_instruction =
-          Instruction
-            (EOR
-               {
-                 destination = r9;
-                 operand1 = left_reg;
-                 operand2 = `Register right_reg;
-               })
-        in
-        let copy_instruction =
-          where
-          |> Option.map (fun waddress ->
-                 copy_from_reg r9 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        ( r9,
-          linstructions @ rinstructions @ (xor_instruction :: copy_instruction)
-        )
-    | RVBuiltinBinop { binop = TacSelf TacShiftLeft; blhs; brhs } ->
-        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-        let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
-        let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
-        let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs
-        in
-        let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs
-        in
-        let shift_left_instruction =
-          Instruction
-            (LSL
-               {
-                 destination = r9;
-                 operand1 = left_reg;
-                 operand2 = `Register right_reg;
-               })
-        in
-        let copy_instruction =
-          where
-          |> Option.map (fun waddress ->
-                 copy_from_reg r9 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        ( r9,
-          linstructions @ rinstructions
-          @ (shift_left_instruction :: copy_instruction) )
-    | RVBuiltinBinop { binop = TacSelf TacShiftRight; blhs; brhs } ->
-        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-        let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
-        let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
-        let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs
-        in
-        let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs
-        in
-        let shift_left_instruction =
-          if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer rval_rktype then
-            Instruction
-              (LSR
-                 {
-                   destination = r9;
-                   operand1 = left_reg;
-                   operand2 = `Register right_reg;
-                 })
-          else
-            Instruction
-              (ASR
-                 {
-                   destination = r9;
-                   operand1 = left_reg;
-                   operand2 = `Register right_reg;
-                 })
-        in
-        let copy_instruction =
-          where
-          |> Option.map (fun waddress ->
-                 copy_from_reg r9 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        ( r9,
-          linstructions @ rinstructions
-          @ (shift_left_instruction :: copy_instruction) )
+        let before_copy = fun _ -> linstructions @ rinstructions @ modulo_instruction in
+        copy_result ~before_copy ~where ~register:r9 ~rval_rktype rprogram
     | RVBuiltinUnop { unop = TacUminus; expr } ->
         let r9 = tmpreg_of_ktype_2 rprogram rval_rktype in
         let r10 = tmpreg_of_ktype_3 rprogram expr.expr_rktype in
@@ -1602,13 +930,8 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let uminus_instructions =
           Instruction (Neg { destination = r9; source = last_reg })
         in
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 copy_from_reg r9 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        (r9, instructions @ (uminus_instructions :: copy_instructions))
+        let before_copy = fun _ -> instructions @ [uminus_instructions] in
+        copy_result ~before_copy ~where ~register:r9 ~rval_rktype rprogram
     | RVBuiltinUnop { unop = TacNot; expr } ->
         let r9 = tmpreg_of_ktype_2 rprogram rval_rktype in
         let r10 = tmpreg_of_ktype_3 rprogram expr.expr_rktype in
@@ -1627,46 +950,21 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           else
             Instruction (Mvn { destination = r9; operand = `Register last_reg })
         in
-        let copy_instructions =
-          where
-          |> Option.map (fun waddress ->
-                 copy_from_reg r9 waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
-        in
-        (r9, instructions @ (not_instructions :: copy_instructions))
+        let before_copy = fun _ -> instructions @ [not_instructions] in
+        copy_result ~before_copy ~where ~register:r9 ~rval_rktype rprogram
     | RVBuiltinCall { fn_name; parameters } -> (
         let open KosuFrontend.Ast.Builtin_Function in
         match fn_name with
-        | Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 ->
+        | Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64 | Stringl_ptr ->
             let tte = parameters |> List.hd in
             let r9 = tmp32reg_2 in
             let last_reg, instructions =
               translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd
                 tte
             in
-            let copy_instructions =
-              where
-              |> Option.map (fun waddress ->
-                     copy_from_reg (to_32bits last_reg) waddress rval_rktype
-                       rprogram)
-              |> Option.value ~default:[]
-            in
-            (to_32bits r9, instructions @ copy_instructions)
-        | Tos64 | Tou64 | Stringl_ptr ->
-            let tte = parameters |> List.hd in
-            let r9 = tmp64reg_2 in
-            let last_reg, instructions =
-              translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd
-                tte
-            in
-            let copy_instructions =
-              where
-              |> Option.map (fun waddress ->
-                     copy_from_reg (to_64bits last_reg) waddress rval_rktype
-                       rprogram)
-              |> Option.value ~default:[]
-            in
-            (to_64bits r9, instructions @ copy_instructions))
+            let before_copy = fun _ -> instructions in
+            copy_result ~before_copy ~where ~register:last_reg ~rval_rktype rprogram
+      )
     | RVCustomUnop record ->
         let open KosuIrTAC.Asttachelper.Operator in
         let op_decls =
@@ -1721,9 +1019,9 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                              rprogram)
                 |> Option.value ~default:[]
               in
-              ( return_reg,
+              
                 instructions @ call_instruction @ copy_instruction
-                (* Is not the same check the instructions order*) )
+                (* Is not the same check the instructions order*) 
           | false ->
               let copy_instruction =
                 where
@@ -1761,7 +1059,7 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                            ])
                 |> Option.value ~default:[]
               in
-              (return_reg, instructions @ copy_instruction @ call_instruction)
+              instructions @ copy_instruction @ call_instruction
         in
         operator_instructions
     | RVCustomBinop
@@ -1830,10 +1128,9 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                              rprogram)
                 |> Option.value ~default:[]
               in
-              ( return_reg,
-                linstructions @ rinstructions @ call_instruction
+               linstructions @ rinstructions @ call_instruction
                 @ copy_instruction
-                (* Is not the same check the instructions order*) )
+                (* Is not the same check the instructions order*) 
           | false ->
               let copy_instruction =
                 where
@@ -1871,9 +1168,9 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                            ])
                 |> Option.value ~default:[]
               in
-              ( return_reg,
+             
                 linstructions @ rinstructions @ copy_instruction
-                @ call_instruction )
+                @ call_instruction
         in
         operator_instructions
     | RVCustomBinop ({ binop = TacBool TacDiff; _ } as self) ->
@@ -1966,10 +1263,10 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                                 rprogram)
                 |> Option.value ~default:[]
               in
-              ( return_reg,
+              
                 linstructions @ rinstructions @ call_instruction
                 @ copy_instruction
-                (* Is not the same check the instructions order*) )
+                (* Is not the same check the instructions order*) 
           | false -> failwith "Unreachable : Sizeof bool hold in register"
         in
         operator_instructions
@@ -1984,11 +1281,11 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let address =
           FrameManager.address_of (identifier, trvalue.rval_rktype) fd
         in
-        let last_reg, instructions =
+        let instructions =
           translate_tac_rvalue ~str_lit_map ~where:address current_module
             rprogram fd trvalue
         in
-        (last_reg, instructions)
+        instructions
     | STDerefAffectation { identifier; trvalue } ->
         let tmpreg =
           tmpreg_of_ktype rprogram
@@ -2011,14 +1308,14 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                })
         in
         let true_adress = create_adress tmpreg in
-        let last_reg, true_instructions =
+        let true_instructions =
           translate_tac_rvalue ~str_lit_map ~is_deref:intermediary_adress
             ~where:(Some true_adress) current_module rprogram fd trvalue
         in
-        ( last_reg,
+        
           Line_Com (Comment "Defered Start") :: instructions
           :: true_instructions
-          @ [ Line_Com (Comment "Defered end") ] )
+          @ [ Line_Com (Comment "Defered end") ] 
     | STIf
         {
           statement_for_bool;
@@ -2036,7 +1333,7 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                  acc
                  @ (translate_tac_statement ~str_lit_map current_module rprogram
                       fd stmt
-                   |> snd))
+                   ))
                []
         in
         let last_reg, condition_rvalue_inst =
@@ -2056,10 +1353,10 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             current_module rprogram fd else_tac_body
         in
         let exit_label_instr = Label exit_label in
-        ( last_reg,
+        
           stmts_bool @ condition_rvalue_inst
           @ (cmp :: jmp :: jmp2 :: if_block)
-          @ else_block @ [ exit_label_instr ] )
+          @ else_block @ [ exit_label_instr ]
     | STSwitch
         {
           statemenets_for_case;
@@ -2090,16 +1387,16 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           KosuIrTyped.Asttyhelper.Renum.instanciate_enum_decl generics enum_decl
         in
         let exit_label_instruction = Label sw_exit_label in
-        let _, setup_instructions =
+        let setup_instructions =
           statemenets_for_case
           |> List.fold_left
-               (fun (_, acc_stmts) value ->
-                 let last_reg, insts =
+               (fun (acc_stmts) value ->
+                 let insts =
                    translate_tac_statement ~str_lit_map current_module rprogram
                      fd value
                  in
-                 (last_reg, acc_stmts @ insts))
-               (tmp64reg, [])
+                acc_stmts @ insts)
+              []
         in
         let last_reg, condition_switch_instruction =
           translate_tac_expression ~str_lit_map rprogram fd condition_switch
@@ -2249,11 +1546,11 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                    current_module rprogram fd body)
           |> Option.value ~default:[]
         in
-        ( tmp64reg,
+        
           setup_instructions @ condition_switch_instruction
           @ (copy_tag :: cmp_instrution_list)
           @ wildcard_case_jmp @ fn_block @ wildcard_body_block
-          @ [ exit_label_instruction ] )
+          @ [ exit_label_instruction ]
     | SCases { cases; else_tac_body; exit_label } ->
         let cases_body, cases_condition =
           cases
@@ -2267,8 +1564,7 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                  let setup_condition_insts =
                    scases.statement_for_condition
                    |> List.map (fun stmt ->
-                          snd
-                          @@ translate_tac_statement ~str_lit_map current_module
+                          translate_tac_statement ~str_lit_map current_module
                                rprogram fd stmt)
                    |> List.flatten
                  in
@@ -2305,9 +1601,9 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           translate_tac_body ~str_lit_map ~end_label:(Some exit_label)
             current_module rprogram fd else_tac_body
         in
-        ( tmp64reg,
+        
           cases_condition @ cases_body @ else_body_instruction
-          @ [ end_label_instruction ] )
+          @ [ end_label_instruction ]
 
   and translate_tac_body ~str_lit_map ?(end_label = None) current_module
       rprogram (fd : FrameManager.frame_desc) { label; body } =
@@ -2315,8 +1611,7 @@ module Make(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     let stmt_instr =
       body |> fst
       |> List.map (fun stmt ->
-             snd
-             @@ translate_tac_statement ~str_lit_map current_module rprogram fd
+             translate_tac_statement ~str_lit_map current_module rprogram fd
                   stmt)
       |> List.flatten
     in

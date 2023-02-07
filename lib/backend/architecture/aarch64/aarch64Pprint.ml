@@ -99,7 +99,7 @@ let string_of_data_size = function
   | H -> "h"
   | SH -> "sh"
 
-let string_of_condition_code = function
+let string_of_condition_code = let open Condition_Code in function
   | EQ -> "eq"
   | NE -> "ne"
   | CS -> "cs"

@@ -48,7 +48,9 @@ type adress_mode =
 type data_size = B | SB | H | SH
 type register_size = SReg32 | SReg64
 
-type condition_code =
+module Condition_Code = struct
+
+  type condition_code =
   | EQ  (** Equal *)
   | NE  (** Not Equal *)
   | CS  (** Carry Set *)
@@ -64,6 +66,19 @@ type condition_code =
   | GT  (** Signed greather than *)
   | LE  (** Signed less than or equal *)
   | AL  (** Always*)
+
+  let cc_of_tac_bin ?(is_unsigned = false) = let open KosuIrTAC.Asttac in function
+  | TacOr | TacAnd -> None
+  | TacEqual -> Some EQ
+  | TacDiff -> Some NE
+  | TacSup -> Some (if is_unsigned then LS else LE)
+  | TacSupEq -> Some (if is_unsigned then CC else LT)
+  | TacInfEq -> Some (if is_unsigned then HI else GT)
+  | TacInf -> Some (if is_unsigned then CS else GE)
+  
+end
+
+
 
 module Register = struct
   type registerf64b =
@@ -340,6 +355,7 @@ let asm_const_name current_module const_name =
     const_name
 
 module Instruction = struct
+  open Condition_Code
   type shift = SH16 | SH32 | SH48
 
   type instruction =
@@ -498,6 +514,82 @@ module Instruction = struct
     | Line_Com of comment
 
   type line = raw_line * comment option
+
+  let instruction i = Instruction i
+
+  let ins_madd ~destination ~operand1_base ~operand2 ~scale = [
+    instruction @@ MADD {destination; operand1_base; operand2; scale}
+  ]
+
+  let ins_msub ~destination ~operand1_base ~operand2 ~scale = [
+    instruction @@ MSUB {destination; operand1_base; operand2; scale}
+  ]
+
+  let ins_add ~destination ~operand1 ~operand2 = [
+    instruction @@ ADD {destination; operand1; operand2 = `Register operand2; offset = false}
+  ]
+
+  let ins_sub ~destination ~operand1 ~operand2 = [
+    instruction @@ SUB {destination; operand1; operand2 = `Register operand2}
+  ]
+  let ins_mult ~destination ~operand1 ~operand2 = [
+    instruction @@ MUL {destination; operand1; operand2}
+  ]
+
+  let ins_unsigned_div ~destination ~operand1 ~operand2 = [
+    instruction @@ UDIV {destination; operand1; operand2}
+  ]
+
+  let ins_signed_div ~destination ~operand1 ~operand2 = [
+    instruction @@ SDIV {destination; operand1; operand2}
+  ]
+
+  let ins_bitwiseand ~destination ~operand1 ~operand2 = [
+    instruction @@ AND {destination; operand1; operand2 = `Register operand2}
+  ]
+
+  let ins_bitwiseor ~destination ~operand1 ~operand2 = [
+    instruction @@ ORR {destination; operand1; operand2 = `Register operand2}
+  ]
+
+  let ins_bitwisexor ~destination ~operand1 ~operand2 = [
+    instruction @@ EOR {destination; operand1; operand2 = `Register operand2}
+  ]
+
+  let ins_shift_left ~destination ~operand1 ~operand2 = [
+    instruction @@ LSL {destination; operand1; operand2 = `Register operand2}
+  ]
+
+  let ins_arith_shift_right ~destination ~operand1 ~operand2 = [
+    instruction @@ ASR {destination; operand1; operand2 = `Register operand2}
+  ]
+
+  let ins_logical_shift_right ~destination ~operand1 ~operand2 = [
+    instruction @@ LSR {destination; operand1; operand2 = `Register operand2}
+  ]
+
+  let binop_instruction_of_tacself ?(unsigned = false) = let open KosuIrTAC.Asttac in function
+  | TacAdd -> ins_add
+  | TacMinus -> ins_sub
+  | TacBitwiseAnd -> ins_bitwiseand
+  | TacBitwiseOr -> ins_bitwiseor
+  | TacBitwiseXor -> ins_bitwisexor
+  | TacShiftLeft -> ins_shift_left
+  | TacShiftRight -> if unsigned then ins_logical_shift_right else ins_arith_shift_right
+  | TacMult -> ins_mult
+  | TacDiv -> if unsigned then ins_unsigned_div else ins_signed_div
+  | _ -> failwith "Other binor cannot be facorised either instruction (Modulo) or type (Mult/Div)"
+
+  let mult_add_or_sub = let open KosuIrTAC.Asttac in function
+  | TacAdd -> ins_madd
+  | TacMinus -> ins_msub
+  | _ -> failwith "Expected Add or Minus"
+
+  let and_or_or_instruction = let open KosuIrTAC.Asttac in function
+  | TacAnd -> ins_bitwiseand
+  | TacOr ->  ins_bitwiseor
+  | _ -> failwith "Expected And or Or"
+
 
   let minstruction ?(_lcomm = "") instr = Instruction instr
 
@@ -970,44 +1062,4 @@ module FrameManager = struct
   let call_instruction ~origin _stack_param (_fd : frame_desc) =
     let call = Instruction (BL { cc = None; label = origin }) in
     [ call ]
-end
-
-module FnLabel = struct 
-  let label_prefix = "_"
-
-  let main = "_main"
-
-  open KosuIrTyped.Asttyped
-
-  (** Replace the `:` in the path name by `_` *)
-  let asm_module_path = String.map (fun c -> if c = ':' then '_' else c)
-  
-  let label_of_constant ?module_path const_name = 
-    Printf.sprintf "%s%s" 
-    (module_path |> Option.map asm_module_path |> Option.map (Printf.sprintf "%s._") |> Option.value ~default:"")
-    const_name
-  let label_of_function ~label_prefix ~main ~module_path ~fn_name ~generics = 
-    if fn_name = "main" then main else
-    Printf.sprintf "%s%s.%s%s" 
-      label_prefix
-      (asm_module_path module_path )
-      ( if generics = [] then "" else generics |> String.concat "." |> Printf.sprintf "_%s_")
-      fn_name
-
-      let label_of_external_function rextern_func_decl = 
-        rextern_func_decl.c_name |> Option.value ~default:rextern_func_decl.rsig_name |> Printf.sprintf "%s%s" label_prefix
-    
-      let label_of_kosu_function ~module_path (rfunction_decl: KosuIrTyped.Asttyped.rfunction_decl) =
-        label_of_function ~module_path 
-          ~main
-          ~label_prefix
-          ~fn_name:rfunction_decl.rfn_name 
-          ~generics: rfunction_decl.generics
-    
-      let label_of_tac_function ~module_path (tac_function_decl: KosuIrTAC.Asttac.tac_function_decl) =
-        label_of_function ~module_path 
-        ~main
-        ~label_prefix
-        ~fn_name:tac_function_decl.rfn_name 
-        ~generics:tac_function_decl.generics
 end
