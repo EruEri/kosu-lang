@@ -26,7 +26,7 @@ open Printf
 module X86Program = Common.AsmProgram(X86_64Core.Instruction)
 open X86Program
 
-module Make(AsmSpec: Common.AsmSpecification) = struct
+module Make(AsmSpec: X86_64AsmSpec.X86_64AsmSpecification) = struct
 
 let string_of_data_size = function
 | B -> "b"

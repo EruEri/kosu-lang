@@ -38,7 +38,7 @@ module type X86_64_Spec = sig
   val size_directive_of_size: KosuFrontend.Ast.isize -> string
 end
 
-module X86_64Spec_Make(X86_Spec: X86_64_Spec): Common.AsmSpecification = struct
+module Make(X86_Spec: X86_64_Spec): X86_64AsmSpec.X86_64AsmSpecification = struct
 
   include X86_Spec
 
@@ -100,7 +100,7 @@ end
 
 
 
-module X86_64LinuxAsmSpec = X86_64Spec_Make(struct
+module X86_64LinuxAsmSpec = Make(struct
 
   let function_directives fn_name = [
     Printf.sprintf ".globl %s" fn_name;
@@ -131,7 +131,7 @@ module X86_64LinuxAsmSpec = X86_64Spec_Make(struct
   function I8 -> "byte" | I16 -> "value" | I32 -> "long" | I64 -> "quad"
 end) 
 
-module X86MacOsAsmSpec = X86_64Spec_Make(struct
+module X86MacOsAsmSpec = Make(struct
   let function_directives fn_name = [
     Printf.sprintf ".globl %s" fn_name;
     ".p2align 4, 0x90"

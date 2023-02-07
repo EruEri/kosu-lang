@@ -20,8 +20,8 @@ open KosuIrTyped
 open KosuIrTAC
 open KosuCli
 
-module Mac0SX86 = KosuBackend.Codegen.Make( KosuBackend.X86_64.X86_64Codegen.Codegen(AsmSpec.X86MacOsAsmSpec) ) 
-module LinuxX86 = KosuBackend.Codegen.Make( KosuBackend.X86_64.X86_64Codegen.Codegen(AsmSpec.X86_64LinuxAsmSpec) )
+module Mac0SX86 = KosuBackend.Codegen.Make( KosuBackend.X86_64.X86_64Codegen.Codegen( KosuBackend.X86_64.X86_64AsmSpecImpl.X86MacOsAsmSpec) ) 
+module LinuxX86 = KosuBackend.Codegen.Make( KosuBackend.X86_64.X86_64Codegen.Codegen( KosuBackend.X86_64.X86_64AsmSpecImpl.X86_64LinuxAsmSpec) )
 module MacOSAarch64 = KosuBackend.Codegen.Make(KosuBackend.Aarch64.Aarch64Codegen.Codegen)
 
 

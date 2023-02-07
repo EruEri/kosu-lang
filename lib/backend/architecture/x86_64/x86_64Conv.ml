@@ -28,7 +28,7 @@ let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
 module X86Program = Common.AsmProgram(X86_64Core.Instruction)
 open X86Program
 
-module Make(Spec: Common.AsmSpecification) = struct
+module Make(Spec: X86_64AsmSpec.X86_64AsmSpecification) = struct
 
 
 module X86_64Pprint = X86_64Pprint.Make(Spec)
