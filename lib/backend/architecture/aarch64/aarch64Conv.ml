@@ -854,7 +854,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         {
           binop =
             TacSelf
-              (( TacMult | TacBitwiseAnd | TacBitwiseOr | TacBitwiseXor
+              (( TacMult | TacDiv | TacBitwiseAnd | TacBitwiseOr | TacBitwiseXor
                | TacShiftLeft | TacShiftRight ) as self_binop);
           blhs;
           brhs;
@@ -1114,7 +1114,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         operator_instructions
     | RVCustomBinop { binop = TacBool TacDiff; _ } ->
         failwith "Todo : Deep cgange into ast "
-    | _ ->
+    | s ->
+        let () = Printf.printf "trvalue = %s\n" (KosuIrTAC.Asttacpprint.string_of_tac_rvalue s) in
         failwith
           "Todo : Redefinition of supeq and infeq => Deep change into ast"
 

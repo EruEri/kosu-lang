@@ -66,12 +66,13 @@ module Condition_Code = struct
     | LE  (** Signed less than or equal *)
     | AL  (** Always*)
 
+  (* Inverse of the op > == <= *)
   let cc_of_tac_bin ?(is_unsigned = false) =
     let open KosuIrTAC.Asttac in
     function
     | TacOr | TacAnd -> None
-    | TacEqual -> Some EQ
-    | TacDiff -> Some NE
+    | TacEqual -> Some NE
+    | TacDiff -> Some EQ
     | TacSup -> Some (if is_unsigned then LS else LE)
     | TacSupEq -> Some (if is_unsigned then CC else LT)
     | TacInfEq -> Some (if is_unsigned then HI else GT)
