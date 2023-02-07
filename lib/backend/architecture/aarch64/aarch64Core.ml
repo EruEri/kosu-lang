@@ -49,36 +49,34 @@ type data_size = B | SB | H | SH
 type register_size = SReg32 | SReg64
 
 module Condition_Code = struct
-
   type condition_code =
-  | EQ  (** Equal *)
-  | NE  (** Not Equal *)
-  | CS  (** Carry Set *)
-  | CC  (** Carry clear *)
-  | MI  (** Minus / Negative *)
-  | PL  (** Plus , Posivite ./ Zero *)
-  | VS  (** Overflow *)
-  | VC  (** No overflow*)
-  | HI  (** Unsigned higher*)
-  | LS  (** Unsigned lower or same *)
-  | GE  (** Signed greater than or equal*)
-  | LT  (** Signed less than*)
-  | GT  (** Signed greather than *)
-  | LE  (** Signed less than or equal *)
-  | AL  (** Always*)
+    | EQ  (** Equal *)
+    | NE  (** Not Equal *)
+    | CS  (** Carry Set *)
+    | CC  (** Carry clear *)
+    | MI  (** Minus / Negative *)
+    | PL  (** Plus , Posivite ./ Zero *)
+    | VS  (** Overflow *)
+    | VC  (** No overflow*)
+    | HI  (** Unsigned higher*)
+    | LS  (** Unsigned lower or same *)
+    | GE  (** Signed greater than or equal*)
+    | LT  (** Signed less than*)
+    | GT  (** Signed greather than *)
+    | LE  (** Signed less than or equal *)
+    | AL  (** Always*)
 
-  let cc_of_tac_bin ?(is_unsigned = false) = let open KosuIrTAC.Asttac in function
-  | TacOr | TacAnd -> None
-  | TacEqual -> Some EQ
-  | TacDiff -> Some NE
-  | TacSup -> Some (if is_unsigned then LS else LE)
-  | TacSupEq -> Some (if is_unsigned then CC else LT)
-  | TacInfEq -> Some (if is_unsigned then HI else GT)
-  | TacInf -> Some (if is_unsigned then CS else GE)
-  
+  let cc_of_tac_bin ?(is_unsigned = false) =
+    let open KosuIrTAC.Asttac in
+    function
+    | TacOr | TacAnd -> None
+    | TacEqual -> Some EQ
+    | TacDiff -> Some NE
+    | TacSup -> Some (if is_unsigned then LS else LE)
+    | TacSupEq -> Some (if is_unsigned then CC else LT)
+    | TacInfEq -> Some (if is_unsigned then HI else GT)
+    | TacInf -> Some (if is_unsigned then CS else GE)
 end
-
-
 
 module Register = struct
   type registerf64b =
@@ -350,12 +348,13 @@ let increment_adress off adress =
   { adress with offset = Int64.add adress.offset off }
 
 let asm_const_name current_module const_name =
-  Printf.sprintf "_%s_%s" 
+  Printf.sprintf "_%s_%s"
     (current_module |> String.map (fun c -> if c = ':' then '_' else c))
     const_name
 
 module Instruction = struct
   open Condition_Code
+
   type shift = SH16 | SH32 | SH48
 
   type instruction =
@@ -517,79 +516,106 @@ module Instruction = struct
 
   let instruction i = Instruction i
 
-  let ins_madd ~destination ~operand1_base ~operand2 ~scale = [
-    instruction @@ MADD {destination; operand1_base; operand2; scale}
-  ]
+  let ins_madd ~destination ~operand1_base ~operand2 ~scale =
+    [ instruction @@ MADD { destination; operand1_base; operand2; scale } ]
 
-  let ins_msub ~destination ~operand1_base ~operand2 ~scale = [
-    instruction @@ MSUB {destination; operand1_base; operand2; scale}
-  ]
+  let ins_msub ~destination ~operand1_base ~operand2 ~scale =
+    [ instruction @@ MSUB { destination; operand1_base; operand2; scale } ]
 
-  let ins_add ~destination ~operand1 ~operand2 = [
-    instruction @@ ADD {destination; operand1; operand2 = `Register operand2; offset = false}
-  ]
+  let ins_add ~destination ~operand1 ~operand2 =
+    [
+      instruction
+      @@ ADD
+           {
+             destination;
+             operand1;
+             operand2 = `Register operand2;
+             offset = false;
+           };
+    ]
 
-  let ins_sub ~destination ~operand1 ~operand2 = [
-    instruction @@ SUB {destination; operand1; operand2 = `Register operand2}
-  ]
-  let ins_mult ~destination ~operand1 ~operand2 = [
-    instruction @@ MUL {destination; operand1; operand2}
-  ]
+  let ins_sub ~destination ~operand1 ~operand2 =
+    [
+      instruction
+      @@ SUB { destination; operand1; operand2 = `Register operand2 };
+    ]
 
-  let ins_unsigned_div ~destination ~operand1 ~operand2 = [
-    instruction @@ UDIV {destination; operand1; operand2}
-  ]
+  let ins_mult ~destination ~operand1 ~operand2 =
+    [ instruction @@ MUL { destination; operand1; operand2 } ]
 
-  let ins_signed_div ~destination ~operand1 ~operand2 = [
-    instruction @@ SDIV {destination; operand1; operand2}
-  ]
+  let ins_unsigned_div ~destination ~operand1 ~operand2 =
+    [ instruction @@ UDIV { destination; operand1; operand2 } ]
 
-  let ins_bitwiseand ~destination ~operand1 ~operand2 = [
-    instruction @@ AND {destination; operand1; operand2 = `Register operand2}
-  ]
+  let ins_signed_div ~destination ~operand1 ~operand2 =
+    [ instruction @@ SDIV { destination; operand1; operand2 } ]
 
-  let ins_bitwiseor ~destination ~operand1 ~operand2 = [
-    instruction @@ ORR {destination; operand1; operand2 = `Register operand2}
-  ]
+  let ins_bitwiseand ~destination ~operand1 ~operand2 =
+    [
+      instruction
+      @@ AND { destination; operand1; operand2 = `Register operand2 };
+    ]
 
-  let ins_bitwisexor ~destination ~operand1 ~operand2 = [
-    instruction @@ EOR {destination; operand1; operand2 = `Register operand2}
-  ]
+  let ins_bitwiseor ~destination ~operand1 ~operand2 =
+    [
+      instruction
+      @@ ORR { destination; operand1; operand2 = `Register operand2 };
+    ]
 
-  let ins_shift_left ~destination ~operand1 ~operand2 = [
-    instruction @@ LSL {destination; operand1; operand2 = `Register operand2}
-  ]
+  let ins_bitwisexor ~destination ~operand1 ~operand2 =
+    [
+      instruction
+      @@ EOR { destination; operand1; operand2 = `Register operand2 };
+    ]
 
-  let ins_arith_shift_right ~destination ~operand1 ~operand2 = [
-    instruction @@ ASR {destination; operand1; operand2 = `Register operand2}
-  ]
+  let ins_shift_left ~destination ~operand1 ~operand2 =
+    [
+      instruction
+      @@ LSL { destination; operand1; operand2 = `Register operand2 };
+    ]
 
-  let ins_logical_shift_right ~destination ~operand1 ~operand2 = [
-    instruction @@ LSR {destination; operand1; operand2 = `Register operand2}
-  ]
+  let ins_arith_shift_right ~destination ~operand1 ~operand2 =
+    [
+      instruction
+      @@ ASR { destination; operand1; operand2 = `Register operand2 };
+    ]
 
-  let binop_instruction_of_tacself ?(unsigned = false) = let open KosuIrTAC.Asttac in function
-  | TacAdd -> ins_add
-  | TacMinus -> ins_sub
-  | TacBitwiseAnd -> ins_bitwiseand
-  | TacBitwiseOr -> ins_bitwiseor
-  | TacBitwiseXor -> ins_bitwisexor
-  | TacShiftLeft -> ins_shift_left
-  | TacShiftRight -> if unsigned then ins_logical_shift_right else ins_arith_shift_right
-  | TacMult -> ins_mult
-  | TacDiv -> if unsigned then ins_unsigned_div else ins_signed_div
-  | _ -> failwith "Other binor cannot be facorised either instruction (Modulo) or type (Mult/Div)"
+  let ins_logical_shift_right ~destination ~operand1 ~operand2 =
+    [
+      instruction
+      @@ LSR { destination; operand1; operand2 = `Register operand2 };
+    ]
 
-  let mult_add_or_sub = let open KosuIrTAC.Asttac in function
-  | TacAdd -> ins_madd
-  | TacMinus -> ins_msub
-  | _ -> failwith "Expected Add or Minus"
+  let binop_instruction_of_tacself ?(unsigned = false) =
+    let open KosuIrTAC.Asttac in
+    function
+    | TacAdd -> ins_add
+    | TacMinus -> ins_sub
+    | TacBitwiseAnd -> ins_bitwiseand
+    | TacBitwiseOr -> ins_bitwiseor
+    | TacBitwiseXor -> ins_bitwisexor
+    | TacShiftLeft -> ins_shift_left
+    | TacShiftRight ->
+        if unsigned then ins_logical_shift_right else ins_arith_shift_right
+    | TacMult -> ins_mult
+    | TacDiv -> if unsigned then ins_unsigned_div else ins_signed_div
+    | _ ->
+        failwith
+          "Other binor cannot be facorised either instruction (Modulo) or type \
+           (Mult/Div)"
 
-  let and_or_or_instruction = let open KosuIrTAC.Asttac in function
-  | TacAnd -> ins_bitwiseand
-  | TacOr ->  ins_bitwiseor
-  | _ -> failwith "Expected And or Or"
+  let mult_add_or_sub =
+    let open KosuIrTAC.Asttac in
+    function
+    | TacAdd -> ins_madd
+    | TacMinus -> ins_msub
+    | _ -> failwith "Expected Add or Minus"
 
+  let and_or_or_instruction =
+    let open KosuIrTAC.Asttac in
+    function
+    | TacAnd -> ins_bitwiseand
+    | TacOr -> ins_bitwiseor
+    | _ -> failwith "Expected And or Or"
 
   let minstruction ?(_lcomm = "") instr = Instruction instr
 
@@ -900,14 +926,20 @@ module FrameManager = struct
                offset_of_tuple_index ~generics:(Hashtbl.create 0) index
                  fake_tuple rprogram
              in
-             let x29_relative_address = (locals_space |> Int64.neg |> Int64.add offset) in
-             let adress = if x29_relative_address > -256L then
-               create_adress
-                 ~offset:(locals_space |> Int64.neg |> Int64.add offset |> Int64.add stack_future_call)
-                 (Register64 X29)
-                else 
-                  create_adress ~offset:(Int64.add stack_future_call offset)
-                  (Register64 SP)
+             let x29_relative_address =
+               locals_space |> Int64.neg |> Int64.add offset
+             in
+             let adress =
+               if x29_relative_address > -256L then
+                 create_adress
+                   ~offset:
+                     (locals_space |> Int64.neg |> Int64.add offset
+                     |> Int64.add stack_future_call)
+                   (Register64 X29)
+               else
+                 create_adress
+                   ~offset:(Int64.add stack_future_call offset)
+                   (Register64 SP)
              in
              (* let () = Printf.printf "-> %s : %s == [x29, %Ld] \n" (fst st) (KosuIrTyped.Asttypprint.string_of_rktype @@ snd @@ st) (offset) in *)
              IdVarMap.add st adress acc)
@@ -924,11 +956,13 @@ module FrameManager = struct
   let address_of (variable, rktype) frame_desc =
     (* let () = Printf.printf "Lookup => %s : %s\n" (variable) (KosuIrTyped.Asttypprint.string_of_rktype rktype) in *)
     if List.mem (variable, rktype) frame_desc.discarded_values then None
-    else Some (
-      try 
-        IdVarMap.find (variable, rktype) frame_desc.stack_map
-    with Not_found -> failwith (Printf.sprintf "Not found: %s : %s" variable (KosuIrTyped.Asttypprint.string_of_rktype rktype))
-    )
+    else
+      Some
+        (try IdVarMap.find (variable, rktype) frame_desc.stack_map
+         with Not_found ->
+           failwith
+             (Printf.sprintf "Not found: %s : %s" variable
+                (KosuIrTyped.Asttypprint.string_of_rktype rktype)))
 
   let function_prologue ~fn_register_params ~stack_params rprogram fd =
     let frame_register_offset =

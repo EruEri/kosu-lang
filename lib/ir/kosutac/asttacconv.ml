@@ -23,13 +23,11 @@ open Asttachelper
 let if_count = ref 0
 let cases_count = ref 0
 let switch_count = ref 0
-
 let tmp_var_prefix = "$tmp"
 let make_tmp = Printf.sprintf "%s%u" tmp_var_prefix
 let make_goto_label ~count_if = Printf.sprintf "Lif.%u.%u" count_if
 let make_end_label ~count_if = Printf.sprintf "Lif.%u.end" count_if
 let make_case_goto_label ~cases_count = Printf.sprintf "Lcase.%u.%u" cases_count
-
 let is_tmp_var = String.starts_with ~prefix:tmp_var_prefix
 
 let make_case_goto_cond_label ~cases_count =
@@ -125,7 +123,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
 
       let statement_for_bool, condition_rvalue =
         convert_from_typed_expression ~discarded_value ~allocated:next_allocated
-          ~switch_count ~map ~count_var ~if_count ~cases_count  ~rprogram if_typed_expres
+          ~switch_count ~map ~count_var ~if_count ~cases_count ~rprogram
+          if_typed_expres
       in
 
       let goto_label1 = make_goto_label ~count_if:incremented 0 in
@@ -138,8 +137,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       in
       let else_tac_body =
         convert_from_rkbody ~discarded_value ~cases_count ~switch_count
-          ~previous_alloc:allocated ~label_name:goto_label2 ~map ~count_var ~rprogram
-          ~if_count else_body
+          ~previous_alloc:allocated ~label_name:goto_label2 ~map ~count_var
+          ~rprogram ~if_count else_body
       in
       ( STIf
           {
@@ -220,7 +219,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       in
       let statemenets_for_case, condition_switch =
         convert_from_typed_expression ~discarded_value ~allocated:next_allocated
-          ~switch_count ~cases_count ~if_count ~count_var ~map ~rprogram rexpression
+          ~switch_count ~cases_count ~if_count ~count_var ~map ~rprogram
+          rexpression
       in
       let sw_cases =
         cases
@@ -244,8 +244,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                in
                let switch_tac_body =
                  convert_from_rkbody ~discarded_value ~previous_alloc:allocated
-                   ~label_name:sw_goto ~rprogram ~map ~count_var ~if_count ~cases_count
-                   ~switch_count kbody
+                   ~label_name:sw_goto ~rprogram ~map ~count_var ~if_count
+                   ~cases_count ~switch_count kbody
                in
                {
                  variants_to_match;
@@ -447,7 +447,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       in
       let needed_statement, tac_expr =
         convert_from_typed_expression ~discarded_value ~allocated:next_allocated
-          ~switch_count ~cases_count ~map ~if_count ~count_var ~rprogram first_expr
+          ~switch_count ~cases_count ~map ~if_count ~count_var ~rprogram
+          first_expr
       in
       let new_tmp = make_inc_tmp trktype map count_var in
       let field_acces = RVFieldAcess { first_expr = tac_expr; field } in
@@ -707,7 +708,8 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
           in
           let tac_stmts, tac_expression =
             convert_from_typed_expression ~discarded_value ~cases_count
-              ~allocated ~map ~count_var ~if_count ~switch_count ~rprogram aff_typed_expr
+              ~allocated ~map ~count_var ~if_count ~switch_count ~rprogram
+              aff_typed_expr
           in
           let body =
             convert_from_rkbody ~discarded_value ~switch_count ~cases_count
@@ -736,10 +738,15 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
               discard_typed_expression
           in
 
-          let sizeof_discard = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram discard_typed_expression.rktype in
+          let sizeof_discard =
+            KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+              discard_typed_expression.rktype
+          in
           let () =
             match tac_rvalue.tac_expression with
-            | TEIdentifier id when KosuIrTyped.Asttyconvert.Sizeof.discardable_size sizeof_discard  ->
+            | TEIdentifier id
+              when KosuIrTyped.Asttyconvert.Sizeof.discardable_size
+                     sizeof_discard ->
                 let () = Hashtbl.remove map id in
                 let () =
                   Hashtbl.add discarded_value id tac_rvalue.expr_rktype
@@ -839,7 +846,7 @@ let rec reduce_variable_used_statements stmts =
   | t :: [] -> [ t ]
   | t1 :: t2 :: q -> (
       match (t1, t2) with
-      (* Cancelled because of case 
+      (* Cancelled because of case
          const x = 10;
          const z = x;
 
@@ -890,7 +897,7 @@ let rec reduce_variable_used_statements stmts =
         when tmp_name = id && is_tmp_var tmp_name ->
           STDerefAffectation { identifier = true_var; trvalue }
           :: reduce_variable_used_statements q
-      | _ -> t1 :: reduce_variable_used_statements (t2::q) )
+      | _ -> t1 :: reduce_variable_used_statements (t2 :: q))
 
 and reduce_variable_used_body { label; body = smtms, expr } =
   { label; body = (reduce_variable_used_statements smtms, expr) }

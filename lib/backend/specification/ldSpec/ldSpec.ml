@@ -17,26 +17,25 @@
 
 module MacOSLdSpec : KosuBackend.Compil.LinkerOption = struct
   type linker_option = string
+
   let string_of_option = Fun.id
   let ld_command = "ld"
 
-  let options = [
-    "syslibroot $(xcrun --sdk macosx --show-sdk-path)";
-    "lSystem"
-  ]
+  let options =
+    [ "syslibroot $(xcrun --sdk macosx --show-sdk-path)"; "lSystem" ]
 
   let disable = None
 end
 
 module LinuxLdSpec : KosuBackend.Compil.LinkerOption = struct
   type linker_option = string
+
   let string_of_option = Fun.id
-
   let ld_command = "ld"
+  let options = [ "-entry=main"; "lc" ]
 
-  let options = [
-    "-entry=main";
-    "lc"
-  ]
-  let disable = Some ("Native compilation pipeline doesn't currently work on Linux, USE `--cc` option")
+  let disable =
+    Some
+      "Native compilation pipeline doesn't currently work on Linux, USE `--cc` \
+       option"
 end

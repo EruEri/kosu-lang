@@ -18,6 +18,14 @@
 (executable
  (public_name kosuc)
  (name kosuc)
- (libraries kosuFrontend kosuIrTyped kosuBackend kosuIrTAC kosuCli clap ldSpec common)
+ (libraries
+  kosuFrontend
+  kosuIrTyped
+  kosuBackend
+  kosuIrTAC
+  kosuCli
+  clap
+  ldSpec
+  common)
  (flags
   (:standard -g)))

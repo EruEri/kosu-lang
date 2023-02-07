@@ -18,13 +18,12 @@
 open Asttyped
 
 module RType = struct
-
   (**
      @returns If the type represents an unsigned value (.ie pointer or unsigned integer) 
   *)
   let is_raw_unsigned = function
-  | RTInteger _ | RTPointer _ -> true
-  | _ -> false
+    | RTInteger _ | RTPointer _ -> true
+    | _ -> false
 
   let is_any_integer = function RTInteger _ -> true | _ -> false
   let is_bool = function RTBool -> true | _ -> false
@@ -34,8 +33,8 @@ module RType = struct
     | _ -> false
 
   let integer_info = function
-  | RTInteger (sign, size) -> Some (sign, size)
-  | _ -> None
+    | RTInteger (sign, size) -> Some (sign, size)
+    | _ -> None
 
   let is_64bits_float = function RTFloat -> true | _ -> false
 
@@ -498,18 +497,20 @@ module Function = struct
         let rbody =
           instanciate_generics_kbody assoc_generics rfunction_decl.rbody
         in
-        { rfn_name = rfunction_decl.rfn_name; 
+        {
+          rfn_name = rfunction_decl.rfn_name;
           rmaped_generics = generics;
-          rparameters; 
-          return_type; 
-          rbody 
-          }
+          rparameters;
+          return_type;
+          rbody;
+        }
 
   let function_decl_of_rtrue_function_decl (fn_decl : rtrue_function_decl) :
       rfunction_decl =
     {
       rfn_name = fn_decl.rfn_name;
-      generics = fn_decl.rmaped_generics |> List.map (Asttypprint.string_of_label_rktype);
+      generics =
+        fn_decl.rmaped_generics |> List.map Asttypprint.string_of_label_rktype;
       true_generics = false;
       rparameters = fn_decl.rparameters;
       return_type = fn_decl.return_type;
@@ -661,13 +662,10 @@ module Rmodule = struct
              | RNExternFunc ef -> Some (RExternal_Decl ef)
              | RNSyscall scf -> Some (RSyscall_Decl scf)
              | _ -> None)
+
   let retrieve_const_decl = function
-  | RModule rnodes ->
-      rnodes
-      |> List.filter_map (function
-          | RNConst s -> Some s
-          | _ -> None
-          )
+    | RModule rnodes ->
+        rnodes |> List.filter_map (function RNConst s -> Some s | _ -> None)
 
   let retrive_operator_decl = function
     | RModule rnodes ->
@@ -709,7 +707,7 @@ end
 module RProgram = struct
   type fn_signature = {
     fn_name : string;
-    generics: string list;
+    generics : string list;
     params : rktype list;
     return_type : rktype;
   }
@@ -725,7 +723,9 @@ module RProgram = struct
   let signature_of_rtrue_function_decl (rfunction_decl : rtrue_function_decl) =
     {
       fn_name = rfunction_decl.rfn_name;
-      generics = rfunction_decl.rmaped_generics |> List.map Asttypprint.string_of_label_rktype;
+      generics =
+        rfunction_decl.rmaped_generics
+        |> List.map Asttypprint.string_of_label_rktype;
       params = rfunction_decl.rparameters |> List.map snd;
       return_type = rfunction_decl.return_type;
     }
@@ -780,15 +780,13 @@ module RProgram = struct
              type_name = (rtype_decl |> Rtype_Decl.type_name))
       |> Option.some
 
-  let find_const_decl ~name ~module_path rprogram = 
-    let (>>=) = Option.bind in
-    rprogram |> 
-      find_module_of_name 
-      module_path
-      |> Option.map (fun md -> 
-        md |> Rmodule.retrieve_const_decl
-      )
-      >>= List.find_opt (fun const_decl -> const_decl.rconst_name = name)
+  let find_const_decl ~name ~module_path rprogram =
+    let ( >>= ) = Option.bind in
+    rprogram
+    |> find_module_of_name module_path
+    |> Option.map (fun md -> md |> Rmodule.retrieve_const_decl)
+    >>= List.find_opt (fun const_decl -> const_decl.rconst_name = name)
+
   let register_params_count = 8
 
   let find_binary_operator_decl (op : KosuFrontend.Ast.parser_binary_op)
@@ -818,13 +816,16 @@ module RProgram = struct
     |> List.flatten
 
   let rec stack_parameters_in_expression current_module rprogram = function
-    | REFunction_call { modules_path; fn_name; parameters; generics_resolver = _ } -> (
+    | REFunction_call
+        { modules_path; fn_name; parameters; generics_resolver = _ } -> (
         let cmodule =
           if modules_path = "" then current_module else modules_path
         in
         let ktypes = parameters |> List.map (fun { rktype; _ } -> rktype) in
         let fn_decl =
-          rprogram |> find_function_decl_of_name cmodule fn_name  |> (function Some s -> s | None -> failwith "814" )
+          rprogram |> find_function_decl_of_name cmodule fn_name |> function
+          | Some s -> s
+          | None -> failwith "814"
         in
         match fn_decl with
         | RSyscall_Decl _ -> 0

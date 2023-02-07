@@ -15,12 +15,12 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
-
- (cram
-  ( enabled_if (and (= %{system} macosx) (= %{architecture} arm64)) )
-  ( deps (glob_files_rec *.kosu) )
- )
+(cram
+ (enabled_if
+  (and
+   (= %{system} macosx)
+   (= %{architecture} arm64)))
+ (deps
+  (glob_files_rec *.kosu)))
 
 (copy_files ../../files/*.kosu)
-
-  

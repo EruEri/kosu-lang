@@ -80,7 +80,7 @@ let rec string_of_rktype = function
   | RTUnknow -> "unknwon"
   | RTFloat -> "f64"
 
-let asm_module_path_name = String.map (fun c -> if c = ':' then '_' else c )
+let asm_module_path_name = String.map (fun c -> if c = ':' then '_' else c)
 
 let rec string_of_label_rktype = function
   | RTParametric_identifier { module_path; parametrics_type; name } ->
@@ -91,9 +91,7 @@ let rec string_of_label_rktype = function
         (asm_module_path_name module_path)
         name
   | RTType_Identifier { module_path; name } ->
-      sprintf "%s%s"
-      (asm_module_path_name module_path)
-        name
+      sprintf "%s%s" (asm_module_path_name module_path) name
   | RTInteger (sign, size) ->
       sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
   | RTPointer ktype -> sprintf "ptr_%s" (string_of_rktype ktype)

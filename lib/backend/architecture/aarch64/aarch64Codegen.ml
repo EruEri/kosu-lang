@@ -15,32 +15,29 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module Codegen(AsmSpec: Aarch64AsmSpec.Aarch64AsmSpecification) = struct
-
-  module Pprint = Aarch64Pprint.Make(AsmSpec)
-  module AsmProgram = Common.AsmProgram(Aarch64Core.Instruction)
-  module Aarch64Conv = Aarch64Conv.Make(AsmSpec)
-
+module Codegen (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
+  module Pprint = Aarch64Pprint.Make (AsmSpec)
+  module AsmProgram = Common.AsmProgram (Aarch64Core.Instruction)
+  module Aarch64Conv = Aarch64Conv.Make (AsmSpec)
   include AsmProgram
   open AsmProgram
 
   let asm_program_of_tac_program = Aarch64Conv.asm_program_of_tac_program
   let asm_module_of_tac_module = Aarch64Conv.asm_module_of_tac_module
-  let sort_asm_module asm_module = 
-    let AsmModule x =  Aarch64Conv.sort_asm_module (AsmModule asm_module) in
+
+  let sort_asm_module asm_module =
+    let (AsmModule x) = Aarch64Conv.sort_asm_module (AsmModule asm_module) in
     x
 
   let string_litteral_section_start = AsmSpec.string_litteral_section_start
-
   let string_litteral_section_end = AsmSpec.string_litteral_section_end
-
   let string_of_asm_node = Pprint.string_of_asm_node
-
-  let string_litteral_directive = ".asciz" 
-
+  let string_litteral_directive = ".asciz"
   let filename_of_named_asm_module_path namp = namp.filename
-  let asm_module_path_of_named_asm_module_path namp = namp.asm_module_path.asm_module
+
+  let asm_module_path_of_named_asm_module_path namp =
+    namp.asm_module_path.asm_module
+
   let str_lit_map_of_name_asm_module namp = namp.str_lit_map
-  let asm_module_node_list_of_asm_module = function
-  | AsmModule rnodes -> rnodes
+  let asm_module_node_list_of_asm_module = function AsmModule rnodes -> rnodes
 end

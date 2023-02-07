@@ -71,7 +71,9 @@ module Sizeof = struct
                    _acc_packed_size ++ comming_size ))
                (0L, 0L, 0L)
         in
-        match calcul with `size -> if alignment = 0L then 0L else align size alignment | `align -> alignment)
+        match calcul with
+        | `size -> if alignment = 0L then 0L else align size alignment
+        | `align -> alignment)
 
   and size_struct calcul program generics struct_decl =
     struct_decl.rfields
@@ -135,8 +137,8 @@ module Sizeof = struct
   (* If so, there is no need to pass the address of the destination to the function*)
   (* Therefore : the retunred values dont need to be on the stack since there are discarded*)
   let discardable_size = function
-  | 1L | 2L | 4L | 8L | 9L | 10L | 12L | 16L -> true
-  | _ -> false
+    | 1L | 2L | 4L | 8L | 9L | 10L | 12L | 16L -> true
+    | _ -> false
 end
 
 let restrict_typed_expression restrict typed_expression =

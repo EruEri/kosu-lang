@@ -749,8 +749,7 @@ module Type = struct
             module_path =
               {
                 v =
-                  (if module_path.v = "" then current_module
-                  else module_path.v);
+                  (if module_path.v = "" then current_module else module_path.v);
                 position = module_path.position;
               };
             name;
@@ -762,8 +761,7 @@ module Type = struct
               {
                 module_path with
                 v =
-                  (if module_path.v = "" then current_module
-                  else module_path.v);
+                  (if module_path.v = "" then current_module else module_path.v);
               };
             parametrics_type =
               parametrics_type
@@ -940,10 +938,10 @@ module Builtin_Function = struct
     | Stringl_ptr
 
   let isize_of_functions = function
-  | Tos8 | Tou8 -> I8
-  | Tos16 | Tou16 -> I16
-  | Tos32 | Tou32 -> I32
-  | Tos64 | Tou64 | Stringl_ptr -> I64
+    | Tos8 | Tou8 -> I8
+    | Tos16 | Tou16 -> I16
+    | Tos32 | Tou32 -> I32
+    | Tos64 | Tou64 | Stringl_ptr -> I64
 end
 
 module Env = struct
