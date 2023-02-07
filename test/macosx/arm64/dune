@@ -21,6 +21,6 @@
   ( deps (glob_files *.kosu) )
  )
 
-(copy_files ../../files/*.kosu)
+(copy_files ../../files/*)
 
   
