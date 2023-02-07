@@ -70,10 +70,10 @@ A random test
   u8: 4 == 4 : true
   u8: 4 != 4 : false
   
-  u8: 78 < 147 : false
-  u8: 78 <= 147 : false
-  u8: 78 > 147 : true
-  u8: 78 >= 147 : true
+  u8: 78 < 147 : true
+  u8: 78 <= 147 : true
+  u8: 78 > 147 : false
+  u8: 78 >= 147 : false
   u8: 78 == 147 : false
   u8: 78 != 147 : true
   
@@ -112,10 +112,10 @@ A random test
   s16: 4 == 4 : true
   s16: 4 != 4 : false
   
-  s16: 78 < 147 : false
-  s16: 78 <= 147 : false
-  s16: 78 > 147 : true
-  s16: 78 >= 147 : true
+  s16: 78 < 147 : true
+  s16: 78 <= 147 : true
+  s16: 78 > 147 : false
+  s16: 78 >= 147 : false
   s16: 78 == 147 : false
   s16: 78 != 147 : true
   
@@ -154,10 +154,10 @@ A random test
   u16: 4 == 4 : true
   u16: 4 != 4 : false
   
-  u16: 78 < 147 : false
-  u16: 78 <= 147 : false
-  u16: 78 > 147 : true
-  u16: 78 >= 147 : true
+  u16: 78 < 147 : true
+  u16: 78 <= 147 : true
+  u16: 78 > 147 : false
+  u16: 78 >= 147 : false
   u16: 78 == 147 : false
   u16: 78 != 147 : true
   
@@ -196,10 +196,10 @@ A random test
   s32: 4 == 4 : true
   s32: 4 != 4 : false
   
-  s32: 78 < 147 : false
-  s32: 78 <= 147 : false
-  s32: 78 > 147 : true
-  s32: 78 >= 147 : true
+  s32: 78 < 147 : true
+  s32: 78 <= 147 : true
+  s32: 78 > 147 : false
+  s32: 78 >= 147 : false
   s32: 78 == 147 : false
   s32: 78 != 147 : true
   
