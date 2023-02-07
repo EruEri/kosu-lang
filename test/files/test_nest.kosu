@@ -1,0 +1,4 @@
+fn main() s32 {
+    discard Nested::Func.print_stringl("Hello world");
+    $ 0
+}

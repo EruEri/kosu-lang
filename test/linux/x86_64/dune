@@ -15,10 +15,12 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
-
- (cram
-  ( enabled_if (and (= %{system} linux) (= %{architecture} amd64)) )
-  ( deps (glob_files *.kosu) )
- )
+(cram
+ (enabled_if
+  (and
+   (= %{system} linux)
+   (= %{architecture} amd64)))
+ (deps
+  (glob_files_rec *.kosu)))
 
 (copy_files ../../files/*.kosu)

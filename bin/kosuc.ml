@@ -20,23 +20,35 @@ open KosuIrTyped
 open KosuIrTAC
 open KosuCli
 
-module Mac0SX86 = KosuBackend.Codegen.Make( KosuBackend.X86_64.X86_64Codegen.Codegen(AsmSpec.X86MacOsAsmSpec) ) 
-module LinuxX86 = KosuBackend.Codegen.Make( KosuBackend.X86_64.X86_64Codegen.Codegen(AsmSpec.X86_64LinuxAsmSpec) )
-module MacOSAarch64 = KosuBackend.Codegen.Make(KosuBackend.Aarch64.Aarch64Codegen.Codegen)
+module Mac0SX86 =
+  KosuBackend.Codegen.Make
+    (KosuBackend.X86_64.X86_64Codegen.Codegen
+       (KosuBackend.X86_64.X86_64AsmSpecImpl.X86MacOsAsmSpec))
 
+module LinuxX86 =
+  KosuBackend.Codegen.Make
+    (KosuBackend.X86_64.X86_64Codegen.Codegen
+       (KosuBackend.X86_64.X86_64AsmSpecImpl.X86_64LinuxAsmSpec))
+
+module MacOSAarch64 =
+  KosuBackend.Codegen.Make
+    (KosuBackend.Aarch64.Aarch64Codegen.Codegen
+       (KosuBackend.Aarch64.Aarch64AsmSpecImpl.MacOSAarch64AsmSpec))
 
 let () = KosuFrontend.Registerexn.register_kosu_error ()
+
 let code =
   Clap.description "kosuc - The Kosu compiler";
-
 
   let target_archi =
     Clap.mandatory Cli.archi_clap_type ~long:"target" ~short:'t'
       ~description:"Architecture compilation target" ~placeholder:"Target" ()
   in
 
-  let no_std = Clap.flag ~set_long:"no-std" ~description:"Don't include the standard librairy files" false in
-
+  let no_std =
+    Clap.flag ~set_long:"no-std"
+      ~description:"Don't include the standard librairy files" false
+  in
 
   let is_target_asm =
     Clap.flag ~set_short:'S' ~description:"Produce an assembly file" false
@@ -60,34 +72,24 @@ let code =
          files"
       ~placeholder:"C Files" ()
   in
-  
 
   let files = Clap.list_string ~description:"files" ~placeholder:"FILES" () in
 
   let () = Clap.close () in
 
-  let module Codegen = (
-    val (match target_archi with
-    | Cli.X86_64 -> (module LinuxX86)
-    | Cli.X86_64m -> (module Mac0SX86)
-    | Cli.Arm64e -> (module MacOSAarch64)
-    )
-    : KosuBackend.Codegen.S
-  )
+  let module Codegen = (val match target_archi with
+                            | Cli.X86_64 -> (module LinuxX86)
+                            | Cli.X86_64m -> (module Mac0SX86)
+                            | Cli.Arm64e -> (module MacOSAarch64)
+                          : KosuBackend.Codegen.S)
   in
-
-  let module LinkerOption = (
-    val (
-      match target_archi with
-      | Cli.X86_64m | Arm64e -> (module LdSpec.MacOSLdSpec)
-      | Cli.X86_64 -> (module LdSpec.LinuxLdSpec)
-    ) 
-    : KosuBackend.Compil.LinkerOption
-  ) in
-
-  let module Compiler = KosuBackend.Compil.Make(Codegen)(LinkerOption) in
-
-
+  let module LinkerOption = (val match target_archi with
+                                 | Cli.X86_64m | Arm64e ->
+                                     (module LdSpec.MacOSLdSpec)
+                                 | Cli.X86_64 -> (module LdSpec.LinuxLdSpec)
+                               : KosuBackend.Compil.LinkerOption)
+  in
+  let module Compiler = KosuBackend.Compil.Make (Codegen) (LinkerOption) in
   let kosu_files, other_files =
     files |> List.partition (fun s -> s |> Filename.extension |> ( = ) ".kosu")
   in
@@ -129,13 +131,11 @@ let code =
 
   let code =
     match is_target_asm with
-    | true -> (
-      Compiler.generate_asm_only tac_program ()
-      )
-    | false -> (
-      let compilation = Compiler.compilation ~cc in
-      compilation ~outfile:output ~debug:true ~ccol ~other:other_files tac_program
-      )
+    | true -> Compiler.generate_asm_only tac_program ()
+    | false ->
+        let compilation = Compiler.compilation ~cc in
+        compilation ~outfile:output ~debug:true ~ccol ~other:other_files
+          tac_program
   in
   code
 

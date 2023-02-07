@@ -1,0 +1,10 @@
+syscall write(fd: s32, data: anyptr, size: u64) s64 = 0x2000004
+
+const MESSAGE = "Hello world\n";
+const MESSAGE_LEN = 12u64;
+const STDOUT = 1s32;
+
+fn main() s32 {
+    discard write(STDOUT, @stringlptr(MESSAGE), MESSAGE_LEN);
+    $ 0
+}

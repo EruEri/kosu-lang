@@ -16,20 +16,16 @@
 (**********************************************************************************************)
 
 type stringlit_label = SLit of string
+type coordinate = { line : int; column : int }
 
-type coordinate = {
-  line : int;
-  column: int
-}
-
-let couple a b = a,b
+let couple a b = (a, b)
 
 let is_what_file ~extension filename =
   filename |> Filename.extension |> ( = ) extension
 
 let is_object_file = is_what_file ~extension:".o"
 
-let is_asm_file filename = 
+let is_asm_file filename =
   filename |> Filename.extension |> String.lowercase_ascii |> ( = ) ".s"
 
 let rec string_of_chars_aux count result char =

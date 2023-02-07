@@ -1,0 +1,56 @@
+external printf(format: stringl; ...) s32;
+
+external malloc(_: u64) anyptr;
+external free(ptr: anyptr) unit;
+
+fn set_alloc<t>(elt: t) *t {
+    const ptr : *t = malloc(sizeof(t));
+    *ptr = elt;
+    $ ptr
+}
+
+enum list(t) {
+    nil,
+    cons(t, *list(t) )
+}
+
+fn cons<e>(l : list(e), element : e) list(e) {
+	$ .cons(element, set_alloc(l) )
+}
+
+fn free_list<e>(l : list(e)) {
+	discard switch (l) {
+		.nil => { $ () }
+		.cons(x, xs) => {
+			discard free_list( *xs );
+			discard free(xs);
+			$ ()
+		}
+	};
+	$ empty 
+}
+
+fn length<e>(l : list(e)) s32 {
+	$ switch (l) {
+		.nil => { $ 0 }
+		.cons(_, xs) => {
+			$ 1 + length( *xs )
+		}
+	}
+}
+
+fn main() s32 {
+    const list = 
+        .nil 
+        |> cons(1) 
+        |> cons(2)
+        |> cons(3)
+        |> cons(4)
+        |> cons(5);
+
+    const length = length (list);
+    discard printf("Expected Length to be 5 : Is %d\n", length);
+
+    discard free_list(list);
+    $ 0
+}

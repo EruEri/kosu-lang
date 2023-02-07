@@ -31,41 +31,46 @@
 ;   (run menhir --list-errors %{deps})
 ;   )))
 
-
-
- ; Convenience rule to generate a fresh messages file,
+; Convenience rule to generate a fresh messages file,
 ; and update an already existing one.
-(rule
-  (target new.messages)
-  (deps
-          (:parser parser.mly))
-  (action (with-stdout-to %{target}
-          (run menhir
-                      %{parser} --base %{parser} --list-errors)))
-)
 
 (rule
-  (target updated.messages)
-  (deps
-          (:parser parser.mly)
-          (:msg parser.messages))
-  (action (with-stdout-to %{target}
-          (run menhir
-                      %{parser} --base %{parser} --update-errors %{msg})))
-)
+ (target new.messages)
+ (deps
+  (:parser parser.mly))
+ (action
+  (with-stdout-to
+   %{target}
+   (run menhir %{parser} --base %{parser} --list-errors))))
 
 (rule
-  (target parser.messages.updated)
-  (deps
-          (:parser parser.mly)
-          (:new new.messages)
-          (:updated updated.messages)
-  )
-  (action (with-stdout-to %{target}
-          (run menhir
-                      %{parser} --base %{parser} --merge-errors %{new} --merge-errors %{updated})))
-)
+ (target updated.messages)
+ (deps
+  (:parser parser.mly)
+  (:msg parser.messages))
+ (action
+  (with-stdout-to
+   %{target}
+   (run menhir %{parser} --base %{parser} --update-errors %{msg}))))
 
+(rule
+ (target parser.messages.updated)
+ (deps
+  (:parser parser.mly)
+  (:new new.messages)
+  (:updated updated.messages))
+ (action
+  (with-stdout-to
+   %{target}
+   (run
+    menhir
+    %{parser}
+    --base
+    %{parser}
+    --merge-errors
+    %{new}
+    --merge-errors
+    %{updated}))))
 
 (rule
  (targets kosu_parser_messages.ml)
