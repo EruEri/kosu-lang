@@ -70,6 +70,12 @@ type 'a basic_block = {
   cfg_statements: 'a list;
   followed_by: StringSet.t;
   ending: basic_block_end option
+}
+
+type 'a basic_block_detail = {
+  basic_block: 'a basic_block;
+  in_vars: TypedIdentifierSet.t;
+  out_vars: TypedIdentifierSet.t;
 
 }
 
@@ -78,10 +84,20 @@ module BasicBlockSet = Set.Make(struct
   let compare (lhs: t) (rhs: t) = String.compare lhs.label rhs.label
   end)
 
+  module BasicBlockDetailSet = Set.Make(struct
+  type t = cfg_statement basic_block_detail
+  let compare (lhs: t) (rhs: t) = String.compare lhs.basic_block.label rhs.basic_block.label
+  end)
+
   type cfg = {
-  entry_block: string;
-  blocks: BasicBlockSet.t
-}
+    entry_block: string;
+    blocks: BasicBlockSet.t
+  }
+
+  type cfg_detail = {
+    entry_block: string;
+    blocks_details: BasicBlockDetailSet.t
+  }
 let fake_label_counter = ref 0
 
 let fake_label () = 
@@ -91,13 +107,6 @@ let fake_label () =
 
 
 module Convert = struct
-  let prepend_statement statement basic_block = {
-    basic_block with cfg_statements = statement::basic_block.cfg_statements
-  }
-
-  let append_statement statement basic_block = {
-    basic_block with cfg_statements = basic_block.cfg_statements @ [statement]
-  }
   
   let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements (stmts, return) = match stmts with 
     | [] -> let block =  {
@@ -202,7 +211,6 @@ module Convert = struct
         )
       )
     )
-
 end
 
 
@@ -221,7 +229,7 @@ module CfgPprint = struct
 let string_of_basic_block_end = function
 | Bbe_return tte -> Printf.sprintf "return %s" 
   (KosuIrTAC.Asttacpprint.string_of_typed_tac_expression tte)
-| BBe_if {condition; if_label; else_label} ->   Printf.sprintf "if %s goto %s\n\tgoto %s" 
+| BBe_if {condition; if_label; else_label} -> Printf.sprintf "if %s goto %s\n\tgoto %s" 
   (KosuIrTAC.Asttacpprint.string_of_typed_tac_expression condition)
   if_label
   else_label
@@ -233,16 +241,39 @@ let string_of_basic_block bb =
   (bb.cfg_statements |> List.map string_of_cfg_statement |> String.concat "\n\t")
   (bb.ending |> Option.map string_of_basic_block_end |> Option.value ~default:"")
 
-let string_of_cfg cfg = 
+let string_of_typed_indentifier (s, kt) = 
+  Printf.sprintf "(%s: %s)" s (KosuIrTyped.Asttypprint.string_of_rktype kt)
+
+let string_of_typed_indentifier_set set = 
+  set |> TypedIdentifierSet.elements |> List.map string_of_typed_indentifier |> String.concat ", "
+let string_of_basic_block_details bbd = 
+  Printf.sprintf "in_vars : {%s}\n%s\nout_vars : {%s}" 
+  (string_of_typed_indentifier_set bbd.in_vars) 
+  (string_of_basic_block bbd.basic_block)
+  (string_of_typed_indentifier_set bbd.out_vars)
+
+let string_of_cfg (cfg: cfg) = 
   Printf.sprintf "entry: %s\n\n%s"
   cfg.entry_block
   (cfg.blocks |> BasicBlockSet.elements |> List.map string_of_basic_block |> String.concat "\n\n")
+
+let string_of_cfg_details cfg = 
+  Printf.sprintf "entry: %s\n\n%s"
+  cfg.entry_block
+  (cfg.blocks_details |> BasicBlockDetailSet.elements |> List.map string_of_basic_block_details |> String.concat "\n\n")
 
 let string_of_named_cfg named_cfgs =
   named_cfgs |> List.map (fun (filename, cgfs) ->
     Printf.sprintf "========== %s ============\n\n%s"
     filename
     (cgfs |> List.map string_of_cfg |> String.concat "\n\n")
+  ) |> String.concat "\n\n"
+
+let string_of_named_cfg_details named_cfgs =
+  named_cfgs |> List.map (fun (filename, cgfs) ->
+    Printf.sprintf "========== %s ============\n\n%s"
+    filename
+    (cgfs |> List.map string_of_cfg_details |> String.concat "\n\n")
   ) |> String.concat "\n\n"
 
 end
