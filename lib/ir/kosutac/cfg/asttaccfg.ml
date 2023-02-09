@@ -76,7 +76,8 @@ module Cfg_Sig_Impl = struct
     | t::[] -> t::acc
     | _::_ -> failwith "UNreachable only one zero element"
   ) []
-  | RVAdress id | RVDefer id -> (id, ttrv.rval_rktype)::[]
+  | RVAdress id -> (id, KosuIrTyped.Asttyhelper.RType.rtpointee ttrv.rval_rktype)::[]
+  | RVDefer id -> (id, KosuIrTyped.Asttyhelper.RType.rpointer ttrv.rval_rktype)::[]
   | RVCustomBinop {blhs; brhs; _} | RVBuiltinBinop {blhs; brhs; _} -> 
     let lhs_identifier_used = tte_idenfier_used blhs in
     let rhs_identifier_used = tte_idenfier_used brhs in

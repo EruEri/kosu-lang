@@ -66,7 +66,7 @@ let () =
   let () = Printf.printf "%s\n\n" s_cfgs in *)
 
   let named_cfgs_details = named_cfgs |> List.map (fun (name, cfgs) -> 
-    (name, cfgs |> List.map KosuIrCfg.Asttaccfg.Cfg.Detail.of_cfg_details)
+    (name, cfgs |> List.map KosuIrCfg.Asttaccfg.Cfg.Detail.of_cfg)
   ) in
   let s = KosuIrCfg.Astcfgpprint.string_of_named_cfg_details named_cfgs_details in
   let () = Printf.printf "%s\n" s in
