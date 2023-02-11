@@ -1,7 +1,17 @@
 open KosuIrTAC.Asttac
 open Asttaccfg.Cfg_Sig_Impl
 
+let add_basic_block_map block map =
+  BasicBlockMap.add block.label block map
 
+let merge_basic_block_map lmap rmap = 
+  BasicBlockMap.union (fun key m1 m2 ->
+    let () = Printf.eprintf "Conficiting label = %s\n" key in
+    if (m1 <> m2) then
+      failwith "Diff for key"
+    else
+      Some m1
+  ) lmap rmap
   
 let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements (stmts, return) = match stmts with 
   | [] -> let block =  {
@@ -17,7 +27,7 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements (stmt
       end 
       | Some tte -> Some (Bbe_return tte) )
   } in
-  BasicBlockSet.singleton block
+  BasicBlockMap.singleton block.label block
 | (stmt::q) as _stmts -> begin match stmt with
   | STacDeclaration {identifier; trvalue} -> begin 
     let declaration =  CFG_STacDeclaration {identifier; trvalue} in
@@ -42,10 +52,10 @@ end
 
     let blocks_continuation = of_tac_statements ~start_label:exit_label ~end_labels ~ending ~cfg_statements:[] (q, return) in
     
-    continuation
-    |> BasicBlockSet.union if_blocks
-    |> BasicBlockSet.union else_blocks
-    |> BasicBlockSet.union blocks_continuation
+     continuation
+    |> merge_basic_block_map if_blocks
+    |> merge_basic_block_map else_blocks
+    |> merge_basic_block_map blocks_continuation
   | SCases {cases = {condition_label; statement_for_condition; condition; goto; jmp_false; end_label; tac_body}::tac_cases; else_tac_body; exit_label} -> 
     let () = match condition_label with
     | None -> ()
@@ -65,17 +75,17 @@ end
         ~cfg_statements:[] (statement_for_condition, None) in
       let block = of_tac_body ~end_labels:[end_label] tac_body in
       acc
-      |> BasicBlockSet.union block_condition
-      |> BasicBlockSet.union block
-  ) BasicBlockSet.empty in
+      |> merge_basic_block_map block_condition
+      |> merge_basic_block_map block
+  ) BasicBlockMap.empty in
 
   let else_basic_block = of_tac_body ~end_labels:[exit_label] else_tac_body in
 
     continuation
-    |> BasicBlockSet.union first_block_body
-    |> BasicBlockSet.union cases_basic_block
-    |> BasicBlockSet.union else_basic_block
-    |> BasicBlockSet.union blocks_continuation
+    |> merge_basic_block_map first_block_body
+    |> merge_basic_block_map cases_basic_block
+    |> merge_basic_block_map else_basic_block
+    |> merge_basic_block_map blocks_continuation
 
   | SCases {cases = []; else_tac_body = _; exit_label = _} -> failwith "Unreachable code: Syntax for at least a branch"
   | STSwitch _ -> failwith "switch todo"

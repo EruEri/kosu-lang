@@ -43,14 +43,12 @@ module Cfg_Sig_Impl = struct
     ending: basic_block_end option
   }
 
-  module BasicBlockSet = Set.Make(struct
-    type t = cfg_statement basic_block
-    let compare (lhs: t) (rhs: t) = String.compare lhs.label rhs.label
-  end)
+  module BasicBlockMap = Map.Make(String)
+  include BasicBlockMap
 
   type cfg = {
     entry_block: string;
-    blocks: BasicBlockSet.t
+    blocks: (cfg_statement basic_block) BasicBlockMap.t
   }
 
   let compare_type: rktype -> rktype -> int = Stdlib.compare
