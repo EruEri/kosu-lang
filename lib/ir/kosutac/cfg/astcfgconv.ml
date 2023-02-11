@@ -1,17 +1,31 @@
 open KosuIrTAC.Asttac
 open Asttaccfg.Cfg_Sig_Impl
+open Asttaccfg.Cfg.Basic
 
-let add_basic_block_map block map =
-  BasicBlockMap.add block.label block map
+let fake_label_counter = ref 0
+
+let fake_label () = 
+  let n = !fake_label_counter in
+  let () = fake_label_counter := n + 1 in
+  Printf.sprintf "fake_label.%u" n
 
 let merge_basic_block_map lmap rmap = 
-  BasicBlockMap.union (fun key m1 m2 ->
+  Asttaccfg.BasicBlockMap.union (fun key m1 m2 ->
     let () = Printf.eprintf "Conficiting label = %s\n" key in
     if (m1 <> m2) then
       failwith "Diff for key"
     else
       Some m1
   ) lmap rmap
+
+let typed_set_of_locales_vars locals_vars =                    
+  locals_vars
+  |> List.map (fun { locale_ty; locale } ->
+         match locale with
+         | Locale s -> (s, locale_ty)
+         | Enum_Assoc_id { name; _ } -> (name, locale_ty))
+  |> TypedIdentifierSet.of_list
+
   
 let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements (stmts, return) = match stmts with 
   | [] -> let block =  {
@@ -24,10 +38,10 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements (stmt
         | None -> None
         | Some ending -> Some (BBe_if ending)
 
-      end 
+      end
       | Some tte -> Some (Bbe_return tte) )
   } in
-  BasicBlockMap.singleton block.label block
+  Asttaccfg.Cfg.BasicBlockMap.singleton block.label block
 | (stmt::q) as _stmts -> begin match stmt with
   | STacDeclaration {identifier; trvalue} -> begin 
     let declaration =  CFG_STacDeclaration {identifier; trvalue} in
@@ -77,7 +91,7 @@ end
       acc
       |> merge_basic_block_map block_condition
       |> merge_basic_block_map block
-  ) BasicBlockMap.empty in
+  ) Asttaccfg.BasicBlockMap.empty in
 
   let else_basic_block = of_tac_body ~end_labels:[exit_label] else_tac_body in
 
@@ -93,11 +107,13 @@ end
 
 and of_tac_body ~end_labels ({label; body} : tac_body) = of_tac_statements ~ending:None ~start_label:label ~end_labels ~cfg_statements:[] body
 
-let of_tac_body tac_body = 
+let of_tac_body tac_body ~parameters ~locals_vars = 
   let basic_blocks = of_tac_body ~end_labels:[] tac_body in
   {
     entry_block = tac_body.label;
     blocks = basic_blocks;
+    parameters;
+    locals_vars 
   }
 
 
@@ -108,7 +124,7 @@ let cfgs_of_tac_program named_tacmodules =
       filename,
       tac_nodes |> List.filter_map (function
       | TNFunction tacfun -> 
-        Some (of_tac_body tacfun.tac_body)
+        Some (of_tac_body tacfun.tac_body ~parameters:(TypedIdentifierSet.of_list tacfun.rparameters) ~locals_vars:(typed_set_of_locales_vars tacfun.locale_var) )
       | _ -> None
       )
     )

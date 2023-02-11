@@ -1,6 +1,9 @@
 open KosuIrTAC.Asttac
+open Asttaccfg.Cfg
 open Asttaccfg.Cfg_Sig_Impl
 open Asttaccfg.Cfg.Detail
+open Asttaccfg.Cfg.Basic
+
   
   let string_of_cfg_statement = function
 | CFG_STacDeclaration {identifier; trvalue} ->
@@ -44,7 +47,7 @@ let string_of_cfg (cfg: cfg) =
   cfg.entry_block
   (cfg.blocks |> BasicBlockMap.bindings |> List.map snd |> List.map string_of_basic_block |> String.concat "\n\n")
 
-let string_of_cfg_details cfg = 
+let string_of_cfg_details (cfg: Asttaccfg.Cfg.Detail.cfg_detail) = 
   Printf.sprintf "entry: %s\n\n%s"
   cfg.entry_block
   (cfg.blocks_details |> Asttaccfg.Cfg.Detail.BasicBlockDetailMap.bindings |> List.map snd |> List.map string_of_basic_block_details |> String.concat "\n\n")

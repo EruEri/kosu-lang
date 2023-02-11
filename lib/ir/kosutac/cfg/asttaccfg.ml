@@ -36,21 +36,6 @@ module Cfg_Sig_Impl = struct
   | BBe_if of bbe_if
   | Bbe_return of tac_typed_expression
 
-  type 'a basic_block = {
-    label: string;
-    cfg_statements: 'a list;
-    followed_by: StringSet.t;
-    ending: basic_block_end option
-  }
-
-  module BasicBlockMap = Map.Make(String)
-  include BasicBlockMap
-
-  type cfg = {
-    entry_block: string;
-    blocks: (cfg_statement basic_block) BasicBlockMap.t
-  }
-
   let compare_type: rktype -> rktype -> int = Stdlib.compare
   let declaration_typed: string -> tac_typed_rvalue -> rktype = fun _ -> fun ttrv -> ttrv.rval_rktype
 
@@ -92,9 +77,4 @@ module Cfg_Sig_Impl = struct
 end
 
 module Cfg = Register_allocator.Cgf.Make(Cfg_Sig_Impl)
-let fake_label_counter = ref 0
-
-let fake_label () = 
-  let n = !fake_label_counter in
-  let () = fake_label_counter := n + 1 in
-  Printf.sprintf "fake_label.%u" n
+module BasicBlockMap = Cfg.BasicBlockMap
