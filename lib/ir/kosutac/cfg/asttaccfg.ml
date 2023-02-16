@@ -15,9 +15,9 @@ module Cfg_Sig_Impl = struct
       if string_compare = 0 then compare (snd lhs) (snd rhs)
       else string_compare  
 
-  let declaration_typed: string -> tac_typed_rvalue -> rktype = fun _ -> fun ttrv -> ttrv.rval_rktype
+  let declaration_typed: tac_typed_rvalue -> rktype = fun ttrv -> ttrv.rval_rktype
 
-  let derefed_typed: string -> tac_typed_rvalue -> rktype = fun _ -> fun ttrv -> RTPointer ttrv.rval_rktype
+  let derefed_typed:  tac_typed_rvalue -> rktype = fun ttrv -> RTPointer ttrv.rval_rktype
 
   let tte_idenfier_used: tac_typed_expression -> (string * rktype) list = function
   | {tac_expression = TEIdentifier id; expr_rktype} -> (id, expr_rktype)::[]
