@@ -27,6 +27,8 @@ let () =
     files |> List.partition (fun s -> s |> Filename.extension |> ( = ) ".kosu")
   in
 
+  let delete_useless_stmt = Clap.flag ~set_long:"del-stmt" ~set_short:'D' ~description:"Delete used statements in the graph" false in
+
   let () = Clap.close () in
 
   let modules_opt = Cli.files_to_ast_program kosu_files in
@@ -62,12 +64,15 @@ let () =
             tac_program)
   in
   let named_cfgs = KosuIrCfg.Astcfgconv.cfgs_of_tac_program tac_program in
-  (* let s_cfgs = KosuIrCfg.Asttaccfg.CfgPprint.string_of_named_cfg named_cfgs in
-  let () = Printf.printf "%s\n\n" s_cfgs in *)
 
   let named_cfgs_details = named_cfgs |> List.map (fun (name, cfgs) -> 
     (name, cfgs |> List.map KosuIrCfg.Asttaccfg.Cfg.Detail.of_cfg)
   ) in
-  let s = KosuIrCfg.Astcfgpprint.string_of_named_cfg_details named_cfgs_details in
+
+  let named_cfgs_liveness_details = named_cfgs_details |> List.map (fun (name, cfgs) -> 
+    (name, cfgs |> List.map (KosuIrCfg.Asttaccfg.Cfg.Liveness.of_cfg_details ~delete_useless_stmt) )
+  ) in
+
+  let s = KosuIrCfg.Astcfgpprint.string_of_named_cfg_liveness_details named_cfgs_liveness_details in
   let () = Printf.printf "%s\n" s in
   ()
