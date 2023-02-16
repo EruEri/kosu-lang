@@ -10,33 +10,11 @@ module Cfg_Sig_Impl = struct
   type tac_typed_rvalue = KosuIrTAC.Asttac.tac_typed_rvalue
   type tac_typed_expression = KosuIrTAC.Asttac.tac_typed_expression
 
-  module TypedIdentifierSet = Set.Make (struct
-    type t = string * rktype
-    let compare lhs rhs = 
+  let compare lhs rhs = 
       let string_compare = compare (fst lhs) (fst rhs) in
       if string_compare = 0 then compare (snd lhs) (snd rhs)
       else string_compare  
-  end
-  )
 
-  include TypedIdentifierSet
-
-  type cfg_statement =
-  | CFG_STacDeclaration of { identifier : string; trvalue : tac_typed_rvalue }
-  | CFG_STacModification of { identifier : string; trvalue : tac_typed_rvalue }
-  | CFG_STDerefAffectation of { identifier : string; trvalue : tac_typed_rvalue }
-
-  type bbe_if = {
-    condition: tac_typed_expression;
-    if_label: string;
-    else_label: string;
-  }
-
-  type basic_block_end = 
-  | BBe_if of bbe_if
-  | Bbe_return of tac_typed_expression
-
-  let compare_type: rktype -> rktype -> int = Stdlib.compare
   let declaration_typed: string -> tac_typed_rvalue -> rktype = fun _ -> fun ttrv -> ttrv.rval_rktype
 
   let derefed_typed: string -> tac_typed_rvalue -> rktype = fun _ -> fun ttrv -> RTPointer ttrv.rval_rktype
@@ -73,8 +51,11 @@ module Cfg_Sig_Impl = struct
   ) []
   | RVDiscard | RVLater -> []
 
-  
+  let is_affectation = function
+  | { rvalue = RVDiscard | RVLater; _} -> false
+  | _ -> true
 end
 
 module Cfg = Register_allocator.Cgf.Make(Cfg_Sig_Impl)
 module BasicBlockMap = Cfg.BasicBlockMap
+module TypedIdentifierSet = Cfg.TypedIdentifierSet

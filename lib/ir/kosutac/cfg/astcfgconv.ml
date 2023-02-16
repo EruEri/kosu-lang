@@ -1,5 +1,4 @@
 open KosuIrTAC.Asttac
-open Asttaccfg.Cfg_Sig_Impl
 open Asttaccfg.Cfg.Basic
 
 let fake_label_counter = ref 0
@@ -24,7 +23,7 @@ let typed_set_of_locales_vars locals_vars =
          match locale with
          | Locale s -> (s, locale_ty)
          | Enum_Assoc_id { name; _ } -> (name, locale_ty))
-  |> TypedIdentifierSet.of_list
+  |> Asttaccfg.TypedIdentifierSet.of_list
 
   
 let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements (stmts, return) = match stmts with 
@@ -44,15 +43,15 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements (stmt
   Asttaccfg.Cfg.BasicBlockMap.singleton block.label block
 | (stmt::q) as _stmts -> begin match stmt with
   | STacDeclaration {identifier; trvalue} -> begin 
-    let declaration =  CFG_STacDeclaration {identifier; trvalue} in
+    let declaration = Asttaccfg.Cfg.CFG_STacDeclaration {identifier; trvalue} in
     of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements:(declaration::cfg_statements) (q, return)
   end
   | STacModification {identifier; trvalue} -> begin 
-    let modification = CFG_STacModification {identifier; trvalue} in
+    let modification = Asttaccfg.Cfg.CFG_STacModification {identifier; trvalue} in
     of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements:(modification::cfg_statements) (q, return)
 end
   | STDerefAffectation {identifier; trvalue} -> begin 
-    let derefaffect = CFG_STDerefAffectation {identifier; trvalue} in
+    let derefaffect = Asttaccfg.Cfg.CFG_STDerefAffectation {identifier; trvalue} in
     of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements:(derefaffect::cfg_statements) (q, return)
 end
   | STIf {statement_for_bool; condition_rvalue; goto1; goto2; if_tac_body; else_tac_body; exit_label} ->
@@ -124,7 +123,7 @@ let cfgs_of_tac_program named_tacmodules =
       filename,
       tac_nodes |> List.filter_map (function
       | TNFunction tacfun -> 
-        Some (of_tac_body tacfun.tac_body ~parameters:(TypedIdentifierSet.of_list tacfun.rparameters) ~locals_vars:(typed_set_of_locales_vars tacfun.locale_var) )
+        Some (of_tac_body tacfun.tac_body ~parameters:(Asttaccfg.TypedIdentifierSet.of_list tacfun.rparameters) ~locals_vars:(typed_set_of_locales_vars tacfun.locale_var) )
       | _ -> None
       )
     )

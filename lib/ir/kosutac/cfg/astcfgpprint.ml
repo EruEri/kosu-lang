@@ -1,6 +1,5 @@
 open KosuIrTAC.Asttac
 open Asttaccfg.Cfg
-open Asttaccfg.Cfg_Sig_Impl
 open Asttaccfg.Cfg.Detail
 open Asttaccfg.Cfg.Basic
 
@@ -50,7 +49,7 @@ let string_of_cfg (cfg: cfg) =
 let string_of_cfg_details (cfg: Asttaccfg.Cfg.Detail.cfg_detail) = 
   Printf.sprintf "entry: %s\n\n%s"
   cfg.entry_block
-  (cfg.blocks_details |> Asttaccfg.Cfg.Detail.BasicBlockDetailMap.bindings |> List.map snd |> List.map string_of_basic_block_details |> String.concat "\n\n")
+  (cfg.blocks_details |> Asttaccfg.BasicBlockMap.bindings |> List.map snd |> List.map string_of_basic_block_details |> String.concat "\n\n")
 
 let string_of_named_cfg named_cfgs =
   named_cfgs |> List.map (fun (filename, cgfs) ->
