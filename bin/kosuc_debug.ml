@@ -20,9 +20,30 @@ open KosuIrTyped
 open KosuIrTAC
 open KosuCli
 
+type cfg_type = 
+| Basic
+| Detail
+| Liveness
+
+let cfg_type_of_string_opt = function
+| "basic" -> Some Basic
+| "detail" -> Some Detail
+| "live" -> Some Liveness
+| _ -> None
+
+let string_of_cfg_type = function
+| Basic -> "basic"
+| Detail -> "detail"
+| Liveness -> "liveness"
+
+
+let cfg_type = Clap.typ ~name:"cfg_type" ~dummy:Basic ~parse:cfg_type_of_string_opt ~show:string_of_cfg_type
+
 let () = 
 
   let out = Clap.optional_string ~long:"output" ~short:'o' () in
+
+  let cfg_type_opt = Clap.optional cfg_type ~description:"Which control flow graph iteration should be displayed [basic, detail, live]\n default : detail" ~long:"cfg-type" () in
 
   let dot_function = Clap.optional_string ~long:"dot" ~short:'d' ~description:"Generate the Control flow graph for a specifique funtion" () in
 
@@ -93,6 +114,13 @@ let () =
     in
     ()
   | None ->
-    let s = KosuIrCfg.Astcfgpprint.string_of_named_cfg_liveness_details named_cfgs_liveness_details in
-    let () = Printf.printf "%s\n" s in
+    let cfg_type_opt = Option.value ~default:Detail cfg_type_opt in
+
+    let string_cfg = match cfg_type_opt with
+      | Basic -> KosuIrCfg.Astcfgpprint.string_of_named_cfg named_cfgs 
+      | Detail -> KosuIrCfg.Astcfgpprint.string_of_named_cfg_details named_cfgs_details
+      | Liveness -> KosuIrCfg.Astcfgpprint.string_of_named_cfg_liveness_details named_cfgs_liveness_details
+    in
+
+    let () = Printf.printf "%s\n" string_cfg in
   ()
