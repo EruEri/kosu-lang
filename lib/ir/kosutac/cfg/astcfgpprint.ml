@@ -107,7 +107,9 @@ type dot_digraph_node = {
   name: string;
   elements: string list;
   ending: string option;
-  link_to: string list
+  link_to: string list;
+  din_vars: TypedIdentifierSet.t;
+  dout_vars: TypedIdentifierSet.t;
 }
 
 type dot_digrah = {
@@ -118,18 +120,20 @@ type dot_digrah = {
 
 let convert = String.map (fun c -> if c = ':' || c = '.' then '_' else c)
 
-let diagraph_node_of_basic_block ~(func : 'a -> string) (bb: 'a Basic.basic_block) = 
+let diagraph_node_of_basic_block ~(func : 'a -> string) ?(in_vars = TypedIdentifierSet.empty) ?(out_vars = TypedIdentifierSet.empty) (bb: 'a Basic.basic_block) = 
   {
     name = bb.label;
     elements = List.map func bb.cfg_statements;
     ending = bb.ending |> Option.map (string_of_basic_block_end);
-    link_to = Asttaccfg.StringSet.elements bb.followed_by
+    link_to = Asttaccfg.StringSet.elements bb.followed_by;
+    din_vars = in_vars;
+    dout_vars = out_vars;
   }
 
 let dot_digrah_of_cfg (cfg: Asttaccfg.Cfg.Detail.cfg_detail) = 
   {
     entry = cfg.entry_block;
-    nodes = cfg.blocks_details |> Asttaccfg.BasicBlockMap.bindings |> List.map (fun (_, bb) -> diagraph_node_of_basic_block ~func:string_of_cfg_statement bb.basic_block)
+    nodes = cfg.blocks_details |> Asttaccfg.BasicBlockMap.bindings |> List.map (fun (_, bb) -> diagraph_node_of_basic_block ~in_vars:bb.in_vars ~out_vars:bb.out_vars ~func:string_of_cfg_statement bb.basic_block)
   }
 
 let dot_chars_to_escape = ['<']
@@ -149,12 +153,14 @@ let string_of_dot_graph ?(out = stdout) graph =
   let () = Printf.fprintf out "digraph %s {\n" graph.entry in
   let () = Printf.fprintf out "\tnode [shape=record fontname=Arial];\n\n" in
   let () = Printf.fprintf out "%s" (graph.nodes 
-  |> List.map (fun {name; elements; ending; _} -> 
-    Printf.sprintf "\t\"%s\" [label=\"%s:\\l%s%s\"];"
+  |> List.map (fun {name; elements; ending; din_vars; dout_vars; _} -> 
+    Printf.sprintf "\t\"%s\" [label=\"invars \\{%s\\}\\n%s:\\l%s%s\\l\\loutvars \\{%s\\}\"];"
      name 
+     (string_of_typed_indentifier_set din_vars)
      name
      ( elements |> String.concat "\n" |>  String.escaped |> escape ~chars:dot_chars_to_escape)
      (ending |> Option.map ( ( ^ ) "\\n") |> Option.value ~default:"")
+     (string_of_typed_indentifier_set dout_vars)
     ) |> String.concat "\n"
   ) in
   let () = Printf.fprintf out "\n" in
