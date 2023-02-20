@@ -150,8 +150,9 @@ let string_of_dot_graph ?(out = stdout) graph =
   let () = Printf.fprintf out "\tnode [shape=record fontname=Arial];\n\n" in
   let () = Printf.fprintf out "%s" (graph.nodes 
   |> List.map (fun {name; elements; ending; _} -> 
-    Printf.sprintf "\t\"%s\" [label=\"%s%s\"];"
+    Printf.sprintf "\t\"%s\" [label=\"%s:\\l%s%s\"];"
      name 
+     name
      ( elements |> String.concat "\n" |>  String.escaped |> escape ~chars:dot_chars_to_escape)
      (ending |> Option.map ( ( ^ ) "\\n") |> Option.value ~default:"")
     ) |> String.concat "\n"
