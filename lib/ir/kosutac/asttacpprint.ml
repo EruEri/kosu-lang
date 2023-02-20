@@ -60,7 +60,6 @@ let rec string_of_typed_locale typed_locale =
 and string_of_label_tac_body ?(end_jmp = None) tac_body =
   sprintf "%s:\n\t%s \n\n" tac_body.label
     (string_of_tac_body ~end_jmp tac_body.body)
-
 and string_of_tac_statement = function
   | STacDeclaration { identifier; trvalue } ->
       sprintf "%s = %s" identifier (string_of_typed_tac_rvalue trvalue)
@@ -306,7 +305,7 @@ and string_of_tac_rvalue = function
   | RVDiscard -> "discard"
 
 and string_of_typed_tac_rvalue { rval_rktype; rvalue } =
-  sprintf "%s ::> %s"
+  sprintf "%s :: %s"
     (string_of_tac_rvalue rvalue)
     (string_of_rktype rval_rktype)
 

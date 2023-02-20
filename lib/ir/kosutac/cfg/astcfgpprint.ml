@@ -103,3 +103,71 @@ let string_of_named_cfg_liveness_details named_cfgs =
     (cgfs |> List.map string_of_cfg_liveness_details |> String.concat "\n\n")
   ) |> String.concat "\n\n"
 
+type dot_digraph_node = {
+  name: string;
+  elements: string list;
+  ending: string option;
+  link_to: string list
+}
+
+type dot_digrah = {
+  entry: string;
+  nodes: dot_digraph_node list
+  }
+
+
+let convert = String.map (fun c -> if c = ':' || c = '.' then '_' else c)
+
+let diagraph_node_of_basic_block ~(func : 'a -> string) (bb: 'a Basic.basic_block) = 
+  {
+    name = bb.label;
+    elements = List.map func bb.cfg_statements;
+    ending = bb.ending |> Option.map (string_of_basic_block_end);
+    link_to = Asttaccfg.StringSet.elements bb.followed_by
+  }
+
+let dot_digrah_of_cfg (cfg: Asttaccfg.Cfg.Detail.cfg_detail) = 
+  {
+    entry = cfg.entry_block;
+    nodes = cfg.blocks_details |> Asttaccfg.BasicBlockMap.bindings |> List.map (fun (_, bb) -> diagraph_node_of_basic_block ~func:string_of_cfg_statement bb.basic_block)
+  }
+
+let dot_chars_to_escape = ['<']
+
+let escape ~chars s =
+  let buffer = Buffer.create (String.length s) in
+  let () = s |> String.iter (fun c -> 
+    match List.mem c chars with
+    | false -> Buffer.add_char buffer c
+    | true -> Printf.bprintf buffer "\\%c" c
+  ) in
+  buffer |> Buffer.to_bytes |> Bytes.to_string
+
+let string_of_dot_graph ?(out = stdout) graph = 
+  let open Printf in
+  let links = graph.nodes |> List.map (fun {name; link_to; _} -> (name, link_to)) in
+  let () = Printf.fprintf out "digraph %s {\n" graph.entry in
+  let () = Printf.fprintf out "\tnode [shape=record fontname=Arial];\n\n" in
+  let () = Printf.fprintf out "%s" (graph.nodes 
+  |> List.map (fun {name; elements; ending; _} -> 
+    Printf.sprintf "\t\"%s\" [label=\"%s%s\"];"
+     name 
+     ( elements |> String.concat "\n" |>  String.escaped |> escape ~chars:dot_chars_to_escape)
+     (ending |> Option.map ( ( ^ ) "\\n") |> Option.value ~default:"")
+    ) |> String.concat "\n"
+  ) in
+  let () = Printf.fprintf out "\n" in
+  let () = Printf.fprintf out "\n\t%s" (
+    links |> List.map (fun (name, link_to) -> 
+      link_to |> List.map (fun link -> 
+        sprintf "\"%s\" -> \"%s\"" name link
+    ) |> String.concat ";\n\t"
+  ) |> String.concat "\n\t"
+  ) in
+  let () = Printf.fprintf out "\n\n}" in
+  ()
+
+let fetch_function (fun_name: string) (named_cfg) = 
+  named_cfg |> List.find_map (fun (_, functions) ->
+    functions |> List.find_map (fun (cfg: Asttaccfg.Cfg.Detail.cfg_detail) -> if cfg.entry_block = fun_name then Some cfg else None )
+  )

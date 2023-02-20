@@ -21,13 +21,18 @@ open KosuIrTAC
 open KosuCli
 
 let () = 
+
+  let out = Clap.optional_string ~long:"output" ~short:'o' () in
+
+  let dot_function = Clap.optional_string ~long:"dot" ~short:'d' ~description:"Generate the Control flow graph for a specifique funtion" () in
+
+  let delete_useless_stmt = Clap.flag ~set_long:"del-stmt" ~set_short:'D' ~description:"Delete used statements in the graph" false in
+
   let files = Clap.list_string ~description:"files" ~placeholder:"FILES" () in
 
   let kosu_files, _ =
     files |> List.partition (fun s -> s |> Filename.extension |> ( = ) ".kosu")
   in
-
-  let delete_useless_stmt = Clap.flag ~set_long:"del-stmt" ~set_short:'D' ~description:"Delete used statements in the graph" false in
 
   let () = Clap.close () in
 
@@ -73,6 +78,21 @@ let () =
     (name, cfgs |> List.map (KosuIrCfg.Asttaccfg.Cfg.Liveness.of_cfg_details ~delete_useless_stmt) )
   ) in
 
-  let s = KosuIrCfg.Astcfgpprint.string_of_named_cfg_liveness_details named_cfgs_liveness_details in
-  let () = Printf.printf "%s\n" s in
+  match dot_function with
+  | Some name -> 
+    let block = KosuIrCfg.Astcfgpprint.fetch_function name named_cfgs_details in
+    let _ = block |> Option.iter (fun block -> 
+      let outchan = match out with
+        | None -> stdout
+        | Some o -> open_out o 
+      in
+      let () = block |> KosuIrCfg.Astcfgpprint.dot_digrah_of_cfg |> KosuIrCfg.Astcfgpprint.string_of_dot_graph ~out:outchan in
+      let () = Option.iter (fun _ -> close_out outchan) out in
+      ()
+      ) 
+    in
+    ()
+  | None ->
+    let s = KosuIrCfg.Astcfgpprint.string_of_named_cfg_liveness_details named_cfgs_liveness_details in
+    let () = Printf.printf "%s\n" s in
   ()
