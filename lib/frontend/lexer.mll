@@ -179,7 +179,14 @@ and read_string buffer = parse
     read_string buffer lexbuf 
 }
 | '\\' { ( Unexpected_escaped_char ((current_position lexbuf) , (lexbuf |> lexeme) ))  |> raw_lexer_error |> raise }
-| _ as s { Buffer.add_char buffer s; read_string buffer lexbuf }
+
+| _ as c { 
+    if c = '\n' then 
+        next_line_and (read_string buffer) lexbuf
+    else
+        let () = Buffer.add_char buffer c in
+        read_string buffer lexbuf 
+}
 | eof {
     (Unclosed_string (current_position lexbuf)  |> raw_lexer_error |> raise )  
 }
