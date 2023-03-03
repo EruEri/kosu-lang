@@ -218,7 +218,7 @@ module Cli = struct
   let ccol_term = Arg.(value & Arg.opt_all (non_dir_file) [] & info ["ccol"] ~docv:"C FILES" ~doc:"Invoke the default C compiler to generate object file and link those \
   files")
 
-  let files_term = Arg.(non_empty &  pos_all (Arg.non_dir_file) [] & info [] ~docv:"FILES" ~doc:"Input files of the compiler. Kosu files must have the extension .kosu. Files ending \ 
+  let files_term = Arg.(non_empty & pos_all (Arg.non_dir_file) [] & info [] ~docv:"FILES" ~doc:"Input files of the compiler. Kosu files must have the extension .kosu. Files ending \ 
   with .o are treated as object files to be passed to the linker. If --cc flag is set, any files recognized by the $(b,cc(1)) can be passed. 
   " )
 
