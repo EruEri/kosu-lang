@@ -220,7 +220,7 @@ module Cli = struct
   " )
 
   let cmd_term run = 
-    let combine target_archi no_std verbose is_target_asm cc output ccol cclib files = 
+    let combine target_archi no_std verbose cc is_target_asm  output ccol cclib files = 
       run @@ {
         target_archi;
         no_std;
@@ -236,9 +236,9 @@ module Cli = struct
     Term.(const combine
       $ target_archi_term
       $ no_std_term
+      $ verbose_term
       $ cc_term
       $ target_asm_term
-      $ verbose_term
       $ output_term
       $ ccol_term
       $ cclib_term
