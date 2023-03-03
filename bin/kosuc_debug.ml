@@ -40,6 +40,7 @@ let string_of_cfg_type = function
 let cfg_type = Clap.typ ~name:"cfg_type" ~dummy:Basic ~parse:cfg_type_of_string_opt ~show:string_of_cfg_type
 
 let () = 
+  let () = KosuFrontend.Registerexn.register_kosu_error () in
 
   let out = Clap.optional_string ~long:"output" ~short:'o' () in
 
@@ -101,13 +102,13 @@ let () =
 
   match dot_function with
   | Some name -> 
-    let block = KosuIrCfg.Astcfgpprint.fetch_function name named_cfgs_details in
+    let block = KosuIrCfg.Astcfgpprint.fetch_function_liveness name named_cfgs_liveness_details in
     let _ = block |> Option.iter (fun block -> 
       let outchan = match out with
         | None -> stdout
         | Some o -> open_out o 
       in
-      let () = block |> KosuIrCfg.Astcfgpprint.dot_digrah_of_cfg |> KosuIrCfg.Astcfgpprint.string_of_dot_graph ~out:outchan in
+      let () = block |> KosuIrCfg.Astcfgpprint.dot_diagrah_of_cfg_liveness |> KosuIrCfg.Astcfgpprint.string_of_dot_graph ~out:outchan in
       let () = Option.iter (fun _ -> close_out outchan) out in
       ()
       ) 

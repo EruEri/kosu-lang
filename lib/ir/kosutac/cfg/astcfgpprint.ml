@@ -136,7 +136,15 @@ let dot_digrah_of_cfg (cfg: Asttaccfg.Cfg.Detail.cfg_detail) =
     nodes = cfg.blocks_details |> Asttaccfg.BasicBlockMap.bindings |> List.map (fun (_, bb) -> diagraph_node_of_basic_block ~in_vars:bb.in_vars ~out_vars:bb.out_vars ~func:string_of_cfg_statement bb.basic_block)
   }
 
-let dot_chars_to_escape = ['<']
+let dot_diagrah_of_cfg_liveness (cfg: Asttaccfg.Cfg.Liveness.cfg_liveness_detail) = 
+  {
+    entry = cfg.entry_block;
+    nodes = cfg.blocks_liveness_details |> Asttaccfg.BasicBlockMap.bindings |> List.map (fun (_, bbl) ->
+      diagraph_node_of_basic_block ~in_vars:bbl.in_vars ~out_vars:bbl.out_vars ~func:string_of_cfg_liveness_statement bbl.basic_block
+    )
+  }
+
+let dot_chars_to_escape = ['<'; '>']
 
 let escape ~chars s =
   let buffer = Buffer.create (String.length s) in
@@ -177,4 +185,11 @@ let string_of_dot_graph ?(out = stdout) graph =
 let fetch_function (fun_name: string) (named_cfg) = 
   named_cfg |> List.find_map (fun (_, functions) ->
     functions |> List.find_map (fun (cfg: Asttaccfg.Cfg.Detail.cfg_detail) -> if cfg.entry_block = fun_name then Some cfg else None )
+  )
+
+let fetch_function_liveness (fun_name: string) liveness_cfg = 
+  liveness_cfg |> List.find_map (fun (_, functions) -> 
+    functions |> List.find_map (fun (cfg: Asttaccfg.Cfg.Liveness.cfg_liveness_detail) -> 
+      if cfg.entry_block = fun_name then Some cfg else None
+    )
   )
