@@ -197,7 +197,7 @@ module Cli = struct
 
   let output_term = Arg.(value & opt string default_outfile & info ["o"; "output"] ~docv:"EXECUTABLE NAME" ~doc:"Specify the name of the file producted by the linker")
 
-  let ccol_term = Arg.(value & opt (list non_dir_file) [] & info ["ccol"] ~docv:"C FILES" ~doc:"Invoke the default C compiler to generate object file and link those \
+  let ccol_term = Arg.(value & Arg.opt_all (non_dir_file) [] & info ["ccol"] ~docv:"C FILES" ~doc:"Invoke the default C compiler to generate object file and link those \
   files")
 
   let files_term = Arg.(value & pos_all (Arg.non_dir_file) [] & info [] ~docv:"FILES" ~doc:"Input files of the compiler. Kosu files must have the extension .kosu. File ending \ 

@@ -15,5 +15,7 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
+let () = KosuFrontend.Registerexn.register_kosu_error ()
+
 let code = KosuCli.Cli.eval ()
 let () = exit code
