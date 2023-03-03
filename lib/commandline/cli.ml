@@ -148,3 +148,182 @@ let fetch_std_file ~no_std () =
   else
     let std_path = Option.get std_path in
     fetch_kosu_file std_path ()
+
+
+
+module Kosuc_Cli = struct
+  open Cmdliner
+  open KosuFrontend.Astvalidation
+  open KosuIrTyped
+  open KosuIrTAC
+
+  module Mac0SX86 =
+  KosuBackend.Codegen.Make
+    (KosuBackend.X86_64.X86_64Codegen.Codegen
+       (KosuBackend.X86_64.X86_64AsmSpecImpl.X86MacOsAsmSpec))
+
+  module LinuxX86 =
+    KosuBackend.Codegen.Make
+      (KosuBackend.X86_64.X86_64Codegen.Codegen
+        (KosuBackend.X86_64.X86_64AsmSpecImpl.X86_64LinuxAsmSpec))
+
+  module MacOSAarch64 =
+    KosuBackend.Codegen.Make
+      (KosuBackend.Aarch64.Aarch64Codegen.Codegen
+        (KosuBackend.Aarch64.Aarch64AsmSpecImpl.MacOSAarch64AsmSpec))
+
+
+  let name = "kosuc"
+
+  let version = "not-even-alpha"
+
+  type cmd = {
+    target_archi: archi_target;
+    no_std: bool;
+    is_target_asm: bool;
+    cc: bool;
+    output: string;
+    ccol: string list;
+    files: string list
+  }
+
+  let default_outfile = "a.out"
+
+  let target_enum = [("arm64e", Arm64e); ("x86_64", X86_64); ("x86_64m", X86_64m)]
+  let target_archi_term = Arg.(required & opt (some & enum target_enum) None & info ~docv:"Assembly Target" ~doc:"Assembly Target Architecture" ["t"; "target"] )
+  let no_std_term = Arg.(value & flag & info ["no-std"] ~doc:"Don't include the standard librairy")
+  let cc_term = Arg.(value & flag & info ["cc"] ~doc:"Generate executable by using a C compiler")
+  let target_asm_term = Arg.(value & flag & info ["S"] ~doc:"Produce assembly files")
+
+  let output_term = Arg.(value & opt string default_outfile & info ["o"; "output"] ~docv:"EXECUTABLE NAME" ~doc:"Specify the name of the file producted by the linker")
+
+  let ccol_term = Arg.(value & opt (list non_dir_file) [] & info ["ccol"] ~docv:"C FILES" ~doc:"Invoke the default C compiler to generate object file and link those \
+  files")
+
+  let files_term = Arg.(value & pos_all (Arg.non_dir_file) [] & info [] ~docv:"FILES" ~doc:"Input files of the compiler. Kosu files must have the extension .kosu. File ending \ 
+  with .o are treated as object files to be passed to the linker. If --cc flag is set, any files recognized by the $(b,cc(1)) can be passed. 
+  " )
+
+  let cmd_term run = 
+    let combine target_archi no_std is_target_asm cc output ccol files = 
+      run @@ {
+        target_archi;
+        no_std;
+        is_target_asm;
+        cc;
+        output;
+        ccol;
+        files
+      }
+    in
+    Term.(const combine
+      $ target_archi_term
+      $ no_std_term
+      $ cc_term
+      $ target_asm_term
+      $ output_term
+      $ ccol_term
+      $ files_term
+    )
+
+  
+
+  let kosuc_doc = "The Kosu compiler"
+
+  let kosuc_man = [
+    `S Manpage.s_description;
+    `P "Kosu is (or will be at least I hope) a statically-typed, expression-oriented language.";
+    `P "The philosophy of Kosu is to have as control over memory as C (manual memory management, pointers) while having some higher features like generics or sum type.";
+    `S Manpage.s_environment;
+    `I (
+      Printf.sprintf "$(b,%s)" std_global_variable, 
+      "If this environment variable is present, kosu files inside the folder are recessively included in the compilation except if --no-std is present"
+      );
+    `S Manpage.s_see_also;
+    `P "$(b,cc)(1), $(b,as)(1), $(b,ld)(1)";
+    `Noblank;
+    `P "Repository:  https://github.com/EruEri/kosu-lang";
+    `S Manpage.s_authors;
+    `P "Yves Ndiaye";
+    `S "COPYRIGHT";
+    `P "Yves Ndiaye";
+    `S "LICENSE";
+    `P "Kosuc is distributed under the GNU GPL-3.0"
+  ]
+
+  let kosuc run = 
+    let info 
+      = Cmd.info
+        ~doc:kosuc_doc
+        ~man:kosuc_man
+        ~version
+        name
+    in
+    Cmd.v info (cmd_term run)
+
+  let run cmd = 
+    let { target_archi; no_std; is_target_asm; cc; output; ccol; files } = cmd in
+      let module Codegen = (val match target_archi with
+        | X86_64 -> (module LinuxX86)
+        | X86_64m -> (module Mac0SX86)
+        | Arm64e -> (module MacOSAarch64)
+      : KosuBackend.Codegen.S)
+    in
+    let module LinkerOption = (val match target_archi with
+        | X86_64m | Arm64e ->
+            (module LdSpec.MacOSLdSpec)
+        | X86_64 -> (module LdSpec.LinuxLdSpec)
+      : KosuBackend.Compil.LinkerOption) in 
+    let module Compiler = KosuBackend.Compil.Make (Codegen) (LinkerOption) in
+
+    let kosu_files, other_files = files |> List.partition is_kosu_file in
+
+    let std_file = fetch_std_file ~no_std () in
+
+    let modules_opt = files_to_ast_program (kosu_files @ std_file) in
+
+    let tac_program =
+      match modules_opt with
+      | Error e -> (
+          match e with
+          | No_input_file -> raise (Invalid_argument "no Input file")
+          | File_error (s, exn) ->
+              Printf.eprintf "%s\n" s;
+              raise exn
+          | Filename_error _ -> raise (Invalid_argument "Filename Error")
+          | Lexer_Error e -> raise e)
+      | Ok modules -> (
+          match valide_program modules with
+          | filename, Error e ->
+              (* Printf.eprintf "\nFile \"%s\", %s\n" filename (Kosu_frontend.Pprint.string_of_validation_error e); *)
+              raise (Error.Validation_error (filename, e))
+          | _, Ok () ->
+              let typed_program =
+                try Asttyconvert.from_program modules
+                with KosuFrontend.Ast.Error.Ast_error e ->
+                  let () =
+                    Printf.printf "%s\n"
+                      (KosuFrontend.Pprinterr.string_of_ast_error e)
+                  in
+                  failwith "failwith"
+              in
+              let tac_program =
+                Asttacconv.tac_program_of_rprogram typed_program
+              in
+              tac_program)
+    in
+  
+    let _code =
+      match is_target_asm with
+      | true -> Compiler.generate_asm_only tac_program ()
+      | false ->
+          let compilation = Compiler.compilation ~cc in
+          compilation ~outfile:output ~debug:true ~ccol ~other:other_files
+            tac_program
+    in
+    ()
+
+
+    let eval = run |> kosuc |> Cmd.eval
+
+end

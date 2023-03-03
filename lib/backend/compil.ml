@@ -33,7 +33,7 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
     let _files = Codegen.compile_asm_from_tac tac_program in
     0
 
-  let cc_compilation ?(outfile = None) ?(debug = false) ?(ccol = []) ~other
+  let cc_compilation ~outfile ?(debug = false) ?(ccol = []) ~other
       tac_prgram =
     let c_obj_files =
       ccol
@@ -58,11 +58,11 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
         Sys.command
           (Printf.sprintf "cc %s -o %s %s %s"
              (if debug then "-g" else "")
-             (outfile |> Option.value ~default:output_file)
+             (outfile)
              (asm_files |> String.concat " ")
              (obj_file @ other |> String.concat " "))
 
-  let native_compilation ?(outfile = None) ?(debug = false) ?(ccol = []) ~other
+  let native_compilation ~outfile ?(debug = false) ?(ccol = []) ~other
       tac_prgram =
     let () =
       match LD.disable with
@@ -72,7 +72,7 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
       | None -> ()
     in
     let _ = debug in
-    let out_file = outfile |> Option.value ~default:output_file in
+    let out_file = outfile in
     let c_obj_files =
       ccol
       |> List.map (fun s ->

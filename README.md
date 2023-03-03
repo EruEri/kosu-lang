@@ -72,6 +72,12 @@ fn main() s32 {
 }
 ```
 
+## How to build 
+```bash
+  $ opam install cmdliner menhir dune
+  $ dune build
+```
+
 To compile the example above on MacOS (M1)
 ```bash
 $ kosuc -t arm64e -o example example.kosu
