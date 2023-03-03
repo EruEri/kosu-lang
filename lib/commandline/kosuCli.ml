@@ -151,7 +151,7 @@ let fetch_std_file ~no_std () =
 
 
 
-module Kosuc_Cli = struct
+module Cli = struct
   open Cmdliner
   open KosuFrontend.Astvalidation
   open KosuIrTyped
@@ -324,6 +324,6 @@ module Kosuc_Cli = struct
     ()
 
 
-    let eval = run |> kosuc |> Cmd.eval
+    let eval () = run |> kosuc |> Cmd.eval
 
 end
