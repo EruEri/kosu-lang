@@ -93,16 +93,19 @@ let module_path_of_file filename =
   let open KosuFrontend in
   let open KosuFrontend.Ast in
   let ( >>= ) = Result.bind in
-  ( (try
+  let lexbuf_res =
+    try
        let file = open_in filename in
        let source = Lexing.from_channel file in
        at_exit (fun () -> close_in file);
        source |> Result.ok
-     with e -> Error (File_error (filename, e)))
+     with e -> Error (File_error (filename, e))
+    in
+  lexbuf_res
   >>= fun lexbuf ->
     KosuParser.parse lexbuf (Parser.Incremental.modul lexbuf.lex_curr_p)
     |> Result.map_error (fun lexer_error ->
-           Lexer_Error (Lexer.Lexer_Error { filename; error = lexer_error })) )
+           Lexer_Error (Lexer.Lexer_Error { filename; error = lexer_error })) 
   >>= fun _module ->
   chomped_filename |> convert_filename_to_path
   |> Result.map (fun path -> { filename; module_path = { path; _module } })
@@ -215,7 +218,7 @@ module Cli = struct
   let ccol_term = Arg.(value & Arg.opt_all (non_dir_file) [] & info ["ccol"] ~docv:"C FILES" ~doc:"Invoke the default C compiler to generate object file and link those \
   files")
 
-  let files_term = Arg.(value & pos_all (Arg.non_dir_file) [] & info [] ~docv:"FILES" ~doc:"Input files of the compiler. Kosu files must have the extension .kosu. Files ending \ 
+  let files_term = Arg.(non_empty &  pos_all (Arg.non_dir_file) [] & info [] ~docv:"FILES" ~doc:"Input files of the compiler. Kosu files must have the extension .kosu. Files ending \ 
   with .o are treated as object files to be passed to the linker. If --cc flag is set, any files recognized by the $(b,cc(1)) can be passed. 
   " )
 
