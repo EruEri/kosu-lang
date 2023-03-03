@@ -149,6 +149,16 @@ let fetch_std_file ~no_std () =
     let std_path = Option.get std_path in
     fetch_kosu_file std_path ()
 
+let parse_library_link_name libname = 
+  let prefix_lib = "lib" in
+  let lib_strlen = String.length prefix_lib in
+  if
+     String.starts_with ~prefix:prefix_lib libname
+  then 
+    String.sub libname lib_strlen (libname |> String.length |> ( + ) (- lib_strlen) )
+  else
+    libname
+
 
 
 module Cli = struct
@@ -182,36 +192,43 @@ module Cli = struct
     no_std: bool;
     is_target_asm: bool;
     cc: bool;
+    verbose: bool;
     output: string;
     ccol: string list;
+    cclib: string list;
     files: string list
   }
 
   let default_outfile = "a.out"
 
   let target_enum = [("arm64e", Arm64e); ("x86_64", X86_64); ("x86_64m", X86_64m)]
-  let target_archi_term = Arg.(required & opt (some & enum target_enum) None & info ~docv:"Assembly Target" ~doc:"Assembly Target Architecture" ["t"; "target"] )
+  let target_archi_term = Arg.(required & opt (some & enum target_enum) None & info ~docv:"Assembly Target" ~doc:(doc_alts_enum ~quoted:true target_enum) ["t"; "target"] )
   let no_std_term = Arg.(value & flag & info ["no-std"] ~doc:"Don't include the standard librairy")
+
+  let verbose_term = Arg.(value & flag & info ["V"; "verbose"] ~doc:"Print each command before it execution" )
   let cc_term = Arg.(value & flag & info ["cc"] ~doc:"Generate executable by using a C compiler")
   let target_asm_term = Arg.(value & flag & info ["S"] ~doc:"Produce assembly files")
 
+  let cclib_term = Arg.(value & opt_all string [] & info ["l"] ~docv:"libname" ~doc:"Pass $(i,libname) to the linker" )
   let output_term = Arg.(value & opt string default_outfile & info ["o"; "output"] ~docv:"EXECUTABLE NAME" ~doc:"Specify the name of the file producted by the linker")
 
   let ccol_term = Arg.(value & Arg.opt_all (non_dir_file) [] & info ["ccol"] ~docv:"C FILES" ~doc:"Invoke the default C compiler to generate object file and link those \
   files")
 
-  let files_term = Arg.(value & pos_all (Arg.non_dir_file) [] & info [] ~docv:"FILES" ~doc:"Input files of the compiler. Kosu files must have the extension .kosu. File ending \ 
+  let files_term = Arg.(value & pos_all (Arg.non_dir_file) [] & info [] ~docv:"FILES" ~doc:"Input files of the compiler. Kosu files must have the extension .kosu. Files ending \ 
   with .o are treated as object files to be passed to the linker. If --cc flag is set, any files recognized by the $(b,cc(1)) can be passed. 
   " )
 
   let cmd_term run = 
-    let combine target_archi no_std is_target_asm cc output ccol files = 
+    let combine target_archi no_std verbose is_target_asm cc output ccol cclib files = 
       run @@ {
         target_archi;
         no_std;
+        verbose;
         is_target_asm;
         cc;
         output;
+        cclib;
         ccol;
         files
       }
@@ -221,8 +238,10 @@ module Cli = struct
       $ no_std_term
       $ cc_term
       $ target_asm_term
+      $ verbose_term
       $ output_term
       $ ccol_term
+      $ cclib_term
       $ files_term
     )
 
@@ -262,7 +281,7 @@ module Cli = struct
     Cmd.v info (cmd_term run)
 
   let run cmd = 
-    let { target_archi; no_std; is_target_asm; cc; output; ccol; files } = cmd in
+    let { target_archi; no_std; verbose; is_target_asm; cc; output; ccol; files; cclib } = cmd in
       let module Codegen = (val match target_archi with
         | X86_64 -> (module LinuxX86)
         | X86_64m -> (module Mac0SX86)
@@ -275,6 +294,8 @@ module Cli = struct
         | X86_64 -> (module LdSpec.LinuxLdSpec)
       : KosuBackend.Compil.LinkerOption) in 
     let module Compiler = KosuBackend.Compil.Make (Codegen) (LinkerOption) in
+
+    let cclib = cclib |> List.map parse_library_link_name in
 
     let kosu_files, other_files = files |> List.partition is_kosu_file in
 
@@ -318,7 +339,7 @@ module Cli = struct
       | true -> Compiler.generate_asm_only tac_program ()
       | false ->
           let compilation = Compiler.compilation ~cc in
-          compilation ~outfile:output ~debug:true ~ccol ~other:other_files
+          compilation ~outfile:output ~debug:true ~ccol ~other:other_files ~cclib ~verbose
             tac_program
     in
     ()

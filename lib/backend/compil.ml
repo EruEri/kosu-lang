@@ -33,16 +33,23 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
     let _files = Codegen.compile_asm_from_tac tac_program in
     0
 
-  let cc_compilation ~outfile ?(debug = false) ?(ccol = []) ~other
+  let run_command ~verbose cmd = 
+    let () = if verbose 
+      then Printf.printf "%s\n" cmd
+    else
+      ()
+    in
+    Sys.command cmd
+
+  let cc_compilation ?(debug = false) ?(ccol = []) ?(cclib = []) ~verbose ~outfile ~other
       tac_prgram =
     let c_obj_files =
       ccol
       |> List.map (fun s ->
              let tmp_name = Filename.temp_file s ".o" in
-             let code =
-               Sys.command (Printf.sprintf "cc -c -o %s %s" tmp_name s)
-             in
-             if code == 0 then Ok tmp_name else Error code)
+             let cc_cmd = (Printf.sprintf "cc -c -o %s %s" tmp_name s) in
+             let code = run_command ~verbose cc_cmd in
+             if code = 0 then Ok tmp_name else Error code)
     in
     let error_code =
       c_obj_files
@@ -55,14 +62,18 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
     | None ->
         let asm_files = Codegen.compile_asm_from_tac_tmp tac_prgram in
         let obj_file = c_obj_files |> List.map Result.get_ok in
-        Sys.command
-          (Printf.sprintf "cc %s -o %s %s %s"
-             (if debug then "-g" else "")
-             (outfile)
-             (asm_files |> String.concat " ")
-             (obj_file @ other |> String.concat " "))
+        let cmd =           
+          (Printf.sprintf "cc %s -o %s %s %s %s"
+            (if debug then "-g" else "")
+            (outfile)
+            (asm_files |> String.concat " ")
+            (obj_file @ other |> String.concat " ")
+            (cclib |> List.map (Printf.sprintf "-l%s") |> String.concat " ")
+        ) in
+      run_command ~verbose cmd
 
-  let native_compilation ~outfile ?(debug = false) ?(ccol = []) ~other
+
+  let native_compilation  ?(debug = false) ?(ccol = []) ?(cclib = []) ~verbose ~outfile ~other
       tac_prgram =
     let () =
       match LD.disable with
@@ -71,16 +82,16 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
           exit 1
       | None -> ()
     in
-    let _ = debug in
+    let _ = ignore debug in
     let out_file = outfile in
     let c_obj_files =
       ccol
       |> List.map (fun s ->
              let tmp_name = Filename.temp_file s ".o" in
-             let code =
-               Sys.command (Printf.sprintf "cc -c -o %s %s" tmp_name s)
-             in
-             if code == 0 then tmp_name else exit code)
+             let cmd = (Printf.sprintf "cc -c -o %s %s" tmp_name s) in
+             let code = run_command ~verbose cmd in
+             if code = 0 then tmp_name else exit code
+          )
     in
 
     let kosu_asm_files = Codegen.compile_asm_from_tac_tmp tac_prgram in
@@ -101,10 +112,10 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
       |> List.map (fun file ->
              let basename = Filename.basename file in
              let tmp_file = Filename.temp_file basename ".o" in
-             let code =
-               Sys.command (Printf.sprintf "as -o %s %s" tmp_file file)
-             in
-             if code <> 0 then exit code else tmp_file)
+             let cmd = (Printf.sprintf "as -o %s %s" tmp_file file) in
+             let code = run_command ~verbose cmd in
+             if code <> 0 then exit code else tmp_file
+            )
     in
 
     let objects_files =
@@ -117,9 +128,16 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
       |> List.map (( ^ ) "-")
       |> String.concat " "
     in
-    Sys.command
-      (Printf.sprintf "%s %s -o %s %s" LD.ld_command options out_file
-         string_of_objects_files)
+    let cclib_str = cclib |> List.map (Printf.sprintf "-l%s") |> String.concat " " in
+    let ld_cmd = (Printf.sprintf "%s %s -o %s %s %s" 
+          LD.ld_command 
+          options out_file
+          string_of_objects_files
+          cclib_str
+        ) in
+    let code = run_command ~verbose ld_cmd in
+    code
+
 
   let compilation ~cc = if cc then cc_compilation else native_compilation
 end
