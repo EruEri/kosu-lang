@@ -197,6 +197,7 @@ module Cli = struct
     cc: bool;
     verbose: bool;
     output: string;
+    pkg_configs: string list;
     ccol: string list;
     cclib: string list;
     files: string list
@@ -212,6 +213,8 @@ module Cli = struct
   let cc_term = Arg.(value & flag & info ["cc"] ~doc:"Generate executable by using a C compiler")
   let target_asm_term = Arg.(value & flag & info ["S"] ~doc:"Produce assembly files")
 
+  let pkg_config_term = Arg.(value & opt_all string [] & info ["pkg-config"; "pkg-c"; "pc"] ~docv:"libname" ~doc:"Invoke $(b,pkg-config)(1) to retreive compilation flags and libs")
+
   let cclib_term = Arg.(value & opt_all string [] & info ["l"] ~docv:"libname" ~doc:"Pass $(i,libname) to the linker" )
   let output_term = Arg.(value & opt string default_outfile & info ["o"; "output"] ~docv:"EXECUTABLE NAME" ~doc:"Specify the name of the file producted by the linker")
 
@@ -223,7 +226,7 @@ module Cli = struct
   " )
 
   let cmd_term run = 
-    let combine target_archi no_std verbose cc is_target_asm  output ccol cclib files = 
+    let combine target_archi no_std verbose cc is_target_asm  output pkg_configs ccol cclib files = 
       run @@ {
         target_archi;
         no_std;
@@ -231,6 +234,7 @@ module Cli = struct
         is_target_asm;
         cc;
         output;
+        pkg_configs;
         cclib;
         ccol;
         files
@@ -243,6 +247,7 @@ module Cli = struct
       $ cc_term
       $ target_asm_term
       $ output_term
+      $ pkg_config_term
       $ ccol_term
       $ cclib_term
       $ files_term
@@ -284,7 +289,7 @@ module Cli = struct
     Cmd.v info (cmd_term run)
 
   let run cmd = 
-    let { target_archi; no_std; verbose; is_target_asm; cc; output; ccol; files; cclib } = cmd in
+    let { target_archi; no_std; verbose; is_target_asm; cc; pkg_configs; output; ccol; files; cclib } = cmd in
       let module Codegen = (val match target_archi with
         | X86_64 -> (module LinuxX86)
         | X86_64m -> (module Mac0SX86)
@@ -342,7 +347,7 @@ module Cli = struct
       | true -> Compiler.generate_asm_only tac_program ()
       | false ->
           let compilation = Compiler.compilation ~cc in
-          compilation ~outfile:output ~debug:true ~ccol ~other:other_files ~cclib ~verbose
+          compilation ~outfile:output ~debug:true ~ccol ~other:other_files ~cclib ~verbose ~pkg_config_names:pkg_configs
             tac_program
     in
     ()

@@ -27,21 +27,36 @@ module type LinkerOption = sig
 end
 
 module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
+
+
   let output_file = "a.out"
 
   let generate_asm_only tac_program () =
     let _files = Codegen.compile_asm_from_tac tac_program in
     0
 
-  let run_command ~verbose cmd = 
+  let run_command ?(flush = false) ~verbose cmd = 
     let () = if verbose 
-      then Printf.printf "%s\n" cmd
+      then Printf.printf "%s\n%s" cmd (if flush then "%!" else "")
     else
       ()
     in
     Sys.command cmd
 
-  let cc_compilation ?(debug = false) ?(ccol = []) ?(cclib = []) ~verbose ~outfile ~other
+
+  let pkg_config ~verbose ~cflags ~clibs ~pkg_config_names () = 
+    pkg_config_names |> List.fold_left (fun acc_pkg libname -> 
+      let pkg = Util.PkgConfig.of_command ~verbose ~cflags ~clibs ~libname () in
+      Util.PkgConfig.union acc_pkg pkg
+    ) Util.PkgConfig.empty
+
+  let pkg_append_lib libs pkg_config = 
+    libs |> List.fold_left (fun acc_pkg clib -> 
+      let format_clib = Printf.sprintf "-l%s" clib in
+      Util.PkgConfig.add_linked_libs format_clib acc_pkg
+    ) pkg_config
+
+  let cc_compilation ?(debug = false) ?(ccol = []) ?(cclib = []) ~pkg_config_names ~verbose ~outfile ~other
       tac_prgram =
     let c_obj_files =
       ccol
@@ -62,18 +77,22 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
     | None ->
         let asm_files = Codegen.compile_asm_from_tac_tmp tac_prgram in
         let obj_file = c_obj_files |> List.map Result.get_ok in
+        let pkg_configs = pkg_config ~verbose ~cflags:true ~clibs:true ~pkg_config_names ()
+
+        in
+        let pkg_configs = pkg_append_lib cclib pkg_configs in
         let cmd =           
           (Printf.sprintf "cc %s -o %s %s %s %s"
             (if debug then "-g" else "")
             (outfile)
             (asm_files |> String.concat " ")
             (obj_file @ other |> String.concat " ")
-            (cclib |> List.map (Printf.sprintf "-l%s") |> String.concat " ")
+            (Util.PkgConfig.to_string pkg_configs)
         ) in
       run_command ~verbose cmd
 
 
-  let native_compilation  ?(debug = false) ?(ccol = []) ?(cclib = []) ~verbose ~outfile ~other
+  let native_compilation  ?(debug = false) ?(ccol = []) ?(cclib = []) ~pkg_config_names ~verbose ~outfile ~other
       tac_prgram =
     let () =
       match LD.disable with
@@ -84,11 +103,12 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
     in
     let _ = ignore debug in
     let out_file = outfile in
+    let pkg = pkg_config ~verbose ~cflags:(ccol <> []) ~clibs:true ~pkg_config_names () in
     let c_obj_files =
       ccol
       |> List.map (fun s ->
              let tmp_name = Filename.temp_file s ".o" in
-             let cmd = (Printf.sprintf "cc -c -o %s %s" tmp_name s) in
+             let cmd = (Printf.sprintf "cc -c -o %s %s %s" tmp_name s (Util.PkgConfig.cc_flags_format pkg)) in
              let code = run_command ~verbose cmd in
              if code = 0 then tmp_name else exit code
           )
@@ -128,12 +148,14 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
       |> List.map (( ^ ) "-")
       |> String.concat " "
     in
-    let cclib_str = cclib |> List.map (Printf.sprintf "-l%s") |> String.concat " " in
+
+    let pkg = pkg_append_lib cclib pkg in
+
     let ld_cmd = (Printf.sprintf "%s %s -o %s %s %s" 
           LD.ld_command 
           options out_file
           string_of_objects_files
-          cclib_str
+          (Util.PkgConfig.linker_flags_format pkg)
         ) in
     let code = run_command ~verbose ld_cmd in
     code
