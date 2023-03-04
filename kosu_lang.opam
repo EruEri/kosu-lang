@@ -2,7 +2,7 @@
 opam-version: "2.0"
 synopsis: "A programming language project"
 description:
-  "A programming language that I hope will compile on arm64 and maybe one day on all platform through the LLVM"
+  "A programming language that I hope will compile on arm64 and maybe one day on more platforms through the LLVM"
 maintainer: ["EruEri"]
 authors: ["EruEri"]
 license: "GPL-3.0"
@@ -12,7 +12,8 @@ depends: [
   "ocaml"
   "dune" {>= "3.1"}
   "menhir"
-  "clap"
+  "cmdliner"
+  "unix"
   "odoc" {with-doc}
 ]
 build: [

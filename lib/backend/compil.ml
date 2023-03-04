@@ -23,7 +23,7 @@ module type LinkerOption = sig
   val string_of_option : linker_option -> string
 
   val disable : string option
-  (** Message to output if the native compilation pipeline is dissable*)
+  (** Message to output if the native compilation pipeline is disable*)
 end
 
 module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
