@@ -334,7 +334,7 @@ module Cli = struct
                     Printf.printf "%s\n"
                       (KosuFrontend.Pprinterr.string_of_ast_error e)
                   in
-                  failwith "failwith"
+                  failwith "Error while typing ast: Shouldn't append"
               in
               let tac_program =
                 Asttacconv.tac_program_of_rprogram typed_program
