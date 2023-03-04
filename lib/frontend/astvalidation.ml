@@ -570,14 +570,20 @@ end
 
 module ValidateFunction_Decl = struct
   let is_main_function function_decl = function_decl.fn_name.v = "main"
-
+  let argv_type = TPointer {
+    v = TPointer {
+      v = TInteger (Signed, I8);
+      position = Position.dummy
+    };
+    position = Position.dummy
+  }
   let check_main_parameters =
     let open Ast.Type in
     function
     | [] -> true
     | [ t1; t2 ] ->
         t1.v === TInteger (Signed, I32)
-        && t2.v === TPointer { v = TString_lit; position = Position.dummy }
+        && t2.v === argv_type
     | _ -> false
 
   let is_valid_main_sig function_decl =

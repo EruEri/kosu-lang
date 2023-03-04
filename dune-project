@@ -41,8 +41,8 @@
 (package
  (name kosu_lang)
  (synopsis "A programming language project")
- (description "A programming language that I hope will compile on arm64 and maybe one day on all platform through the LLVM")
- (depends ocaml dune menhir clap)
+ (description "A programming language that I hope will compile on arm64 and maybe one day on more platforms through the LLVM")
+ (depends ocaml dune menhir cmdliner unix)
 )
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
