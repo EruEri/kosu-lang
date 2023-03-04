@@ -58,7 +58,7 @@ let () =
 
   let () = Clap.close () in
 
-  let modules_opt = Cli.files_to_ast_program kosu_files in
+  let modules_opt = KosuCli.files_to_ast_program kosu_files in
 
   let tac_program =
     match modules_opt with
