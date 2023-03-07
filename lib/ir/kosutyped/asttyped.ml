@@ -92,6 +92,7 @@ and rkexpression =
     }
   | REBinOperator_Function_call of rkbin_op
   | REUnOperator_Function_call of rkunary_op
+  | REWhile of typed_expression * rkbody
   | REIf of typed_expression * rkbody * rkbody
   | RECases of { cases : (typed_expression * rkbody) list; else_case : rkbody }
   | RESwitch of {

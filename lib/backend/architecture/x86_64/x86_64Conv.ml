@@ -1318,6 +1318,47 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         (Line_Com (Comment "Defered Start") :: instructions :: true_instructions)
         @ [ Line_Com (Comment "Defered end") ]
+    | STWhile
+        {
+          statements_condition;
+          condition;
+          loop_body;
+          self_label;
+          inner_body_label = _;
+          exit_label;
+        } ->
+        let start_label = Label self_label in
+        let stmts_bool =
+          statements_condition
+          |> List.fold_left
+               (fun acc stmt ->
+                 acc
+                 @ translate_tac_statement ~str_lit_map current_module rprogram
+                     fd stmt)
+               []
+        in
+        let last_reg, condition_rvalue_inst =
+          translate_tac_expression ~str_lit_map rprogram fd condition
+        in
+        let data_size =
+          match last_reg with `Address _ -> Q | `Register reg -> reg.size
+        in
+        let rhs = src_of_dst last_reg in
+        let cmp =
+          Instruction (Cmp { size = data_size; rhs; lhs = `ILitteral 0L })
+        in
+        let jmp =
+          Instruction (Jmp { cc = Some E; where = `Label exit_label })
+        in
+
+        let if_block =
+          translate_tac_body ~str_lit_map ~end_label:(Some self_label)
+            current_module rprogram fd loop_body
+        in
+        let exit_label = Label exit_label in
+
+        (start_label :: stmts_bool)
+        @ condition_rvalue_inst @ (cmp :: jmp :: if_block) @ [ exit_label ]
     | STIf
         {
           statement_for_bool;

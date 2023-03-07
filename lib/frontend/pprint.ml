@@ -166,6 +166,10 @@ and string_of_kexpression = function
             (assoc_exprs |> List.map Position.value
             |> List.map string_of_kexpression
             |> String.concat ", "))
+  | EWhile (condition, body) ->
+      sprintf "while (%s) %s"
+        (string_of_kexpression condition.v)
+        (string_of_kbody body)
   | ETuple exprs ->
       sprintf "(%s)"
         (exprs |> List.map Position.value

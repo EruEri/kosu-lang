@@ -33,7 +33,7 @@
 %token <string> Module_IDENT 
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
-%token ENUM EXTERNAL FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR
+%token ENUM EXTERNAL FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE
 %token TRIPLEDOT
 %token COMMA
 %token PIPESUP
@@ -297,6 +297,9 @@ expr:
         EDeference ( $1 |> List.length , $2)
     }
     | AMPERSAND located(IDENT) { EAdress $2 }
+    | WHILE delimited(LPARENT, located(expr), RPARENT) kbody {
+        EWhile ($2, $3)
+    }
     | located(expr) PLUS located(expr) { EBin_op (BAdd ($1, $3) ) }
     | located(expr) MINUS located(expr) { EBin_op (BMinus ($1, $3)) }
     | located(expr) MULT located(expr) { EBin_op (BMult ($1, $3)) }

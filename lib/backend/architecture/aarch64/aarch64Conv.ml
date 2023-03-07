@@ -1115,7 +1115,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     | RVCustomBinop { binop = TacBool TacDiff; _ } ->
         failwith "Todo : Deep cgange into ast "
     | s ->
-        let () = Printf.printf "trvalue = %s\n" (KosuIrTAC.Asttacpprint.string_of_tac_rvalue s) in
+        let () =
+          Printf.printf "trvalue = %s\n"
+            (KosuIrTAC.Asttacpprint.string_of_tac_rvalue s)
+        in
         failwith
           "Todo : Redefinition of supeq and infeq => Deep change into ast"
 
@@ -1160,6 +1163,39 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
 
         (Line_Com (Comment "Defered Start") :: instructions :: true_instructions)
         @ [ Line_Com (Comment "Defered end") ]
+    | STWhile
+        {
+          statements_condition;
+          condition;
+          loop_body;
+          self_label;
+          inner_body_label = _;
+          exit_label;
+        } ->
+        let label = Label self_label in
+        let stmts_bool =
+          statements_condition
+          |> List.fold_left
+               (fun acc stmt ->
+                 acc
+                 @ translate_tac_statement ~str_lit_map current_module rprogram
+                     fd stmt)
+               []
+        in
+        let last_reg, condition_rvalue_inst =
+          translate_tac_expression ~str_lit_map rprogram fd condition
+        in
+        let cmp =
+          Instruction (CMP { operand1 = last_reg; operand2 = `ILitteral 0L })
+        in
+        let jmp = Instruction (B { cc = Some EQ; label = exit_label }) in
+        let if_block =
+          translate_tac_body ~str_lit_map ~end_label:(Some self_label)
+            current_module rprogram fd loop_body
+        in
+        let exit_label = Label exit_label in
+        (label :: stmts_bool) @ condition_rvalue_inst @ (cmp :: jmp :: if_block)
+        @ [ exit_label ]
     | STIf
         {
           statement_for_bool;

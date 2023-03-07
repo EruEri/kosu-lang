@@ -88,6 +88,7 @@ and kexpression =
   | EString of string
   | EAdress of string location
   | EDeference of int * string location
+  | EWhile of kexpression location * kbody
   | EIdentifier of {
       modules_path : string location;
       identifier : string location;
@@ -513,6 +514,7 @@ module Error = struct
         if_type : ktype;
         else_type : ktype;
       }
+    | Not_unit_type_while of { position : unit location; wrong_type : ktype }
     | Not_Boolean_Type_Condition of { found : ktype location }
     | Impossible_field_Access of {
         field : string location;
@@ -948,6 +950,7 @@ module Env = struct
   type variable_info = { is_const : bool; ktype : ktype }
   type t = { contexts : (string * variable_info) list list }
 
+  let empty = { contexts = [] }
   let vi_ktype { ktype; _ } = ktype
   let vi_is_const { is_const; _ } = is_const
   let create_empty_env : t = { contexts = [] }
