@@ -221,7 +221,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
     let params_explicit_type, explicit_type_return_type = 
       match lambda_type with
       | None -> None, None
-      | Some ({v = TFunction (lambad_param_explit, r); position = _ } ) -> print_endline "Yes\n" ; Some lambad_param_explit, Some r
+      | Some ({v = TFunction (lambad_param_explit, r) | TClosure (lambad_param_explit, r) ; position = _ }  ) -> print_endline "Yes\n" ; Some lambad_param_explit, Some r
       | Some _ -> failwith "Todo Error: Explicit type should be an function" in 
     
       let paramas_typed =
@@ -1707,3 +1707,31 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
                      |> ast_error |> raise
                    else Type.restrict_type acc case_type)
                  t)
+and free_variable_kbody ~(closure_env:string list) ~(scope_env: string list) kbody = 
+let statements, final_expr = kbody in
+  match statements with
+  | statement::q -> 
+    ( match statement.v with
+      | SDiscard expr -> 
+        (free_variable_expression ~closure_env ~scope_env expr) 
+        @ free_variable_kbody ~closure_env ~scope_env (q, final_expr)
+      | SDeclaration {variable_name; expression; _} ->
+        let extended_closure_env = (variable_name.v)::closure_env in
+        (free_variable_expression ~closure_env ~scope_env expression)
+        @ free_variable_kbody ~closure_env:extended_closure_env ~scope_env (q, final_expr)
+      | SAffection (variable, expression) | SDerefAffectation (variable, expression) -> 
+        let free_vars_in_expression = free_variable_expression ~closure_env ~scope_env expression in
+        let free_vars_in_expression = if closure_env |> List.mem variable.v |> not
+          then (variable.v)::free_vars_in_expression
+        else free_vars_in_expression in
+        free_vars_in_expression 
+        @ free_variable_kbody ~closure_env ~scope_env (q, final_expr)
+  )
+  | [] -> 
+    free_variable_expression ~closure_env ~scope_env final_expr
+and free_variable_expression ~(closure_env:string list) ~(scope_env: string list) {v = expression; _} = 
+  match expression with
+  | ESizeof( Either.Right expr) -> free_variable_expression ~closure_env ~scope_env expr
+  | EAdress s | EDeference (_, s) -> if closure_env |> List.mem s.v |> not then [s.v] else []
+  | ELambda {params; kbody} -> failwith ""
+  | _ -> []
