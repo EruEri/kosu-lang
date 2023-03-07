@@ -723,6 +723,14 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
           ~previous_alloc ~label_name ~map ~discarded_value 
           ~count_var ~if_count ~cases_count ~switch_count 
             ~function_return ~rprogram (discard_while::modification::q, types_return)
+      | RSDerefAffectation (variable_name, ({rexpression =  REWhile _ ; _} as while_expr) ) 
+        -> 
+          let discard_while = RSDiscard while_expr in
+          let modification = RSDerefAffectation (variable_name, {rexpression = REmpty; rktype = RTUnit}) in
+          convert_from_rkbody 
+          ~previous_alloc ~label_name ~map ~discarded_value 
+          ~count_var ~if_count ~cases_count ~switch_count 
+            ~function_return ~rprogram (discard_while::modification::q, types_return)
       | RSDeclaration { is_const = _; variable_name; typed_expression } ->
           let () =
             Hashtbl.add map variable_name
