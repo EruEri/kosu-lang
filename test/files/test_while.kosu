@@ -1,0 +1,12 @@
+external printf(format: stringl; ...) s32;
+
+fn main() s32 {
+    var i = 0;
+    discard while (i < 10) {
+        discard printf("i = %d\n", i);
+        i = i + 1;
+        $ empty
+    };
+    discard printf("The end \n");
+    $ 0
+}
