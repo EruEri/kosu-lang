@@ -346,6 +346,27 @@ module OperatorFunction = struct
     | Diff -> "!="
     | Not -> "!"
     | UMinus -> "(-)"
+
+    let operands = function
+    | BAdd (lhs, rhs)
+    | BMinus (lhs, rhs)
+    | BMult (lhs, rhs)
+    | BDiv (lhs, rhs)
+    | BMod (lhs, rhs)
+    | BBitwiseOr (lhs, rhs)
+    | BBitwiseAnd (lhs, rhs)
+    | BBitwiseXor (lhs, rhs)
+    | BShiftLeft (lhs, rhs)
+    | BShiftRight (lhs, rhs)
+    | BAnd (lhs, rhs)
+    | BOr (lhs, rhs)
+    | BSup (lhs, rhs)
+    | BSupEq (lhs, rhs)
+    | BInf (lhs, rhs)
+    | BInfEq (lhs, rhs)
+    | BEqual (lhs, rhs)
+    | BDif (lhs, rhs) ->
+        (lhs, rhs)
 end
 
 module Error = struct
@@ -565,6 +586,14 @@ module Type = struct
 
   let is_any_integer = function TInteger _ -> true | _ -> false
   let is_string_litteral = function TString_lit -> true | _ -> false
+
+  let is_function_pointer = function
+  | TFunction _ -> true
+  | _ -> false
+
+  let is_closure = function
+  | TClosure _ -> true
+  | _ -> false
 
   let pointee_fail = function
     | TPointer kt -> kt.v

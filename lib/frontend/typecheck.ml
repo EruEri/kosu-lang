@@ -247,10 +247,28 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
         )) in
         
       let body_ktype = typeof_kbody ~generics_resolver clo_env current_mod_name prog ~return_type:(explicit_type_return_type |> Option.map Position.value)  kbody in
-      TFunction (
-        paramas_typed |> List.map (snd),
-       {v = body_ktype; position = Position.dummy}
-      )
+      let captured_var = free_variable_kbody ~closure_env:(paramas_typed |> List.map (fun s -> Position.value @@ fst @@ s) ) ~scope_env:env kbody in
+      let () = Printf.fprintf stdout "captured = [%s]\n" (captured_var |> String.concat ", ") in
+      begin match captured_var with
+      | [] ->  TFunction (
+          paramas_typed |> List.map (snd),
+        {v = body_ktype; position = Position.dummy}
+        ) 
+      | _::_ -> begin match lambda_type with
+        | Some ({v = TFunction (_, _); position = _ } ) ->  Printf.sprintf "Cannot be a fn pointer : [%s] captured" (captured_var |> String.concat ", ") |> failwith
+        | Some ({v = TClosure (lambad_param_explit, r); position = _ }) -> 
+          TClosure (
+            lambad_param_explit,
+            r
+          )
+        | Some _ -> failwith "Shouldnt be reached"  
+        | None -> 
+          TClosure (
+            paramas_typed |> List.map snd,
+            {v = body_ktype; position = Position.dummy}
+          )
+      end
+    end
       
   | EIdentifier { modules_path = _; identifier } -> (
       env |> Env.flat_context
@@ -1707,7 +1725,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
                      |> ast_error |> raise
                    else Type.restrict_type acc case_type)
                  t)
-and free_variable_kbody ~(closure_env:string list) ~(scope_env: string list) kbody = 
+and free_variable_kbody ~(closure_env:string list) ~(scope_env) kbody = 
 let statements, final_expr = kbody in
   match statements with
   | statement::q -> 
@@ -1729,9 +1747,46 @@ let statements, final_expr = kbody in
   )
   | [] -> 
     free_variable_expression ~closure_env ~scope_env final_expr
-and free_variable_expression ~(closure_env:string list) ~(scope_env: string list) {v = expression; _} = 
+and free_variable_expression ~(closure_env:string list) ~scope_env {v = expression; _} = 
+  let capture id =
+    if closure_env |>  List.mem id.v |> not then [id.v] else []
+  in
   match expression with
   | ESizeof( Either.Right expr) -> free_variable_expression ~closure_env ~scope_env expr
-  | EAdress s | EDeference (_, s) -> if closure_env |> List.mem s.v |> not then [s.v] else []
-  | ELambda {params; kbody} -> failwith ""
+  | EAdress s | EDeference (_, s) -> capture s
+  | EIdentifier {modules_path = _; identifier} ->
+    capture identifier
+  | EWhile (condition, body) ->
+    free_variable_expression ~closure_env ~scope_env condition
+    @
+    free_variable_kbody ~closure_env ~scope_env body
+  | EFieldAcces {first_expr; _} ->
+    free_variable_expression ~closure_env ~scope_env first_expr
+  | EStruct {modules_path = _; struct_name = _; fields } ->
+    fields |> List.fold_left (fun acc (_, expr) -> 
+      expr |> free_variable_expression ~closure_env ~scope_env |> List.rev_append acc
+    ) []
+  | EEnum {assoc_exprs = exprs; _} | ETuple exprs | EBuiltin_Function_call {parameters = exprs; _ } | EFunction_call {parameters = exprs; _} -> 
+    exprs |> List.fold_left (fun acc expr -> 
+      expr |> free_variable_expression ~closure_env ~scope_env |> List.rev_append acc
+    ) []
+  | EIf (if_condition, if_body, else_body) ->
+    free_variable_expression ~closure_env ~scope_env if_condition
+    |> List.rev_append (free_variable_kbody ~closure_env ~scope_env if_body)
+    |> List.rev_append (free_variable_kbody ~closure_env ~scope_env else_body) 
+  | ECases {cases; else_case} ->
+    cases
+      |> List.fold_left (fun acc (expr, body) ->
+        free_variable_expression ~closure_env ~scope_env expr
+      |> List.rev_append (free_variable_kbody ~closure_env ~scope_env body)
+      |> List.rev_append acc
+    ) (free_variable_kbody ~closure_env ~scope_env else_case)
+  | EUn_op (UMinus expr | UNot expr) -> 
+    free_variable_expression ~closure_env ~scope_env expr
+  | EBin_op kbin_op ->
+    let lhs, rhs = Ast.OperatorFunction.operands kbin_op in
+    List.rev_append 
+      (free_variable_expression ~closure_env ~scope_env lhs)
+      (free_variable_expression ~closure_env ~scope_env rhs)
+  | ELambda {params = _; kbody = _} -> failwith "Nested closure to do"
   | _ -> []
