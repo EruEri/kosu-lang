@@ -218,7 +218,7 @@ and typed_expression_of_kexpression ~generics_resolver (env : Env.t)
     rktype =
       RType.restrict_rktype
         (expression
-        |> typeof ~generics_resolver env current_mod_name prog
+        |> typeof ~generics_resolver ~lambda_type:(hint_type |> to_ktype |> Position.val_dummy |> Option.some) env current_mod_name prog
         |> from_ktype)
         hint_type;
     rexpression =
@@ -387,12 +387,10 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
       match hint_type with
       | RTFunction (lambad_param_explit, r) | RTClosure {params = lambad_param_explit; return_type = r; _} -> Some lambad_param_explit, Some r
       | _ -> failwith "Todo Error: R Explicit type should be an function" in 
-    
       let paramas_typed =
          match params_explicit_type with
          | None -> params |> List.map (fun (s, kt_loc_option) -> 
-          let () = Printf.printf "Field = %s\n" s.v in 
-          s.v, from_ktype (match kt_loc_option with Some kt_loc -> kt_loc | None -> failwith "Need explicit type on parameters or statement").v
+          s.v, from_ktype (match kt_loc_option with Some kt_loc -> kt_loc | None -> failwith "Asttyped Need explicit type on parameters or statement").v
           )
           | Some lambda_param_explits -> 
           let () = if Util.are_diff_lenght lambda_param_explits params then failwith "Arity between parameters and explicit type is wrong" else () in
@@ -405,6 +403,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
               s.v , rkt
             )
           in
+    let () = Printf.printf "\nhint = %s\n%!" (Asttypprint.string_of_rktype hint_type) in
     let clo_env = env |> Env.push_context (paramas_typed |> List.map (fun (s, kt) -> 
             s, {is_const = true; ktype = to_ktype kt}
       )) in
