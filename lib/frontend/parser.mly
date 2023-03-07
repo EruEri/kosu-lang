@@ -483,10 +483,10 @@ ktype:
             name = id
         } 
      }
-    | FUNCTION params=delimited(LPARENT, separated_list(COMMA, located(ktype)), RPARENT) MINUSUP r=located(ktype) {
+    | FUNCTION params=delimited(LPARENT, separated_list(COMMA, located(ktype)), RPARENT) r=located(ktype) {
         TFunction (params, r)
     }
-    | delimited(LBRACE, params=delimited(LPARENT, separated_list(COMMA, located(ktype)), RPARENT) MINUSUP r=located(ktype) {params, r}, RBRACE) {
+    | delimited(LBRACE, params=delimited(LPARENT, separated_list(COMMA, located(ktype)), RPARENT) r=located(ktype) {params, r}, RBRACE) {
         let params, r = $1 in
         TClosure (params, r)
     }
