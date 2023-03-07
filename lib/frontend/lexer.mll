@@ -50,10 +50,10 @@
     Lexing.new_line lexbuf;
     f lexbuf
 
-    let keywords = Hashtbl.create 19
+    let keywords = Hashtbl.create 20
     let _ = ["cases", CASES; "const", CONST; "enum", ENUM; "external", EXTERNAL; "empty", EMPTY; "discard", DISCARD ; "else", ELSE; "fn", FUNCTION; 
     "for", FOR; "false", FALSE; "nullptr", NULLPTR ;"struct", STRUCT; "syscall", SYSCALL ;"of", OF; "operator", OPERATOR; "true", TRUE; "switch", SWITCH; "sizeof", SIZEOF; "if", IF; 
-     "var", VAR; 
+     "var", VAR; "while", WHILE
     ] |> List.iter (fun (s,t) -> Hashtbl.add keywords s t)
 }
 
