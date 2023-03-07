@@ -141,6 +141,14 @@ and tac_statement =
   | STacDeclaration of { identifier : string; trvalue : tac_typed_rvalue }
   | STacModification of { identifier : string; trvalue : tac_typed_rvalue }
   | STDerefAffectation of { identifier : string; trvalue : tac_typed_rvalue }
+  | STWhile of {
+    statements_condition: tac_statement list;
+    condition: tac_typed_expression;
+    loop_body: tac_body;
+    self_label: string;
+    inner_body_label: string;
+    exit_label: string;
+  }
   | STIf of {
       statement_for_bool : tac_statement list;
       condition_rvalue : tac_typed_expression;

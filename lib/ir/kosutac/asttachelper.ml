@@ -163,6 +163,18 @@ module StringLitteral = struct
     | STacModification { trvalue; _ }
     | STDerefAffectation { trvalue; _ } ->
         map_fill_string_lit_of_trvalue map trvalue.rvalue ()
+    | STWhile {statements_condition; condition; loop_body; inner_body_label = _; self_label = _; exit_label = _} -> 
+      let () =
+        statements_condition 
+        |> List.iter (fun lstmt ->
+          map_fill_string_lit_of_tac_statement map lstmt ())
+      in
+      let () =
+        map_fill_string_lit_of_tac_expression map
+          condition.tac_expression ()
+      in
+      let () = map_fill_string_lit_of_tac_body map loop_body () in
+      ()
     | STIf
         { statement_for_bool; condition_rvalue; if_tac_body; else_tac_body; _ }
       ->

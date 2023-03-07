@@ -151,7 +151,7 @@ end
 
 module Expression = struct
   let is_expresion_branch = function
-    | RECases _ | RESwitch _ | REIf _ -> true
+    | RECases _ | RESwitch _ | REIf _  -> true
     | _ -> false
 
   let is_typed_expresion_branch { rexpression; _ } =
