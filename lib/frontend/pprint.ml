@@ -85,11 +85,17 @@ let rec string_of_ktype = function
       sprintf "(%s)"
         (ktypes |> List.map (fun s -> string_of_ktype s.v) |> String.concat ", ")
   | TFunction (parameters, r_type) ->
-      sprintf "(%s) -> %s"
+      sprintf "fn(%s) -> %s"
         (parameters
         |> List.map (fun s -> string_of_ktype s.v)
         |> String.concat ", ")
         (string_of_ktype r_type.v)
+  | TClosure (parameters, r_type) -> 
+    sprintf "{(%s) -> %s }"
+      (parameters
+      |> List.map (fun s -> string_of_ktype s.v)
+      |> String.concat ", ")
+    (string_of_ktype r_type.v)
   | TString_lit -> "stringl"
   | TBool -> "bool"
   | TUnit -> "unit"

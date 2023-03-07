@@ -250,12 +250,12 @@ syscall_decl:
 function_decl:
     | FUNCTION name=located(IDENT) generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=located(IDENT) {id}), SUP ) { d })
     parameters=delimited(LPARENT, separated_list(COMMA, id=located(IDENT) COLON kt=located(ktype) { id, kt  }), RPARENT )
-    r_type=located( option(ktype) ) body=fun_kbody {
+    r_type=located( ktype ) body=fun_kbody {
         {
             fn_name = name;
             generics = generics_opt |> Option.value ~default: [];
             parameters;
-            return_type = r_type |> Position.map (Option.value ~default: TUnit);
+            return_type = r_type;
             body
         }
     }
@@ -483,8 +483,12 @@ ktype:
             name = id
         } 
      }
-    | FUNCTION params=delimited(PIPE, separated_list(COMMA, located(ktype)), PIPE) MINUSUP r=located(ktype) {
+    | FUNCTION params=delimited(LPARENT, separated_list(COMMA, located(ktype)), RPARENT) MINUSUP r=located(ktype) {
         TFunction (params, r)
+    }
+    | delimited(LBRACE, params=delimited(LPARENT, separated_list(COMMA, located(ktype)), RPARENT) MINUSUP r=located(ktype) {params, r}, RBRACE) {
+        let params, r = $1 in
+        TClosure (params, r)
     }
     | MULT located(ktype) { TPointer $2 }
     | modules_path=module_path id=located(IDENT) l=delimited(LPARENT, separated_nonempty_list(COMMA, located(ktype)), RPARENT )  {

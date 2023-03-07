@@ -35,6 +35,11 @@ type rktype =
   | RTPointer of rktype
   | RTTuple of rktype list
   | RTFunction of rktype list * rktype
+  | RTClosure of {
+    params: rktype list;
+    return_type: rktype;
+    captured_env: (string * rktype) list
+  }
   | RTString_lit
   | RTUnknow
   | RTFloat

@@ -74,6 +74,18 @@ let rec string_of_rktype = function
       sprintf "(%s) -> %s"
         (parameters |> List.map string_of_rktype |> String.concat ", ")
         (string_of_rktype r_type)
+  | RTClosure {params; return_type; captured_env} ->
+    sprintf "(%s) {%s} -> %s " 
+    (params |> List.map string_of_rktype |> String.concat ", ")
+    (string_of_rktype return_type)
+    (captured_env 
+      |> List.map (fun (s, kt) -> 
+        sprintf "%s, %s"  
+        s
+        (string_of_rktype kt)
+      )
+      |> String.concat ", "
+  )
   | RTString_lit -> "stringl"
   | RTBool -> "bool"
   | RTUnit -> "unit"
@@ -99,9 +111,14 @@ let rec string_of_label_rktype = function
       sprintf "(%s)"
         (ktypes |> List.map string_of_label_rktype |> String.concat "_")
   | RTFunction (parameters, r_type) ->
-      sprintf "(%s) -> %s"
+      sprintf "fn_%s__%s"
         (parameters |> List.map string_of_label_rktype |> String.concat "_")
         (string_of_label_rktype r_type)
+  | RTClosure {params; return_type; _} ->
+    sprintf "clo_fn_%s__%s"
+    (params |> List.map string_of_label_rktype |> String.concat "_")
+    (string_of_label_rktype return_type) 
+
   | RTString_lit -> "stringl"
   | RTBool -> "bool"
   | RTUnit -> "unit"

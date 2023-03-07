@@ -168,6 +168,7 @@ let rec from_ktype = function
         ( parameters |> List.map (fun kt -> kt |> Position.value |> from_ktype),
           return_type |> Position.value |> from_ktype )
   | TString_lit -> RTString_lit
+  | TClosure _ -> failwith "Must handle closure"
   | TFloat -> RTFloat
   | TBool -> RTBool
   | TUnit -> RTUnit

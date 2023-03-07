@@ -58,6 +58,7 @@ type ktype =
   | TPointer of ktype location
   | TTuple of ktype location list
   | TFunction of ktype location list * ktype location
+  | TClosure of ktype location list * ktype location
   | TString_lit
   | TUnknow
   | TFloat
