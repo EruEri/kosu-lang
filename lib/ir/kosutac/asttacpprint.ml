@@ -67,28 +67,35 @@ and string_of_tac_statement = function
       sprintf "%s <- %s" identifier (string_of_typed_tac_rvalue trvalue)
   | STDerefAffectation { identifier; trvalue } ->
       sprintf "*%s <- %s" identifier (string_of_typed_tac_rvalue trvalue)
-  | STWhile {
-          statements_condition; 
-          condition; 
-          loop_body; 
-          self_label;
-          inner_body_label;
-          exit_label
-      } -> 
-        let buffer = Buffer.create 64 in
-        let () = Printf.bprintf buffer "%s:\n" self_label in
-        let () = statements_condition
+  | STWhile
+      {
+        statements_condition;
+        condition;
+        loop_body;
+        self_label;
+        inner_body_label;
+        exit_label;
+      } ->
+      let buffer = Buffer.create 64 in
+      let () = Printf.bprintf buffer "%s:\n" self_label in
+      let () =
+        statements_condition
         |> List.iter (fun stmt ->
                let () =
                  Buffer.add_string buffer (string_of_tac_statement stmt)
                in
                Buffer.add_char buffer '\n')
-        in
-        let () = Printf.bprintf buffer "\tif %s goto %s\n\tjmp %s" 
-          (string_of_typed_tac_expression condition) inner_body_label exit_label 
-        in
-        let () = Buffer.add_string buffer (string_of_label_tac_body ~end_jmp:(Some self_label) loop_body) in
-        failwith ""
+      in
+      let () =
+        Printf.bprintf buffer "\tif %s goto %s\n\tjmp %s"
+          (string_of_typed_tac_expression condition)
+          inner_body_label exit_label
+      in
+      let () =
+        Buffer.add_string buffer
+          (string_of_label_tac_body ~end_jmp:(Some self_label) loop_body)
+      in
+      failwith ""
   | STIf
       {
         statement_for_bool;

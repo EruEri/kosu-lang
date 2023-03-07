@@ -190,9 +190,9 @@ and string_of_rkexpression = function
         (string_of_rkbody if_body)
         (string_of_rkbody else_body)
   | REWhile (expression, body) ->
-    sprintf "while %s %s" 
-      (string_of_typed_expression expression) 
-      (string_of_rkbody body)
+      sprintf "while %s %s"
+        (string_of_typed_expression expression)
+        (string_of_rkbody body)
   | RECases { cases; else_case } ->
       sprintf "cases {\n %s else => %s}"
         (cases

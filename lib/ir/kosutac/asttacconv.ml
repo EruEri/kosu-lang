@@ -115,12 +115,12 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
   let trktype = typed_expression.rktype in
   let expr = typed_expression.rexpression in
   match (expr, allocated) with
-  | REWhile (condition, body), _ -> 
-    let incremented = post_inc if_count in
+  | REWhile (condition, body), _ ->
+      let incremented = post_inc if_count in
       let next_allocated, stmt =
         create_forward_init ~map ~count_var condition
       in
-      
+
       let statements_condition, condition_rvalue =
         convert_from_typed_expression ~discarded_value ~allocated:next_allocated
           ~switch_count ~map ~count_var ~if_count ~cases_count ~rprogram
@@ -136,19 +136,17 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           ~previous_alloc:allocated ~label_name:goto_true ~map ~count_var
           ~if_count ~rprogram body
       in
-      (
-        STWhile {
-          statements_condition = statements_condition @ stmt;
-          condition = condition_rvalue;
-          loop_body;
-          self_label = self_name;
-          inner_body_label = goto_true;
-          exit_label;
-        }::[],
-         make_typed_tac_expression RTUnit TEmpty
-      )
-
-
+      ( STWhile
+          {
+            statements_condition = statements_condition @ stmt;
+            condition = condition_rvalue;
+            loop_body;
+            self_label = self_name;
+            inner_body_label = goto_true;
+            exit_label;
+          }
+        :: [],
+        make_typed_tac_expression RTUnit TEmpty )
   | REIf (if_typed_expres, if_body, else_body), Some (identifier, id_rktype) ->
       let incremented = post_inc if_count in
       let next_allocated, stmt =
@@ -705,32 +703,47 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
   match stmts with
   | stmt :: q -> (
       match stmt with
-      | RSDeclaration { is_const ; 
-          variable_name; 
-          typed_expression = ({rexpression =  REWhile _; _} as while_expr)
-      } ->
-        let discard_while = RSDiscard while_expr in
-        let declaration = RSDeclaration {is_const; variable_name; typed_expression = {rexpression = REmpty; rktype = RTUnit}} in
-        convert_from_rkbody 
-        ~previous_alloc ~label_name ~map ~discarded_value 
-        ~count_var ~if_count ~cases_count ~switch_count 
-          ~function_return ~rprogram (discard_while::declaration::q, types_return)
-      | RSAffection (variable_name, ({rexpression =  REWhile _ ; _} as while_expr) )
-        -> 
+      | RSDeclaration
+          {
+            is_const;
+            variable_name;
+            typed_expression = { rexpression = REWhile _; _ } as while_expr;
+          } ->
           let discard_while = RSDiscard while_expr in
-          let modification = RSAffection (variable_name, {rexpression = REmpty; rktype = RTUnit}) in
-          convert_from_rkbody 
-          ~previous_alloc ~label_name ~map ~discarded_value 
-          ~count_var ~if_count ~cases_count ~switch_count 
-            ~function_return ~rprogram (discard_while::modification::q, types_return)
-      | RSDerefAffectation (variable_name, ({rexpression =  REWhile _ ; _} as while_expr) ) 
-        -> 
+          let declaration =
+            RSDeclaration
+              {
+                is_const;
+                variable_name;
+                typed_expression = { rexpression = REmpty; rktype = RTUnit };
+              }
+          in
+          convert_from_rkbody ~previous_alloc ~label_name ~map ~discarded_value
+            ~count_var ~if_count ~cases_count ~switch_count ~function_return
+            ~rprogram
+            (discard_while :: declaration :: q, types_return)
+      | RSAffection
+          (variable_name, ({ rexpression = REWhile _; _ } as while_expr)) ->
           let discard_while = RSDiscard while_expr in
-          let modification = RSDerefAffectation (variable_name, {rexpression = REmpty; rktype = RTUnit}) in
-          convert_from_rkbody 
-          ~previous_alloc ~label_name ~map ~discarded_value 
-          ~count_var ~if_count ~cases_count ~switch_count 
-            ~function_return ~rprogram (discard_while::modification::q, types_return)
+          let modification =
+            RSAffection
+              (variable_name, { rexpression = REmpty; rktype = RTUnit })
+          in
+          convert_from_rkbody ~previous_alloc ~label_name ~map ~discarded_value
+            ~count_var ~if_count ~cases_count ~switch_count ~function_return
+            ~rprogram
+            (discard_while :: modification :: q, types_return)
+      | RSDerefAffectation
+          (variable_name, ({ rexpression = REWhile _; _ } as while_expr)) ->
+          let discard_while = RSDiscard while_expr in
+          let modification =
+            RSDerefAffectation
+              (variable_name, { rexpression = REmpty; rktype = RTUnit })
+          in
+          convert_from_rkbody ~previous_alloc ~label_name ~map ~discarded_value
+            ~count_var ~if_count ~cases_count ~switch_count ~function_return
+            ~rprogram
+            (discard_while :: modification :: q, types_return)
       | RSDeclaration { is_const = _; variable_name; typed_expression } ->
           let () =
             Hashtbl.add map variable_name
@@ -880,9 +893,9 @@ and is_in_declaration id = function
   | STacModification { identifier; trvalue = _ }
   | STDerefAffectation { identifier; trvalue = _ } ->
       identifier = id
-  | STWhile {statements_condition; loop_body; _} ->
-    statements_condition |> List.exists (is_in_declaration id)
-    || is_in_body id loop_body
+  | STWhile { statements_condition; loop_body; _ } ->
+      statements_condition |> List.exists (is_in_declaration id)
+      || is_in_body id loop_body
   | STIf { statement_for_bool; if_tac_body; else_tac_body; _ } ->
       statement_for_bool |> List.exists (is_in_declaration id)
       || is_in_body id if_tac_body
@@ -902,7 +915,6 @@ and is_in_declaration id = function
          |> List.exists (fun { statement_for_condition; tac_body; _ } ->
                 statement_for_condition |> List.exists (is_in_declaration id)
                 || is_in_body id tac_body)
-
 
 let rec reduce_variable_used_statements stmts =
   match stmts with

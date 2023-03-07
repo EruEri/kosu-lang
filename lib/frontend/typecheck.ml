@@ -393,35 +393,32 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                  v = typeof ~generics_resolver env current_mod_name prog expr;
                  position = expr.position;
                }))
-  | EWhile (condition, body) -> 
-    let if_condition =
-      typeof ~generics_resolver env current_mod_name prog condition
-    in
-    if Ast.Type.( !== ) if_condition TBool then
-      raise
-        (ast_error
-           (Not_Boolean_Type_Condition
-              {
-                found = condition |> Position.map (fun _ -> if_condition);
-              }))
-    else
-      let body_type =  typeof_kbody ~generics_resolver
-            (env |> Env.push_context [])
-            current_mod_name prog body 
+  | EWhile (condition, body) ->
+      let if_condition =
+        typeof ~generics_resolver env current_mod_name prog condition
       in
-      let () = if not @@ Type.( TUnit === body_type) then 
-        raise 
+      if Ast.Type.( !== ) if_condition TBool then
+        raise
           (ast_error
-            (
-              Ast.Error.Not_unit_type_while
-                {
-                  position = expression |> Position.map (fun _ -> ());
-                  wrong_type = body_type
-                }
-            )
-          )
-      in
-      TUnit
+             (Not_Boolean_Type_Condition
+                { found = condition |> Position.map (fun _ -> if_condition) }))
+      else
+        let body_type =
+          typeof_kbody ~generics_resolver
+            (env |> Env.push_context [])
+            current_mod_name prog body
+        in
+        let () =
+          if not @@ Type.(TUnit === body_type) then
+            raise
+              (ast_error
+                 (Ast.Error.Not_unit_type_while
+                    {
+                      position = expression |> Position.map (fun _ -> ());
+                      wrong_type = body_type;
+                    }))
+        in
+        TUnit
   | EIf (if_expression, if_block, else_block) ->
       let if_condition =
         typeof ~generics_resolver env current_mod_name prog if_expression

@@ -384,10 +384,16 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
                  (typed_expression_of_kexpression ~generics_resolver env
                     current_module program);
         }
-  | EWhile (condition, body) -> 
-    let typed_condition = typed_expression_of_kexpression ~generics_resolver env current_module program condition in
-    let rkbody = rkbody_of_kbody ~generics_resolver ~return_type:hint_type (Env.push_context [] env) current_module program body in
-    REWhile (typed_condition, rkbody)
+  | EWhile (condition, body) ->
+      let typed_condition =
+        typed_expression_of_kexpression ~generics_resolver env current_module
+          program condition
+      in
+      let rkbody =
+        rkbody_of_kbody ~generics_resolver ~return_type:hint_type
+          (Env.push_context [] env) current_module program body
+      in
+      REWhile (typed_condition, rkbody)
   | EIf (condition, if_block, else_block) ->
       REIf
         ( condition

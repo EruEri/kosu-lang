@@ -381,13 +381,11 @@ let string_of_ast_error =
             \"%s\" was expected"
            (string_of_ktype e.found.v)
            (string_of_ktype TBool))
-  | Not_unit_type_while e -> 
-    string_of_located_error 
-      e.position 
-      (
-        sprintf "While loop body must have the unit type, but has the \"%s\" type"
-        (string_of_ktype e.wrong_type)
-      )
+  | Not_unit_type_while e ->
+      string_of_located_error e.position
+        (sprintf
+           "While loop body must have the unit type, but has the \"%s\" type"
+           (string_of_ktype e.wrong_type))
   | Impossible_field_Access { field; struct_decl } ->
       string_of_located_error field
         (sprintf "Struct \"%s\" doesn't contain a field named \"%s\""
