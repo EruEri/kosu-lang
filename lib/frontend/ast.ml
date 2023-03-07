@@ -58,7 +58,7 @@ type ktype =
   | TPointer of ktype location
   | TTuple of ktype location list
   | TFunction of ktype location list * ktype location
-  | TClosure of ktype location list * ktype location
+  | TClosure of ktype location list * ktype location * (string * ktype) list
   | TString_lit
   | TUnknow
   | TFloat
@@ -732,6 +732,11 @@ module Type = struct
     | TFunction (plhs, lr) , TFunction (prhs, rr) when Util.are_same_lenght plhs prhs -> 
       are_compatible_type lr.v rr.v &&
       List.for_all2 (fun pl pr -> are_compatible_type pl.v pr.v) plhs prhs
+    | TClosure (plhs, lr, _) , TClosure (prhs, rr, _) when Util.are_same_lenght plhs prhs ->
+      are_compatible_type lr.v rr.v
+      &&
+      List.for_all2 (fun pl pr -> are_compatible_type pl.v pr.v) plhs prhs
+    
     | _, _ -> lhs === rhs
 
   let rec update_generics map init_type param_type () =

@@ -146,7 +146,7 @@ and string_of_rkstatement = function
 and string_of_typed_expression { rktype; rexpression } =
   sprintf "(type = %s) :=> %s" (string_of_rktype rktype)
     (string_of_rkexpression rexpression)
-
+and string_of_field = fun (s, kt) -> sprintf "%s: %s" s (string_of_rktype kt)
 and string_of_rkexpression = function
   | REmpty -> "empty"
   | RTrue -> "true"
@@ -191,6 +191,11 @@ and string_of_rkexpression = function
   | RETuple exprs ->
       sprintf "(%s)"
         (exprs |> List.map string_of_typed_expression |> String.concat ", ")
+  | RELambda {parameters; body; captured_env} -> 
+    sprintf "|%s| {%s} -> %s"
+    (parameters |> List.map string_of_field |> String.concat ", ")
+    (captured_env |> List.map string_of_field |> String.concat ", ")
+    (string_of_rkbody body)
   | REFunction_call { modules_path; generics_resolver; fn_name; parameters } ->
       sprintf "%s%s%s(%s)"
         (Util.string_of_module_path modules_path)

@@ -90,7 +90,7 @@ let rec string_of_ktype = function
         |> List.map (fun s -> string_of_ktype s.v)
         |> String.concat ", ")
         (string_of_ktype r_type.v)
-  | TClosure (parameters, r_type) -> 
+  | TClosure (parameters, r_type, _) -> 
     sprintf "{(%s) -> %s }"
       (parameters
       |> List.map (fun s -> string_of_ktype s.v)

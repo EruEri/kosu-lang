@@ -488,7 +488,7 @@ ktype:
     }
     | delimited(LBRACE, params=delimited(LPARENT, separated_list(COMMA, located(ktype)), RPARENT) r=located(ktype) {params, r}, RBRACE) {
         let params, r = $1 in
-        TClosure (params, r)
+        TClosure (params, r, [])
     }
     | MULT located(ktype) { TPointer $2 }
     | modules_path=module_path id=located(IDENT) l=delimited(LPARENT, separated_nonempty_list(COMMA, located(ktype)), RPARENT )  {

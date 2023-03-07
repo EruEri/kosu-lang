@@ -221,7 +221,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
     let params_explicit_type, explicit_type_return_type = 
       match lambda_type with
       | None -> None, None
-      | Some ({v = TFunction (lambad_param_explit, r) | TClosure (lambad_param_explit, r) ; position = _ }  ) -> print_endline "Yes\n" ; Some lambad_param_explit, Some r
+      | Some ({v = TFunction (lambad_param_explit, r) | TClosure (lambad_param_explit, r, _) ; position = _ }  ) -> print_endline "Yes\n" ; Some lambad_param_explit, Some r
       | Some _ -> failwith "Todo Error: Explicit type should be an function" in 
     
       let paramas_typed =
@@ -248,24 +248,33 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
         
       let body_ktype = typeof_kbody ~generics_resolver clo_env current_mod_name prog ~return_type:(explicit_type_return_type |> Option.map Position.value)  kbody in
       let captured_var = free_variable_kbody ~closure_env:(paramas_typed |> List.map (fun s -> Position.value @@ fst @@ s) ) ~scope_env:env kbody in
-      let () = Printf.fprintf stdout "captured = [%s]\n" (captured_var |> String.concat ", ") in
+      let string_of_captured_var =
+          captured_var |> List.map (fun (s, kt) ->
+             Printf.sprintf "%s: %s" 
+             s
+             (string_of_ktype kt)
+        )|> String.concat ", "
+      in
+      let () = Printf.printf "caotured : [%s]" string_of_captured_var in
       begin match captured_var with
       | [] ->  TFunction (
           paramas_typed |> List.map (snd),
         {v = body_ktype; position = Position.dummy}
         ) 
       | _::_ -> begin match lambda_type with
-        | Some ({v = TFunction (_, _); position = _ } ) ->  Printf.sprintf "Cannot be a fn pointer : [%s] captured" (captured_var |> String.concat ", ") |> failwith
-        | Some ({v = TClosure (lambad_param_explit, r); position = _ }) -> 
+        | Some ({v = TFunction (_, _); position = _ } ) ->  Printf.sprintf "Cannot be a fn pointer : [%s] captured" string_of_captured_var |> failwith
+        | Some ({v = TClosure (lambad_param_explit, r, _); position = _ }) -> 
           TClosure (
             lambad_param_explit,
-            r
+            r,
+            captured_var
           )
         | Some _ -> failwith "Shouldnt be reached"  
         | None -> 
           TClosure (
             paramas_typed |> List.map snd,
-            {v = body_ktype; position = Position.dummy}
+            {v = body_ktype; position = Position.dummy},
+            captured_var
           )
       end
     end
@@ -1725,7 +1734,18 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
                      |> ast_error |> raise
                    else Type.restrict_type acc case_type)
                  t)
-and free_variable_kbody ~(closure_env:string list) ~(scope_env) kbody = 
+and free_variable_kbody ~(closure_env:string list) ~(scope_env) kbody : (string * ktype) list = 
+let capture id =
+  if closure_env |>  List.mem id.v |> not then 
+    let ktype = 
+    match Env.find_identifier_opt id.v scope_env with
+    | Some { is_const = _; ktype } -> ktype
+    | None -> id.v |> Printf.sprintf "Id [%s] not in env" |> failwith
+    in
+    [id.v, ktype]
+  else 
+    []
+in
 let statements, final_expr = kbody in
   match statements with
   | statement::q -> 
@@ -1740,16 +1760,25 @@ let statements, final_expr = kbody in
       | SAffection (variable, expression) | SDerefAffectation (variable, expression) -> 
         let free_vars_in_expression = free_variable_expression ~closure_env ~scope_env expression in
         let free_vars_in_expression = if closure_env |> List.mem variable.v |> not
-          then (variable.v)::free_vars_in_expression
-        else free_vars_in_expression in
+          then ( capture variable ) @ free_vars_in_expression
+        else free_vars_in_expression 
+        in
         free_vars_in_expression 
         @ free_variable_kbody ~closure_env ~scope_env (q, final_expr)
   )
   | [] -> 
     free_variable_expression ~closure_env ~scope_env final_expr
-and free_variable_expression ~(closure_env:string list) ~scope_env {v = expression; _} = 
+and free_variable_expression ~(closure_env:string list) ~scope_env {v = expression; _} : (string * ktype) list  = 
   let capture id =
-    if closure_env |>  List.mem id.v |> not then [id.v] else []
+    if closure_env |>  List.mem id.v |> not then 
+      let ktype = 
+      match Env.find_identifier_opt id.v scope_env with
+      | Some { is_const = _; ktype } -> ktype
+      | None -> id.v |> Printf.sprintf "Id [%s] not in env" |> failwith
+      in
+      [id.v, ktype]
+    else 
+      []
   in
   match expression with
   | ESizeof( Either.Right expr) -> free_variable_expression ~closure_env ~scope_env expr

@@ -147,7 +147,7 @@ let restrict_typed_expression restrict typed_expression =
     rktype = RType.restrict_rktype typed_expression.rktype restrict;
   }
 
-let rec from_ktype = function
+let rec from_ktype ?(capture_type) = ignore capture_type; function
   | TParametric_identifier { module_path; parametrics_type; name } ->
       RTParametric_identifier
         {
@@ -168,11 +168,38 @@ let rec from_ktype = function
         ( parameters |> List.map (fun kt -> kt |> Position.value |> from_ktype),
           return_type |> Position.value |> from_ktype )
   | TString_lit -> RTString_lit
-  | TClosure _ -> failwith "Must handle closure"
+  | TClosure (params, return_type, captured_env ) -> RTClosure {
+    params = params |> List.map (fun kt -> kt |> Position.value |> from_ktype);
+    return_type = from_ktype return_type.v;
+    captured_env = captured_env |> List.map (fun (s, kt) -> s, from_ktype kt)
+  }
   | TFloat -> RTFloat
   | TBool -> RTBool
   | TUnit -> RTUnit
   | TUnknow -> RTUnknow
+
+and to_ktype = let open Position in function
+| RTUnknow -> TUnknow
+| RTFloat -> TFloat
+| RTBool -> TBool
+| RTUnit -> TUnit
+| RTString_lit -> TString_lit
+| RTInteger (sign, size) -> TInteger(sign, size)
+| RTPointer rkt -> TPointer ( { v = to_ktype rkt; position = dummy})
+| RTTuple rkts -> TTuple (rkts |> List.map (fun rkt -> { v = to_ktype rkt; position = dummy} ))
+| RTFunction (parameters, return_type) -> TFunction (parameters |> List.map (fun kt -> val_dummy @@ to_ktype kt), val_dummy @@ to_ktype return_type)
+| RTClosure {params; return_type; captured_env} ->
+  TClosure (
+    params |> List.map (fun rkt -> val_dummy @@ to_ktype rkt),
+    val_dummy @@ to_ktype return_type,
+    captured_env |> List.map (fun (s, kt) -> s, to_ktype kt) 
+  )
+| RTType_Identifier {module_path; name } -> TType_Identifier {module_path = val_dummy module_path; name = val_dummy name}
+| RTParametric_identifier {module_path; parametrics_type; name} -> TParametric_identifier {
+  module_path = val_dummy module_path;
+  parametrics_type = List.map (fun kt -> val_dummy @@ to_ktype kt) parametrics_type;
+  name = val_dummy name
+}
 
 and from_switch_case = function
   | SC_Enum_Identifier { variant } ->
@@ -354,7 +381,42 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
                      typed_expression_of_kexpression ~generics_resolver env
                        current_module program expr ));
         }
-  | ELambda {params = _; kbody = _} -> failwith "Asttyconvert : Todo Lambda Expression"
+  | ELambda {params; kbody} -> 
+    let open Env in
+    let params_explicit_type, explicit_type_return_type = 
+      match hint_type with
+      | RTFunction (lambad_param_explit, r) | RTClosure {params = lambad_param_explit; return_type = r; _} -> Some lambad_param_explit, Some r
+      | _ -> failwith "Todo Error: R Explicit type should be an function" in 
+    
+      let paramas_typed =
+         match params_explicit_type with
+         | None -> params |> List.map (fun (s, kt_loc_option) -> 
+          let () = Printf.printf "Field = %s\n" s.v in 
+          s.v, from_ktype (match kt_loc_option with Some kt_loc -> kt_loc | None -> failwith "Need explicit type on parameters or statement").v
+          )
+          | Some lambda_param_explits -> 
+          let () = if Util.are_diff_lenght lambda_param_explits params then failwith "Arity between parameters and explicit type is wrong" else () in
+            params |> List.combine lambda_param_explits |> List.map (fun (given_statement_type, (s, kt_loc_opt)) -> 
+              let rkt = match kt_loc_opt with
+                | None -> given_statement_type
+                | Some _ (* RTy .are_compatible_type given_statement_type.v kt_loc.v *) -> given_statement_type
+                (* | Some _ -> failwith "Incomptabile type between explicit instatement en inner lambda" *)
+              in
+              s.v , rkt
+            )
+          in
+    let clo_env = env |> Env.push_context (paramas_typed |> List.map (fun (s, kt) -> 
+            s, {is_const = true; ktype = to_ktype kt}
+      )) in
+
+    let body_ktype = rkbody_of_kbody ~generics_resolver clo_env current_module program ~return_type:(explicit_type_return_type |> Option.value ~default:RTUnknow )  kbody in
+    let captured_var = free_variable_kbody ~closure_env:(paramas_typed |> List.map (fst) ) ~scope_env:env kbody in
+    let captured_var = captured_var |> List.map (fun (s, kt) -> s, from_ktype kt) in
+    RELambda {
+      parameters = paramas_typed;
+      body = body_ktype;
+      captured_env = captured_var
+    }
   | EEnum { modules_path; enum_name; variant; assoc_exprs } ->
       REEnum
         {

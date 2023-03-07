@@ -405,6 +405,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           (TEIdentifier new_tmp)
       in
       (stmts_needed @ (last_stmt |> List.cons stt), return)
+  | RELambda _, _ -> failwith "Relambda to do in ast tac"
   | REStruct { modules_path; struct_name; fields }, _ ->
       let stmts_needed, tac_fields =
         fields
