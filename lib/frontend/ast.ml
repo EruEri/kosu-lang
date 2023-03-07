@@ -953,6 +953,8 @@ module Env = struct
   type variable_info = { is_const : bool; ktype : ktype }
   type t = { contexts : (string * variable_info) list list }
 
+  let empty = { contexts = [] }
+
   let vi_ktype { ktype; _ } = ktype
   let vi_is_const { is_const; _ } = is_const
   let create_empty_env : t = { contexts = [] }
