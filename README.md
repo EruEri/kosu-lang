@@ -18,7 +18,7 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 - [x] Generate basic x86_64 assembly
 - [x] Fix Syntax issues
 - [ ] Integer size inference
-- [ ] Add while loop
+- [x] Add while loop
 - [ ] Add anonymous function
 - [ ] Add array Literral
 - [ ] Fix Immediate encoding and stack base function parameters on arm64
