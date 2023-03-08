@@ -156,6 +156,14 @@ type rfunction_decl = {
   rbody : rkbody;
 }
 
+type rclosure_function_decl = {
+  clo_name: string;
+  rparameters : (string * rktype) list;
+  captured_env: (string * rktype) list;
+  return_type : rktype;
+  rbody : rkbody;
+}
+
 type roperator_decl =
   | RUnary of {
       op : parser_unary_op;
@@ -198,6 +206,7 @@ type rconst_decl = { rconst_name : string; value : typed_expression }
 type rmodule_node =
   | RNExternFunc of rexternal_func_decl
   | RNFunction of rfunction_decl
+  | RNClosureFunc of rclosure_function_decl
   | RNOperator of roperator_decl
   | RNSyscall of rsyscall_decl
   | RNStruct of rstruct_decl

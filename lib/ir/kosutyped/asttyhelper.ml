@@ -757,6 +757,84 @@ module RProgram = struct
       return_type = rfunction_decl.return_type;
     }
 
+  module Closure = struct
+    let make_closure_name = Printf.sprintf "closure.%s.%u"
+
+    module ClosureSet = Set.Make(struct
+      type t = Asttyped.rclosure_function_decl
+      let compare = compare
+    end)
+
+    let rec create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expr = 
+      create_clo_function_of_expr ~closure_count current_module rprogram typed_expr.rexpression
+    and create_clo_function_of_expr ~closure_count current_module rprogram = 
+    let closures_from_list list = 
+        list |> List.fold_left (fun acc typed_expr -> 
+          ClosureSet.union (create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expr) acc
+      ) ClosureSet.empty
+    in
+    function
+    | RELambda _ -> failwith "Most imprtant part of closure"
+    | REFieldAcces {first_expr; _} -> create_clo_function_of_typed_expr ~closure_count current_module rprogram first_expr
+    | REStruct {fields; _ } -> fields |> List.map snd |> closures_from_list
+    | REEnum {assoc_exprs = exprs; _} 
+    | RETuple exprs 
+    | REBuiltin_Function_call { parameters = exprs; _ } 
+    | REFunction_call { parameters = exprs ; _} -> closures_from_list exprs
+    | REUn_op (RUMinus typed_expression | RUNot typed_expression) | REUnOperator_Function_call (RUMinus typed_expression | RUNot typed_expression) ->
+      create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression
+    | REBin_op rebin | REBinOperator_Function_call rebin -> 
+      let lhs, rhs = Binop.operands rebin in
+      let lclosure = create_clo_function_of_typed_expr ~closure_count current_module rprogram lhs in
+      let rclosure = create_clo_function_of_typed_expr ~closure_count current_module rprogram rhs in
+      ClosureSet.union lclosure rclosure
+    | REWhile (condition, body) -> 
+      let condition_closure = create_clo_function_of_typed_expr ~closure_count current_module rprogram condition in
+      let body_closures = create_clo_function_of_kbody ~closure_count current_module rprogram body in
+      ClosureSet.union condition_closure body_closures
+    | REIf (condition, if_body, else_body) ->
+      let condition_closure = create_clo_function_of_typed_expr ~closure_count current_module rprogram condition in
+      let ifbody_closures = create_clo_function_of_kbody ~closure_count current_module rprogram if_body in
+      let elsebody_closures = create_clo_function_of_kbody ~closure_count current_module rprogram else_body in
+      condition_closure
+      |> ClosureSet.union ifbody_closures
+      |> ClosureSet.union elsebody_closures
+    | RECases {cases; else_case} -> 
+      cases |> List.fold_left (fun acc (typed_expr, body) -> 
+        acc
+        |> ClosureSet.union (create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expr)
+        |> ClosureSet.union (create_clo_function_of_kbody ~closure_count current_module rprogram body)
+      ) (create_clo_function_of_kbody ~closure_count current_module rprogram else_case)
+    | RESwitch { rexpression; cases; wildcard_case} ->
+      let condition_closure = create_clo_function_of_typed_expr ~closure_count current_module rprogram rexpression in
+      let wildcard_closure = wildcard_case |> Option.map (create_clo_function_of_kbody ~closure_count current_module rprogram) |> Option.value ~default:ClosureSet.empty in
+      let base_closure = ClosureSet.union condition_closure wildcard_closure in
+      cases |> List.fold_left (fun acc (_, _, body) -> 
+        acc
+        |> ClosureSet.union (create_clo_function_of_kbody ~closure_count current_module rprogram body)
+      ) base_closure
+    | _ -> ClosureSet.empty
+
+    and create_clo_function_of_kbody_acc ~acc ~closure_count current_module rprogram kbody = 
+      let smts, final_expr = kbody in
+      match smts with
+      | stmt::q -> begin match stmt with
+        | RSDeclaration {typed_expression; _}
+        | RSAffection (_, typed_expression)
+        | RSDiscard (typed_expression)
+        | RSDerefAffectation (_, typed_expression) ->
+          let generated = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
+          let new_acc = ClosureSet.union acc generated in
+          create_clo_function_of_kbody_acc ~acc:new_acc ~closure_count current_module rprogram (q, final_expr)
+      end
+      | [] -> 
+        let generated = create_clo_function_of_typed_expr ~closure_count current_module rprogram final_expr in
+        ClosureSet.union acc generated
+  and create_clo_function_of_kbody ~closure_count current_module rprogram kbody = 
+      create_clo_function_of_kbody_acc ~acc:ClosureSet.empty ~closure_count current_module rprogram kbody
+  
+  end
+
   module FnSpec = Set.Make (struct
     type t = string * rtrue_function_decl
 

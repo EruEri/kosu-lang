@@ -1184,6 +1184,7 @@ let rec tac_module_node_from_rmodule_node current_module rprogram = function
   | RNStruct s -> TNStruct s
   | RNEnum s -> TNEnum s
   | RNConst s -> TNConst s
+  | RNClosureFunc _clo -> failwith "Closure tac repr"
   | RNFunction f ->
       let tmp = tac_function_decl_of_rfunction current_module rprogram f in
       (* let () =
