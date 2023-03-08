@@ -448,9 +448,14 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
     let captured_var = free_variable_kbody ~closure_env:(paramas_typed |> List.map (fst) ) ~scope_env:env kbody in
     let captured_var = captured_var |> List.map (fun (s, kt) -> s, from_ktype kt) in
     RELambda {
+      clofn_name = None;
       parameters = paramas_typed;
       body = body_ktype;
-      captured_env = captured_var
+      captured_env = captured_var;
+      return_ktype = (explicit_type_return_type |> function
+      | None -> failwith "Hint type must be set for closure"
+      | Some kt -> kt;
+      );
     }
   | EEnum { modules_path; enum_name; variant; assoc_exprs } ->
       REEnum

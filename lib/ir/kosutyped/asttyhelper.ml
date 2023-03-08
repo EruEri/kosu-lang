@@ -850,8 +850,31 @@ module RProgram = struct
       let new_expr, closures =  create_clo_function_of_typed_expr ~closure_count current_module rprogram first_expr in
       REFieldAcces {first_expr = new_expr; field}, closures
     | RELambda record -> 
-      let clofn_name = make_closure_name ~closure_count current_module in      
-      failwith "Most imprtant part of closure"
+      let rec iter_until_no_generate_body ~acc body =
+        let new_body, closures = create_clo_function_of_kbody ~closure_count current_module rprogram body in
+        if closures = ClosureSet.empty then (new_body, acc)
+        else iter_until_no_generate_body ~acc:(ClosureSet.union acc closures) new_body 
+      in
+
+      let clofn_name = make_closure_name ~closure_count current_module in
+      let rbody, closures = iter_until_no_generate_body ~acc:ClosureSet.empty record.body in
+
+      let closure_fn_decl = {
+        clo_name = clofn_name;
+        rparameters = record.parameters;
+        captured_env = record.captured_env;
+        rbody = rbody;
+        return_type = record.return_ktype
+      } in
+      let closures = ClosureSet.add closure_fn_decl closures in
+
+      RELambda {
+        clofn_name = Some clofn_name;
+        parameters = record.parameters;
+        return_ktype = record.return_ktype;
+        body = rbody;
+        captured_env = record.captured_env
+      }, closures
 
     | REStruct {modules_path; struct_name; fields; } -> 
       let fields_name, fields_exprs = List.split fields in

@@ -102,6 +102,7 @@ and rkexpression =
   | RELambda of {
     clofn_name: string option;
     parameters: (string * rktype) list;
+    return_ktype: rktype;
     body: rkbody;
     captured_env: (string * rktype) list;
   }
