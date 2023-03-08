@@ -1167,3 +1167,4 @@ and from_program (program : Ast.program) : rprogram =
        (fun acc node -> RProgram.append_function_decl node acc)
        rprogram
   |> RProgram.remove_generics
+  |> RProgram.generate_closure_from_lambda

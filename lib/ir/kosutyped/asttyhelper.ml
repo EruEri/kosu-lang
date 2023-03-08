@@ -201,6 +201,9 @@ module OperatorDeclaration = struct
           (Asttypprint.string_of_label_rktype ltype)
           (Asttypprint.string_of_label_rktype rtype)
           (Asttypprint.string_of_label_rktype return_type)
+
+    let body = function
+    | RUnary {kbody; _ } | RBinary {kbody; _} -> kbody
 end
 
 module Binop = struct
@@ -982,6 +985,24 @@ module RProgram = struct
         (reordered_stmt, new_final_expr), closures
   and create_clo_function_of_kbody ~closure_count current_module rprogram kbody = 
       create_clo_function_of_kbody_acc ~acc:ClosureSet.empty ~rev_stmts:[] ~closure_count current_module rprogram kbody
+
+  let create_closure_node ~closure_count current_module rprogram = function
+  | RModule nodes -> 
+    let new_nodes =  nodes |> List.map (fun node -> 
+      match node with
+      | RNFunction record -> 
+        let new_body, closures = create_clo_function_of_kbody ~closure_count current_module rprogram record.rbody in
+        (RNFunction { record with rbody = new_body})::(closures |> ClosureSet.elements |> List.map (fun clo -> RNClosureFunc clo))
+      | RNOperator (RBinary binary) -> 
+        let new_body, closures = create_clo_function_of_kbody ~closure_count current_module rprogram binary.kbody in
+        (RNOperator (RBinary {binary with kbody = new_body} ) )::( closures |> ClosureSet.elements |> List.map (fun clo -> RNClosureFunc clo) )
+      | RNOperator (RUnary unary) -> 
+        let new_body, closures = create_clo_function_of_kbody ~closure_count current_module rprogram unary.kbody in
+        (RNOperator (RUnary {unary with kbody = new_body} ) )::( closures |> ClosureSet.elements |> List.map (fun clo -> RNClosureFunc clo) )
+      | node  -> [node] 
+    ) |> List.flatten
+    in
+    RModule new_nodes
   
   end
 
@@ -990,7 +1011,7 @@ module RProgram = struct
 
     let compare (lmodule, lhs) (rmodule, rhs) =
       let module_cmp = compare lmodule rmodule in
-      if module_cmp == 0 then
+      if module_cmp = 0 then
         compare
           (signature_of_rtrue_function_decl lhs)
           (signature_of_rtrue_function_decl rhs)
@@ -1432,4 +1453,16 @@ module RProgram = struct
                    else rmodule);
                };
            })
+
+  let generate_closure_from_lambda rprogram = 
+    rprogram |> List.map (fun { filename; rmodule_path = { path; rmodule } } -> 
+      {
+        filename;
+        rmodule_path = 
+        {
+          path;
+          rmodule = Closure.create_closure_node ~closure_count:(ref 0) path rprogram rmodule
+        }
+      }
+    )
 end
