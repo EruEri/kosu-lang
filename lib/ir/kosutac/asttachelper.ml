@@ -139,7 +139,7 @@ module StringLitteral = struct
         map_fill_string_lit_of_tac_expression map un.expr.tac_expression ()
     | RVFieldAcess { first_expr; _ } ->
         map_fill_string_lit_of_tac_expression map first_expr.tac_expression ()
-    | RVAdress _ | RVDefer _ | RVDiscard | RVLater -> ()
+    | RVAdress _ | RVDefer _ | RVDiscard | RVLater | RVLambda _ -> ()
 
   and map_fill_string_lit_of_tac_case map
       { statement_for_condition; condition; tac_body; _ } () =

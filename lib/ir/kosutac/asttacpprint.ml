@@ -269,6 +269,21 @@ and string_of_tac_rvalue = function
             (assoc_tac_exprs
             |> List.map string_of_typed_tac_expression
             |> String.concat ", "))
+  | RVLambda record -> 
+    sprintf "|%s| %s {%s} -> %s"
+    (record.parameters 
+      |> List.map (fun (s, kt) -> 
+        sprintf "%s: %s" s (string_of_label_rktype kt)
+      )
+      |> String.concat ", "
+    )
+    (string_of_rktype record.return_ktype)
+    (record.captured_env 
+    |> List.map (fun (s, kt) -> 
+      sprintf "%s: %s" s (string_of_label_rktype kt)
+    )
+    |> String.concat ", ")
+    (record.fn_pointer_name)
   | RVTuple exprs ->
       sprintf "(%s)"
         (exprs |> List.map string_of_typed_tac_expression |> String.concat ", ")

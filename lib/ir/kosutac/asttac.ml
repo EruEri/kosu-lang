@@ -109,6 +109,12 @@ and tac_rvalue =
       parameters : tac_typed_expression list;
     }
   | RVTuple of tac_typed_expression list
+  | RVLambda of {
+    fn_pointer_name: string;
+    parameters: (string * rktype) list;
+    return_ktype: rktype;
+    captured_env: (string * rktype) list;
+  }
   | RVFieldAcess of { first_expr : tac_typed_expression; field : string }
   | RVAdress of string
   | RVDefer of string
@@ -188,6 +194,17 @@ type tac_function_decl = {
   discarded_values : (string * rktype) list;
 }
 
+type tac_rclosure_function_decl = {
+  rclosure_name : string;
+  rparameters : (string * rktype) list;
+  rclosure_env: (string * rktype) list;
+  return_type : rktype;
+  tac_body : tac_body;
+  stack_params_count : int;
+  locale_var : tac_typed_locale_variable list;
+  discarded_values : (string * rktype) list;
+}
+
 type tac_operator_decl =
   | TacUnary of {
       op : parser_unary_op;
@@ -214,6 +231,7 @@ type tac_module_node =
   | TNExternFunc of rexternal_func_decl
   | TNSyscall of rsyscall_decl
   | TNFunction of tac_function_decl
+  | TNClosure of tac_rclosure_function_decl
   | TNOperator of tac_operator_decl
   | TNStruct of rstruct_decl
   | TNEnum of renum_decl

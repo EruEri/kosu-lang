@@ -405,7 +405,21 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           (TEIdentifier new_tmp)
       in
       (stmts_needed @ (last_stmt |> List.cons stt), return)
-  | RELambda _, _ -> failwith "Relambda to do in ast tac"
+  | RELambda {clofn_name; parameters; return_ktype; body = _; captured_env}, _ -> 
+      let new_tmp = make_inc_tmp trktype map count_var in
+      let rvlambda =  (RVLambda {fn_pointer_name = Option.get clofn_name; parameters; return_ktype; captured_env}) in
+      let statament =
+        STacDeclaration
+          {
+            identifier = new_tmp;
+            trvalue = make_typed_tac_rvalue trktype rvlambda;
+          }
+      in
+      let last_stmt, return =
+        convert_if_allocated ~expr_rktype:trktype ~allocated
+          (TEIdentifier new_tmp)
+      in
+    (statament :: last_stmt), return
   | REStruct { modules_path; struct_name; fields }, _ ->
       let stmts_needed, tac_fields =
         fields
@@ -1107,6 +1121,43 @@ let tac_function_decl_of_rfunction current_module rprogram
     discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
   }
 
+  let tac_closure_function_decl_of_rclosure_fn current_module rprogram
+    (rclosure_function_decl : rclosure_function_decl) =
+  let map = Hashtbl.create (rclosure_function_decl.rbody |> fst |> List.length) in
+
+  let discarded_value = Hashtbl.create 5 in
+  let tac_body =
+    convert_from_rkbody ~discarded_value ~switch_count ~cases_count ~rprogram
+      ~label_name:rclosure_function_decl.clo_name ~map ~count_var:(ref 0)
+      ~function_return:true ~if_count rclosure_function_decl.rbody
+  in
+  let tac_body = reduce_variable_used_body tac_body in
+  let () =
+    map
+    |> Hashtbl.filter_map_inplace (fun key value ->
+           if is_in_body key tac_body then Some value else None)
+  in
+  let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
+
+  (* let () = locale_var |> List.map ( fun {locale_ty; locale} ->
+       let s = (function Locale s -> s | Enum_Assoc_id {name; _} -> name) locale in
+       Printf.sprintf "%s : %s" (s) (KosuIrTyped.Asttypprint.string_of_rktype locale_ty)
+     ) |> String.concat "\n" |> Printf.printf "%s\n" in *)
+  let stack_params_count =
+    KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
+      rprogram rclosure_function_decl.rbody
+  in
+  {
+    rclosure_name = rclosure_function_decl.clo_name;
+    rparameters = rclosure_function_decl.rparameters;
+    return_type = rclosure_function_decl.return_type;
+    rclosure_env = rclosure_function_decl.captured_env;
+    tac_body;
+    stack_params_count;
+    locale_var;
+    discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
+  }
+
 let tac_operator_decl_of_roperator_decl current_module rprogram = function
   | RUnary { op; rfield; return_type; kbody } as self ->
       let asm_name =
@@ -1184,7 +1235,9 @@ let rec tac_module_node_from_rmodule_node current_module rprogram = function
   | RNStruct s -> TNStruct s
   | RNEnum s -> TNEnum s
   | RNConst s -> TNConst s
-  | RNClosureFunc _clo -> failwith "Closure tac repr"
+  | RNClosureFunc clo -> 
+    let tmp = tac_closure_function_decl_of_rclosure_fn current_module rprogram clo in
+    TNClosure tmp
   | RNFunction f ->
       let tmp = tac_function_decl_of_rfunction current_module rprogram f in
       (* let () =
