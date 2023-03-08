@@ -36,7 +36,7 @@ end
 
 module AsmProgram (InstructionLine : InstructionLine) = struct
   type raw_line = InstructionLine.raw_line
-  type asm_function_decl = { asm_name : string; asm_body : raw_line list }
+  type asm_function_decl = { asm_name : string; is_global: bool; asm_body : raw_line list }
 
   type asm_const_decl = {
     asm_const_name : string;

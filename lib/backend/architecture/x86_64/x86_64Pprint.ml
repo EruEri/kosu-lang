@@ -216,9 +216,9 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           |> String.concat "\n\t")
           asm_const_name AsmSpec.string_litteral_directive s
 
-  let string_of_asm_function { asm_name; asm_body } =
+  let string_of_asm_function { asm_name; is_global ;asm_body } =
     sprintf "\t%s\n%s:\n%s"
-      (AsmSpec.function_directives asm_name |> String.concat "\n\t")
+      (AsmSpec.function_directives is_global asm_name |> String.concat "\n\t")
       asm_name
       (asm_body |> List.map string_of_raw_line |> String.concat "\n")
 

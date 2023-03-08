@@ -21,7 +21,7 @@ module type Aarch64AsmSpecification = sig
   | Other
 
   val main : string
-  val function_directives : string -> string list
+  val function_directives : bool -> string -> string list
 
   val adrp_style : address_load_style
 

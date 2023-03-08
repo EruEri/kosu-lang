@@ -16,7 +16,7 @@
 (**********************************************************************************************)
 
 module type X86_64_Spec = sig
-  val function_directives : string -> string list
+  val function_directives : bool -> string -> string list
 
   val constant_directives :
     string ->
@@ -44,7 +44,9 @@ struct
 end
 
 module X86_64LinuxAsmSpec = Make (struct
-  let function_directives fn_name = [ Printf.sprintf ".globl %s" fn_name ]
+  let function_directives is_global fn_name = if is_global then
+    [ Printf.sprintf ".globl %s" fn_name ]
+  else []
 
   let constant_directives const_name = function
     | `IntVal (size, _) ->
@@ -71,8 +73,11 @@ module X86_64LinuxAsmSpec = Make (struct
 end)
 
 module X86MacOsAsmSpec = Make (struct
-  let function_directives fn_name =
+  let function_directives is_global fn_name = if is_global then
     [ Printf.sprintf ".globl %s" fn_name; ".p2align 4, 0x90" ]
+  else [
+    ".p2align 4, 0x90"
+  ]
 
   let constant_directives const_name = function
     | `IntVal (size, _) ->

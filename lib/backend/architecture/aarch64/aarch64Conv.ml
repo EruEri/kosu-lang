@@ -1611,6 +1611,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                      (Afunction
                         {
                           asm_name;
+                          is_global = true;
                           asm_body =
                             [ Directive "cfi_startproc" ]
                             @ prologue @ (conversion |> List.tl) @ epilogue
@@ -1653,6 +1654,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                      (AsmProgram.Afunction
                         {
                           asm_name;
+                          is_global = true;
                           asm_body =
                             [ Directive "cfi_startproc" ]
                             @ prologue @ (conversion |> List.tl) @ epilogue
@@ -1702,6 +1704,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                      (Afunction
                         {
                           asm_name;
+                          is_global = true;
                           asm_body =
                             [ Directive "cfi_startproc" ]
                             @ prologue @ (conversion |> List.tl) @ epilogue

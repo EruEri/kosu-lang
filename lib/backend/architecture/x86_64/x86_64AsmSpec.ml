@@ -20,7 +20,7 @@
   Moslty between MacOs and Linux with the use or not of an underscore    
 *)
 module type X86_64AsmSpecification = sig
-  val function_directives : string -> string list
+  val function_directives : bool -> string -> string list
 
   val constant_directives :
     string ->
