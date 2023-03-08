@@ -191,8 +191,9 @@ and string_of_rkexpression = function
   | RETuple exprs ->
       sprintf "(%s)"
         (exprs |> List.map string_of_typed_expression |> String.concat ", ")
-  | RELambda {parameters; body; captured_env} -> 
-    sprintf "|%s| {%s} -> %s"
+  | RELambda {parameters; body; captured_env; clofn_name} -> 
+    sprintf "%s : |%s| {%s} -> %s"
+    (clofn_name |> Option.value ~default: "None")
     (parameters |> List.map string_of_field |> String.concat ", ")
     (captured_env |> List.map string_of_field |> String.concat ", ")
     (string_of_rkbody body)

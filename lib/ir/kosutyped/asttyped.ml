@@ -100,6 +100,7 @@ and rkexpression =
   | REWhile of typed_expression * rkbody
   | REIf of typed_expression * rkbody * rkbody
   | RELambda of {
+    clofn_name: string option;
     parameters: (string * rktype) list;
     body: rkbody;
     captured_env: (string * rktype) list;
