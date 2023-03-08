@@ -71,6 +71,33 @@ module RType = struct
     | RTParametric_identifier { parametrics_type; _ } -> parametrics_type
     | _ -> []
 
+  let rec kt_compare lhs rhs = 
+    let compare_list_type lhs rhs = 
+      List.combine lhs rhs |> List.fold_left (fun acc (l, r) -> 
+        if acc <> 0 then acc else kt_compare l r
+      ) 0
+    in
+    match lhs, rhs with
+    | RTParametric_identifier rtlhs, RTParametric_identifier rtrhs -> 
+      begin match compare (rtlhs.module_path, rtlhs.name) (rtrhs.module_path, rtrhs.name) with
+        | 0 when Util.are_same_lenght rtlhs.parametrics_type rtrhs.parametrics_type -> 
+          compare_list_type rtlhs.parametrics_type rtrhs.parametrics_type
+        | 0 -> List.compare_lengths rtlhs.parametrics_type rtrhs.parametrics_type
+        | n -> n
+      end
+    | RTPointer l, RTPointer r -> kt_compare l r
+    | RTTuple ls, RTTuple rs when Util.are_same_lenght ls rs ->           
+      List.combine ls rs |> List.fold_left (fun acc (l, r) -> 
+      if acc <> 0 then acc else kt_compare l r
+    ) 0
+    | RTFunction (pls, rl), RTFunction (prs, rr) 
+    | RTClosure {params = pls; return_type = rl; _}, RTClosure {params = prs; return_type = rr; _} when Util.are_same_lenght pls prs -> 
+      begin match kt_compare rl rr with
+      | 0 -> compare_list_type pls prs
+      | n -> n 
+      end
+    | _ -> compare lhs rhs
+
   (**
         
     *)

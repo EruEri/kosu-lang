@@ -30,12 +30,25 @@ module Sizeof = struct
     let m = Int64.unsigned_rem n b in
     if m = 0L then n else n ++ b -- m
 
+
+  module KtypeHashTbl = Hashtbl.Make(struct
+    type t = rktype
+    let equal lhs rhs = rhs |> RType.kt_compare lhs |> ( = ) 0
+    let hash = Hashtbl.hash 
+  end)
+
+  let map_size : int64 KtypeHashTbl.t = KtypeHashTbl.create 16
+
+  let map_align : int64 KtypeHashTbl.t = KtypeHashTbl.create 16
+
   let rec size calcul program rktype =
     match rktype with
     | RTUnit | RTBool | RTUnknow -> 1L
     | RTInteger (_, isize) -> Isize.size_of_isize isize / 8 |> Int64.of_int
     | RTFloat | RTPointer _ | RTString_lit | RTFunction _ -> 8L
     | RTTuple kts -> size_tuple calcul program kts
+    | RTClosure {params = _; return_type = _; captured_env} ->
+      8L ++ (captured_env |> List.map snd |> size_tuple calcul program)
     | kt -> (
         let type_decl =
           RProgram.find_type_decl_from_rktye kt program |> Option.get
@@ -89,8 +102,31 @@ module Sizeof = struct
            |> RType.rtuple |> size calcul program)
     |> List.fold_left max 0L
 
-  let sizeof program ktype = size `size program ktype
-  let alignmentof program ktype = size `align program ktype
+  let sizeof program ktype = 
+    match ktype with
+    | RTClosure _ as kt -> 
+      let clo_size = size `size program kt in
+      KtypeHashTbl.find_opt map_size kt |> Option.map ( fun found_size ->
+        let max_size =  max found_size clo_size in
+        let () = KtypeHashTbl.replace map_size kt max_size in
+        max_size
+      ) |> Option.value ~default:clo_size
+    | ktype -> 
+      begin match KtypeHashTbl.find_opt map_size ktype with
+      | Some size -> size
+      | None -> 
+          let ktsize = size `size program ktype in
+          let () = KtypeHashTbl.replace map_size ktype ktsize in
+          ktsize
+      end
+
+  let alignmentof program ktype = 
+    match KtypeHashTbl.find_opt map_align ktype with
+    | Some align -> align
+    | None -> 
+      let kt_align = size `align program ktype in
+      let () = KtypeHashTbl.replace map_align ktype kt_align in
+      kt_align
 
   let offset_of_tuple_index ?(generics = Hashtbl.create 0) index rktypes
       rprogram =
@@ -147,7 +183,7 @@ let restrict_typed_expression restrict typed_expression =
     rktype = RType.restrict_rktype typed_expression.rktype restrict;
   }
 
-let rec from_ktype ?(capture_type) = ignore capture_type; function
+let rec from_ktype = function
   | TParametric_identifier { module_path; parametrics_type; name } ->
       RTParametric_identifier
         {
