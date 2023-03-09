@@ -18,7 +18,7 @@
 open Aarch64Core
 open Aarch64Core.Instruction
 open Aarch64Core.Register
-open KosuIrTyped.Asttyconvert.Sizeof
+open KosuIrTyped.Asttyhelper.Sizeof
 open KosuIrTAC.Asttachelper.StringLitteral
 open KosuIrTAC.Asttac
 open Util
@@ -80,7 +80,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                  });
           ]
 
-  let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
+  let sizeofn = KosuIrTyped.Asttyhelper.Sizeof.sizeof
 
   let copy_result ?(before_copy = fun _ -> []) ~where ~register ~rval_rktype
       rprogram =
@@ -474,7 +474,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             in
 
             (* let stack_params_offset = stack_param |> List.map (fun {expr_rktype; _} ->
-                   if KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram expr_rktype > 8L then KosuIrTyped.Asttyhelper.RType.rpointer expr_rktype else expr_rktype
+                   if KosuIrTyped.Asttyhelper.Sizeof.sizeof rprogram expr_rktype > 8L then KosuIrTyped.Asttyhelper.RType.rpointer expr_rktype else expr_rktype
                  ) in
 
                let stack_store = stack_param |> List.map *)
@@ -778,7 +778,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let last_reg, load_indirect =
           if
             is_register_size
-            @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram rval_rktype
+            @@ KosuIrTyped.Asttyhelper.Sizeof.sizeof rprogram rval_rktype
           then
             ( tmp64reg,
               [
@@ -909,7 +909,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         | true ->
             let pointee_size =
               rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee
-              |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+              |> KosuIrTyped.Asttyhelper.Sizeof.sizeof rprogram
             in
             let r9 = tmp64reg_2 in
             let r10 = tmp64reg_3 in
@@ -1677,6 +1677,13 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                            | Locale s -> (s, locale_ty)
                            | Enum_Assoc_id { name; _ } -> (name, locale_ty))
                   in
+                   let () = fn_register_params
+                    |> List.map (fun (s, kt) ->
+                        Printf.sprintf "%s : %s\n" (s) (KosuIrTyped.Asttypprint.string_of_rktype kt))
+                        |> String.concat ", "
+                        |> Printf.printf "%s : locale variables = [%s]\n"
+                        closure_fn_decl.rclosure_name
+                    in
 
                   let asm_name = AsmSpec.label_of_constant closure_fn_decl.rclosure_name in
                   let fd =
@@ -1689,7 +1696,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
 
                   let prologue =
                     FrameManager.function_prologue
-                      ~fn_register_params:closure_fn_decl.rparameters
+                      ~fn_register_params
                       ~stack_params:stack_param rprogram fd
                   in
                   let conversion =

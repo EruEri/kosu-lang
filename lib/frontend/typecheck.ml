@@ -225,7 +225,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
       | Some _ -> failwith "Todo Error: Explicit type should be an function" in 
     
       let paramas_typed =
-        let () = Printf.printf "Inner Is explicit : %b\n" (Option.is_some params_explicit_type) in
+        (* let () = Printf.printf "Inner Is explicit : %b\n" (Option.is_some params_explicit_type) in *)
          match params_explicit_type with
          | None -> params |> List.map (fun (s, kt_loc_option) -> 
           let () = Printf.printf "Field = %s\n" s.v in 
@@ -255,7 +255,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
              (string_of_ktype kt)
         )|> String.concat ", "
       in
-      let () = Printf.printf "caotured : [%s]" string_of_captured_var in
+      (* let () = Printf.printf "caotured : [%s]" string_of_captured_var in *)
       begin match captured_var with
       | [] ->  TFunction (
           paramas_typed |> List.map (snd),

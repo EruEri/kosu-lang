@@ -83,7 +83,7 @@ module Register = struct
   let is_aliased lhs rhs = lhs.reg = rhs.reg
 
   let return_register ktype rprogram =
-    let return_size = KosuIrTyped.Asttyconvert.Sizeof.sizeof ktype rprogram in
+    let return_size = KosuIrTyped.Asttyhelper.Sizeof.sizeof ktype rprogram in
     return_size |> data_size_of_int64
     |> Option.map (fun size -> resize_register size raxq)
 
@@ -95,7 +95,7 @@ module Register = struct
   let tmp_rax_ktype rpogram ktype =
     let size =
       data_size_of_int64_def
-      @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
+      @@ KosuIrTyped.Asttyhelper.Sizeof.sizeof rpogram ktype
     in
     sized_register size RAX
 
@@ -106,7 +106,7 @@ module Register = struct
   let tmp_r9_ktype rpogram ktype =
     let size =
       data_size_of_int64_def
-      @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
+      @@ KosuIrTyped.Asttyhelper.Sizeof.sizeof rpogram ktype
     in
     sized_register size R9
 
@@ -118,7 +118,7 @@ module Register = struct
   let tmp_r10_ktype rpogram ktype =
     let size =
       data_size_of_int64_def
-      @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
+      @@ KosuIrTyped.Asttyhelper.Sizeof.sizeof rpogram ktype
     in
     sized_register size R10
 
@@ -129,7 +129,7 @@ module Register = struct
   let tmp_r11_ktype rpogram ktype =
     let size =
       data_size_of_int64_def
-      @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
+      @@ KosuIrTyped.Asttyhelper.Sizeof.sizeof rpogram ktype
     in
     sized_register size R11
 end
@@ -365,7 +365,7 @@ let rec copy_large ~address_str ~base_address_reg size =
   *)
 let copy_from_reg (register : Register.register) address ktype rprogram =
   let open Instruction in
-  let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+  let size = KosuIrTyped.Asttyhelper.Sizeof.sizeof rprogram ktype in
   match size with
   | s when is_register_size s ->
       let data_size = Option.get @@ data_size_of_int64 s in
@@ -444,7 +444,7 @@ module FrameManager = struct
   (* open Instruction *)
   open Register
   open Operande
-  open KosuIrTyped.Asttyconvert.Sizeof
+  open KosuIrTyped.Asttyhelper.Sizeof
 
   type frame_desc = {
     stack_param_count : int;
@@ -466,7 +466,7 @@ module FrameManager = struct
     let stack_param_count = stack_param |> List.length in
     let need_result_ptr =
       return_type
-      |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+      |> KosuIrTyped.Asttyhelper.Sizeof.sizeof rprogram
       |> is_register_size |> not
     in
 
@@ -480,7 +480,7 @@ module FrameManager = struct
     let fake_tuple = stack_concat |> List.map snd in
     let locals_space =
       fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
-      |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+      |> KosuIrTyped.Asttyhelper.Sizeof.sizeof rprogram
     in
     let locals_space = Int64.add locals_space stack_future_call in
 
@@ -566,7 +566,7 @@ module FrameManager = struct
              in
              let data_size =
                data_size_of_int64_def
-               @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt
+               @@ KosuIrTyped.Asttyhelper.Sizeof.sizeof rprogram kt
              in
              let sized_regiser = sized_register data_size register in
              acc @ copy_from_reg sized_regiser whereis kt rprogram)
@@ -575,7 +575,7 @@ module FrameManager = struct
     let stack_params_offset =
       stack_params
       |> List.map (fun (_, kt) ->
-             if KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt > 8L then
+             if KosuIrTyped.Asttyhelper.Sizeof.sizeof rprogram kt > 8L then
                KosuIrTyped.Asttyhelper.RType.rpointer kt
              else kt)
     in
@@ -588,7 +588,7 @@ module FrameManager = struct
       |> List.fold_left
            (fun acc (index, (name, kt)) ->
              let sizeofkt =
-               KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt
+               KosuIrTyped.Asttyhelper.Sizeof.sizeof rprogram kt
              in
              let offset =
                offset_of_tuple_index index stack_params_offset rprogram

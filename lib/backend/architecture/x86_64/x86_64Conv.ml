@@ -19,11 +19,11 @@ open X86_64Core
 open X86_64Core.Register
 open X86_64Core.Operande
 open X86_64Core.Instruction
-open KosuIrTyped.Asttyconvert.Sizeof
+open KosuIrTyped.Asttyhelper.Sizeof
 open KosuIrTAC.Asttac
 open Util
 
-let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
+let sizeofn = KosuIrTyped.Asttyhelper.Sizeof.sizeof
 
 module X86Program = Common.AsmProgram (X86_64Core.Instruction)
 open X86Program
@@ -534,7 +534,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
 
             let extern_instructions =
               match
-                KosuIrTyped.Asttyconvert.Sizeof.discardable_size return_size
+                KosuIrTyped.Asttyhelper.Sizeof.discardable_size return_size
               with
               | true ->
                   let copy_instruction =
@@ -819,7 +819,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let last_reg, load_indirect =
           if
             is_register_size
-            @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram rval_rktype
+            @@ KosuIrTyped.Asttyhelper.Sizeof.sizeof rprogram rval_rktype
           then
             ( raxq,
               [
@@ -997,7 +997,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         | true ->
             let pointee_size =
               rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee
-              |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+              |> KosuIrTyped.Asttyhelper.Sizeof.sizeof rprogram
             in
             let ptr_reg, linstructions =
               translate_tac_expression ~str_lit_map ~target_dst:(`Register raxq)

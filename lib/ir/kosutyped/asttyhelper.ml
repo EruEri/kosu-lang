@@ -764,252 +764,6 @@ module RProgram = struct
       return_type = rfunction_decl.return_type;
     }
 
-  module Closure = struct
-    let make_closure_name ~closure_count s = 
-      let n = !closure_count in
-      let () = closure_count := n + 1 in
-      Printf.sprintf "closure.%s.%u" s n
-
-    module ClosureSet = Set.Make(struct
-      type t = Asttyped.rclosure_function_decl
-      let compare = compare
-    end)
-
-    let convert_expr ~expr ~ty_expr = { rexpression = expr; rktype = ty_expr.rktype }
-
-    let rec create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expr = 
-      let new_expr, closure = create_clo_function_of_expr ~closure_count current_module rprogram typed_expr.rexpression in
-      convert_expr ~expr:new_expr ~ty_expr:typed_expr, closure
-    and create_clo_function_of_expr ~closure_count current_module rprogram = 
-    let closures_from_list list = 
-        list |> List.fold_left (fun (acc_type, acc_clo) typed_expr -> 
-          let new_ty_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expr in
-          new_ty_expr::acc_type, ClosureSet.union (closures) acc_clo
-      ) ([], ClosureSet.empty)
-    in
-
-    let convert_binop_expr ~lhs ~rhs = 
-      let lty, lclosure = create_clo_function_of_typed_expr ~closure_count current_module rprogram lhs in
-      let rty, rclosure = create_clo_function_of_typed_expr ~closure_count current_module rprogram rhs in
-      let closure = ClosureSet.union lclosure rclosure in
-      (lty, rty), closure
-    in
-
-    let convert_binop = function
-    | RBAdd (lhs, rhs) -> 
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBAdd(lty,rty), closure
-    | RBMinus (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBMinus(lty,rty), closure
-    | RBMult (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBMult(lty,rty), closure
-    | RBDiv (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBDiv(lty,rty), closure
-    | RBMod (lhs, rhs)  ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBMod(lty,rty), closure
-    | RBBitwiseOr (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBBitwiseOr(lty,rty), closure
-    | RBBitwiseAnd (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBMinus(lty,rty), closure
-    | RBBitwiseXor (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBBitwiseXor(lty,rty), closure
-    | RBShiftLeft (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBShiftLeft(lty,rty), closure
-    | RBShiftRight (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBShiftRight(lty,rty), closure
-    | RBAnd (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBAnd(lty,rty), closure
-    | RBOr (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBOr(lty,rty), closure
-    | RBSup (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBSup(lty,rty), closure
-    | RBSupEq (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBSupEq(lty,rty), closure
-    | RBInf (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBInf(lty,rty), closure
-    | RBInfEq (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBInfEq(lty,rty), closure
-    | RBEqual (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBEqual(lty,rty), closure
-    | RBDif (lhs, rhs) ->       
-      let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
-      RBEqual(lty,rty), closure
-    in
-
-    function
-    | REFieldAcces {first_expr; field} -> 
-      let new_expr, closures =  create_clo_function_of_typed_expr ~closure_count current_module rprogram first_expr in
-      REFieldAcces {first_expr = new_expr; field}, closures
-    | RELambda record -> 
-      let rec iter_until_no_generate_body ~acc body =
-        let new_body, closures = create_clo_function_of_kbody ~closure_count current_module rprogram body in
-        if closures = ClosureSet.empty then (new_body, acc)
-        else iter_until_no_generate_body ~acc:(ClosureSet.union acc closures) new_body 
-      in
-
-      let clofn_name = make_closure_name ~closure_count current_module in
-      let rbody, closures = iter_until_no_generate_body ~acc:ClosureSet.empty record.body in
-
-      let closure_fn_decl = {
-        clo_name = clofn_name;
-        rparameters = record.parameters;
-        captured_env = record.captured_env;
-        rbody = rbody;
-        return_type = record.return_ktype
-      } in
-      let closures = ClosureSet.add closure_fn_decl closures in
-
-      RELambda {
-        clofn_name = Some clofn_name;
-        parameters = record.parameters;
-        return_ktype = record.return_ktype;
-        body = rbody;
-        captured_env = record.captured_env
-      }, closures
-
-    | REStruct {modules_path; struct_name; fields; } -> 
-      let fields_name, fields_exprs = List.split fields in
-      let new_typed_exprs, closures = fields_exprs |> closures_from_list in
-      REStruct {modules_path; struct_name; fields = List.combine fields_name new_typed_exprs}, closures
-
-    | REEnum {modules_path; enum_name; variant; assoc_exprs} ->
-      let new_assoc_exprs, closures = closures_from_list assoc_exprs in
-      REEnum {modules_path; enum_name; variant; assoc_exprs = new_assoc_exprs}, closures
-    | RETuple exprs -> 
-      let new_assoc_exprs, closures = closures_from_list exprs in
-      RETuple new_assoc_exprs, closures
-    | REBuiltin_Function_call { fn_name; parameters } -> 
-      let new_assoc_exprs, closures = closures_from_list parameters in
-      REBuiltin_Function_call {fn_name; parameters = new_assoc_exprs}, closures
-
-    | REFunction_call { modules_path; generics_resolver; fn_name; parameters} -> 
-      let new_assoc_exprs, closures = closures_from_list parameters in
-      REFunction_call {modules_path; generics_resolver; fn_name; parameters = new_assoc_exprs}, closures
-    | REUn_op (RUMinus typed_expression) -> 
-      let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
-      REUn_op (RUMinus new_typed_expr), closures
-    | REUn_op (RUNot typed_expression) -> 
-      let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
-      REUn_op (RUNot new_typed_expr), closures
-    | REUnOperator_Function_call (RUMinus typed_expression) -> 
-      let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
-      REUnOperator_Function_call (RUMinus new_typed_expr), closures
-    | REUnOperator_Function_call (RUNot typed_expression) -> 
-      let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
-      REUnOperator_Function_call (RUNot new_typed_expr), closures
-    | REBin_op rebin -> 
-      let new_rebin, closure = convert_binop rebin in
-      REBin_op new_rebin, closure
-    | REBinOperator_Function_call rebin -> 
-      let new_rebin, closures = convert_binop rebin in
-      REBinOperator_Function_call new_rebin, closures
-    | REWhile (condition, body) -> 
-      let new_condition, condition_closure = create_clo_function_of_typed_expr ~closure_count current_module rprogram condition in
-      let new_body, body_closures = create_clo_function_of_kbody ~closure_count current_module rprogram body in
-      let closure = ClosureSet.union condition_closure body_closures in
-      REWhile (new_condition, new_body), closure
-    | REIf (condition, if_body, else_body) ->
-      let new_condition, condition_closure = create_clo_function_of_typed_expr ~closure_count current_module rprogram condition in
-      let new_ifbody, ifbody_closures = create_clo_function_of_kbody ~closure_count current_module rprogram if_body in
-      let new_elsebody, elsebody_closures = create_clo_function_of_kbody ~closure_count current_module rprogram else_body in
-      let closures = condition_closure
-      |> ClosureSet.union ifbody_closures
-      |> ClosureSet.union elsebody_closures
-    in
-    REIf (new_condition, new_ifbody, new_elsebody), closures
-    | RECases {cases; else_case} ->
-      let new_else_body, else_closures = create_clo_function_of_kbody ~closure_count current_module rprogram else_case in
-      let new_cases, cases_closures = cases |> List.fold_left (fun (acc_case, acc_closure) (typed_expr, body) -> 
-        let new_condition_expr, condition_closure = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expr in
-        let new_body, body_closures = create_clo_function_of_kbody ~closure_count current_module rprogram body in
-        let closures = acc_closure |> ClosureSet.union condition_closure |> ClosureSet.union body_closures in
-        (new_condition_expr, new_body)::acc_case, closures
-      ) ([], ClosureSet.empty) in
-      RECases {cases = new_cases; else_case = new_else_body}, ClosureSet.union cases_closures else_closures
-    | RESwitch { rexpression; cases; wildcard_case} ->
-      let new_condition_expr, condition_closure = create_clo_function_of_typed_expr ~closure_count current_module rprogram rexpression in
-      let new_wildcard_body, wildcard_closure = 
-          wildcard_case 
-            |> Option.map (create_clo_function_of_kbody ~closure_count current_module rprogram) 
-            |> Option.fold ~none:(None, ClosureSet.empty) ~some:(fun (body, clo) -> (Some body), clo)
-        in
-      let base_closure = ClosureSet.union condition_closure wildcard_closure in
-      let new_cases, closure = cases |> List.fold_left (fun (acc_case, acc_closure) (rsc, list, body) -> 
-        let new_body, body_closure = create_clo_function_of_kbody ~closure_count current_module rprogram body in
-        (rsc, list, new_body)::acc_case, ClosureSet.union body_closure acc_closure
-      ) ([], base_closure) in
-      RESwitch {rexpression = new_condition_expr; cases = new_cases; wildcard_case = new_wildcard_body}, closure
-    | expr -> expr, ClosureSet.empty
-
-    and create_clo_function_of_kbody_acc ~rev_stmts ~acc ~closure_count current_module rprogram kbody = 
-      let smts, final_expr = kbody in
-      match smts with
-      | stmt::q -> begin match stmt with
-        | RSDeclaration {is_const; variable_name; typed_expression} -> 
-          let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
-          let declaration = RSDeclaration {is_const; variable_name; typed_expression = new_typed_expr} in
-          let new_acc = ClosureSet.union closures acc in
-          create_clo_function_of_kbody_acc ~acc:new_acc ~rev_stmts:(declaration::rev_stmts) ~closure_count current_module rprogram (q, final_expr)
-        | RSAffection (id, typed_expression) -> 
-          let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
-          let affectation = RSAffection (id, new_typed_expr) in
-          let new_acc = ClosureSet.union closures acc in
-          create_clo_function_of_kbody_acc ~acc:new_acc ~rev_stmts:(affectation::rev_stmts) ~closure_count current_module rprogram (q, final_expr)
-        | RSDiscard (typed_expression) -> 
-          let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
-          let discard = RSDiscard (new_typed_expr) in
-          let new_acc = ClosureSet.union closures acc in
-          create_clo_function_of_kbody_acc ~acc:new_acc ~rev_stmts:(discard::rev_stmts) ~closure_count current_module rprogram (q, final_expr)
-        | RSDerefAffectation (id, typed_expression) ->
-          let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
-          let deref = RSDerefAffectation (id, new_typed_expr) in
-          let new_acc = ClosureSet.union closures acc in
-          create_clo_function_of_kbody_acc ~acc:new_acc ~rev_stmts:(deref::rev_stmts) ~closure_count current_module rprogram (q, final_expr)
-      end
-      | [] -> 
-        let new_final_expr, generated = create_clo_function_of_typed_expr ~closure_count current_module rprogram final_expr in
-        let closures = ClosureSet.union acc generated in
-        let reordered_stmt = List.rev rev_stmts in
-        (reordered_stmt, new_final_expr), closures
-  and create_clo_function_of_kbody ~closure_count current_module rprogram kbody = 
-      create_clo_function_of_kbody_acc ~acc:ClosureSet.empty ~rev_stmts:[] ~closure_count current_module rprogram kbody
-
-  let create_closure_node ~closure_count current_module rprogram = function
-  | RModule nodes -> 
-    let new_nodes =  nodes |> List.map (fun node -> 
-      match node with
-      | RNFunction record -> 
-        let new_body, closures = create_clo_function_of_kbody ~closure_count current_module rprogram record.rbody in
-        (RNFunction { record with rbody = new_body})::(closures |> ClosureSet.elements |> List.map (fun clo -> RNClosureFunc clo))
-      | RNOperator (RBinary binary) -> 
-        let new_body, closures = create_clo_function_of_kbody ~closure_count current_module rprogram binary.kbody in
-        (RNOperator (RBinary {binary with kbody = new_body} ) )::( closures |> ClosureSet.elements |> List.map (fun clo -> RNClosureFunc clo) )
-      | RNOperator (RUnary unary) -> 
-        let new_body, closures = create_clo_function_of_kbody ~closure_count current_module rprogram unary.kbody in
-        (RNOperator (RUnary {unary with kbody = new_body} ) )::( closures |> ClosureSet.elements |> List.map (fun clo -> RNClosureFunc clo) )
-      | node  -> [node] 
-    ) |> List.flatten
-    in
-    RModule new_nodes
-  
-  end
-
   module FnSpec = Set.Make (struct
     type t = string * rtrue_function_decl
 
@@ -1457,6 +1211,411 @@ module RProgram = struct
                    else rmodule);
                };
            })
+end
+
+module Sizeof = struct
+  let ( ++ ) = Int64.add
+  let ( -- ) = Int64.sub
+
+  let align n b =
+    let m = Int64.unsigned_rem n b in
+    if m = 0L then n else n ++ b -- m
+
+
+  module KtypeHashTbl = Hashtbl.Make(struct
+    type t = rktype
+    let equal lhs rhs = rhs |> RType.kt_compare lhs |> ( = ) 0
+    let hash = Hashtbl.hash 
+  end)
+
+  let map_size : int64 KtypeHashTbl.t = KtypeHashTbl.create 16
+
+  let map_align : int64 KtypeHashTbl.t = KtypeHashTbl.create 16
+
+  let rec size calcul program rktype =
+    match rktype with
+    | RTUnit | RTBool | RTUnknow -> 1L
+    | RTInteger (_, isize) -> KosuFrontend.Ast.Isize.size_of_isize isize / 8 |> Int64.of_int
+    | RTFloat | RTPointer _ | RTString_lit | RTFunction _ -> 8L
+    | RTTuple kts -> size_tuple calcul program kts
+    | RTNamedTuple kts -> kts |> List.map snd |> size_tuple calcul program
+    | RTClosure {params = _; return_type = _; captured_env} ->
+      8L ++ (captured_env |> List.map snd |> size_tuple calcul program)
+    | kt -> (
+        let type_decl =
+          RProgram.find_type_decl_from_rktye kt program |> Option.get
+        in
+
+        match type_decl with
+        | Rtype_Decl.RDecl_Enum enum_decl ->
+            size_enum calcul program
+              (kt |> RType.extract_parametrics_rktype
+              |> List.combine enum_decl.generics
+              |> List.to_seq |> Hashtbl.of_seq)
+              enum_decl
+        | Rtype_Decl.RDecl_Struct struct_decl ->
+            size_struct calcul program
+              (kt |> RType.extract_parametrics_rktype
+              |> List.combine struct_decl.generics
+              |> List.to_seq |> Hashtbl.of_seq)
+              struct_decl)
+
+  and size_tuple calcul program = function
+    | list -> (
+        let size, alignment, _packed_size =
+          list
+          |> List.fold_left
+                (fun (acc_size, acc_align, _acc_packed_size) kt ->
+                  let comming_size = kt |> size `size program in
+                  let comming_align = kt |> size `align program in
+
+                  let aligned = align acc_size comming_align in
+                  let new_align = max acc_align comming_align in
+                  ( aligned ++ comming_size,
+                    new_align,
+                    _acc_packed_size ++ comming_size ))
+                (0L, 0L, 0L)
+        in
+        match calcul with
+        | `size -> if alignment = 0L then 0L else align size alignment
+        | `align -> alignment)
+
+  and size_struct calcul program generics struct_decl =
+    struct_decl.rfields
+    |> List.map (fun (_, kt) -> RType.remap_generic_ktype generics kt)
+    |> size_tuple calcul program
+
+  and size_enum calcul program generics enum_decl =
+    enum_decl.rvariants
+    |> List.map (fun (_, kts) ->
+            kts
+            |> List.map (RType.remap_generic_ktype generics)
+            |> List.cons (RTInteger (Unsigned, I32))
+            |> RType.rtuple |> size calcul program)
+    |> List.fold_left max 0L
+
+  let sizeof program ktype = 
+    match ktype with
+    | RTClosure _ as kt -> 
+      let clo_size = size `size program kt in
+      KtypeHashTbl.find_opt map_size kt |> Option.map ( fun found_size ->
+        let max_size =  max found_size clo_size in
+        let () = KtypeHashTbl.replace map_size kt max_size in
+        max_size
+      ) |> Option.value ~default:clo_size
+    | ktype -> 
+      begin match KtypeHashTbl.find_opt map_size ktype with
+      | Some size -> size
+      | None -> 
+          let ktsize = size `size program ktype in
+          let () = KtypeHashTbl.replace map_size ktype ktsize in
+          ktsize
+      end
+
+  let alignmentof program ktype = 
+    match KtypeHashTbl.find_opt map_align ktype with
+    | Some align -> align
+    | None -> 
+      let kt_align = size `align program ktype in
+      let () = KtypeHashTbl.replace map_align ktype kt_align in
+      kt_align
+
+  let offset_of_tuple_index ?(generics = Hashtbl.create 0) index rktypes
+      rprogram =
+    let ( ++ ) = Int64.add in
+
+    rktypes
+    |> List.mapi (fun i v -> (i, v))
+    |> List.fold_left
+          (fun ((acc_size, acc_align, found) as acc) (tindex, rktype) ->
+            let comming_size =
+              rktype |> RType.remap_generic_ktype generics |> size `size rprogram
+            in
+            let comming_align =
+              rktype
+              |> RType.remap_generic_ktype generics
+              |> size `align rprogram
+            in
+
+            let aligned = align acc_size comming_align in
+            let new_align = max acc_align comming_align in
+
+            if found then acc
+            else if index = tindex then (aligned, new_align, true)
+            else (aligned ++ comming_size, new_align, found))
+          (0L, 0L, false)
+    |> function
+    | a, _, _ -> a
+
+  let offset_of_field ?(generics = Hashtbl.create 0) field rstruct_decl rprogram
+      =
+    let field_index =
+      rstruct_decl.rfields
+      |> List.mapi (fun index value -> (index, value))
+      |> List.find_map (fun (index, (sfield, _)) ->
+              if field = sfield then Some index else None)
+      |> Option.get
+    in
+
+    let rktypes = rstruct_decl.rfields |> List.map snd in
+    offset_of_tuple_index ~generics field_index rktypes rprogram
+
+  (* To refacto later in functor*)
+  (* on X86 and Arm64: if the retuned_value can be held in R0 and R1 (RAX, RCX)*)
+  (* If so, there is no need to pass the address of the destination to the function*)
+  (* Therefore : the retunred values dont need to be on the stack since there are discarded*)
+  let discardable_size = function
+    | 1L | 2L | 4L | 8L | 9L | 10L | 12L | 16L -> true
+    | _ -> false
+
+end
+
+module Closure = struct
+  let make_closure_name ~closure_count s = 
+    let n = !closure_count in
+    let () = closure_count := n + 1 in
+    Printf.sprintf "closure.%s.%u" s n
+
+  module ClosureSet = Set.Make(struct
+    type t = Asttyped.rclosure_function_decl
+    let compare = compare
+  end)
+
+  let convert_expr ~expr ~ty_expr = { rexpression = expr; rktype = ty_expr.rktype }
+
+  let rec create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expr = 
+    let new_expr, closure = create_clo_function_of_expr ~ktype:typed_expr.rktype ~closure_count current_module rprogram typed_expr.rexpression in
+    convert_expr ~expr:new_expr ~ty_expr:typed_expr, closure
+  and create_clo_function_of_expr ~ktype ~closure_count current_module rprogram = 
+  let closures_from_list list = 
+      list |> List.fold_left (fun (acc_type, acc_clo) typed_expr -> 
+        let new_ty_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expr in
+        new_ty_expr::acc_type, ClosureSet.union (closures) acc_clo
+    ) ([], ClosureSet.empty)
+  in
+
+  let convert_binop_expr ~lhs ~rhs = 
+    let lty, lclosure = create_clo_function_of_typed_expr ~closure_count current_module rprogram lhs in
+    let rty, rclosure = create_clo_function_of_typed_expr ~closure_count current_module rprogram rhs in
+    let closure = ClosureSet.union lclosure rclosure in
+    (lty, rty), closure
+  in
+
+  let convert_binop = function
+  | RBAdd (lhs, rhs) -> 
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBAdd(lty,rty), closure
+  | RBMinus (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBMinus(lty,rty), closure
+  | RBMult (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBMult(lty,rty), closure
+  | RBDiv (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBDiv(lty,rty), closure
+  | RBMod (lhs, rhs)  ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBMod(lty,rty), closure
+  | RBBitwiseOr (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBBitwiseOr(lty,rty), closure
+  | RBBitwiseAnd (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBMinus(lty,rty), closure
+  | RBBitwiseXor (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBBitwiseXor(lty,rty), closure
+  | RBShiftLeft (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBShiftLeft(lty,rty), closure
+  | RBShiftRight (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBShiftRight(lty,rty), closure
+  | RBAnd (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBAnd(lty,rty), closure
+  | RBOr (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBOr(lty,rty), closure
+  | RBSup (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBSup(lty,rty), closure
+  | RBSupEq (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBSupEq(lty,rty), closure
+  | RBInf (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBInf(lty,rty), closure
+  | RBInfEq (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBInfEq(lty,rty), closure
+  | RBEqual (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBEqual(lty,rty), closure
+  | RBDif (lhs, rhs) ->       
+    let (lty, rty), closure = convert_binop_expr ~lhs ~rhs in
+    RBEqual(lty,rty), closure
+  in
+
+  function
+  | REFieldAcces {first_expr; field} -> 
+    let new_expr, closures =  create_clo_function_of_typed_expr ~closure_count current_module rprogram first_expr in
+    REFieldAcces {first_expr = new_expr; field}, closures
+  | RELambda record -> 
+    let rec iter_until_no_generate_body ~acc body =
+      let new_body, closures = create_clo_function_of_kbody ~closure_count current_module rprogram body in
+      if closures = ClosureSet.empty then (new_body, acc)
+      else iter_until_no_generate_body ~acc:(ClosureSet.union acc closures) new_body 
+    in
+
+    (* To update closure size *)
+    let _ = Sizeof.sizeof rprogram ktype in
+
+    let clofn_name = make_closure_name ~closure_count current_module in
+    let rbody, closures = iter_until_no_generate_body ~acc:ClosureSet.empty record.body in
+
+    let closure_fn_decl = {
+      clo_name = clofn_name;
+      rparameters = record.parameters;
+      captured_env = record.captured_env;
+      rbody = rbody;
+      return_type = record.return_ktype
+    } in
+    let closures = ClosureSet.add closure_fn_decl closures in
+
+    RELambda {
+      clofn_name = Some clofn_name;
+      parameters = record.parameters;
+      return_ktype = record.return_ktype;
+      body = rbody;
+      captured_env = record.captured_env
+    }, closures
+
+  | REStruct {modules_path; struct_name; fields; } -> 
+    let fields_name, fields_exprs = List.split fields in
+    let new_typed_exprs, closures = fields_exprs |> closures_from_list in
+    REStruct {modules_path; struct_name; fields = List.combine fields_name new_typed_exprs}, closures
+
+  | REEnum {modules_path; enum_name; variant; assoc_exprs} ->
+    let new_assoc_exprs, closures = closures_from_list assoc_exprs in
+    REEnum {modules_path; enum_name; variant; assoc_exprs = new_assoc_exprs}, closures
+  | RETuple exprs -> 
+    let new_assoc_exprs, closures = closures_from_list exprs in
+    RETuple new_assoc_exprs, closures
+  | REBuiltin_Function_call { fn_name; parameters } -> 
+    let new_assoc_exprs, closures = closures_from_list parameters in
+    REBuiltin_Function_call {fn_name; parameters = new_assoc_exprs}, closures
+
+  | REFunction_call { modules_path; generics_resolver; fn_name; parameters} -> 
+    let new_assoc_exprs, closures = closures_from_list parameters in
+    REFunction_call {modules_path; generics_resolver; fn_name; parameters = new_assoc_exprs}, closures
+  | REUn_op (RUMinus typed_expression) -> 
+    let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
+    REUn_op (RUMinus new_typed_expr), closures
+  | REUn_op (RUNot typed_expression) -> 
+    let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
+    REUn_op (RUNot new_typed_expr), closures
+  | REUnOperator_Function_call (RUMinus typed_expression) -> 
+    let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
+    REUnOperator_Function_call (RUMinus new_typed_expr), closures
+  | REUnOperator_Function_call (RUNot typed_expression) -> 
+    let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
+    REUnOperator_Function_call (RUNot new_typed_expr), closures
+  | REBin_op rebin -> 
+    let new_rebin, closure = convert_binop rebin in
+    REBin_op new_rebin, closure
+  | REBinOperator_Function_call rebin -> 
+    let new_rebin, closures = convert_binop rebin in
+    REBinOperator_Function_call new_rebin, closures
+  | REWhile (condition, body) -> 
+    let new_condition, condition_closure = create_clo_function_of_typed_expr ~closure_count current_module rprogram condition in
+    let new_body, body_closures = create_clo_function_of_kbody ~closure_count current_module rprogram body in
+    let closure = ClosureSet.union condition_closure body_closures in
+    REWhile (new_condition, new_body), closure
+  | REIf (condition, if_body, else_body) ->
+    let new_condition, condition_closure = create_clo_function_of_typed_expr ~closure_count current_module rprogram condition in
+    let new_ifbody, ifbody_closures = create_clo_function_of_kbody ~closure_count current_module rprogram if_body in
+    let new_elsebody, elsebody_closures = create_clo_function_of_kbody ~closure_count current_module rprogram else_body in
+    let closures = condition_closure
+    |> ClosureSet.union ifbody_closures
+    |> ClosureSet.union elsebody_closures
+  in
+  REIf (new_condition, new_ifbody, new_elsebody), closures
+  | RECases {cases; else_case} ->
+    let new_else_body, else_closures = create_clo_function_of_kbody ~closure_count current_module rprogram else_case in
+    let new_cases, cases_closures = cases |> List.fold_left (fun (acc_case, acc_closure) (typed_expr, body) -> 
+      let new_condition_expr, condition_closure = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expr in
+      let new_body, body_closures = create_clo_function_of_kbody ~closure_count current_module rprogram body in
+      let closures = acc_closure |> ClosureSet.union condition_closure |> ClosureSet.union body_closures in
+      (new_condition_expr, new_body)::acc_case, closures
+    ) ([], ClosureSet.empty) in
+    RECases {cases = new_cases; else_case = new_else_body}, ClosureSet.union cases_closures else_closures
+  | RESwitch { rexpression; cases; wildcard_case} ->
+    let new_condition_expr, condition_closure = create_clo_function_of_typed_expr ~closure_count current_module rprogram rexpression in
+    let new_wildcard_body, wildcard_closure = 
+        wildcard_case 
+          |> Option.map (create_clo_function_of_kbody ~closure_count current_module rprogram) 
+          |> Option.fold ~none:(None, ClosureSet.empty) ~some:(fun (body, clo) -> (Some body), clo)
+      in
+    let base_closure = ClosureSet.union condition_closure wildcard_closure in
+    let new_cases, closure = cases |> List.fold_left (fun (acc_case, acc_closure) (rsc, list, body) -> 
+      let new_body, body_closure = create_clo_function_of_kbody ~closure_count current_module rprogram body in
+      (rsc, list, new_body)::acc_case, ClosureSet.union body_closure acc_closure
+    ) ([], base_closure) in
+    RESwitch {rexpression = new_condition_expr; cases = new_cases; wildcard_case = new_wildcard_body}, closure
+  | expr -> expr, ClosureSet.empty
+
+  and create_clo_function_of_kbody_acc ~rev_stmts ~acc ~closure_count current_module rprogram kbody = 
+    let smts, final_expr = kbody in
+    match smts with
+    | stmt::q -> begin match stmt with
+      | RSDeclaration {is_const; variable_name; typed_expression} -> 
+        let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
+        let declaration = RSDeclaration {is_const; variable_name; typed_expression = new_typed_expr} in
+        let new_acc = ClosureSet.union closures acc in
+        create_clo_function_of_kbody_acc ~acc:new_acc ~rev_stmts:(declaration::rev_stmts) ~closure_count current_module rprogram (q, final_expr)
+      | RSAffection (id, typed_expression) -> 
+        let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
+        let affectation = RSAffection (id, new_typed_expr) in
+        let new_acc = ClosureSet.union closures acc in
+        create_clo_function_of_kbody_acc ~acc:new_acc ~rev_stmts:(affectation::rev_stmts) ~closure_count current_module rprogram (q, final_expr)
+      | RSDiscard (typed_expression) -> 
+        let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
+        let discard = RSDiscard (new_typed_expr) in
+        let new_acc = ClosureSet.union closures acc in
+        create_clo_function_of_kbody_acc ~acc:new_acc ~rev_stmts:(discard::rev_stmts) ~closure_count current_module rprogram (q, final_expr)
+      | RSDerefAffectation (id, typed_expression) ->
+        let new_typed_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expression in
+        let deref = RSDerefAffectation (id, new_typed_expr) in
+        let new_acc = ClosureSet.union closures acc in
+        create_clo_function_of_kbody_acc ~acc:new_acc ~rev_stmts:(deref::rev_stmts) ~closure_count current_module rprogram (q, final_expr)
+    end
+    | [] -> 
+      let new_final_expr, generated = create_clo_function_of_typed_expr ~closure_count current_module rprogram final_expr in
+      let closures = ClosureSet.union acc generated in
+      let reordered_stmt = List.rev rev_stmts in
+      (reordered_stmt, new_final_expr), closures
+  and create_clo_function_of_kbody ~closure_count current_module rprogram kbody = 
+      create_clo_function_of_kbody_acc ~acc:ClosureSet.empty ~rev_stmts:[] ~closure_count current_module rprogram kbody
+
+  let create_closure_node ~closure_count current_module rprogram = function
+  | RModule nodes -> 
+    let new_nodes =  nodes |> List.map (fun node -> 
+      match node with
+      | RNFunction record -> 
+        let new_body, closures = create_clo_function_of_kbody ~closure_count current_module rprogram record.rbody in
+        (RNFunction { record with rbody = new_body})::(closures |> ClosureSet.elements |> List.map (fun clo -> RNClosureFunc clo))
+      | RNOperator (RBinary binary) -> 
+        let new_body, closures = create_clo_function_of_kbody ~closure_count current_module rprogram binary.kbody in
+        (RNOperator (RBinary {binary with kbody = new_body} ) )::( closures |> ClosureSet.elements |> List.map (fun clo -> RNClosureFunc clo) )
+      | RNOperator (RUnary unary) -> 
+        let new_body, closures = create_clo_function_of_kbody ~closure_count current_module rprogram unary.kbody in
+        (RNOperator (RUnary {unary with kbody = new_body} ) )::( closures |> ClosureSet.elements |> List.map (fun clo -> RNClosureFunc clo) )
+      | node  -> [node] 
+    ) |> List.flatten
+    in
+    RModule new_nodes
 
   let generate_closure_from_lambda rprogram = 
     rprogram |> List.map (fun { filename; rmodule_path = { path; rmodule } } -> 
@@ -1465,8 +1624,9 @@ module RProgram = struct
         rmodule_path = 
         {
           path;
-          rmodule = Closure.create_closure_node ~closure_count:(ref 0) path rprogram rmodule
+          rmodule = create_closure_node ~closure_count:(ref 0) path rprogram rmodule
         }
       }
     )
+
 end
