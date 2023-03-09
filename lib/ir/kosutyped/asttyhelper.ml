@@ -44,6 +44,10 @@ module RType = struct
 
   let rec npointer n kt = if n <= 0 then kt else RTPointer (npointer (n - 1) kt)
 
+  let is_closure = function
+  | RTClosure _ -> true
+  | _ -> false
+
   let rtpointee = function
     | RTPointer kt -> kt
     | _ -> failwith "Cannot access pointee type of a none pointer type"
@@ -78,12 +82,11 @@ module RType = struct
     | RTParametric_identifier { parametrics_type; _ } -> parametrics_type
     | _ -> []
 
+
+    
+
   let rec kt_compare lhs rhs = 
-    let compare_list_type lhs rhs = 
-      List.combine lhs rhs |> List.fold_left (fun acc (l, r) -> 
-        if acc <> 0 then acc else kt_compare l r
-      ) 0
-    in
+
     match lhs, rhs with
     | RTParametric_identifier rtlhs, RTParametric_identifier rtrhs -> 
       begin match compare (rtlhs.module_path, rtlhs.name) (rtrhs.module_path, rtrhs.name) with
@@ -106,6 +109,10 @@ module RType = struct
       | n -> n 
       end
     | _ -> compare lhs rhs
+    and compare_list_type lhs rhs = 
+    List.combine lhs rhs |> List.fold_left (fun acc (l, r) -> 
+      if acc <> 0 then acc else kt_compare l r
+    ) 0
 
   (* let kt_compare lhs rhs = 
     let res = kt_compare lhs rhs in
@@ -739,7 +746,7 @@ module Rmodule = struct
                | RNFunction rfunction_decl
                  when rfunction_decl.rfn_name = fn_name
                       && rfunction_decl.rparameters |> List.map snd
-                         |> ( = ) ktypes ->
+                         |> RType.compare_list_type ktypes |>  ( = ) 0 ->
                    Some rfunction_decl
                | _ -> None)
 
@@ -1370,7 +1377,7 @@ module Sizeof = struct
             let aligned, new_align = 
             try
               align acc_size comming_align, max acc_align comming_align
-            with Division_by_zero -> 1L, 1L
+            with Division_by_zero -> 0L, 0L
             in
             
 

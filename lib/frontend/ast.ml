@@ -700,7 +700,10 @@ module Type = struct
       Util.are_same_lenght plhs prhs
       && lr == rr
       && List.for_all2 (fun pl pr -> pl.v == pr.v) plhs prhs
-      
+    | (TClosure (plhs, lr, _) | TFunction (plhs, lr)) , TClosure (prhs, rr, _) when Util.are_same_lenght plhs prhs ->
+        lr.v == rr.v
+        &&
+        List.for_all2 (fun pl pr -> pl.v === pr.v) plhs prhs
     | _, _ -> lhs = rhs
 
   let ( !== ) lhs rhs = lhs === rhs |> not

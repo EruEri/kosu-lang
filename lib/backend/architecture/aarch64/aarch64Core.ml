@@ -1078,6 +1078,10 @@ module FrameManager = struct
                | Some a -> a
                | None -> failwith "From register setup null address"
              in
+             if name = env_closure_name 
+              then 
+                acc @ copy_large whereis register (sizeof rprogram kt)
+              else
              acc @ copy_from_reg register whereis kt rprogram)
            []
     in

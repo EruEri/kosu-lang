@@ -152,7 +152,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           Instruction
             (ADD
                {
-                 destination = rreg;
+                 destination = to_64bits rreg;
                  offset = false;
                  operand1 = address.base;
                  operand2 = `ILitteral address.offset;
@@ -475,6 +475,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                acc @ instructions @ copy_instruction)
              []
     | RVClosureCall {variable_name; parameters; return_ktype; captured_env; closure_rktype} ->
+      let () = print_endline @@ Printf.sprintf "Closurename %s {%s}" variable_name 
+      (captured_env |> List.map snd |> List.map KosuIrTyped.Asttypprint.string_of_rktype |> String.concat ", ") 
+      in
       let named_env = KosuIrTyped.Asttyped.RTNamedTuple captured_env in
       let env_size = sizeofn rprogram named_env in
       let closure_address = Option.get @@ FrameManager.address_of (variable_name, closure_rktype) fd in
@@ -505,10 +508,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                 (acc @ instruction, `Register reg))
               []
           in
-          if env_in_reg && captured_env <> [] then 
+          if env_in_reg && (closure_rktype |> KosuIrTyped.Asttyhelper.RType.is_closure) then 
             let env_reg = List.nth (argument_registers) (register_param_count) in
             let sized_reg = Register.reg_of_size (size_of_ktype_size env_size) env_reg in
-            snd (load_or_lea ~target_reg:(sized_reg) ~ktype:named_env ~address:env_address rprogram) @ instruction, regs
+            [Line_Com (Comment (Printf.sprintf "reg = %d" (register_param_count)) )] @ snd (load_or_lea ~target_reg:(sized_reg) ~ktype:named_env ~address:env_address rprogram) @ instruction, regs
           else
             instruction, regs
           in
@@ -695,7 +698,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                          copy_from_reg return_reg waddress
                            syscall_decl.return_type rprogram)
               |> Option.value ~default:[])
-        | RKosufn_Decl _ -> (
+        | RKosufn_Decl kdl -> (
+          let () = Printf.printf "FN = %s\n%!" kdl.rfn_name in
             let function_decl =
               rprogram
               |> KosuIrTyped.Asttyhelper.RProgram
@@ -1620,9 +1624,11 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
   and translate_tac_body ~str_lit_map ?(end_label = None) current_module
       rprogram (fd : FrameManager.frame_desc) { label; body } =
     let label_instr = Label label in
+    let () = Printf.printf "Lable = %s\n%!" label in
     let stmt_instr =
       body |> fst
       |> List.map (fun stmt ->
+        let () = Printf.printf "%s\n%!" (KosuIrTAC.Asttacpprint.string_of_tac_statement stmt) in
              translate_tac_statement ~str_lit_map current_module rprogram fd
                stmt)
       |> List.flatten
@@ -1805,10 +1811,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                     closure_fn_decl.tac_body
                   in
                   let epilogue = FrameManager.function_epilogue fd in
-                  (* let map = KosuIrTyped.Asttyhelper.Sizeof.map_size |> KosuIrTyped.Asttyhelper.Sizeof.KtypeHashTbl.to_seq |> List.of_seq in
+                  let map = KosuIrTyped.Asttyhelper.Sizeof.map_size |> KosuIrTyped.Asttyhelper.Sizeof.KtypeHashTbl.to_seq |> List.of_seq in
                   let () = map |> List.map (fun (kt, size) -> 
                     Printf.sprintf "%s => %Lu" (KosuIrTyped.Asttypprint.string_of_rktype kt) size
-                  ) |> String.concat "\n" |> Printf.printf "\n\n[%s]\n" in *)
+                  ) |> String.concat "\n" |> Printf.printf "\n\n[%s]\n" in
                     Some
                     (Afunction
                       {
