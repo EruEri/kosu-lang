@@ -1736,6 +1736,13 @@ module Function = struct
                is_type_compatible_hashgen generic_table lkt.v rkt.v
                  function_decl)
              lhs rhs
+    | TFunction (pl, lr), TFunction (pr, rr) when Util.are_same_lenght pl pr -> 
+      is_type_compatible_hashgen generic_table lr.v rr.v function_decl
+      && List.for_all2
+           (fun lkt rkt ->
+             is_type_compatible_hashgen generic_table lkt.v rkt.v
+               function_decl)
+           pl pr
     | lhs, rhs -> lhs === rhs
 
   let to_return_ktype_hashtab ~current_module ~module_type_path generic_table

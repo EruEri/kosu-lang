@@ -269,7 +269,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
     let params_explicit_type, explicit_type_return_type = 
       match hint_type with
       | RTFunction (lambad_param_explit, r) | RTClosure {params = lambad_param_explit; return_type = r; _} -> Some lambad_param_explit, Some r
-      | _ -> failwith "Todo Error: R Explicit type should be an function" in 
+      | _ -> failwith @@ Printf.sprintf "Todo Error: R Explicit type should be an function: %s" (Asttypprint.string_of_rktype hint_type) in 
       let paramas_typed =
          match params_explicit_type with
          | None -> params |> List.map (fun (s, kt_loc_option) -> 
@@ -639,12 +639,9 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
             kosu_function.parameters
             |> List.map (fun (_, { v = kt; _ }) -> from_ktype kt)
           in
-          let typed_parameters =
-            parameters
-            |> List.map
-                 (typed_expression_of_kexpression
-                    ~generics_resolver:new_map_generics env current_module
-                    program)
+          let typed_parameters = kosu_function.parameters |> List.map snd |> List.combine parameters |> List.map (fun (para, kt) ->
+            typed_expression_of_kexpression ~hint_type:(from_ktype kt.v) ~generics_resolver:new_map_generics env current_module program para
+            )
           in
 
           let hashmap =

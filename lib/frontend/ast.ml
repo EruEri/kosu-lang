@@ -696,6 +696,11 @@ module Type = struct
         && List.combine t1 t2
            |> List.map Position.assocs_value
            |> List.for_all (fun (k1, k2) -> k1 === k2)
+    | TFunction (plhs, lr) , TFunction (prhs, rr)  -> 
+      Util.are_same_lenght plhs prhs
+      && lr == rr
+      && List.for_all2 (fun pl pr -> pl.v == pr.v) plhs prhs
+      
     | _, _ -> lhs = rhs
 
   let ( !== ) lhs rhs = lhs === rhs |> not

@@ -1281,8 +1281,12 @@ module Sizeof = struct
           list
           |> List.fold_left
                 (fun (acc_size, acc_align, _acc_packed_size) kt ->
+
                   let comming_size = sizeof program kt in
-                  let comming_align = kt |> size `align program in
+                  let comming_align = alignmentof program kt in
+
+                  if comming_align = 0L then (acc_size, acc_align, _acc_packed_size)
+                  else
 
                   let aligned = align acc_size comming_align in
                   let new_align = max acc_align comming_align in
@@ -1292,7 +1296,7 @@ module Sizeof = struct
                 (0L, 0L, 0L)
         in
         match calcul with
-        | `size -> if alignment = 0L then 0L else align size alignment
+        | `size -> if alignment = 0L || size = 0L then 0L else align size alignment
         | `align -> alignment)
 
   and size_struct calcul program generics struct_decl =
@@ -1363,13 +1367,19 @@ module Sizeof = struct
               |> size `align rprogram
             in
 
-            let aligned = align acc_size comming_align in
-            let new_align = max acc_align comming_align in
+            let aligned, new_align = 
+            try
+              align acc_size comming_align, max acc_align comming_align
+            with Division_by_zero -> 1L, 1L
+            in
+            
 
             if found then acc
-            else if index = tindex then (aligned, new_align, true)
-            else (aligned ++ comming_size, new_align, found))
-          (0L, 0L, false)
+            else if index = tindex then 
+              (aligned, new_align, true)
+            else 
+              (aligned ++ comming_size, new_align, found)
+          ) (0L, 0L, false)
     |> function
     | a, _, _ -> a
 

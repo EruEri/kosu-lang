@@ -126,6 +126,39 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                ])
     |> Option.value ~default:[]
 
+  let load_or_lea ~target_reg ~ktype ~address rprogram = 
+    let sizeof = sizeofn rprogram ktype in
+    let rreg =
+      if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then
+        FRegister64 D9
+      else if sizeof > 4L then to_64bits target_reg
+      else to_32bits target_reg
+    in
+    if is_register_size sizeof then
+      ( rreg,
+        [
+          Instruction
+            (LDR
+               {
+                 data_size = compute_data_size ktype sizeof;
+                 destination = rreg;
+                 adress_src = address;
+                 adress_mode = Immediat;
+               });
+        ] )
+    else
+      ( rreg,
+        [
+          Instruction
+            (ADD
+               {
+                 destination = rreg;
+                 offset = false;
+                 operand1 = address.base;
+                 operand2 = `ILitteral address.offset;
+               });
+        ] )
+
   let return_function_instruction_reg_size ~where ~is_deref ~return_reg
       ~return_type rprogram =
     where
@@ -368,12 +401,14 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     | RVLambda {fn_pointer_name; parameters = _; return_ktype = _; captured_env} ->
       where |> Option.map (fun waddress -> 
         let ktlist = captured_env |> List.map snd in
-        let offset_list =
-          captured_env
-          |> List.mapi (fun index _value ->
-                 offset_of_tuple_index index ktlist rprogram)
-          |> List.tl
-          |> fun l -> l @ [ 0L ]
+        let offset_list = match captured_env with
+          | [] -> []
+          | _::_ ->
+            captured_env
+            |> List.mapi (fun index _value ->
+                  offset_of_tuple_index index ktlist rprogram)
+            |> List.tl
+            |> fun l -> l @ [ 0L ]
         in
 
         let name_of_fn = AsmSpec.label_of_constant fn_pointer_name in
@@ -470,10 +505,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                 (acc @ instruction, `Register reg))
               []
           in
-          if env_in_reg then 
+          if env_in_reg && captured_env <> [] then 
             let env_reg = List.nth (argument_registers) (register_param_count) in
             let sized_reg = Register.reg_of_size (size_of_ktype_size env_size) env_reg in
-            Instruction (LDR {data_size = compute_data_size named_env env_size; destination = sized_reg; adress_src = env_address; adress_mode = Immediat})::instruction, regs
+            snd (load_or_lea ~target_reg:(sized_reg) ~ktype:named_env ~address:env_address rprogram) @ instruction, regs
           else
             instruction, regs
           in
