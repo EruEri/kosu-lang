@@ -44,6 +44,9 @@ type parser_binary_op =
   | Inf
   | Equal
 
+
+
+
 type ktype =
   | TParametric_identifier of {
       module_path : string location;
@@ -58,12 +61,13 @@ type ktype =
   | TPointer of ktype location
   | TTuple of ktype location list
   | TFunction of ktype location list * ktype location
-  | TClosure of ktype location list * ktype location * (string * ktype) list
+  | TClosure of closure
   | TString_lit
   | TUnknow
   | TFloat
   | TBool
   | TUnit
+and closure = ktype location list * ktype location * (string * ktype) list
 
 type kbody = kstatement location list * kexpression location
 
@@ -253,6 +257,8 @@ module Function_Decl = struct
     | Decl_External of external_func_decl
     | Decl_Kosu_Function of function_decl
     | Decl_Syscall of syscall_decl
+    | Decl_Closure of (string location * closure)
+
 
   let decl_external e = Decl_External e
   let decl_kosu_function e = Decl_Kosu_Function e
@@ -262,18 +268,21 @@ module Function_Decl = struct
   let is_kosu_func = function Decl_Kosu_Function _ -> true | _ -> false
 
   let calling_name = function
+    | Decl_Closure (name, _) 
     | Decl_External { sig_name = name; _ }
     | Decl_Kosu_Function { fn_name = name; _ }
     | Decl_Syscall { syscall_name = name; _ } ->
         name
 
   let parameters = function
+    | Decl_Closure (_, (parameters, _, _))
     | Decl_External { fn_parameters = parameters; _ }
     | Decl_Syscall { parameters; _ } ->
         parameters
     | Decl_Kosu_Function { parameters; _ } -> parameters |> List.map snd
 
   let return_type = function
+    | Decl_Closure (_, (_, return_type, _))
     | Decl_External { r_type = return_type; _ }
     | Decl_Kosu_Function { return_type; _ }
     | Decl_Syscall { return_type; _ } ->
@@ -594,6 +603,11 @@ module Type = struct
   let is_closure = function
   | TClosure _ -> true
   | _ -> false
+
+  let closure_info = function
+  | TClosure closure -> Some closure
+  | TFunction (parameters, return_type) -> Some (parameters, return_type, [])
+  | _ -> None
 
   let pointee_fail = function
     | TPointer kt -> kt.v

@@ -439,6 +439,71 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                in
                acc @ instructions @ copy_instruction)
              []
+    | RVClosureCall {variable_name; parameters; return_ktype; captured_env; closure_rktype} ->
+      let named_env = KosuIrTyped.Asttyped.RTNamedTuple captured_env in
+      let env_size = sizeofn rprogram named_env in
+      let closure_address = Option.get @@ FrameManager.address_of (variable_name, closure_rktype) fd in
+      let env_address = increment_adress (8L) closure_address in
+      let register_param_count =
+        min
+          (List.length parameters)
+          (List.length argument_registers)
+      in
+      let args_in_reg, _args_on_stack =
+        parameters
+        |> List.mapi (fun index value -> (index, value))
+        |> List.partition_map (fun (index, value) ->
+               if index < register_param_count then Either.left value
+               else Either.right value)
+      in
+      let env_in_reg = register_param_count <  (List.length argument_registers) in
+
+      let instructions, _regs =
+        let instruction, regs =  args_in_reg
+          |> Util.ListHelper.combine_safe argument_registers
+          |> List.fold_left_map
+              (fun acc (reg, tte) ->
+                let reg, instruction =
+                  translate_tac_expression ~str_lit_map ~target_reg:reg
+                    rprogram fd tte
+                in
+                (acc @ instruction, `Register reg))
+              []
+          in
+          if env_in_reg then 
+            let env_reg = List.nth (argument_registers) (register_param_count) in
+            let sized_reg = Register.reg_of_size (size_of_ktype_size env_size) env_reg in
+            Instruction (LDR {data_size = compute_data_size named_env env_size; destination = sized_reg; adress_src = env_address; adress_mode = Immediat})::instruction, regs
+          else
+            instruction, regs
+          in
+        let set_on_stack_instructions = [] in (* TOODO *)
+        let ldr_address = Instruction (LDR {data_size = None; destination = tmp64reg_2; adress_mode = Immediat; adress_src = closure_address}) in
+        let call_instructions = FrameManager.call_instruction ~origin:(`Reg tmp64reg_2) fd in
+        let return_size = sizeofn rprogram return_ktype in
+        let return_reg =
+          return_register_ktype
+            ~float:
+              (KosuIrTyped.Asttyhelper.RType.is_64bits_float
+                 return_ktype)
+            return_size
+        in
+        begin match is_register_size return_size with
+        | true ->
+            let copy_instruction =
+              return_function_instruction_reg_size ~where ~is_deref
+                ~return_reg ~return_type:return_ktype rprogram
+            in
+            instructions @ set_on_stack_instructions @ ldr_address::call_instructions
+            @ copy_instruction
+            (* Is not the same check the instructions order*)
+        | false ->
+            let copy_instruction =
+              return_function_instruction_none_reg_size ~where ~is_deref
+            in
+            instructions @ set_on_stack_instructions @ copy_instruction
+            @ ldr_address::call_instructions
+          end
     | RVFunction { module_path; fn_name; generics_resolver = _; tac_parameters }
       -> (
         let typed_parameters =
@@ -457,7 +522,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             let fn_label =
               AsmSpec.label_of_external_function external_func_decl
             in
-            let () = tac_parameters |> List.map KosuIrTAC.Asttacpprint.string_of_typed_tac_expression |> String.concat ", " |> Printf.printf "printf param = %s" in
+            (* let () = tac_parameters |> List.map KosuIrTAC.Asttacpprint.string_of_typed_tac_expression |> String.concat ", " |> Printf.printf "printf param = %s" in *)
             (* let fn_register_params, _stack_param = tac_parameters |> List.mapi (fun index -> fun value -> index, value) |> List.partition_map (fun (index, value) ->
                if index < 8 then Either.left value else Either.right value
                ) in *)
@@ -479,7 +544,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                  ) in
 
                let stack_store = stack_param |> List.map *)
-            let instructions, regs =
+            let instructions, _regs =
               args_in_reg
               |> Util.ListHelper.combine_safe argument_registers
               |> List.fold_left_map
@@ -516,7 +581,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               |> List.flatten
             in
             let call_instructions =
-              FrameManager.call_instruction ~origin:fn_label regs fd
+              FrameManager.call_instruction ~origin:(`Label fn_label) fd
             in
             let return_size = sizeofn rprogram external_func_decl.return_type in
             let return_reg =
@@ -607,7 +672,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               AsmSpec.label_of_kosu_function ~module_path function_decl
             in
 
-            let instructions, regs =
+            let instructions, _regs =
               tac_parameters
               |> Util.ListHelper.combine_safe argument_registers
               |> List.fold_left_map
@@ -623,7 +688,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             let set_on_stack_instructions = [] (* TODO *) in
 
             let call_instructions =
-              FrameManager.call_instruction ~origin:fn_label regs fd
+              FrameManager.call_instruction ~origin:(`Label fn_label) fd
             in
             let return_size = sizeofn rprogram function_decl.return_type in
             let return_reg =
@@ -1055,7 +1120,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             rprogram fd record.expr
         in
         let call_instruction =
-          FrameManager.call_instruction ~origin:fn_label [] fd
+          FrameManager.call_instruction ~origin:(`Label fn_label) fd
         in
         let return_type =
           KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl
@@ -1116,7 +1181,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
 
         let call_instruction =
-          FrameManager.call_instruction ~origin:fn_label [] fd
+          FrameManager.call_instruction ~origin:(`Label fn_label) fd
         in
         let return_type =
           KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl
@@ -1678,13 +1743,13 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                            | Locale s -> (s, locale_ty)
                            | Enum_Assoc_id { name; _ } -> (name, locale_ty))
                   in
-                   let () = fn_register_params
+                   (* let () = fn_register_params
                     |> List.map (fun (s, kt) ->
                         Printf.sprintf "%s : %s\n" (s) (KosuIrTyped.Asttypprint.string_of_rktype kt))
                         |> String.concat ", "
                         |> Printf.printf "%s : locale variables = [%s]\n"
                         closure_fn_decl.rclosure_name
-                    in
+                    in *)
 
                   let asm_name = AsmSpec.label_of_constant closure_fn_decl.rclosure_name in
                   let fd =
@@ -1705,10 +1770,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                     closure_fn_decl.tac_body
                   in
                   let epilogue = FrameManager.function_epilogue fd in
-                  let map = KosuIrTyped.Asttyhelper.Sizeof.map_size |> KosuIrTyped.Asttyhelper.Sizeof.KtypeHashTbl.to_seq |> List.of_seq in
+                  (* let map = KosuIrTyped.Asttyhelper.Sizeof.map_size |> KosuIrTyped.Asttyhelper.Sizeof.KtypeHashTbl.to_seq |> List.of_seq in
                   let () = map |> List.map (fun (kt, size) -> 
                     Printf.sprintf "%s => %Lu" (KosuIrTyped.Asttypprint.string_of_rktype kt) size
-                  ) |> String.concat "\n" |> Printf.printf "\n\n[%s]\n" in
+                  ) |> String.concat "\n" |> Printf.printf "\n\n[%s]\n" in *)
                     Some
                     (Afunction
                       {

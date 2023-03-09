@@ -111,7 +111,7 @@ let create_forward_init ?(rvalue = RVLater) ~map ~count_var typed_expression =
   else (None, [])
 
 let rec convert_from_typed_expression ~discarded_value ~allocated ~map
-    ~count_var ~if_count ~cases_count ~switch_count ~rprogram typed_expression =
+    ~count_var ~if_count ~cases_count ~switch_count ~rprogram (typed_expression: typed_expression) =
   let trktype = typed_expression.rktype in
   let expr = typed_expression.rexpression in
   match (expr, allocated) with
@@ -365,6 +365,48 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           (TEIdentifier new_tmp)
       in
       (stmts_needed @ (last_stmt |> List.cons stt), return)
+  | REClosure_call {fn_name; parameters; return_type; capatured_env; closure_ktype}, _ ->
+    let stmts_needed, tac_parameters =
+      parameters
+      |> List.map (fun ty_ex ->
+            let next_allocated, stmt =
+              create_forward_init ~map ~count_var ty_ex
+            in
+            let stmt_needed, tac_expression =
+              convert_from_typed_expression ~discarded_value
+                ~allocated:next_allocated ~switch_count ~cases_count ~map
+                ~count_var ~if_count ~rprogram ty_ex
+            in
+            (stmt @ stmt_needed, tac_expression))
+      |> List.fold_left_map
+          (fun acc (stmts, value) -> (acc @ stmts, value))
+          []
+    in
+
+    let new_tmp = make_inc_tmp trktype map count_var in
+
+    let call_rvalue =
+      RVClosureCall
+        {
+          variable_name = fn_name;
+          parameters = tac_parameters;
+          return_ktype = return_type;
+          captured_env = capatured_env;
+          closure_rktype = closure_ktype;
+        }
+    in
+    let stt =
+      STacDeclaration
+        {
+          identifier = new_tmp;
+          trvalue = make_typed_tac_rvalue trktype call_rvalue;
+        }
+    in
+    let last_stmt, return =
+      convert_if_allocated ~expr_rktype:trktype ~allocated
+        (TEIdentifier new_tmp)
+    in
+    (stmts_needed @ (last_stmt |> List.cons stt), return)
   | REFunction_call { modules_path; generics_resolver; fn_name; parameters }, _
     ->
       let stmts_needed, tac_parameters =

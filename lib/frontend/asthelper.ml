@@ -115,7 +115,9 @@ module Module = struct
     |> Util.Occurence.find_occurence (function
          | Ast.Function_Decl.Decl_External e -> fn_name = e.sig_name.v
          | Ast.Function_Decl.Decl_Kosu_Function e -> fn_name = e.fn_name.v
-         | Ast.Function_Decl.Decl_Syscall e -> fn_name = e.syscall_name.v)
+         | Ast.Function_Decl.Decl_Syscall e -> fn_name = e.syscall_name.v
+         | Ast.Function_Decl.Decl_Closure _ -> false
+         )
 end
 
 module Program = struct

@@ -110,6 +110,7 @@ module StringLitteral = struct
     match trvalue with
     | RVExpression e ->
         map_fill_string_lit_of_tac_expression map e.tac_expression ()
+    | RVClosureCall { parameters = tac_parameters; _ } 
     | RVFunction { tac_parameters; _ } ->
         tac_parameters
         |> List.iter (fun typed_expr ->

@@ -442,6 +442,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         instructions
     | RVLambda _ -> failwith "closure lambda in x86"
+    | RVClosureCall _ -> failwith "closure call in x86"
     | RVFunction { module_path; fn_name; generics_resolver = _; tac_parameters }
       -> (
         let _typed_parameters =

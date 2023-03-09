@@ -29,7 +29,7 @@ open Pprint
 let rec typeof_kbody ~generics_resolver (env : Env.t)
     (current_mod_name : string) (program : module_path list)
     ?(return_type = None) (kbody : kbody) =
-  let () = Printf.printf "env %s\n" (Pprint.string_of_env env) in
+  (* let () = Printf.printf "env %s\n" (Pprint.string_of_env env) in *)
   let statements, final_expr = kbody in
   match statements with
   | stamement :: q -> (
@@ -216,12 +216,12 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
       | None -> raise (ast_error (Undefined_Identifier id))
       | Some t -> loop indirection_count t.ktype)
   | ELambda {params; kbody } -> 
-    let () = Printf.printf "kb = %s\n\n" (string_of_kbody kbody) in
+    (* let () = Printf.printf "kb = %s\n\n" (string_of_kbody kbody) in *)
     let open Env in
     let params_explicit_type, explicit_type_return_type = 
       match lambda_type with
       | None -> None, None
-      | Some ({v = TFunction (lambad_param_explit, r) | TClosure (lambad_param_explit, r, _) ; position = _ }  ) -> print_endline "Yes\n" ; Some lambad_param_explit, Some r
+      | Some ({v = TFunction (lambad_param_explit, r) | TClosure (lambad_param_explit, r, _) ; position = _ }  ) -> Some lambad_param_explit, Some r
       | Some _ -> failwith "Todo Error: Explicit type should be an function" in 
     
       let paramas_typed =
@@ -255,7 +255,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
              (string_of_ktype kt)
         )|> String.concat ", "
       in
-      let () = Printf.printf "caotured : [%s]" string_of_captured_var in
+      (* let () = Printf.printf "caotured : [%s]" string_of_captured_var in *)
       begin match captured_var with
       | [] ->  TFunction (
           paramas_typed |> List.map (snd),
@@ -568,10 +568,29 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
           Asthelper.Program.find_function_decl_from_fn_name modules_path fn_name
             current_mod_name prog
         with
-        | Error e -> e |> ast_error |> raise
+        | Error e -> begin match Env.find_identifier_opt fn_name.v env with
+          | None -> e |> ast_error |> raise
+          | Some vi_info -> begin match vi_info.ktype with
+            | TClosure closure -> Ast.Function_Decl.Decl_Closure (fn_name, closure)
+            | TFunction (parameters, return_type) -> Ast.Function_Decl.Decl_Closure (fn_name, (parameters, return_type, []) )
+            | _ -> failwith "not callable type"
+          end
+        end
         | Ok fn_decl -> fn_decl
       in
       match fn_decl with
+      | Ast.Function_Decl.Decl_Closure (_, (clo_parameters, clo_return_type, _)) -> 
+        let () = if Util.are_diff_lenght parameters clo_parameters then 
+          failwith "closure unmatched parameters length"
+        in
+
+        let _couple_param_type = clo_parameters |>  List.combine parameters |> List.map (fun (init_param, clo_param_type) ->
+          let init_type = typeof ~lambda_type:(Some clo_param_type) ~generics_resolver env current_mod_name prog init_param in
+          let () = if not @@ Ast.Type.are_compatible_type init_type clo_param_type.v then failwith "Closure incompatible type" in 
+          Ast.Type.restrict_type init_type clo_param_type.v
+        ) in
+
+        clo_return_type.v
       | Ast.Function_Decl.Decl_Kosu_Function e ->
           if Util.are_diff_lenght parameters e.parameters then
             Unmatched_Parameters_length

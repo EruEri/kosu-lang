@@ -134,7 +134,7 @@ and rkbody_of_kbody ~generics_resolver (env : Env.t) current_module
           let type_of_expression =
             typeof ~lambda_type:explicit_type ~generics_resolver env current_module program expression
           in
-          let () = Printf.printf "TYPEOF %s : %s\n" variable_name.v (KosuFrontend.Pprint.string_of_ktype type_of_expression) in
+          (* let () = Printf.printf "TYPEOF %s : %s\n" variable_name.v (KosuFrontend.Pprint.string_of_ktype type_of_expression) in *)
           let variable_type =
             match explicit_type with
             | None -> type_of_expression
@@ -529,13 +529,40 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
         }
   | EFunction_call
       { modules_path; generics_resolver = grc; fn_name; parameters } -> (
-      let fn_decl =
-        Asthelper.Program.find_function_decl_from_fn_name modules_path fn_name
-          current_module program
-        |> Result.get_ok
+      let fn_decl, closure_ktype =
+        match Env.find_identifier_opt fn_name.v env with
+        | Some vi -> 
+          let closure_info = Option.get @@ Ast.Type.closure_info vi.ktype in
+          Ast.Function_Decl.Decl_Closure (fn_name, closure_info), Some vi.ktype
+        | None ->  
+          Asthelper.Program.find_function_decl_from_fn_name modules_path fn_name
+            current_module program
+          |> Result.get_ok, None
       in
 
       match fn_decl with
+      | Ast.Function_Decl.Decl_Closure (_, (clo_parameters, clo_return_type, clo_env)) ->
+        let clo_parameters = clo_parameters |> List.map (fun stl -> stl |> Position.value |> from_ktype)
+        in
+        let typed_parameters =
+          parameters
+          |> List.map
+               (typed_expression_of_kexpression ~generics_resolver env
+                  current_module program)
+        in
+        let mapped =
+          List.map2 restrict_typed_expression clo_parameters
+            typed_parameters
+        in
+        let clo_return_ktype = from_ktype clo_return_type.v in
+        let clo_renv = clo_env |> List.map (fun (s, kt) -> s, from_ktype kt ) in 
+        REClosure_call {
+          fn_name = fn_name.v;
+          parameters = mapped;
+          return_type = clo_return_ktype;
+          capatured_env = clo_renv;
+          closure_ktype = from_ktype @@ Option.get closure_ktype;
+        }
       | Ast.Function_Decl.Decl_Syscall
           { syscall_name = _; parameters = sys_type_parameters; _ } ->
           let sys_rktype_parameters =

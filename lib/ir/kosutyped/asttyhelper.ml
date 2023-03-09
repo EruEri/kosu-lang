@@ -71,6 +71,9 @@ module RType = struct
   let rtuple tuples = RTTuple tuples
   let is_pointer = function RTPointer _ -> true | _ -> false
 
+  let s32 = RTInteger (KosuFrontend.Ast.Signed, KosuFrontend.Ast.I32)
+  
+
   let extract_parametrics_rktype = function
     | RTParametric_identifier { parametrics_type; _ } -> parametrics_type
     | _ -> []
@@ -103,6 +106,16 @@ module RType = struct
       | n -> n 
       end
     | _ -> compare lhs rhs
+
+  (* let kt_compare lhs rhs = 
+    let res = kt_compare lhs rhs in
+    let () = Printf.printf "\n\nCompare %s :: %s = %d\n\n" (Asttypprint.string_of_rktype lhs) (Asttypprint.string_of_rktype rhs) res in
+    res *)
+
+    let compare_test = 
+      let no_env = RTClosure { params = [s32; s32]; return_type = s32; captured_env = [] } in
+      let env = RTClosure { params = [s32; s32]; return_type = s32; captured_env = ["dummy", s32] } in
+      kt_compare no_env env 
 
   (**
         
@@ -1227,7 +1240,7 @@ module Sizeof = struct
   module KtypeHashTbl = Hashtbl.Make(struct
     type t = rktype
     let equal lhs rhs = rhs |> RType.kt_compare lhs |> ( = ) 0
-    let hash = Hashtbl.hash 
+    let hash _ = 0 (* Temporary *)
   end)
 
   let map_size : int64 KtypeHashTbl.t = KtypeHashTbl.create 16
@@ -1298,13 +1311,23 @@ module Sizeof = struct
   and sizeof program ktype = 
     match ktype with
     | RTClosure _ as kt -> 
+      
       let clo_size = size `size program kt in
-      let max_clo_size = KtypeHashTbl.find_opt map_size kt |> Option.map ( fun found_size ->
-        let max_size =  max found_size clo_size in
+      let max_clo_size = match KtypeHashTbl.find_opt map_size kt with
+        | None -> 
+          (* let () = Printf.printf "None ::: input closure type = %s\n%!" (Asttypprint.string_of_rktype kt) in *)
+          let () = KtypeHashTbl.add map_size kt clo_size in clo_size
+        | Some found_size -> (* let () = Printf.printf "Some ::: input closure type = %s\n%!" (Asttypprint.string_of_rktype kt) in *)
+        let max_size = max found_size clo_size in
         let () = KtypeHashTbl.replace map_size kt max_size in
         max_size
-      ) |> Option.value ~default:clo_size in
-      let () = KtypeHashTbl.replace map_size kt max_clo_size in
+    in
+
+      (* let map = map_size |> KtypeHashTbl.to_seq |> List.of_seq in
+      let () = map |> List.map (fun (kt, size) -> 
+        Printf.sprintf "%s => %Lu" (KosuIrTyped.Asttypprint.string_of_rktype kt) size
+      ) |> String.concat "\n" |> Printf.printf "\n\n[%s]\n" in *)
+
       max_clo_size
     | ktype -> 
       begin match KtypeHashTbl.find_opt map_size ktype with
@@ -1474,6 +1497,7 @@ module Closure = struct
 
     (* To update closure size *)
     let _ = Sizeof.sizeof rprogram ktype in
+
 
     let clofn_name = make_closure_name ~closure_count current_module in
     let rbody, closures = iter_until_no_generate_body ~acc:ClosureSet.empty record.body in

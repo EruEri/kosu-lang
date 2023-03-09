@@ -831,6 +831,7 @@ module ValidateModule = struct
          (fun acc value ->
            acc >>= fun found ->
            match value with
+           | Ast.Function_Decl.Decl_Closure _ -> Ok found
            | Ast.Function_Decl.Decl_External external_decl ->
                Main_no_kosu_function (`external_decl external_decl)
                |> Error.module_error |> Result.error

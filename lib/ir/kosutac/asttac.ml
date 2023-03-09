@@ -82,6 +82,14 @@ and tac_fncall = {
   tac_parameters : tac_typed_expression list;
 }
 
+and tac_clocall = {
+  variable_name: string;
+  parameters: tac_typed_expression list;
+  return_ktype: rktype;
+  captured_env: (string * rktype) list;
+  closure_rktype: rktype;
+}
+
 and binary = {
   binop : tac_binop;
   blhs : tac_typed_expression;
@@ -93,6 +101,7 @@ and unary = { unop : tac_unop; expr : tac_typed_expression }
 and tac_rvalue =
   | RVExpression of tac_typed_expression
   | RVFunction of tac_fncall
+  | RVClosureCall of tac_clocall
   | RVStruct of {
       module_path : string;
       struct_name : string;

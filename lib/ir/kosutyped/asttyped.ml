@@ -96,6 +96,13 @@ and rkexpression =
       fn_name : string;
       parameters : typed_expression list;
     }
+  | REClosure_call of {
+    fn_name : string;
+    parameters : typed_expression list;
+    return_type: rktype;
+    capatured_env: (string * rktype) list;
+    closure_ktype: rktype;
+  }
   | REBinOperator_Function_call of rkbin_op
   | REUnOperator_Function_call of rkunary_op
   | REWhile of typed_expression * rkbody

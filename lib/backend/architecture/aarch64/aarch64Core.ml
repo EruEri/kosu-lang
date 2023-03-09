@@ -1111,7 +1111,12 @@ module FrameManager = struct
 
     [ base; stack_add; return ]
 
-  let call_instruction ~origin _stack_param (_fd : frame_desc) =
-    let call = Instruction (BL { cc = None; label = origin }) in
-    [ call ]
+  let call_instruction ~origin (_fd : frame_desc) =
+    match origin with
+    | `Label origin ->
+      let call = Instruction (BL { cc = None; label = origin }) in
+      [ call ]
+    | `Reg reg -> 
+      let call = Instruction (BLR {cc = None; reg}) in
+      [call]
 end
