@@ -47,6 +47,7 @@ module Sizeof = struct
     | RTInteger (_, isize) -> Isize.size_of_isize isize / 8 |> Int64.of_int
     | RTFloat | RTPointer _ | RTString_lit | RTFunction _ -> 8L
     | RTTuple kts -> size_tuple calcul program kts
+    | RTNamedTuple kts -> kts |> List.map snd |> size_tuple calcul program
     | RTClosure {params = _; return_type = _; captured_env} ->
       8L ++ (captured_env |> List.map snd |> size_tuple calcul program)
     | kt -> (
@@ -236,6 +237,7 @@ and to_ktype = let open Position in function
   parametrics_type = List.map (fun kt -> val_dummy @@ to_ktype kt) parametrics_type;
   name = val_dummy name
 }
+| RTNamedTuple _ -> failwith "No matching from namedTuple astyyped to ast"
 
 and from_switch_case = function
   | SC_Enum_Identifier { variant } ->

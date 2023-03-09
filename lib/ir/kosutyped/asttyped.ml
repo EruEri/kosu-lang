@@ -31,6 +31,7 @@ type rktype =
       name : string;
     }
   | RTType_Identifier of { module_path : string; name : string }
+  | RTNamedTuple of (string * rktype) list
   | RTInteger of (signedness * isize)
   | RTPointer of rktype
   | RTTuple of rktype list

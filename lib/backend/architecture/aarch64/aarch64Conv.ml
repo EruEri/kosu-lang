@@ -365,6 +365,38 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           copy_result ~where ~register:last_reg ~rval_rktype rprogram
         in
         instructions @ copy_instruction
+    | RVLambda {fn_pointer_name; parameters = _; return_ktype = _; captured_env} ->
+      where |> Option.map (fun waddress -> 
+        let ktlist = captured_env |> List.map snd in
+        let offset_list =
+          captured_env
+          |> List.mapi (fun index _value ->
+                 offset_of_tuple_index index ktlist rprogram)
+          |> List.tl
+          |> fun l -> l @ [ 0L ]
+        in
+
+        let name_of_fn = AsmSpec.label_of_constant fn_pointer_name in
+        let r9 = tmp64reg_2 in
+        let compute_address = load_label name_of_fn r9 in
+        let store_address = Instruction (STR {data_size = None; source = r9; adress = waddress; adress_mode = Immediat}) in
+        let incremented_address = increment_adress 8L waddress in
+        let copy_instru =  captured_env 
+          |> List.mapi Util.couple
+          |> List.fold_left (fun acc (index, st ) -> 
+            let st_name, st_kt = st in
+            (* let source_address = match FrameManager.address_of st fd with
+              | Some addr -> addr
+              | None -> Printf.sprintf "cannot not locate %s\n" (fst st) |> failwith
+            in *)
+            let reg_texp, instructions = translate_tac_expression ~str_lit_map rprogram fd ({expr_rktype = st_kt; tac_expression = TEIdentifier st_name}) in
+            let target_address = increment_adress (List.nth offset_list index) incremented_address in
+            let copy_instructions = copy_result ~where:(Some target_address) ~register:reg_texp ~rval_rktype:(snd st) rprogram in
+            instructions @ copy_instructions @ acc
+          ) [] in
+          compute_address @ store_address::copy_instru
+        ) |> Option.value ~default:[]
+        
     | RVStruct { module_path = _; struct_name = _s; fields } ->
         let struct_decl =
           match
@@ -1617,7 +1649,66 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                             @ prologue @ (conversion |> List.tl) @ epilogue
                             @ [ Directive "cfi_endproc" ];
                         })
-               | TNOperator (TacUnary unary_decl as self) ->
+                | TNClosure closure_fn_decl -> 
+                  let struct_of_env = RTNamedTuple closure_fn_decl.rclosure_env in
+                  let register_param_count = List.length argument_registers in
+                  let fn_register_params, stack_param =
+                    closure_fn_decl.rparameters
+                    |> List.mapi (Util.couple)
+                    |> List.partition_map (fun (index, value) ->
+                          if index < register_param_count then
+                            Either.left (value)
+                          else Either.right value)
+                  in
+                let fn_register_params, stack_param = 
+                  if (List.length fn_register_params < register_param_count ) then
+                    fn_register_params @ [(FrameManager.env_closure_name, struct_of_env)], stack_param
+                  else
+                    fn_register_params, stack_param @ [(FrameManager.env_closure_name, struct_of_env)]
+                  in
+
+                  let stack_param_count =
+                    Int64.of_int (closure_fn_decl.stack_params_count * 8)
+                  in
+                  let locals_var =
+                    closure_fn_decl.locale_var
+                    |> List.map (fun { locale_ty; locale } ->
+                           match locale with
+                           | Locale s -> (s, locale_ty)
+                           | Enum_Assoc_id { name; _ } -> (name, locale_ty))
+                  in
+
+                  let asm_name = AsmSpec.label_of_constant closure_fn_decl.rclosure_name in
+                  let fd =
+                    FrameManager.frame_descriptor
+                      ~stack_future_call:stack_param_count ~fn_register_params
+                      ~stack_param ~return_type:closure_fn_decl.return_type
+                      ~locals_var
+                      ~discarded_values:closure_fn_decl.discarded_values rprogram
+                  in
+
+                  let prologue =
+                    FrameManager.function_prologue
+                      ~fn_register_params:closure_fn_decl.rparameters
+                      ~stack_params:stack_param rprogram fd
+                  in
+                  let conversion =
+                    translate_tac_body ~str_lit_map current_module rprogram fd
+                    closure_fn_decl.tac_body
+                  in
+                  let epilogue = FrameManager.function_epilogue fd in
+
+                    Some
+                    (Afunction
+                      {
+                        asm_name;
+                        is_global = false;
+                        asm_body =
+                          [ Directive "cfi_startproc" ]
+                          @ prologue @ (conversion |> List.tl) @ epilogue
+                          @ [ Directive "cfi_endproc" ];
+                      })
+                | TNOperator (TacUnary unary_decl as self) ->
                    let stack_param_count =
                      Int64.of_int (unary_decl.stack_params_count * 8)
                    in

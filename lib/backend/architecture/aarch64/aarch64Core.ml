@@ -884,6 +884,7 @@ module FrameManager = struct
     discarded_values : (string * KosuIrTyped.Asttyped.rktype) list;
   }
 
+  let env_closure_name = "@cloenv"
   let indirect_return_var = "@xreturn"
   let indirect_return_type = KosuIrTyped.Asttyped.(RTPointer RTUnknow)
   let indirect_return_vt = (indirect_return_var, indirect_return_type)
@@ -894,6 +895,30 @@ module FrameManager = struct
     let div = Int64.unsigned_div size 16L in
     let modulo = if Int64.unsigned_rem size 16L = 0L then 0L else 1L in
     16L ** (div ++ modulo)
+
+  let fold_address ~stack_future_call ~address_map ~fake_tuple ~locals_space rprogram ktypes = 
+    ktypes |> List.mapi Util.couple |> List.fold_left (fun acc (index, st) -> 
+      let offset =
+        offset_of_tuple_index ~generics:(Hashtbl.create 0) index
+          fake_tuple rprogram
+      in
+      let x29_relative_address =
+        locals_space |> Int64.neg |> Int64.add offset
+      in
+      let adress =
+        if x29_relative_address > -256L then
+          create_adress
+            ~offset:
+              (locals_space |> Int64.neg |> Int64.add offset
+              |> Int64.add stack_future_call)
+            (Register64 X29)
+        else
+          create_adress
+            ~offset:(Int64.add stack_future_call offset)
+            (Register64 SP)
+      in
+      IdVarMap.add st adress acc
+    ) address_map
 
   let frame_descriptor ?(stack_future_call = 0L)
       ~(fn_register_params : (string * KosuIrTyped.Asttyped.rktype) list)
@@ -942,7 +967,14 @@ module FrameManager = struct
                    ~offset:(Int64.add stack_future_call offset)
                    (Register64 SP)
              in
-             (* let () = Printf.printf "-> %s : %s == [x29, %Ld] \n" (fst st) (KosuIrTyped.Asttypprint.string_of_rktype @@ snd @@ st) (offset) in *)
+                          (* let () = Printf.printf "-> %s : %s == [x29, %Ld] \n" (fst st) (KosuIrTyped.Asttypprint.string_of_rktype @@ snd @@ st) (offset) in *)
+             if fst st = env_closure_name then
+              let named_tuples = KosuIrTyped.Asttyhelper.RType.as_named_tuple (snd st) in
+              let env_fake_tuple = named_tuples |> List.map snd in
+              let env_locals_space = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram (snd st) in
+              let map = fold_address ~stack_future_call ~address_map:acc ~fake_tuple:env_fake_tuple ~locals_space:env_locals_space rprogram named_tuples in
+              IdVarMap.add st adress map
+             else
              IdVarMap.add st adress acc)
            IdVarMap.empty
     in

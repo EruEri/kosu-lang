@@ -86,6 +86,8 @@ let rec string_of_rktype = function
       )
       |> String.concat ", "
   )
+  | RTNamedTuple ktypes ->
+    sprintf "(%s)" (ktypes |> List.map (fun (s, kt) -> sprintf "%s: %s" s (string_of_rktype kt) ) |> String.concat ", ")
   | RTString_lit -> "stringl"
   | RTBool -> "bool"
   | RTUnit -> "unit"
@@ -118,7 +120,8 @@ let rec string_of_label_rktype = function
     sprintf "clo_fn_%s__%s"
     (params |> List.map string_of_label_rktype |> String.concat "_")
     (string_of_label_rktype return_type) 
-
+  | RTNamedTuple ktypes ->
+    sprintf "(%s)" (ktypes |> List.map (fun (s, kt) -> sprintf "%s.%s" s (string_of_rktype kt) ) |> String.concat "_")
   | RTString_lit -> "stringl"
   | RTBool -> "bool"
   | RTUnit -> "unit"

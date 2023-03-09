@@ -48,6 +48,10 @@ module RType = struct
     | RTPointer kt -> kt
     | _ -> failwith "Cannot access pointee type of a none pointer type"
 
+  let as_named_tuple = function
+  | RTNamedTuple named_tuples -> named_tuples
+  | _ -> failwith "Type is not a named tuples"
+
   let module_path_opt = function
     | RTParametric_identifier { module_path; _ }
     | RTType_Identifier { module_path; _ } ->
