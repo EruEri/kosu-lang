@@ -33,7 +33,7 @@
 %token <string> Module_IDENT 
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
-%token ENUM EXTERNAL FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE
+%token ENUM EXTERNAL FUNCTION CLOSURE STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE 
 %token TRIPLEDOT
 %token COMMA
 %token PIPESUP
@@ -250,12 +250,12 @@ syscall_decl:
 function_decl:
     | FUNCTION name=located(IDENT) generics_opt=option(d=delimited(INF, separated_nonempty_list(COMMA, id=located(IDENT) {id}), SUP ) { d })
     parameters=delimited(LPARENT, separated_list(COMMA, id=located(IDENT) COLON kt=located(ktype) { id, kt  }), RPARENT )
-    r_type=located( ktype ) body=fun_kbody {
+    r_type=located( option(ktype) ) body=fun_kbody {
         {
             fn_name = name;
             generics = generics_opt |> Option.value ~default: [];
             parameters;
-            return_type = r_type;
+            return_type = r_type |> Position.map (Option.value ~default: TUnit);
             body
         }
     }
@@ -486,8 +486,7 @@ ktype:
     | FUNCTION params=delimited(LPARENT, separated_list(COMMA, located(ktype)), RPARENT) r=located(ktype) {
         TFunction (params, r)
     }
-    | delimited(LBRACE, params=delimited(LPARENT, separated_list(COMMA, located(ktype)), RPARENT) r=located(ktype) {params, r}, RBRACE) {
-        let params, r = $1 in
+    | CLOSURE params=delimited(LPARENT, separated_list(COMMA, located(ktype)), RPARENT) r=located(ktype) {
         TClosure (params, r, [])
     }
     | MULT located(ktype) { TPointer $2 }
