@@ -94,6 +94,8 @@ module RType = struct
       List.combine ls rs |> List.fold_left (fun acc (l, r) -> 
       if acc <> 0 then acc else kt_compare l r
     ) 0
+    | RTNamedTuple ls, RTNamedTuple rs when Util.are_same_lenght ls rs ->
+      compare_list_type (List.map snd ls) (List.map snd rs)
     | RTFunction (pls, rl), RTFunction (prs, rr) 
     | RTClosure {params = pls; return_type = rl; _}, RTClosure {params = prs; return_type = rr; _} when Util.are_same_lenght pls prs -> 
       begin match kt_compare rl rr with
@@ -1240,7 +1242,7 @@ module Sizeof = struct
     | RTTuple kts -> size_tuple calcul program kts
     | RTNamedTuple kts -> kts |> List.map snd |> size_tuple calcul program
     | RTClosure {params = _; return_type = _; captured_env} ->
-      8L ++ (captured_env |> List.map snd |> size_tuple calcul program)
+       (("", RTPointer RTUnknow)::captured_env |> List.map snd |> size_tuple calcul program)
     | kt -> (
         let type_decl =
           RProgram.find_type_decl_from_rktye kt program |> Option.get
@@ -1266,7 +1268,7 @@ module Sizeof = struct
           list
           |> List.fold_left
                 (fun (acc_size, acc_align, _acc_packed_size) kt ->
-                  let comming_size = kt |> size `size program in
+                  let comming_size = sizeof program kt in
                   let comming_align = kt |> size `align program in
 
                   let aligned = align acc_size comming_align in
@@ -1293,16 +1295,17 @@ module Sizeof = struct
             |> List.cons (RTInteger (Unsigned, I32))
             |> RType.rtuple |> size calcul program)
     |> List.fold_left max 0L
-
-  let sizeof program ktype = 
+  and sizeof program ktype = 
     match ktype with
     | RTClosure _ as kt -> 
       let clo_size = size `size program kt in
-      KtypeHashTbl.find_opt map_size kt |> Option.map ( fun found_size ->
+      let max_clo_size = KtypeHashTbl.find_opt map_size kt |> Option.map ( fun found_size ->
         let max_size =  max found_size clo_size in
         let () = KtypeHashTbl.replace map_size kt max_size in
         max_size
-      ) |> Option.value ~default:clo_size
+      ) |> Option.value ~default:clo_size in
+      let () = KtypeHashTbl.replace map_size kt max_clo_size in
+      max_clo_size
     | ktype -> 
       begin match KtypeHashTbl.find_opt map_size ktype with
       | Some size -> size
@@ -1312,7 +1315,7 @@ module Sizeof = struct
           ktsize
       end
 
-  let alignmentof program ktype = 
+  and alignmentof program ktype = 
     match KtypeHashTbl.find_opt map_align ktype with
     | Some align -> align
     | None -> 
@@ -1391,7 +1394,7 @@ module Closure = struct
       list |> List.fold_left (fun (acc_type, acc_clo) typed_expr -> 
         let new_ty_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expr in
         new_ty_expr::acc_type, ClosureSet.union (closures) acc_clo
-    ) ([], ClosureSet.empty)
+    ) ([], ClosureSet.empty) |> (fun (l, set) -> List.rev l, set)
   in
 
   let convert_binop_expr ~lhs ~rhs = 

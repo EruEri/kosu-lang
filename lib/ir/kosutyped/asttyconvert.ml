@@ -134,10 +134,11 @@ and rkbody_of_kbody ~generics_resolver (env : Env.t) current_module
           let type_of_expression =
             typeof ~lambda_type:explicit_type ~generics_resolver env current_module program expression
           in
+          let () = Printf.printf "TYPEOF %s : %s\n" variable_name.v (KosuFrontend.Pprint.string_of_ktype type_of_expression) in
           let variable_type =
             match explicit_type with
             | None -> type_of_expression
-            | Some explicit_type -> explicit_type.v
+            | Some explicit_type -> if Ast.Type.is_type_full_known type_of_expression then type_of_expression else explicit_type.v
           in
           let typed_expression =
             typed_expression_of_kexpression ~generics_resolver env

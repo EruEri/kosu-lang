@@ -896,8 +896,7 @@ module FrameManager = struct
     let modulo = if Int64.unsigned_rem size 16L = 0L then 0L else 1L in
     16L ** (div ++ modulo)
 
-  let fold_address ~base_adress ~stack_future_call ~address_map ~fake_tuple ~locals_space rprogram ktypes = 
-    let () = ignore (locals_space, stack_future_call) in
+  let fold_address ~base_adress ~address_map ~fake_tuple rprogram ktypes = 
     ktypes |> List.mapi Util.couple |> List.fold_left (fun acc (index, st) -> 
       let offset =
         offset_of_tuple_index ~generics:(Hashtbl.create 0) index
@@ -959,8 +958,7 @@ module FrameManager = struct
              if fst st = env_closure_name then
               let named_tuples = KosuIrTyped.Asttyhelper.RType.as_named_tuple (snd st) in
               let env_fake_tuple = named_tuples |> List.map snd in
-              let env_locals_space = KosuIrTyped.Asttyhelper.Sizeof.sizeof rprogram (snd st) in
-              let map = fold_address ~stack_future_call ~address_map:acc ~base_adress:adress ~fake_tuple:env_fake_tuple ~locals_space:env_locals_space rprogram named_tuples in
+              let map = fold_address ~address_map:acc ~base_adress:adress ~fake_tuple:env_fake_tuple rprogram named_tuples in
               IdVarMap.add st adress map
              else
              IdVarMap.add st adress acc)

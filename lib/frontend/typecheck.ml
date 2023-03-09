@@ -33,14 +33,14 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
   let statements, final_expr = kbody in
   match statements with
   | stamement :: q -> (
-    let () = Printf.printf "%s\n" (string_of_kstatement stamement.v) in
+    (* let () = Printf.printf "%s\n" (string_of_kstatement stamement.v) in *)
       match stamement.v with
       | SDiscard expr ->
           ignore (typeof ~generics_resolver env current_mod_name program expr);
           typeof_kbody ~generics_resolver env current_mod_name program
             ~return_type (q, final_expr)
       | SDeclaration { is_const; variable_name; explicit_type; expression } ->
-          let () = Printf.printf "Is explicit : %b\n" (Option.is_some explicit_type) in
+          (* let () = Printf.printf "Is explicit : %b\n" (Option.is_some explicit_type) in *)
           let type_init =
             expression
             |> Position.map_use
@@ -137,7 +137,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
                   current_mod_name program ~return_type (q, final_expr)))
   | [] -> (
       (* Printf.printf "Final expr\n"; *)
-      let () = Printf.printf "Final expr = %s\n" (string_of_kexpression final_expr.v) in
+      (* let () = Printf.printf "Final expr = %s\n" (string_of_kexpression final_expr.v) in *)
       let final_expr_type =
         typeof ~generics_resolver env current_mod_name program final_expr
       in
@@ -255,7 +255,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
              (string_of_ktype kt)
         )|> String.concat ", "
       in
-      (* let () = Printf.printf "caotured : [%s]" string_of_captured_var in *)
+      let () = Printf.printf "caotured : [%s]" string_of_captured_var in
       begin match captured_var with
       | [] ->  TFunction (
           paramas_typed |> List.map (snd),

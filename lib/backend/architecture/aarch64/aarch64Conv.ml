@@ -234,8 +234,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           [
             Line_Com
               (Comment
-                 (Printf.sprintf "sizeof %s"
-                    (KosuIrTyped.Asttypprint.string_of_rktype kt)));
+                 (Printf.sprintf "sizeof %s = %Lu"
+                    (KosuIrTyped.Asttypprint.string_of_rktype kt) sizeof));
             Instruction
               (Mov { destination = r64; flexsec_operand = `ILitteral sizeof });
           ] )
@@ -457,6 +457,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             let fn_label =
               AsmSpec.label_of_external_function external_func_decl
             in
+            let () = tac_parameters |> List.map KosuIrTAC.Asttacpprint.string_of_typed_tac_expression |> String.concat ", " |> Printf.printf "printf param = %s" in
             (* let fn_register_params, _stack_param = tac_parameters |> List.mapi (fun index -> fun value -> index, value) |> List.partition_map (fun (index, value) ->
                if index < 8 then Either.left value else Either.right value
                ) in *)
@@ -1704,7 +1705,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                     closure_fn_decl.tac_body
                   in
                   let epilogue = FrameManager.function_epilogue fd in
-
+                  let map = KosuIrTyped.Asttyhelper.Sizeof.map_size |> KosuIrTyped.Asttyhelper.Sizeof.KtypeHashTbl.to_seq |> List.of_seq in
+                  let () = map |> List.map (fun (kt, size) -> 
+                    Printf.sprintf "%s => %Lu" (KosuIrTyped.Asttypprint.string_of_rktype kt) size
+                  ) |> String.concat "\n" |> Printf.printf "\n\n[%s]\n" in
                     Some
                     (Afunction
                       {

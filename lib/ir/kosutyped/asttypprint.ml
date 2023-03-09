@@ -75,17 +75,18 @@ let rec string_of_rktype = function
         (parameters |> List.map string_of_rktype |> String.concat ", ")
         (string_of_rktype r_type)
   | RTClosure {params; return_type; captured_env} ->
-    sprintf "(%s) {%s} -> %s " 
-    (params |> List.map string_of_rktype |> String.concat ", ")
-    (string_of_rktype return_type)
+    sprintf "(%s) {%s} -> %s" 
+    (params |> List.map string_of_rktype |> String.concat ": ")
     (captured_env 
-      |> List.map (fun (s, kt) -> 
-        sprintf "%s, %s"  
-        s
-        (string_of_rktype kt)
-      )
-      |> String.concat ", "
-  )
+    |> List.map (fun (s, kt) -> 
+      sprintf "%s, %s"  
+      s
+      (string_of_rktype kt)
+    )
+    |> String.concat ", "
+)
+    (string_of_rktype return_type)
+
   | RTNamedTuple ktypes ->
     sprintf "(%s)" (ktypes |> List.map (fun (s, kt) -> sprintf "%s: %s" s (string_of_rktype kt) ) |> String.concat ", ")
   | RTString_lit -> "stringl"
