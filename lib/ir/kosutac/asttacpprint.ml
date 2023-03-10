@@ -238,10 +238,11 @@ and string_of_typed_tac_expression { expr_rktype; tac_expression } =
 
 and string_of_tac_rvalue = function
   | RVExpression expr -> string_of_typed_tac_expression expr
-  | RVClosureCall {variable_name; parameters; return_ktype; captured_env = _; closure_rktype = _} -> 
-    sprintf "tacclosure %s.(%s) -> %s"
+  | RVClosureCall {variable_name; parameters; return_ktype; captured_env; closure_rktype = _} -> 
+    sprintf "tacclosure %s.(%s) {%s} -> %s"
     variable_name
     (parameters |> List.map string_of_typed_tac_expression |> String.concat ", ")
+    (captured_env |> List.map (fun (s, kt) -> sprintf "%s: %s" s (string_of_rktype kt)) |> String.concat ": ")
     (string_of_rktype return_ktype)
   | RVFunction { module_path; fn_name; generics_resolver; tac_parameters } ->
       sprintf "%s%s%s(%s)"

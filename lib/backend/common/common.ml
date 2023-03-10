@@ -18,7 +18,10 @@
 module IdVar = struct
   type t = string * KosuIrTyped.Asttyped.rktype
 
-  let compare = compare
+  let compare (ln, lkt) (rn, rkt) = 
+    match compare ln rn with
+    | 0 -> KosuIrTyped.Asttyhelper.RType.kt_compare lkt rkt
+    | n -> n
 end
 
 module IdVarMap = Map.Make (IdVar)

@@ -1411,6 +1411,22 @@ module Sizeof = struct
     | 1L | 2L | 4L | 8L | 9L | 10L | 12L | 16L -> true
     | _ -> false
 
+    let update_closure_size rprogram = function
+  | RELambda {parameters; body = _; captured_env; clofn_name = _; return_ktype} 
+    ->
+      let name_type = match captured_env with 
+      | [] -> RTFunction (parameters |> List.map snd, return_ktype)
+      | _ ->  RTClosure {
+          params = parameters |> List.map snd;
+          return_type = return_ktype;
+          captured_env
+        }
+    in
+        let _ = sizeof rprogram name_type in
+        ()
+
+  | _ -> ()
+
 end
 
 module Closure = struct
@@ -1429,7 +1445,13 @@ module Closure = struct
   let rec create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expr = 
     let new_expr, closure = create_clo_function_of_expr ~ktype:typed_expr.rktype ~closure_count current_module rprogram typed_expr.rexpression in
     convert_expr ~expr:new_expr ~ty_expr:typed_expr, closure
-  and create_clo_function_of_expr ~ktype ~closure_count current_module rprogram = 
+  and create_clo_function_of_expr ~ktype ~closure_count current_module rprogram expr = 
+
+  let () = Sizeof.update_closure_size rprogram expr in
+
+  (* let () = Printf.printf "\n*** %s : Comptue ktype  %s: %Lu ***\n" (Asttypprint.string_of_rkexpression expr) (Asttypprint.string_of_rktype ktype) size in *)
+  
+
   let closures_from_list list = 
       list |> List.fold_left (fun (acc_type, acc_clo) typed_expr -> 
         let new_ty_expr, closures = create_clo_function_of_typed_expr ~closure_count current_module rprogram typed_expr in
@@ -1501,7 +1523,7 @@ module Closure = struct
     RBEqual(lty,rty), closure
   in
 
-  function
+  match expr with
   | REFieldAcces {first_expr; field} -> 
     let new_expr, closures =  create_clo_function_of_typed_expr ~closure_count current_module rprogram first_expr in
     REFieldAcces {first_expr = new_expr; field}, closures
@@ -1513,7 +1535,8 @@ module Closure = struct
     in
 
     (* To update closure size *)
-    let _ = Sizeof.sizeof rprogram ktype in
+    (* let _ = Sizeof.sizeof rprogram ktype in *)
+    ignore ktype;
 
 
     let clofn_name = make_closure_name ~closure_count current_module in
@@ -1610,7 +1633,9 @@ module Closure = struct
     RESwitch {rexpression = new_condition_expr; cases = new_cases; wildcard_case = new_wildcard_body}, closure
   | expr -> expr, ClosureSet.empty
 
-  and create_clo_function_of_kbody_acc ~rev_stmts ~acc ~closure_count current_module rprogram kbody = 
+  and create_clo_function_of_kbody_acc ~rev_stmts ~acc ~closure_count current_module rprogram kbody =
+  
+  
     let smts, final_expr = kbody in
     match smts with
     | stmt::q -> begin match stmt with

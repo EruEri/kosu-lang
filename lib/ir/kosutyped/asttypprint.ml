@@ -199,8 +199,8 @@ and string_of_rkexpression = function
     sprintf "%s : |%s| {%s} %s -> %s"
     (clofn_name |> Option.value ~default: "None")
     (parameters |> List.map string_of_field |> String.concat ", ")
-    (string_of_rktype return_ktype)
     (captured_env |> List.map string_of_field |> String.concat ", ")
+    (string_of_rktype return_ktype)
     (string_of_rkbody body)
   | REClosure_call record -> 
     sprintf "closure %s.(%s)" (record.fn_name) (record.parameters |> List.map string_of_typed_expression |> String.concat ", ")

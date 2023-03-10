@@ -139,7 +139,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
       (* Printf.printf "Final expr\n"; *)
       (* let () = Printf.printf "Final expr = %s\n" (string_of_kexpression final_expr.v) in *)
       let final_expr_type =
-        typeof ~generics_resolver env current_mod_name program final_expr
+        typeof ~lambda_type:(return_type |> Option.map Position.val_dummy) ~generics_resolver env current_mod_name program final_expr
       in
       match return_type with
       | None -> final_expr_type
@@ -153,7 +153,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
                       found =
                         { v = final_expr_type; position = final_expr.position };
                     }))
-          else kt)
+          else (Type.restrict_type kt final_expr_type))
 
 (**
   Return the type of an expression
@@ -255,7 +255,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
              (string_of_ktype kt)
         )|> String.concat ", "
       in
-      (* let () = Printf.printf "caotured : [%s]" string_of_captured_var in *)
+      let () = Printf.printf "\ncaptured : [%s]\n" string_of_captured_var in
       begin match captured_var with
       | [] ->  TFunction (
           paramas_typed |> List.map (snd),
@@ -1797,12 +1797,9 @@ let statements, final_expr = kbody in
 and free_variable_expression ~(closure_env:string list) ~scope_env {v = expression; _} : (string * ktype) list  = 
   let capture id =
     if closure_env |>  List.mem id.v |> not then 
-      let ktype = 
-      match Env.find_identifier_opt id.v scope_env with
-      | Some { is_const = _; ktype } -> ktype
-      | None -> id.v |> Printf.sprintf "Id [%s] not in env" |> failwith
-      in
-      [id.v, ktype]
+        match Env.find_identifier_opt id.v scope_env with
+        | Some { is_const = _; ktype } -> [id.v, ktype]
+        | None -> let () =  id.v |> Printf.printf "Id [%s] not in env" in []
     else 
       []
   in
@@ -1821,7 +1818,9 @@ and free_variable_expression ~(closure_env:string list) ~scope_env {v = expressi
     fields |> List.fold_left (fun acc (_, expr) -> 
       expr |> free_variable_expression ~closure_env ~scope_env |> List.rev_append acc
     ) []
-  | EEnum {assoc_exprs = exprs; _} | ETuple exprs | EBuiltin_Function_call {parameters = exprs; _ } | EFunction_call {parameters = exprs; _} -> 
+  | EEnum {assoc_exprs = exprs; _} 
+  | ETuple exprs 
+  | EBuiltin_Function_call {parameters = exprs; _ } -> 
     exprs |> List.fold_left (fun acc expr -> 
       expr |> free_variable_expression ~closure_env ~scope_env |> List.rev_append acc
     ) []
@@ -1843,5 +1842,9 @@ and free_variable_expression ~(closure_env:string list) ~scope_env {v = expressi
     List.rev_append 
       (free_variable_expression ~closure_env ~scope_env lhs)
       (free_variable_expression ~closure_env ~scope_env rhs)
+  | EFunction_call {fn_name; parameters; _} -> 
+    parameters |> List.fold_left (fun acc expr -> 
+      expr |> free_variable_expression ~closure_env ~scope_env |> List.rev_append acc
+    ) (capture fn_name)
   | ELambda {params = _; kbody = _} -> failwith "Nested closure to do"
   | _ -> []

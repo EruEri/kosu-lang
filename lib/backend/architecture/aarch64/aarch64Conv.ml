@@ -1714,7 +1714,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                             Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)
                         )
                         |> String.concat ", "
-                        |> Printf.printf "%s : locale variables = [%s]\n"
+                        |> Printf.printf "\n*****%s\n : locale variables = [%s]\n\n"
                         function_decl.rfn_name
                       in *)
                    let asm_name =
