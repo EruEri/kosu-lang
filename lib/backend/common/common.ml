@@ -20,7 +20,7 @@ module IdVar = struct
 
   let compare (ln, lkt) (rn, rkt) = 
     match compare ln rn with
-    | 0 -> KosuIrTyped.Asttyhelper.RType.kt_compare lkt rkt
+    | 0 -> KosuIrTyped.Asttyhelper.RType.kt_compare_subtype lkt rkt
     | n -> n
 end
 

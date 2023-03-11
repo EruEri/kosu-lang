@@ -728,8 +728,8 @@ module Type = struct
         kts |> List.map (Position.map (extract_mapped_ktype generics)) |> ktuple
     | _ -> ktype
 
-  let rec are_compatible_type (lhs : ktype) (rhs : ktype) =
-    match (lhs, rhs) with
+  let rec are_compatible_type ~is ~comptible_with =
+    match (is, comptible_with) with
     | ( TParametric_identifier
           { module_path = mp1; parametrics_type = pt1; name = n1 },
         TParametric_identifier
@@ -737,12 +737,12 @@ module Type = struct
         n1.v = n2.v && mp1.v = mp2.v
         && pt1 |> Util.are_same_lenght pt2
         && List.for_all2
-             (fun kt1 kt2 -> are_compatible_type kt1.v kt2.v)
+             (fun kt1 kt2 -> are_compatible_type  ~is:kt1.v ~comptible_with:kt2.v)
              pt1 pt2
     | TUnknow, _ | _, TUnknow -> true
     | TPointer _, TPointer { v = TUnknow; _ } -> true
     | TPointer { v = TUnknow; _ }, TPointer _ -> true
-    | TPointer pt1, TPointer pt2 -> are_compatible_type pt1.v pt2.v
+    | TPointer pt1, TPointer pt2 -> are_compatible_type ~is:pt1.v ~comptible_with:pt2.v
     | ( TType_Identifier { module_path = mp1; name = n1 },
         TType_Identifier { module_path = mp2; name = n2 } ) ->
         mp1.v = mp2.v && n1.v = n2.v
@@ -750,16 +750,16 @@ module Type = struct
         Util.are_same_lenght t1 t2
         && List.combine t1 t2
            |> List.map Position.assocs_value
-           |> List.for_all (fun (k1, k2) -> are_compatible_type k1 k2)
+           |> List.for_all (fun (k1, k2) -> are_compatible_type ~is:k1 ~comptible_with:k2)
     | TFunction (plhs, lr) , TFunction (prhs, rr) when Util.are_same_lenght plhs prhs -> 
-      are_compatible_type lr.v rr.v &&
-      List.for_all2 (fun pl pr -> are_compatible_type pl.v pr.v) plhs prhs
+      are_compatible_type ~is:lr.v ~comptible_with:rr.v &&
+      List.for_all2 (fun pl pr -> are_compatible_type ~is:pl.v ~comptible_with:pr.v) plhs prhs
     | TClosure (plhs, lr, _) , TClosure (prhs, rr, _) when Util.are_same_lenght plhs prhs ->
-      are_compatible_type lr.v rr.v
+      are_compatible_type ~is:lr.v ~comptible_with:rr.v
       &&
-      List.for_all2 (fun pl pr -> are_compatible_type pl.v pr.v) plhs prhs
+      List.for_all2 (fun pl pr -> are_compatible_type ~is:pl.v ~comptible_with:pr.v) plhs prhs
     
-    | _, _ -> lhs === rhs
+    | _, _ -> is === comptible_with
 
   let rec update_generics map init_type param_type () =
     match (init_type.v, param_type.v) with
@@ -962,7 +962,7 @@ module Type = struct
   this function returns the left type if [not (are_compatible_type to_restrict_type restrict_type)]
   *)
   let rec restrict_type (to_restrict_type : ktype) (restricted_type : ktype) =
-    if not (are_compatible_type to_restrict_type restricted_type) then
+    if not (are_compatible_type ~is:to_restrict_type ~comptible_with:restricted_type) then
       to_restrict_type
     else
       match (to_restrict_type, restricted_type) with

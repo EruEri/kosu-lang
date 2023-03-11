@@ -95,10 +95,10 @@ module Module = struct
     _module |> retrieve_func_decl
     |> Util.Occurence.find_occurence (fun fn_decl ->
            fn_decl.fn_name = fn_name
-           && Ast.Type.are_compatible_type r_types.v fn_decl.return_type.v
+           && Ast.Type.are_compatible_type ~is:r_types.v ~comptible_with:fn_decl.return_type.v
            && Util.are_same_lenght fn_decl.parameters parameters_types
            && List.for_all2
-                (fun para init -> Ast.Type.are_compatible_type para.v init.v)
+                (fun para init -> Ast.Type.are_compatible_type ~is:init.v ~comptible_with:para.v)
                 (fn_decl.parameters |> List.map (fun (_, kt) -> kt))
                 parameters_types)
 
@@ -1702,7 +1702,7 @@ module Function = struct
                  in
                  true
                else false
-           | Some (_, find_kt) -> are_compatible_type find_kt kt ->
+           | Some (_, find_kt) -> are_compatible_type ~is:kt ~comptible_with:find_kt ->
         true
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->

@@ -63,7 +63,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
               | Some explicit_type_sure ->
                   if
                     not
-                      (Type.are_compatible_type explicit_type_sure.v type_init.v)
+                      (Type.are_compatible_type ~is:type_init.v ~comptible_with:explicit_type_sure.v)
                   then
                     raise
                       (Ast.Error.Uncompatible_type_Assign
@@ -88,9 +88,9 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
                      (Ast.Error.Reassign_Constante { name = variable }))
               else
                 let new_type =
-                  typeof ~generics_resolver env current_mod_name program expr
+                  typeof ~lambda_type:( ktype |> Position.val_dummy |> Option.some) ~generics_resolver env current_mod_name program expr
                 in
-                if not (Ast.Type.are_compatible_type new_type ktype) then
+                if not (Ast.Type.are_compatible_type ~is:new_type ~comptible_with:ktype) then
                   raise
                     (stmt_error
                        (Ast.Error.Uncompatible_type_Assign
@@ -121,8 +121,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
               in
               if
                 not
-                @@ Ast.Type.are_compatible_type in_pointer_ktype
-                @@ expr_ktype.v
+                @@ Ast.Type.are_compatible_type ~is:expr_ktype.v ~comptible_with:in_pointer_ktype
               then
                 Ast.Error.Dereference_Wrong_type
                   {
@@ -144,7 +143,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
       match return_type with
       | None -> final_expr_type
       | Some kt ->
-          if not (Type.are_compatible_type kt final_expr_type) then
+          if not (Type.are_compatible_type ~is:final_expr_type ~comptible_with:final_expr_type) then
             raise
               (ast_error
                  (Ast.Error.Uncompatible_type
@@ -235,7 +234,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
           let () = if Util.are_diff_lenght lambda_param_explits params then failwith "Arity between parameters and explicit type is wrong" else () in
           params |> List.combine lambda_param_explits |> List.map (fun (given_statement_type, (s, kt_loc_opt)) -> 
             s, kt_loc_opt |> Option.map (fun kt_loc -> 
-              if not @@ Ast.Type.are_compatible_type given_statement_type.v kt_loc.v then failwith "Incomptabile type between explicit instatement en inner lambda"
+              if not @@ Ast.Type.are_compatible_type ~comptible_with:given_statement_type.v ~is:kt_loc.v then failwith "Incomptabile type between explicit instatement en inner lambda"
               else
                 kt_loc |> Position.map (fun kt -> Ast.Type.restrict_type kt given_statement_type.v)
             ) |> Option.value ~default:given_statement_type
@@ -506,7 +505,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
             (env |> Env.push_context [])
             current_mod_name prog else_block
         in
-        if not (Type.are_compatible_type if_type else_type) then
+        if not (Type.are_compatible_type ~is:else_type ~comptible_with:if_type) then
           raise
             (ast_error
                (Ast.Error.Uncompatible_type_If_Else
@@ -535,12 +534,12 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
                  position ))
       |> List.fold_left
            (fun acc (new_type, position) ->
-             if not (Type.are_compatible_type acc new_type) then
+             if not (Type.are_compatible_type ~is:new_type ~comptible_with:acc) then
                raise
                  (ast_error
                     (Uncompatible_type
                        { expected = acc; found = { v = new_type; position } }))
-             else Type.restrict_type acc new_type)
+             else Type.restrict_type new_type acc)
            (typeof_kbody ~generics_resolver
               (env |> Env.push_context [])
               current_mod_name prog else_case)
@@ -586,7 +585,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
 
         let _couple_param_type = clo_parameters |>  List.combine parameters |> List.map (fun (init_param, clo_param_type) ->
           let init_type = typeof ~lambda_type:(Some clo_param_type) ~generics_resolver env current_mod_name prog init_param in
-          let () = if not @@ Ast.Type.are_compatible_type init_type clo_param_type.v then failwith "Closure incompatible type" in 
+          let () = if not @@ Ast.Type.are_compatible_type ~is:init_type ~comptible_with:clo_param_type.v then failwith "Closure incompatible type" in 
           Ast.Type.restrict_type init_type clo_param_type.v
         ) in
 
@@ -614,7 +613,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
           in *)
           let init_type_parameters = e.parameters |> List.map snd |>  List.combine parameters |> List.map (fun (init_param, clo_param_type) ->
             let init_type = typeof ~lambda_type:(Some clo_param_type) ~generics_resolver:new_map_generics env current_mod_name prog init_param in
-            let () = if not @@ Ast.Type.are_compatible_type init_type clo_param_type.v then failwith "Closure incompatible type" in 
+            let () = if not @@ Ast.Type.are_compatible_type ~is:init_type ~comptible_with:clo_param_type.v then failwith "Function incompatible type" in 
             init_param |> Position.map (fun _ -> Ast.Type.restrict_type init_type clo_param_type.v)
            )
           in 
@@ -742,8 +741,8 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
                      | true, true ->
                          if
                            not
-                             (Ast.Type.are_compatible_type para_type.v
-                                init_type.v)
+                             (Ast.Type.are_compatible_type ~is:init_type.v ~comptible_with:para_type.v
+                                )
                          then
                            Uncompatible_type_Assign
                              { expected = para_type.v; found = init_type }
@@ -794,8 +793,8 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
                          | true, true ->
                              if
                                not
-                                 (Ast.Type.are_compatible_type para_type.v
-                                    init_type.v)
+                                 (Ast.Type.are_compatible_type ~is:init_type.v ~comptible_with: para_type.v
+                                   )
                              then
                                Uncompatible_type_Assign
                                  { expected = para_type.v; found = init_type }
@@ -845,7 +844,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
                 |> List.for_all (fun (i, (para_type, init_type)) ->
                        if
                          not
-                           (Ast.Type.are_compatible_type para_type.v init_type.v)
+                           (Ast.Type.are_compatible_type ~comptible_with:para_type.v ~is:init_type.v)
                        then
                          Uncompatible_type_Assign
                            { expected = para_type.v; found = init_type }
@@ -1749,7 +1748,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
             q
             |> List.fold_left
                  (fun acc (case_type, position) ->
-                   if not (Type.are_compatible_type acc case_type) then
+                   if not (Type.are_compatible_type ~is:case_type ~comptible_with:acc) then
                      let () =
                        Printf.printf "Not compatible acc = %s; value = %s\n"
                          (string_of_ktype acc)

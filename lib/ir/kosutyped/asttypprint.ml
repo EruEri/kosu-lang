@@ -71,15 +71,15 @@ let rec string_of_rktype = function
   | RTTuple ktypes ->
       sprintf "(%s)" (ktypes |> List.map string_of_rktype |> String.concat ", ")
   | RTFunction (parameters, r_type) ->
-      sprintf "(%s) -> %s"
+      sprintf "fn(%s) -> %s"
         (parameters |> List.map string_of_rktype |> String.concat ", ")
         (string_of_rktype r_type)
   | RTClosure {params; return_type; captured_env} ->
-    sprintf "(%s) {%s} -> %s" 
+    sprintf "closure(%s) {%s} -> %s" 
     (params |> List.map string_of_rktype |> String.concat ": ")
     (captured_env 
     |> List.map (fun (s, kt) -> 
-      sprintf "%s, %s"  
+      sprintf "%s: %s"  
       s
       (string_of_rktype kt)
     )

@@ -91,7 +91,7 @@ module RType = struct
     | RTParametric_identifier rtlhs, RTParametric_identifier rtrhs -> 
       begin match compare (rtlhs.module_path, rtlhs.name) (rtrhs.module_path, rtrhs.name) with
         | 0 when Util.are_same_lenght rtlhs.parametrics_type rtrhs.parametrics_type -> 
-          compare_list_type rtlhs.parametrics_type rtrhs.parametrics_type
+          compare_list_type ~cmp:kt_compare rtlhs.parametrics_type rtrhs.parametrics_type
         | 0 -> List.compare_lengths rtlhs.parametrics_type rtrhs.parametrics_type
         | n -> n
       end
@@ -101,18 +101,45 @@ module RType = struct
       if acc <> 0 then acc else kt_compare l r
     ) 0
     | RTNamedTuple ls, RTNamedTuple rs when Util.are_same_lenght ls rs ->
-      compare_list_type (List.map snd ls) (List.map snd rs)
+      compare_list_type ~cmp:kt_compare (List.map snd ls) (List.map snd rs)
     | RTFunction (pls, rl), RTFunction (prs, rr) 
     | RTClosure {params = pls; return_type = rl; _}, RTClosure {params = prs; return_type = rr; _} when Util.are_same_lenght pls prs -> 
       begin match kt_compare rl rr with
-      | 0 -> compare_list_type pls prs
+      | 0 -> compare_list_type ~cmp:kt_compare pls prs
       | n -> n 
       end
     | _ -> compare lhs rhs
-    and compare_list_type lhs rhs = 
+    and compare_list_type ~cmp lhs rhs = 
     List.combine lhs rhs |> List.fold_left (fun acc (l, r) -> 
-      if acc <> 0 then acc else kt_compare l r
+      if acc <> 0 then acc else cmp l r
     ) 0
+
+let rec kt_compare_subtype lhs rhs = 
+  match lhs, rhs with
+  | RTParametric_identifier rtlhs, RTParametric_identifier rtrhs -> 
+    begin match compare (rtlhs.module_path, rtlhs.name) (rtrhs.module_path, rtrhs.name) with
+      | 0 when Util.are_same_lenght rtlhs.parametrics_type rtrhs.parametrics_type -> 
+        compare_list_type ~cmp:kt_compare_subtype rtlhs.parametrics_type rtrhs.parametrics_type
+      | 0 -> List.compare_lengths rtlhs.parametrics_type rtrhs.parametrics_type
+      | n -> n
+    end
+  | RTPointer l, RTPointer r -> kt_compare_subtype l r
+  | RTTuple ls, RTTuple rs when Util.are_same_lenght ls rs ->           
+    List.combine ls rs |> List.fold_left (fun acc (l, r) -> 
+    if acc <> 0 then acc else kt_compare_subtype l r
+  ) 0
+  | RTNamedTuple ls, RTNamedTuple rs when Util.are_same_lenght ls rs ->
+    compare_list_type ~cmp:kt_compare_subtype (List.map snd ls) (List.map snd rs)
+  | RTFunction (pls, rl), RTFunction (prs, rr) 
+  | RTClosure {params = pls; return_type = rl; _}, RTClosure {params = prs; return_type = rr; _} 
+  | RTFunction (pls, rl),  RTClosure {params = prs; return_type = rr; _} 
+  | RTClosure {params = pls; return_type = rl; _}, RTFunction (prs, rr) 
+  when Util.are_same_lenght pls prs -> 
+    begin match kt_compare rl rr with
+    | 0 -> compare_list_type ~cmp:kt_compare_subtype pls prs
+    | n -> n 
+    end
+  | _ -> compare lhs rhs
 
   (* let kt_compare lhs rhs = 
     let res = kt_compare lhs rhs in
@@ -746,7 +773,7 @@ module Rmodule = struct
                | RNFunction rfunction_decl
                  when rfunction_decl.rfn_name = fn_name
                       && rfunction_decl.rparameters |> List.map snd
-                         |> RType.compare_list_type ktypes |>  ( = ) 0 ->
+                         |> RType.compare_list_type ~cmp:RType.kt_compare_subtype ktypes |>  ( = ) 0 ->
                    Some rfunction_decl
                | _ -> None)
 
@@ -1246,7 +1273,7 @@ module Sizeof = struct
 
   module KtypeHashTbl = Hashtbl.Make(struct
     type t = rktype
-    let equal lhs rhs = rhs |> RType.kt_compare lhs |> ( = ) 0
+    let equal lhs rhs = rhs |> RType.kt_compare_subtype lhs |> ( = ) 0
     let hash _ = 0 (* Temporary *)
   end)
 
