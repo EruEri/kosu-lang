@@ -929,7 +929,7 @@ module FrameManager = struct
       |> KosuIrTyped.Asttyhelper.Sizeof.sizeof rprogram
     in
     let locals_space = Int64.add locals_space stack_future_call in
-    (* let () = Printf.printf "Locale space = %Lu\n" locals_space in *)
+    let () = Printf.printf "Locale space = %Lu\n%!" locals_space in
     let map =
       stack_concat
       |> List.mapi (fun index value -> (index, value))

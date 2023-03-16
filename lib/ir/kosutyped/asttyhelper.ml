@@ -1290,7 +1290,7 @@ module Sizeof = struct
     | RTNamedTuple kts -> kts |> List.map snd |> size_tuple calcul program
     | RTClosure {params = _; return_type = _; captured_env} ->
        (("", RTPointer RTUnknow)::captured_env |> List.map snd |> size_tuple calcul program)
-    | kt -> (
+    | (RTParametric_identifier _ | RTType_Identifier _) as kt -> (
         let type_decl =
           RProgram.find_type_decl_from_rktye kt program |> Option.get
         in

@@ -46,6 +46,10 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
             |> Position.map_use
                  (typeof ~lambda_type:explicit_type ~generics_resolver env current_mod_name program)
           in
+          let () = Printf.printf "\nexpr type = %s, explicit type = %s\n%!" 
+            (Pprint.string_of_ktype type_init.v) 
+            (explicit_type |> Option.map (fun kt -> Pprint.string_of_ktype kt.v ) |> Option.value ~default:"None") 
+          in 
           (* let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Pprint.string_of_ktype type_init.v) (Asthelper.Sizeof.sizeof current_mod_name program type_init.v) (Asthelper.Sizeof.alignmentof current_mod_name program type_init.v) in *)
           if env |> Env.is_identifier_exists variable_name.v then
             raise
@@ -143,7 +147,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
       match return_type with
       | None -> final_expr_type
       | Some kt ->
-          if not (Type.are_compatible_type ~is:final_expr_type ~comptible_with:final_expr_type) then
+          if not (Type.are_compatible_type ~is:final_expr_type ~comptible_with:kt) then
             raise
               (ast_error
                  (Ast.Error.Uncompatible_type
@@ -254,25 +258,26 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
              (string_of_ktype kt)
         )|> String.concat ", "
       in
-      let () = Printf.printf "\ncaptured : [%s]\n" string_of_captured_var in
+      let infered_body_type = {v = body_ktype; position = Position.dummy} in
+      let () = Printf.printf "\nkbody type = %s, captured : [%s]\n%!" (Pprint.string_of_ktype body_ktype) string_of_captured_var in
       begin match captured_var with
       | [] ->  TFunction (
           paramas_typed |> List.map (snd),
-        {v = body_ktype; position = Position.dummy}
+          infered_body_type
         ) 
       | _::_ -> begin match lambda_type with
         | Some ({v = TFunction (_, _); position = _ } ) ->  Printf.sprintf "Cannot be a fn pointer : [%s] captured" string_of_captured_var |> failwith
-        | Some ({v = TClosure (lambad_param_explit, r, _); position = _ }) -> 
+        | Some ({v = TClosure (lambad_param_explit, _r, _); position = _ }) -> 
           TClosure (
             lambad_param_explit,
-            r,
+            infered_body_type,
             captured_var
           )
         | Some _ -> failwith "Shouldnt be reached"  
         | None -> 
           TClosure (
             paramas_typed |> List.map snd,
-            {v = body_ktype; position = Position.dummy},
+            infered_body_type,
             captured_var
           )
       end

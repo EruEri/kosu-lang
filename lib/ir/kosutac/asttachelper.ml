@@ -240,6 +240,7 @@ module StringLitteral = struct
 
   and map_fill_string_lit_of_module_node map node () =
     match node with
+    | TNClosure {tac_body; _ }
     | TNFunction { tac_body; _ } ->
         map_fill_string_lit_of_tac_body map tac_body ()
     | TNOperator op ->

@@ -658,6 +658,15 @@ module Type = struct
     | TTuple kts ->
         kts |> List.for_all (fun kt -> is_type_full_known kt.v)
     | TPointer kt -> is_type_full_known kt.v
+    | TFunction (parameters, return_type) -> 
+      return_type.v |> is_type_full_known
+      &&
+      parameters |> List.for_all (fun kt -> is_type_full_known kt.v) 
+    | TClosure (parameters, return_type, env) ->
+      return_type.v |> is_type_full_known
+      &&
+      parameters |> List.for_all (fun kt -> is_type_full_known kt.v) 
+      && env |> List.for_all (fun (_, kt) -> is_type_full_known kt)
     | _ -> true
 
   let extract_parametrics_ktype ktype =
@@ -698,10 +707,10 @@ module Type = struct
            |> List.for_all (fun (k1, k2) -> k1 === k2)
     | TFunction (plhs, lr) , TFunction (prhs, rr)  -> 
       Util.are_same_lenght plhs prhs
-      && lr == rr
-      && List.for_all2 (fun pl pr -> pl.v == pr.v) plhs prhs
+      && lr.v === rr.v
+      && List.for_all2 (fun pl pr -> pl.v === pr.v) plhs prhs
     | (TClosure (plhs, lr, _) | TFunction (plhs, lr)) , TClosure (prhs, rr, _) when Util.are_same_lenght plhs prhs ->
-        lr.v == rr.v
+        lr.v === rr.v
         &&
         List.for_all2 (fun pl pr -> pl.v === pr.v) plhs prhs
     | _, _ -> lhs = rhs
@@ -752,7 +761,8 @@ module Type = struct
            |> List.map Position.assocs_value
            |> List.for_all (fun (k1, k2) -> are_compatible_type ~is:k1 ~comptible_with:k2)
     | TFunction (plhs, lr) , TFunction (prhs, rr) when Util.are_same_lenght plhs prhs -> 
-      are_compatible_type ~is:lr.v ~comptible_with:rr.v &&
+      are_compatible_type ~is:lr.v ~comptible_with:rr.v 
+      &&
       List.for_all2 (fun pl pr -> are_compatible_type ~is:pl.v ~comptible_with:pr.v) plhs prhs
     | TClosure (plhs, lr, _) , TClosure (prhs, rr, _) when Util.are_same_lenght plhs prhs ->
       are_compatible_type ~is:lr.v ~comptible_with:rr.v

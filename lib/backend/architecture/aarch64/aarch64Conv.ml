@@ -185,7 +185,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     | { tac_expression = TEString s; expr_rktype = _ } ->
         let reg64 = to_64bits target_reg in
         let (SLit str_labl) = Hashtbl.find str_lit_map s in
-        (target_reg, load_label (AsmSpec.label_of_constant str_labl) reg64)
+        (reg64, load_label (AsmSpec.label_of_constant str_labl) reg64)
     | { tac_expression = TEFalse | TEmpty; expr_rktype = _ } ->
         ( to_32bits target_reg,
           Instruction
@@ -1742,8 +1742,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                    let epilogue = FrameManager.function_epilogue fd in
                    let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
                       let () = fd.stack_map |> IdVarMap.to_seq |> Seq.iter (fun ((s, kt), adr) ->
-                        Printf.printf "%s : %s == [%s, %Ld]\n"
+                        Printf.printf "%s : %Lu : %s == [%s, %Ld]\n"
                         (s)
+                        (sizeofn rprogram kt)
                         (KosuIrTyped.Asttypprint.string_of_rktype kt)
                         (PPrint.string_of_register adr.base)
                         (adr.offset)
