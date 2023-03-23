@@ -53,4 +53,10 @@ module type X86_64AsmSpecification = sig
     module_path:string -> KosuIrTAC.Asttac.tac_operator_decl -> string
 
   val main : string
+
+  (** 
+      Indicate if the [entry] routine should be create with which name
+      It's should be [Some "_start"] on linux/Freebsd and [None] on macOS
+  *)
+  val should_create_entry_point: string option
 end
