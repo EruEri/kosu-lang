@@ -59,3 +59,4 @@ end
 module Cfg = Register_allocator.Cgf.Make(Cfg_Sig_Impl)
 module BasicBlockMap = Cfg.BasicBlockMap
 module TypedIdentifierSet = Cfg.TypedIdentifierSet
+module Ig = Cfg.Inference_Graph

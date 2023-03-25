@@ -51,7 +51,7 @@ let string_of_liveness_basic_block bb =
   (bb.followed_by |> Asttaccfg.StringSet.elements |> String.concat ", ")
   (bb.label)
   (bb.cfg_statements |> List.map string_of_cfg_liveness_statement |> String.concat "\n\t")
-  (bb.ending |> Option.map string_of_basic_block_end |> Option.value ~default:"")
+  (bb.ending |> fst |> Option.map ( string_of_basic_block_end) |> Option.value ~default:"")
 
 
 let string_of_basic_block_details bbd = 
@@ -60,7 +60,7 @@ let string_of_basic_block_details bbd =
   (string_of_basic_block bbd.basic_block)
   (string_of_typed_indentifier_set bbd.out_vars)
 
-let string_of_basic_block_liveness_details (bbld: Asttaccfg.Cfg.Liveness.cfg_liveness_statement basic_block_detail) = 
+let string_of_basic_block_liveness_details (bbld: (Asttaccfg.Cfg.Liveness.cfg_liveness_statement, 'b) basic_block_detail) = 
   Printf.sprintf "in_vars : {%s}\n%s\nout_vars : {%s}"
   (string_of_typed_indentifier_set bbld.in_vars) 
   (string_of_liveness_basic_block bbld.basic_block)
@@ -120,7 +120,7 @@ type dot_digrah = {
 
 let convert = String.map (fun c -> if c = ':' || c = '.' then '_' else c)
 
-let diagraph_node_of_basic_block ~(func : 'a -> string) ?(in_vars = TypedIdentifierSet.empty) ?(out_vars = TypedIdentifierSet.empty) (bb: 'a Basic.basic_block) = 
+let diagraph_node_of_basic_block ~(func : 'a -> string) ?(in_vars = TypedIdentifierSet.empty) ?(out_vars = TypedIdentifierSet.empty) (bb: ('a, 'b) Basic.basic_block) = 
   {
     name = bb.label;
     elements = List.map func bb.cfg_statements;
@@ -140,10 +140,23 @@ let dot_diagrah_of_cfg_liveness (cfg: Asttaccfg.Cfg.Liveness.cfg_liveness_detail
   {
     entry = cfg.entry_block;
     nodes = cfg.blocks_liveness_details |> Asttaccfg.BasicBlockMap.bindings |> List.map (fun (_, bbl) ->
-      diagraph_node_of_basic_block ~in_vars:bbl.in_vars ~out_vars:bbl.out_vars ~func:string_of_cfg_liveness_statement bbl.basic_block
+      diagraph_node_of_basic_block ~in_vars:bbl.in_vars ~out_vars:bbl.out_vars ~func:string_of_cfg_liveness_statement {bbl.basic_block with ending = fst bbl.basic_block.ending}
     )
   }
 
+let quoted = Printf.sprintf "\"%s\""
+
+let export_infer_graph_of_cfg ~outchan (cfg: Asttaccfg.Cfg.Liveness.cfg_liveness_detail) () = 
+  let graph = Inference_Graph.infer cfg in
+  let bindings =  Inference_Graph.IG.bindings graph in
+  let () = Printf.fprintf outchan "graph %s {\n" (Printf.sprintf "infered_%s" cfg.entry_block) in
+  let () = bindings |> List.iter (fun (node, edges) ->   
+    Printf.fprintf outchan "\t%s -- {%s}\n" 
+    (node |> string_of_typed_indentifier |> quoted)  
+    (edges |> List.map (fun node -> node |> string_of_typed_indentifier |> quoted) |> String.concat " ")
+  ) in 
+  let () = Printf.fprintf outchan "}" in
+  ()
 let dot_chars_to_escape = ['<'; '>']
 
 let escape ~chars s =

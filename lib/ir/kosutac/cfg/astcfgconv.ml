@@ -26,7 +26,7 @@ let typed_set_of_locales_vars locals_vars =
   |> Asttaccfg.TypedIdentifierSet.of_list
 
   
-let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements (stmts, return) = match stmts with 
+let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements (stmts, return) = let open Asttaccfg.Cfg in match stmts with 
   | [] -> let block =  {
     label = start_label;
     cfg_statements = List.rev cfg_statements;
