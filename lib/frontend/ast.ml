@@ -604,6 +604,10 @@ module Type = struct
   | TClosure _ -> true
   | _ -> false
 
+  let is_callable = function
+  | TFunction _ | TClosure _ -> true
+  | _ -> false
+
   let closure_info = function
   | TClosure closure -> Some closure
   | TFunction (parameters, return_type) -> Some (parameters, return_type, [])
@@ -735,6 +739,22 @@ module Type = struct
           }
     | TTuple kts ->
         kts |> List.map (Position.map (extract_mapped_ktype generics)) |> ktuple
+    | TClosure (params, return, env) ->
+      TClosure (
+        params |> List.map ( Position.map (extract_mapped_ktype generics) ),
+        return |> Position.map (extract_mapped_ktype generics),
+        env |> List.map (fun (name, kt) ->
+          name, extract_mapped_ktype generics kt
+        )
+
+      )
+    | TFunction (params, return) ->
+      TFunction (
+        params |> List.map ( Position.map (extract_mapped_ktype generics) ),
+        return |> Position.map (extract_mapped_ktype generics)
+      )
+    | TPointer pointee -> 
+      pointee |> Position.map (extract_mapped_ktype generics) |> pointer
     | _ -> ktype
 
   let rec are_compatible_type ~is ~comptible_with =
@@ -792,6 +812,9 @@ module Type = struct
     | TPointer lhs, TPointer rhs -> update_generics map lhs rhs ()
     | TTuple lhs, TTuple rhs ->
         List.iter2 (fun l r -> update_generics map l r ()) lhs rhs
+    | (TClosure (lparams, lr, _) | TFunction(lparams, lr)), TClosure (rparams, rr, _) when Util.are_same_lenght lparams rparams ->
+      let () = List.iter2 (fun l r -> update_generics map l r ()) lparams rparams in
+      update_generics map lr rr ()
     | _ -> ()
 
   let equal_fields =
@@ -933,6 +956,18 @@ module Type = struct
         kt
         |> Position.map (remap_generic_ktype ~current_module generics_table)
         |> pointer
+    | TClosure (params, return, env) ->
+      TClosure (
+        params |> List.map (  Position.map (remap_generic_ktype ~current_module generics_table) ), 
+        return |> Position.map (remap_generic_ktype ~current_module generics_table) ,
+        env |> List.map (fun (s, kt) ->
+          s,  remap_generic_ktype ~current_module generics_table kt
+        )
+    )
+    | TFunction (params, return) ->
+      TFunction  (params |> List.map (  Position.map (remap_generic_ktype ~current_module generics_table) ), 
+      return |> Position.map (remap_generic_ktype ~current_module generics_table)
+      )
     | _ as kt -> kt
 
   let rec map_generics_type (generics_combined : (string location * ktype) list)
@@ -966,6 +1001,69 @@ module Type = struct
         |> Position.map (map_generics_type generics_combined primitive_generics)
         |> pointer
     | _ -> ktype
+
+    let rec is_type_compatible_hashgen generic_table generics_list (init_type : ktype)
+      (expected_type : ktype) =
+    (* let () = Printf.printf "fn_name = %s : init_type = %s, expected_type = %s\n" (function_decl.fn_name.v) (Pprint.string_of_ktype init_type) (Pprint.string_of_ktype expected_type) in
+      let () = Printf.printf "TIdentifier = %b\n\n" (match expected_type with TType_Identifier _ -> true | _ -> false) in *)
+    match (init_type, expected_type) with
+    | kt, TType_Identifier { module_path = { v = ""; _ }; name }
+      when match Hashtbl.find_opt generic_table name.v with
+          | None ->
+              if
+                generics_list |> List.map Position.value
+                |> List.mem name.v
+              then
+                let () =
+                  Hashtbl.replace generic_table name.v
+                    ( generics_list
+                      |> Util.ListHelper.index_of (fun g -> g.v = name.v),
+                      kt )
+                in
+                true
+              else false
+          | Some (_, find_kt) -> are_compatible_type ~is:kt ~comptible_with:find_kt ->
+        true
+    | ( TType_Identifier { module_path = init_path; name = init_name },
+        TType_Identifier { module_path = exp_path; name = exp_name } ) ->
+          generics_list |> List.map Position.value |> List.mem exp_name.v
+        || (init_path.v = exp_path.v && init_name.v = exp_name.v)
+    | ( TParametric_identifier
+          {
+            module_path = init_path;
+            parametrics_type = init_pt;
+            name = init_name;
+          },
+        TParametric_identifier
+          { module_path = exp_path; parametrics_type = exp_pt; name = exp_name }
+      ) ->
+        if
+          init_path.v <> exp_path.v || init_name.v <> exp_name.v
+          || List.compare_lengths init_pt exp_pt <> 0
+        then false
+        else
+          List.combine init_pt exp_pt
+          |> List.for_all (fun (i, e) ->
+                is_type_compatible_hashgen generic_table generics_list i.v e.v )
+    | TUnknow, _ -> true
+    | TPointer _, TPointer { v = TUnknow; _ } -> true
+    | TPointer lhs, TPointer rhs ->
+        is_type_compatible_hashgen generic_table generics_list lhs.v rhs.v
+    | TTuple lhs, TTuple rhs ->
+        Util.are_same_lenght lhs rhs
+        && List.for_all2
+            (fun lkt rkt ->
+              is_type_compatible_hashgen generic_table generics_list lkt.v rkt.v
+                )
+            lhs rhs
+    | TFunction (pl, lr), TFunction (pr, rr) | (TClosure (pl, lr, _) | TFunction (pl, lr)), TClosure (pr, rr, _) when Util.are_same_lenght pl pr -> 
+      is_type_compatible_hashgen generic_table generics_list lr.v rr.v
+      && List.for_all2
+          (fun lkt rkt ->
+            is_type_compatible_hashgen generic_table generics_list lkt.v rkt.v
+              )
+          pl pr
+    | lhs, rhs -> lhs === rhs
 
   (**
   Returns the restricted version of the left type.

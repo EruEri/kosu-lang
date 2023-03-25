@@ -26,7 +26,7 @@ open Pprint
   @raise No_Occurence : if a type declartion wasn't found or a variant is not in enum variants
   @raise Too_Many_Occurence: if several type declarations matching was found
 *)
-let rec typeof_kbody ~generics_resolver (env : Env.t)
+let rec typeof_kbody ?(no_constraint = false) ~generics_resolver (env : Env.t)
     (current_mod_name : string) (program : module_path list)
     ?(return_type = None) (kbody : kbody) =
   (* let () = Printf.printf "env %s\n" (Pprint.string_of_env env) in *)
@@ -144,10 +144,16 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
       let final_expr_type =
         typeof ~lambda_type:(return_type |> Option.map Position.val_dummy) ~generics_resolver env current_mod_name program final_expr
       in
+
       match return_type with
       | None -> final_expr_type
+      | Some _ when no_constraint -> final_expr_type
       | Some kt ->
           if not (Type.are_compatible_type ~is:final_expr_type ~comptible_with:kt) then
+          let () = Printf.printf "\nfinal type = %s, explicit type = %s\n%!" 
+          (Pprint.string_of_ktype final_expr_type) 
+          (Pprint.string_of_ktype kt) 
+        in 
             raise
               (ast_error
                  (Ast.Error.Uncompatible_type
@@ -609,6 +615,25 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
             Hashtbl.of_seq
               (e.generics |> List.map (fun k -> (k, ())) |> List.to_seq)
           in
+          let infered_map =
+            e.generics
+            |> List.mapi (fun index s -> (s.v, (index, TUnknow)))
+            |> List.to_seq |> Hashtbl.of_seq
+          in
+          let hashtal = Hashtbl.create (e.generics |> List.length) in
+          let () =
+          match grc with
+          | Some grc_safe ->
+              List.combine e.generics grc_safe
+              |> List.iteri (fun index (generic_name, field_ktype) ->
+                     let () =
+                       Hashtbl.replace infered_map generic_name.v
+                         (index, field_ktype.v)
+                     in
+                     Hashtbl.replace hashtal generic_name.v
+                       (index, field_ktype.v))
+          | None -> ()
+        in
           (* let init_type_parameters =
             parameters
             |> List.map
@@ -617,26 +642,29 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
                         current_mod_name prog))
           in *)
           let init_type_parameters = e.parameters |> List.map snd |>  List.combine parameters |> List.map (fun (init_param, clo_param_type) ->
-            let init_type = typeof ~lambda_type:(Some clo_param_type) ~generics_resolver:new_map_generics env current_mod_name prog init_param in
-            let () = if not @@ Ast.Type.are_compatible_type ~is:init_type ~comptible_with:clo_param_type.v then failwith "Function incompatible type" in 
+            let clos_mapped_type = clo_param_type |> Position.map (Type.extract_mapped_ktype infered_map)  in
+            
+            let init_type = typeof ~lambda_type:(Some clos_mapped_type) ~generics_resolver:new_map_generics env current_mod_name prog init_param in
+            let () = Printf.printf "map init = %s : type = %s\n%!" (Pprint.string_of_ktype init_type) (Pprint.string_of_ktype clos_mapped_type.v) in
+            (* let () = if not @@ Ast.Type.are_compatible_type ~is:init_type ~comptible_with:clo_param_type.v then (Ast.Error.Uncompatible_type {
+              expected = clo_param_type.v; found = Position.map (fun _ -> init_type) init_param
+            }) |> ast_error |> raise in  *)
             init_param |> Position.map (fun _ -> Ast.Type.restrict_type init_type clo_param_type.v)
            )
           in 
-          let infered_map =
-            e.generics
-            |> List.mapi (fun index s -> (s.v, (index, TUnknow)))
-            |> List.to_seq |> Hashtbl.of_seq
-          in
+
           let () =
             List.iter2
               (fun kt (_, param_kt) ->
-                (* let () = Printf.printf "init_ktype = %s, param type = %s\n" (Pprint.string_of_ktype kt.v) (Pprint.string_of_ktype param_kt.v) in *)
+                let () = Printf.printf "init_ktype = %s, param type = %s\n%!" (Pprint.string_of_ktype kt.v) (Pprint.string_of_ktype param_kt.v) in
                 Ast.Type.update_generics infered_map kt param_kt ())
               init_type_parameters e.parameters
           in
 
+          let () = Printf.sprintf "len = %u\n%!" (Hashtbl.length infered_map) |> print_endline in
+
             (* let init_type_parameters = init_type_parameters |> List.map ( Position.map (Type.remap_generic_ktype ~current_module:current_mod_name infered_map)) in *)
-            let hashtal = Hashtbl.create (e.generics |> List.length) in
+
             let () =
               match Asthelper.Function.does_need_generic_resolver e with
               | true ->
@@ -655,27 +683,15 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
                   else ()
               | false -> ()
             in
-            let () =
-              match grc with
-              | Some grc_safe ->
-                  List.combine e.generics grc_safe
-                  |> List.iteri (fun index (generic_name, field_ktype) ->
-                         let () =
-                           Hashtbl.add infered_map generic_name.v
-                             (index, field_ktype.v)
-                         in
-                         Hashtbl.add hashtal generic_name.v
-                           (index, field_ktype.v))
-              | None -> ()
-            in
+
             let () =
             
               init_type_parameters |> List.combine e.parameters
               |> List.iter (fun ((_, para_type), init_type) ->
-                     (* let () = Printf.printf "init_ktype = %s, expected = %s\n\n" (Pprint.string_of_ktype init_type.v) (Pprint.string_of_ktype para_type.v) in *)
+                     let () = Printf.printf "init_ktype = %s, expected = %s%!\n\n" (Pprint.string_of_ktype init_type.v) (Pprint.string_of_ktype para_type.v) in
                      if
                        e
-                       |> Asthelper.Function.is_type_compatible_hashgen hashtal
+                       |> Asthelper.Function.is_type_compatible_hashgen infered_map
                             init_type.v para_type.v
                        |> not
                      then
@@ -698,7 +714,7 @@ and typeof ?(lambda_type = None) ~generics_resolver (env : Env.t) (current_mod_n
                 ~current_module:current_mod_name
                 ~module_type_path:modules_path.v infered_map e
             in
-            (* let () = Printf.printf "cm = %s, mp = %s fn return = %s\n" (current_mod_name) (modules_path.v) (Pprint.string_of_ktype kt) in *)
+            let () = Printf.printf "cm = %s, mp = %s fn return = %s\n" (current_mod_name) (modules_path.v) (Pprint.string_of_ktype kt) in
             kt
       | Ast.Function_Decl.Decl_External external_func_decl -> (
           if external_func_decl.is_variadic then

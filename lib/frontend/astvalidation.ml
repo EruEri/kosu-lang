@@ -136,13 +136,10 @@ module Help = struct
      | Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error *)
 
   let is_ktype_exist_from_ktype generics current_module program ktype =
-    try
-      let _ =
-        Asthelper.Program.find_type_decl_from_true_ktype ~generics ktype
-          current_module program
-      in
-      Ok ()
-    with Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error
+    match  Asthelper.Program.find_type_decl_from_true_ktype ~generics ktype current_module program with
+      | _ -> Ok ()  
+      | exception Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error
+
 
   let rec does_ktype_contains_type_decl current_module program ktype
       ktype_type_decl_origin already_visited type_decl_to_check =

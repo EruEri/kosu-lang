@@ -174,6 +174,9 @@ let rec kt_compare_subtype lhs rhs =
     | RTPointer lhs, RTPointer rhs -> update_generics map lhs rhs ()
     | RTTuple lhs, RTTuple rhs ->
         List.iter2 (fun l r -> update_generics map l r ()) lhs rhs
+    | (RTClosure {params = lparams; return_type = lr; _} | RTFunction(lparams, lr)), RTClosure {params = rparams; return_type = rr; _} when Util.are_same_lenght lparams rparams ->
+      let () = List.iter2 (fun l r -> update_generics map l r ()) lparams rparams in
+      update_generics map lr rr ()
     | _ -> ()
 
   let rec restrict_rktype to_restrict restrict =
@@ -1024,6 +1027,15 @@ module RProgram = struct
 
   let rec specialise_generics_function current_module ~ignored rprogram =
     function
+    | REClosure_call { parameters; _ } -> 
+      let default_set =
+        parameters
+        |> List.map (fun te ->
+               (* let () = Printf.printf "te: %s\n\n" (Asttypprint.string_of_typed_expression te) in *)
+               specialise_generics_function_typed_expression ~ignored
+                 current_module rprogram te)
+        |> List.fold_left FnSpec.union FnSpec.empty in
+        default_set
     | REFunction_call { modules_path; fn_name; generics_resolver; parameters }
       -> (
         let default_set =
@@ -1182,7 +1194,27 @@ module RProgram = struct
         | RUMinus te | RUNot te ->
             specialise_generics_function_typed_expression ~ignored
               current_module rprogram te)
-    | _ -> FnSpec.empty
+    | REWhile (condition, body) -> 
+      condition
+      |> specialise_generics_function_typed_expression ~ignored current_module
+           rprogram
+      |> FnSpec.union
+           (body
+           |> specialise_generics_function_kbody ~ignored current_module
+                rprogram)
+    | RELambda { body; _ } -> specialise_generics_function_kbody ~ignored current_module rprogram body
+    | REmpty
+    | RTrue
+    | RFalse
+    | RENullptr
+    | REInteger _
+    | REFloat _
+    | RESizeof _
+    | REstring _
+    | REAdress _
+    | REDeference (_, _)
+    | REIdentifier _
+    | REConst_Identifier _ -> FnSpec.empty
 
   and specialise_generics_function_typed_expression ~ignored current_module
       rprogram typed_expression : FnSpec.t =

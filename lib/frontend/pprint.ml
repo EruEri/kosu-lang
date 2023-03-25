@@ -70,7 +70,7 @@ let string_of_located_error a b =
 
 let rec string_of_ktype = function
   | TParametric_identifier { module_path; parametrics_type; name } ->
-      sprintf "%s %s(%s)" module_path.v name.v
+      sprintf "%s::%s(%s)" module_path.v name.v
         (parametrics_type
         |> List.map (fun s -> string_of_ktype s.v)
         |> String.concat ", ")

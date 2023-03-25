@@ -1083,12 +1083,12 @@ module Enum = struct
 
   let rec is_type_compatible_hashgen generic_table (init_type : ktype)
       (expected_type : ktype) (enum_decl : t) =
-    let open Ast.Type in
     match (init_type, expected_type) with
     | kt, TType_Identifier { module_path = { v = ""; _ }; name }
       when match Hashtbl.find_opt generic_table name.v with
            | None -> false
            | Some (_, find_kt) ->
+            let open Ast.Type in
                if find_kt === TUnknow then
                  let () =
                    Hashtbl.replace generic_table name.v
@@ -1685,7 +1685,7 @@ module Function = struct
       (expected_type : ktype) (function_decl : t) =
     (* let () = Printf.printf "fn_name = %s : init_type = %s, expected_type = %s\n" (function_decl.fn_name.v) (Pprint.string_of_ktype init_type) (Pprint.string_of_ktype expected_type) in
        let () = Printf.printf "TIdentifier = %b\n\n" (match expected_type with TType_Identifier _ -> true | _ -> false) in *)
-    let open Ast.Type in
+
     match (init_type, expected_type) with
     | kt, TType_Identifier { module_path = { v = ""; _ }; name }
       when match Hashtbl.find_opt generic_table name.v with
@@ -1702,7 +1702,7 @@ module Function = struct
                  in
                  true
                else false
-           | Some (_, find_kt) -> are_compatible_type ~is:kt ~comptible_with:find_kt ->
+           | Some (_, find_kt) -> Ast.Type.are_compatible_type ~is:kt ~comptible_with:find_kt ->
         true
     | ( TType_Identifier { module_path = init_path; name = init_name },
         TType_Identifier { module_path = exp_path; name = exp_name } ) ->
@@ -1736,14 +1736,14 @@ module Function = struct
                is_type_compatible_hashgen generic_table lkt.v rkt.v
                  function_decl)
              lhs rhs
-    | TFunction (pl, lr), TFunction (pr, rr) when Util.are_same_lenght pl pr -> 
+    | TFunction (pl, lr), TFunction (pr, rr) | (TClosure (pl, lr, _) | TFunction (pl, lr)), TClosure (pr, rr, _) when Util.are_same_lenght pl pr -> 
       is_type_compatible_hashgen generic_table lr.v rr.v function_decl
       && List.for_all2
            (fun lkt rkt ->
              is_type_compatible_hashgen generic_table lkt.v rkt.v
                function_decl)
            pl pr
-    | lhs, rhs -> lhs === rhs
+    | lhs, rhs -> let open Ast.Type in lhs === rhs
 
   let to_return_ktype_hashtab ~current_module ~module_type_path generic_table
       (function_decl : t) =
