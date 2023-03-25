@@ -16,9 +16,17 @@
 (**********************************************************************************************)
 
 type filename_error = Mutiple_dot_in_filename | No_extension | Unknow_error
+
+type architecture = Arm64 | X86_64
+type os = Macos | Linux | FreeBSD
 type archi_target = Arm64e | X86_64m | X86_64
 
+
+
 let std_global_variable = "KOSU_STD_PATH"
+
+let architecture_global_variable = "KOSU_TARGET_ARCHI"
+let os_global_variable = "KOSU_TARGET_OS"
 let std_path = Sys.getenv_opt std_global_variable
 let is_kosu_file file = file |> Filename.extension |> ( = ) ".kosu"
 
@@ -181,10 +189,11 @@ module Cli = struct
          (KosuBackend.Aarch64.Aarch64AsmSpecImpl.MacOSAarch64AsmSpec))
 
   let name = "kosuc"
-  let version = "not-even-alpha"
+  let version = "0.0.1-not-alpha (%%VCS_COMMIT_ID%%)"
 
   type cmd = {
-    target_archi : archi_target;
+    architecture: architecture;
+    os: os;
     no_std : bool;
     is_target_asm : bool;
     cc : bool;
@@ -201,14 +210,45 @@ module Cli = struct
   let target_enum =
     [ ("arm64e", Arm64e); ("x86_64", X86_64); ("x86_64m", X86_64m) ]
 
-  let target_archi_term =
+  let architecture_enum = 
+    [("arm64", Arm64); ("x86_64", X86_64)]
+
+  let os_enum = 
+    [("freebsd", FreeBSD); ("linux", Linux); ("macos", Macos)]
+
+  (* let target_archi_term =
     Arg.(
       required
       & opt (some & enum target_enum) None
       & info ~docv:"Assembly Target"
           ~doc:(doc_alts_enum ~quoted:true target_enum)
-          [ "t"; "target" ])
+          [ "t"; "target" ]) *)
 
+  let string_of_enum ?(splitter = "|") ?(quoted = false) enum = 
+    let f = if quoted then Arg.doc_quote else Fun.id in
+    enum |> List.map (fun (elt, _) -> f elt) |> String.concat splitter 
+
+  let target_archi_term = 
+    Arg.(
+      required
+      & opt (some & enum architecture_enum) None
+      & info 
+      ~docv:(string_of_enum architecture_enum)
+      ~env:(Cmd.Env.info ~doc:("If this environment variable is present, the architecture compilation target doesn't need to be explicitly set. See option $(b, --arch)") architecture_global_variable)
+      ~doc:("architecture compilation target")
+      ["arch"]
+    )
+
+  let os_target_term = 
+    Arg.(
+      required
+      & opt (some & enum os_enum) None
+      & info 
+      ~docv:(string_of_enum os_enum)
+      ~env:(Cmd.Env.info ~doc:("If this environment variable is present, the os compilation target doesn't need to be explicitly set. See option $(b, --os)") os_global_variable)
+      ~doc:("Os compilation target")
+      ["os"]
+    )
   let no_std_term =
     Arg.(
       value & flag
@@ -231,7 +271,7 @@ module Cli = struct
     Arg.(
       value & opt_all string []
       & info
-          [ "pkg-config"; "pkg-c"; "pc" ]
+          [ "pkg-config"; "pc" ]
           ~docv:"libname"
           ~doc:
             "Invoke $(b,pkg-config)(1) to retreive compilation flags and libs")
@@ -244,8 +284,9 @@ module Cli = struct
   let output_term =
     Arg.(
       value & opt string default_outfile
-      & info [ "o"; "output" ] ~docv:"EXECUTABLE NAME"
-          ~doc:"Specify the name of the file producted by the linker")
+      & info [ "o" ] ~docv:"FILENAME"
+          ~doc:(Printf.sprintf "write output to <%s>" (String.lowercase_ascii "$(docv)") )
+      )
 
   let ccol_term =
     Arg.(
@@ -270,11 +311,12 @@ module Cli = struct
             \  ")
 
   let cmd_term run =
-    let combine target_archi no_std verbose cc is_target_asm output pkg_configs
+    let combine architecture os no_std verbose cc is_target_asm output pkg_configs
         ccol cclib files =
       run
       @@ {
-           target_archi;
+           architecture;
+           os;
            no_std;
            verbose;
            is_target_asm;
@@ -287,7 +329,7 @@ module Cli = struct
          }
     in
     Term.(
-      const combine $ target_archi_term $ no_std_term $ verbose_term $ cc_term
+      const combine $ target_archi_term $ os_target_term $ no_std_term $ verbose_term $ cc_term
       $ target_asm_term $ output_term $ pkg_config_term $ ccol_term $ cclib_term
       $ files_term)
 
@@ -327,7 +369,8 @@ module Cli = struct
 
   let run cmd =
     let {
-      target_archi;
+      architecture;
+      os;
       no_std;
       verbose;
       is_target_asm;
@@ -340,17 +383,21 @@ module Cli = struct
     } =
       cmd
     in
-    let module Codegen = (val match target_archi with
-                              | X86_64 -> (module LinuxX86)
-                              | X86_64m -> (module Mac0SX86)
-                              | Arm64e -> (module MacOSAarch64)
-                            : KosuBackend.Codegen.S)
+
+
+    
+    let module Codegen = (val match (architecture, os) with
+                      | X86_64, (FreeBSD | Linux) -> (module LinuxX86)
+                      | X86_64, Macos -> (module Mac0SX86)
+                      | Arm64, Macos -> (module MacOSAarch64)
+                      | Arm64, _ -> (failwith "unimplemented compilation target for arm Architecture")
+                            : KosuBackend.Codegen.S )
     in
-    let module LinkerOption = (val match target_archi with
-                                   | X86_64m | Arm64e ->
-                                       (module LdSpec.MacOSLdSpec)
-                                   | X86_64 -> (module LdSpec.LinuxLdSpec)
-                                 : KosuBackend.Compil.LinkerOption)
+    let module LinkerOption = (val match (os) with
+                      | FreeBSD -> (module LdSpec.FreeBSDLdSpec)
+                      | Linux -> (module LdSpec.LinuxLdSpec)
+                      | Macos -> (module LdSpec.MacOSLdSpec)
+                      : KosuBackend.Compil.LinkerOption)
     in
     let module Compiler = KosuBackend.Compil.Make (Codegen) (LinkerOption) in
     let cclib = cclib |> List.map parse_library_link_name in

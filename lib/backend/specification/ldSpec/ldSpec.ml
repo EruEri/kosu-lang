@@ -46,7 +46,7 @@ module LinuxLdSpec : KosuBackend.Compil.LinkerOption = struct
   let disable = None
 end
 
-module FreeBSD : KosuBackend.Compil.LinkerOption = struct
+module FreeBSDLdSpec : KosuBackend.Compil.LinkerOption = struct
   type linker_option = string
 
   let entry_point = "_start"
