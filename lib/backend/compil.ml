@@ -20,6 +20,8 @@ module type LinkerOption = sig
 
   val ld_command : string
   val options : linker_option list
+
+  val raw_args: linker_option list
   val string_of_option : linker_option -> string
 
   val disable : string option

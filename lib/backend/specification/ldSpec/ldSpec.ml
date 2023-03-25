@@ -24,6 +24,8 @@ module MacOSLdSpec : KosuBackend.Compil.LinkerOption = struct
   let options =
     [ "syslibroot $(xcrun --sdk macosx --show-sdk-path)"; "lSystem" ]
 
+  let raw_args = []
+
   let disable = None
 
   let should_create_entry_point = None
@@ -39,8 +41,22 @@ module LinuxLdSpec : KosuBackend.Compil.LinkerOption = struct
   let string_of_option = Fun.id
   let ld_command = "ld"
   let options = [ Printf.sprintf "-entry=%s" entry_point; "lc" ]
+  let raw_args = []
 
   let disable = None
+end
 
+module FreeBSD : KosuBackend.Compil.LinkerOption = struct
+  type linker_option = string
 
+  let entry_point = "_start"
+
+  let should_create_entry_point = ignore entry_point; None
+
+  let string_of_option = Fun.id
+  let ld_command = "ld"
+  let options = ["lc"; "dynamic-linker /libexec/ld-elf.so.1"; "L/usr/lib" ]
+  let raw_args = ["/usr/lib/crt1.o"; "/usr/lib/crti.o"; "/usr/lib/crtbegin.o"; "/usr/lib/crtend.o"; "/usr/lib/crtn.o"]
+
+  let disable = None
 end
