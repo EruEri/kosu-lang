@@ -148,12 +148,17 @@ let quoted = Printf.sprintf "\"%s\""
 
 let export_infer_graph_of_cfg ~outchan (cfg: Asttaccfg.Cfg.Liveness.cfg_liveness_detail) () = 
   let graph = Inference_Graph.infer cfg in
-  let bindings =  Inference_Graph.IG.bindings graph in
+  let bindings = Inference_Graph.IG.bindings graph in
+  let bindings = bindings |> List.map (fun (node, edge) -> edge |> List.map (fun link -> node, link) ) |> List.flatten |> List.fold_left (fun acc (node, link) -> 
+    if List.exists (fun elt -> Asttaccfg.Cfg_Sig_Impl.compare elt (node, link) = 0 || Asttaccfg.Cfg_Sig_Impl.compare elt (link, node) = 0) acc then acc
+    else
+      (node, link)::acc
+  ) []  in 
   let () = Printf.fprintf outchan "graph %s {\n" (Printf.sprintf "infered_%s" cfg.entry_block) in
-  let () = bindings |> List.iter (fun (node, edges) ->   
-    Printf.fprintf outchan "\t%s -- {%s}\n" 
+  let () = bindings |> List.iter (fun (node, link) ->   
+    Printf.fprintf outchan "\t%s -- %s\n" 
     (node |> string_of_typed_indentifier |> quoted)  
-    (edges |> List.map (fun node -> node |> string_of_typed_indentifier |> quoted) |> String.concat " ")
+    ( link |> string_of_typed_indentifier |> quoted)
   ) in 
   let () = Printf.fprintf outchan "}" in
   ()
