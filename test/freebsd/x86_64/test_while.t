@@ -1,5 +1,5 @@
 while loop test
-  $ kosuc --arch x86_64 --os macos --no-std -o while test_while.kosu && ./while
+  $ kosuc --arch x86_64 --os freebsd --no-std -o while test_while.kosu && ./while
   i = 0
   i = 1
   i = 2

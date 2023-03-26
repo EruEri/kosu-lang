@@ -1,5 +1,5 @@
 Arithmetic test
-  $ kosuc -t x86_64m --no-std test_arith.kosu && ./a.out
+  $ kosuc --arch x86_64 --os macos --no-std test_arith.kosu && ./a.out
   s8: w == w
   s8: 56 + 44 = 100
   s8: 56 - 44 = 12

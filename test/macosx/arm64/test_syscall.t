@@ -1,3 +1,3 @@
 # Write syscall test
-  $ kosuc -t arm64e --no-std -o sys syscall.kosu && ./sys
+  $ kosuc --arch arm64 --os macos --no-std -o sys syscall.kosu && ./sys
   Hello world

@@ -1705,6 +1705,38 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     in
     (label_instr :: stmt_instr) @ return_instr @ end_label_inst
 
+
+  let kosu_crt0_module_node name = 
+    let ebp = resize_register L rbpq in
+    let edi = resize_register L rdiq in
+    let eax = resize_register L raxq in
+    let instructions = [
+      Instruction (Xor {size = L; source = `Register ebp; destination = `Register ebp});
+      Instruction (Mov {size = L; source = `Address (create_address_offset rspq); destination = `Register edi });
+      Instruction (Lea {size = Q; source = (create_address_offset ~offset:(8L) rspq); destination = rsiq});
+      Instruction (Call {what = `Label Spec.main});
+      Instruction (Mov {size = L; source = `Register eax; destination = `Register edi});
+      Instruction (Call {what = `Label "_exit"})
+    ] in
+    Afunction {
+      asm_name = name;
+      asm_body = instructions
+    }
+
+  let kosu_crt0_named_module_path name =
+    { 
+      apath = name;
+      asm_module = AsmModule [kosu_crt0_module_node name]
+    }
+
+    let kosu_crt0_asm entry_name = {
+      filename = "kosu_crt0";
+      asm_module_path = kosu_crt0_named_module_path entry_name;
+      rprogram = [];
+      str_lit_map = Hashtbl.create 0;
+    }
+ 
+
   let asm_module_of_tac_module ~str_lit_map current_module rprogram =
     let open KosuIrTyped.Asttyped in
     function
@@ -1935,8 +1967,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           (asm_module_of_tac_module ~str_lit_map path rprogram tac_module);
     }
 
-  let asm_program_of_tac_program tac_program =
-    tac_program
+  let asm_program_of_tac_program ~(start: string option) tac_program  = ignore start;
+    let modules =  tac_program
     |> List.map (fun ({ filename; tac_module_path; rprogram } as named) ->
            let str_lit_map =
              KosuIrTAC.Asttachelper.StringLitteral
@@ -1951,6 +1983,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
              rprogram;
              str_lit_map;
            })
+    in
+    match start with
+    | None -> modules
+    | Some entry_name -> (kosu_crt0_asm entry_name)::modules
+        
 
   let sort_asm_module (AsmModule anodes) =
     AsmModule

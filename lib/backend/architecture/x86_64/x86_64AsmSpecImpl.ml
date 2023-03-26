@@ -32,6 +32,8 @@ module type X86_64_Spec = sig
   val string_litteral_section_start : string
   val string_litteral_directive : string
   val size_directive_of_size : KosuFrontend.Ast.isize -> string
+
+  val should_create_entry_point: string option
 end
 
 module Make (X86_Spec : X86_64_Spec) : X86_64AsmSpec.X86_64AsmSpecification =
@@ -131,6 +133,8 @@ module X86_64LinuxAsmSpec = Make (struct
   let size_directive_of_size =
     let open KosuFrontend.Ast in
     function I8 -> "byte" | I16 -> "value" | I32 -> "long" | I64 -> "quad"
+
+  let should_create_entry_point = Some "_start"
 end)
 
 module X86MacOsAsmSpec = Make (struct
@@ -160,4 +164,6 @@ module X86MacOsAsmSpec = Make (struct
   let size_directive_of_size =
     let open KosuFrontend.Ast in
     function I8 -> "byte" | I16 -> "value" | I32 -> "long" | I64 -> "quad"
+  
+  let should_create_entry_point = None
 end)

@@ -20,10 +20,14 @@ module type LinkerOption = sig
 
   val ld_command : string
   val options : linker_option list
+
+  val raw_args: linker_option list
   val string_of_option : linker_option -> string
 
   val disable : string option
   (** Message to output if the native compilation pipeline is disable*)
+
+  val should_create_entry_point: string option 
 end
 
 module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
@@ -77,7 +81,7 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
     match error_code with
     | Some s -> s
     | None ->
-        let asm_files = Codegen.compile_asm_from_tac_tmp tac_prgram in
+        let asm_files = Codegen.compile_asm_from_tac_tmp ~start:None tac_prgram in
         let obj_file = c_obj_files |> List.map Result.get_ok in
         let pkg_configs =
           pkg_config ~verbose ~cflags:true ~clibs:true ~pkg_config_names ()
@@ -120,7 +124,7 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
              if code = 0 then tmp_name else exit code)
     in
 
-    let kosu_asm_files = Codegen.compile_asm_from_tac_tmp tac_prgram in
+    let kosu_asm_files = Codegen.compile_asm_from_tac_tmp ~start:(LD.should_create_entry_point) tac_prgram in
     let ccol_obj_files = c_obj_files in
 
     let other_object_files, other_asm_files =
@@ -156,8 +160,14 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
 
     let pkg = pkg_append_lib cclib pkg in
 
+    let raw_args = LD.raw_args |> List.map LD.string_of_option |> String.concat " " in
+
     let ld_cmd =
-      Printf.sprintf "%s %s -o %s %s %s" LD.ld_command options out_file
+      Printf.sprintf "%s %s -o %s %s %s %s" 
+        LD.ld_command 
+        options 
+        out_file
+        raw_args
         string_of_objects_files
         (Util.PkgConfig.linker_flags_format pkg)
     in

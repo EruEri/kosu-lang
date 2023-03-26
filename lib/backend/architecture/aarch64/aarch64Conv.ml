@@ -1763,7 +1763,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           (asm_module_of_tac_module ~str_lit_map path rprogram tac_module);
     }
 
-  let asm_program_of_tac_program tac_program =
+  let asm_program_of_tac_program ~(start: string option) tac_program = ignore start;
     tac_program
     |> List.map (fun ({ filename; tac_module_path; rprogram } as named) ->
            let str_lit_map =
