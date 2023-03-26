@@ -344,7 +344,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
   let string_of_raw_line = function
     | Label s -> s ^ ":"
     | Instruction s -> "\t" ^ string_of_instruction s
-    | Line_Com (Comment s) -> "\t;" ^ s
+    | Line_Com (Comment s) -> sprintf "\t%s %s" AsmSpec.comment_prefix s
     | Directive d -> "\t." ^ d
 
   let string_asm_const_decl { asm_const_name; value } =
