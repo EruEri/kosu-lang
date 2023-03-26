@@ -1,5 +1,5 @@
 A random test
-  $ kosuc -t x86_64 --cc --no-std -o main test_cmp.kosu && ./main
+  $ kosuc --arch x86_64 --os linux --cc --no-std -o main test_cmp.kosu && ./main
   s8: 0 < 2 : true
   s8: 0 <= 2 : true
   s8: 0 > 2 : false

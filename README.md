@@ -82,7 +82,7 @@ fn main() s32 {
 
 To compile the example above on MacOS (M1)
 ```bash
-$ kosuc -t arm64e -o example example.kosu
+$ kosuc --arch arm64 --os macos -o example example.kosu
 $ ./example
 ```
 On MacOS (Intel)

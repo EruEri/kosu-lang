@@ -1,3 +1,3 @@
 The readme test
-  $ kosuc -t x86_64m --no-std --cc -o readme readme.kosu && ./readme
+  $ kosuc --arch x86_64 --os macos --no-std --cc -o readme readme.kosu && ./readme
   Hello world
