@@ -87,12 +87,17 @@ $ ./example
 ```
 On MacOS (Intel)
 ```bash
-$ kosuc --target x86_64m -o example example.kosu
+$ kosuc --arch x86_64 --os macos -o example example.kosu
 $ ./example
 ```
-On Linux (x86_64) and probably FreeBSD (x86_64)
+On FreeBSD (x86_64)
 ```bash
-$ kosuc --target x86_64 --cc -o example example.kosu
+$ kosuc --arch x86_64 --os freebsd -o example example.kosu
+$ ./example
+```
+On Linux (x86_64)
+```bash
+$ kosuc --arch x86_64 --os linux -o example example.kosu
 $ ./example
 ```
 
