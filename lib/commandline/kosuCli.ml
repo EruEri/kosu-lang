@@ -30,19 +30,6 @@ let os_global_variable = "KOSU_TARGET_OS"
 let std_path = Sys.getenv_opt std_global_variable
 let is_kosu_file file = file |> Filename.extension |> ( = ) ".kosu"
 
-let archi_parse = function
-  | "x86_64m" -> Some X86_64m
-  | "x86_64" -> Some X86_64
-  | "arm64e" -> Some Arm64e
-  | _ -> None
-
-let string_of_archi = function
-  | X86_64m | X86_64 -> "x86_64"
-  | Arm64e -> "arm64e"
-
-let archi_clap_type =
-  Clap.typ ~name:"target" ~dummy:X86_64 ~parse:archi_parse ~show:string_of_archi
-
 let cc_compilation outputfile ~asm ~other =
   Sys.command
     (Printf.sprintf "cc -g -o %s %s %s" outputfile
@@ -262,7 +249,7 @@ module Cli = struct
   let verbose_term =
     Arg.(
       value & flag
-      & info [ "V"; "verbose" ] ~doc:"Print each command before it execution")
+      & info [ "v"; "verbose" ] ~doc:"Print each command before it execution")
 
   let cc_term =
     Arg.(
