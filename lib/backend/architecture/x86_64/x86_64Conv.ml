@@ -1721,6 +1721,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
       Instruction (Call {what = `Label "_exit"})
     ] in
     Afunction {
+      is_global = true;
       asm_name = name;
       asm_body = instructions
     }

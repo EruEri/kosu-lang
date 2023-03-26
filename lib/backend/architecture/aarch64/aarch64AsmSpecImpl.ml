@@ -83,8 +83,11 @@ module FreeBSDAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
 
   let adrp_style : address_load_style = Other
 
-  let function_directives fn_name =
-    [ sprintf ".globl %s" fn_name; ".p2align 4" ]
+  let function_directives is_global fn_name = 
+    if is_global then
+      [ sprintf ".globl %s" fn_name; ".p2align 4" ]
+    else
+      [".p2align 4"]
 
   let constant_directives const_name = function
     | `IntVal (size, _) ->
