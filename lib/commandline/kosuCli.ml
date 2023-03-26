@@ -30,19 +30,6 @@ let os_global_variable = "KOSU_TARGET_OS"
 let std_path = Sys.getenv_opt std_global_variable
 let is_kosu_file file = file |> Filename.extension |> ( = ) ".kosu"
 
-let archi_parse = function
-  | "x86_64m" -> Some X86_64m
-  | "x86_64" -> Some X86_64
-  | "arm64e" -> Some Arm64e
-  | _ -> None
-
-let string_of_archi = function
-  | X86_64m | X86_64 -> "x86_64"
-  | Arm64e -> "arm64e"
-
-let archi_clap_type =
-  Clap.typ ~name:"target" ~dummy:X86_64 ~parse:archi_parse ~show:string_of_archi
-
 let cc_compilation outputfile ~asm ~other =
   Sys.command
     (Printf.sprintf "cc -g -o %s %s %s" outputfile
@@ -188,6 +175,11 @@ module Cli = struct
       (KosuBackend.Aarch64.Aarch64Codegen.Codegen
          (KosuBackend.Aarch64.Aarch64AsmSpecImpl.MacOSAarch64AsmSpec))
 
+  module FreebBSDAarch64 =
+    KosuBackend.Codegen.Make
+      (KosuBackend.Aarch64.Aarch64Codegen.Codegen
+        (KosuBackend.Aarch64.Aarch64AsmSpecImpl.FreeBSDAarch64AsmSpec))
+
   let name = "kosuc"
   let version = "0.0.1-not-alpha (%%VCS_COMMIT_ID%%)"
 
@@ -257,7 +249,7 @@ module Cli = struct
   let verbose_term =
     Arg.(
       value & flag
-      & info [ "V"; "verbose" ] ~doc:"Print each command before it execution")
+      & info [ "v"; "verbose" ] ~doc:"Print each command before it execution")
 
   let cc_term =
     Arg.(
@@ -390,7 +382,7 @@ module Cli = struct
                       | X86_64, (FreeBSD | Linux) -> (module LinuxX86)
                       | X86_64, Macos -> (module Mac0SX86)
                       | Arm64, Macos -> (module MacOSAarch64)
-                      | Arm64, _ -> (failwith "unimplemented compilation target for arm Architecture")
+                      | Arm64, (FreeBSD | Linux) -> (module FreebBSDAarch64)
                             : KosuBackend.Codegen.S )
     in
     let module LinkerOption = (val match (os) with
