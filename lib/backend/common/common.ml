@@ -59,3 +59,6 @@ module AsmProgram (InstructionLine : InstructionLine) = struct
 
   type asm_program = named_asm_module_path list
 end
+
+
+module NamingConvention = NamingConvention

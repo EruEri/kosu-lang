@@ -32,7 +32,7 @@ module Codegen (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
   let string_litteral_section_start = AsmSpec.string_litteral_section_start
   let string_litteral_section_end = AsmSpec.string_litteral_section_end
   let string_of_asm_node = Pprint.string_of_asm_node
-  let string_litteral_directive = ".asciz"
+  let string_litteral_directive = AsmSpec.string_litteral_directive
   let filename_of_named_asm_module_path namp = namp.filename
 
   let asm_module_path_of_named_asm_module_path namp =

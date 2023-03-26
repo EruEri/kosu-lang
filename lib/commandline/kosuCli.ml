@@ -188,6 +188,11 @@ module Cli = struct
       (KosuBackend.Aarch64.Aarch64Codegen.Codegen
          (KosuBackend.Aarch64.Aarch64AsmSpecImpl.MacOSAarch64AsmSpec))
 
+  module FreebBSDAarch64 =
+    KosuBackend.Codegen.Make
+      (KosuBackend.Aarch64.Aarch64Codegen.Codegen
+        (KosuBackend.Aarch64.Aarch64AsmSpecImpl.FreeBSDAarch64AsmSpec))
+
   let name = "kosuc"
   let version = "0.0.1-not-alpha (%%VCS_COMMIT_ID%%)"
 
@@ -390,7 +395,7 @@ module Cli = struct
                       | X86_64, (FreeBSD | Linux) -> (module LinuxX86)
                       | X86_64, Macos -> (module Mac0SX86)
                       | Arm64, Macos -> (module MacOSAarch64)
-                      | Arm64, _ -> (failwith "unimplemented compilation target for arm Architecture")
+                      | Arm64, (FreeBSD | Linux) -> (module FreebBSDAarch64)
                             : KosuBackend.Codegen.S )
     in
     let module LinkerOption = (val match (os) with

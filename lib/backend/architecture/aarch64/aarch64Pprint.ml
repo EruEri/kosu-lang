@@ -177,13 +177,21 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         sprintf "neg %s, %s"
           (string_of_register destination)
           (string_of_register source)
-    | ADD { destination; operand1; operand2; offset } ->
-        sprintf "%sadd %s, %s, %s%s"
-          (prefix_of_float destination)
-          (string_of_register destination)
-          (string_of_register operand1)
-          (string_of_src operand2)
-          (if offset then "@PAGEOFF" else "")
+    | ADD { destination; operand1; operand2; offset } -> begin match AsmSpec.adrp_style with
+        | AsmSpec.MacOS -> sprintf "%sadd %s, %s, %s%s"
+            (prefix_of_float destination)
+            (string_of_register destination)
+            (string_of_register operand1)
+            (string_of_src operand2)
+            (if offset then "@PAGEOFF" else "")
+        | AsmSpec.Other -> 
+          sprintf "%sadd %s, %s, %s"
+            (prefix_of_float destination)
+            (string_of_register destination)
+            (string_of_register operand1)
+            (if not offset then (string_of_src operand2) else sprintf ":lo12:%s" (string_of_src operand2) )
+      end 
+
     | MADD { destination; operand1_base; operand2; scale } ->
         sprintf "madd %s, %s, %s, %s"
           (string_of_register destination)
@@ -302,8 +310,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     | LDP { x1; x2; address; adress_mode } ->
         sprintf "ldp %s, %s, %s" (string_of_register x1) (string_of_register x2)
           (string_of_adressage adress_mode address)
-    | ADRP { dst; label } ->
-        sprintf "adrp %s, %s@PAGE" (string_of_register dst) label
+    | ADRP { dst; label } -> begin match AsmSpec.adrp_style with
+          | AsmSpec.MacOS -> sprintf "adrp %s, %s@PAGE" (string_of_register dst) label
+          | AsmSpec.Other -> sprintf "adrp %s, %s" (string_of_register dst) label
+        end
     | B { cc; label } ->
         sprintf "b%s %s"
           (cc
