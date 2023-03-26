@@ -1,0 +1,6 @@
+external puts(string: stringl) s32
+
+fn print_stringl(str: stringl) unit {
+    discard puts(str);
+    $ empty
+}
