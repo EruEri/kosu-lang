@@ -85,8 +85,8 @@ module FreeBSDAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
 
   let constant_directives const_name = function
     | `IntVal (size, _) ->
-        let _align_size = (KosuFrontend.Ast.Isize.size_of_isize size / 8) - 1 in
-        [ Printf.sprintf ".globl %s" const_name; sprintf ".p2align %u" 2 ]
+        let align_size = (KosuFrontend.Ast.Isize.size_of_isize size / 8) - 1 in
+        [ Printf.sprintf ".globl %s" const_name; sprintf ".p2align %u" align_size ]
     | `StrVal _ ->
         [
           Printf.sprintf ".globl %s" const_name; Printf.sprintf ".p2align %u" 3;
@@ -102,5 +102,5 @@ module FreeBSDAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
 
   let size_directive_of_size =
     let open KosuFrontend.Ast in
-    function I8 -> "byte" | I16 -> "value" | I32 -> "long" | I64 -> "quad"
+    function I8 -> "byte" | I16 -> "hword" | I32 -> "word" | I64 -> "xword"
 end
