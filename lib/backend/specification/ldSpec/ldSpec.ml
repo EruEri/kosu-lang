@@ -36,12 +36,12 @@ module LinuxLdSpec : KosuBackend.Compil.LinkerOption = struct
 
   let entry_point = "_start"
 
-  let should_create_entry_point = Some entry_point
+  let should_create_entry_point = ignore entry_point; None
 
   let string_of_option = Fun.id
   let ld_command = "ld"
-  let options = [ Printf.sprintf "-entry=%s" entry_point; "lc" ]
-  let raw_args = []
+  let options = ["lc"; "dynamic-linker /lib64/ld-linux-x86-64.so.2"; "L/usr/lib"; "L/lib64"  ]
+  let raw_args = ["/lib64/crt1.o"; "/lib64/crti.o"; "/lib64/crtn.o"]
 
   let disable = None
 end

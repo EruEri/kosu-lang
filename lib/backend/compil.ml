@@ -160,8 +160,14 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
 
     let pkg = pkg_append_lib cclib pkg in
 
+    let raw_args = LD.raw_args |> List.map LD.string_of_option |> String.concat " " in
+
     let ld_cmd =
-      Printf.sprintf "%s %s -o %s %s %s" LD.ld_command options out_file
+      Printf.sprintf "%s %s -o %s %s %s %s" 
+        LD.ld_command 
+        options 
+        out_file
+        raw_args
         string_of_objects_files
         (Util.PkgConfig.linker_flags_format pkg)
     in
