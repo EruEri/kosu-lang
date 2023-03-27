@@ -1218,25 +1218,41 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
       let intermediary_adress = Option.get @@ FrameManager.address_of identifier_root fd in
       let pointee_type = (fun (_ , kt) -> KosuIrTyped.Asttyhelper.RType.rtpointee kt ) identifier_root  in
       let field_offset = offset_of_fieldss pointee_type ~fields rprogram in
-      let target_adress = increment_adress field_offset intermediary_adress in
-
-      let instructions =
+      let _target_adress = increment_adress field_offset intermediary_adress in
+      (* let () = Printf.printf "base adrress = [%s]\n" (Pp.string_of_adressage Immediat intermediary_adress) in
+      let () = Printf.printf "offset = %Lu\n" field_offset in
+      let () = Printf.printf "target addres = [%s]\n" (Pp.string_of_adressage Immediat target_adress) in *)
+      let instructions = [
         Instruction
           (LDR
              {
                data_size = None;
                destination = tmpreg;
-               adress_src = target_adress;
+               adress_src = intermediary_adress;
                adress_mode = Immediat;
-             })
+             });
+        Instruction
+        (
+          (
+            ADD 
+            {
+              destination = tmpreg;
+              operand1 = tmpreg;
+              operand2 = `ILitteral field_offset;
+              offset = false;
+            }
+          )
+        )
+      ]
+
       in
       let true_adress = create_adress tmpreg in
       let true_instructions =
-        translate_tac_rvalue ~str_lit_map ~is_deref:(Some target_adress)
+        translate_tac_rvalue ~str_lit_map ~is_deref:(Some intermediary_adress) (* Very susciptous abode the use of immediary adress *)
           ~where:(Some true_adress) current_module rprogram fd trvalue
       in
 
-      (Line_Com (Comment "Field Defered Start") :: instructions :: true_instructions)
+      (Line_Com (Comment "Field Defered Start") :: instructions @ true_instructions)
       @ [ Line_Com (Comment "Field Defered end") ]
     | STWhile
         {
@@ -1674,14 +1690,14 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                        function_decl.tac_body
                    in
                    let epilogue = FrameManager.function_epilogue fd in
-                   let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
+                   (* let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
                       let () = fd.stack_map |> IdVarMap.to_seq |> Seq.iter (fun ((s, kt), adr) ->
                         Printf.printf "%s : %s == [%s, %Ld]\n"
                         (s)
                         (KosuIrTyped.Asttypprint.string_of_rktype kt)
                         (Pp.string_of_register adr.base)
                         (adr.offset)
-                        ) in
+                        ) in *)
                    Some
                      (Afunction
                         {
