@@ -82,6 +82,32 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
 
   let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
 
+
+  let offset_of_fieldss first_ktype ~fields rprogram = 
+
+    let open KosuIrTyped.Asttyhelper in
+    fields |> List.fold_left (fun (acc_offset, acc_type) field -> 
+      (* let () = Printf.printf "field : %s :: %s\n%!" field (KosuIrTyped.Asttypprint.string_of_rktype acc_type) in *)
+      let struct_decl =
+        match
+          KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
+            acc_type rprogram
+        with
+        | Some (RDecl_Struct s) -> s
+        | Some (RDecl_Enum _) ->
+            failwith "Expected to find a struct get an enum"
+        | None -> failwith "Non type decl ??? my validation is very weak"
+      in
+
+      let mapped_generics = List.combine struct_decl.generics (RType.extract_parametrics_rktype first_ktype) in
+      let hashmap_generis = mapped_generics |> List.to_seq |> Hashtbl.of_seq in
+      let struct_decl = RStruct.instanciate_struct_decl  (mapped_generics) struct_decl in
+      let offset = offset_of_field ~generics:hashmap_generis field struct_decl rprogram in
+      let acc_offset = Int64.add acc_offset offset in
+      let field_type = Option.get @@ RStruct.rktype_of_field_opt field struct_decl in
+      (acc_offset, field_type)
+  ) (0L, first_ktype) |> fst
+
   let copy_result ?(before_copy = fun _ -> []) ~where ~register ~rval_rktype
       rprogram =
     where
@@ -1164,8 +1190,42 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         (Line_Com (Comment "Defered Start") :: instructions :: true_instructions)
         @ [ Line_Com (Comment "Defered end") ]
     | STacModificationField {identifier_root; fields; trvalue} -> 
-      failwith ""
-    | STDerefAffectationField {identifier_root; fields; trvalue} -> failwith ""
+      let root_adress = Option.get @@ FrameManager.address_of (identifier_root) fd in
+      let field_offset = offset_of_fieldss (snd identifier_root) ~fields rprogram in
+      let target_adress = increment_adress field_offset root_adress in 
+      let instructions =
+        translate_tac_rvalue ~str_lit_map ~where:(Some target_adress) current_module
+          rprogram fd trvalue
+      in
+      instructions
+    | STDerefAffectationField {identifier_root; fields; trvalue} -> 
+      let tmpreg =
+        tmpreg_of_ktype rprogram
+          (KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype)
+      in
+      let intermediary_adress = Option.get @@ FrameManager.address_of identifier_root fd in
+      let pointee_type = (fun (_ , kt) -> KosuIrTyped.Asttyhelper.RType.rtpointee kt ) identifier_root  in
+      let field_offset = offset_of_fieldss pointee_type ~fields rprogram in
+      let target_adress = increment_adress field_offset intermediary_adress in
+
+      let instructions =
+        Instruction
+          (LDR
+             {
+               data_size = None;
+               destination = tmpreg;
+               adress_src = target_adress;
+               adress_mode = Immediat;
+             })
+      in
+      let true_adress = create_adress tmpreg in
+      let true_instructions =
+        translate_tac_rvalue ~str_lit_map ~is_deref:(Some target_adress)
+          ~where:(Some true_adress) current_module rprogram fd trvalue
+      in
+
+      (Line_Com (Comment "Field Defered Start") :: instructions :: true_instructions)
+      @ [ Line_Com (Comment "Field Defered end") ]
     | STWhile
         {
           statements_condition;

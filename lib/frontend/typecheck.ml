@@ -111,7 +111,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
                   (stmt_error
                     (Ast.Error.Reassign_Constante { name = variable }))
               else 
-                    let field_type = Asthelper.Affected_Value.field_type ktype current_mod_name program (variable::fields) in
+                    let field_type = Asthelper.Affected_Value.field_type ktype current_mod_name program (fields) in
                     let new_type =
                       typeof ~generics_resolver env current_mod_name program expr
                     in
@@ -176,7 +176,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
                       Ast.Error.Dereference_No_pointer { name = variable; ktype }
                       |> stmt_error |> raise
                 in
-                let field_type = Asthelper.Affected_Value.field_type in_pointer_ktype current_mod_name program (variable::fields) in
+                let field_type = Asthelper.Affected_Value.field_type in_pointer_ktype current_mod_name program (fields) in
                 let expr_ktype =
                   expression
                   |> Position.map_use

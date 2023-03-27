@@ -1318,6 +1318,12 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         (Line_Com (Comment "Defered Start") :: instructions :: true_instructions)
         @ [ Line_Com (Comment "Defered end") ]
+    | STDerefAffectationField {identifier_root; fields; trvalue} -> 
+      ignore (identifier_root, fields, trvalue);
+      failwith ""
+    | STacModificationField {identifier_root; fields; trvalue} -> 
+        ignore (identifier_root, fields, trvalue);
+        failwith ""
     | STWhile
         {
           statements_condition;
