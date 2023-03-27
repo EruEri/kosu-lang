@@ -269,7 +269,7 @@ and rkbody_of_kbody ~generics_resolver (env : Env.t) current_module
             |> Env.find_identifier_opt variable.v
             |> Option.get |> Env.vi_ktype
           in
-          let field_rktype =  Asthelper.Affected_Value.field_type first_expr_type  current_module program (fields) |> from_ktype in
+          let field_rktype =  Asthelper.Affected_Value.field_type ~variable first_expr_type  current_module program (fields) |> from_ktype in
           let typed_expression =
             typed_expression_of_kexpression ~generics_resolver env
               current_module program ~hint_type:field_rktype expression
@@ -305,7 +305,7 @@ and rkbody_of_kbody ~generics_resolver (env : Env.t) current_module
             (expression
             |> typeof ~generics_resolver env current_module program)
         in
-        let field_rktype =  Asthelper.Affected_Value.field_type pointee_type current_module program (fields) |> from_ktype in
+        let field_rktype =  Asthelper.Affected_Value.field_type ~variable pointee_type current_module program (fields) |> from_ktype in
         let stmts_remains, future_expr =
         rkbody_of_kbody ~generics_resolver env current_module program
           ~return_type (q, kexpression)

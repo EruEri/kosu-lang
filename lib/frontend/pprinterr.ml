@@ -73,6 +73,8 @@ let string_of_statement_error =
       sprintf "%s : Undefine Identifier \"%s\""
         (string_of_position_error s.name.position)
         s.name.v
+  | Reassign_Constante_Struct_field {name} -> 
+    string_of_located_error name (sprintf "variable \"%s\" is declared as const. Can't reassign his fields" name.v)
   | Already_Define_Identifier s ->
       string_of_located_error s.name
         (sprintf "Identifier already defined : \"%s\"" s.name.v)
@@ -327,6 +329,7 @@ let string_of_built_in_func_error =
             type \"%s\" was provided"
            fn_name (string_of_ktype found.v))
 
+let quoted = sprintf "\"%s\""           
 let string_of_ast_error =
   let open Ast.Error in
   function
@@ -337,8 +340,11 @@ let string_of_ast_error =
            (if record.expected > 1 then "s" else "")
            record.found
            (if record.expected > 1 then "was" else "were"))
-  (* | No_Occurence_found s -> sprintf "No Occurence found for %s" s
-     | Too_Many_occurence_found s -> sprintf "Too_Many_occurence_found : %s" s *)
+  | No_struct_field_acc {variable; ktype} -> 
+    string_of_located_error variable (
+      sprintf "variable %s has the type %s which is not a struct" 
+      (quoted variable.v) (quoted @@ string_of_ktype ktype)
+    )
   | Undefined_Identifier s ->
       string_of_located_error s (sprintf "Undefined Identifier \"%s\"" s.v)
   | Undefine_function s ->

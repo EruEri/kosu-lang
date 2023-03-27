@@ -1931,9 +1931,9 @@ module Affected_Value = struct
     @raise ast_error if ktype is not a declared type or if try to access field of enum
     @return ktype of the field
   *)
-  let field_type ktype current_mod_name program fields = 
+  let field_type ~variable ktype current_mod_name program fields = 
     match Ast.Type.module_path_of_ktype_opt ktype with 
-    | None -> failwith ""
+    | None -> No_struct_field_acc {variable; ktype} |> Ast.Error.ast_error |> raise
     | Some (module_path, typename) ->
       let generics = Ast.Type.extract_parametrics_ktype ktype in
       let type_decl = match Program.find_type_decl_from_ktype ~ktype_def_path:module_path ~ktype_name:typename ~current_module:current_mod_name program with

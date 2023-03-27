@@ -101,7 +101,8 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
                       (env |> Env.restrict_variable_type variable.v new_type)
                       current_mod_name program ~return_type (q, final_expr)
                   end
-        | AFField {variable; fields} -> begin match env |> Env.find_identifier_opt variable.v with
+        | AFField {variable; fields} -> begin 
+          match env |> Env.find_identifier_opt variable.v with
           | None ->
             raise
               (stmt_error (Ast.Error.Undefine_Identifier { name = variable }))
@@ -109,9 +110,9 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
               if is_const then
                 raise
                   (stmt_error
-                    (Ast.Error.Reassign_Constante { name = variable }))
+                    (Ast.Error.Reassign_Constante_Struct_field { name = variable }))
               else 
-                    let field_type = Asthelper.Affected_Value.field_type ktype current_mod_name program (fields) in
+                    let field_type = Asthelper.Affected_Value.field_type ~variable ktype current_mod_name program (fields) in
                     let new_type =
                       typeof ~generics_resolver env current_mod_name program expr
                     in
@@ -120,7 +121,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
                         (stmt_error
                           (Ast.Error.Uncompatible_type_Assign
                               {
-                                expected = ktype;
+                                expected = field_type;
                                 found = expr |> Position.map (fun _ -> new_type);
                               }))
                     else
@@ -176,7 +177,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
                       Ast.Error.Dereference_No_pointer { name = variable; ktype }
                       |> stmt_error |> raise
                 in
-                let field_type = Asthelper.Affected_Value.field_type in_pointer_ktype current_mod_name program (fields) in
+                let field_type = Asthelper.Affected_Value.field_type ~variable in_pointer_ktype current_mod_name program (fields) in
                 let expr_ktype =
                   expression
                   |> Position.map_use
@@ -304,7 +305,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let first_type =
         typeof ~generics_resolver env current_mod_name prog first_expr
       in
-      let () = Printf.printf "ktype %s = %s\n%!" (Pprint.string_of_kexpression first_expr.v) (Pprint.string_of_ktype first_type) in
+      (* let () = Printf.printf "ktype %s = %s\n%!" (Pprint.string_of_kexpression first_expr.v) (Pprint.string_of_ktype first_type) in *)
       let parametrics_types = Type.extract_parametrics_ktype first_type in
       let ktype_def_path = Type.module_path_opt first_type |> Option.get in
       let ktype_name = Type.type_name_opt first_type |> Option.get in
@@ -320,7 +321,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         (parametrics_types |> List.map Position.value)
         field type_decl current_mod_name
       in
-      Printf.sprintf "ktype = %s" (Pprint.string_of_ktype ktype) |> prerr_endline;
+      (* Printf.sprintf "ktype = %s" (Pprint.string_of_ktype ktype) |> prerr_endline; *)
       ktype
   | EStruct { modules_path; struct_name; fields } ->
       let struct_decl =
