@@ -793,7 +793,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
           begin match identifier with
             | RAFVariable identifier ->
               add_statements_to_tac_body
-                (forward_push @ tac_stmts @ [STacModification { identifier; trvalue }] ) 
+                (forward_push @ tac_stmts @ [STacModification { identifier = fst identifier; trvalue }] ) 
                 body
           | RAFField {variable = identifier_root; fields} -> 
             add_statements_to_tac_body (forward_push @ tac_stmts @ [ STacModificationField {identifier_root; fields; trvalue}]) body
@@ -849,7 +849,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
           | RAFVariable identifier ->
           add_statements_to_tac_body
             (forward_declaration @ tac_stmts
-            @ [ STDerefAffectation { identifier; trvalue }
+            @ [ STDerefAffectation { identifier = fst identifier; trvalue }
               ])
             body
           | RAFField {variable = identifier_root; fields} -> 
@@ -893,8 +893,8 @@ and is_in_declaration id = function
   | STacDeclaration { identifier; trvalue = _ }
   | STacModification { identifier; trvalue = _ }
   | STDerefAffectation { identifier; trvalue = _ } 
-  | STacModificationField { identifier_root = identifier; _}
-  | STDerefAffectationField { identifier_root = identifier; _}
+  | STacModificationField { identifier_root = (identifier, _); _}
+  | STDerefAffectationField { identifier_root = (identifier, _); _}
   ->
       identifier = id
   | STWhile { statements_condition; loop_body; _ } ->

@@ -114,8 +114,8 @@ let rec string_of_rkbody = function
         (statements |> List.map string_of_rkstatement |> String.concat "\n\t  ")
         (string_of_typed_expression expr)
 and string_of_raffacted_value = function
-| RAFVariable s -> s
-| RAFField {variable; fields} -> sprintf "%s.%s" variable (fields |> String.concat ".")
+| RAFVariable (s, _) -> s
+| RAFField {variable = (variable, _); fields} -> sprintf "%s.%s" variable (fields |> String.concat ".")
 and string_of_rkstatement = function
   | RSDeclaration { is_const; variable_name; typed_expression } ->
       sprintf "%s %s : %s;"

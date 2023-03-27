@@ -1163,6 +1163,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
 
         (Line_Com (Comment "Defered Start") :: instructions :: true_instructions)
         @ [ Line_Com (Comment "Defered end") ]
+    | STacModificationField {identifier_root; fields; trvalue} -> 
+      failwith ""
+    | STDerefAffectationField {identifier_root; fields; trvalue} -> failwith ""
     | STWhile
         {
           statements_condition;
