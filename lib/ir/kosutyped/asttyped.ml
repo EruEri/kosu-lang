@@ -50,10 +50,15 @@ and rkstatement =
       variable_name : string;
       typed_expression : typed_expression;
     }
-  | RSAffection of string * typed_expression
+  | RSAffection of raffacted_value * typed_expression
   | RSDiscard of typed_expression
-  | RSDerefAffectation of string * typed_expression
-
+  | RSDerefAffectation of raffacted_value * typed_expression
+and raffacted_value = 
+  | RAFVariable of string
+  | RAFField of {
+    variable: string;
+    fields: string list
+  }
 and rkexpression =
   | REmpty
   | RTrue

@@ -1956,6 +1956,11 @@ module Affected_Value = struct
                   (parametrics_types_two |> List.map Position.value)
                   q type_decl_two current_mod_name program))
 
+  (**
+      
+    @raise ast_error if ktype is not a declared type or if try to access field of enum
+    @return ktype of the field
+  *)
   let field_type ktype current_mod_name program fields = 
     match Ast.Type.module_path_of_ktype_opt ktype with 
     | None -> failwith ""

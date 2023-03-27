@@ -204,7 +204,7 @@ and rkbody_of_kbody ~generics_resolver (env : Env.t) current_module
       (kexpression : kexpression Position.location) ) =
   let open Position in
   match kstatements with
-  | kstatement :: q -> (
+  | kstatement :: q -> begin
       match kstatement.v with
       | SDiscard expr ->
           let rktype =
@@ -248,11 +248,11 @@ and rkbody_of_kbody ~generics_resolver (env : Env.t) current_module
               { is_const; variable_name = variable_name.v; typed_expression }
             :: stmts_remains,
             future_expr )
-      | SAffection (variable, expression) ->
-          let var_kt =
-            env
-            |> Env.find_identifier_opt variable.v
-            |> Option.get |> Env.vi_ktype |> from_ktype
+      | SAffection ( AFVariable variable, expression) ->
+          let var_kt = 
+              env
+              |> Env.find_identifier_opt variable.v
+              |> Option.get |> Env.vi_ktype |> from_ktype
           in
           let typed_expression =
             typed_expression_of_kexpression ~generics_resolver env
@@ -262,9 +262,25 @@ and rkbody_of_kbody ~generics_resolver (env : Env.t) current_module
             rkbody_of_kbody ~generics_resolver env current_module program
               ~return_type (q, kexpression)
           in
-          ( RSAffection (variable.v, typed_expression) :: stmts_remains,
+          ( RSAffection ( RAFVariable variable.v, typed_expression) :: stmts_remains,
             future_expr )
-      | SDerefAffectation (id, expression) ->
+      | SAffection ( AFField {variable; fields}, expression ) -> 
+          let first_expr_type = env
+            |> Env.find_identifier_opt variable.v
+            |> Option.get |> Env.vi_ktype
+          in
+          let field_rktype =  Asthelper.Affected_Value.field_type first_expr_type  current_module program (variable::fields) |> from_ktype in
+          let typed_expression =
+            typed_expression_of_kexpression ~generics_resolver env
+              current_module program ~hint_type:field_rktype expression
+          in
+          let stmts_remains, future_expr =
+          rkbody_of_kbody ~generics_resolver env current_module program
+            ~return_type (q, kexpression)
+        in
+        ( RSAffection ( RAFField {variable = variable.v; fields = fields |> List.map Position.value}, typed_expression) :: stmts_remains,
+        future_expr )
+      | SDerefAffectation (AFVariable id, expression) ->
           let { is_const = _; ktype } =
             env |> Env.find_identifier_opt id.v |> Option.get
           in
@@ -278,16 +294,25 @@ and rkbody_of_kbody ~generics_resolver (env : Env.t) current_module
             rkbody_of_kbody ~generics_resolver env current_module program
               ~return_type (q, kexpression)
           in
-          ( RSDerefAffectation
-              ( id.v,
-                {
-                  rktype;
-                  rexpression =
-                    from_kexpression ~generics_resolver env current_module
-                      program ~hint_type:rktype expression.v;
-                } )
-            :: stmts_remains,
-            future_expr ))
+          let typed_expression = typed_expression_of_kexpression ~generics_resolver env current_module program ~hint_type:rktype expression in
+          ( RSDerefAffectation (RAFVariable id.v, typed_expression) :: stmts_remains, future_expr )
+       | SDerefAffectation (AFField {variable; fields}, expression) -> 
+        let { is_const = _; ktype } =
+          env |> Env.find_identifier_opt variable.v |> Option.get
+        in
+        let pointee_type =
+          Type.restrict_type (Type.pointee_fail ktype)
+            (expression
+            |> typeof ~generics_resolver env current_module program)
+        in
+        let field_rktype =  Asthelper.Affected_Value.field_type pointee_type current_module program (variable::fields) |> from_ktype in
+        let stmts_remains, future_expr =
+        rkbody_of_kbody ~generics_resolver env current_module program
+          ~return_type (q, kexpression)
+      in
+      let typed_expression = typed_expression_of_kexpression ~generics_resolver env current_module program ~hint_type:field_rktype expression in
+      ( RSDerefAffectation (RAFField {variable = variable.v; fields = fields |> List.map Position.value}, typed_expression):: stmts_remains, future_expr )
+    end
   | [] ->
       let rktype =
         match return_type with
@@ -447,7 +472,7 @@ and from_kexpression ~generics_resolver (env : Env.t) current_module program
       in
 
       let module_path, name =
-        expr_type |> Asthelper.module_path_of_ktype_opt |> Option.get
+        expr_type |> Ast.Type.module_path_of_ktype_opt |> Option.get
       in
       let enum_decl =
         match
