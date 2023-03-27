@@ -304,6 +304,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
       let first_type =
         typeof ~generics_resolver env current_mod_name prog first_expr
       in
+      let () = Printf.printf "ktype %s = %s\n%!" (Pprint.string_of_kexpression first_expr.v) (Pprint.string_of_ktype first_type) in
       let parametrics_types = Type.extract_parametrics_ktype first_type in
       let ktype_def_path = Type.module_path_opt first_type |> Option.get in
       let ktype_name = Type.type_name_opt first_type |> Option.get in
@@ -315,9 +316,12 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         | Error e -> e |> Ast.Error.ast_error |> raise
         | Ok type_decl -> type_decl
       in
-      Asthelper.Struct.resolve_fields_access_gen
+      let ktype = Asthelper.Struct.resolve_fields_access_gen
         (parametrics_types |> List.map Position.value)
         field type_decl current_mod_name
+      in
+      Printf.sprintf "ktype = %s" (Pprint.string_of_ktype ktype) |> prerr_endline;
+      ktype
   | EStruct { modules_path; struct_name; fields } ->
       let struct_decl =
         match
@@ -667,6 +671,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
             (* let () = Printf.printf "cm = %s, mp = %s fn return = %s\n" (current_mod_name) (modules_path.v) (Pprint.string_of_ktype kt) in *)
             kt
       | Ast.Function_Decl.Decl_External external_func_decl -> (
+          let generics = generics_resolver |> Hashtbl.to_seq_keys |> List.of_seq |> List.map Position.value in
           if external_func_decl.is_variadic then
             parameters
             |> List.map
@@ -674,7 +679,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                     (typeof ~generics_resolver env current_mod_name prog))
             |> List.map (fun t ->
                    if
-                     Asthelper.Program.is_c_type_from_ktype current_mod_name t.v
+                     Asthelper.Program.is_c_type_from_ktype ~generics current_mod_name t.v
                        prog
                    then t
                    else
@@ -704,9 +709,9 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
               |> List.combine external_func_decl.fn_parameters
               |> List.for_all (fun (para_type, init_type) ->
                      match
-                       ( Asthelper.Program.is_c_type_from_ktype current_mod_name
+                       ( Asthelper.Program.is_c_type_from_ktype ~generics current_mod_name
                            para_type.v prog,
-                         Asthelper.Program.is_c_type_from_ktype current_mod_name
+                         Asthelper.Program.is_c_type_from_ktype ~generics current_mod_name
                            init_type.v prog )
                      with
                      | true, true ->
@@ -756,9 +761,9 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                   zipped
                   |> List.for_all (fun (para_type, init_type) ->
                          match
-                           ( Asthelper.Program.is_c_type_from_ktype
+                           ( Asthelper.Program.is_c_type_from_ktype  ~generics
                                current_mod_name para_type.v prog,
-                             Asthelper.Program.is_c_type_from_ktype
+                             Asthelper.Program.is_c_type_from_ktype  ~generics
                                current_mod_name init_type.v prog )
                          with
                          | true, true ->
@@ -777,7 +782,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
                              |> func_error |> raise)
                 then
                   if
-                    Asthelper.Program.is_c_type_from_ktype current_mod_name
+                    Asthelper.Program.is_c_type_from_ktype  ~generics current_mod_name
                       external_func_decl.r_type.v prog
                   then external_func_decl.r_type.v
                   else
