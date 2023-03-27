@@ -161,7 +161,10 @@ module StringLitteral = struct
     match statement with
     | STacDeclaration { trvalue; _ }
     | STacModification { trvalue; _ }
-    | STDerefAffectation { trvalue; _ } ->
+    | STDerefAffectationField {trvalue; _}
+    | STacModificationField {trvalue; _}
+    | STDerefAffectation { trvalue; _ }
+     ->
         map_fill_string_lit_of_trvalue map trvalue.rvalue ()
     | STWhile
         {

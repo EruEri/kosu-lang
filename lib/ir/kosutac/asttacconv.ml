@@ -701,7 +701,7 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
     ?(function_return = false) ~rprogram (rkbody : rkbody) =
   let stmts, types_return = rkbody in
   match stmts with
-  | stmt :: q -> (
+  | stmt :: q -> begin
       match stmt with
       | RSDeclaration
           {
@@ -789,17 +789,15 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
               ~previous_alloc ~label_name ~map ~count_var ~if_count
               ~function_return ~rprogram (q, types_return)
           in
-          body
-          |> add_statements_to_tac_body
-               (forward_push @ tac_stmts
-               @ STacModification
-                   {
-                     identifier;
-                     trvalue =
-                       make_typed_tac_rvalue aff_typed_expr.rktype
-                         (RVExpression tac_expression);
-                   }
-                 :: [])
+          let trvalue = make_typed_tac_rvalue aff_typed_expr.rktype (RVExpression tac_expression) in
+          begin match identifier with
+            | RAFVariable identifier ->
+              add_statements_to_tac_body
+                (forward_push @ tac_stmts @ [STacModification { identifier; trvalue }] ) 
+                body
+          | RAFField {variable = identifier_root; fields} -> 
+            add_statements_to_tac_body (forward_push @ tac_stmts @ [ STacModificationField {identifier_root; fields; trvalue}]) body
+          end
       | RSDiscard discard_typed_expression ->
           let allocated, push_forward =
             create_forward_init ~map ~count_var ~rvalue:RVDiscard
@@ -846,17 +844,20 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
               ~label_name ~map ~count_var ~if_count ~cases_count ~rprogram
               ~function_return (q, types_return)
           in
+          let trvalue = make_typed_tac_rvalue deref_typed_expr.rktype (RVExpression tac_expression) in
+          begin match identifier with
+          | RAFVariable identifier ->
           add_statements_to_tac_body
             (forward_declaration @ tac_stmts
-            @ STDerefAffectation
-                {
-                  identifier;
-                  trvalue =
-                    make_typed_tac_rvalue deref_typed_expr.rktype
-                      (RVExpression tac_expression);
-                }
-              :: [])
-            body)
+            @ [ STDerefAffectation { identifier; trvalue }
+              ])
+            body
+          | RAFField {variable = identifier_root; fields} -> 
+            let defere_access = STDerefAffectationField {identifier_root; fields; trvalue} in
+            add_statements_to_tac_body (forward_declaration @ tac_stmts @ [defere_access]) body
+          end
+        end
+
   | [] ->
       let allocated, forward_push =
         create_forward_init ~map ~count_var types_return
@@ -891,7 +892,10 @@ let rec is_in_body id { label = _; body = stmts, _ } =
 and is_in_declaration id = function
   | STacDeclaration { identifier; trvalue = _ }
   | STacModification { identifier; trvalue = _ }
-  | STDerefAffectation { identifier; trvalue = _ } ->
+  | STDerefAffectation { identifier; trvalue = _ } 
+  | STacModificationField { identifier_root = identifier; _}
+  | STDerefAffectationField { identifier_root = identifier; _}
+  ->
       identifier = id
   | STWhile { statements_condition; loop_body; _ } ->
       statements_condition |> List.exists (is_in_declaration id)

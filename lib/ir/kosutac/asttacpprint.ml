@@ -65,8 +65,12 @@ and string_of_tac_statement = function
       sprintf "%s = %s" identifier (string_of_typed_tac_rvalue trvalue)
   | STacModification { identifier; trvalue } ->
       sprintf "%s <- %s" identifier (string_of_typed_tac_rvalue trvalue)
+  | STacModificationField {identifier_root; fields; trvalue} ->
+    sprintf "%s <- %s" (identifier_root::fields |> String.concat ", ") (string_of_typed_tac_rvalue trvalue)
   | STDerefAffectation { identifier; trvalue } ->
       sprintf "*%s <- %s" identifier (string_of_typed_tac_rvalue trvalue)
+  | STDerefAffectationField {identifier_root; fields; trvalue} -> 
+    sprintf "(*%s).%s <- %s" (identifier_root) (fields |> String.concat ".") (string_of_typed_tac_rvalue trvalue)
   | STWhile
       {
         statements_condition;
