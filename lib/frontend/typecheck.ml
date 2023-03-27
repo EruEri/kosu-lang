@@ -74,65 +74,126 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
               |> Env.add_variable (variable_name.v, { is_const; ktype = kt.v })
               )
               current_mod_name program ~return_type (q, final_expr)
-      | SAffection (variable, expr) -> (
-          match env |> Env.find_identifier_opt variable.v with
+      | SAffection (affected_value, expr) -> begin match affected_value with
+          | AFVariable variable -> begin match env |> Env.find_identifier_opt variable.v with
+            | None ->
+                raise
+                  (stmt_error (Ast.Error.Undefine_Identifier { name = variable }))
+            | Some { is_const; ktype } ->
+                if is_const then
+                  raise
+                    (stmt_error
+                      (Ast.Error.Reassign_Constante { name = variable }))
+                else
+                  let new_type =
+                    typeof ~generics_resolver env current_mod_name program expr
+                  in
+                  if not (Ast.Type.are_compatible_type new_type ktype) then
+                    raise
+                      (stmt_error
+                        (Ast.Error.Uncompatible_type_Assign
+                            {
+                              expected = ktype;
+                              found = expr |> Position.map (fun _ -> new_type);
+                            }))
+                  else
+                    typeof_kbody ~generics_resolver
+                      (env |> Env.restrict_variable_type variable.v new_type)
+                      current_mod_name program ~return_type (q, final_expr)
+                  end
+        | AFField {variable; fields} -> begin match env |> Env.find_identifier_opt variable.v with
           | None ->
-              raise
-                (stmt_error (Ast.Error.Undefine_Identifier { name = variable }))
+            raise
+              (stmt_error (Ast.Error.Undefine_Identifier { name = variable }))
           | Some { is_const; ktype } ->
               if is_const then
                 raise
                   (stmt_error
-                     (Ast.Error.Reassign_Constante { name = variable }))
-              else
-                let new_type =
-                  typeof ~generics_resolver env current_mod_name program expr
+                    (Ast.Error.Reassign_Constante { name = variable }))
+              else 
+                    let field_type = Asthelper.Affected_Value.field_type ktype current_mod_name program (variable::fields) in
+                    let new_type =
+                      typeof ~generics_resolver env current_mod_name program expr
+                    in
+                    if not (Ast.Type.are_compatible_type new_type field_type) then
+                      raise
+                        (stmt_error
+                          (Ast.Error.Uncompatible_type_Assign
+                              {
+                                expected = ktype;
+                                found = expr |> Position.map (fun _ -> new_type);
+                              }))
+                    else
+                      typeof_kbody ~generics_resolver
+                        (env |> Env.restrict_variable_type variable.v new_type)
+                        current_mod_name program ~return_type (q, final_expr)
+                
+          end
+        end
+      | SDerefAffectation (affected_value, expression) -> begin match affected_value with
+          | AFVariable id -> begin
+              match env |> Env.find_identifier_opt id.v with
+              | None ->
+                  Ast.Error.Undefine_Identifier { name = id } |> stmt_error |> raise
+              | Some { ktype; _ } ->
+                  let in_pointer_ktype =
+                    match ktype with
+                    | TPointer ktl -> ktl.v
+                    | _ ->
+                        Ast.Error.Dereference_No_pointer { name = id; ktype }
+                        |> stmt_error |> raise
+                  in
+                  let expr_ktype =
+                    expression
+                    |> Position.map_use
+                        (typeof ~generics_resolver env current_mod_name program)
+                  in
+                  if
+                    not
+                    @@ Ast.Type.are_compatible_type in_pointer_ktype
+                    @@ expr_ktype.v
+                  then
+                    Ast.Error.Dereference_Wrong_type
+                      {
+                        identifier = id;
+                        expected = in_pointer_ktype;
+                        found = expr_ktype;
+                      }
+                    |> stmt_error |> raise
+                  else
+                    typeof_kbody ~generics_resolver
+                      (env |> Env.restrict_variable_type id.v expr_ktype.v)
+                      current_mod_name program ~return_type (q, final_expr)
+            end
+            | AFField {variable; fields} -> begin 
+              match env |> Env.find_identifier_opt variable.v with
+              | None -> Ast.Error.Undefine_Identifier { name = variable } |> stmt_error |> raise
+              | Some { ktype; _ } ->
+                let in_pointer_ktype =
+                  match ktype with
+                  | TPointer ktl -> ktl.v
+                  | _ ->
+                      Ast.Error.Dereference_No_pointer { name = variable; ktype }
+                      |> stmt_error |> raise
                 in
-                if not (Ast.Type.are_compatible_type new_type ktype) then
-                  raise
-                    (stmt_error
-                       (Ast.Error.Uncompatible_type_Assign
-                          {
-                            expected = ktype;
-                            found = expr |> Position.map (fun _ -> new_type);
-                          }))
+                let field_type = Asthelper.Affected_Value.field_type in_pointer_ktype current_mod_name program (variable::fields) in
+                let expr_ktype =
+                  expression
+                  |> Position.map_use
+                      (typeof ~generics_resolver env current_mod_name program)
+                in
+                if
+                  not
+                  @@ Ast.Type.are_compatible_type field_type
+                  @@ expr_ktype.v
+                then failwith "TODO : Error with wrong field access type"
                 else
                   typeof_kbody ~generics_resolver
-                    (env |> Env.restrict_variable_type variable.v new_type)
-                    current_mod_name program ~return_type (q, final_expr))
-      | SDerefAffectation (id, expression) -> (
-          match env |> Env.find_identifier_opt id.v with
-          | None ->
-              Ast.Error.Undefine_Identifier { name = id } |> stmt_error |> raise
-          | Some { ktype; _ } ->
-              let in_pointer_ktype =
-                match ktype with
-                | TPointer ktl -> ktl.v
-                | _ ->
-                    Ast.Error.Dereference_No_pointer { name = id; ktype }
-                    |> stmt_error |> raise
-              in
-              let expr_ktype =
-                expression
-                |> Position.map_use
-                     (typeof ~generics_resolver env current_mod_name program)
-              in
-              if
-                not
-                @@ Ast.Type.are_compatible_type in_pointer_ktype
-                @@ expr_ktype.v
-              then
-                Ast.Error.Dereference_Wrong_type
-                  {
-                    identifier = id;
-                    expected = in_pointer_ktype;
-                    found = expr_ktype;
-                  }
-                |> stmt_error |> raise
-              else
-                typeof_kbody ~generics_resolver
-                  (env |> Env.restrict_variable_type id.v expr_ktype.v)
-                  current_mod_name program ~return_type (q, final_expr)))
+                    (env)
+                    current_mod_name program ~return_type (q, final_expr)
+      end 
+    end
+  )
   | [] -> (
       (* Printf.printf "Final expr\n"; *)
       let final_expr_type =
@@ -1484,7 +1545,7 @@ and typeof ~generics_resolver (env : Env.t) (current_mod_name : string)
         |> switch_error |> raise
       else
         let module_path, name =
-          expr_type |> Asthelper.module_path_of_ktype_opt |> function
+          expr_type |> Ast.Type.module_path_of_ktype_opt |> function
           | None ->
               Not_enum_type_in_switch_Expression
                 (expr |> Position.map (fun _ -> expr_type))

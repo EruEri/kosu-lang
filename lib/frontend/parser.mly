@@ -99,6 +99,13 @@ modul:
     | IDENT COLON x=located(X)  { x }
     // | x=located(X) { x }
 
+%inline affected_value:
+    | separated_nonempty_list(DOT, located(IDENT)) {
+        match $1 with
+        | [] -> failwith "unreachable"
+        | t::[] -> AFVariable t
+        | t::q -> AFField { variable = t; fields = q}
+    }
 
 module_nodes:
     | enum_decl { NEnum $1 }
@@ -225,8 +232,8 @@ statement:
             expression
         }
     }
-    | located(IDENT) EQUAL located(expr) SEMICOLON { SAffection ($1, $3 ) }
-    | preceded(MULT, located(IDENT)) EQUAL located(expr) SEMICOLON { SDerefAffectation($1, $3)}
+    | affected_value EQUAL located(expr) SEMICOLON { SAffection ($1, $3 ) }
+    | preceded(MULT, affected_value) EQUAL located(expr) SEMICOLON { SDerefAffectation($1, $3)}
     | DISCARD located(expr) SEMICOLON { SDiscard ($2) }
 ;;
 

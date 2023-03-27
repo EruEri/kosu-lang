@@ -294,7 +294,7 @@ modul: FUNCTION IDENT LPARENT RPARENT LBRACE MULT XOR
 ##
 ## Ends in an error in state: 87.
 ##
-## statement -> MULT . IDENT EQUAL expr SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
+## statement -> MULT . separated_nonempty_list(DOT,located(IDENT)) EQUAL expr SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
 ##
 ## The known suffix of the stack is as follows:
 ## MULT
@@ -306,29 +306,30 @@ modul: FUNCTION IDENT LPARENT RPARENT LBRACE MULT IDENT XOR
 ##
 ## Ends in an error in state: 88.
 ##
-## statement -> MULT IDENT . EQUAL expr SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
+## separated_nonempty_list(DOT,located(IDENT)) -> IDENT . [ EQUAL ]
+## separated_nonempty_list(DOT,located(IDENT)) -> IDENT . DOT separated_nonempty_list(DOT,located(IDENT)) [ EQUAL ]
 ##
 ## The known suffix of the stack is as follows:
-## MULT IDENT
+## IDENT
 ##
 
-Expecting "="
+Expecting "=" or "."
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE MULT IDENT EQUAL XOR
 ##
-## Ends in an error in state: 89.
+## Ends in an error in state: 92.
 ##
-## statement -> MULT IDENT EQUAL . expr SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
+## statement -> MULT separated_nonempty_list(DOT,located(IDENT)) EQUAL . expr SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
 ##
 ## The known suffix of the stack is as follows:
-## MULT IDENT EQUAL
+## MULT separated_nonempty_list(DOT,located(IDENT)) EQUAL
 ##
 
 Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH XOR
 ##
-## Ends in an error in state: 94.
+## Ends in an error in state: 97.
 ##
 ## expr -> SWITCH . LPARENT expr RPARENT LBRACE nonempty_list(__anonymous_17) option(__anonymous_18) RBRACE [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -340,7 +341,7 @@ Expecting "("
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT XOR
 ##
-## Ends in an error in state: 95.
+## Ends in an error in state: 98.
 ##
 ## expr -> SWITCH LPARENT . expr RPARENT LBRACE nonempty_list(__anonymous_17) option(__anonymous_18) RBRACE [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -352,7 +353,7 @@ Expecting "Switch expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SIZEOF XOR
 ##
-## Ends in an error in state: 96.
+## Ends in an error in state: 99.
 ##
 ## expr -> SIZEOF . LPARENT COLON expr RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> SIZEOF . LPARENT ktype RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -365,7 +366,7 @@ Expecting "("
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SIZEOF LPARENT XOR
 ##
-## Ends in an error in state: 97.
+## Ends in an error in state: 100.
 ##
 ## expr -> SIZEOF LPARENT . COLON expr RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> SIZEOF LPARENT . ktype RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -378,7 +379,7 @@ Expecting ":" or "Type identifier"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SIZEOF LPARENT COLON XOR
 ##
-## Ends in an error in state: 98.
+## Ends in an error in state: 101.
 ##
 ## expr -> SIZEOF LPARENT COLON . expr RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -390,7 +391,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL NOT XOR
 ##
-## Ends in an error in state: 100.
+## Ends in an error in state: 103.
 ##
 ## expr -> NOT . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -402,7 +403,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL MULT XOR
 ##
-## Ends in an error in state: 101.
+## Ends in an error in state: 104.
 ##
 ## nonempty_list(MULT) -> MULT . [ IDENT ]
 ## nonempty_list(MULT) -> MULT . nonempty_list(MULT) [ IDENT ]
@@ -415,7 +416,7 @@ Expecting "*" or "variable identifier"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL MINUS XOR
 ##
-## Ends in an error in state: 103.
+## Ends in an error in state: 106.
 ##
 ## expr -> MINUS . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -427,7 +428,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL LPARENT XOR
 ##
-## Ends in an error in state: 104.
+## Ends in an error in state: 107.
 ##
 ## expr -> LPARENT . loption(separated_nonempty_list(COMMA,located(expr))) RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -439,7 +440,7 @@ Expecting ")" or "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IF XOR
 ##
-## Ends in an error in state: 106.
+## Ends in an error in state: 109.
 ##
 ## expr -> IF . LPARENT expr RPARENT kbody ELSE kbody [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -451,7 +452,7 @@ Expecting "("
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IF LPARENT XOR
 ##
-## Ends in an error in state: 107.
+## Ends in an error in state: 110.
 ##
 ## expr -> IF LPARENT . expr RPARENT kbody ELSE kbody [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -463,7 +464,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL CASES XOR
 ##
-## Ends in an error in state: 111.
+## Ends in an error in state: 114.
 ##
 ## expr -> CASES . LBRACE nonempty_list(__anonymous_15) ELSE kbody RBRACE [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -475,7 +476,7 @@ Expecting "{"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL CASES LBRACE XOR
 ##
-## Ends in an error in state: 112.
+## Ends in an error in state: 115.
 ##
 ## expr -> CASES LBRACE . nonempty_list(__anonymous_15) ELSE kbody RBRACE [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -487,7 +488,7 @@ Expecting "of"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL CASES LBRACE OF XOR
 ##
-## Ends in an error in state: 113.
+## Ends in an error in state: 116.
 ##
 ## nonempty_list(__anonymous_15) -> OF . expr ARROWFUNC kbody [ ELSE ]
 ## nonempty_list(__anonymous_15) -> OF . expr ARROWFUNC kbody nonempty_list(__anonymous_15) [ ELSE ]
@@ -500,7 +501,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL BUILTIN XOR
 ##
-## Ends in an error in state: 114.
+## Ends in an error in state: 117.
 ##
 ## expr -> BUILTIN . LPARENT loption(separated_nonempty_list(COMMA,located(expr))) RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -512,7 +513,7 @@ Expecting "("
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL BUILTIN LPARENT XOR
 ##
-## Ends in an error in state: 115.
+## Ends in an error in state: 118.
 ##
 ## expr -> BUILTIN LPARENT . loption(separated_nonempty_list(COMMA,located(expr))) RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -524,7 +525,7 @@ Expecting "expression" or ")"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL AMPERSAND XOR
 ##
-## Ends in an error in state: 116.
+## Ends in an error in state: 119.
 ##
 ## expr -> AMPERSAND . IDENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -590,7 +591,7 @@ Expecting "variable identifier"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL DOT XOR
 ##
-## Ends in an error in state: 191.
+## Ends in an error in state: 194.
 ##
 ## expr -> loption(terminated(separated_nonempty_list(DOUBLECOLON,Module_IDENT),DOT)) enum_resolver . IDENT option(delimited(LPARENT,separated_nonempty_list(COMMA,located(expr)),RPARENT)) [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -602,7 +603,7 @@ Expecting "enum variant"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL DOT IDENT WILDCARD
 ##
-## Ends in an error in state: 192.
+## Ends in an error in state: 195.
 ##
 ## expr -> loption(terminated(separated_nonempty_list(DOUBLECOLON,Module_IDENT),DOT)) enum_resolver IDENT . option(delimited(LPARENT,separated_nonempty_list(COMMA,located(expr)),RPARENT)) [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -614,7 +615,7 @@ Expecting "(", "binary operator", "struct", "syscall", "enum", "struct", "fn"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL DOT IDENT LPARENT XOR
 ##
-## Ends in an error in state: 193.
+## Ends in an error in state: 196.
 ##
 ## option(delimited(LPARENT,separated_nonempty_list(COMMA,located(expr)),RPARENT)) -> LPARENT . separated_nonempty_list(COMMA,located(expr)) RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -624,57 +625,14 @@ modul: FUNCTION IDENT LPARENT RPARENT EQUAL DOT IDENT LPARENT XOR
 
 Expecting "expression"
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-modul: FUNCTION IDENT LPARENT RPARENT LBRACE IDENT XOR
-##
-## Ends in an error in state: 252.
-##
-## statement -> IDENT . EQUAL expr SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
-##
-## The known suffix of the stack is as follows:
-## IDENT
-##
-
-Expecting "="
-
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE IDENT EQUAL XOR
 ##
-## Ends in an error in state: 253.
+## Ends in an error in state: 261.
 ##
-## statement -> IDENT EQUAL . expr SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
+## statement -> separated_nonempty_list(DOT,located(IDENT)) EQUAL . expr SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
 ##
 ## The known suffix of the stack is as follows:
-## IDENT EQUAL
+## separated_nonempty_list(DOT,located(IDENT)) EQUAL
 ##
 
 Expecting "Function expression
@@ -682,7 +640,7 @@ Expecting "Function expression
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE DISCARD XOR
 ##
-## Ends in an error in state: 256.
+## Ends in an error in state: 255.
 ##
 ## statement -> DISCARD . expr SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
 ##
@@ -696,7 +654,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE CONST XOR
 ##
-## Ends in an error in state: 262.
+## Ends in an error in state: 265.
 ##
 ## statement -> declarer . IDENT option(__anonymous_9) EQUAL expr SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
 ##
@@ -708,7 +666,7 @@ Expecting "variable identifier"
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE CONST IDENT XOR
 ##
-## Ends in an error in state: 263.
+## Ends in an error in state: 266.
 ##
 ## statement -> declarer IDENT . option(__anonymous_9) EQUAL expr SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
 ##
@@ -720,7 +678,7 @@ Expecting ":" or "="
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE CONST IDENT COLON XOR
 ##
-## Ends in an error in state: 264.
+## Ends in an error in state: 267.
 ##
 ## option(__anonymous_9) -> COLON . ktype [ EQUAL ]
 ##
@@ -733,7 +691,7 @@ Expecting "Explicit Type"
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE CONST IDENT EQUAL XOR
 ##
-## Ends in an error in state: 267.
+## Ends in an error in state: 270.
 ##
 ## statement -> declarer IDENT option(__anonymous_9) EQUAL . expr SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
 ##
@@ -746,7 +704,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE DOLLAR XOR
 ##
-## Ends in an error in state: 271.
+## Ends in an error in state: 274.
 ##
 ## kbody -> LBRACE list(located(statement)) DOLLAR . expr RBRACE [ XOR WILDCARD SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR OF MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM ELSE DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -759,7 +717,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL XOR
 ##
-## Ends in an error in state: 274.
+## Ends in an error in state: 277.
 ##
 ## fun_kbody -> EQUAL . expr option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -772,7 +730,7 @@ Expecting "expression"
 
 modul: OPERATOR AMPERSAND XOR
 ##
-## Ends in an error in state: 283.
+## Ends in an error in state: 286.
 ##
 ## operator_decl -> OPERATOR binary_operator_symbol . LPARENT IDENT COLON ktype COMMA IDENT COLON ktype RPARENT ktype fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -784,7 +742,7 @@ Expecting "("
 
 modul: OPERATOR AMPERSAND LPARENT XOR
 ##
-## Ends in an error in state: 284.
+## Ends in an error in state: 287.
 ##
 ## operator_decl -> OPERATOR binary_operator_symbol LPARENT . IDENT COLON ktype COMMA IDENT COLON ktype RPARENT ktype fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -796,7 +754,7 @@ Expecting "identifier"
 
 modul: OPERATOR AMPERSAND LPARENT IDENT XOR
 ##
-## Ends in an error in state: 285.
+## Ends in an error in state: 288.
 ##
 ## operator_decl -> OPERATOR binary_operator_symbol LPARENT IDENT . COLON ktype COMMA IDENT COLON ktype RPARENT ktype fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -808,7 +766,7 @@ Expecting ":"
 
 modul: OPERATOR AMPERSAND LPARENT IDENT COLON XOR
 ##
-## Ends in an error in state: 286.
+## Ends in an error in state: 289.
 ##
 ## operator_decl -> OPERATOR binary_operator_symbol LPARENT IDENT COLON . ktype COMMA IDENT COLON ktype RPARENT ktype fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -827,7 +785,7 @@ Expecting "Type identifier"
 
 modul: FUNCTION XOR
 ##
-## Ends in an error in state: 295.
+## Ends in an error in state: 298.
 ##
 ## function_decl -> FUNCTION . IDENT option(__anonymous_11) LPARENT loption(separated_nonempty_list(COMMA,__anonymous_12)) RPARENT option(ktype) fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -839,7 +797,7 @@ Expecting "Function name"
 
 modul: FUNCTION IDENT XOR
 ##
-## Ends in an error in state: 296.
+## Ends in an error in state: 299.
 ##
 ## function_decl -> FUNCTION IDENT . option(__anonymous_11) LPARENT loption(separated_nonempty_list(COMMA,__anonymous_12)) RPARENT option(ktype) fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -851,7 +809,7 @@ Expecting "<" or "("
 
 modul: FUNCTION IDENT INF XOR
 ##
-## Ends in an error in state: 297.
+## Ends in an error in state: 300.
 ##
 ## option(__anonymous_11) -> INF . separated_nonempty_list(COMMA,__anonymous_10) SUP [ LPARENT ]
 ##
@@ -863,7 +821,7 @@ Expecting "Function generic identifier"
 
 modul: FUNCTION IDENT INF IDENT XOR
 ##
-## Ends in an error in state: 298.
+## Ends in an error in state: 301.
 ##
 ## separated_nonempty_list(COMMA,__anonymous_10) -> IDENT . [ SUP ]
 ## separated_nonempty_list(COMMA,__anonymous_10) -> IDENT . COMMA separated_nonempty_list(COMMA,__anonymous_10) [ SUP ]
@@ -876,7 +834,7 @@ Expecting ">" or ","
 
 modul: FUNCTION IDENT INF IDENT COMMA XOR
 ##
-## Ends in an error in state: 299.
+## Ends in an error in state: 302.
 ##
 ## separated_nonempty_list(COMMA,__anonymous_10) -> IDENT COMMA . separated_nonempty_list(COMMA,__anonymous_10) [ SUP ]
 ##
@@ -888,7 +846,7 @@ Expecting "Function generic identifier"
 
 modul: FUNCTION IDENT INF IDENT SUP XOR
 ##
-## Ends in an error in state: 303.
+## Ends in an error in state: 306.
 ##
 ## function_decl -> FUNCTION IDENT option(__anonymous_11) . LPARENT loption(separated_nonempty_list(COMMA,__anonymous_12)) RPARENT option(ktype) fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -900,7 +858,7 @@ Expecting "("
 
 modul: FUNCTION IDENT LPARENT XOR
 ##
-## Ends in an error in state: 304.
+## Ends in an error in state: 307.
 ##
 ## function_decl -> FUNCTION IDENT option(__anonymous_11) LPARENT . loption(separated_nonempty_list(COMMA,__anonymous_12)) RPARENT option(ktype) fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -912,7 +870,7 @@ Expecting ")" or "Parameter identifier"
 
 modul: FUNCTION IDENT LPARENT IDENT XOR
 ##
-## Ends in an error in state: 305.
+## Ends in an error in state: 308.
 ##
 ## separated_nonempty_list(COMMA,__anonymous_12) -> IDENT . COLON ktype [ RPARENT ]
 ## separated_nonempty_list(COMMA,__anonymous_12) -> IDENT . COLON ktype COMMA separated_nonempty_list(COMMA,__anonymous_12) [ RPARENT ]
@@ -925,7 +883,7 @@ Expecting ":"
 
 modul: FUNCTION IDENT LPARENT IDENT COLON XOR
 ##
-## Ends in an error in state: 306.
+## Ends in an error in state: 309.
 ##
 ## separated_nonempty_list(COMMA,__anonymous_12) -> IDENT COLON . ktype [ RPARENT ]
 ## separated_nonempty_list(COMMA,__anonymous_12) -> IDENT COLON . ktype COMMA separated_nonempty_list(COMMA,__anonymous_12) [ RPARENT ]
@@ -940,7 +898,7 @@ Expecting "Type"
 
 modul: FUNCTION IDENT LPARENT RPARENT XOR
 ##
-## Ends in an error in state: 312.
+## Ends in an error in state: 315.
 ##
 ## function_decl -> FUNCTION IDENT option(__anonymous_11) LPARENT loption(separated_nonempty_list(COMMA,__anonymous_12)) RPARENT . option(ktype) fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -953,7 +911,7 @@ Expecting "Return type", "=" or "{"
 
 modul: EXTERNAL XOR
 ##
-## Ends in an error in state: 316.
+## Ends in an error in state: 319.
 ##
 ## external_func_decl -> EXTERNAL . IDENT LPARENT loption(separated_nonempty_list(COMMA,typed_parameter_loc(ctype))) option(__anonymous_3) RPARENT option(ctype) option(__anonymous_4) option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -965,7 +923,7 @@ Expecting "identifier"
 
 modul: EXTERNAL IDENT XOR
 ##
-## Ends in an error in state: 317.
+## Ends in an error in state: 320.
 ##
 ## external_func_decl -> EXTERNAL IDENT . LPARENT loption(separated_nonempty_list(COMMA,typed_parameter_loc(ctype))) option(__anonymous_3) RPARENT option(ctype) option(__anonymous_4) option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -977,7 +935,7 @@ Expecting "("
 
 modul: EXTERNAL IDENT LPARENT XOR
 ##
-## Ends in an error in state: 318.
+## Ends in an error in state: 321.
 ##
 ## external_func_decl -> EXTERNAL IDENT LPARENT . loption(separated_nonempty_list(COMMA,typed_parameter_loc(ctype))) option(__anonymous_3) RPARENT option(ctype) option(__anonymous_4) option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -989,7 +947,7 @@ Expecting "_" or "parameter name"
 
 modul: EXTERNAL IDENT LPARENT SEMICOLON XOR
 ##
-## Ends in an error in state: 320.
+## Ends in an error in state: 323.
 ##
 ## option(__anonymous_3) -> SEMICOLON . TRIPLEDOT [ RPARENT ]
 ##
@@ -1001,7 +959,7 @@ Expecting "..."
 
 modul: EXTERNAL IDENT LPARENT SEMICOLON TRIPLEDOT XOR
 ##
-## Ends in an error in state: 322.
+## Ends in an error in state: 325.
 ##
 ## external_func_decl -> EXTERNAL IDENT LPARENT loption(separated_nonempty_list(COMMA,typed_parameter_loc(ctype))) option(__anonymous_3) . RPARENT option(ctype) option(__anonymous_4) option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -1013,7 +971,7 @@ Expecting ")"
 
 modul: EXTERNAL IDENT LPARENT RPARENT XOR
 ##
-## Ends in an error in state: 323.
+## Ends in an error in state: 326.
 ##
 ## external_func_decl -> EXTERNAL IDENT LPARENT loption(separated_nonempty_list(COMMA,typed_parameter_loc(ctype))) option(__anonymous_3) RPARENT . option(ctype) option(__anonymous_4) option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -1026,7 +984,7 @@ Expecting "Return type", ";" or "="
 
 modul: EXTERNAL IDENT LPARENT RPARENT EQUAL XOR
 ##
-## Ends in an error in state: 325.
+## Ends in an error in state: 328.
 ##
 ## option(__anonymous_4) -> EQUAL . String_lit [ SYSCALL STRUCT SEMICOLON OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -1038,7 +996,7 @@ Expecting "C function name"
 
 modul: EXTERNAL IDENT LPARENT RPARENT EQUAL String_lit XOR
 ##
-## Ends in an error in state: 327.
+## Ends in an error in state: 330.
 ##
 ## external_func_decl -> EXTERNAL IDENT LPARENT loption(separated_nonempty_list(COMMA,typed_parameter_loc(ctype))) option(__anonymous_3) RPARENT option(ctype) option(__anonymous_4) . option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -1052,7 +1010,7 @@ Expecting ";"
 
 modul: ENUM XOR
 ##
-## Ends in an error in state: 329.
+## Ends in an error in state: 332.
 ##
 ## enum_decl -> ENUM . IDENT option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) LBRACE loption(separated_nonempty_list(COMMA,enum_assoc)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -1064,7 +1022,7 @@ Expecting "Enum name"
 
 modul: ENUM IDENT XOR
 ##
-## Ends in an error in state: 330.
+## Ends in an error in state: 333.
 ##
 ## enum_decl -> ENUM IDENT . option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) LBRACE loption(separated_nonempty_list(COMMA,enum_assoc)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -1077,7 +1035,7 @@ Expecting "(" or "{"
 
 modul: ENUM IDENT LBRACE XOR
 ##
-## Ends in an error in state: 332.
+## Ends in an error in state: 335.
 ##
 ## enum_decl -> ENUM IDENT option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) LBRACE . loption(separated_nonempty_list(COMMA,enum_assoc)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -1089,7 +1047,7 @@ Expecting "variant name" or "}"
 
 modul: ENUM IDENT LBRACE IDENT XOR
 ##
-## Ends in an error in state: 333.
+## Ends in an error in state: 336.
 ##
 ## enum_assoc -> IDENT . option(__anonymous_0) [ RBRACE COMMA ]
 ##
@@ -1101,7 +1059,7 @@ Expecting "(", "}" or ","
 
 modul: ENUM IDENT LBRACE IDENT LPARENT XOR
 ##
-## Ends in an error in state: 334.
+## Ends in an error in state: 337.
 ##
 ## option(__anonymous_0) -> LPARENT . separated_nonempty_list(COMMA,located(ktype)) RPARENT [ RBRACE COMMA ]
 ##
@@ -1115,7 +1073,7 @@ Expecting "Type"
 
 modul: ENUM IDENT LBRACE IDENT COMMA XOR
 ##
-## Ends in an error in state: 342.
+## Ends in an error in state: 345.
 ##
 ## separated_nonempty_list(COMMA,enum_assoc) -> enum_assoc COMMA . separated_nonempty_list(COMMA,enum_assoc) [ RBRACE ]
 ##
@@ -1127,7 +1085,7 @@ Expecting "variant name"
 
 modul: CONST XOR
 ##
-## Ends in an error in state: 344.
+## Ends in an error in state: 347.
 ##
 ## const_decl -> CONST . Constant EQUAL Integer_lit option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ## const_decl -> CONST . Constant EQUAL String_lit option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
@@ -1141,7 +1099,7 @@ Expecting "Constant name"
 
 modul: CONST Constant XOR
 ##
-## Ends in an error in state: 345.
+## Ends in an error in state: 348.
 ##
 ## const_decl -> CONST Constant . EQUAL Integer_lit option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ## const_decl -> CONST Constant . EQUAL String_lit option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
@@ -1155,7 +1113,7 @@ Expecting "="
 
 modul: CONST Constant EQUAL XOR
 ##
-## Ends in an error in state: 346.
+## Ends in an error in state: 349.
 ##
 ## const_decl -> CONST Constant EQUAL . Integer_lit option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ## const_decl -> CONST Constant EQUAL . String_lit option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
@@ -1169,7 +1127,7 @@ Expecting "Integer", "Float" or "String"
 
 modul: CONST Constant EQUAL String_lit XOR
 ##
-## Ends in an error in state: 347.
+## Ends in an error in state: 350.
 ##
 ## const_decl -> CONST Constant EQUAL String_lit . option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -1181,7 +1139,7 @@ Expecting ";"
 
 modul: CONST Constant EQUAL Integer_lit XOR
 ##
-## Ends in an error in state: 349.
+## Ends in an error in state: 352.
 ##
 ## const_decl -> CONST Constant EQUAL Integer_lit . option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -1193,7 +1151,7 @@ Expecting ";"
 
 modul: CONST Constant EQUAL Float_lit XOR
 ##
-## Ends in an error in state: 351.
+## Ends in an error in state: 354.
 ##
 ## const_decl -> CONST Constant EQUAL Float_lit . option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -1205,7 +1163,7 @@ Expecting ";"
 
 modul: ENUM IDENT LBRACE RBRACE XOR
 ##
-## Ends in an error in state: 356.
+## Ends in an error in state: 359.
 ##
 ## list(module_nodes) -> module_nodes . list(module_nodes) [ EOF ]
 ##
@@ -1276,7 +1234,7 @@ Expecting "{"
 
 modul: ENUM IDENT LPARENT IDENT RPARENT XOR
 ##
-## Ends in an error in state: 331.
+## Ends in an error in state: 334.
 ##
 ## enum_decl -> ENUM IDENT option(delimited(LPARENT,separated_nonempty_list(COMMA,located(IDENT)),RPARENT)) . LBRACE loption(separated_nonempty_list(COMMA,enum_assoc)) RBRACE [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -1338,7 +1296,7 @@ Expecting "C type"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY XOR XOR
 ##
-## Ends in an error in state: 130.
+## Ends in an error in state: 133.
 ##
 ## expr -> expr XOR . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1350,7 +1308,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY XOR EMPTY WILDCARD
 ##
-## Ends in an error in state: 131.
+## Ends in an error in state: 134.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -1382,7 +1340,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY SUPEQ XOR
 ##
-## Ends in an error in state: 132.
+## Ends in an error in state: 135.
 ##
 ## expr -> expr SUPEQ . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1394,7 +1352,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY SUPEQ EMPTY WILDCARD
 ##
-## Ends in an error in state: 133.
+## Ends in an error in state: 136.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -1426,7 +1384,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY SHIFTRIGHT XOR
 ##
-## Ends in an error in state: 134.
+## Ends in an error in state: 137.
 ##
 ## expr -> expr SHIFTRIGHT . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1438,7 +1396,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY SHIFTRIGHT EMPTY WILDCARD
 ##
-## Ends in an error in state: 135.
+## Ends in an error in state: 138.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -1470,7 +1428,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY PLUS XOR
 ##
-## Ends in an error in state: 136.
+## Ends in an error in state: 139.
 ##
 ## expr -> expr PLUS . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1482,7 +1440,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY PLUS EMPTY WILDCARD
 ##
-## Ends in an error in state: 137.
+## Ends in an error in state: 140.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr PLUS expr . [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -1514,7 +1472,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY MULT XOR
 ##
-## Ends in an error in state: 138.
+## Ends in an error in state: 141.
 ##
 ## expr -> expr MULT . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1526,7 +1484,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY MULT EMPTY WILDCARD
 ##
-## Ends in an error in state: 139.
+## Ends in an error in state: 142.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -1558,7 +1516,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY DOT XOR
 ##
-## Ends in an error in state: 140.
+## Ends in an error in state: 143.
 ##
 ## expr -> expr DOT . IDENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1570,7 +1528,7 @@ Expecting "field name"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY MOD XOR
 ##
-## Ends in an error in state: 142.
+## Ends in an error in state: 145.
 ##
 ## expr -> expr MOD . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1582,7 +1540,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY MOD EMPTY WILDCARD
 ##
-## Ends in an error in state: 143.
+## Ends in an error in state: 146.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -1614,7 +1572,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY DIV XOR
 ##
-## Ends in an error in state: 144.
+## Ends in an error in state: 147.
 ##
 ## expr -> expr DIV . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1626,7 +1584,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY DIV EMPTY WILDCARD
 ##
-## Ends in an error in state: 145.
+## Ends in an error in state: 148.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -1658,7 +1616,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY MINUS XOR
 ##
-## Ends in an error in state: 146.
+## Ends in an error in state: 149.
 ##
 ## expr -> expr MINUS . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1670,7 +1628,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY MINUS EMPTY WILDCARD
 ##
-## Ends in an error in state: 147.
+## Ends in an error in state: 150.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -1702,7 +1660,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY SHIFTLEFT XOR
 ##
-## Ends in an error in state: 148.
+## Ends in an error in state: 151.
 ##
 ## expr -> expr SHIFTLEFT . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1714,7 +1672,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY SHIFTLEFT EMPTY WILDCARD
 ##
-## Ends in an error in state: 149.
+## Ends in an error in state: 152.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -1746,7 +1704,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY SUP XOR
 ##
-## Ends in an error in state: 150.
+## Ends in an error in state: 153.
 ##
 ## expr -> expr SUP . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1758,7 +1716,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY SUP EMPTY WILDCARD
 ##
-## Ends in an error in state: 151.
+## Ends in an error in state: 154.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -1790,7 +1748,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY INFEQ XOR
 ##
-## Ends in an error in state: 152.
+## Ends in an error in state: 155.
 ##
 ## expr -> expr INFEQ . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1802,7 +1760,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY INFEQ EMPTY WILDCARD
 ##
-## Ends in an error in state: 153.
+## Ends in an error in state: 156.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -1834,7 +1792,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY INF XOR
 ##
-## Ends in an error in state: 154.
+## Ends in an error in state: 157.
 ##
 ## expr -> expr INF . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1846,7 +1804,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY INF EMPTY WILDCARD
 ##
-## Ends in an error in state: 155.
+## Ends in an error in state: 158.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -1878,7 +1836,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY DOUBLEQUAL XOR
 ##
-## Ends in an error in state: 156.
+## Ends in an error in state: 159.
 ##
 ## expr -> expr DOUBLEQUAL . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1890,7 +1848,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY DOUBLEQUAL EMPTY WILDCARD
 ##
-## Ends in an error in state: 157.
+## Ends in an error in state: 160.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -1922,7 +1880,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY DIF XOR
 ##
-## Ends in an error in state: 158.
+## Ends in an error in state: 161.
 ##
 ## expr -> expr DIF . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1934,7 +1892,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY DIF EMPTY WILDCARD
 ##
-## Ends in an error in state: 159.
+## Ends in an error in state: 162.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -1966,7 +1924,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY AMPERSAND XOR
 ##
-## Ends in an error in state: 160.
+## Ends in an error in state: 163.
 ##
 ## expr -> expr AMPERSAND . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -1978,7 +1936,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY AMPERSAND EMPTY WILDCARD
 ##
-## Ends in an error in state: 161.
+## Ends in an error in state: 164.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -2010,7 +1968,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY PIPESUP XOR
 ##
-## Ends in an error in state: 162.
+## Ends in an error in state: 165.
 ##
 ## expr -> expr PIPESUP . function_call [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -2028,7 +1986,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL LPARENT EMPTY SYSCALL
 ##
-## Ends in an error in state: 173.
+## Ends in an error in state: 176.
 ##
 ## expr -> expr . PLUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT RPARENT PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF COMMA AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT RPARENT PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF COMMA AND AMPERSAND ]
@@ -2061,7 +2019,7 @@ Expecting "binary operator", "," or ")"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY PIPE XOR
 ##
-## Ends in an error in state: 174.
+## Ends in an error in state: 177.
 ##
 ## expr -> expr PIPE . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -2073,7 +2031,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY PIPE EMPTY WILDCARD
 ##
-## Ends in an error in state: 175.
+## Ends in an error in state: 178.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -2105,7 +2063,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY OR XOR
 ##
-## Ends in an error in state: 176.
+## Ends in an error in state: 179.
 ##
 ## expr -> expr OR . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -2117,7 +2075,7 @@ Expecting
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY OR EMPTY WILDCARD
 ##
-## Ends in an error in state: 177.
+## Ends in an error in state: 180.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -2149,7 +2107,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY AND XOR
 ##
-## Ends in an error in state: 178.
+## Ends in an error in state: 181.
 ##
 ## expr -> expr AND . expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -2161,7 +2119,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY AND EMPTY WILDCARD
 ##
-## Ends in an error in state: 179.
+## Ends in an error in state: 182.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -2193,7 +2151,7 @@ Expecting "binary operator", "new statement" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL LPARENT EMPTY COMMA XOR
 ##
-## Ends in an error in state: 180.
+## Ends in an error in state: 183.
 ##
 ## separated_nonempty_list(COMMA,located(expr)) -> expr COMMA . separated_nonempty_list(COMMA,located(expr)) [ RPARENT ]
 ##
@@ -2210,7 +2168,7 @@ Expecting "expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL CASES LBRACE OF EMPTY SYSCALL
 ##
-## Ends in an error in state: 199.
+## Ends in an error in state: 202.
 ##
 ## expr -> expr . PLUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF ARROWFUNC AND AMPERSAND ]
@@ -2243,7 +2201,7 @@ Expecting "binary operator" or " =>
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL CASES LBRACE OF EMPTY ARROWFUNC XOR
 ##
-## Ends in an error in state: 200.
+## Ends in an error in state: 203.
 ##
 ## nonempty_list(__anonymous_15) -> OF expr ARROWFUNC . kbody [ ELSE ]
 ## nonempty_list(__anonymous_15) -> OF expr ARROWFUNC . kbody nonempty_list(__anonymous_15) [ ELSE ]
@@ -2256,7 +2214,7 @@ Expecting "{"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL CASES LBRACE OF EMPTY ARROWFUNC LBRACE DOLLAR EMPTY RBRACE XOR
 ##
-## Ends in an error in state: 201.
+## Ends in an error in state: 204.
 ##
 ## nonempty_list(__anonymous_15) -> OF expr ARROWFUNC kbody . [ ELSE ]
 ## nonempty_list(__anonymous_15) -> OF expr ARROWFUNC kbody . nonempty_list(__anonymous_15) [ ELSE ]
@@ -2269,7 +2227,7 @@ Expecting "else" or "of"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL CASES LBRACE OF EMPTY ARROWFUNC LBRACE DOLLAR EMPTY RBRACE ELSE XOR
 ##
-## Ends in an error in state: 204.
+## Ends in an error in state: 207.
 ##
 ## expr -> CASES LBRACE nonempty_list(__anonymous_15) ELSE . kbody RBRACE [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -2281,7 +2239,7 @@ Expecting "{"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL CASES LBRACE OF EMPTY ARROWFUNC LBRACE DOLLAR EMPTY RBRACE ELSE LBRACE DOLLAR EMPTY RBRACE XOR
 ##
-## Ends in an error in state: 205.
+## Ends in an error in state: 208.
 ##
 ## expr -> CASES LBRACE nonempty_list(__anonymous_15) ELSE kbody . RBRACE [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -2293,7 +2251,7 @@ Expecting "}"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IF LPARENT EMPTY SYSCALL
 ##
-## Ends in an error in state: 207.
+## Ends in an error in state: 210.
 ##
 ## expr -> expr . PLUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT RPARENT PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT RPARENT PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
@@ -2325,7 +2283,7 @@ Expecting "binary operator", "." or ")"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IF LPARENT EMPTY RPARENT XOR
 ##
-## Ends in an error in state: 208.
+## Ends in an error in state: 211.
 ##
 ## expr -> IF LPARENT expr RPARENT . kbody ELSE kbody [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -2337,7 +2295,7 @@ Expecting "{"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IF LPARENT EMPTY RPARENT LBRACE DOLLAR EMPTY RBRACE XOR
 ##
-## Ends in an error in state: 209.
+## Ends in an error in state: 212.
 ##
 ## expr -> IF LPARENT expr RPARENT kbody . ELSE kbody [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -2349,7 +2307,7 @@ Expecting "else"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IF LPARENT EMPTY RPARENT LBRACE DOLLAR EMPTY RBRACE ELSE XOR
 ##
-## Ends in an error in state: 210.
+## Ends in an error in state: 213.
 ##
 ## expr -> IF LPARENT expr RPARENT kbody ELSE . kbody [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -2361,7 +2319,7 @@ Expecting "{"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL MINUS EMPTY WILDCARD
 ##
-## Ends in an error in state: 214.
+## Ends in an error in state: 217.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -2393,7 +2351,7 @@ Expecting "binary operator" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL NOT EMPTY WILDCARD
 ##
-## Ends in an error in state: 215.
+## Ends in an error in state: 218.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -2425,7 +2383,7 @@ Expecting "binary operator" or "end of function"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SIZEOF LPARENT COLON EMPTY SYSCALL
 ##
-## Ends in an error in state: 216.
+## Ends in an error in state: 219.
 ##
 ## expr -> SIZEOF LPARENT COLON expr . RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . PLUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT RPARENT PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
@@ -2458,7 +2416,7 @@ Expecting "binary operator" or ")"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY SYSCALL
 ##
-## Ends in an error in state: 220.
+## Ends in an error in state: 223.
 ##
 ## expr -> expr . PLUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT RPARENT PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT RPARENT PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
@@ -2490,7 +2448,7 @@ Expecting "binary operator" or "("
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT XOR
 ##
-## Ends in an error in state: 221.
+## Ends in an error in state: 224.
 ##
 ## expr -> SWITCH LPARENT expr RPARENT . LBRACE nonempty_list(__anonymous_17) option(__anonymous_18) RBRACE [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -2502,7 +2460,7 @@ Expecting "("
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE XOR
 ##
-## Ends in an error in state: 222.
+## Ends in an error in state: 225.
 ##
 ## expr -> SWITCH LPARENT expr RPARENT LBRACE . nonempty_list(__anonymous_17) option(__anonymous_18) RBRACE [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -2514,7 +2472,7 @@ Expecting "." or "_"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE DOT XOR
 ##
-## Ends in an error in state: 223.
+## Ends in an error in state: 226.
 ##
 ## s_case -> DOT . IDENT [ PIPE ARROWFUNC ]
 ## s_case -> DOT . IDENT LPARENT separated_nonempty_list(COMMA,__anonymous_19) RPARENT [ PIPE ARROWFUNC ]
@@ -2527,7 +2485,7 @@ Expecting "identifier"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE DOT IDENT XOR
 ##
-## Ends in an error in state: 224.
+## Ends in an error in state: 227.
 ##
 ## s_case -> DOT IDENT . [ PIPE ARROWFUNC ]
 ## s_case -> DOT IDENT . LPARENT separated_nonempty_list(COMMA,__anonymous_19) RPARENT [ PIPE ARROWFUNC ]
@@ -2540,7 +2498,7 @@ Expecting "|" or "("
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE DOT IDENT LPARENT XOR
 ##
-## Ends in an error in state: 225.
+## Ends in an error in state: 228.
 ##
 ## s_case -> DOT IDENT LPARENT . separated_nonempty_list(COMMA,__anonymous_19) RPARENT [ PIPE ARROWFUNC ]
 ##
@@ -2552,7 +2510,7 @@ Expecting "identifier"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE DOT IDENT LPARENT WILDCARD XOR
 ##
-## Ends in an error in state: 226.
+## Ends in an error in state: 229.
 ##
 ## separated_nonempty_list(COMMA,__anonymous_19) -> WILDCARD . [ RPARENT ]
 ## separated_nonempty_list(COMMA,__anonymous_19) -> WILDCARD . COMMA separated_nonempty_list(COMMA,__anonymous_19) [ RPARENT ]
@@ -2565,7 +2523,7 @@ Expecting ")" or ","
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE DOT IDENT LPARENT WILDCARD COMMA XOR
 ##
-## Ends in an error in state: 227.
+## Ends in an error in state: 230.
 ##
 ## separated_nonempty_list(COMMA,__anonymous_19) -> WILDCARD COMMA . separated_nonempty_list(COMMA,__anonymous_19) [ RPARENT ]
 ##
@@ -2577,7 +2535,7 @@ Expecting "idenfier ?? to check"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE DOT IDENT LPARENT IDENT XOR
 ##
-## Ends in an error in state: 228.
+## Ends in an error in state: 231.
 ##
 ## separated_nonempty_list(COMMA,__anonymous_19) -> IDENT . [ RPARENT ]
 ## separated_nonempty_list(COMMA,__anonymous_19) -> IDENT . COMMA separated_nonempty_list(COMMA,__anonymous_19) [ RPARENT ]
@@ -2590,7 +2548,7 @@ Expecting ")" or ","
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE DOT IDENT LPARENT IDENT COMMA XOR
 ##
-## Ends in an error in state: 229.
+## Ends in an error in state: 232.
 ##
 ## separated_nonempty_list(COMMA,__anonymous_19) -> IDENT COMMA . separated_nonempty_list(COMMA,__anonymous_19) [ RPARENT ]
 ##
@@ -2602,7 +2560,7 @@ Expecting "identifier"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE DOT IDENT ARROWFUNC XOR
 ##
-## Ends in an error in state: 235.
+## Ends in an error in state: 238.
 ##
 ## nonempty_list(__anonymous_17) -> separated_nonempty_list(PIPE,s_case) ARROWFUNC . kbody [ WILDCARD RBRACE ]
 ## nonempty_list(__anonymous_17) -> separated_nonempty_list(PIPE,s_case) ARROWFUNC . kbody nonempty_list(__anonymous_17) [ WILDCARD RBRACE ]
@@ -2615,7 +2573,7 @@ Expecting "{"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE DOT IDENT ARROWFUNC LBRACE DOLLAR EMPTY RBRACE XOR
 ##
-## Ends in an error in state: 236.
+## Ends in an error in state: 239.
 ##
 ## nonempty_list(__anonymous_17) -> separated_nonempty_list(PIPE,s_case) ARROWFUNC kbody . [ WILDCARD RBRACE ]
 ## nonempty_list(__anonymous_17) -> separated_nonempty_list(PIPE,s_case) ARROWFUNC kbody . nonempty_list(__anonymous_17) [ WILDCARD RBRACE ]
@@ -2628,7 +2586,7 @@ Expecting "_" or "|"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE DOT IDENT LPARENT IDENT RPARENT XOR
 ##
-## Ends in an error in state: 237.
+## Ends in an error in state: 240.
 ##
 ## separated_nonempty_list(PIPE,s_case) -> s_case . [ ARROWFUNC ]
 ## separated_nonempty_list(PIPE,s_case) -> s_case . PIPE separated_nonempty_list(PIPE,s_case) [ ARROWFUNC ]
@@ -2641,7 +2599,7 @@ Expecting "|" or "=>"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE DOT IDENT PIPE XOR
 ##
-## Ends in an error in state: 238.
+## Ends in an error in state: 241.
 ##
 ## separated_nonempty_list(PIPE,s_case) -> s_case PIPE . separated_nonempty_list(PIPE,s_case) [ ARROWFUNC ]
 ##
@@ -2653,7 +2611,7 @@ Expecting ".`case name`"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE DOT IDENT ARROWFUNC LBRACE DOLLAR EMPTY RBRACE WILDCARD XOR
 ##
-## Ends in an error in state: 242.
+## Ends in an error in state: 245.
 ##
 ## option(__anonymous_18) -> WILDCARD . ARROWFUNC kbody [ RBRACE ]
 ##
@@ -2665,7 +2623,7 @@ Expecting "=>"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE DOT IDENT ARROWFUNC LBRACE DOLLAR EMPTY RBRACE WILDCARD ARROWFUNC XOR
 ##
-## Ends in an error in state: 243.
+## Ends in an error in state: 246.
 ##
 ## option(__anonymous_18) -> WILDCARD ARROWFUNC . kbody [ RBRACE ]
 ##
@@ -2677,7 +2635,7 @@ Expecting "{"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SWITCH LPARENT EMPTY RPARENT LBRACE DOT IDENT ARROWFUNC LBRACE DOLLAR EMPTY RBRACE WILDCARD ARROWFUNC LBRACE DOLLAR EMPTY RBRACE XOR
 ##
-## Ends in an error in state: 245.
+## Ends in an error in state: 248.
 ##
 ## expr -> SWITCH LPARENT expr RPARENT LBRACE nonempty_list(__anonymous_17) option(__anonymous_18) . RBRACE [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -2689,7 +2647,7 @@ Expecting "}"
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE MULT IDENT EQUAL EMPTY SYSCALL
 ##
-## Ends in an error in state: 250.
+## Ends in an error in state: 253.
 ##
 ## expr -> expr . PLUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
@@ -2711,17 +2669,17 @@ modul: FUNCTION IDENT LPARENT RPARENT LBRACE MULT IDENT EQUAL EMPTY SYSCALL
 ## expr -> expr . DIF expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
 ## expr -> expr . DOT IDENT [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
 ## expr -> expr . PIPESUP function_call [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
-## statement -> MULT IDENT EQUAL expr . SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
+## statement -> MULT separated_nonempty_list(DOT,located(IDENT)) EQUAL expr . SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
 ##
 ## The known suffix of the stack is as follows:
-## MULT IDENT EQUAL expr
+## MULT separated_nonempty_list(DOT,located(IDENT)) EQUAL expr
 ##
 
 Expecting "binary operator" or ";"
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE IDENT EQUAL EMPTY SYSCALL
 ##
-## Ends in an error in state: 254.
+## Ends in an error in state: 262.
 ##
 ## expr -> expr . PLUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
@@ -2743,17 +2701,17 @@ modul: FUNCTION IDENT LPARENT RPARENT LBRACE IDENT EQUAL EMPTY SYSCALL
 ## expr -> expr . DIF expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
 ## expr -> expr . DOT IDENT [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
 ## expr -> expr . PIPESUP function_call [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
-## statement -> IDENT EQUAL expr . SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
+## statement -> separated_nonempty_list(DOT,located(IDENT)) EQUAL expr . SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
 ##
 ## The known suffix of the stack is as follows:
-## IDENT EQUAL expr
+## separated_nonempty_list(DOT,located(IDENT)) EQUAL expr
 ##
 
 Expecting "binary operator" or 
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE DISCARD EMPTY SYSCALL
 ##
-## Ends in an error in state: 257.
+## Ends in an error in state: 256.
 ##
 ## expr -> expr . PLUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
@@ -2786,7 +2744,7 @@ Hint: Maybe you have forgotten the ";"
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE DISCARD EMPTY SEMICOLON XOR
 ##
-## Ends in an error in state: 260.
+## Ends in an error in state: 259.
 ##
 ## list(located(statement)) -> statement . list(located(statement)) [ DOLLAR ]
 ##
@@ -2799,7 +2757,7 @@ Expecting "const", "*", "identifier" or "var
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE CONST IDENT EQUAL EMPTY SYSCALL
 ##
-## Ends in an error in state: 268.
+## Ends in an error in state: 271.
 ##
 ## expr -> expr . PLUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
@@ -2832,7 +2790,7 @@ Hint: Maybe you have forgotten the ";"
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE DOLLAR EMPTY SYSCALL
 ##
-## Ends in an error in state: 272.
+## Ends in an error in state: 275.
 ##
 ## expr -> expr . PLUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT RBRACE PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT RBRACE PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
@@ -2864,7 +2822,7 @@ Expecting "binary operator" or "}"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL EMPTY RPARENT
 ##
-## Ends in an error in state: 275.
+## Ends in an error in state: 278.
 ##
 ## expr -> expr . PLUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST AND AMPERSAND ]
@@ -3274,7 +3232,7 @@ Expecting "=" or "{"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL Module_IDENT DOT XOR
 ##
-## Ends in an error in state: 121.
+## Ends in an error in state: 124.
 ##
 ## expr -> loption(terminated(separated_nonempty_list(DOUBLECOLON,Module_IDENT),DOT)) . IDENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> loption(terminated(separated_nonempty_list(DOUBLECOLON,Module_IDENT),DOT)) . Constant [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -3290,7 +3248,7 @@ Expecting "<identifier>", "<constant identifier>" or "<enum variant>"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IDENT WILDCARD
 ##
-## Ends in an error in state: 122.
+## Ends in an error in state: 125.
 ##
 ## enum_resolver -> IDENT . DOUBLECOLON [ IDENT ]
 ## expr -> loption(terminated(separated_nonempty_list(DOUBLECOLON,Module_IDENT),DOT)) IDENT . [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
@@ -3306,7 +3264,7 @@ Hint: Maybe you have forgotten the ";"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IDENT LBRACE XOR
 ##
-## Ends in an error in state: 123.
+## Ends in an error in state: 126.
 ##
 ## expr -> loption(terminated(separated_nonempty_list(DOUBLECOLON,Module_IDENT),DOT)) IDENT LBRACE . loption(separated_nonempty_list(COMMA,__anonymous_14)) RBRACE [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -3318,7 +3276,7 @@ Expecting "<enum associated expression>"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IDENT LBRACE IDENT XOR
 ##
-## Ends in an error in state: 124.
+## Ends in an error in state: 127.
 ##
 ## separated_nonempty_list(COMMA,__anonymous_14) -> IDENT . either_color_equal expr [ RBRACE ]
 ## separated_nonempty_list(COMMA,__anonymous_14) -> IDENT . either_color_equal expr COMMA separated_nonempty_list(COMMA,__anonymous_14) [ RBRACE ]
@@ -3331,7 +3289,7 @@ Expecting ":" or "="
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IDENT LBRACE IDENT COLON XOR
 ##
-## Ends in an error in state: 127.
+## Ends in an error in state: 130.
 ##
 ## separated_nonempty_list(COMMA,__anonymous_14) -> IDENT either_color_equal . expr [ RBRACE ]
 ## separated_nonempty_list(COMMA,__anonymous_14) -> IDENT either_color_equal . expr COMMA separated_nonempty_list(COMMA,__anonymous_14) [ RBRACE ]
@@ -3344,7 +3302,7 @@ Expecting "<expression>"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IDENT LBRACE IDENT COLON Constant SYSCALL
 ##
-## Ends in an error in state: 129.
+## Ends in an error in state: 132.
 ##
 ## expr -> expr . PLUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT RBRACE PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF COMMA AND AMPERSAND ]
 ## expr -> expr . MINUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT RBRACE PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF COMMA AND AMPERSAND ]
@@ -3377,7 +3335,7 @@ Expecting "<binary operator>", "}" or ","
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL Constant PIPESUP Module_IDENT DOT XOR
 ##
-## Ends in an error in state: 163.
+## Ends in an error in state: 166.
 ##
 ## function_call -> loption(terminated(separated_nonempty_list(DOUBLECOLON,Module_IDENT),DOT)) . IDENT option(__anonymous_7) LPARENT loption(separated_nonempty_list(COMMA,located(expr))) RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -3389,7 +3347,7 @@ Expecting "<identifier>"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL Constant PIPESUP IDENT XOR
 ##
-## Ends in an error in state: 164.
+## Ends in an error in state: 167.
 ##
 ## function_call -> loption(terminated(separated_nonempty_list(DOUBLECOLON,Module_IDENT),DOT)) IDENT . option(__anonymous_7) LPARENT loption(separated_nonempty_list(COMMA,located(expr))) RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -3401,7 +3359,7 @@ Expecting "<" or "("
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL Constant PIPESUP IDENT DOUBLECOLON XOR
 ##
-## Ends in an error in state: 165.
+## Ends in an error in state: 168.
 ##
 ## option(__anonymous_7) -> DOUBLECOLON . INF separated_nonempty_list(COMMA,located(ktype)) SUP [ LPARENT ]
 ##
@@ -3413,7 +3371,7 @@ Expecting "<"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IDENT DOUBLECOLON INF XOR
 ##
-## Ends in an error in state: 166.
+## Ends in an error in state: 169.
 ##
 ## option(__anonymous_7) -> DOUBLECOLON INF . separated_nonempty_list(COMMA,located(ktype)) SUP [ LPARENT ]
 ##
@@ -3425,7 +3383,7 @@ Expecting "<type>"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IDENT DOUBLECOLON INF IDENT RPARENT
 ##
-## Ends in an error in state: 167.
+## Ends in an error in state: 170.
 ##
 ## option(__anonymous_7) -> DOUBLECOLON INF separated_nonempty_list(COMMA,located(ktype)) . SUP [ LPARENT ]
 ##
@@ -3444,7 +3402,7 @@ Expecting ">"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IDENT DOUBLECOLON INF IDENT SUP XOR
 ##
-## Ends in an error in state: 169.
+## Ends in an error in state: 172.
 ##
 ## function_call -> loption(terminated(separated_nonempty_list(DOUBLECOLON,Module_IDENT),DOT)) IDENT option(__anonymous_7) . LPARENT loption(separated_nonempty_list(COMMA,located(expr))) RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -3456,7 +3414,7 @@ Expecting "("
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IDENT LPARENT XOR
 ##
-## Ends in an error in state: 170.
+## Ends in an error in state: 173.
 ##
 ## function_call -> loption(terminated(separated_nonempty_list(DOUBLECOLON,Module_IDENT),DOT)) IDENT option(__anonymous_7) LPARENT . loption(separated_nonempty_list(COMMA,located(expr))) RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -3468,7 +3426,7 @@ Expecting "<expression>" or ")"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IDENT LBRACE IDENT COLON Constant COMMA XOR
 ##
-## Ends in an error in state: 183.
+## Ends in an error in state: 186.
 ##
 ## separated_nonempty_list(COMMA,__anonymous_14) -> IDENT either_color_equal expr COMMA . separated_nonempty_list(COMMA,__anonymous_14) [ RBRACE ]
 ##
@@ -3480,7 +3438,7 @@ Expecting "<field name>"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL IDENT DOUBLECOLON XOR
 ##
-## Ends in an error in state: 188.
+## Ends in an error in state: 191.
 ##
 ## enum_resolver -> IDENT DOUBLECOLON . [ IDENT ]
 ## option(__anonymous_7) -> DOUBLECOLON . INF separated_nonempty_list(COMMA,located(ktype)) SUP [ LPARENT ]
@@ -3493,7 +3451,7 @@ Expecting "<identifier>" or "<"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL SIZEOF LPARENT IDENT SYSCALL
 ##
-## Ends in an error in state: 218.
+## Ends in an error in state: 221.
 ##
 ## expr -> SIZEOF LPARENT ktype . RPARENT [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -3511,7 +3469,7 @@ Expecting ")"
 
 modul: FUNCTION IDENT LPARENT RPARENT LBRACE CONST IDENT COLON IDENT SYSCALL
 ##
-## Ends in an error in state: 266.
+## Ends in an error in state: 269.
 ##
 ## statement -> declarer IDENT option(__anonymous_9) . EQUAL expr SEMICOLON [ VAR MULT IDENT DOLLAR DISCARD CONST ]
 ##
@@ -3523,14 +3481,14 @@ modul: FUNCTION IDENT LPARENT RPARENT LBRACE CONST IDENT COLON IDENT SYSCALL
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
 ## In state 17, spurious reduction of production ktype -> loption(terminated(separated_nonempty_list(DOUBLECOLON,Module_IDENT),DOT)) IDENT
-## In state 265, spurious reduction of production option(__anonymous_9) -> COLON ktype
+## In state 268, spurious reduction of production option(__anonymous_9) -> COLON ktype
 ##
 
 Expecting "="
 
 modul: OPERATOR AMPERSAND LPARENT IDENT COLON IDENT SYSCALL
 ##
-## Ends in an error in state: 287.
+## Ends in an error in state: 290.
 ##
 ## operator_decl -> OPERATOR binary_operator_symbol LPARENT IDENT COLON ktype . COMMA IDENT COLON ktype RPARENT ktype fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -3548,7 +3506,7 @@ Expecting ","
 
 modul: OPERATOR AMPERSAND LPARENT IDENT COLON IDENT COMMA XOR
 ##
-## Ends in an error in state: 288.
+## Ends in an error in state: 291.
 ##
 ## operator_decl -> OPERATOR binary_operator_symbol LPARENT IDENT COLON ktype COMMA . IDENT COLON ktype RPARENT ktype fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -3560,7 +3518,7 @@ Expecting "<identifier>"
 
 modul: OPERATOR AMPERSAND LPARENT IDENT COLON IDENT COMMA IDENT XOR
 ##
-## Ends in an error in state: 289.
+## Ends in an error in state: 292.
 ##
 ## operator_decl -> OPERATOR binary_operator_symbol LPARENT IDENT COLON ktype COMMA IDENT . COLON ktype RPARENT ktype fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -3572,7 +3530,7 @@ Expecting ":"
 
 modul: OPERATOR AMPERSAND LPARENT IDENT COLON IDENT COMMA IDENT COLON XOR
 ##
-## Ends in an error in state: 290.
+## Ends in an error in state: 293.
 ##
 ## operator_decl -> OPERATOR binary_operator_symbol LPARENT IDENT COLON ktype COMMA IDENT COLON . ktype RPARENT ktype fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -3584,7 +3542,7 @@ Expecting "<type>"
 
 modul: OPERATOR AMPERSAND LPARENT IDENT COLON IDENT COMMA IDENT COLON IDENT SYSCALL
 ##
-## Ends in an error in state: 291.
+## Ends in an error in state: 294.
 ##
 ## operator_decl -> OPERATOR binary_operator_symbol LPARENT IDENT COLON ktype COMMA IDENT COLON ktype . RPARENT ktype fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -3602,7 +3560,7 @@ Expecting ")"
 
 modul: OPERATOR AMPERSAND LPARENT IDENT COLON IDENT COMMA IDENT COLON IDENT RPARENT XOR
 ##
-## Ends in an error in state: 292.
+## Ends in an error in state: 295.
 ##
 ## operator_decl -> OPERATOR binary_operator_symbol LPARENT IDENT COLON ktype COMMA IDENT COLON ktype RPARENT . ktype fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -3614,7 +3572,7 @@ Expecting "<type>"
 
 modul: OPERATOR AMPERSAND LPARENT IDENT COLON IDENT COMMA IDENT COLON IDENT RPARENT IDENT SYSCALL
 ##
-## Ends in an error in state: 293.
+## Ends in an error in state: 296.
 ##
 ## operator_decl -> OPERATOR binary_operator_symbol LPARENT IDENT COLON ktype COMMA IDENT COLON ktype RPARENT ktype . fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -3632,7 +3590,7 @@ Expecting "=" or "{"
  
 modul: FUNCTION IDENT LPARENT IDENT COLON IDENT SYSCALL
 ##
-## Ends in an error in state: 307.
+## Ends in an error in state: 310.
 ##
 ## separated_nonempty_list(COMMA,__anonymous_12) -> IDENT COLON ktype . [ RPARENT ]
 ## separated_nonempty_list(COMMA,__anonymous_12) -> IDENT COLON ktype . COMMA separated_nonempty_list(COMMA,__anonymous_12) [ RPARENT ]
@@ -3651,7 +3609,7 @@ Expecting "(" or ","
 
 modul: FUNCTION IDENT LPARENT IDENT COLON IDENT COMMA XOR
 ##
-## Ends in an error in state: 308.
+## Ends in an error in state: 311.
 ##
 ## separated_nonempty_list(COMMA,__anonymous_12) -> IDENT COLON ktype COMMA . separated_nonempty_list(COMMA,__anonymous_12) [ RPARENT ]
 ##
@@ -3663,7 +3621,7 @@ Expecting "<function parameter name>"
 
 modul: FUNCTION IDENT LPARENT RPARENT IDENT SYSCALL
 ##
-## Ends in an error in state: 313.
+## Ends in an error in state: 316.
 ##
 ## function_decl -> FUNCTION IDENT option(__anonymous_11) LPARENT loption(separated_nonempty_list(COMMA,__anonymous_12)) RPARENT option(ktype) . fun_kbody [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -3675,14 +3633,14 @@ modul: FUNCTION IDENT LPARENT RPARENT IDENT SYSCALL
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
 ## In state 17, spurious reduction of production ktype -> loption(terminated(separated_nonempty_list(DOUBLECOLON,Module_IDENT),DOT)) IDENT
-## In state 315, spurious reduction of production option(ktype) -> ktype
+## In state 318, spurious reduction of production option(ktype) -> ktype
 ##
 
 Expecting "=" or "{"
 
 modul: EXTERNAL IDENT LPARENT RPARENT IDENT XOR
 ##
-## Ends in an error in state: 324.
+## Ends in an error in state: 327.
 ##
 ## external_func_decl -> EXTERNAL IDENT LPARENT loption(separated_nonempty_list(COMMA,typed_parameter_loc(ctype))) option(__anonymous_3) RPARENT option(ctype) . option(__anonymous_4) option(SEMICOLON) [ SYSCALL STRUCT OPERATOR FUNCTION EXTERNAL EOF ENUM CONST ]
 ##
@@ -3694,7 +3652,7 @@ Expecting "=", ";" or "<end of external function>"
 
 modul: ENUM IDENT LBRACE IDENT LPARENT IDENT SUP
 ##
-## Ends in an error in state: 335.
+## Ends in an error in state: 338.
 ##
 ## option(__anonymous_0) -> LPARENT separated_nonempty_list(COMMA,located(ktype)) . RPARENT [ RBRACE COMMA ]
 ##
@@ -3713,7 +3671,7 @@ Expecting ")"
 
 modul: ENUM IDENT LBRACE IDENT LPARENT IDENT RPARENT XOR
 ##
-## Ends in an error in state: 341.
+## Ends in an error in state: 344.
 ##
 ## separated_nonempty_list(COMMA,enum_assoc) -> enum_assoc . [ RBRACE ]
 ## separated_nonempty_list(COMMA,enum_assoc) -> enum_assoc . COMMA separated_nonempty_list(COMMA,enum_assoc) [ RBRACE ]
@@ -3726,7 +3684,7 @@ Expecting "}" or ","
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL WHILE XOR
 ##
-## Ends in an error in state: 90.
+## Ends in an error in state: 93.
 ##
 ## expr -> WHILE . LPARENT expr RPARENT kbody [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -3738,7 +3696,7 @@ Expecting "("
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL WHILE LPARENT XOR
 ##
-## Ends in an error in state: 91.
+## Ends in an error in state: 94.
 ##
 ## expr -> WHILE LPARENT . expr RPARENT kbody [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -3750,7 +3708,7 @@ Expecting "boolean expression"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL WHILE LPARENT Constant SYSCALL
 ##
-## Ends in an error in state: 247.
+## Ends in an error in state: 250.
 ##
 ## expr -> WHILE LPARENT expr . RPARENT kbody [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ## expr -> expr . PLUS expr [ XOR SUPEQ SUP SHIFTRIGHT SHIFTLEFT RPARENT PLUS PIPESUP PIPE OR MULT MOD MINUS INFEQ INF DOUBLEQUAL DOT DIV DIF AND AMPERSAND ]
@@ -3782,7 +3740,7 @@ Expecting "<binary operator>" or ")"
 
 modul: FUNCTION IDENT LPARENT RPARENT EQUAL WHILE LPARENT Constant RPARENT XOR
 ##
-## Ends in an error in state: 248.
+## Ends in an error in state: 251.
 ##
 ## expr -> WHILE LPARENT expr RPARENT . kbody [ XOR SYSCALL SUPEQ SUP STRUCT SHIFTRIGHT SHIFTLEFT SEMICOLON RPARENT RBRACE PLUS PIPESUP PIPE OR OPERATOR MULT MOD MINUS INFEQ INF FUNCTION EXTERNAL EOF ENUM DOUBLEQUAL DOT DIV DIF CONST COMMA ARROWFUNC AND AMPERSAND ]
 ##
@@ -3791,3 +3749,15 @@ modul: FUNCTION IDENT LPARENT RPARENT EQUAL WHILE LPARENT Constant RPARENT XOR
 ##
 
 Expecting "{"
+
+modul: FUNCTION IDENT LPARENT RPARENT LBRACE IDENT DOT XOR
+##
+## Ends in an error in state: 89.
+##
+## separated_nonempty_list(DOT,located(IDENT)) -> IDENT DOT . separated_nonempty_list(DOT,located(IDENT)) [ EQUAL ]
+##
+## The known suffix of the stack is as follows:
+## IDENT DOT
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>

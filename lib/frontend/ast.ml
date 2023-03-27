@@ -73,10 +73,15 @@ and kstatement =
       explicit_type : ktype location option;
       expression : kexpression location;
     }
-  | SAffection of string location * kexpression location
+  | SAffection of affected_value * kexpression location
   | SDiscard of kexpression location
-  | SDerefAffectation of string location * kexpression location
-
+  | SDerefAffectation of affected_value * kexpression location
+and affected_value =
+  | AFVariable of string location
+  | AFField of {
+    variable: string location;
+    fields: string location list
+  }
 and kexpression =
   | Empty
   | True
@@ -550,6 +555,14 @@ module Error = struct
 end
 
 module Type = struct
+
+  let module_path_of_ktype_opt = function
+  | TType_Identifier { module_path; name }
+  | TParametric_identifier { module_path; parametrics_type = _; name } ->
+      Some (module_path, name)
+  | _ -> None
+
+  
   let ktuple kts = TTuple kts
   let pointer kt = TPointer kt
   let is_any_ptr = function TPointer _ -> true | _ -> false
