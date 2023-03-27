@@ -26,6 +26,7 @@ module AsmProgram = Common.AsmProgram (Aarch64Core.Instruction)
 open AsmProgram
 
 module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
+  module Pp = Aarch64Pprint.Make(AsmSpec)
   let mov_integer register n =
     let open Immediat in
     if is_direct_immediat n then
@@ -705,7 +706,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let tmpreg = tmpreg_of_size_2 sizeof in
         let copy_instructions =
           copy_result
-            ~before_copy:(fun _ ->
+            ~before_copy:(fun _ -> if is_register_size sizeof then
               [
                 Instruction
                   (LDR
@@ -715,7 +716,18 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                        adress_src = field_address;
                        adress_mode = Immediat;
                      });
-              ])
+              ]
+              else [
+                Instruction (
+                  ADD {
+                    destination = tmpreg;
+                    operand1 = field_address.base;
+                    operand2 = `ILitteral field_address.offset;
+                    offset = false;
+                  }
+                )
+              ]
+              )
             ~where ~register:tmpreg ~rval_rktype rprogram
         in
         Line_Com (Comment ("Field access of " ^ field)) :: copy_instructions
@@ -1662,14 +1674,14 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                        function_decl.tac_body
                    in
                    let epilogue = FrameManager.function_epilogue fd in
-                   (* let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
+                   let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
                       let () = fd.stack_map |> IdVarMap.to_seq |> Seq.iter (fun ((s, kt), adr) ->
                         Printf.printf "%s : %s == [%s, %Ld]\n"
                         (s)
                         (KosuIrTyped.Asttypprint.string_of_rktype kt)
-                        (Aarch64Pprint.string_of_register adr.base)
+                        (Pp.string_of_register adr.base)
                         (adr.offset)
-                        ) in *)
+                        ) in
                    Some
                      (Afunction
                         {
