@@ -187,7 +187,7 @@ let rec typeof_kbody ~generics_resolver (env : Env.t)
                   not
                   @@ Ast.Type.are_compatible_type field_type
                   @@ expr_ktype.v
-                then failwith "TODO : Error with wrong field access type"
+                then Uncompatible_type_Assign {expected = field_type; found = expr_ktype} |> stmt_error |> raise
                 else
                   typeof_kbody ~generics_resolver
                     (env)
