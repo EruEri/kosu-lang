@@ -533,7 +533,7 @@ module FrameManager = struct
   let function_prologue ~fn_register_params ~stack_params rprogram fd =
     let open Instruction in
     let base = Instruction (Push { size = Q; source = `Register rbpq }) in
-    let sub_align = Common.align_16 fd.locals_space in
+    let sub_align = Common.OffsetHelper.align_16 fd.locals_space in
     let sp_sub =
       [
         Instruction

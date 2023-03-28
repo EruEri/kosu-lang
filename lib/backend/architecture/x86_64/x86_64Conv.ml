@@ -1318,12 +1318,50 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         (Line_Com (Comment "Defered Start") :: instructions :: true_instructions)
         @ [ Line_Com (Comment "Defered end") ]
-    | STDerefAffectationField {identifier_root; fields; trvalue} -> 
-      ignore (identifier_root, fields, trvalue);
-      failwith ""
     | STacModificationField {identifier_root; fields; trvalue} -> 
-        ignore (identifier_root, fields, trvalue);
-        failwith ""
+      let root_address = Option.get @@ FrameManager.address_of identifier_root fd in
+      let field_offset = Common.OffsetHelper.offset_of_field_access (snd identifier_root) ~fields rprogram in
+      let target_adress = increment_adress field_offset root_address in 
+      let instructions =
+        translate_tac_rvalue ~str_lit_map ~where:(Some target_adress) current_module
+          rprogram fd trvalue
+      in
+      instructions
+    | STDerefAffectationField {identifier_root; fields; trvalue} -> 
+      let tmp_rax = resize_register Q raxq in (* Since it hold an address *)
+      let intermediary_adress = Option.get @@ FrameManager.address_of identifier_root fd in
+      let pointee_type = (fun (_ , kt) -> KosuIrTyped.Asttyhelper.RType.rtpointee kt ) identifier_root  in
+      let field_offset = Common.OffsetHelper.offset_of_field_access pointee_type ~fields rprogram in
+      let _target_adress = increment_adress field_offset intermediary_adress in 
+      let fetch_address_offset_instruction = [
+        Instruction 
+        (
+          Mov
+          {
+            size = Q;
+            source = `Address intermediary_adress;
+            destination = `Register tmp_rax
+          }
+        );
+        Instruction
+        (
+          Add
+          {
+            size = Q;
+            destination = `Register tmp_rax;
+            source = `ILitteral field_offset
+          }
+        )
+      ]
+      in
+      let true_adress = create_address_offset tmp_rax in
+      let true_instructions =
+        translate_tac_rvalue ~str_lit_map ~is_deref:(Some intermediary_adress) (* Very susciptous abode the use of immediary adress *)
+          ~where:(Some true_adress) current_module rprogram fd trvalue
+      in
+
+      (Line_Com (Comment "Field Defered Start") :: fetch_address_offset_instruction @ true_instructions)
+      @ [ Line_Com (Comment "Field Defered end") ]
     | STWhile
         {
           statements_condition;
