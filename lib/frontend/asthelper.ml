@@ -1534,7 +1534,7 @@ module Builtin_Function = struct
     | (Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64) as fn -> (
         match parameters with
         | [ t ] ->
-          let param_type = Position.value t in
+            let param_type = Position.value t in
             if fn = Tou8 && param_type = TChar then Result.ok fn
             else if Type.is_any_integer param_type then Result.ok fn
             else

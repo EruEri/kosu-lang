@@ -185,10 +185,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           | _ -> to_32bits target_reg
         in
         (rreg, mov_integer rreg int64)
-    | {tac_expression = TEChar c; _} ->
-      let code = Char.code c |> Int64.of_int in
-      let rreg = to_32bits target_reg in
-      (rreg, mov_integer rreg code )
+    | { tac_expression = TEChar c; _ } ->
+        let code = Char.code c |> Int64.of_int in
+        let rreg = to_32bits target_reg in
+        (rreg, mov_integer rreg code)
     | { tac_expression = TEFloat float; _ } ->
         let f64reg = to_64fbits target_reg in
         ( f64reg,

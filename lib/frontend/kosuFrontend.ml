@@ -83,11 +83,13 @@ struct
                filename
       | Lexer.Char_Error position ->
           position |> string_of_position_error
-          |> Printf.sprintf "\nFile \"%s\" %s: Character parsing error"  filename
+          |> Printf.sprintf "\nFile \"%s\" %s: Character parsing error" filename
       | Lexer.Char_out_of_range (position, code) ->
-        let epos = position |> string_of_position_error in
-        Printf.sprintf
-        "\nFile \"%s\", %s : Ascii value '%u' is not in [0-255]" filename epos code
+          let epos = position |> string_of_position_error in
+          Printf.sprintf
+            "\nFile \"%s\", %s : Ascii value '%u' is not in [0-255]" filename
+            epos code
+
     let register_kosu_error () =
       Printexc.register_printer (fun exn ->
           match exn with
