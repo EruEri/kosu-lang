@@ -78,7 +78,7 @@ let number = decimal_integer | hex_integer | octal_intger | binary_integer
 let number_escaped = ( digit+ )
 
 let char_ascii_code = ('\\') number_escaped
-let hexa_char = "\\" "x" (digit | ['a'-'f'] | ['A'-'F']) (digit | ['a'-'f'] | ['A'-'F'])
+let hexa_char = '\\' 'x' (digit | ['a'-'f'] | ['A'-'F']) (digit | ['a'-'f'] | ['A'-'F'])
 
 let newline = ('\010' | '\013' | "\013\010")
 let blank   = [' ' '\009' '\012']
@@ -132,6 +132,13 @@ rule token = parse
 | ">" { SUP }
 | "<<" { SHIFTLEFT }
 | ">>" { SHIFTRIGHT }
+| '\'' (hexa_char as s) '\'' {
+    let s_len = String.length s in
+    let s_number = String.sub s 1 (s_len - 1) in
+    let code =  int_of_string ("0" ^  s_number) in
+    let char = Char.chr code in
+    Char_lit char
+}
 | '\'' (char_ascii_code as s) '\'' {
     let s_len = String.length s in
     let s_number = String.sub s 1 (s_len - 1) in
@@ -142,13 +149,7 @@ rule token = parse
     in
     Char_lit char
 }
-| '\'' (hexa_char as s) '\'' {
-    let s_len = String.length s in
-    let s_number = String.sub s 2 (s_len - 2) in
-    let code = int_of_string s_number in
-    let char = Char.chr code in
-    Char_lit char
-}
+
 | '\'' '\\' (escaped_char as c) '\'' {
     let c = match c with
     | 'n' -> '\n'
