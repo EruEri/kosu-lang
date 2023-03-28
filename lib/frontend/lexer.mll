@@ -218,7 +218,8 @@ and read_string buffer = parse
     let s_number = String.sub s 1 (s_len - 1) in
     let code =  int_of_string ("0" ^  s_number) in
     let char = Char.chr code in
-    let () = Buffer.add_char buffer char in 
+    let escaped = char |> Printf.sprintf "%c" |> String.escaped in
+    let () = Buffer.add_string buffer escaped in 
     read_string buffer lexbuf 
 }
 | '\\' ( escaped_char as c ){ 
