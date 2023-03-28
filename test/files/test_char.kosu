@@ -15,5 +15,7 @@ fn main() s32 {
     discard print_char(l);
     discard print_char(l);
     discard print_char(o);
+
+    discard printf("\nHello world\x0A");
     $ 0
 }
