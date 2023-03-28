@@ -29,7 +29,8 @@
     | Not_finished_built_in_function of position
     | Unclosed_string of position
     | Unclosed_comment of position
-
+    | Char_out_of_range of position * int
+    | Char_Error of position
     | Syntax_Error of {
         position: Position.position;
         current_lexeme: string;
@@ -65,7 +66,7 @@ let upLetter = ['A'-'Z']
 let identifiant = (loLetter | '_') (loLetter | upLetter | digit | "_")*
 let module_identifier = (upLetter) (loLetter | digit | "_" | upLetter )*
 let constante = upLetter (upLetter | "_" | digit)*
-let escaped_char =  ['n' 'r' 't' '\\' '0' '\'' '\"']
+let escaped_char =  ['n' 'r' 't' '\\' '\'' '\"']
 let float_literal = (digit) (digit | "_" )* (('.') (digit | "_")*  | ('e' | 'E')  ('+' | '-') digit (digit | '_')*)
 
 let decimal_integer = digit (digit | '_')*
@@ -74,6 +75,10 @@ let octal_intger = '0' ('o' | 'O') (['0'-'7']) (['0'-'7'] | '_')*
 let binary_integer = '0' ('b' | 'B') ('0' | '1') ('0' | '1' | '_')*
 let number = decimal_integer | hex_integer | octal_intger | binary_integer
 
+let number_escaped = ( digit+ )
+
+let char_ascii_code = ('\\') number_escaped
+let hexa_char = '\\' 'x' (digit | ['a'-'f'] | ['A'-'F']) (digit | ['a'-'f'] | ['A'-'F'])
 
 let newline = ('\010' | '\013' | "\013\010")
 let blank   = [' ' '\009' '\012']
@@ -127,6 +132,39 @@ rule token = parse
 | ">" { SUP }
 | "<<" { SHIFTLEFT }
 | ">>" { SHIFTRIGHT }
+| '\'' (hexa_char as s) '\'' {
+    let s_len = String.length s in
+    let s_number = String.sub s 1 (s_len - 1) in
+    let code =  int_of_string ("0" ^  s_number) in
+    let char = Char.chr code in
+    Char_lit char
+}
+| '\'' (char_ascii_code as s) '\'' {
+    let s_len = String.length s in
+    let s_number = String.sub s 1 (s_len - 1) in
+    let code = int_of_string s_number in
+    let char = match Char.chr code with
+    | code -> code
+    | exception Invalid_argument _ -> raise @@ raw_lexer_error ( Char_out_of_range ((current_position lexbuf), code) )
+    in
+    Char_lit char
+}
+
+| '\'' '\\' (escaped_char as c) '\'' {
+    let c = match c with
+    | 'n' -> '\n'
+    | 'r' -> '\r'
+    | 't' -> '\t'
+    | '\\' -> '\\'
+    | '\'' -> '\''
+    | '\"' -> '\"'
+    | _ -> failwith "Unreachable code"
+    in
+    Char_lit c
+}
+| '\'' (_ as c) '\'' {
+    Char_lit c
+}
 | float_literal as f {
     Float_lit ( float_of_string f)
 }
@@ -166,6 +204,8 @@ and built_in_function = parse
      (Invalid_litteral_for_build_in_function ( current_position lexbuf ,lit)  |> raw_lexer_error |> raise )
 }
 | eof {  Not_finished_built_in_function (current_position lexbuf)  |> raw_lexer_error |> raise }
+
+
 and read_string buffer = parse
 | '"' { String_lit (Buffer.contents buffer) }
 (* | '\\' 'n' { 
@@ -173,6 +213,15 @@ and read_string buffer = parse
     Buffer.add_char buffer 'n'; 
     read_string buffer lexbuf 
 } *)
+| (hexa_char as s) {
+    let s_len = String.length s in
+    let s_number = String.sub s 1 (s_len - 1) in
+    let code =  int_of_string ("0" ^  s_number) in
+    let char = Char.chr code in
+    let escaped = char |> Printf.sprintf "%c" |> String.escaped in
+    let () = Buffer.add_string buffer escaped in 
+    read_string buffer lexbuf 
+}
 | '\\' ( escaped_char as c ){ 
     let () = if c = '\\' then () else Buffer.add_char buffer '\\' in
     let () = Buffer.add_char buffer c in

@@ -62,6 +62,7 @@ and tac_expression =
   | TEmpty
   | TENullptr
   | TEInt of (signedness * isize * int64)
+  | TEChar of char
   | TEFloat of float
   | TEIdentifier of string
   | TEString of string

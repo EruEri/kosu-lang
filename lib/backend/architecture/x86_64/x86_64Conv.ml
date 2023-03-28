@@ -136,6 +136,19 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    source = `ILitteral 1L;
                  });
           ] )
+    | { tac_expression = TEChar c; _ } ->
+        let code = Char.code c |> Int64.of_int in
+        let dest = resize_dst B target_dst in
+        ( dest,
+          [
+            Instruction
+              (Mov
+                 {
+                   size = B;
+                   destination = target_dst;
+                   source = `ILitteral code;
+                 });
+          ] )
     | { tac_expression = TEInt (_, isize, int64); _ } ->
         let size = data_size_of_isize isize in
         let resized_dst = resize_dst size target_dst in

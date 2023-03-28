@@ -38,6 +38,7 @@ type rktype =
   | RTString_lit
   | RTUnknow
   | RTFloat
+  | RTChar
   | RTBool
   | RTUnit
 
@@ -65,6 +66,7 @@ and rkexpression =
   | RENullptr
   | REInteger of (signedness * isize * int64)
   | REFloat of float
+  | REChar of char
   | RESizeof of rktype
   | REstring of string
   | REAdress of string

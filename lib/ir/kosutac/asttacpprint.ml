@@ -232,6 +232,7 @@ and string_of_tac_expression = function
   | TETrue -> "true"
   | TEmpty -> "empty"
   | TENullptr -> "nullptr"
+  | TEChar c -> Printf.sprintf "\'%c\'" c
   | TEInt (sign, _, value) ->
       let format = if sign = Unsigned then sprintf "%Lu" else sprintf "%Ld" in
       format value

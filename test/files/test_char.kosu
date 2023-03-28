@@ -1,0 +1,21 @@
+external printf(format: stringl; ...) s32;
+
+fn print_char(c: char) {
+    discard printf("%c", c);
+    $ empty
+}
+
+fn main() s32 {
+    const h = 'h';
+    const e = '\101';
+    const l = '\x6C';
+    const o = 'o';
+    discard print_char(h);
+    discard print_char(e);
+    discard print_char(l);
+    discard print_char(l);
+    discard print_char(o);
+
+    discard printf("\nHello world\x0A");
+    $ 0
+}

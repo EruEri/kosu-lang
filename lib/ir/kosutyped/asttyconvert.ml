@@ -55,6 +55,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | TFloat -> RTFloat
     | TBool -> RTBool
     | TUnit -> RTUnit
+    | TChar -> RTChar
     | TUnknow -> RTUnknow
 
   and from_switch_case = function
@@ -257,6 +258,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | True -> RTrue
     | False -> RFalse
     | ENullptr -> RENullptr
+    | EChar c -> REChar c
     | EInteger (sign, size, value) -> REInteger (sign, size, value)
     | EFloat float -> REFloat float
     | ESizeof either ->
@@ -1029,7 +1031,7 @@ module Sizeof = struct
 
   let rec size calcul program rktype =
     match rktype with
-    | RTUnit | RTBool | RTUnknow -> 1L
+    | RTUnit | RTBool | RTUnknow | RTChar -> 1L
     | RTInteger (_, isize) -> Isize.size_of_isize isize / 8 |> Int64.of_int
     | RTFloat | RTPointer _ | RTString_lit | RTFunction _ -> 8L
     | RTTuple kts -> size_tuple calcul program kts

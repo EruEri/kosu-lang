@@ -1534,7 +1534,9 @@ module Builtin_Function = struct
     | (Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64) as fn -> (
         match parameters with
         | [ t ] ->
-            if t |> Position.value |> Type.is_any_integer then Result.ok fn
+            let param_type = Position.value t in
+            if fn = Tou8 && param_type = TChar then Result.ok fn
+            else if Type.is_any_integer param_type then Result.ok fn
             else
               Ast.Error.Found_no_Integer { fn_name = fn_location.v; found = t }
               |> Result.error
@@ -1959,7 +1961,7 @@ module Sizeof = struct
 
   let rec size calcul current_module (program : module_path list) ktype =
     match ktype with
-    | TUnit | TBool | TUnknow -> 1L
+    | TUnit | TBool | TUnknow | TChar -> 1L
     | TInteger (_, isize) -> size_of_isize isize / 8 |> Int64.of_int
     | TFloat | TPointer _ | TString_lit | TFunction _ -> 8L
     | TTuple kts -> (

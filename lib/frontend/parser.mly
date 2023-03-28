@@ -26,6 +26,7 @@
 
 %token <Ast.signedness * Ast.isize * int64> Integer_lit
 %token <string> String_lit
+%token <char> Char_lit
 %token <float> Float_lit
 %token <string> IDENT
 %token <string> BUILTIN
@@ -294,6 +295,7 @@ expr:
     | Integer_lit { EInteger $1 }
     | String_lit { EString $1 }
     | Float_lit { EFloat $1 }
+    | Char_lit  { EChar $1 }
     | TRUE { True }
     | FALSE { False }
     | EMPTY { Empty }
@@ -464,6 +466,7 @@ ktype:
         | "f64" -> TFloat
         | "unit" -> TUnit
         | "bool" -> TBool
+        | "char" -> TChar
         | "s8" -> TInteger( Signed, I8)
         | "u8" -> TInteger( Unsigned, I8)
         | "s16" -> TInteger( Signed, I16)
