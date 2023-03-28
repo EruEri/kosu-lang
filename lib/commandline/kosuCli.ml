@@ -39,12 +39,6 @@ let ccol_compilation cfiles =
          let code = Sys.command (Printf.sprintf "cc -c -o %s %s" tmp_name s) in
          if code == 0 then Ok tmp_name else Error code)
 
-let find_error_code_opt l =
-  l
-  |> List.find_map (function
-       | Error code when code <> 0 -> Some code
-       | _ -> None)
-
 let rec fetch_kosu_file direname () =
   let file_in_dir = Sys.readdir direname in
   let kosu_files =
@@ -65,14 +59,6 @@ let fetch_std_file ~no_std () =
   else
     let std_path = Option.get std_path in
     fetch_kosu_file std_path ()
-
-let parse_library_link_name libname =
-  let prefix_lib = "lib" in
-  let lib_strlen = String.length prefix_lib in
-  if String.starts_with ~prefix:prefix_lib libname then
-    String.sub libname lib_strlen
-      (libname |> String.length |> ( + ) (-lib_strlen))
-  else libname
 
 module Cli = struct
   open Cmdliner
@@ -293,12 +279,11 @@ module Cli = struct
       cmd
     in
 
-    let cclib = cclib |> List.map parse_library_link_name in
-
     let kosu_files, other_files = files |> List.partition is_kosu_file in
 
     let std_file = fetch_std_file ~no_std () in
 
+    let kosu_files = (kosu_files @ std_file) in
 
     let module ValidationRule : KosuFrontend.KosuValidationRule = struct 
     end
@@ -310,11 +295,7 @@ module Cli = struct
     in
 
     let module Compilation_Files : KosuFrontend.Compilation_Files = struct
-      let std_global_variable = "KOSU_STD_PATH"
-      let architecture_global_variable = "KOSU_TARGET_ARCHI"
-      let os_global_variable = "KOSU_TARGET_OS"
-
-      let kosu_files = (kosu_files @ std_file)
+      let std_global_variable = std_global_variable
     end
   in
 
@@ -337,9 +318,9 @@ module Cli = struct
     in
     let module Compiler = KosuBackend.Compil.Make (Codegen) (LinkerOption) in
 
-    let () = KosuFront.register_kosu_error () in
+    let () = KosuFront.Registerexn.register_kosu_error () in
 
-    let ast_module = KosuFront.ast_modules in
+    let ast_module = KosuFront.ast_modules kosu_files in
     let typed_program = match Asttyconvert.from_program ast_module with
     | typed_program -> typed_program
     | exception KosuFrontend.Ast.Error.Ast_error e -> 

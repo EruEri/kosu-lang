@@ -679,6 +679,7 @@ match expression.v with
         kt
   | Ast.Function_Decl.Decl_External external_func_decl -> (
       let generics = generics_resolver |> Hashtbl.to_seq_keys |> List.of_seq |> List.map Position.value in
+      let generics = if Rule.allow_generics_in_variadic then generics else [] in 
       if external_func_decl.is_variadic then
         parameters
         |> List.map

@@ -28,18 +28,65 @@ module Typecheck = Typecheck
 module type KosuValidationRule = Astvalidation.KosuValidationRule
 module type TypeCheckerRule = Typecheck.TypeCheckerRuleS
 module type Compilation_Files = sig
-  val kosu_files: string list
-
   val std_global_variable: string
-  val architecture_global_variable: string
-  val os_global_variable: string
 end
 
 module Make (Compilation_Files: Compilation_Files) (VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = struct
   module Typecheck = Typecheck.Make(TyRule)
   module Astvalidation = Astvalidation.Make(VRule)(TyRule)
   module Pprinterr = Pprinterr.Make(VRule)(TyRule)
-  module Registerexn = Registerexn.Make(VRule)(TyRule)
+
+  module Registerexn = struct
+    open Pprint
+    open Lexer
+    let string_of_lexer_error filename = function
+    | Lexer.Syntax_Error { position; current_lexeme; message; state } ->
+        let s = string_of_position_error position in
+        Printf.sprintf
+            "\nFile \"%s\", %s : Unexpected \"%s\"\nSyntax Error : %s%s" filename s
+            current_lexeme message
+            (state
+            |> Option.map (Printf.sprintf "Error in state \"%d\"")
+            |> Option.value ~default:"")
+    | Lexer.Forbidden_char (position, char) ->
+        let s = position |> string_of_position_error in
+        Printf.sprintf "%s: Forbidden character : %c" s char
+        |> Printf.sprintf "\nFile \"%s\", %s" filename
+    | Lexer.Unexpected_escaped_char (position, lexeme) ->
+        let s = position |> string_of_position_error in
+        Printf.sprintf "%s: Unexpected Escaped character: %s" s lexeme
+        |> Printf.sprintf "\nFile \"%s\", %s" filename
+    | Lexer.Invalid_keyword_for_build_in_function (position, id) ->
+        let s = position |> string_of_position_error in
+        Printf.sprintf "%s: Invalid Keyword For Builtin Function: %s" s id
+        |> Printf.sprintf "\nFile \"%s\", %s" filename
+    | Lexer.Invalid_litteral_for_build_in_function (position, litteral) ->
+        let s = position |> string_of_position_error in
+        Printf.sprintf "%s: Invalid Litteral For Builtin Function: %c" s litteral
+        |> Printf.sprintf "\nFile \"%s\", %s" filename
+    | Lexer.Not_finished_built_in_function position ->
+        position |> string_of_position_error
+        |> Printf.sprintf "\nFile \"%s\" %s: Builtin function not finished"
+            filename
+    | Lexer.Unclosed_comment position ->
+        position |> string_of_position_error
+        |> Printf.sprintf "\nFile \"%s\" %s: Comments not terminated" filename
+    | Lexer.Unclosed_string position ->
+        position |> string_of_position_error
+        |> Printf.sprintf "\nFile \"%s\" %s: String litteral not terminated"
+            filename
+
+    let register_kosu_error () =
+    Printexc.register_printer (fun exn ->
+        match exn with
+        | Astvalidation.VError.Validation_error (filename, e) ->
+            e |> Pprinterr.string_of_validation_error |> Printf.sprintf "%s"
+            |> Printf.sprintf "\nFile \"%s\", %s" filename
+            |> Option.some
+        | Lexer_Error { filename; error } ->
+            Some (string_of_lexer_error filename error)
+        | _ -> None)
+  end
 
   module Ast = Ast
   module Pprint = Pprint
@@ -128,10 +175,9 @@ module Make (Compilation_Files: Compilation_Files) (VRule: Astvalidation.KosuVal
           |> Astvalidation.Help.program_remove_implicit_type_path
             )
       | Some error -> Error error)
-
   
-  let ast_modules =
-    let modules_opt = files_to_ast_program Compilation_Files.kosu_files in
+  let ast_modules files =
+    let modules_opt = files_to_ast_program files in
     match modules_opt with
     | Error e -> (
         match e with
@@ -149,5 +195,5 @@ module Make (Compilation_Files: Compilation_Files) (VRule: Astvalidation.KosuVal
         | _, Ok () ->
             modules
       )
-  let register_kosu_error = Registerexn.register_kosu_error
+
 end
