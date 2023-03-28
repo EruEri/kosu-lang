@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-let () = KosuFrontend.Registerexn.register_kosu_error ()
 (* 
 let () = Printexc.record_backtrace true
 

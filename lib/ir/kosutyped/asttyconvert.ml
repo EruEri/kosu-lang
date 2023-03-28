@@ -18,136 +18,20 @@
 open Asttyped
 open Asttyhelper
 open KosuFrontend.Ast
-open KosuFrontend.Typecheck
 open KosuFrontend.Ast.Env
 open KosuFrontend
 
-module Sizeof = struct
-  let ( ++ ) = Int64.add
-  let ( -- ) = Int64.sub
+module Make(TypeCheckerRule: KosuFrontend.TypeCheckerRule) = struct
+  module KTypeChecker = KosuFrontend.Typecheck.Make(TypeCheckerRule)
+  open KTypeChecker
 
-  let align n b =
-    let m = Int64.unsigned_rem n b in
-    if m = 0L then n else n ++ b -- m
+  let restrict_typed_expression restrict typed_expression =
+    {
+      typed_expression with
+      rktype = RType.restrict_rktype typed_expression.rktype restrict;
+    }
 
-  let rec size calcul program rktype =
-    match rktype with
-    | RTUnit | RTBool | RTUnknow -> 1L
-    | RTInteger (_, isize) -> Isize.size_of_isize isize / 8 |> Int64.of_int
-    | RTFloat | RTPointer _ | RTString_lit | RTFunction _ -> 8L
-    | RTTuple kts -> size_tuple calcul program kts
-    | kt -> (
-        let type_decl =
-          RProgram.find_type_decl_from_rktye kt program |> Option.get
-        in
-
-        match type_decl with
-        | Rtype_Decl.RDecl_Enum enum_decl ->
-            size_enum calcul program
-              (kt |> RType.extract_parametrics_rktype
-              |> List.combine enum_decl.generics
-              |> List.to_seq |> Hashtbl.of_seq)
-              enum_decl
-        | Rtype_Decl.RDecl_Struct struct_decl ->
-            size_struct calcul program
-              (kt |> RType.extract_parametrics_rktype
-              |> List.combine struct_decl.generics
-              |> List.to_seq |> Hashtbl.of_seq)
-              struct_decl)
-
-  and size_tuple calcul program = function
-    | list -> (
-        let size, alignment, _packed_size =
-          list
-          |> List.fold_left
-               (fun (acc_size, acc_align, _acc_packed_size) kt ->
-                 let comming_size = kt |> size `size program in
-                 let comming_align = kt |> size `align program in
-
-                 let aligned = align acc_size comming_align in
-                 let new_align = max acc_align comming_align in
-                 ( aligned ++ comming_size,
-                   new_align,
-                   _acc_packed_size ++ comming_size ))
-               (0L, 0L, 0L)
-        in
-        match calcul with
-        | `size -> if alignment = 0L then 0L else align size alignment
-        | `align -> alignment)
-
-  and size_struct calcul program generics struct_decl =
-    struct_decl.rfields
-    |> List.map (fun (_, kt) -> RType.remap_generic_ktype generics kt)
-    |> size_tuple calcul program
-
-  and size_enum calcul program generics enum_decl =
-    enum_decl.rvariants
-    |> List.map (fun (_, kts) ->
-           kts
-           |> List.map (RType.remap_generic_ktype generics)
-           |> List.cons (RTInteger (Unsigned, I32))
-           |> RType.rtuple |> size calcul program)
-    |> List.fold_left max 0L
-
-  let sizeof program ktype = size `size program ktype
-  let alignmentof program ktype = size `align program ktype
-
-  let offset_of_tuple_index ?(generics = Hashtbl.create 0) index rktypes
-      rprogram =
-    let ( ++ ) = Int64.add in
-
-    rktypes
-    |> List.mapi (fun i v -> (i, v))
-    |> List.fold_left
-         (fun ((acc_size, acc_align, found) as acc) (tindex, rktype) ->
-           let comming_size =
-             rktype |> RType.remap_generic_ktype generics |> size `size rprogram
-           in
-           let comming_align =
-             rktype
-             |> RType.remap_generic_ktype generics
-             |> size `align rprogram
-           in
-
-           let aligned = align acc_size comming_align in
-           let new_align = max acc_align comming_align in
-
-           if found then acc
-           else if index = tindex then (aligned, new_align, true)
-           else (aligned ++ comming_size, new_align, found))
-         (0L, 0L, false)
-    |> function
-    | a, _, _ -> a
-
-  let offset_of_field ?(generics = Hashtbl.create 0) field rstruct_decl rprogram
-      =
-    let field_index =
-      rstruct_decl.rfields
-      |> List.mapi (fun index value -> (index, value))
-      |> List.find_map (fun (index, (sfield, _)) ->
-             if field = sfield then Some index else None)
-      |> Option.get
-    in
-
-    let rktypes = rstruct_decl.rfields |> List.map snd in
-    offset_of_tuple_index ~generics field_index rktypes rprogram
-
-  (* To refacto later in functor*)
-  (* on X86 and Arm64: if the retuned_value can be held in R0 and R1 (RAX, RCX)*)
-  (* If so, there is no need to pass the address of the destination to the function*)
-  (* Therefore : the retunred values dont need to be on the stack since there are discarded*)
-  let discardable_size = function
-    | 1L | 2L | 4L | 8L | 9L | 10L | 12L | 16L -> true
-    | _ -> false
-end
-
-let restrict_typed_expression restrict typed_expression =
-  {
-    typed_expression with
-    rktype = RType.restrict_rktype typed_expression.rktype restrict;
-  }
-
-let rec from_ktype = function
+  let rec from_ktype = function
   | TParametric_identifier { module_path; parametrics_type; name } ->
       RTParametric_identifier
         {
@@ -186,17 +70,17 @@ and from_switch_case = function
 and typed_expression_of_kexpression ~generics_resolver (env : Env.t)
     (current_mod_name : string) (prog : module_path list)
     ?(hint_type = RTUnknow) (expression : kexpression Position.location) =
-  {
-    rktype =
-      RType.restrict_rktype
-        (expression
-        |> typeof ~generics_resolver env current_mod_name prog
-        |> from_ktype)
-        hint_type;
-    rexpression =
-      from_kexpression ~generics_resolver env current_mod_name prog ~hint_type
-        expression.v;
-  }
+    {
+      rktype =
+        RType.restrict_rktype
+          (expression
+          |> typeof ~generics_resolver env current_mod_name prog
+          |> from_ktype)
+          hint_type;
+      rexpression =
+        from_kexpression ~generics_resolver env current_mod_name prog ~hint_type
+          expression.v;
+    }
 
 and rkbody_of_kbody ~generics_resolver (env : Env.t) current_module
     (program : module_path list) ~return_type
@@ -1088,3 +972,125 @@ and from_program (program : Ast.program) : rprogram =
        (fun acc node -> RProgram.append_function_decl node acc)
        rprogram
   |> RProgram.remove_generics
+
+end
+
+module Sizeof = struct
+  let ( ++ ) = Int64.add
+  let ( -- ) = Int64.sub
+
+  let align n b =
+    let m = Int64.unsigned_rem n b in
+    if m = 0L then n else n ++ b -- m
+
+  let rec size calcul program rktype =
+    match rktype with
+    | RTUnit | RTBool | RTUnknow -> 1L
+    | RTInteger (_, isize) -> Isize.size_of_isize isize / 8 |> Int64.of_int
+    | RTFloat | RTPointer _ | RTString_lit | RTFunction _ -> 8L
+    | RTTuple kts -> size_tuple calcul program kts
+    | kt -> (
+        let type_decl =
+          RProgram.find_type_decl_from_rktye kt program |> Option.get
+        in
+
+        match type_decl with
+        | Rtype_Decl.RDecl_Enum enum_decl ->
+            size_enum calcul program
+              (kt |> RType.extract_parametrics_rktype
+              |> List.combine enum_decl.generics
+              |> List.to_seq |> Hashtbl.of_seq)
+              enum_decl
+        | Rtype_Decl.RDecl_Struct struct_decl ->
+            size_struct calcul program
+              (kt |> RType.extract_parametrics_rktype
+              |> List.combine struct_decl.generics
+              |> List.to_seq |> Hashtbl.of_seq)
+              struct_decl)
+
+  and size_tuple calcul program = function
+    | list -> (
+        let size, alignment, _packed_size =
+          list
+          |> List.fold_left
+               (fun (acc_size, acc_align, _acc_packed_size) kt ->
+                 let comming_size = kt |> size `size program in
+                 let comming_align = kt |> size `align program in
+
+                 let aligned = align acc_size comming_align in
+                 let new_align = max acc_align comming_align in
+                 ( aligned ++ comming_size,
+                   new_align,
+                   _acc_packed_size ++ comming_size ))
+               (0L, 0L, 0L)
+        in
+        match calcul with
+        | `size -> if alignment = 0L then 0L else align size alignment
+        | `align -> alignment)
+
+  and size_struct calcul program generics struct_decl =
+    struct_decl.rfields
+    |> List.map (fun (_, kt) -> RType.remap_generic_ktype generics kt)
+    |> size_tuple calcul program
+
+  and size_enum calcul program generics enum_decl =
+    enum_decl.rvariants
+    |> List.map (fun (_, kts) ->
+           kts
+           |> List.map (RType.remap_generic_ktype generics)
+           |> List.cons (RTInteger (Unsigned, I32))
+           |> RType.rtuple |> size calcul program)
+    |> List.fold_left max 0L
+
+  let sizeof program ktype = size `size program ktype
+  let alignmentof program ktype = size `align program ktype
+
+  let offset_of_tuple_index ?(generics = Hashtbl.create 0) index rktypes
+      rprogram =
+    let ( ++ ) = Int64.add in
+
+    rktypes
+    |> List.mapi (fun i v -> (i, v))
+    |> List.fold_left
+         (fun ((acc_size, acc_align, found) as acc) (tindex, rktype) ->
+           let comming_size =
+             rktype |> RType.remap_generic_ktype generics |> size `size rprogram
+           in
+           let comming_align =
+             rktype
+             |> RType.remap_generic_ktype generics
+             |> size `align rprogram
+           in
+
+           let aligned = align acc_size comming_align in
+           let new_align = max acc_align comming_align in
+
+           if found then acc
+           else if index = tindex then (aligned, new_align, true)
+           else (aligned ++ comming_size, new_align, found))
+         (0L, 0L, false)
+    |> function
+    | a, _, _ -> a
+
+  let offset_of_field ?(generics = Hashtbl.create 0) field rstruct_decl rprogram
+      =
+    let field_index =
+      rstruct_decl.rfields
+      |> List.mapi (fun index value -> (index, value))
+      |> List.find_map (fun (index, (sfield, _)) ->
+             if field = sfield then Some index else None)
+      |> Option.get
+    in
+
+    let rktypes = rstruct_decl.rfields |> List.map snd in
+    offset_of_tuple_index ~generics field_index rktypes rprogram
+
+  (* To refacto later in functor*)
+  (* on X86 and Arm64: if the retuned_value can be held in R0 and R1 (RAX, RCX)*)
+  (* If so, there is no need to pass the address of the destination to the function*)
+  (* Therefore : the retunred values dont need to be on the stack since there are discarded*)
+  let discardable_size = function
+    | 1L | 2L | 4L | 8L | 9L | 10L | 12L | 16L -> true
+    | _ -> false
+end
+

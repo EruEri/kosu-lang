@@ -15,13 +15,9 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-type filename_error = Mutiple_dot_in_filename | No_extension | Unknow_error
-
 type architecture = Arm64 | X86_64
 type os = Macos | Linux | FreeBSD
 type archi_target = Arm64e | X86_64m | X86_64
-
-
 
 let std_global_variable = "KOSU_STD_PATH"
 
@@ -48,82 +44,6 @@ let find_error_code_opt l =
   |> List.find_map (function
        | Error code when code <> 0 -> Some code
        | _ -> None)
-
-type cli_error =
-  | No_input_file
-  | Lexer_Error of exn
-  | File_error of string * exn
-  | Filename_error of filename_error
-
-let ( >>= ) = Result.bind
-
-let f s =
-  String.concat "::"
-  @@ List.map String.capitalize_ascii
-  @@ String.split_on_char '/' s
-
-let convert_filename_to_path filename =
-  filename |> String.split_on_char '.'
-  |> (function
-       | [ t; _ ] -> Ok t
-       | [ _ ] -> Error No_extension
-       | _ :: _ :: _ -> Error Mutiple_dot_in_filename
-       | _ -> Error Unknow_error)
-  |> Result.map f
-
-let module_path_of_file filename =
-  let chomped_filename =
-    match std_path with
-    | None -> filename
-    | Some path ->
-        if String.starts_with ~prefix:path filename then
-          let filename_len = String.length filename in
-          let dir_sep_len = String.length @@ Filename.dir_sep in
-          let path_len = String.length path in
-          let prefix_len = path_len + dir_sep_len in
-          String.sub filename prefix_len (filename_len - prefix_len)
-        else filename
-  in
-  (* let () = Printf.printf "filename = %s\nchomped = %s\n" filename  chomped_filename in *)
-  let open KosuFrontend in
-  let open KosuFrontend.Ast in
-  let ( >>= ) = Result.bind in
-  let lexbuf_res =
-    try
-      let file = open_in filename in
-      let source = Lexing.from_channel file in
-      at_exit (fun () -> close_in file);
-      source |> Result.ok
-    with e -> Error (File_error (filename, e))
-  in
-  lexbuf_res >>= fun lexbuf ->
-  KosuParser.parse lexbuf (Parser.Incremental.modul lexbuf.lex_curr_p)
-  |> Result.map_error (fun lexer_error ->
-         Lexer_Error (Lexer.Lexer_Error { filename; error = lexer_error }))
-  >>= fun _module ->
-  chomped_filename |> convert_filename_to_path
-  |> Result.map (fun path -> { filename; module_path = { path; _module } })
-  |> Result.map_error (fun e -> Filename_error e)
-
-(**
-    Takes all the kosuc files and transform into the ast.
-    It also revomes all the implicit Module type function with the function
-    [Kosu_frontend.Astvalidation.Help.program_remove_implicit_type_path]
-*)
-let files_to_ast_program (files : string list) =
-  files |> List.map module_path_of_file |> function
-  | [] -> Error No_input_file
-  | l -> (
-      match
-        l
-        |> List.find_map (fun s -> match s with Error e -> Some e | _ -> None)
-      with
-      | None ->
-          Ok
-            (l |> List.map Result.get_ok
-           |> KosuFrontend.Astvalidation.Help.program_remove_implicit_type_path
-            )
-      | Some error -> Error error)
 
 let rec fetch_kosu_file direname () =
   let file_in_dir = Sys.readdir direname in
@@ -156,9 +76,6 @@ let parse_library_link_name libname =
 
 module Cli = struct
   open Cmdliner
-  open KosuFrontend.Astvalidation
-  open KosuIrTyped
-  open KosuIrTAC
 
   module Mac0SX86 =
     KosuBackend.Codegen.Make
@@ -376,6 +293,33 @@ module Cli = struct
       cmd
     in
 
+    let cclib = cclib |> List.map parse_library_link_name in
+
+    let kosu_files, other_files = files |> List.partition is_kosu_file in
+
+    let std_file = fetch_std_file ~no_std () in
+
+
+    let module ValidationRule : KosuFrontend.KosuValidationRule = struct 
+    end
+    in
+    
+    let module TypeCheckerRule : KosuFrontend.TypeCheckerRule = struct 
+      let allow_generics_in_variadic = false
+    end
+    in
+
+    let module Compilation_Files : KosuFrontend.Compilation_Files = struct
+      let std_global_variable = "KOSU_STD_PATH"
+      let architecture_global_variable = "KOSU_TARGET_ARCHI"
+      let os_global_variable = "KOSU_TARGET_OS"
+
+      let kosu_files = (kosu_files @ std_file)
+    end
+  in
+
+  let module KosuFront = KosuFrontend.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule) in
+  let module Asttyconvert = KosuIrTyped.Asttyconvert.Make(TypeCheckerRule) in
 
     
     let module Codegen = (val match (architecture, os) with
@@ -392,45 +336,18 @@ module Cli = struct
                       : KosuBackend.Compil.LinkerOption)
     in
     let module Compiler = KosuBackend.Compil.Make (Codegen) (LinkerOption) in
-    let cclib = cclib |> List.map parse_library_link_name in
 
-    let kosu_files, other_files = files |> List.partition is_kosu_file in
+    let () = KosuFront.register_kosu_error () in
 
-    let std_file = fetch_std_file ~no_std () in
+    let ast_module = KosuFront.ast_modules in
+    let typed_program = match Asttyconvert.from_program ast_module with
+    | typed_program -> typed_program
+    | exception KosuFrontend.Ast.Error.Ast_error e -> 
+      let () = e |> KosuFront.Pprinterr.string_of_ast_error |> print_endline in
+      failwith "Error while typing ast: Shouldn't append"
+    in   
 
-    let modules_opt = files_to_ast_program (kosu_files @ std_file) in
-
-    let tac_program =
-      match modules_opt with
-      | Error e -> (
-          match e with
-          | No_input_file -> raise (Invalid_argument "no Input file")
-          | File_error (s, exn) ->
-              Printf.eprintf "%s\n" s;
-              raise exn
-          | Filename_error _ -> raise (Invalid_argument "Filename Error")
-          | Lexer_Error e -> raise e)
-      | Ok modules -> (
-          match valide_program modules with
-          | filename, Error e ->
-              (* Printf.eprintf "\nFile \"%s\", %s\n" filename (Kosu_frontend.Pprint.string_of_validation_error e); *)
-              raise (Error.Validation_error (filename, e))
-          | _, Ok () ->
-              let typed_program =
-                try Asttyconvert.from_program modules
-                with KosuFrontend.Ast.Error.Ast_error e ->
-                  let () =
-                    Printf.printf "%s\n"
-                      (KosuFrontend.Pprinterr.string_of_ast_error e)
-                  in
-                  failwith "Error while typing ast: Shouldn't append"
-              in
-              let tac_program =
-                Asttacconv.tac_program_of_rprogram typed_program
-              in
-              tac_program)
-    in
-
+    let tac_program = KosuIrTAC.Asttacconv.tac_program_of_rprogram typed_program in
     let _code =
       match is_target_asm with
       | true -> Compiler.generate_asm_only tac_program ()
