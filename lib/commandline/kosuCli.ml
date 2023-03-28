@@ -89,6 +89,7 @@ module Cli = struct
   type cmd = {
     architecture: architecture;
     os: os;
+    f_allow_generic_in_variadic: bool;
     no_std : bool;
     is_target_asm : bool;
     cc : bool;
@@ -144,10 +145,19 @@ module Cli = struct
       ~doc:("Os compilation target")
       ["os"]
     )
+
+  let f_allow_generic_in_variadic_term = 
+    Arg.(
+        value & 
+        flag & 
+        info ["fallow-generic-variadic"]
+        ~docs:"COMPILATION OPTION"
+        ~doc:"Allow the use variable with a generic type in variadic function parameters such as $(b,printf(3))"
+    )
   let no_std_term =
     Arg.(
       value & flag
-      & info [ "no-std" ] ~doc:"Don't include the standard librairy")
+      & info [ "no-std" ] ~doc:"Don't include the standard library")
 
   let verbose_term =
     Arg.(
@@ -206,11 +216,12 @@ module Cli = struct
             \  ")
 
   let cmd_term run =
-    let combine architecture os no_std verbose cc is_target_asm output pkg_configs
+    let combine architecture os f_allow_generic_in_variadic no_std verbose cc is_target_asm output pkg_configs
         ccol cclib files =
       run
       @@ {
            architecture;
+           f_allow_generic_in_variadic;
            os;
            no_std;
            verbose;
@@ -224,7 +235,7 @@ module Cli = struct
          }
     in
     Term.(
-      const combine $ target_archi_term $ os_target_term $ no_std_term $ verbose_term $ cc_term
+      const combine $ target_archi_term $ os_target_term $ f_allow_generic_in_variadic_term $ no_std_term $ verbose_term $ cc_term
       $ target_asm_term $ output_term $ pkg_config_term $ ccol_term $ cclib_term
       $ files_term)
 
@@ -266,6 +277,7 @@ module Cli = struct
     let {
       architecture;
       os;
+      f_allow_generic_in_variadic;
       no_std;
       verbose;
       is_target_asm;
@@ -290,7 +302,7 @@ module Cli = struct
     in
     
     let module TypeCheckerRule : KosuFrontend.TypeCheckerRule = struct 
-      let allow_generics_in_variadic = false
+      let allow_generics_in_variadic = f_allow_generic_in_variadic
     end
     in
 

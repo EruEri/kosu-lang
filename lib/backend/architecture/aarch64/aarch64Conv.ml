@@ -100,7 +100,13 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         | None -> failwith "Non type decl ??? my validation is very weak"
       in
 
-      let mapped_generics = List.combine struct_decl.generics (RType.extract_parametrics_rktype first_ktype) in
+      let extracted = RType.extract_parametrics_rktype acc_type in
+      (* let () = print_endline @@ Printf.sprintf "ktype = %s : extracted = %s, mapped = <%s>" 
+        (KosuIrTyped.Asttypprint.string_of_rktype acc_type)
+        (extracted |> List.map KosuIrTyped.Asttypprint.string_of_rktype |> String.concat ", ")
+        (struct_decl.generics |> String.concat ", ")
+      in *)
+      let mapped_generics = List.combine struct_decl.generics extracted in
       let hashmap_generis = mapped_generics |> List.to_seq |> Hashtbl.of_seq in
       let struct_decl = RStruct.instanciate_struct_decl  (mapped_generics) struct_decl in
       let offset = offset_of_field ~generics:hashmap_generis field struct_decl rprogram in
