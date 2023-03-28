@@ -54,9 +54,9 @@ module type X86_64AsmSpecification = sig
 
   val main : string
 
+  val should_create_entry_point : string option
   (** 
       Indicate if the [entry] routine should be create with which name
       It's should be [Some "_start"] on linux/Freebsd and [None] on macOS
   *)
-  val should_create_entry_point: string option
 end

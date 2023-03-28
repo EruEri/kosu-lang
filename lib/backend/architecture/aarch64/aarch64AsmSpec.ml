@@ -16,13 +16,10 @@
 (**********************************************************************************************)
 
 module type Aarch64AsmSpecification = sig
-  type address_load_style = 
-  | MacOS
-  | Other
+  type address_load_style = MacOS | Other
 
   val main : string
   val function_directives : string -> string list
-
   val adrp_style : address_load_style
 
   val constant_directives :

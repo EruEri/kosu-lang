@@ -140,9 +140,17 @@ and tac_switch = {
 and tac_statement =
   | STacDeclaration of { identifier : string; trvalue : tac_typed_rvalue }
   | STacModification of { identifier : string; trvalue : tac_typed_rvalue }
-  | STacModificationField of { identifier_root: (string* rktype); fields: string list; trvalue : tac_typed_rvalue }
+  | STacModificationField of {
+      identifier_root : string * rktype;
+      fields : string list;
+      trvalue : tac_typed_rvalue;
+    }
   | STDerefAffectation of { identifier : string; trvalue : tac_typed_rvalue }
-  | STDerefAffectationField of { identifier_root: (string* rktype); fields: string list; trvalue : tac_typed_rvalue }
+  | STDerefAffectationField of {
+      identifier_root : string * rktype;
+      fields : string list;
+      trvalue : tac_typed_rvalue;
+    }
   | STWhile of {
       statements_condition : tac_statement list;
       condition : tac_typed_expression;

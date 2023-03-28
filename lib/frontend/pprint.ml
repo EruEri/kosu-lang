@@ -103,9 +103,13 @@ let rec string_of_kbody = function
         |> List.map (fun s -> s |> value |> string_of_kstatement)
         |> String.concat "\n  ")
         (string_of_kexpression expr.v)
+
 and string_of_affected_value = function
-| AFVariable s -> s.v
-| AFField {variable; fields} -> sprintf "%s.%s" variable.v (fields |> List.map (Position.value) |> String.concat ".")
+  | AFVariable s -> s.v
+  | AFField { variable; fields } ->
+      sprintf "%s.%s" variable.v
+        (fields |> List.map Position.value |> String.concat ".")
+
 and string_of_kstatement = function
   | SDeclaration { is_const; variable_name; explicit_type; expression } ->
       sprintf "%s %s : %s = %s;"
@@ -116,10 +120,14 @@ and string_of_kstatement = function
         |> Option.value ~default:"")
         (expression.v |> string_of_kexpression)
   | SAffection (id, expression) ->
-      sprintf "%s = %s;" (string_of_affected_value id) (expression.v |> string_of_kexpression)
+      sprintf "%s = %s;"
+        (string_of_affected_value id)
+        (expression.v |> string_of_kexpression)
   | SDiscard expr -> sprintf "discard %s;" (string_of_kexpression expr.v)
   | SDerefAffectation (id, exprssion) ->
-      sprintf "*%s = %s;" (string_of_affected_value id) (string_of_kexpression exprssion.v)
+      sprintf "*%s = %s;"
+        (string_of_affected_value id)
+        (string_of_kexpression exprssion.v)
 
 and string_of_kexpression = function
   | Empty -> "empty"

@@ -31,34 +31,43 @@ module OffsetHelper = struct
     let modulo = if Int64.unsigned_rem size 16L = 0L then 0L else 1L in
     16L ** (div ++ modulo)
 
-    let offset_of_field_access first_ktype ~fields rprogram = 
+  let offset_of_field_access first_ktype ~fields rprogram =
+    let open KosuIrTyped.Asttyhelper in
+    fields
+    |> List.fold_left
+         (fun (acc_offset, acc_type) field ->
+           (* let () = Printf.printf "field : %s :: %s\n%!" field (KosuIrTyped.Asttypprint.string_of_rktype acc_type) in *)
+           let struct_decl =
+             match
+               KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
+                 acc_type rprogram
+             with
+             | Some (RDecl_Struct s) -> s
+             | Some (RDecl_Enum _) ->
+                 failwith "Expected to find a struct get an enum"
+             | None -> failwith "Non type decl ??? my validation is very weak"
+           in
 
-      let open KosuIrTyped.Asttyhelper in
-      fields |> List.fold_left (fun (acc_offset, acc_type) field -> 
-        (* let () = Printf.printf "field : %s :: %s\n%!" field (KosuIrTyped.Asttypprint.string_of_rktype acc_type) in *)
-        let struct_decl =
-          match
-            KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
-              acc_type rprogram
-          with
-          | Some (RDecl_Struct s) -> s
-          | Some (RDecl_Enum _) ->
-              failwith "Expected to find a struct get an enum"
-          | None -> failwith "Non type decl ??? my validation is very weak"
-        in
-  
-        let extracted = RType.extract_parametrics_rktype acc_type in
-        let mapped_generics = List.combine struct_decl.generics extracted in
-        let hashmap_generis = mapped_generics |> List.to_seq |> Hashtbl.of_seq in
-        let struct_decl = RStruct.instanciate_struct_decl  (mapped_generics) struct_decl in
-        let offset = KosuIrTyped.Asttyconvert.Sizeof.offset_of_field ~generics:hashmap_generis field struct_decl rprogram in
-        let acc_offset = Int64.add acc_offset offset in
-        let field_type = Option.get @@ RStruct.rktype_of_field_opt field struct_decl in
-        (acc_offset, field_type)
-    ) (0L, first_ktype) |> fst
+           let extracted = RType.extract_parametrics_rktype acc_type in
+           let mapped_generics = List.combine struct_decl.generics extracted in
+           let hashmap_generis =
+             mapped_generics |> List.to_seq |> Hashtbl.of_seq
+           in
+           let struct_decl =
+             RStruct.instanciate_struct_decl mapped_generics struct_decl
+           in
+           let offset =
+             KosuIrTyped.Asttyconvert.Sizeof.offset_of_field
+               ~generics:hashmap_generis field struct_decl rprogram
+           in
+           let acc_offset = Int64.add acc_offset offset in
+           let field_type =
+             Option.get @@ RStruct.rktype_of_field_opt field struct_decl
+           in
+           (acc_offset, field_type))
+         (0L, first_ktype)
+    |> fst
 end
-
-
 
 module type InstructionLine = sig
   type raw_line
@@ -89,6 +98,5 @@ module AsmProgram (InstructionLine : InstructionLine) = struct
 
   type asm_program = named_asm_module_path list
 end
-
 
 module NamingConvention = NamingConvention

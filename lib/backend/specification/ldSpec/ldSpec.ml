@@ -25,9 +25,7 @@ module MacOSLdSpec : KosuBackend.Compil.LinkerOption = struct
     [ "syslibroot $(xcrun --sdk macosx --show-sdk-path)"; "lSystem" ]
 
   let raw_args = []
-
   let disable = None
-
   let should_create_entry_point = None
 end
 
@@ -36,13 +34,19 @@ module LinuxLdSpec : KosuBackend.Compil.LinkerOption = struct
 
   let entry_point = "_start"
 
-  let should_create_entry_point = ignore entry_point; None
+  let should_create_entry_point =
+    ignore entry_point;
+    None
 
   let string_of_option = Fun.id
   let ld_command = "ld"
-  let options = ["lc"; "dynamic-linker /lib64/ld-linux-x86-64.so.2"; "L/usr/lib"; "L/lib64"  ]
-  let raw_args = ["/lib64/crt1.o"; "/lib64/crti.o"; "/lib64/crtn.o"]
 
+  let options =
+    [
+      "lc"; "dynamic-linker /lib64/ld-linux-x86-64.so.2"; "L/usr/lib"; "L/lib64";
+    ]
+
+  let raw_args = [ "/lib64/crt1.o"; "/lib64/crti.o"; "/lib64/crtn.o" ]
   let disable = None
 end
 
@@ -51,12 +55,22 @@ module FreeBSDLdSpec : KosuBackend.Compil.LinkerOption = struct
 
   let entry_point = "_start"
 
-  let should_create_entry_point = ignore entry_point; None
+  let should_create_entry_point =
+    ignore entry_point;
+    None
 
   let string_of_option = Fun.id
   let ld_command = "ld"
-  let options = ["lc"; "dynamic-linker /libexec/ld-elf.so.1"; "L/usr/lib" ]
-  let raw_args = ["/usr/lib/crt1.o"; "/usr/lib/crti.o"; "/usr/lib/crtbegin.o"; "/usr/lib/crtend.o"; "/usr/lib/crtn.o"]
+  let options = [ "lc"; "dynamic-linker /libexec/ld-elf.so.1"; "L/usr/lib" ]
+
+  let raw_args =
+    [
+      "/usr/lib/crt1.o";
+      "/usr/lib/crti.o";
+      "/usr/lib/crtbegin.o";
+      "/usr/lib/crtend.o";
+      "/usr/lib/crtn.o";
+    ]
 
   let disable = None
 end

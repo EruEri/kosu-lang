@@ -73,7 +73,7 @@ module Register = struct
   let syscall_arguments_register = [ RDI; RSI; RDX; R10; R8; R9 ]
   let sized_register size register = { size; reg = register }
   let resize_register size register = { register with size }
-  let r9q  = { size = Q; reg = R9 }
+  let r9q = { size = Q; reg = R9 }
   let rbpq = { size = Q; reg = RBP }
   let rspq = { size = Q; reg = RSP }
   let rdiq = { size = Q; reg = RDI }

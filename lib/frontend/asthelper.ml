@@ -356,7 +356,8 @@ module Program = struct
       @return whether the [ktype] is a c compatible type or not
       @raise Ast.Error.Ast_error e if no type declaration is found for the [ktype]
   *)
-  and is_c_type_from_ktype ?(generics = []) current_mod_name (ktype : ktype) program =
+  and is_c_type_from_ktype ?(generics = []) current_mod_name (ktype : ktype)
+      program =
     match ktype with
     | TParametric_identifier _ -> false
     | TType_Identifier { module_path; name } -> (
@@ -365,7 +366,7 @@ module Program = struct
             ~current_module:current_mod_name program
         with
         | Error _ when module_path.v = "" && List.mem name.v generics -> true
-        | Error e  -> e |> Ast.Error.ast_error |> raise
+        | Error e -> e |> Ast.Error.ast_error |> raise
         | Ok type_decl -> is_c_type current_mod_name type_decl program)
     | TFunction _ -> false
     | TTuple _ -> false
@@ -1877,27 +1878,26 @@ module AstModif = struct
 end
 
 module Affected_Value = struct
- let rec resolve_fields_access_gen (parametrics_types : ktype list)
+  let rec resolve_fields_access_gen (parametrics_types : ktype list)
       (fields : string location list) (type_decl : Ast.Type_Decl.type_decl)
       (current_mod_name : string) (program : module_path list) =
-     let open Ast.Type_Decl in
-     let open Ast.Error in
+    let open Ast.Type_Decl in
+    let open Ast.Error in
     match fields with
     | [] -> failwith "Unreachable: Empty field access"
     | [ t ] -> (
-
-         match type_decl with
-         | Decl_Enum enum_decl ->
+        match type_decl with
+        | Decl_Enum enum_decl ->
             Enum_Access_field { field = t; enum_decl } |> ast_error |> raise
-         | Decl_Struct struct_decl -> (
-             match
-               Struct.ktype_of_field_gen ~current_module:current_mod_name
+        | Decl_Struct struct_decl -> (
+            match
+              Struct.ktype_of_field_gen ~current_module:current_mod_name
                 parametrics_types t.v struct_decl
-             with
-             | None ->
+            with
+            | None ->
                 Impossible_field_Access { field = t; struct_decl }
-                 |> ast_error |> raise
-             | Some kt -> kt))
+                |> ast_error |> raise
+            | Some kt -> kt))
     | t :: q -> (
         match type_decl with
         | Decl_Enum enum_decl ->
@@ -1931,17 +1931,26 @@ module Affected_Value = struct
     @raise ast_error if ktype is not a declared type or if try to access field of enum
     @return ktype of the field
   *)
-  let field_type ~variable ktype current_mod_name program fields = 
-    match Ast.Type.module_path_of_ktype_opt ktype with 
-    | None -> No_struct_field_acc {variable; ktype} |> Ast.Error.ast_error |> raise
+  let field_type ~variable ktype current_mod_name program fields =
+    match Ast.Type.module_path_of_ktype_opt ktype with
+    | None ->
+        No_struct_field_acc { variable; ktype } |> Ast.Error.ast_error |> raise
     | Some (module_path, typename) ->
-      let generics = Ast.Type.extract_parametrics_ktype ktype in
-      let type_decl = match Program.find_type_decl_from_ktype ~ktype_def_path:module_path ~ktype_name:typename ~current_module:current_mod_name program with
-        | Error ast_e -> ast_e |> Ast.Error.ast_error |> raise
-        | Ok type_decl -> type_decl 
-      in
-      let field_type = resolve_fields_access_gen (generics |> List.map Position.value)  (fields) type_decl current_mod_name program in
-      field_type
+        let generics = Ast.Type.extract_parametrics_ktype ktype in
+        let type_decl =
+          match
+            Program.find_type_decl_from_ktype ~ktype_def_path:module_path
+              ~ktype_name:typename ~current_module:current_mod_name program
+          with
+          | Error ast_e -> ast_e |> Ast.Error.ast_error |> raise
+          | Ok type_decl -> type_decl
+        in
+        let field_type =
+          resolve_fields_access_gen
+            (generics |> List.map Position.value)
+            fields type_decl current_mod_name program
+        in
+        field_type
 end
 
 module Sizeof = struct

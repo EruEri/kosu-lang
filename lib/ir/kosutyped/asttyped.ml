@@ -53,12 +53,11 @@ and rkstatement =
   | RSAffection of raffacted_value * typed_expression
   | RSDiscard of typed_expression
   | RSDerefAffectation of raffacted_value * typed_expression
-and raffacted_value = 
+
+and raffacted_value =
   | RAFVariable of (string * rktype)
-  | RAFField of {
-    variable: (string * rktype);
-    fields: string list
-  }
+  | RAFField of { variable : string * rktype; fields : string list }
+
 and rkexpression =
   | REmpty
   | RTrue

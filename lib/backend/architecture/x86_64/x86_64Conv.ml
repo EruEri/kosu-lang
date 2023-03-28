@@ -756,42 +756,43 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let tmpreg = tmp_r10 sizeof in
         let copy_instructions =
           where
-          |> Option.map (fun waddress -> 
-            let debug = 
-            Printf.sprintf "%s.%s : size = %Lu, register = %s : target address = %s"
-            struct_id
-            field
-            sizeof
-            (X86_64Pprint.string_of_register tmpreg)
-            (X86_64Pprint.string_of_address waddress) 
-          in
-          let preinstructions = (Line_Com (Comment debug))::
-            if is_register_size sizeof then
-                 [
-                   Instruction
-                     (Mov
-                        {
-                          size;
-                          destination = `Register tmpreg;
-                          source = `Address field_address;
-                        });
-                 ]
-          else
-            [
-              Instruction
-              (
-                Lea 
-                {
-                  size = Q;
-                  source = field_address;
-                  destination = tmpreg
-                }
-              )
-            ] in
-            let cp_instrucion = copy_from_reg tmpreg waddress rval_rktype rprogram in
-            preinstructions @ cp_instrucion
-        ) 
-        |> Option.value ~default:[]
+          |> Option.map (fun waddress ->
+                 let debug =
+                   Printf.sprintf
+                     "%s.%s : size = %Lu, register = %s : target address = %s"
+                     struct_id field sizeof
+                     (X86_64Pprint.string_of_register tmpreg)
+                     (X86_64Pprint.string_of_address waddress)
+                 in
+                 let preinstructions =
+                   Line_Com (Comment debug)
+                   ::
+                   (if is_register_size sizeof then
+                    [
+                      Instruction
+                        (Mov
+                           {
+                             size;
+                             destination = `Register tmpreg;
+                             source = `Address field_address;
+                           });
+                    ]
+                   else
+                     [
+                       Instruction
+                         (Lea
+                            {
+                              size = Q;
+                              source = field_address;
+                              destination = tmpreg;
+                            });
+                     ])
+                 in
+                 let cp_instrucion =
+                   copy_from_reg tmpreg waddress rval_rktype rprogram
+                 in
+                 preinstructions @ cp_instrucion)
+          |> Option.value ~default:[]
         in
         Line_Com (Comment ("Field access of " ^ field)) :: copy_instructions
     | RVFieldAcess _ ->
@@ -1342,50 +1343,67 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         (Line_Com (Comment "Defered Start") :: instructions :: true_instructions)
         @ [ Line_Com (Comment "Defered end") ]
-    | STacModificationField {identifier_root; fields; trvalue} -> 
-      let root_address = Option.get @@ FrameManager.address_of identifier_root fd in
-      let field_offset = Common.OffsetHelper.offset_of_field_access (snd identifier_root) ~fields rprogram in
-      let target_adress = increment_adress field_offset root_address in 
-      let instructions =
-        translate_tac_rvalue ~str_lit_map ~where:(Some target_adress) current_module
-          rprogram fd trvalue
-      in
-      instructions
-    | STDerefAffectationField {identifier_root; fields; trvalue} -> 
-      let tmp_rax = resize_register Q r9q in (* Since it hold an address *)
-      let intermediary_adress = Option.get @@ FrameManager.address_of identifier_root fd in
-      let pointee_type = (fun (_ , kt) -> KosuIrTyped.Asttyhelper.RType.rtpointee kt ) identifier_root  in
-      let field_offset = Common.OffsetHelper.offset_of_field_access pointee_type ~fields rprogram in
-      let _target_adress = increment_adress field_offset intermediary_adress in 
-      let fetch_address_offset_instruction = [
-        Instruction 
-        (
-          Mov
-          {
-            size = Q;
-            source = `Address intermediary_adress;
-            destination = `Register tmp_rax
-          }
-        );
-        Instruction
-        (
-          Add
-          {
-            size = Q;
-            destination = `Register tmp_rax;
-            source = `ILitteral field_offset
-          }
-        )
-      ]
-      in
-      let true_adress = create_address_offset tmp_rax in
-      let true_instructions =
-        translate_tac_rvalue ~str_lit_map ~is_deref:(Some intermediary_adress) (* Very susciptous abode the use of immediary adress *)
-          ~where:(Some true_adress) current_module rprogram fd trvalue
-      in
+    | STacModificationField { identifier_root; fields; trvalue } ->
+        let root_address =
+          Option.get @@ FrameManager.address_of identifier_root fd
+        in
+        let field_offset =
+          Common.OffsetHelper.offset_of_field_access (snd identifier_root)
+            ~fields rprogram
+        in
+        let target_adress = increment_adress field_offset root_address in
+        let instructions =
+          translate_tac_rvalue ~str_lit_map ~where:(Some target_adress)
+            current_module rprogram fd trvalue
+        in
+        instructions
+    | STDerefAffectationField { identifier_root; fields; trvalue } ->
+        let tmp_rax = resize_register Q r9q in
+        (* Since it hold an address *)
+        let intermediary_adress =
+          Option.get @@ FrameManager.address_of identifier_root fd
+        in
+        let pointee_type =
+          (fun (_, kt) -> KosuIrTyped.Asttyhelper.RType.rtpointee kt)
+            identifier_root
+        in
+        let field_offset =
+          Common.OffsetHelper.offset_of_field_access pointee_type ~fields
+            rprogram
+        in
+        let _target_adress =
+          increment_adress field_offset intermediary_adress
+        in
+        let fetch_address_offset_instruction =
+          [
+            Instruction
+              (Mov
+                 {
+                   size = Q;
+                   source = `Address intermediary_adress;
+                   destination = `Register tmp_rax;
+                 });
+            Instruction
+              (Add
+                 {
+                   size = Q;
+                   destination = `Register tmp_rax;
+                   source = `ILitteral field_offset;
+                 });
+          ]
+        in
+        let true_adress = create_address_offset tmp_rax in
+        let true_instructions =
+          translate_tac_rvalue ~str_lit_map
+            ~is_deref:(Some intermediary_adress)
+              (* Very susciptous abode the use of immediary adress *)
+            ~where:(Some true_adress) current_module rprogram fd trvalue
+        in
 
-      (Line_Com (Comment "Field Defered Start") :: fetch_address_offset_instruction @ true_instructions)
-      @ [ Line_Com (Comment "Field Defered end") ]
+        (Line_Com (Comment "Field Defered Start")
+         :: fetch_address_offset_instruction
+        @ true_instructions)
+        @ [ Line_Com (Comment "Field Defered end") ]
     | STWhile
         {
           statements_condition;
@@ -1773,37 +1791,46 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     in
     (label_instr :: stmt_instr) @ return_instr @ end_label_inst
 
-
-  let kosu_crt0_module_node name = 
+  let kosu_crt0_module_node name =
     let ebp = resize_register L rbpq in
     let edi = resize_register L rdiq in
     let eax = resize_register L raxq in
-    let instructions = [
-      Instruction (Xor {size = L; source = `Register ebp; destination = `Register ebp});
-      Instruction (Mov {size = L; source = `Address (create_address_offset rspq); destination = `Register edi });
-      Instruction (Lea {size = Q; source = (create_address_offset ~offset:(8L) rspq); destination = rsiq});
-      Instruction (Call {what = `Label Spec.main});
-      Instruction (Mov {size = L; source = `Register eax; destination = `Register edi});
-      Instruction (Call {what = `Label "_exit"})
-    ] in
-    Afunction {
-      asm_name = name;
-      asm_body = instructions
-    }
+    let instructions =
+      [
+        Instruction
+          (Xor { size = L; source = `Register ebp; destination = `Register ebp });
+        Instruction
+          (Mov
+             {
+               size = L;
+               source = `Address (create_address_offset rspq);
+               destination = `Register edi;
+             });
+        Instruction
+          (Lea
+             {
+               size = Q;
+               source = create_address_offset ~offset:8L rspq;
+               destination = rsiq;
+             });
+        Instruction (Call { what = `Label Spec.main });
+        Instruction
+          (Mov { size = L; source = `Register eax; destination = `Register edi });
+        Instruction (Call { what = `Label "_exit" });
+      ]
+    in
+    Afunction { asm_name = name; asm_body = instructions }
 
   let kosu_crt0_named_module_path name =
-    { 
-      apath = name;
-      asm_module = AsmModule [kosu_crt0_module_node name]
-    }
+    { apath = name; asm_module = AsmModule [ kosu_crt0_module_node name ] }
 
-    let kosu_crt0_asm entry_name = {
+  let kosu_crt0_asm entry_name =
+    {
       filename = "kosu_crt0";
       asm_module_path = kosu_crt0_named_module_path entry_name;
       rprogram = [];
       str_lit_map = Hashtbl.create 0;
     }
- 
 
   let asm_module_of_tac_module ~str_lit_map current_module rprogram =
     let open KosuIrTyped.Asttyped in
@@ -2035,27 +2062,28 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           (asm_module_of_tac_module ~str_lit_map path rprogram tac_module);
     }
 
-  let asm_program_of_tac_program ~(start: string option) tac_program  = ignore start;
-    let modules =  tac_program
-    |> List.map (fun ({ filename; tac_module_path; rprogram } as named) ->
-           let str_lit_map =
-             KosuIrTAC.Asttachelper.StringLitteral
-             .map_string_litteral_of_named_rmodule_path named ()
-           in
-           {
-             filename =
-               filename |> Filename.chop_extension |> Printf.sprintf "%s.S";
-             asm_module_path =
-               asm_module_path_of_tac_module_path ~str_lit_map rprogram
-                 tac_module_path;
-             rprogram;
-             str_lit_map;
-           })
+  let asm_program_of_tac_program ~(start : string option) tac_program =
+    ignore start;
+    let modules =
+      tac_program
+      |> List.map (fun ({ filename; tac_module_path; rprogram } as named) ->
+             let str_lit_map =
+               KosuIrTAC.Asttachelper.StringLitteral
+               .map_string_litteral_of_named_rmodule_path named ()
+             in
+             {
+               filename =
+                 filename |> Filename.chop_extension |> Printf.sprintf "%s.S";
+               asm_module_path =
+                 asm_module_path_of_tac_module_path ~str_lit_map rprogram
+                   tac_module_path;
+               rprogram;
+               str_lit_map;
+             })
     in
     match start with
     | None -> modules
-    | Some entry_name -> (kosu_crt0_asm entry_name)::modules
-        
+    | Some entry_name -> kosu_crt0_asm entry_name :: modules
 
   let sort_asm_module (AsmModule anodes) =
     AsmModule

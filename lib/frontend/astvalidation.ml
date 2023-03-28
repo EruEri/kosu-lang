@@ -18,12 +18,11 @@
 open Ast
 open Position
 
-module type KosuValidationRule = sig
-  
-end
+module type KosuValidationRule = sig end
 
-module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = struct
-  module Typecheck = Typecheck.Make(TyRule)
+module Make (VRule : KosuValidationRule) (TyRule : Typecheck.TypeCheckerRuleS) =
+struct
+  module Typecheck = Typecheck.Make (TyRule)
 
   module VError = struct
     type external_func_error =
@@ -34,7 +33,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
           limit : int;
           found : int;
         }
-  
+
     type syscall_error =
       | Syscall_Unit_parameter of syscall_decl
       | Syscall_Not_C_compatible_type of syscall_decl * ktype location
@@ -43,21 +42,21 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
           limit : int;
           found : int;
         }
-  
+
     type struct_error =
       | SCyclic_Declaration of struct_decl
       | SDuplicated_field of {
           field : string location;
           struct_decl : struct_decl;
         }
-  
+
     type enum_error =
       | ECyclic_Declaration of enum_decl
       | EDuplicated_variant_name of {
           variant : string location;
           enum_decl : enum_decl;
         }
-  
+
     type operator_error =
       | Op_built_overload of ktype location
       | Op_binary_op_diff_type of {
@@ -70,7 +69,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
           expected : ktype;
           found : ktype;
         }
-  
+
     type function_error =
       | Wrong_signature_for_main of function_decl
       | Duplicated_parameters of {
@@ -81,7 +80,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
           field : string location;
           function_decl : function_decl;
         }
-  
+
     type module_error =
       | Duplicate_function_declaration of {
           path : string;
@@ -102,7 +101,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
       | Main_no_kosu_function of
           [ `syscall_decl of Ast.syscall_decl
           | `external_decl of Ast.external_func_decl ]
-  
+
     type validation_error =
       | External_Func_Error of external_func_error
       | Syscall_Error of syscall_error
@@ -115,7 +114,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
          | Too_many_type_decl of ktype *)
       | Too_many_Main of (string * Ast.Function_Decl.t list) list
       | Ast_Error of Ast.Error.ast_error
-  
+
     let external_func_error e = External_Func_Error e
     let syscall_error e = Syscall_Error e
     let struct_error e = Struct_Error e
@@ -123,10 +122,10 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
     let operator_error e = Operator_Error e
     let function_error e = Function_Error e
     let module_error e = Module_Error e
-  
+
     exception Validation_error of string * validation_error
   end
-  
+
   module Help = struct
     (* let is_ktype_exist generics current_module program ktype =
        try
@@ -141,7 +140,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
        | Util.Occurence.Too_Many_Occurence ->
            Error.Too_many_type_decl ktype |> Result.error
        | Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error *)
-  
+
     let is_ktype_exist_from_ktype generics current_module program ktype =
       try
         let _ =
@@ -150,12 +149,13 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
         in
         Ok ()
       with Ast.Error.Ast_error e -> VError.Ast_Error e |> Result.error
-  
+
     let rec does_ktype_contains_type_decl current_module program ktype
         ktype_type_decl_origin already_visited type_decl_to_check =
       (* already_visited |> List.map (Type_Decl.string_of_type_decl) |> List.iter (print_endline); *)
       match ktype with
-      | TType_Identifier { module_path = ktype_def_path; name = ktype_name } -> (
+      | TType_Identifier { module_path = ktype_def_path; name = ktype_name }
+        -> (
           match
             Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path
               ~ktype_name ~current_module program
@@ -183,7 +183,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                   (ktype_type_decl_origin |> Asthelper.Type_Decl.generics)
                   struct_decl
               in
-  
+
               does_contains_type_decl_struct current_module program new_struct
                 already_visited type_decl_to_check
           | Ok (Ast.Type_Decl.Decl_Enum enum_decl) ->
@@ -201,7 +201,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                  does_ktype_contains_type_decl current_module program kt.v
                    ktype_type_decl_origin already_visited type_decl_to_check)
       | _ -> false
-  
+
     and does_contains_type_decl_struct current_module program struct_decl
         already_visited type_decl_to_check =
       let open Asthelper in
@@ -231,8 +231,8 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                       in
                       t_decl = type_decl_to_check
                       || t_decl = Ast.Type_Decl.decl_struct struct_decl
-                      || does_ktype_contains_type_decl current_module program kt.v
-                           (Ast.Type_Decl.Decl_Struct struct_decl)
+                      || does_ktype_contains_type_decl current_module program
+                           kt.v (Ast.Type_Decl.Decl_Struct struct_decl)
                            (Ast.Type_Decl.Decl_Struct struct_decl
                           :: already_visited)
                            type_decl_to_check
@@ -264,8 +264,8 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                                     (Ast.Type_Decl.Decl_Struct struct_decl
                                    :: already_visited)
                                     type_decl_to_check)
-                      || does_ktype_contains_type_decl current_module program kt.v
-                           (Ast.Type_Decl.Decl_Struct struct_decl)
+                      || does_ktype_contains_type_decl current_module program
+                           kt.v (Ast.Type_Decl.Decl_Struct struct_decl)
                            (Ast.Type_Decl.Decl_Struct struct_decl
                           :: already_visited)
                            type_decl_to_check
@@ -273,7 +273,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                       does_ktype_contains_type_decl current_module program kt.v
                         (Ast.Type_Decl.Decl_Struct struct_decl) already_visited
                         type_decl_to_check)
-  
+
     and does_contains_type_decl_enum current_module program
         (enum_decl : Ast.enum_decl) already_visited type_decl_to_check =
       let open Asthelper in
@@ -315,7 +315,8 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                                 |> List.exists (fun ikt ->
                                        if
                                          enum_decl
-                                         |> Enum.is_ktype_generic_level_zero ikt.v
+                                         |> Enum.is_ktype_generic_level_zero
+                                              ikt.v
                                        then false
                                        else
                                          does_ktype_contains_type_decl
@@ -349,10 +350,10 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                                  :: already_visited)
                                   type_decl_to_check
                          | _ ->
-                             does_ktype_contains_type_decl current_module program
-                               kt (Ast.Type_Decl.Decl_Enum enum_decl)
+                             does_ktype_contains_type_decl current_module
+                               program kt (Ast.Type_Decl.Decl_Enum enum_decl)
                                already_visited type_decl_to_check))
-  
+
     and is_cyclic_struct current_module program struct_decl =
       struct_decl.fields
       |> List.exists (fun (_, kt) ->
@@ -364,20 +365,21 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                  (Ast.Type_Decl.decl_struct struct_decl)
                  []
                  (Ast.Type_Decl.decl_struct struct_decl))
-  
+
     and is_cyclic_enum current_module program enum_decl =
       enum_decl.variants
       |> List.map (fun (_, kts) -> kts)
       |> List.flatten
       |> List.exists (fun kt ->
              let kt = kt.v in
-             if Asthelper.Enum.is_ktype_generic_level_zero kt enum_decl then false
+             if Asthelper.Enum.is_ktype_generic_level_zero kt enum_decl then
+               false
              else
                does_ktype_contains_type_decl current_module program kt
                  (Ast.Type_Decl.decl_enum enum_decl)
                  []
                  (Ast.Type_Decl.decl_enum enum_decl))
-  
+
     let program_remove_implicit_type_path program =
       program
       |> List.map
@@ -390,9 +392,10 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
              in
              { filename; module_path = { path; _module = Mod new_module } })
   end
-  
+
   module ValidateExternalFunction = struct
-    let does_parameters_contains_unit (external_func_decl : external_func_decl) =
+    let does_parameters_contains_unit (external_func_decl : external_func_decl)
+        =
       if
         external_func_decl.fn_parameters |> List.map Position.value
         |> List.mem TUnit
@@ -400,7 +403,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
         VError.Unit_parameter external_func_decl |> VError.external_func_error
         |> Result.error
       else Ok ()
-  
+
     let does_contains_not_c_compatible_type program current_module
         (external_func_decl : external_func_decl) =
       external_func_decl.fn_parameters
@@ -411,7 +414,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                    program
                  |> not
                then
-                VError.External_Func_Error
+                 VError.External_Func_Error
                    (VError.Not_C_compatible_type (external_func_decl, kt))
                  |> Option.some
                else None
@@ -419,7 +422,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
       |> function
       | [] -> Ok ()
       | t :: _ -> t |> Result.error
-  
+
     let does_contains_too_much_parameters
         (external_func_decl : external_func_decl) =
       let length = external_func_decl.fn_parameters |> List.length in
@@ -428,23 +431,25 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
           { external_func_decl; limit = 15; found = length }
         |> Result.error
       else Ok ()
-  
+
     let is_valid_external_function_declaration program
-        (current_module_name : string) (external_func_decl : external_func_decl) =
+        (current_module_name : string) (external_func_decl : external_func_decl)
+        =
       let ( >>= ) = Result.bind in
       ( does_parameters_contains_unit external_func_decl >>= fun () ->
         does_contains_not_c_compatible_type program current_module_name
           external_func_decl )
       >>= fun () -> does_parameters_contains_unit external_func_decl
   end
-  
+
   module ValidateSyscall = struct
     let does_parameters_contains_unit (syscall_decl : syscall_decl) =
-      if syscall_decl.parameters |> List.map Position.value |> List.mem TUnit then
+      if syscall_decl.parameters |> List.map Position.value |> List.mem TUnit
+      then
         VError.Syscall_Unit_parameter syscall_decl |> VError.syscall_error
         |> Result.error
       else Ok ()
-  
+
     let does_contains_not_c_compatible_type program current_module
         (syscall_decl : syscall_decl) =
       syscall_decl.parameters
@@ -456,14 +461,14 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                    program
                  |> not
                then
-                VError.Syscall_Not_C_compatible_type (syscall_decl, kt)
+                 VError.Syscall_Not_C_compatible_type (syscall_decl, kt)
                  |> VError.syscall_error |> Option.some
                else None
              with Ast.Error.Ast_error e -> VError.Ast_Error e |> Option.some)
       |> function
       | [] -> Ok ()
       | t :: _ -> t |> Result.error
-  
+
     let does_contains_too_much_parameters (syscall_decl : syscall_decl) =
       let length = syscall_decl.parameters |> List.length in
       if length > 5 then
@@ -471,7 +476,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
           { syscall_decl; limit = 5; found = length }
         |> VError.syscall_error |> Result.error
       else Ok ()
-  
+
     let is_valid_syscall_declaration program (current_module_name : string)
         (syscall_decl : syscall_decl) =
       let ( >>= ) = Result.bind in
@@ -480,13 +485,13 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
           syscall_decl )
       >>= fun () -> does_contains_too_much_parameters syscall_decl
   end
-  
+
   module ValidateStruct = struct
     let is_all_type_exist current_module program struct_decl =
       struct_decl.fields
       |> List.find_map (fun (_, kt) ->
-             if Asthelper.Struct.is_ktype_generic_level_zero kt.v struct_decl then
-               None
+             if Asthelper.Struct.is_ktype_generic_level_zero kt.v struct_decl
+             then None
              else
                match
                  Help.is_ktype_exist_from_ktype struct_decl.generics
@@ -494,7 +499,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                with
                | Ok () -> None
                | Error e -> Some e)
-  
+
     let is_field_duplicate struct_decl =
       struct_decl.fields
       |> List.map (fun (field, _) -> field.v)
@@ -502,7 +507,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
       |> function
       | [] -> None
       | t :: _ -> Some t
-  
+
     let is_valid_struct_decl program (current_module_name : string)
         (struct_decl : struct_decl) =
       let ( >>= ) = Result.bind in
@@ -527,7 +532,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
           VError.SDuplicated_field { field = located_field; struct_decl }
           |> VError.struct_error |> Result.error
   end
-  
+
   module ValidateEnum = struct
     let is_all_type_exist current_module program (enum_decl : enum_decl) =
       enum_decl.variants
@@ -538,12 +543,12 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                None
              else
                match
-                 Help.is_ktype_exist_from_ktype enum_decl.generics current_module
-                   program kt.v
+                 Help.is_ktype_exist_from_ktype enum_decl.generics
+                   current_module program kt.v
                with
                | Ok () -> None
                | Error e -> Some e)
-  
+
     let is_variant_duplicate enum_decl =
       enum_decl.variants
       |> List.map (fun (s, _) -> s.v)
@@ -551,7 +556,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
       |> function
       | [] -> None
       | t :: _ -> Some t
-  
+
     let is_valid_enum_decl program (current_module_name : string)
         (enum_decl : enum_decl) =
       let ( >>= ) = Result.bind in
@@ -560,7 +565,8 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
          | Some e -> Error e)
       >>= fun () ->
         if Help.is_cyclic_enum current_module_name program enum_decl then
-          VError.ECyclic_Declaration enum_decl |> VError.enum_error |> Result.error
+          VError.ECyclic_Declaration enum_decl |> VError.enum_error
+          |> Result.error
         else Ok () )
       >>= fun () ->
       match is_variant_duplicate enum_decl with
@@ -571,33 +577,34 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
             |> List.find_all (fun (variant, _) -> variant.v = vari)
             |> List.rev |> List.hd |> fst
           in
-          VError.EDuplicated_variant_name { variant = located_variant; enum_decl }
+          VError.EDuplicated_variant_name
+            { variant = located_variant; enum_decl }
           |> VError.enum_error |> Result.error
   end
-  
+
   module ValidateFunction_Decl = struct
     let is_main_function function_decl = function_decl.fn_name.v = "main"
-  
+
     let argv_type =
       TPointer
         {
           v = TPointer { v = TInteger (Signed, I8); position = Position.dummy };
           position = Position.dummy;
         }
-  
+
     let check_main_parameters =
       let open Ast.Type in
       function
       | [] -> true
       | [ t1; t2 ] -> t1.v === TInteger (Signed, I32) && t2.v === argv_type
       | _ -> false
-  
+
     let is_valid_main_sig function_decl =
       function_decl.fn_name.v = "main"
       && function_decl.return_type.v = TInteger (Signed, I32)
       && check_main_parameters (List.map snd function_decl.parameters)
       && function_decl.generics = []
-  
+
     let check_parameters_duplicate (function_decl : function_decl) =
       function_decl.parameters
       |> List.map (fun (field, _) -> field.v)
@@ -613,20 +620,21 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
           VError.Duplicated_parameters
             { duplicatated_field = duplicate; function_decl }
           |> VError.function_error |> Result.error
-  
+
     let check_unit_parameters (function_decl : function_decl) =
       function_decl.parameters
       |> List.find_map (fun (field, kt) ->
              if kt.v = TUnit then Some field else None)
       |> Option.fold ~none:(Ok ()) ~some:(fun field ->
-        VError.Function_Unit_parameter { field; function_decl }
+             VError.Function_Unit_parameter { field; function_decl }
              |> VError.function_error |> Result.error)
-  
+
     let is_all_type_exist current_module program function_decl =
       function_decl.parameters |> List.map snd
       |> List.cons function_decl.return_type
       |> List.find_map (fun kt ->
-             if Asthelper.Function.is_ktype_generic_level_zero kt.v function_decl
+             if
+               Asthelper.Function.is_ktype_generic_level_zero kt.v function_decl
              then None
              else
                match
@@ -635,22 +643,22 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                with
                | Ok () -> None
                | Error e -> Some e)
-  
+
     let check_main_sig function_decl =
       if not (is_main_function function_decl) then Ok ()
       else if is_valid_main_sig function_decl then Ok ()
       else
         Wrong_signature_for_main function_decl |> VError.function_error
         |> Result.error
-  
-    let check_kbody  current_module program (function_decl : function_decl) =
+
+    let check_kbody current_module program (function_decl : function_decl) =
       let hashtbl =
         Hashtbl.of_seq
           (function_decl.generics |> List.map (fun k -> (k, ())) |> List.to_seq)
       in
       try
         let _ =
-          Typecheck.typeof_kbody  ~generics_resolver:hashtbl
+          Typecheck.typeof_kbody ~generics_resolver:hashtbl
             (function_decl.parameters
             |> List.fold_left
                  (fun acc_env para ->
@@ -658,28 +666,29 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                    |> Env.add_fn_parameters ~const:false
                         (para |> Position.assocs_value))
                  Env.create_empty_env)
-            current_module program ~return_type:(Some function_decl.return_type.v)
-            function_decl.body
+            current_module program
+            ~return_type:(Some function_decl.return_type.v) function_decl.body
         in
         Ok ()
       with Ast.Error.Ast_error e -> VError.Ast_Error e |> Result.error
-  
-    let check_function  program current_module function_decl =
+
+    let check_function program current_module function_decl =
       let ( >>= ) = Result.bind in
-  
+
       is_all_type_exist current_module program function_decl
       |> Option.fold ~none:(Ok ()) ~some:Result.error
       >>= fun () ->
       check_main_sig function_decl >>= fun () ->
       check_unit_parameters function_decl >>= fun () ->
       check_parameters_duplicate function_decl >>= fun () ->
-      check_kbody  current_module program function_decl
+      check_kbody current_module program function_decl
   end
-  
+
   module ValidateOperator_Decl = struct
-    let is_all_type_exist current_module program (operator_decl : operator_decl) =
+    let is_all_type_exist current_module program (operator_decl : operator_decl)
+        =
       let ( >>= ) = Result.bind in
-  
+
       let first_kt =
         Asthelper.ParserOperator.first_parameter_ktype operator_decl
       in
@@ -693,7 +702,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
           Help.is_ktype_exist_from_ktype [] current_module program
             (operator_decl |> Asthelper.ParserOperator.return_ktype
            |> Position.value)
-  
+
     let check_parameters operator_decl =
       let open Ast.Type in
       match operator_decl with
@@ -702,7 +711,8 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
           let (_, kt1), (_, kt2) = binary.fields in
           if kt1.v === kt2.v then
             if kt1.v |> Ast.Type.is_builtin_type then
-              VError.Op_built_overload kt1 |> VError.operator_error |> Result.error
+              VError.Op_built_overload kt1 |> VError.operator_error
+              |> Result.error
             else Ok ()
           else
             VError.Op_binary_op_diff_type
@@ -712,7 +722,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                 rhs = kt2.v;
               }
             |> VError.operator_error |> Result.error
-  
+
     let check_return_ktype operator_decl =
       let open Ast.Type in
       match operator_decl with
@@ -746,7 +756,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                 found = b.return_type.v;
               }
             |> VError.operator_error |> Result.error
-  
+
     let check_kbody current_module program operator_decl =
       let fields =
         match operator_decl with
@@ -772,7 +782,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
         in
         Ok ()
       with Ast.Error.Ast_error e -> VError.Ast_Error e |> Result.error
-  
+
     let is_valid_operator_decl current_module program operator_decl =
       let ( >>= ) = Result.bind in
       ( ( is_all_type_exist current_module program operator_decl >>= fun () ->
@@ -780,9 +790,9 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
       >>= fun () -> check_return_ktype operator_decl )
       >>= fun () -> check_kbody current_module program operator_decl
   end
-  
+
   module ValidateModule = struct
-    let check_duplicate_function  { path; _module } = 
+    let check_duplicate_function { path; _module } =
       _module |> Asthelper.Module.retrieve_functions_decl
       |> Util.ListHelper.duplicated (fun lfn rfn ->
              lfn |> Ast.Function_Decl.calling_name |> value
@@ -790,7 +800,7 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
       |> function
       | [] -> Ok ()
       | t :: _ ->
-        VError.Duplicate_function_declaration { path; functions = t }
+          VError.Duplicate_function_declaration { path; functions = t }
           |> VError.module_error |> Result.error
     (* |> List.map Ast.Function_Decl.calling_name
        |> Util.ListHelper.duplicate
@@ -798,8 +808,8 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
        | [] -> Ok ()
        | t :: _ ->
            Error.Duplicate_function_name t.v |> Error.module_error |> Result.error *)
-  
-    let check_duplicate_operator  { path; _module } = 
+
+    let check_duplicate_operator { path; _module } =
       let open Ast.Type in
       _module |> Asthelper.Module.retrieve_operator_decl
       |> Util.ListHelper.duplicated (fun lop rop ->
@@ -822,10 +832,10 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
       |> function
       | [] -> Ok ()
       | t :: _ ->
-        VError.Duplicate_operator_declaration { path; operators = t }
+          VError.Duplicate_operator_declaration { path; operators = t }
           |> VError.module_error |> Result.error
-  
-    let check_main_signature  { path; _module } = 
+
+    let check_main_signature { path; _module } =
       let ( >>= ) = Result.bind in
       let function_decls =
         _module |> Asthelper.Module.retrieve_functions_decl
@@ -860,8 +870,8 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
                      |> VError.module_error |> Result.error))
            (Ok None)
       |> Result.map (fun _ -> ())
-  
-    let check_duplicate_type  { path; _module } = 
+
+    let check_duplicate_type { path; _module } =
       let type_decls = _module |> Asthelper.Module.retrieve_type_decl in
       type_decls
       |> Util.ListHelper.duplicated (fun lhs rhs ->
@@ -870,10 +880,10 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
       |> function
       | [] -> Ok ()
       | t :: _ ->
-        VError.Duplicate_type_declaration { path; types = t }
+          VError.Duplicate_type_declaration { path; types = t }
           |> VError.module_error |> Result.error
-  
-    let check_duplicate_const_name  { path; _module } = 
+
+    let check_duplicate_const_name { path; _module } =
       let consts_decl = _module |> Asthelper.Module.retrieve_const_decl in
       consts_decl
       |> Util.ListHelper.duplicated (fun lconst rconst ->
@@ -881,17 +891,17 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
       |> function
       | [] -> Ok ()
       | t :: _ ->
-        VError.Duplicate_const_declaration { path; consts = t }
+          VError.Duplicate_const_declaration { path; consts = t }
           |> VError.module_error |> Result.error
-  
-    let check_validate_module  _module =
+
+    let check_validate_module _module =
       let ( >>= ) = Result.bind in
-      check_duplicate_const_name  _module >>= fun () ->
-      check_duplicate_function  _module >>= fun () ->
-      check_duplicate_operator  _module >>= fun () ->
-      check_main_signature  _module >>= fun () -> check_duplicate_type  _module
+      check_duplicate_const_name _module >>= fun () ->
+      check_duplicate_function _module >>= fun () ->
+      check_duplicate_operator _module >>= fun () ->
+      check_main_signature _module >>= fun () -> check_duplicate_type _module
   end
-  
+
   module Validate_Program = struct
     let check_main_in_program (program : program) =
       let filtered_function_decl =
@@ -907,13 +917,15 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
       in
       let count =
         filtered_function_decl
-        |> List.fold_left (fun acc (_, fn_decls) -> acc + List.length fn_decls) 0
+        |> List.fold_left
+             (fun acc (_, fn_decls) -> acc + List.length fn_decls)
+             0
       in
       if count < 2 then Ok ()
       else VError.Too_many_Main filtered_function_decl |> Result.error
   end
-  
-  let validate_module_node program  (current_module_name : string)
+
+  let validate_module_node program (current_module_name : string)
       (node : Ast.module_node) =
     match node with
     | NConst _ -> Ok ()
@@ -929,39 +941,40 @@ module Make(VRule: KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = str
     | NEnum enum_decl ->
         ValidateEnum.is_valid_enum_decl program current_module_name enum_decl
     | NFunction function_decl ->
-        ValidateFunction_Decl.check_function  program current_module_name
+        ValidateFunction_Decl.check_function program current_module_name
           function_decl
     | NOperator operator_decl ->
         ValidateOperator_Decl.is_valid_operator_decl current_module_name program
           operator_decl
-  
-  let validate_module  program
+
+  let validate_module program
       { filename; module_path = { path; _module = Mod _module } as package } =
     let ( >>= ) = Result.bind in
     ( filename,
-      ValidateModule.check_validate_module  package >>= fun () ->
+      ValidateModule.check_validate_module package >>= fun () ->
       _module
       |> List.fold_left
            (fun acc value ->
              if acc |> Result.is_error then acc
-             else validate_module_node  program path value)
+             else validate_module_node program path value)
            (Ok ()) )
-  
-  let valide_program  (program : program) =
+
+  let valide_program (program : program) =
     (* let ( >>= ) = Result.bind in *)
     match program |> Validate_Program.check_main_in_program with
     | Error e -> ("", Error e)
     | Ok () ->
-        let remove_program = program |> Help.program_remove_implicit_type_path in
+        let remove_program =
+          program |> Help.program_remove_implicit_type_path
+        in
         remove_program
         |> List.fold_left
              (fun acc named_module_path ->
                let _f_name, result = acc in
                if result |> Result.is_error then acc
                else
-                 validate_module 
+                 validate_module
                    (remove_program |> Asthelper.Program.to_module_path_list)
                    named_module_path)
              ("", Ok ())
 end
-

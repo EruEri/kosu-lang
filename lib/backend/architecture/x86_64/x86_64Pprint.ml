@@ -26,7 +26,7 @@ open X86Program
 
 module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
   let string_of_data_size = function B -> "b" | W -> "w" | L -> "l" | Q -> "q"
-  
+
   let string_of_raw_register = function
     | RAX -> "rax"
     | RBX -> "rbx"

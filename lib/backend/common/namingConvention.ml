@@ -19,31 +19,29 @@ open KosuIrTyped.Asttyped
 
 let asm_module_path = String.map (fun c -> if c = ':' then '_' else c)
 
-module type NamingSig  = sig
-  val label_prefix: string
-
-  val main: string
+module type NamingSig = sig
+  val label_prefix : string
+  val main : string
 end
 
-module Make(N: NamingSig) = struct
+module Make (N : NamingSig) = struct
   include N
 
-  let label_of_constant  ?module_path const_name =
-  Printf.sprintf "%s%s"
-    (module_path |> Option.map asm_module_path
-    |> Option.map (Printf.sprintf "%s%s._" label_prefix)
-    |> Option.value ~default:"")
-    const_name
+  let label_of_constant ?module_path const_name =
+    Printf.sprintf "%s%s"
+      (module_path |> Option.map asm_module_path
+      |> Option.map (Printf.sprintf "%s%s._" label_prefix)
+      |> Option.value ~default:"")
+      const_name
 
-let label_of_function ~label_prefix ~main ~module_path ~fn_name ~generics =
-  if fn_name = "main" then main
-  else
-    Printf.sprintf "%s%s.%s%s" label_prefix
-      (asm_module_path module_path)
-      (if generics = [] then ""
-      else generics |> String.concat "." |> Printf.sprintf "_%s_")
-      fn_name
-
+  let label_of_function ~label_prefix ~main ~module_path ~fn_name ~generics =
+    if fn_name = "main" then main
+    else
+      Printf.sprintf "%s%s.%s%s" label_prefix
+        (asm_module_path module_path)
+        (if generics = [] then ""
+        else generics |> String.concat "." |> Printf.sprintf "_%s_")
+        fn_name
 
   let label_of_external_function rextern_func_decl =
     rextern_func_decl.c_name
@@ -55,9 +53,9 @@ let label_of_function ~label_prefix ~main ~module_path ~fn_name ~generics =
     label_of_function ~module_path ~main ~label_prefix
       ~fn_name:rfunction_decl.rfn_name ~generics:rfunction_decl.generics
 
-    let label_of_tac_function ~module_path
+  let label_of_tac_function ~module_path
       (tac_function_decl : KosuIrTAC.Asttac.tac_function_decl) =
-      label_of_function ~module_path ~main ~label_prefix
+    label_of_function ~module_path ~main ~label_prefix
       ~fn_name:tac_function_decl.rfn_name ~generics:tac_function_decl.generics
 
   let label_of_bin_operator (op : KosuFrontend.Ast.parser_binary_op) ktypes =
@@ -95,7 +93,3 @@ let label_of_function ~label_prefix ~main ~module_path ~fn_name ~generics =
         label_of_bin_operator op
           [ snd @@ fst rfields; snd @@ snd rfields; return_type ]
 end
-
-
-
-

@@ -20,7 +20,6 @@ type os = Macos | Linux | FreeBSD
 type archi_target = Arm64e | X86_64m | X86_64
 
 let std_global_variable = "KOSU_STD_PATH"
-
 let architecture_global_variable = "KOSU_TARGET_ARCHI"
 let os_global_variable = "KOSU_TARGET_OS"
 let std_path = Sys.getenv_opt std_global_variable
@@ -81,15 +80,15 @@ module Cli = struct
   module FreebBSDAarch64 =
     KosuBackend.Codegen.Make
       (KosuBackend.Aarch64.Aarch64Codegen.Codegen
-        (KosuBackend.Aarch64.Aarch64AsmSpecImpl.FreeBSDAarch64AsmSpec))
+         (KosuBackend.Aarch64.Aarch64AsmSpecImpl.FreeBSDAarch64AsmSpec))
 
   let name = "kosuc"
   let version = "0.0.1-not-alpha (%%VCS_COMMIT_ID%%)"
 
   type cmd = {
-    architecture: architecture;
-    os: os;
-    f_allow_generic_in_variadic: bool;
+    architecture : architecture;
+    os : os;
+    f_allow_generic_in_variadic : bool;
     no_std : bool;
     is_target_asm : bool;
     cc : bool;
@@ -106,58 +105,63 @@ module Cli = struct
   let target_enum =
     [ ("arm64e", Arm64e); ("x86_64", X86_64); ("x86_64m", X86_64m) ]
 
-  let architecture_enum = 
-    [("arm64", Arm64); ("x86_64", X86_64)]
-
-  let os_enum = 
-    [("freebsd", FreeBSD); ("linux", Linux); ("macos", Macos)]
+  let architecture_enum = [ ("arm64", Arm64); ("x86_64", X86_64) ]
+  let os_enum = [ ("freebsd", FreeBSD); ("linux", Linux); ("macos", Macos) ]
 
   (* let target_archi_term =
-    Arg.(
-      required
-      & opt (some & enum target_enum) None
-      & info ~docv:"Assembly Target"
-          ~doc:(doc_alts_enum ~quoted:true target_enum)
-          [ "t"; "target" ]) *)
+     Arg.(
+       required
+       & opt (some & enum target_enum) None
+       & info ~docv:"Assembly Target"
+           ~doc:(doc_alts_enum ~quoted:true target_enum)
+           [ "t"; "target" ]) *)
 
-  let string_of_enum ?(splitter = "|") ?(quoted = false) enum = 
+  let string_of_enum ?(splitter = "|") ?(quoted = false) enum =
     let f = if quoted then Arg.doc_quote else Fun.id in
-    enum |> List.map (fun (elt, _) -> f elt) |> String.concat splitter 
+    enum |> List.map (fun (elt, _) -> f elt) |> String.concat splitter
 
-  let target_archi_term = 
+  let target_archi_term =
     Arg.(
       required
       & opt (some & enum architecture_enum) None
-      & info 
-      ~docv:(string_of_enum architecture_enum)
-      ~env:(Cmd.Env.info ~doc:("If this environment variable is present, the architecture compilation target doesn't need to be explicitly set. See option $(b, --arch)") architecture_global_variable)
-      ~doc:("architecture compilation target")
-      ["arch"]
-    )
+      & info
+          ~docv:(string_of_enum architecture_enum)
+          ~env:
+            (Cmd.Env.info
+               ~doc:
+                 "If this environment variable is present, the architecture \
+                  compilation target doesn't need to be explicitly set. See \
+                  option $(b, --arch)"
+               architecture_global_variable)
+          ~doc:"architecture compilation target" [ "arch" ])
 
-  let os_target_term = 
+  let os_target_term =
     Arg.(
       required
       & opt (some & enum os_enum) None
-      & info 
-      ~docv:(string_of_enum os_enum)
-      ~env:(Cmd.Env.info ~doc:("If this environment variable is present, the os compilation target doesn't need to be explicitly set. See option $(b, --os)") os_global_variable)
-      ~doc:("Os compilation target")
-      ["os"]
-    )
+      & info ~docv:(string_of_enum os_enum)
+          ~env:
+            (Cmd.Env.info
+               ~doc:
+                 "If this environment variable is present, the os compilation \
+                  target doesn't need to be explicitly set. See option $(b, \
+                  --os)"
+               os_global_variable)
+          ~doc:"Os compilation target" [ "os" ])
 
-  let f_allow_generic_in_variadic_term = 
-    Arg.(
-        value & 
-        flag & 
-        info ["fallow-generic-variadic"]
-        ~docs:"COMPILATION OPTION"
-        ~doc:"Allow the use variable with a generic type in variadic function parameters such as $(b,printf(3))"
-    )
-  let no_std_term =
+  let f_allow_generic_in_variadic_term =
     Arg.(
       value & flag
-      & info [ "no-std" ] ~doc:"Don't include the standard library")
+      & info
+          [ "fallow-generic-variadic" ]
+          ~docs:"COMPILATION OPTION"
+          ~doc:
+            "Allow the use variable with a generic type in variadic function \
+             parameters such as $(b,printf(3))")
+
+  let no_std_term =
+    Arg.(
+      value & flag & info [ "no-std" ] ~doc:"Don't include the standard library")
 
   let verbose_term =
     Arg.(
@@ -175,9 +179,7 @@ module Cli = struct
   let pkg_config_term =
     Arg.(
       value & opt_all string []
-      & info
-          [ "pkg-config"; "pc" ]
-          ~docv:"libname"
+      & info [ "pkg-config"; "pc" ] ~docv:"libname"
           ~doc:
             "Invoke $(b,pkg-config)(1) to retreive compilation flags and libs")
 
@@ -190,8 +192,9 @@ module Cli = struct
     Arg.(
       value & opt string default_outfile
       & info [ "o" ] ~docv:"FILENAME"
-          ~doc:(Printf.sprintf "write output to <%s>" (String.lowercase_ascii "$(docv)") )
-      )
+          ~doc:
+            (Printf.sprintf "write output to <%s>"
+               (String.lowercase_ascii "$(docv)")))
 
   let ccol_term =
     Arg.(
@@ -216,8 +219,8 @@ module Cli = struct
             \  ")
 
   let cmd_term run =
-    let combine architecture os f_allow_generic_in_variadic no_std verbose cc is_target_asm output pkg_configs
-        ccol cclib files =
+    let combine architecture os f_allow_generic_in_variadic no_std verbose cc
+        is_target_asm output pkg_configs ccol cclib files =
       run
       @@ {
            architecture;
@@ -235,7 +238,8 @@ module Cli = struct
          }
     in
     Term.(
-      const combine $ target_archi_term $ os_target_term $ f_allow_generic_in_variadic_term $ no_std_term $ verbose_term $ cc_term
+      const combine $ target_archi_term $ os_target_term
+      $ f_allow_generic_in_variadic_term $ no_std_term $ verbose_term $ cc_term
       $ target_asm_term $ output_term $ pkg_config_term $ ccol_term $ cclib_term
       $ files_term)
 
@@ -295,52 +299,50 @@ module Cli = struct
 
     let std_file = fetch_std_file ~no_std () in
 
-    let kosu_files = (kosu_files @ std_file) in
+    let kosu_files = kosu_files @ std_file in
 
-    let module ValidationRule : KosuFrontend.KosuValidationRule = struct 
-    end
-    in
-    
-    let module TypeCheckerRule : KosuFrontend.TypeCheckerRule = struct 
+    let module ValidationRule : KosuFrontend.KosuValidationRule = struct end in
+    let module TypeCheckerRule : KosuFrontend.TypeCheckerRule = struct
       let allow_generics_in_variadic = f_allow_generic_in_variadic
-    end
-    in
-
+    end in
     let module Compilation_Files : KosuFrontend.Compilation_Files = struct
       let std_global_variable = std_global_variable
-    end
-  in
-
-  let module KosuFront = KosuFrontend.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule) in
-  let module Asttyconvert = KosuIrTyped.Asttyconvert.Make(TypeCheckerRule) in
-
-    
-    let module Codegen = (val match (architecture, os) with
-                      | X86_64, (FreeBSD | Linux) -> (module LinuxX86)
-                      | X86_64, Macos -> (module Mac0SX86)
-                      | Arm64, Macos -> (module MacOSAarch64)
-                      | Arm64, (FreeBSD | Linux) -> (module FreebBSDAarch64)
-                            : KosuBackend.Codegen.S )
+    end in
+    let module KosuFront =
+      KosuFrontend.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
     in
-    let module LinkerOption = (val match (os) with
-                      | FreeBSD -> (module LdSpec.FreeBSDLdSpec)
-                      | Linux -> (module LdSpec.LinuxLdSpec)
-                      | Macos -> (module LdSpec.MacOSLdSpec)
-                      : KosuBackend.Compil.LinkerOption)
+    let module Asttyconvert = KosuIrTyped.Asttyconvert.Make (TypeCheckerRule) in
+    let module Codegen = (val match (architecture, os) with
+                              | X86_64, (FreeBSD | Linux) -> (module LinuxX86)
+                              | X86_64, Macos -> (module Mac0SX86)
+                              | Arm64, Macos -> (module MacOSAarch64)
+                              | Arm64, (FreeBSD | Linux) ->
+                                  (module FreebBSDAarch64)
+                            : KosuBackend.Codegen.S)
+    in
+    let module LinkerOption = (val match os with
+                                   | FreeBSD -> (module LdSpec.FreeBSDLdSpec)
+                                   | Linux -> (module LdSpec.LinuxLdSpec)
+                                   | Macos -> (module LdSpec.MacOSLdSpec)
+                                 : KosuBackend.Compil.LinkerOption)
     in
     let module Compiler = KosuBackend.Compil.Make (Codegen) (LinkerOption) in
-
     let () = KosuFront.Registerexn.register_kosu_error () in
 
     let ast_module = KosuFront.ast_modules kosu_files in
-    let typed_program = match Asttyconvert.from_program ast_module with
-    | typed_program -> typed_program
-    | exception KosuFrontend.Ast.Error.Ast_error e -> 
-      let () = e |> KosuFront.Pprinterr.string_of_ast_error |> print_endline in
-      failwith "Error while typing ast: Shouldn't append"
-    in   
+    let typed_program =
+      match Asttyconvert.from_program ast_module with
+      | typed_program -> typed_program
+      | exception KosuFrontend.Ast.Error.Ast_error e ->
+          let () =
+            e |> KosuFront.Pprinterr.string_of_ast_error |> print_endline
+          in
+          failwith "Error while typing ast: Shouldn't append"
+    in
 
-    let tac_program = KosuIrTAC.Asttacconv.tac_program_of_rprogram typed_program in
+    let tac_program =
+      KosuIrTAC.Asttacconv.tac_program_of_rprogram typed_program
+    in
     let _code =
       match is_target_asm with
       | true -> Compiler.generate_asm_only tac_program ()

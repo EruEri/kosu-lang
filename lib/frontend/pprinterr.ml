@@ -15,8 +15,11 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheckerRuleS) = struct
-  module Astvalidation = Astvalidation.Make(VRule)(TyRule)
+module Make
+    (VRule : Astvalidation.KosuValidationRule)
+    (TyRule : Typecheck.TypeCheckerRuleS) =
+struct
+  module Astvalidation = Astvalidation.Make (VRule) (TyRule)
   open Position
   open Printf
   open Ast
@@ -36,7 +39,7 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
              record.struct_name.v record.expected
              (if record.expected > 1 then "s" else "")
              record.found)
-  
+
   let string_of_enum_error =
     let open Ast.Error in
     let open Printf in
@@ -66,7 +69,7 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
                       enum_decl.enum_name.v
                       (string_of_position_error enum_decl.enum_name.position))
              |> String.concat "\n\t"))
-  
+
   let string_of_statement_error =
     let open Ast.Error in
     let open Printf in
@@ -75,8 +78,11 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
         sprintf "%s : Undefine Identifier \"%s\""
           (string_of_position_error s.name.position)
           s.name.v
-    | Reassign_Constante_Struct_field {name} -> 
-      string_of_located_error name (sprintf "variable \"%s\" is declared as const. Can't reassign his fields" name.v)
+    | Reassign_Constante_Struct_field { name } ->
+        string_of_located_error name
+          (sprintf
+             "variable \"%s\" is declared as const. Can't reassign his fields"
+             name.v)
     | Already_Define_Identifier s ->
         string_of_located_error s.name
           (sprintf "Identifier already defined : \"%s\"" s.name.v)
@@ -104,10 +110,11 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
     | Need_explicit_type_declaration s ->
         string_of_located_error s.variable_name
           (sprintf
-             "Need explicit type declaration for identifier \"%s\" ::=> type = %s"
+             "Need explicit type declaration for identifier \"%s\" ::=> type = \
+              %s"
              s.variable_name.v
              (string_of_ktype s.infer_type))
-  
+
   let string_of_function_error =
     let open Ast.Error in
     let open Printf in
@@ -151,7 +158,7 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
              fn_name (string_of_ktype found.v) (string_of_ktype expected)
              (string_of_ktype found.v) (string_of_ktype expected))
     | Unknow_Function_Error -> "Unknow_Function_Error"
-  
+
   let string_of_operator_error =
     let open Ast.Error in
     let open Printf in
@@ -220,12 +227,13 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
         string_of_located_error size
           (sprintf "Cannot use unary minus for unsigned integer: \"%s\""
              (string_of_ktype (TInteger (Ast.Unsigned, size.v))))
-  
+
   let string_of_switch_error =
     let open Ast.Error in
     function
     | Duplicated_case name ->
-        string_of_located_error name (sprintf "case \"%s\" is duplicated" name.v)
+        string_of_located_error name
+          (sprintf "case \"%s\" is duplicated" name.v)
     | Not_fully_known_ktype ktype ->
         string_of_located_error ktype
           (sprintf
@@ -233,7 +241,8 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
              (string_of_ktype ktype.v))
     | Not_enum_type_in_switch_Expression e ->
         string_of_located_error e
-          (sprintf "This expression has the type \"%s\" but \"%s\" is not an enum"
+          (sprintf
+             "This expression has the type \"%s\" but \"%s\" is not an enum"
              (string_of_ktype e.v) (string_of_ktype e.v))
     | Not_all_cases_handled
         { expression_loc; missing_variant = variant, assotype } ->
@@ -241,7 +250,8 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
           (sprintf "Not all cases are handled, miss at least: %s"
              (sprintf "\"%s(%s)\"" variant.v
                 (assotype
-                |> List.map (fun ktl -> ktl |> Position.value |> string_of_ktype)
+                |> List.map (fun ktl ->
+                       ktl |> Position.value |> string_of_ktype)
                 |> String.concat ", ")))
     | Variant_not_found { enum_decl; variant } ->
         string_of_located_error variant
@@ -265,8 +275,8 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
         string_of_located_error wrong_bound_id
           (sprintf
              "Variable bound \"%s\" in the case \"%s\" has the type \"%s\" but \
-              due to the binding of \"%s\" in the case \"%s\" the expected type \
-              of \"%s\" is \"%s\""
+              due to the binding of \"%s\" in the case \"%s\" the expected \
+              type of \"%s\" is \"%s\""
              wrong_bound_id.v wrong_variant.v
              (string_of_ktype wrong_bound_ktype.v)
              base_bound_id.v base_variant.v base_bound_id.v
@@ -301,8 +311,9 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
              wrong_bound_id.v wrong_index wrong_variant.v base_bound_id.v
              base_variant.v wrong_bound_id.v base_index)
     | Identifier_already_Bound s ->
-        string_of_located_error s (sprintf "variable \"%s\" is already bound" s.v)
-  
+        string_of_located_error s
+          (sprintf "variable \"%s\" is already bound" s.v)
+
   let string_of_built_in_func_error =
     let open Ast.Error in
     let open Printf in
@@ -313,8 +324,8 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
     | Wrong_parameters { fn_name; expected; found } ->
         string_of_located_error found
           (sprintf
-             "Builtin function \"%s\", this expression has the type \"%s but an \
-              expression of type \"%s\" was expected"
+             "Builtin function \"%s\", this expression has the type \"%s but \
+              an expression of type \"%s\" was expected"
              fn_name (string_of_ktype found.v) (string_of_ktype expected))
     | Mismatched_Parameters_Length { fn_name; expected; found } ->
         string_of_located_error fn_name
@@ -330,8 +341,9 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
              "Builtin function \"%s\" expects an integer but an expression of \
               type \"%s\" was provided"
              fn_name (string_of_ktype found.v))
-  
-  let quoted = sprintf "\"%s\""           
+
+  let quoted = sprintf "\"%s\""
+
   let string_of_ast_error =
     let open Ast.Error in
     function
@@ -342,11 +354,11 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
              (if record.expected > 1 then "s" else "")
              record.found
              (if record.expected > 1 then "was" else "were"))
-    | No_struct_field_acc {variable; ktype} -> 
-      string_of_located_error variable (
-        sprintf "variable %s has the type %s which is not a struct" 
-        (quoted variable.v) (quoted @@ string_of_ktype ktype)
-      )
+    | No_struct_field_acc { variable; ktype } ->
+        string_of_located_error variable
+          (sprintf "variable %s has the type %s which is not a struct"
+             (quoted variable.v)
+             (quoted @@ string_of_ktype ktype))
     | Undefined_Identifier s ->
         string_of_located_error s (sprintf "Undefined Identifier \"%s\"" s.v)
     | Undefine_function s ->
@@ -440,7 +452,7 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
     | Conflicting_module_path_declaration { module_path; _ } ->
         string_of_located_error module_path
           (sprintf "Multiple modules have the name \"%s\"" module_path.v)
-  
+
   let string_of_external_func_error =
     let open Printf in
     let open VError in
@@ -462,7 +474,7 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
              "External function \"%s\" has %d parameters but the limit of \
               parameters is %d"
              external_func_decl.sig_name.v found limit)
-  
+
   let string_of_sycall_error =
     let open Printf in
     let open VError in
@@ -482,7 +494,7 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
              "System call \"%s\" has %d parameters but the limit of parameters \
               is %d"
              syscall_decl.syscall_name.v found limit)
-  
+
   let string_of_struct_error =
     let open Printf in
     let open VError in
@@ -495,19 +507,20 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
         string_of_located_error field
           (sprintf "field \"%s\" appears multiple type in \"%s\" declaration"
              field.v struct_decl.struct_name.v)
-  
+
   let string_of_enum_error =
     let open Printf in
     let open VError in
     function
     | ECyclic_Declaration enum_decl ->
         string_of_located_error enum_decl.enum_name
-          (sprintf "Enum \"%s\" has the cyclic declaration" enum_decl.enum_name.v)
+          (sprintf "Enum \"%s\" has the cyclic declaration"
+             enum_decl.enum_name.v)
     | EDuplicated_variant_name { variant; enum_decl } ->
         string_of_located_error variant
           (sprintf "variant \"%s\" appears multiple type in \"%s\" declaration"
              variant.v enum_decl.enum_name.v)
-  
+
   let string_of_operator_error =
     let open Printf in
     let open VError in
@@ -529,7 +542,7 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
               expected"
              op.v (found |> string_of_ktype)
              (expected |> string_of_ktype))
-  
+
   let string_of_function_error =
     let open Printf in
     let open VError in
@@ -537,8 +550,8 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
     | Wrong_signature_for_main function_decl ->
         string_of_located_error function_decl.fn_name
           (sprintf
-             "Function \"%s\", this function doesn't have a valid signature for \
-              a main function"
+             "Function \"%s\", this function doesn't have a valid signature \
+              for a main function"
              function_decl.fn_name.v)
     | Duplicated_parameters { duplicatated_field; function_decl } ->
         string_of_located_error duplicatated_field
@@ -550,7 +563,7 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
              "Function \"%s\",  parameter \"%s\" has the type \"%s\", which is \
               forbidden"
              function_decl.fn_name.v field.v (string_of_ktype TUnit))
-  
+
   let string_of_module_error =
     let open Printf in
     let open VError in
@@ -588,7 +601,8 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
           (consts
           |> List.map (fun const_decl ->
                  sprintf "%s, %s::%s"
-                   (const_decl.const_name |> position |> string_of_position_error)
+                   (const_decl.const_name |> position
+                  |> string_of_position_error)
                    path const_decl.const_name.v)
           |> String.concat "\n\t-")
     | Duplicate_operator_declaration { path; operators } ->
@@ -597,11 +611,14 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
           operators |> List.hd |> Asthelper.ParserOperator.operator
         in
         string_of_located_error operator
-          (sprintf "Conflicting operator declaration for \"%s\" between:\n\t-%s\n"
+          (sprintf
+             "Conflicting operator declaration for \"%s\" between:\n\t-%s\n"
              operator.v
              (operators
              |> List.map (fun operator_decl ->
-                    let op = operator_decl |> Asthelper.ParserOperator.operator in
+                    let op =
+                      operator_decl |> Asthelper.ParserOperator.operator
+                    in
                     sprintf "%s, %s::%s"
                       (op |> Position.position |> string_of_position_error)
                       path
@@ -619,7 +636,7 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
         in
         string_of_located_error position
           (sprintf "%s cannot be used as a main function" message)
-  
+
   let string_of_validation_error =
     let open Printf in
     let open VError in
@@ -648,5 +665,4 @@ module Make(VRule: Astvalidation.KosuValidationRule)(TyRule: Typecheck.TypeCheck
                    |> String.concat "\n\t"))
           |> String.concat "\n\n")
     | Ast_Error e -> string_of_ast_error e
-  
 end

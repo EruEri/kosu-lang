@@ -26,7 +26,8 @@ module AsmProgram = Common.AsmProgram (Aarch64Core.Instruction)
 open AsmProgram
 
 module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
-  module Pp = Aarch64Pprint.Make(AsmSpec)
+  module Pp = Aarch64Pprint.Make (AsmSpec)
+
   let mov_integer register n =
     let open Immediat in
     if is_direct_immediat n then
@@ -680,28 +681,29 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let tmpreg = tmpreg_of_size_2 sizeof in
         let copy_instructions =
           copy_result
-            ~before_copy:(fun _ -> if is_register_size sizeof then
-              [
-                Instruction
-                  (LDR
-                     {
-                       data_size = size;
-                       destination = tmpreg;
-                       adress_src = field_address;
-                       adress_mode = Immediat;
-                     });
-              ]
-              else [
-                Instruction (
-                  ADD {
-                    destination = tmpreg;
-                    operand1 = field_address.base;
-                    operand2 = `ILitteral field_address.offset;
-                    offset = false;
-                  }
-                )
-              ]
-              )
+            ~before_copy:(fun _ ->
+              if is_register_size sizeof then
+                [
+                  Instruction
+                    (LDR
+                       {
+                         data_size = size;
+                         destination = tmpreg;
+                         adress_src = field_address;
+                         adress_mode = Immediat;
+                       });
+                ]
+              else
+                [
+                  Instruction
+                    (ADD
+                       {
+                         destination = tmpreg;
+                         operand1 = field_address.base;
+                         operand2 = `ILitteral field_address.offset;
+                         offset = false;
+                       });
+                ])
             ~where ~register:tmpreg ~rval_rktype rprogram
         in
         Line_Com (Comment ("Field access of " ^ field)) :: copy_instructions
@@ -1175,59 +1177,74 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
 
         (Line_Com (Comment "Defered Start") :: instructions :: true_instructions)
         @ [ Line_Com (Comment "Defered end") ]
-    | STacModificationField {identifier_root; fields; trvalue} -> 
-      let root_adress = Option.get @@ FrameManager.address_of (identifier_root) fd in
-      let field_offset = Common.OffsetHelper.offset_of_field_access (snd identifier_root) ~fields rprogram in
-      let target_adress = increment_adress field_offset root_adress in 
-      let instructions =
-        translate_tac_rvalue ~str_lit_map ~where:(Some target_adress) current_module
-          rprogram fd trvalue
-      in
-      instructions
-    | STDerefAffectationField {identifier_root; fields; trvalue} -> 
-      let tmpreg =
-        tmpreg_of_ktype rprogram
-          (KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype)
-      in
-      let intermediary_adress = Option.get @@ FrameManager.address_of identifier_root fd in
-      let pointee_type = (fun (_ , kt) -> KosuIrTyped.Asttyhelper.RType.rtpointee kt ) identifier_root  in
-      let field_offset = Common.OffsetHelper.offset_of_field_access pointee_type ~fields rprogram in
-      let _target_adress = increment_adress field_offset intermediary_adress in
-      (* let () = Printf.printf "base adrress = [%s]\n" (Pp.string_of_adressage Immediat intermediary_adress) in
-      let () = Printf.printf "offset = %Lu\n" field_offset in
-      let () = Printf.printf "target addres = [%s]\n" (Pp.string_of_adressage Immediat target_adress) in *)
-      let instructions = [
-        Instruction
-          (LDR
-             {
-               data_size = None;
-               destination = tmpreg;
-               adress_src = intermediary_adress;
-               adress_mode = Immediat;
-             });
-        Instruction
-        (
-          (
-            ADD 
-            {
-              destination = tmpreg;
-              operand1 = tmpreg;
-              operand2 = `ILitteral field_offset;
-              offset = false;
-            }
-          )
-        )
-      ]
+    | STacModificationField { identifier_root; fields; trvalue } ->
+        let root_adress =
+          Option.get @@ FrameManager.address_of identifier_root fd
+        in
+        let field_offset =
+          Common.OffsetHelper.offset_of_field_access (snd identifier_root)
+            ~fields rprogram
+        in
+        let target_adress = increment_adress field_offset root_adress in
+        let instructions =
+          translate_tac_rvalue ~str_lit_map ~where:(Some target_adress)
+            current_module rprogram fd trvalue
+        in
+        instructions
+    | STDerefAffectationField { identifier_root; fields; trvalue } ->
+        let tmpreg =
+          tmpreg_of_ktype rprogram
+            (KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype)
+        in
+        let intermediary_adress =
+          Option.get @@ FrameManager.address_of identifier_root fd
+        in
+        let pointee_type =
+          (fun (_, kt) -> KosuIrTyped.Asttyhelper.RType.rtpointee kt)
+            identifier_root
+        in
+        let field_offset =
+          Common.OffsetHelper.offset_of_field_access pointee_type ~fields
+            rprogram
+        in
+        let _target_adress =
+          increment_adress field_offset intermediary_adress
+        in
+        (* let () = Printf.printf "base adrress = [%s]\n" (Pp.string_of_adressage Immediat intermediary_adress) in
+           let () = Printf.printf "offset = %Lu\n" field_offset in
+           let () = Printf.printf "target addres = [%s]\n" (Pp.string_of_adressage Immediat target_adress) in *)
+        let instructions =
+          [
+            Instruction
+              (LDR
+                 {
+                   data_size = None;
+                   destination = tmpreg;
+                   adress_src = intermediary_adress;
+                   adress_mode = Immediat;
+                 });
+            Instruction
+              (ADD
+                 {
+                   destination = tmpreg;
+                   operand1 = tmpreg;
+                   operand2 = `ILitteral field_offset;
+                   offset = false;
+                 });
+          ]
+        in
 
-      in
-      let true_adress = create_adress tmpreg in
-      let true_instructions =
-        translate_tac_rvalue ~str_lit_map ~is_deref:(Some intermediary_adress) (* Very susciptous abode the use of immediary adress *)
-          ~where:(Some true_adress) current_module rprogram fd trvalue
-      in
+        let true_adress = create_adress tmpreg in
+        let true_instructions =
+          translate_tac_rvalue ~str_lit_map
+            ~is_deref:(Some intermediary_adress)
+              (* Very susciptous abode the use of immediary adress *)
+            ~where:(Some true_adress) current_module rprogram fd trvalue
+        in
 
-      (Line_Com (Comment "Field Defered Start") :: instructions @ true_instructions)
-      @ [ Line_Com (Comment "Field Defered end") ]
+        ((Line_Com (Comment "Field Defered Start") :: instructions)
+        @ true_instructions)
+        @ [ Line_Com (Comment "Field Defered end") ]
     | STWhile
         {
           statements_condition;
@@ -1828,7 +1845,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           (asm_module_of_tac_module ~str_lit_map path rprogram tac_module);
     }
 
-  let asm_program_of_tac_program ~(start: string option) tac_program = ignore start;
+  let asm_program_of_tac_program ~(start : string option) tac_program =
+    ignore start;
     tac_program
     |> List.map (fun ({ filename; tac_module_path; rprogram } as named) ->
            let str_lit_map =

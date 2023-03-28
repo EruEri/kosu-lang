@@ -600,17 +600,17 @@ module Renum = struct
 end
 
 module RStruct = struct
-  let instanciate_struct_decl generics struct_decl = 
+  let instanciate_struct_decl generics struct_decl =
     let generics = generics |> List.to_seq |> Hashtbl.of_seq in
     {
       struct_decl with
-      rfields = struct_decl.rfields |> List.map (fun (s, kt) ->
-      s, RType.remap_generic_ktype generics kt  
-      )  
+      rfields =
+        struct_decl.rfields
+        |> List.map (fun (s, kt) -> (s, RType.remap_generic_ktype generics kt));
     }
 
-    let rktype_of_field_opt field struct_decl = 
-      struct_decl.rfields |> List.assoc_opt field
+  let rktype_of_field_opt field struct_decl =
+    struct_decl.rfields |> List.assoc_opt field
 end
 
 module Rtype_Decl = struct

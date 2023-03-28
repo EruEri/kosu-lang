@@ -113,9 +113,12 @@ let rec string_of_rkbody = function
       sprintf "{\n  \t%s  \n\t%s\n}"
         (statements |> List.map string_of_rkstatement |> String.concat "\n\t  ")
         (string_of_typed_expression expr)
+
 and string_of_raffacted_value = function
-| RAFVariable (s, _) -> s
-| RAFField {variable = (variable, _); fields} -> sprintf "%s.%s" variable (fields |> String.concat ".")
+  | RAFVariable (s, _) -> s
+  | RAFField { variable = variable, _; fields } ->
+      sprintf "%s.%s" variable (fields |> String.concat ".")
+
 and string_of_rkstatement = function
   | RSDeclaration { is_const; variable_name; typed_expression } ->
       sprintf "%s %s : %s;"
@@ -123,10 +126,14 @@ and string_of_rkstatement = function
         variable_name
         (typed_expression |> string_of_typed_expression)
   | RSAffection (id, expression) ->
-      sprintf "%s = %s;" (string_of_raffacted_value id) (expression |> string_of_typed_expression)
+      sprintf "%s = %s;"
+        (string_of_raffacted_value id)
+        (expression |> string_of_typed_expression)
   | RSDiscard expr -> sprintf "discard %s;" (string_of_typed_expression expr)
   | RSDerefAffectation (id, exprssion) ->
-      sprintf "*%s = %s;" (string_of_raffacted_value id) (string_of_typed_expression exprssion)
+      sprintf "*%s = %s;"
+        (string_of_raffacted_value id)
+        (string_of_typed_expression exprssion)
 
 and string_of_typed_expression { rktype; rexpression } =
   sprintf "(type = %s) :=> %s" (string_of_rktype rktype)
