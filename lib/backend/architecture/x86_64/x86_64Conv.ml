@@ -1352,7 +1352,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
       in
       instructions
     | STDerefAffectationField {identifier_root; fields; trvalue} -> 
-      let tmp_rax = resize_register Q raxq in (* Since it hold an address *)
+      let tmp_rax = resize_register Q r9q in (* Since it hold an address *)
       let intermediary_adress = Option.get @@ FrameManager.address_of identifier_root fd in
       let pointee_type = (fun (_ , kt) -> KosuIrTyped.Asttyhelper.RType.rtpointee kt ) identifier_root  in
       let field_offset = Common.OffsetHelper.offset_of_field_access pointee_type ~fields rprogram in
