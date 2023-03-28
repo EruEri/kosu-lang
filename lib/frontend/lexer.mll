@@ -213,6 +213,14 @@ and read_string buffer = parse
     Buffer.add_char buffer 'n'; 
     read_string buffer lexbuf 
 } *)
+| (hexa_char as s) {
+    let s_len = String.length s in
+    let s_number = String.sub s 1 (s_len - 1) in
+    let code =  int_of_string ("0" ^  s_number) in
+    let char = Char.chr code in
+    let () = Buffer.add_char buffer char in 
+    read_string buffer lexbuf 
+}
 | '\\' ( escaped_char as c ){ 
     let () = if c = '\\' then () else Buffer.add_char buffer '\\' in
     let () = Buffer.add_char buffer c in
