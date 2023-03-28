@@ -15,6 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-let () = KosuFrontend.Registerexn.register_kosu_error ()
+(* let () = Printexc.record_backtrace true
+
+   let () = Printexc.print_backtrace stderr *)
 let code = KosuCli.Cli.eval ()
 let () = exit code

@@ -73,6 +73,7 @@ module Register = struct
   let syscall_arguments_register = [ RDI; RSI; RDX; R10; R8; R9 ]
   let sized_register size register = { size; reg = register }
   let resize_register size register = { register with size }
+  let r9q = { size = Q; reg = R9 }
   let rbpq = { size = Q; reg = RBP }
   let rspq = { size = Q; reg = RSP }
   let rdiq = { size = Q; reg = RDI }
@@ -533,7 +534,7 @@ module FrameManager = struct
   let function_prologue ~fn_register_params ~stack_params rprogram fd =
     let open Instruction in
     let base = Instruction (Push { size = Q; source = `Register rbpq }) in
-    let sub_align = Common.align_16 fd.locals_space in
+    let sub_align = Common.OffsetHelper.align_16 fd.locals_space in
     let sp_sub =
       [
         Instruction

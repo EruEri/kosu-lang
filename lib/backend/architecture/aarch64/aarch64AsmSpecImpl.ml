@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 module MacOSAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
   open Printf
 
@@ -24,13 +23,10 @@ module MacOSAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
     let label_prefix = "_"
   end
 
-  module MacosNamingConvention = Common.NamingConvention.Make(MacosNamingSig)
-
+  module MacosNamingConvention = Common.NamingConvention.Make (MacosNamingSig)
   include MacosNamingConvention
 
-  type address_load_style = 
-  | MacOS
-  | Other
+  type address_load_style = MacOS | Other
 
   let adrp_style : address_load_style = MacOS
 
@@ -47,7 +43,6 @@ module MacOSAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
         ]
 
   let comment_prefix = "#"
-  
 
   let string_litteral_section_start =
     ".section\t__TEXT,__cstring,cstring_literals,"
@@ -58,9 +53,7 @@ module MacOSAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
   let size_directive_of_size =
     let open KosuFrontend.Ast in
     function I8 -> "byte" | I16 -> "value" | I32 -> "long" | I64 -> "quad"
-
 end
-
 
 module FreeBSDAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
   open Printf
@@ -70,13 +63,12 @@ module FreeBSDAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
     let label_prefix = ""
   end
 
-  module FreeBSDNamingConvention = Common.NamingConvention.Make(FreeBSDNamingSig)
+  module FreeBSDNamingConvention =
+    Common.NamingConvention.Make (FreeBSDNamingSig)
 
   include FreeBSDNamingConvention
 
-  type address_load_style = 
-  | MacOS
-  | Other
+  type address_load_style = MacOS | Other
 
   let adrp_style : address_load_style = Other
 
@@ -86,17 +78,17 @@ module FreeBSDAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
   let constant_directives const_name = function
     | `IntVal (size, _) ->
         let align_size = (KosuFrontend.Ast.Isize.size_of_isize size / 8) - 1 in
-        [ Printf.sprintf ".globl %s" const_name; sprintf ".p2align %u" align_size ]
+        [
+          Printf.sprintf ".globl %s" const_name;
+          sprintf ".p2align %u" align_size;
+        ]
     | `StrVal _ ->
         [
           Printf.sprintf ".globl %s" const_name; Printf.sprintf ".p2align %u" 3;
         ]
 
   let comment_prefix = "//"
-  
-
   let string_litteral_section_start = ""
-
   let string_litteral_section_end = ""
   let string_litteral_directive = ".asciz"
 

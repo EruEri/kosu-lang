@@ -26,7 +26,9 @@ module type AsmProgram = sig
   type named_asm_module_path
   type asm_program = named_asm_module_path list
 
-  val asm_program_of_tac_program : start:string option -> tac_program -> asm_program
+  val asm_program_of_tac_program :
+    start:string option -> tac_program -> asm_program
+
   val sort_asm_module : asm_module_node list -> asm_module_node list
   val string_litteral_section_start : string
   val string_litteral_section_end : string
@@ -44,7 +46,9 @@ module type AsmProgram = sig
 end
 
 module type S = sig
-  val compile_asm_from_tac_tmp : start:string option -> tac_program -> string list
+  val compile_asm_from_tac_tmp :
+    start:string option -> tac_program -> string list
+
   val compile_asm_from_tac : tac_program -> string list
 end
 
@@ -120,5 +124,5 @@ module Make (AsmProgram : AsmProgram) : S = struct
     tac_program |> asm_program_of_tac_program ~start |> compile_asm_tmp
 
   let compile_asm_from_tac tac_program =
-    tac_program |> asm_program_of_tac_program ~start:(None) |> compile_asm
+    tac_program |> asm_program_of_tac_program ~start:None |> compile_asm
 end

@@ -15,16 +15,11 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-type filename_error = Mutiple_dot_in_filename | No_extension | Unknow_error
-
 type architecture = Arm64 | X86_64
 type os = Macos | Linux | FreeBSD
 type archi_target = Arm64e | X86_64m | X86_64
 
-
-
 let std_global_variable = "KOSU_STD_PATH"
-
 let architecture_global_variable = "KOSU_TARGET_ARCHI"
 let os_global_variable = "KOSU_TARGET_OS"
 let std_path = Sys.getenv_opt std_global_variable
@@ -42,88 +37,6 @@ let ccol_compilation cfiles =
          let tmp_name = Filename.temp_file s ".o" in
          let code = Sys.command (Printf.sprintf "cc -c -o %s %s" tmp_name s) in
          if code == 0 then Ok tmp_name else Error code)
-
-let find_error_code_opt l =
-  l
-  |> List.find_map (function
-       | Error code when code <> 0 -> Some code
-       | _ -> None)
-
-type cli_error =
-  | No_input_file
-  | Lexer_Error of exn
-  | File_error of string * exn
-  | Filename_error of filename_error
-
-let ( >>= ) = Result.bind
-
-let f s =
-  String.concat "::"
-  @@ List.map String.capitalize_ascii
-  @@ String.split_on_char '/' s
-
-let convert_filename_to_path filename =
-  filename |> String.split_on_char '.'
-  |> (function
-       | [ t; _ ] -> Ok t
-       | [ _ ] -> Error No_extension
-       | _ :: _ :: _ -> Error Mutiple_dot_in_filename
-       | _ -> Error Unknow_error)
-  |> Result.map f
-
-let module_path_of_file filename =
-  let chomped_filename =
-    match std_path with
-    | None -> filename
-    | Some path ->
-        if String.starts_with ~prefix:path filename then
-          let filename_len = String.length filename in
-          let dir_sep_len = String.length @@ Filename.dir_sep in
-          let path_len = String.length path in
-          let prefix_len = path_len + dir_sep_len in
-          String.sub filename prefix_len (filename_len - prefix_len)
-        else filename
-  in
-  (* let () = Printf.printf "filename = %s\nchomped = %s\n" filename  chomped_filename in *)
-  let open KosuFrontend in
-  let open KosuFrontend.Ast in
-  let ( >>= ) = Result.bind in
-  let lexbuf_res =
-    try
-      let file = open_in filename in
-      let source = Lexing.from_channel file in
-      at_exit (fun () -> close_in file);
-      source |> Result.ok
-    with e -> Error (File_error (filename, e))
-  in
-  lexbuf_res >>= fun lexbuf ->
-  KosuParser.parse lexbuf (Parser.Incremental.modul lexbuf.lex_curr_p)
-  |> Result.map_error (fun lexer_error ->
-         Lexer_Error (Lexer.Lexer_Error { filename; error = lexer_error }))
-  >>= fun _module ->
-  chomped_filename |> convert_filename_to_path
-  |> Result.map (fun path -> { filename; module_path = { path; _module } })
-  |> Result.map_error (fun e -> Filename_error e)
-
-(**
-    Takes all the kosuc files and transform into the ast.
-    It also revomes all the implicit Module type function with the function
-    [Kosu_frontend.Astvalidation.Help.program_remove_implicit_type_path]
-*)
-let files_to_ast_program (files : string list) =
-  files |> List.map module_path_of_file |> function
-  | [] -> Error No_input_file
-  | l -> (
-      match
-        l
-        |> List.find_map (fun s -> match s with Error e -> Some e | _ -> None)
-      with
-      | None ->
-          Ok
-            (l |> List.map Result.get_ok
-           |> KosuFrontend.Astvalidation.Help.program_remove_implicit_type_path
-            )
-      | Some error -> Error error)
 
 let rec fetch_kosu_file direname () =
   let file_in_dir = Sys.readdir direname in
@@ -146,19 +59,8 @@ let fetch_std_file ~no_std () =
     let std_path = Option.get std_path in
     fetch_kosu_file std_path ()
 
-let parse_library_link_name libname =
-  let prefix_lib = "lib" in
-  let lib_strlen = String.length prefix_lib in
-  if String.starts_with ~prefix:prefix_lib libname then
-    String.sub libname lib_strlen
-      (libname |> String.length |> ( + ) (-lib_strlen))
-  else libname
-
 module Cli = struct
   open Cmdliner
-  open KosuFrontend.Astvalidation
-  open KosuIrTyped
-  open KosuIrTAC
 
   module Mac0SX86 =
     KosuBackend.Codegen.Make
@@ -178,14 +80,15 @@ module Cli = struct
   module FreebBSDAarch64 =
     KosuBackend.Codegen.Make
       (KosuBackend.Aarch64.Aarch64Codegen.Codegen
-        (KosuBackend.Aarch64.Aarch64AsmSpecImpl.FreeBSDAarch64AsmSpec))
+         (KosuBackend.Aarch64.Aarch64AsmSpecImpl.FreeBSDAarch64AsmSpec))
 
   let name = "kosuc"
   let version = "0.0.1-not-alpha (%%VCS_COMMIT_ID%%)"
 
   type cmd = {
-    architecture: architecture;
-    os: os;
+    architecture : architecture;
+    os : os;
+    f_allow_generic_in_variadic : bool;
     no_std : bool;
     is_target_asm : bool;
     cc : bool;
@@ -202,49 +105,63 @@ module Cli = struct
   let target_enum =
     [ ("arm64e", Arm64e); ("x86_64", X86_64); ("x86_64m", X86_64m) ]
 
-  let architecture_enum = 
-    [("arm64", Arm64); ("x86_64", X86_64)]
-
-  let os_enum = 
-    [("freebsd", FreeBSD); ("linux", Linux); ("macos", Macos)]
+  let architecture_enum = [ ("arm64", Arm64); ("x86_64", X86_64) ]
+  let os_enum = [ ("freebsd", FreeBSD); ("linux", Linux); ("macos", Macos) ]
 
   (* let target_archi_term =
-    Arg.(
-      required
-      & opt (some & enum target_enum) None
-      & info ~docv:"Assembly Target"
-          ~doc:(doc_alts_enum ~quoted:true target_enum)
-          [ "t"; "target" ]) *)
+     Arg.(
+       required
+       & opt (some & enum target_enum) None
+       & info ~docv:"Assembly Target"
+           ~doc:(doc_alts_enum ~quoted:true target_enum)
+           [ "t"; "target" ]) *)
 
-  let string_of_enum ?(splitter = "|") ?(quoted = false) enum = 
+  let string_of_enum ?(splitter = "|") ?(quoted = false) enum =
     let f = if quoted then Arg.doc_quote else Fun.id in
-    enum |> List.map (fun (elt, _) -> f elt) |> String.concat splitter 
+    enum |> List.map (fun (elt, _) -> f elt) |> String.concat splitter
 
-  let target_archi_term = 
+  let target_archi_term =
     Arg.(
       required
       & opt (some & enum architecture_enum) None
-      & info 
-      ~docv:(string_of_enum architecture_enum)
-      ~env:(Cmd.Env.info ~doc:("If this environment variable is present, the architecture compilation target doesn't need to be explicitly set. See option $(b, --arch)") architecture_global_variable)
-      ~doc:("architecture compilation target")
-      ["arch"]
-    )
+      & info
+          ~docv:(string_of_enum architecture_enum)
+          ~env:
+            (Cmd.Env.info
+               ~doc:
+                 "If this environment variable is present, the architecture \
+                  compilation target doesn't need to be explicitly set. See \
+                  option $(b, --arch)"
+               architecture_global_variable)
+          ~doc:"architecture compilation target" [ "arch" ])
 
-  let os_target_term = 
+  let os_target_term =
     Arg.(
       required
       & opt (some & enum os_enum) None
-      & info 
-      ~docv:(string_of_enum os_enum)
-      ~env:(Cmd.Env.info ~doc:("If this environment variable is present, the os compilation target doesn't need to be explicitly set. See option $(b, --os)") os_global_variable)
-      ~doc:("Os compilation target")
-      ["os"]
-    )
-  let no_std_term =
+      & info ~docv:(string_of_enum os_enum)
+          ~env:
+            (Cmd.Env.info
+               ~doc:
+                 "If this environment variable is present, the os compilation \
+                  target doesn't need to be explicitly set. See option $(b, \
+                  --os)"
+               os_global_variable)
+          ~doc:"Os compilation target" [ "os" ])
+
+  let f_allow_generic_in_variadic_term =
     Arg.(
       value & flag
-      & info [ "no-std" ] ~doc:"Don't include the standard librairy")
+      & info
+          [ "fallow-generic-variadic" ]
+          ~docs:"COMPILATION OPTION"
+          ~doc:
+            "Allow the use variable with a generic type in variadic function \
+             parameters such as $(b,printf(3))")
+
+  let no_std_term =
+    Arg.(
+      value & flag & info [ "no-std" ] ~doc:"Don't include the standard library")
 
   let verbose_term =
     Arg.(
@@ -262,9 +179,7 @@ module Cli = struct
   let pkg_config_term =
     Arg.(
       value & opt_all string []
-      & info
-          [ "pkg-config"; "pc" ]
-          ~docv:"libname"
+      & info [ "pkg-config"; "pc" ] ~docv:"libname"
           ~doc:
             "Invoke $(b,pkg-config)(1) to retreive compilation flags and libs")
 
@@ -277,8 +192,9 @@ module Cli = struct
     Arg.(
       value & opt string default_outfile
       & info [ "o" ] ~docv:"FILENAME"
-          ~doc:(Printf.sprintf "write output to <%s>" (String.lowercase_ascii "$(docv)") )
-      )
+          ~doc:
+            (Printf.sprintf "write output to <%s>"
+               (String.lowercase_ascii "$(docv)")))
 
   let ccol_term =
     Arg.(
@@ -303,11 +219,12 @@ module Cli = struct
             \  ")
 
   let cmd_term run =
-    let combine architecture os no_std verbose cc is_target_asm output pkg_configs
-        ccol cclib files =
+    let combine architecture os f_allow_generic_in_variadic no_std verbose cc
+        is_target_asm output pkg_configs ccol cclib files =
       run
       @@ {
            architecture;
+           f_allow_generic_in_variadic;
            os;
            no_std;
            verbose;
@@ -321,7 +238,8 @@ module Cli = struct
          }
     in
     Term.(
-      const combine $ target_archi_term $ os_target_term $ no_std_term $ verbose_term $ cc_term
+      const combine $ target_archi_term $ os_target_term
+      $ f_allow_generic_in_variadic_term $ no_std_term $ verbose_term $ cc_term
       $ target_asm_term $ output_term $ pkg_config_term $ ccol_term $ cclib_term
       $ files_term)
 
@@ -363,6 +281,7 @@ module Cli = struct
     let {
       architecture;
       os;
+      f_allow_generic_in_variadic;
       no_std;
       verbose;
       is_target_asm;
@@ -376,61 +295,54 @@ module Cli = struct
       cmd
     in
 
-
-    
-    let module Codegen = (val match (architecture, os) with
-                      | X86_64, (FreeBSD | Linux) -> (module LinuxX86)
-                      | X86_64, Macos -> (module Mac0SX86)
-                      | Arm64, Macos -> (module MacOSAarch64)
-                      | Arm64, (FreeBSD | Linux) -> (module FreebBSDAarch64)
-                            : KosuBackend.Codegen.S )
-    in
-    let module LinkerOption = (val match (os) with
-                      | FreeBSD -> (module LdSpec.FreeBSDLdSpec)
-                      | Linux -> (module LdSpec.LinuxLdSpec)
-                      | Macos -> (module LdSpec.MacOSLdSpec)
-                      : KosuBackend.Compil.LinkerOption)
-    in
-    let module Compiler = KosuBackend.Compil.Make (Codegen) (LinkerOption) in
-    let cclib = cclib |> List.map parse_library_link_name in
-
     let kosu_files, other_files = files |> List.partition is_kosu_file in
 
     let std_file = fetch_std_file ~no_std () in
 
-    let modules_opt = files_to_ast_program (kosu_files @ std_file) in
+    let kosu_files = kosu_files @ std_file in
 
-    let tac_program =
-      match modules_opt with
-      | Error e -> (
-          match e with
-          | No_input_file -> raise (Invalid_argument "no Input file")
-          | File_error (s, exn) ->
-              Printf.eprintf "%s\n" s;
-              raise exn
-          | Filename_error _ -> raise (Invalid_argument "Filename Error")
-          | Lexer_Error e -> raise e)
-      | Ok modules -> (
-          match valide_program modules with
-          | filename, Error e ->
-              (* Printf.eprintf "\nFile \"%s\", %s\n" filename (Kosu_frontend.Pprint.string_of_validation_error e); *)
-              raise (Error.Validation_error (filename, e))
-          | _, Ok () ->
-              let typed_program =
-                try Asttyconvert.from_program modules
-                with KosuFrontend.Ast.Error.Ast_error e ->
-                  let () =
-                    Printf.printf "%s\n"
-                      (KosuFrontend.Pprinterr.string_of_ast_error e)
-                  in
-                  failwith "Error while typing ast: Shouldn't append"
-              in
-              let tac_program =
-                Asttacconv.tac_program_of_rprogram typed_program
-              in
-              tac_program)
+    let module ValidationRule : KosuFrontend.KosuValidationRule = struct end in
+    let module TypeCheckerRule : KosuFrontend.TypeCheckerRule = struct
+      let allow_generics_in_variadic = f_allow_generic_in_variadic
+    end in
+    let module Compilation_Files : KosuFrontend.Compilation_Files = struct
+      let std_global_variable = std_global_variable
+    end in
+    let module KosuFront =
+      KosuFrontend.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
+    in
+    let module Asttyconvert = KosuIrTyped.Asttyconvert.Make (TypeCheckerRule) in
+    let module Codegen = (val match (architecture, os) with
+                              | X86_64, (FreeBSD | Linux) -> (module LinuxX86)
+                              | X86_64, Macos -> (module Mac0SX86)
+                              | Arm64, Macos -> (module MacOSAarch64)
+                              | Arm64, (FreeBSD | Linux) ->
+                                  (module FreebBSDAarch64)
+                            : KosuBackend.Codegen.S)
+    in
+    let module LinkerOption = (val match os with
+                                   | FreeBSD -> (module LdSpec.FreeBSDLdSpec)
+                                   | Linux -> (module LdSpec.LinuxLdSpec)
+                                   | Macos -> (module LdSpec.MacOSLdSpec)
+                                 : KosuBackend.Compil.LinkerOption)
+    in
+    let module Compiler = KosuBackend.Compil.Make (Codegen) (LinkerOption) in
+    let () = KosuFront.Registerexn.register_kosu_error () in
+
+    let ast_module = KosuFront.ast_modules kosu_files in
+    let typed_program =
+      match Asttyconvert.from_program ast_module with
+      | typed_program -> typed_program
+      | exception KosuFrontend.Ast.Error.Ast_error e ->
+          let () =
+            e |> KosuFront.Pprinterr.string_of_ast_error |> print_endline
+          in
+          failwith "Error while typing ast: Shouldn't append"
     in
 
+    let tac_program =
+      KosuIrTAC.Asttacconv.tac_program_of_rprogram typed_program
+    in
     let _code =
       match is_target_asm with
       | true -> Compiler.generate_asm_only tac_program ()

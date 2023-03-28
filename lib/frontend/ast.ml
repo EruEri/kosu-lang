@@ -73,9 +73,13 @@ and kstatement =
       explicit_type : ktype location option;
       expression : kexpression location;
     }
-  | SAffection of string location * kexpression location
+  | SAffection of affected_value * kexpression location
   | SDiscard of kexpression location
-  | SDerefAffectation of string location * kexpression location
+  | SDerefAffectation of affected_value * kexpression location
+
+and affected_value =
+  | AFVariable of string location
+  | AFField of { variable : string location; fields : string location list }
 
 and kexpression =
   | Empty
@@ -371,6 +375,7 @@ module Error = struct
   type statement_error =
     | Undefine_Identifier of { name : string location }
     | Already_Define_Identifier of { name : string location }
+    | Reassign_Constante_Struct_field of { name : string location }
     | Reassign_Constante of { name : string location }
     | Uncompatible_type_Assign of { expected : ktype; found : ktype location }
     | Dereference_No_pointer of { name : string location; ktype : ktype }
@@ -508,6 +513,7 @@ module Error = struct
     | Operator_Error of operator_error
     | Switch_error of switch_error
     | Builtin_Func_Error of builtin_func_error
+    | No_struct_field_acc of { variable : string location; ktype : ktype }
     | Uncompatible_type of { expected : ktype; found : ktype location }
     | Uncompatible_type_If_Else of {
         position : unit location;
@@ -550,6 +556,12 @@ module Error = struct
 end
 
 module Type = struct
+  let module_path_of_ktype_opt = function
+    | TType_Identifier { module_path; name }
+    | TParametric_identifier { module_path; parametrics_type = _; name } ->
+        Some (module_path, name)
+    | _ -> None
+
   let ktuple kts = TTuple kts
   let pointer kt = TPointer kt
   let is_any_ptr = function TPointer _ -> true | _ -> false
