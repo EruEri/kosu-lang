@@ -77,6 +77,7 @@ let rec string_of_rktype = function
   | RTString_lit -> "stringl"
   | RTBool -> "bool"
   | RTUnit -> "unit"
+  | RTChar -> "char"
   | RTUnknow -> "unknwon"
   | RTFloat -> "f64"
 
@@ -105,6 +106,7 @@ let rec string_of_label_rktype = function
   | RTString_lit -> "stringl"
   | RTBool -> "bool"
   | RTUnit -> "unit"
+  | RTChar -> "char"
   | RTUnknow -> "unknwon"
   | RTFloat -> "f64"
 
@@ -144,6 +146,7 @@ and string_of_rkexpression = function
   | RTrue -> "true"
   | RFalse -> "false"
   | RENullptr -> "nullptr"
+  | REChar c -> Printf.sprintf "\'%c\'" c
   | REInteger (sign, _, value) -> (
       match sign with
       | Signed -> sprintf "%Ld" value

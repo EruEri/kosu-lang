@@ -91,6 +91,7 @@ let rec string_of_ktype = function
         |> String.concat ", ")
         (string_of_ktype r_type.v)
   | TString_lit -> "stringl"
+  | TChar -> "char"
   | TBool -> "bool"
   | TUnit -> "unit"
   | TUnknow -> "unknow"
@@ -134,6 +135,7 @@ and string_of_kexpression = function
   | True -> "true"
   | False -> "false"
   | ENullptr -> "nullptr"
+  | EChar c -> Printf.sprintf "\'%c\'" c
   | EInteger (sign, _, value) -> (
       match sign with
       | Signed -> sprintf "%Ld" value

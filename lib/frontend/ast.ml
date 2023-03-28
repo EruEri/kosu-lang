@@ -60,6 +60,7 @@ type ktype =
   | TFunction of ktype location list * ktype location
   | TString_lit
   | TUnknow
+  | TChar
   | TFloat
   | TBool
   | TUnit
@@ -88,6 +89,7 @@ and kexpression =
   | ENullptr
   | EInteger of (signedness * isize * int64)
   | EFloat of float
+  | EChar of char
   | ESizeof of (ktype location, kexpression location) Either.t
   | EString of string
   | EAdress of string location

@@ -257,6 +257,7 @@ Return the type of an expression
     | True | False -> TBool
     | ENullptr -> TPointer { v = TUnknow; position = expression.position }
     | EInteger (sign, size, _) -> TInteger (sign, size)
+    | EChar _ -> TChar
     | EFloat _ -> TFloat
     | ESizeof either ->
         let () =
