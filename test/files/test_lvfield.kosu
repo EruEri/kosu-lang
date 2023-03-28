@@ -25,13 +25,29 @@ fn show_large(l: large) {
 	$ empty
 }
 
-fn main() s32 {
+fn test_direct_field_access() {
+    var c = coordinate { x = 30s64, y = 20s64 };
+    var l = large { nom = "direct", coordinate = c};
+    discard show_large(l);
+    l.coordinate = create(65s64, 70s64);
+	l.coordinate.x = 90s64;
+    discard show_large(l);
+	$ empty
+}
+
+fn test_indirected_field_access() {
 	var c = coordinate { x = 30s64, y = 20s64 };
-	var l = large { nom = "large", coordinate = c};
+	var l = large { nom = "indirect", coordinate = c};
 	const pl = &l;
 	discard show_large(l);
 	*pl.coordinate = create(65s64, 70s64);
 	*pl.coordinate.x = 90s64;
 	discard show_large(l);
+	$ ()
+}
+
+fn main() s32 {
+	discard test_direct_field_access();
+	discard test_indirected_field_access();
 	$ 0
 }
