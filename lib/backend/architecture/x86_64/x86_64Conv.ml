@@ -756,7 +756,17 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let tmpreg = tmp_r10 sizeof in
         let copy_instructions =
           where
-          |> Option.map (fun waddress ->
+          |> Option.map (fun waddress -> 
+            let debug = 
+            Printf.sprintf "%s.%s : size = %Lu, register = %s : target address = %s"
+            struct_id
+            field
+            sizeof
+            (X86_64Pprint.string_of_register tmpreg)
+            (X86_64Pprint.string_of_address waddress) 
+          in
+          let preinstructions = (Line_Com (Comment debug))::
+            if is_register_size sizeof then
                  [
                    Instruction
                      (Mov
@@ -766,8 +776,22 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                           source = `Address field_address;
                         });
                  ]
-                 @ copy_from_reg tmpreg waddress rval_rktype rprogram)
-          |> Option.value ~default:[]
+          else
+            [
+              Instruction
+              (
+                Lea 
+                {
+                  size = Q;
+                  source = field_address;
+                  destination = tmpreg
+                }
+              )
+            ] in
+            let cp_instrucion = copy_from_reg tmpreg waddress rval_rktype rprogram in
+            preinstructions @ cp_instrucion
+        ) 
+        |> Option.value ~default:[]
         in
         Line_Com (Comment ("Field access of " ^ field)) :: copy_instructions
     | RVFieldAcess _ ->
