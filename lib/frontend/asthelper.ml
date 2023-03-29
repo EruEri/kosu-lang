@@ -858,6 +858,10 @@ module Kbody = struct
               wildcard_case
               |> Option.map (remap_body_explicit_type generics current_module);
           }
+    | EWhile (te, body) -> EWhile (
+      remap_located_expr_explicit_type generics current_module te,
+      remap_body_explicit_type generics current_module body
+    ) 
     | EUn_op (UMinus expr) ->
         EUn_op
           (UMinus
@@ -955,7 +959,9 @@ module Kbody = struct
           (BDif
              ( remap_located_expr_explicit_type generics current_module lhs,
                remap_located_expr_explicit_type generics current_module rhs ))
-    | _ as t -> t
+    | Empty | True | False | ENullptr | EInteger _ | EFloat _ | EChar _ 
+    | EString _ | EAdress _| EDeference (_, _) 
+    | EIdentifier _ as t -> t 
 end
 
 module Switch_case = struct
