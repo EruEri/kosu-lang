@@ -673,10 +673,10 @@ module Type = struct
   let rec extract_mapped_ktype generics ktype =
     match ktype with
     | TType_Identifier { module_path = { v = ""; _ }; name } -> (
-        try
-          let _, kt = Hashtbl.find generics name.v in
-          kt
-        with _ -> ktype)
+        match Hashtbl.find_opt generics name.v with
+        | Some (_, kt) -> kt
+        | None ->  ktype 
+    )
     | TParametric_identifier { module_path; parametrics_type; name } ->
         TParametric_identifier
           {

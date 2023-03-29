@@ -514,13 +514,10 @@ module FrameManager = struct
 
   let address_of (variable, rktype) frame_desc =
     if List.mem (variable, rktype) frame_desc.discarded_values then None
-    else
-      Some
-        (try IdVarMap.find (variable, rktype) frame_desc.stack_map
-         with Not_found ->
-           failwith
-             (Printf.sprintf "Not found: %s : %s" variable
-                (KosuIrTyped.Asttypprint.string_of_rktype rktype)))
+    else match IdVarMap.find (variable, rktype) frame_desc.stack_map with
+    | addres -> Some addres
+    | exception Not_found -> failwith (Printf.sprintf "Not found: %s : %s" variable
+          (KosuIrTyped.Asttypprint.string_of_rktype rktype))
 
   let call_instruction ~origin _stack_param (_fd : frame_desc) =
     let open Instruction in

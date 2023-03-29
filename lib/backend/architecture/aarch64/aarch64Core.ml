@@ -957,13 +957,10 @@ module FrameManager = struct
   let address_of (variable, rktype) frame_desc =
     (* let () = Printf.printf "Lookup => %s : %s\n" (variable) (KosuIrTyped.Asttypprint.string_of_rktype rktype) in *)
     if List.mem (variable, rktype) frame_desc.discarded_values then None
-    else
-      Some
-        (try IdVarMap.find (variable, rktype) frame_desc.stack_map
-         with Not_found ->
-           failwith
-             (Printf.sprintf "Not found: %s : %s" variable
-                (KosuIrTyped.Asttypprint.string_of_rktype rktype)))
+    else match IdVarMap.find (variable, rktype) frame_desc.stack_map with
+    | addres -> Some addres
+    | exception Not_found -> failwith (Printf.sprintf "Not found: %s : %s" variable
+          (KosuIrTyped.Asttypprint.string_of_rktype rktype))
 
   let function_prologue ~fn_register_params ~stack_params rprogram fd =
     let frame_register_offset =
