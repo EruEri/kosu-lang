@@ -1,0 +1,20 @@
+external puts(_: stringl) s32
+
+fn always_side_effect() bool {
+    discard puts("Always called");
+    $ true
+}
+
+fn never_side_effect() bool {
+    discard puts("Never called");
+    $ true
+}
+
+fn main() s32 {
+    discard true || never_side_effect();
+    discard true or always_side_effect();
+
+    discard false && never_side_effect();
+    discard false and always_side_effect();
+    $ 0
+}
