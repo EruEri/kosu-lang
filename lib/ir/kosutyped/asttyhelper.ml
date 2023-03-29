@@ -273,12 +273,34 @@ module Generics = struct
             typed_expression =
               instanciate_generics_typed_expression generics typed_expression;
           }
-    | RSAffection (s, te) ->
-        RSAffection (s, instanciate_generics_typed_expression generics te)
     | RSDiscard te ->
-        RSDiscard (instanciate_generics_typed_expression generics te)
-    | RSDerefAffectation (s, te) ->
-        RSDerefAffectation (s, instanciate_generics_typed_expression generics te)
+      RSDiscard (instanciate_generics_typed_expression generics te)
+    | RSAffection (RAFVariable (name, kt), te) -> 
+      RSAffection (
+        RAFVariable (name, instanciate_generics_type generics kt),
+        instanciate_generics_typed_expression generics te
+      )
+    | RSAffection (RAFField {variable = (name, kt); fields}, te) ->
+        RSAffection (
+          RAFField {
+            fields;
+            variable = (name, instanciate_generics_type generics kt)
+          },
+          instanciate_generics_typed_expression generics te
+        )
+    | RSDerefAffectation (RAFVariable (name, kt), te) -> 
+      RSDerefAffectation (
+            RAFVariable (name, instanciate_generics_type generics kt),
+            instanciate_generics_typed_expression generics te
+          )
+    | RSDerefAffectation (RAFField {variable = (name, kt); fields}, te) ->
+      RSDerefAffectation (
+              RAFField {
+                fields;
+                variable = (name, instanciate_generics_type generics kt)
+              },
+              instanciate_generics_typed_expression generics te
+            )
 
   and instanciate_generics_rexpression generics = function
     | RESizeof ktype -> RESizeof (instanciate_generics_type generics ktype)
@@ -370,7 +392,16 @@ module Generics = struct
                        instanciate_generics_kbody generics body ));
             else_case = else_case |> instanciate_generics_kbody generics;
           }
-    | _ as t -> t
+    | REWhile (te, body) -> 
+      REWhile (
+        instanciate_generics_typed_expression generics te,
+    instanciate_generics_kbody generics body
+      )
+    | (
+      REmpty | RTrue| RFalse| RENullptr| REInteger _
+      | REFloat _|REChar _|REstring _
+      | REAdress _ | REDeference (_, _)
+      | REIdentifier _|REConst_Identifier _ as t) -> t
 
   and instanciate_generics_typed_expression generics typed_expr =
     (* let () = Printf.printf "Intanst te = %s \n\n" (Asttypprint.string_of_typed_expression typed_expr) in *)
@@ -485,6 +516,7 @@ module Function = struct
           rbody = rfunction_decl.rbody;
         }
     | false ->
+        (* let () = Printf.printf "fn name = %s\n" rfunction_decl.rfn_name in *)
         let assoc_generics = List.combine rfunction_decl.generics generics in
         let rparameters =
           rfunction_decl.rparameters
@@ -1113,7 +1145,13 @@ module RProgram = struct
         | RUMinus te | RUNot te ->
             specialise_generics_function_typed_expression ~ignored
               current_module rprogram te)
-    | _ -> FnSpec.empty
+    | REWhile (te, body) ->  
+      let fn_expr = specialise_generics_function_typed_expression ~ignored current_module rprogram te in
+      body
+      |> specialise_generics_function_kbody ~ignored current_module rprogram
+      |> FnSpec.union fn_expr
+    | REmpty | RTrue| RFalse| RENullptr|REInteger _|REFloat _|REChar _| RESizeof _
+    | REstring _|REAdress _|REDeference (_, _)|REIdentifier _|REConst_Identifier _ -> FnSpec.empty
 
   and specialise_generics_function_typed_expression ~ignored current_module
       rprogram typed_expression : FnSpec.t =

@@ -1656,7 +1656,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                             | Locale s -> (s, locale_ty)
                             | Enum_Assoc_id { name; _ } -> (name, locale_ty))
                    in
-                   (* let () = locals_var
+                   (* let () = Printf.printf "asm name = %s\n" function_decl.rfn_name in
+                   let () = locals_var
                         |> List.map (fun (s, kt) ->
                             Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)
                         )
