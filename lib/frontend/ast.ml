@@ -529,6 +529,7 @@ module Error = struct
         struct_decl : struct_decl;
       }
     | Enum_Access_field of { field : string location; enum_decl : enum_decl }
+    | Field_access_for_non_struct_type of { location: unit location; ktype: ktype }
     | Unvalid_Deference of string location
     | Conflicting_type_declaration of {
         path : string;
@@ -558,6 +559,9 @@ module Error = struct
 end
 
 module Type = struct
+  (**
+  returns the module_name and the name as a tuple is as a declaration    
+  *)
   let module_path_of_ktype_opt = function
     | TType_Identifier { module_path; name }
     | TParametric_identifier { module_path; parametrics_type = _; name } ->

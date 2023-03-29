@@ -338,23 +338,26 @@ Return the type of an expression
         in
         (* let () = Printf.printf "ktype %s = %s\n%!" (Pprint.string_of_kexpression first_expr.v) (Pprint.string_of_ktype first_type) in *)
         let parametrics_types = Type.extract_parametrics_ktype first_type in
-        let ktype_def_path = Type.module_path_opt first_type |> Option.get in
-        let ktype_name = Type.type_name_opt first_type |> Option.get in
-        let type_decl =
-          match
-            Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path
-              ~ktype_name ~current_module:current_mod_name prog
-          with
-          | Error e -> e |> Ast.Error.ast_error |> raise
-          | Ok type_decl -> type_decl
-        in
-        let ktype =
-          Asthelper.Struct.resolve_fields_access_gen
-            (parametrics_types |> List.map Position.value)
-            field type_decl current_mod_name
-        in
+        let ktype =  match Type.module_path_of_ktype_opt first_type with
+        | None -> raise @@ ast_error  @@ Field_access_for_non_struct_type {location = expression |> Position.map (fun _ -> ()); ktype = first_type} 
+        | Some (ktype_def_path, ktype_name) ->
+          let type_decl =
+            match
+              Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path
+                ~ktype_name ~current_module:current_mod_name prog
+            with
+            | Error e -> e |> Ast.Error.ast_error |> raise
+            | Ok type_decl -> type_decl
+          in
+          let ktype =
+            Asthelper.Struct.resolve_fields_access_gen
+              (parametrics_types |> List.map Position.value)
+              field type_decl current_mod_name
+          in
         (* Printf.sprintf "ktype = %s" (Pprint.string_of_ktype ktype) |> prerr_endline; *)
         ktype
+      in 
+      ktype
     | EStruct { modules_path; struct_name; fields } ->
         let struct_decl =
           match
