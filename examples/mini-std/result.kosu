@@ -1,0 +1,19 @@
+enum result(s, e) {
+	ok(s),
+	err(e)
+}
+
+
+fn is_success<s, e>(res : result(s, e)) bool {
+	$ switch (res) {
+		.ok(_) => { $ true }
+		.err(_) => { $ false}
+	}
+}
+
+fn is_error<s, e>(res : result(s, e)) bool {
+	$ switch (res) {
+		.ok(_) => { $ false }
+		.err(_) => { $ true }
+	}
+}

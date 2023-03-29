@@ -1,0 +1,3 @@
+external malloc(size: u64) anyptr;
+external free(ptr: anyptr) unit;
+external realloc(old_ptr: anyptr, new_size: u64) anyptr;

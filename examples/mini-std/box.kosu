@@ -1,0 +1,33 @@
+struct box(t) {
+	ptr: *t
+	
+}
+
+fn new<t>(e: t) box(t) {
+	const ptr : *t = Cstd::Lib.malloc(sizeof(t));
+	const null: *t = nullptr;
+	discard if ( null != ptr) {
+		*ptr = e;
+		$ true
+	} else {
+		$ false
+	};
+	$ box {
+		ptr = ptr
+	}
+}
+
+fn pointee<t>(box: box(t) ) t {
+	const ptr = box.ptr;
+	$ *ptr
+}
+
+fn free<t>(box: box(t)) {
+	$ Cstd::Lib.free(box.ptr)	
+}
+
+fn update<t>(box: box(t), e : t) {
+	const ptr = box.ptr;
+	*ptr = e;
+	$ empty
+}

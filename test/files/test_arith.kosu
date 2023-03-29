@@ -12,16 +12,16 @@ fn test_s8_aux(lhs: s8, rhs: s8) {
     const minus = lhs - rhs;
     const div = lhs / rhs;
     const modulo = lhs % rhs;
-    const or = lhs | rhs;
-    const and = lhs & rhs;
+    const or_ = lhs | rhs;
+    const and_ = lhs & rhs;
     const xor = lhs ^ rhs;
 
     discard printf("s8: %hhd + %hhd = %hhd\n", lhs , rhs , add);
     discard printf("s8: %hhd - %hhd = %hhd\n", lhs , rhs , minus);
     discard printf("s8: %hhd / %hhd = %hhd\n", lhs , rhs , div);
     discard printf("s8: %hhd %% %hhd = %hhd\n", lhs , rhs , modulo);
-    discard printf("s8: %hhd | %hhd = %hhd\n", lhs , rhs , or);
-    discard printf("s8: %hhd & %hhd = %hhd\n", lhs , rhs , and);
+    discard printf("s8: %hhd | %hhd = %hhd\n", lhs , rhs , or_);
+    discard printf("s8: %hhd & %hhd = %hhd\n", lhs , rhs , and_);
     discard printf("s8: %hhd ^ %hhd = %hhd\n\n", lhs , rhs , xor);
     
 
@@ -44,16 +44,16 @@ fn test_u8_aux(lhs: u8, rhs: u8) {
     const minus = lhs - rhs;
     const div = lhs / rhs;
     const modulo = lhs % rhs;
-    const or = lhs | rhs;
-    const and = lhs & rhs;
+    const or_ = lhs | rhs;
+    const and_ = lhs & rhs;
     const xor = lhs ^ rhs;
 
     discard printf("u8: %hhu + %hhu = %hhu\n", lhs , rhs , add);
     discard printf("u8: %hhu - %hhu = %hhu\n", lhs , rhs , minus);
     discard printf("u8: %hhu / %hhu = %hhu\n", lhs , rhs , div);
     discard printf("u8: %hhu %% %hhu = %hhu\n", lhs , rhs , modulo);
-    discard printf("u8: %hhu | %hhu = %hhu\n", lhs , rhs , or);
-    discard printf("u8: %hhu & %hhu = %hhu\n", lhs , rhs , and);
+    discard printf("u8: %hhu | %hhu = %hhu\n", lhs , rhs , or_);
+    discard printf("u8: %hhu & %hhu = %hhu\n", lhs , rhs , and_);
     discard printf("u8: %hhu ^ %hhu = %hhu\n\n", lhs , rhs , xor);
     $ empty
 }
@@ -79,16 +79,16 @@ fn test_s16_aux(lhs: s16, rhs: s16) {
     const minus = lhs - rhs;
     const div = lhs / rhs;
     const modulo = lhs % rhs;
-    const or = lhs | rhs;
-    const and = lhs & rhs;
+    const or_ = lhs | rhs;
+    const and_ = lhs & rhs;
     const xor = lhs ^ rhs;
 
     discard printf("s16: %hd + %hd = %hd\n", lhs , rhs , add);
     discard printf("s16: %hd - %hd = %hd\n", lhs , rhs , minus);
     discard printf("s16: %hd / %hd = %hd\n", lhs , rhs , div);
     discard printf("s16: %hd %% %hd = %hd\n", lhs , rhs , modulo);
-    discard printf("s16: %hd | %hd = %hd\n", lhs , rhs , or);
-    discard printf("s16: %hd & %hd = %hd\n", lhs , rhs , and);
+    discard printf("s16: %hd | %hd = %hd\n", lhs , rhs , or_);
+    discard printf("s16: %hd & %hd = %hd\n", lhs , rhs , and_);
     discard printf("s16: %hd ^ %hd = %hd\n\n", lhs , rhs , xor);
     $ empty
 }

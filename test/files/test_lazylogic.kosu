@@ -1,0 +1,34 @@
+external puts(_: stringl) s32
+external printf(_: stringl; ...) s32
+
+fn always_side_effect() bool {
+    discard puts("Always called");
+    $ true
+}
+
+fn never_side_effect() bool {
+    discard puts("Never called");
+    $ true
+}
+
+fn show_expected(b: bool, expected: bool) {
+    discard printf("expected \"%s\", found \"%s\"\n", string_of_bool(expected), string_of_bool(b));
+    $ empty
+}
+
+fn string_of_bool(b: bool) stringl = if (b) { $ "true" } else { $ "false" }
+
+fn main() s32 {
+    const t1 = true || never_side_effect();
+    const t2 = true or always_side_effect();
+
+    discard show_expected(t1, true);
+    discard show_expected(t1 == t2, true);
+
+    const f1 = false && never_side_effect();
+    const f2 = false and always_side_effect();
+
+    discard show_expected(f1, false);
+    discard show_expected(f1 == f2, true);
+    $ 0
+}

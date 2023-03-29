@@ -1656,14 +1656,15 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                             | Locale s -> (s, locale_ty)
                             | Enum_Assoc_id { name; _ } -> (name, locale_ty))
                    in
-                   (* let () = locals_var
-                        |> List.map (fun (s, kt) ->
-                            Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)
-                        )
-                        |> String.concat ", "
-                        |> Printf.printf "%s : locale variables = [%s]\n"
-                        function_decl.rfn_name
-                      in *)
+                   (* let () = Printf.printf "asm name = %s\n" function_decl.rfn_name in
+                      let () = locals_var
+                           |> List.map (fun (s, kt) ->
+                               Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)
+                           )
+                           |> String.concat ", "
+                           |> Printf.printf "%s : locale variables = [%s]\n"
+                           function_decl.rfn_name
+                         in *)
                    let asm_name =
                      AsmSpec.label_of_tac_function ~module_path:current_module
                        function_decl

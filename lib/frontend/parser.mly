@@ -40,8 +40,8 @@
 %token PIPESUP
 %token EQUAL
 %token PIPE
-%token OR
-%token AND
+%token OR FULLOR
+%token AND FULLAND
 %token XOR
 %token AMPERSAND
 %token DOUBLEQUAL DIF
@@ -60,8 +60,8 @@
 // %nonassoc EOF LPARENT RPARENT LBRACE RBRACE SEMICOLON COLON ARROWFUNC TRIPLEDOT EQUAL Integer_lit String_lit
 // %left COMMA
 %left PIPESUP
-%left OR
-%left AND
+%left OR FULLOR
+%left AND FULLAND
 %left PIPE
 %left XOR
 %left AMPERSAND
@@ -319,8 +319,20 @@ expr:
     | located(expr) AMPERSAND located(expr) {  EBin_op (BBitwiseAnd ($1, $3)) }
     | located(expr) SHIFTLEFT located(expr) { EBin_op (BShiftLeft ($1, $3)) }
     | located(expr) SHIFTRIGHT located(expr) { EBin_op (BShiftRight ($1, $3)) }
-    | located(expr) AND located(expr) { EBin_op (BAnd ($1, $3)) }
-    | located(expr) OR located(expr) { EBin_op (BOr ($1, $3)) }
+    | located(expr) FULLAND located(expr) { EBin_op (BAnd ($1, $3)) }
+    | located(expr) FULLOR located(expr) { 
+        EBin_op (BOr ($1, $3))
+    }
+    | located(expr) AND located(expr) {
+        let true_block = ([], $3) in
+        let false_block = ([], $1 |> Position.map (fun _ -> False)) in
+        EIf ($1, true_block, false_block)
+    }
+    | located(expr) OR located(expr) { 
+        let true_block = ( [], $1 |> Position.map (fun _ -> True) ) in
+        let else_block = ( [], $3) in 
+        EIf ($1, true_block, else_block ) 
+    }
     | located(expr) SUP located(expr) { EBin_op (BSup ($1, $3)) }
     | located(expr) SUPEQ located(expr) { EBin_op (BSupEq ($1, $3)) }
     | located(expr) INF located(expr) { EBin_op (BInf ($1, $3)) }

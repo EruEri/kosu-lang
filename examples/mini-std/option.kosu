@@ -1,0 +1,50 @@
+enum option(wrapper) {
+	none,
+	some(wrapper)
+}
+
+fn is_some<t>(o : option(t) ) bool {
+	$ switch (o) {
+		.none => { $ false }
+		.some(_) => { $ true }
+	}
+}
+
+fn is_none<t>(o : option(t) ) bool {
+	$ switch (o) {
+		.some(_) => { $ false }
+		.none => { $ true }
+	}
+}
+
+fn value<t>(o : option(t), default : t) t {
+	$ switch (o) {
+		.none => { $ default }
+		.some(x) => { $ x }
+	}
+}
+
+fn get<t>(o : option(t) ) t {
+	$ switch (o) {
+		.none => {
+			discard Cstd::Io.puts_s("Option is none");
+			discard Sys.exit(1);
+			const s : *t = nullptr;
+			$ *s
+		}
+		.some(x) => { $ x }
+	}
+}
+
+// fn map<t, u>(o : option(t), mapper : fn|s32| -> u ) option(u) = switch (o) {
+// 	.none => { $ .none }
+// 	.some(t) => { $ .some( mapper(t) )}
+// }
+
+// fn t() {
+// 	const option : (s32) option = .nil;
+// 	const s = 10;
+// 	const mapped = option |> map (|default| )
+// 	const mapped = option |> map( |n| -> n + s );
+// 	$ empty
+// }

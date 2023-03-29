@@ -1,0 +1,90 @@
+struct open_option {
+	open_type: s32,
+	option: s32
+}
+
+fn new() open_option = open_option {
+	open_type = 0,
+	option = 0
+}
+
+fn handle( option: bool, base: s32, ored: s32 ) s32 = 
+	if (option) {
+		$ base | ored
+	} else {
+		$ base & !(ored)
+	}
+
+fn read_write(oo : open_option, rw : bool) open_option {
+	const open_type = if ( rw ) {
+		$ Sys.O_RDWR
+	} else {
+		$ oo.open_type & !(Sys.O_RDWR)
+	};
+	
+	$ open_option {
+		open_type = open_type,
+		option = oo.option
+	}
+}
+
+fn read_only(oo : open_option, ro : bool) open_option {
+	const open_type = if ( ro ) {
+		$ Sys.O_RDONLY
+	} else {
+		$ oo.open_type & !(Sys.O_RDONLY)
+	};
+	
+	$ open_option {
+		open_type = open_type,
+		option = oo.option
+	}
+}
+
+fn write_only(oo : open_option, wo : bool) open_option {
+	const open_type = if ( wo ) {
+		$ Sys.O_WRONLY
+	} else {
+		$ oo.open_type & !(Sys.O_WRONLY)
+	};
+	
+	$ open_option {
+		open_type = open_type,
+		option = oo.option
+	}
+}
+
+fn create(oo : open_option, create: bool) open_option { 
+	const option = handle(create, oo.option, Sys.O_CREAT);
+	$ open_option {
+		open_type = oo.open_type,
+		option = option
+	}
+}
+
+fn append(oo : open_option, append: bool) open_option { 
+	const option = handle(append, oo.option, Sys.O_APPEND);
+	$ open_option {
+		open_type = oo.open_type,
+		option = option
+	}
+}
+
+fn truncate(oo : open_option, trunc: bool) open_option { 
+	const option = handle(trunc, oo.option, Sys.O_TRUNC);
+	$ open_option {
+		open_type = oo.open_type,
+		option = option
+	}
+}
+
+fn open(oo: open_option, path: stringl) Option.option(Fs::File.file) {
+	const user_permission = Sys.S_IRUSR | Sys.S_IWUSR | Sys.S_IRGRP | Sys.S_IROTH ;
+	const ored = oo.open_type | oo.option;
+	const fd = Sys.open(path, ored, user_permission);
+	$ if (fd < 0) {
+		$ Option .none
+	} else {
+		$ Option..some( Fs::File.file { fd = fd })
+	}
+}

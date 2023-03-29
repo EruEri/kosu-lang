@@ -1,0 +1,83 @@
+struct vector(element) {
+    ptr: *element,
+    count: u64,
+    capacity: u64
+}
+
+fn new<element>(capacity: u64) vector(element) {
+    const ptr: *element = if (capacity == 0u64) {
+        $ Cstd::Lib.malloc(0u64)
+    } else {
+        $ Cstd::Lib.malloc(sizeof(element) * capacity)
+    };
+
+    $ vector {
+        ptr = ptr,
+        count = 0u64,
+        capacity = capacity
+    }
+}
+
+fn capacity<t>(vector : vector(t) ) u64 {
+    $ vector.capacity
+}
+
+fn count<t>(vector: vector(t)) u64 {
+    $ vector.count
+}
+
+fn get_ref<element>(vector: vector(element) , index: u64) *element {
+    $ (vector.ptr + index)
+}
+
+fn get<element>(vector: vector(element) , index: u64) element {
+    const ptr = (vector.ptr + index);
+    $ *ptr
+}
+
+fn set<element>(vector: vector(element), element: element, index: u64) {
+    const advanced_ptr = vector.ptr + index;
+    *advanced_ptr = element;
+    $ empty
+}
+
+fn need_realloc<e>(v : vector(e)) bool = v.count == v.capacity
+
+
+fn push<element>(v: *vector(element), elt: element) {
+    const vec = *v;
+    const new_count = vec.count + 1u64;
+    $ if ( ! need_realloc(vec) ) {
+        discard set(vec, elt, vec.count );
+        *v.count = new_count;
+        $ empty
+    } else {
+        const new_capacity = vec.capacity * 2u64;
+        const new_ptr : *element = Cstd::Lib.realloc(vec.ptr, sizeof(element) * new_capacity);
+        *v.ptr = new_ptr;
+        *v.capacity = new_capacity;
+        discard set( vec, elt, (*v).count);
+        *v.count = new_count;
+        $ empty
+    }
+}
+    // if ( need_realloc(v) ) {
+    //     const new_count = v.count + 1u64;
+    //     const new_capacity = v.capacity * 2u64;
+    //     const new_ptr : *element = Cstd::Lib.realloc(v.ptr, sizeof(element) * new_capacity);
+    //     const new_vector = vector {
+    //         ptr = new_ptr,
+    //         count = new_count,
+    //         capacity = new_capacity
+    //     };
+    //     discard set( new_vector, elt, v.count);
+    //     $ new_vector
+    // } else {
+    //     const new_count = v.count + 1u64;
+    //     discard set( v, elt, v.count);
+    //     $ vector {
+    //         ptr = v.ptr,
+    //         count = new_count,
+    //         capacity = v.capacity
+    //     }
+    // }

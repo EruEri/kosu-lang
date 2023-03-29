@@ -142,13 +142,12 @@ struct
        | Ast.Error.Ast_error e -> Error.Ast_Error e |> Result.error *)
 
     let is_ktype_exist_from_ktype generics current_module program ktype =
-      try
-        let _ =
-          Asthelper.Program.find_type_decl_from_true_ktype ~generics ktype
-            current_module program
-        in
-        Ok ()
-      with Ast.Error.Ast_error e -> VError.Ast_Error e |> Result.error
+      match
+        Asthelper.Program.find_type_decl_from_true_ktype ~generics ktype
+          current_module program
+      with
+      | _ -> Ok ()
+      | exception Ast.Error.Ast_error e -> VError.Ast_Error e |> Result.error
 
     let rec does_ktype_contains_type_decl current_module program ktype
         ktype_type_decl_origin already_visited type_decl_to_check =
@@ -408,17 +407,17 @@ struct
         (external_func_decl : external_func_decl) =
       external_func_decl.fn_parameters
       |> List.filter_map (fun kt ->
-             try
-               if
-                 Asthelper.Program.is_c_type_from_ktype current_module kt.v
-                   program
-                 |> not
-               then
+             match
+               Asthelper.Program.is_c_type_from_ktype current_module kt.v
+                 program
+             with
+             | true -> None
+             | false ->
                  VError.External_Func_Error
                    (VError.Not_C_compatible_type (external_func_decl, kt))
                  |> Option.some
-               else None
-             with Ast.Error.Ast_error e -> VError.Ast_Error e |> Option.some)
+             | exception Ast.Error.Ast_error e ->
+                 VError.Ast_Error e |> Option.some)
       |> function
       | [] -> Ok ()
       | t :: _ -> t |> Result.error
@@ -455,16 +454,16 @@ struct
       syscall_decl.parameters
       |> List.cons syscall_decl.return_type
       |> List.filter_map (fun kt ->
-             try
-               if
-                 Asthelper.Program.is_c_type_from_ktype current_module kt.v
-                   program
-                 |> not
-               then
+             match
+               Asthelper.Program.is_c_type_from_ktype current_module kt.v
+                 program
+             with
+             | true -> None
+             | false ->
                  VError.Syscall_Not_C_compatible_type (syscall_decl, kt)
                  |> VError.syscall_error |> Option.some
-               else None
-             with Ast.Error.Ast_error e -> VError.Ast_Error e |> Option.some)
+             | exception Ast.Error.Ast_error e ->
+                 VError.Ast_Error e |> Option.some)
       |> function
       | [] -> Ok ()
       | t :: _ -> t |> Result.error
@@ -656,21 +655,20 @@ struct
         Hashtbl.of_seq
           (function_decl.generics |> List.map (fun k -> (k, ())) |> List.to_seq)
       in
-      try
-        let _ =
-          Typecheck.typeof_kbody ~generics_resolver:hashtbl
-            (function_decl.parameters
-            |> List.fold_left
-                 (fun acc_env para ->
-                   acc_env
-                   |> Env.add_fn_parameters ~const:false
-                        (para |> Position.assocs_value))
-                 Env.create_empty_env)
-            current_module program
-            ~return_type:(Some function_decl.return_type.v) function_decl.body
-        in
-        Ok ()
-      with Ast.Error.Ast_error e -> VError.Ast_Error e |> Result.error
+      match
+        Typecheck.typeof_kbody ~generics_resolver:hashtbl
+          (function_decl.parameters
+          |> List.fold_left
+               (fun acc_env para ->
+                 acc_env
+                 |> Env.add_fn_parameters ~const:false
+                      (para |> Position.assocs_value))
+               Env.create_empty_env)
+          current_module program ~return_type:(Some function_decl.return_type.v)
+          function_decl.body
+      with
+      | _ -> Ok ()
+      | exception Ast.Error.Ast_error e -> VError.Ast_Error e |> Result.error
 
     let check_function program current_module function_decl =
       let ( >>= ) = Result.bind in
@@ -765,23 +763,22 @@ struct
             let t1, t2 = b.fields in
             [ t1; t2 ]
       in
-      try
-        let _ =
-          Typecheck.typeof_kbody ~generics_resolver:(Hashtbl.create 0)
-            (fields
-            |> List.fold_left
-                 (fun acc_env para ->
-                   acc_env
-                   |> Env.add_fn_parameters ~const:false
-                        (para |> Position.assocs_value))
-                 Env.create_empty_env)
-            current_module program
-            ~return_type:
-              (Some (Asthelper.ParserOperator.return_ktype operator_decl).v)
-            (Asthelper.ParserOperator.kbody operator_decl)
-        in
-        Ok ()
-      with Ast.Error.Ast_error e -> VError.Ast_Error e |> Result.error
+      match
+        Typecheck.typeof_kbody ~generics_resolver:(Hashtbl.create 0)
+          (fields
+          |> List.fold_left
+               (fun acc_env para ->
+                 acc_env
+                 |> Env.add_fn_parameters ~const:false
+                      (para |> Position.assocs_value))
+               Env.create_empty_env)
+          current_module program
+          ~return_type:
+            (Some (Asthelper.ParserOperator.return_ktype operator_decl).v)
+          (Asthelper.ParserOperator.kbody operator_decl)
+      with
+      | _ -> Ok ()
+      | exception Ast.Error.Ast_error e -> VError.Ast_Error e |> Result.error
 
     let is_valid_operator_decl current_module program operator_decl =
       let ( >>= ) = Result.bind in

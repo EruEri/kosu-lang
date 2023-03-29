@@ -1,0 +1,5 @@
+external printf(format: *s8; ...) s32;
+external puts(string: *s8) s32;
+
+external printf_s(format: stringl; ...) s32 = "printf";
+external puts_s(string: stringl) s32 = "puts";

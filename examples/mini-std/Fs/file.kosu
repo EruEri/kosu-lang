@@ -1,0 +1,15 @@
+struct file {
+	fd: s32
+}
+
+fn close(file: file) { 
+	discard Sys.close(file.fd);
+	$ empty
+}
+
+fn writel(file: file, content: stringl) {
+	const str_ptr = @stringlptr(content);
+	const strlen = Cstd::Str.strlen(str_ptr);
+	discard Sys.write(file.fd, str_ptr, @tou64(strlen));
+	$ empty
+}
