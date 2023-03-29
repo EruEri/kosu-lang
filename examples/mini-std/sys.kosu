@@ -1,0 +1,50 @@
+const O_RDONLY  =  0x0000;      /* open for reading only */
+const O_WRONLY  =  0x0001;      /* open for writing only */
+const O_RDWR    =  0x0002;      /* open for reading and writing */
+const O_ACCMODE =  0x0003;      /* mask for above modes */
+const O_APPEND  = 0x0008;
+const O_CREAT   = 0x0200;
+const O_TRUNC   = 0x0400;      /* truncate to zero length */
+const O_EXCL    = 0x0800; 
+
+
+const S_IRWXU = 0o00700;    /* RWX mask for owner */
+const S_IRUSR = 0o00400;    /* R for owner */
+const S_IWUSR = 0o00200;    /* W for owner */
+const S_IXUSR = 0o00100;    /* X for owner */
+
+const S_IRWXG = 0o00070;    /* RWX mask for group */
+const S_IRGRP = 0o00040;    /* R for group */
+const S_IWGRP = 0o00020;    /* W for group */
+const S_IXGRP = 0o00010;    /* X for group */
+
+const S_IRWXO = 0o00007;    /* RWX mask for other */
+const S_IROTH = 0o00004;    /* R for other */
+const S_IWOTH = 0o00002;    /* W for other */
+const S_IXOTH = 0o00001;    /* X for other */
+
+const S_ISUID = 0o04000;    /* set user id on execution */
+const S_ISGID = 0o02000;    /* set group id on execution */
+const S_ISVTX = 0o01000;    /* save swapped text even after use */
+
+syscall exit(code: s32) s32 = 0x01
+// syscall fork() s32 = 0x02
+external fork() s32;
+external wait(status: *s32) s32;
+
+syscall read(fd: s32, data: anyptr, size: u64) s64 = 0x03
+syscall write(fd: s32, data: anyptr, size: u64) s64 = 0x04
+syscall open(path: stringl, oflag:s32, mode: s32) s32 = 0x05;
+syscall close(fd: s32) s32 = 0x06;
+syscall wait4(_: s32, _: u64, _:s32, _: u64) s32 = 7;
+syscall link(oldpath:*s32, new_path:*s32) s32 = 9;
+syscall unlink(path: *s32) s32 = 10;
+syscall chdir(path: *s32) s32 = 12;
+
+syscall pipe() s32 = 42;
+
+syscall lseek(fd: s32, offset: s64, whence: s64) s64 = 199;
+
+syscall getpid() s32 = 20;
+syscall getppid() s32 = 39;
+

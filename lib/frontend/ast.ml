@@ -529,7 +529,10 @@ module Error = struct
         struct_decl : struct_decl;
       }
     | Enum_Access_field of { field : string location; enum_decl : enum_decl }
-    | Field_access_for_non_struct_type of { location: unit location; ktype: ktype }
+    | Field_access_for_non_struct_type of {
+        location : unit location;
+        ktype : ktype;
+      }
     | Unvalid_Deference of string location
     | Conflicting_type_declaration of {
         path : string;
@@ -675,8 +678,7 @@ module Type = struct
     | TType_Identifier { module_path = { v = ""; _ }; name } -> (
         match Hashtbl.find_opt generics name.v with
         | Some (_, kt) -> kt
-        | None ->  ktype 
-    )
+        | None -> ktype)
     | TParametric_identifier { module_path; parametrics_type; name } ->
         TParametric_identifier
           {

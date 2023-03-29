@@ -1,0 +1,107 @@
+enum list(t) {
+	nil,
+	cons(t, Box.box( list(t) ) )
+}
+
+fn kosu_alloc<t>(elt: t) *t {
+    var e : *t = Cstd::Lib.malloc(sizeof(t));
+    *e = elt;
+    $ e
+}
+
+fn new<e>() list(e) = .nil;
+
+fn init<e>(element : e, count : u32) list(e) =
+    if (count == 0u32) {
+        $ .nil
+    } else {
+        const sub_list = init(element, count - 1u32);
+        const tmp = .cons(element, Box.new(sub_list));
+        $ tmp
+    }
+
+fn cons<e>(l : list(e), element : e) list(e) {
+	$ .cons(element, Box.new(l))
+}
+
+fn nth_opt<e>(l: list(e), n : u32) Option.option(e) {
+	$ switch (l) {
+		.nil => { $ Option.none }
+		.cons(x, xs) => { 
+			$ if (n == 0u32) {
+				$ Option..some(x)
+			} else {
+				$  xs |> Box.pointee() |> nth_opt(n - 1u32)
+			}
+		}
+ 	}
+}
+
+fn append<e>(l1 : list(e), l2 : list(e)) list(e) {
+	$ switch (l1) {
+		.nil => { $ l2 }
+		.cons(x, xs) => {
+			const next =  xs |> Box.pointee() |> append(l2) ;
+			discard xs |> Box.update( next ); 
+			$ .cons(x, xs)
+		}
+	} 
+}
+
+fn free_list<e>(l : list(e)) unit {
+	discard switch (l) {
+		.nil => { $ () }
+		.cons(x, xs) => {
+			discard xs |> Box.pointee() |> List.free_list();
+			discard Box.free(xs);
+			$ ()
+		}
+	};
+	$ empty 
+}
+
+fn length<e>(l : list(e)) s32 {
+	$ switch (l) {
+		.nil => { $ 0 }
+		.cons(_, xs) => {
+			$ 1 + (xs |> Box.pointee() |> List.length())
+		}
+	}
+}
+
+fn head<e>(l : list(e) ) Option.option(e) {
+	$ switch (l) {
+		.nil => { $ Option..none }
+		.cons(t, _) => { $ Option..some(t) }
+	}
+}
+
+fn tail<e>(l : list(e)) Option.option( list(e) ) = switch (l) {
+	.nil => { $ Option .none }
+	.cons(_, xs) => { $ Option.option::some(xs |> Box.pointee() ) }
+}
+
+fn of_npointer<e>(ptr: *e, len: u32) list(e) {
+	const null: *e = nullptr;
+	$ if (ptr == null || len == 0u32) {
+		$ .nil
+	} else {
+		const next = ptr + 1;
+		$ .cons(*ptr, Box.new(of_npointer(next, len - 1u32) ) )
+	}
+}
+fn of_pointer<e>(ptr: **e) list(*e) {
+	const pnull : **e = nullptr;
+	$ if (ptr == pnull) {
+		$ .nil
+	} else {
+		const null : *e = nullptr;
+		const current = *ptr;
+		$ if (current == null) {
+			$ .nil
+		} else {
+			const next = ptr + 1;
+			$ .cons(*ptr, Box.new(of_pointer(next) ) )
+		}
+	}
+}

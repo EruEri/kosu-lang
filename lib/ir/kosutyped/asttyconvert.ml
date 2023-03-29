@@ -1014,13 +1014,12 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
       |> Asttyhelper.RProgram.FnSpec.to_seq |> List.of_seq
     in
 
-    (* let () = specialised_functions |> List.iter (fun (_, fnspect) -> 
-      Printf.printf "specialized function : %s generics = [%s] : params = [%s]\n" 
-      fnspect.rfn_name 
-      (fnspect.rmaped_generics |> List.map Asttypprint.string_of_rktype |> String.concat ", ")
-      (fnspect.rparameters |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s" s (Asttypprint.string_of_rktype kt) ) |> String.concat ", ")
-    ) in *)
-
+    (* let () = specialised_functions |> List.iter (fun (_, fnspect) ->
+         Printf.printf "specialized function : %s generics = [%s] : params = [%s]\n"
+         fnspect.rfn_name
+         (fnspect.rmaped_generics |> List.map Asttypprint.string_of_rktype |> String.concat ", ")
+         (fnspect.rparameters |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s" s (Asttypprint.string_of_rktype kt) ) |> String.concat ", ")
+       ) in *)
     specialised_functions
     |> List.fold_left
          (fun acc node -> RProgram.append_function_decl node acc)

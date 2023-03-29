@@ -378,11 +378,12 @@ struct
     | Operator_Error e -> string_of_operator_error e
     | Switch_error e -> string_of_switch_error e
     | Builtin_Func_Error e -> string_of_built_in_func_error e
-    | Field_access_for_non_struct_type {location; ktype} ->
-      string_of_located_error location (
-        sprintf "this expression has the type \"%s\" which is not a struct. It doesn't contain any field"
-        (string_of_ktype ktype)
-      )
+    | Field_access_for_non_struct_type { location; ktype } ->
+        string_of_located_error location
+          (sprintf
+             "this expression has the type \"%s\" which is not a struct. It \
+              doesn't contain any field"
+             (string_of_ktype ktype))
     | Uncompatible_type { expected; found } ->
         string_of_located_error found
           (sprintf
