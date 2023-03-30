@@ -126,6 +126,30 @@ module Register = struct
   | X30
   | XZR
   | SP
+
+
+  let float64reg_of_64bitsreg = function
+    | X0 -> D0
+    | X1 -> D1
+    | X2 -> D2
+    | X3 -> D3
+    | X4 -> D4
+    | X5 -> D5
+    | X6 -> D6
+    | X7 -> D7
+    | X8 -> D8
+    | X9 -> D9
+    | X10 -> D10
+    | X11 -> D11
+    | X12 -> D12
+    | X13 -> D13
+    | X14 -> D14
+    | X15 -> D15
+    | X16 -> D16
+    | X29 -> D29
+    | X30 -> D30
+    | XZR -> DZR
+    | SP -> failwith "SP has not float equivalent"
   
 
 
@@ -141,6 +165,20 @@ module Register = struct
   let resize64 reg = { reg with size = SReg64 }
 
   let resize32 reg = { reg with size = SReg32 }
+
+  let to_float64reg reg = match reg.register with
+  | FloatReg _ -> resize64 reg
+  | IntegerReg reg -> {
+    register = FloatReg (float64reg_of_64bitsreg reg);
+    size = SReg64
+  }
+
+  let to_float32reg reg = match reg.register with
+  | FloatReg _ -> resize32 reg
+  | IntegerReg reg -> {
+    register = FloatReg (float64reg_of_64bitsreg reg);
+    size = SReg32
+  }
 
   let x0 = { register = IntegerReg X0; size = SReg64 }
   let x1 = { register = IntegerReg X1; size = SReg64 }
@@ -175,6 +213,8 @@ module Register = struct
   let s9 = { register = FloatReg D9; size = SReg32 }
   let d10 = { register = FloatReg D10; size = SReg64 }
   let d11 = { register = FloatReg D11; size = SReg64 }
+
+  let x16 = { register = IntegerReg X16; size = SReg64 }
 
 
 

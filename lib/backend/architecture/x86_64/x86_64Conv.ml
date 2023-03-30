@@ -2043,16 +2043,20 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                | TNConst
                    {
                      rconst_name;
-                     value = { rktype = RTFloat; rexpression = REFloat f };
+                     value = { rktype = RTFloat (fsize); rexpression = REFloat (_, f) };
                    } ->
+                    let size, bit_float  = match fsize with
+                    | F32 -> KosuFrontend.Ast.I32, f |> Int32.bits_of_float |> Int64.of_int32
+                    | F64 -> KosuFrontend.Ast.I64, Int64.bits_of_float f
+                   in
                    Some
                      (AConst
                         {
                           asm_const_name =
-                            Spec.label_of_constant ~module_path:current_module
-                              rconst_name;
+                            Spec.label_of_constant
+                              ~module_path:current_module rconst_name;
                           value =
-                            `IntVal (KosuFrontend.Ast.I64, Int64.bits_of_float f);
+                            `IntVal (size, bit_float);
                         })
                | TNConst
                    {

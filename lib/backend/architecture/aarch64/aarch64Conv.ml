@@ -189,9 +189,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let code = Char.code c |> Int64.of_int in
         let rreg = resize32 target_reg in
         (rreg, mov_integer rreg code)
-    | { tac_expression = TEFloat (fsize, float); _ } ->
-        let f64reg = to_64fbits target_reg in
-        let FLit float_label = Hashtbl.find litterals.float_lit_map float in
+    | { tac_expression = TEFloat (float); _ } ->
+        let f64reg = to_float64reg target_reg in
+        let (FLit float_label) = Hashtbl.find litterals.float_lit_map float in
         ( f64reg, load_label float_label x11 @ [ Instruction (LDR {data_size = None; destination = f64reg; adress_src = create_adress x11; adress_mode = Immediat })] )
     | { tac_expression = TEIdentifier id; expr_rktype } ->
         let adress =
@@ -310,7 +310,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     let zero_reg =
       reg_of_size
         (size_of_ktype_size (sizeofn rprogram blhs.expr_rktype))
-        (Register64 XZR)
+        xzr
     in
     let right_reg, rinstructions =
       translate_tac_expression ~litterals ~target_reg:r10 rprogram fd brhs
@@ -473,7 +473,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                      let address =
                        create_adress
                          ~offset:(Int64.of_int (index * 8))
-                         (Register64 SP)
+                         sp
                      in
                      let set =
                        Instruction
@@ -545,7 +545,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                 Instruction
                   (Mov
                      {
-                       destination = Register64 X16;
+                       destination = x16;
                        flexsec_operand = `ILitteral syscall_decl.opcode;
                      });
                 Instruction SVC;
@@ -1036,7 +1036,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           AsmSpec.label_of_kosu_operator ~module_path:current_module op_decl
         in
         let _, instructions =
-          translate_tac_expression ~litterals ~target_reg:(Register64 X0)
+          translate_tac_expression ~litterals ~target_reg:x0
             rprogram fd record.expr
         in
         let call_instruction =
@@ -1092,11 +1092,11 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           AsmSpec.label_of_kosu_operator ~module_path:current_module op_decl
         in
         let _, linstructions =
-          translate_tac_expression ~litterals ~target_reg:(Register64 X0)
+          translate_tac_expression ~litterals ~target_reg:x0
             rprogram fd self.blhs
         in
         let _, rinstructions =
-          translate_tac_expression ~litterals ~target_reg:(Register64 X1)
+          translate_tac_expression ~litterals ~target_reg:x1
             rprogram fd self.brhs
         in
 
@@ -1815,8 +1815,12 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                | TNConst
                    {
                      rconst_name;
-                     value = { rktype = RTFloat; rexpression = REFloat f };
+                     value = { rktype = RTFloat (fsize); rexpression = REFloat (_, f) };
                    } ->
+                    let size, bit_float  = match fsize with
+                    | F32 -> KosuFrontend.Ast.I32, f |> Int32.bits_of_float |> Int64.of_int32
+                    | F64 -> KosuFrontend.Ast.I64, Int64.bits_of_float f
+                   in
                    Some
                      (AConst
                         {
@@ -1824,7 +1828,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                             AsmSpec.label_of_constant
                               ~module_path:current_module rconst_name;
                           value =
-                            `IntVal (KosuFrontend.Ast.I64, Int64.bits_of_float f);
+                            `IntVal (size, bit_float);
                         })
                | TNConst
                    {

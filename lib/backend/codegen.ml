@@ -34,6 +34,7 @@ module type AsmProgram = sig
   val string_litteral_section_end : string
   val string_of_asm_node : asm_module_node -> string
   val string_litteral_directive : string
+  val directive_of_fsize: KosuFrontend.Ast.fsize -> string
   val filename_of_named_asm_module_path : named_asm_module_path -> string
 
   val asm_module_path_of_named_asm_module_path :
@@ -43,7 +44,7 @@ module type AsmProgram = sig
     named_asm_module_path -> (string, stringlit_label) Hashtbl.t
 
   val float_lit_map_of_name_asm_module:
-    named_asm_module_path -> (float, floatlit_label) Hashtbl.t
+    named_asm_module_path -> (KosuFrontend.Ast.fsize * float, floatlit_label) Hashtbl.t
 
   val asm_module_node_list_of_asm_module : asm_module -> asm_module_node list
 end
@@ -82,8 +83,12 @@ module Make (AsmProgram : AsmProgram) : S = struct
              Printf.fprintf file "%s\n\n" (string_of_asm_node node))
     in
 
-    let () = float_lit_map |> Hashtbl.to_seq |> Seq.iter (fun (float, FLit label) ->
-      Printf.fprintf file "%s:\n\t%s 0x%Lx\n\n" label ".quad" (Int64.bits_of_float float)
+    let () = float_lit_map |> Hashtbl.to_seq |> Seq.iter (fun ( (fsize, float), FLit label) ->
+      let s = match fsize with
+      | KosuFrontend.Ast.F32 -> float |> Int32.bits_of_float |> Printf.sprintf "0x%lX"
+      | F64 -> float |> Int64.bits_of_float |> Printf.sprintf "0x%LX"
+    in
+      Printf.fprintf file "%s:\n\t.%s %s\n\n" label (directive_of_fsize fsize) (s)
     )
     in
 
