@@ -28,8 +28,8 @@ let string_of_isize = function
   | I64 -> "64"
 
 let string_of_fsize = function
-| F32 -> "f32"
-| F64 -> "f64"  
+| F32 -> "32"
+| F64 -> "64"  
 
 let located_symbole_of_operator = function
   | Unary { op; _ } ->

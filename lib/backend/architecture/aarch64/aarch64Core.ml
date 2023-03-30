@@ -128,7 +128,7 @@ module Register = struct
   | SP
 
 
-  let float64reg_of_64bitsreg = function
+  let floatreg_of_intreg = function
     | X0 -> D0
     | X1 -> D1
     | X2 -> D2
@@ -150,6 +150,30 @@ module Register = struct
     | X30 -> D30
     | XZR -> DZR
     | SP -> failwith "SP has not float equivalent"
+
+
+    let intreg_of_floatreg = function
+    | D0 -> X0
+    | D1 -> X1
+    | D2 -> X2
+    | D3 -> X3
+    | D4 -> X4
+    | D5 -> X5
+    | D6 -> X6
+    | D7 -> X7
+    | D8 -> X8
+    | D9 -> X9
+    | D10 -> X10
+    | D11 -> X11
+    | D12 -> X12
+    | D13 -> X13
+    | D14 -> X14
+    | D15 -> X15
+    | D16 -> X16
+    | D29 -> X29
+    | D30 -> X30
+    | DZR -> XZR
+
   
 
 
@@ -166,19 +190,37 @@ module Register = struct
 
   let resize32 reg = { reg with size = SReg32 }
 
+  let resize_register size register = { register with size }
+
   let to_float64reg reg = match reg.register with
   | FloatReg _ -> resize64 reg
   | IntegerReg reg -> {
-    register = FloatReg (float64reg_of_64bitsreg reg);
+    register = FloatReg (floatreg_of_intreg reg);
     size = SReg64
+  }
+
+  let to_int64reg reg = match reg.register with
+  | IntegerReg _ -> resize64 reg
+  | FloatReg reg -> {
+    register = IntegerReg (intreg_of_floatreg reg);
+    size = SReg64
+  }
+
+  let to_int32reg reg = match reg.register with
+  | IntegerReg _ -> resize64 reg
+  | FloatReg reg -> {
+    register = IntegerReg (intreg_of_floatreg reg);
+    size = SReg32
   }
 
   let to_float32reg reg = match reg.register with
   | FloatReg _ -> resize32 reg
   | IntegerReg reg -> {
-    register = FloatReg (float64reg_of_64bitsreg reg);
+    register = FloatReg (floatreg_of_intreg reg);
     size = SReg32
   }
+
+
 
   let x0 = { register = IntegerReg X0; size = SReg64 }
   let x1 = { register = IntegerReg X1; size = SReg64 }
@@ -278,8 +320,8 @@ module Register = struct
 
   let size_of_reg register = register.size
 
-  let reg_of_size size reg =
-    match size with SReg32 -> resize32 reg | SReg64 -> resize64 reg
+  (* let reg_of_size size reg =
+    match size with SReg32 -> resize32 reg | SReg64 -> resize64 reg *)
 
   let xr = x8
   let ftmp64reg = d8
@@ -299,29 +341,52 @@ module Register = struct
   let tmpreg_of_size_3 size = if size <= 4L then tmp32reg_3 else tmp64reg_3
   let tmpreg_of_size_4 size = if size <= 4L then tmp32reg_4 else tmp64reg_4
 
-  let tmpreg_of_ktype rprogram ktype =
+  let regsize_of_ktype size = 
+    match size with
+    | 1L | 2L | 4L -> SReg32
+    | _ -> SReg64
+
+  let reg_of_ktype rprogram ktype ~register = 
+    match ktype with
+    | KosuIrTyped.Asttyped.RTFloat (KosuFrontend.Ast.F32) -> to_float32reg register
+    | RTFloat (F64) -> to_float64reg register
+    | _ -> 
+      let sizeof = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+      let size = size_of_ktype_size sizeof in
+      resize_register size x9
+
+  let reg8_of_ktype rprogram ktype = 
+    reg_of_ktype rprogram ktype ~register:x8
+    
+  let reg9_of_ktype = reg_of_ktype ~register:x9
+
+  let reg10_of_ktype = reg_of_ktype ~register:x10
+
+  let reg11_of_ktype = reg_of_ktype ~register:x11
+
+  (* let tmpreg_of_ktype rprogram ktype =
     if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg
     else
       let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
-      tmpreg_of_size size
+      tmpreg_of_size size *)
 
-  let tmpreg_of_ktype_2 rprogram ktype =
+  (* let tmpreg_of_ktype_2 rprogram ktype =
     if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_2
     else
       let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
-      tmpreg_of_size_2 size
-
+      tmpreg_of_size_2 size *)
+(* 
   let tmpreg_of_ktype_3 rprogram ktype =
     if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_3
     else
       let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
-      tmpreg_of_size_3 size
+      tmpreg_of_size_3 size *)
 
-  let tmpreg_of_ktype_4 rprogram ktype =
+  (* let tmpreg_of_ktype_4 rprogram ktype =
     if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_4
     else
       let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
-      tmpreg_of_size_4 size
+      tmpreg_of_size_4 size *)
 end
 
 open Register
@@ -1029,7 +1094,7 @@ module FrameManager = struct
                | Some a -> a
                | None -> failwith "On stack setup null address"
              in
-             let tmprreg = tmpreg_of_ktype rprogram kt in
+             let tmprreg = reg8_of_ktype rprogram kt in
              let param_stack_address = increment_adress offset sp_address in
              let load_instruction =
                load_register tmprreg param_stack_address kt sizeofkt

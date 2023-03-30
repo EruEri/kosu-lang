@@ -304,11 +304,11 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
 
   let translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where ~rval_rktype
       rprogram fd =
-    let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
-    let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-    let r8 = tmpreg_of_ktype rprogram brhs.expr_rktype in
+    let r10 = reg10_of_ktype rprogram brhs.expr_rktype in
+    let r9 = reg9_of_ktype rprogram blhs.expr_rktype in
+    let r8 = reg8_of_ktype rprogram brhs.expr_rktype in
     let zero_reg =
-      reg_of_size
+      resize_register
         (size_of_ktype_size (sizeofn rprogram blhs.expr_rktype))
         xzr
     in
@@ -344,9 +344,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
 
   let translate_tac_binop_self ~litterals ~blhs ~brhs ~where ~rval_rktype
       fbinop rprogram fd =
-    let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-    let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
-    let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
+    let r9 = reg9_of_ktype rprogram blhs.expr_rktype in
+    let r10 = reg10_of_ktype rprogram blhs.expr_rktype in
+    let r11 = reg11_of_ktype rprogram brhs.expr_rktype in
     let right_reg, rinstructions =
       translate_tac_expression ~litterals ~target_reg:r11 rprogram fd brhs
     in
@@ -838,8 +838,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     | RVDiscard | RVLater -> []
     | RVBuiltinBinop
         { binop = TacBool ((TacOr | TacAnd) as tac_bool); blhs; brhs } ->
-        let r9 = tmpreg_of_ktype_2 rprogram brhs.expr_rktype in
-        let r8 = tmpreg_of_ktype rprogram blhs.expr_rktype in
+        let r9 = reg9_of_ktype rprogram brhs.expr_rktype in
+        let r8 = reg8_of_ktype rprogram blhs.expr_rktype in
         let right_reg, rinstructions =
           translate_tac_expression ~litterals ~target_reg:r9 rprogram fd brhs
         in
@@ -936,9 +936,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             in
             copy_result ~before_copy ~where ~register:r9 ~rval_rktype rprogram)
     | RVBuiltinBinop { binop = TacSelf TacModulo; blhs; brhs } ->
-        let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
-        let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
-        let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
+        let r9 = reg9_of_ktype rprogram blhs.expr_rktype in
+        let r10 = reg10_of_ktype rprogram blhs.expr_rktype in
+        let r11 = reg11_of_ktype rprogram brhs.expr_rktype in
         let left_reg, linstructions =
           translate_tac_expression ~litterals ~target_reg:r10 rprogram fd blhs
         in
@@ -975,8 +975,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
         copy_result ~before_copy ~where ~register:r9 ~rval_rktype rprogram
     | RVBuiltinUnop { unop = TacUminus; expr } ->
-        let r9 = tmpreg_of_ktype_2 rprogram rval_rktype in
-        let r10 = tmpreg_of_ktype_3 rprogram expr.expr_rktype in
+        let r9 = reg9_of_ktype rprogram rval_rktype in
+        let r10 = reg10_of_ktype rprogram expr.expr_rktype in
         let last_reg, instructions =
           translate_tac_expression ~litterals ~target_reg:r10 rprogram fd expr
         in
@@ -986,8 +986,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let before_copy _ = instructions @ [ uminus_instructions ] in
         copy_result ~before_copy ~where ~register:r9 ~rval_rktype rprogram
     | RVBuiltinUnop { unop = TacNot; expr } ->
-        let r9 = tmpreg_of_ktype_2 rprogram rval_rktype in
-        let r10 = tmpreg_of_ktype_3 rprogram expr.expr_rktype in
+        let r9 = reg9_of_ktype rprogram rval_rktype in
+        let r10 = reg10_of_ktype rprogram expr.expr_rktype in
         let last_reg, instructions =
           translate_tac_expression ~litterals ~target_reg:r10 rprogram fd expr
         in
@@ -1154,7 +1154,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         instructions
     | STDerefAffectation { identifier; trvalue } ->
         let tmpreg =
-          tmpreg_of_ktype rprogram
+          reg8_of_ktype rprogram
             (KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype)
         in
         let intermediary_adress =
@@ -1197,7 +1197,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         instructions
     | STDerefAffectationField { identifier_root; fields; trvalue } ->
         let tmpreg =
-          tmpreg_of_ktype rprogram
+          reg8_of_ktype rprogram
             (KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype)
         in
         let intermediary_adress =
@@ -1440,7 +1440,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                                               {
                                                 data_size;
                                                 destination =
-                                                  reg_of_size
+                                                  resize_register
                                                     (size_of_ktype_size
                                                        size_of_ktype)
                                                     tmp64reg;
@@ -1454,7 +1454,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                                               {
                                                 data_size;
                                                 source =
-                                                  reg_of_size
+                                                  resize_register
                                                     (size_of_ktype_size
                                                        size_of_ktype)
                                                     tmp64reg;
