@@ -147,33 +147,33 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
            | None -> copy_from_reg return_reg waddress return_type rprogram)
     |> Option.value ~default:[]
 
-  let translate_tac_expression ~litterals ?(target_reg = Register32 W9)
+  let translate_tac_expression ~litterals ?(target_reg = w9)
       rprogram (fd : FrameManager.frame_desc) = function
     | { tac_expression = TEString s; expr_rktype = _ } ->
-        let reg64 = to_64bits target_reg in
+        let reg64 = resize64 target_reg in
         let (SLit str_labl) = Hashtbl.find litterals.str_lit_map s in
         (target_reg, load_label (AsmSpec.label_of_constant str_labl) reg64)
     | { tac_expression = TEFalse | TEmpty; expr_rktype = _ } ->
-        ( to_32bits target_reg,
+        ( resize32 target_reg,
           Instruction
             (Mov
                {
-                 destination = to_32bits target_reg;
-                 flexsec_operand = `Register (Register32 WZR);
+                 destination = resize32 target_reg;
+                 flexsec_operand = `Register wzr;
                })
           :: [] )
     | { tac_expression = TENullptr; expr_rktype = _ } ->
-        let r64 = to_64bits target_reg in
+        let r64 = resize64 target_reg in
         ( r64,
           Instruction
             (Mov
                {
                  destination = r64;
-                 flexsec_operand = `Register (Register64 XZR);
+                 flexsec_operand = `Register xzr;
                })
           :: [] )
     | { tac_expression = TETrue; _ } ->
-        let s32 = to_32bits target_reg in
+        let s32 = resize32 target_reg in
         ( s32,
           Instruction
             (Mov { destination = s32; flexsec_operand = `ILitteral 1L })
@@ -181,18 +181,17 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     | { tac_expression = TEInt (_, isize, int64); _ } ->
         let rreg =
           match isize with
-          | I64 -> to_64bits target_reg
-          | _ -> to_32bits target_reg
+          | I64 -> resize64 target_reg
+          | _ -> resize32 target_reg
         in
         (rreg, mov_integer rreg int64)
     | { tac_expression = TEChar c; _ } ->
         let code = Char.code c |> Int64.of_int in
-        let rreg = to_32bits target_reg in
+        let rreg = resize32 target_reg in
         (rreg, mov_integer rreg code)
-    | { tac_expression = TEFloat float; _ } ->
+    | { tac_expression = TEFloat (fsize, float); _ } ->
         let f64reg = to_64fbits target_reg in
         let FLit float_label = Hashtbl.find litterals.float_lit_map float in
-        let x11 = tmp64reg_4 in
         ( f64reg, load_label float_label x11 @ [ Instruction (LDR {data_size = None; destination = f64reg; adress_src = create_adress x11; adress_mode = Immediat })] )
     | { tac_expression = TEIdentifier id; expr_rktype } ->
         let adress =
@@ -203,10 +202,12 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
         let sizeof = sizeofn rprogram expr_rktype in
         let rreg =
-          if KosuIrTyped.Asttyhelper.RType.is_64bits_float expr_rktype then
-            FRegister64 D9
-          else if sizeof > 4L then to_64bits target_reg
-          else to_32bits target_reg
+          if KosuIrTyped.Asttyhelper.RType.is_32bits_float expr_rktype then
+            s9
+          else if KosuIrTyped.Asttyhelper.RType.is_64bits_float expr_rktype then
+            d9
+          else if sizeof > 4L then resize64 target_reg
+          else resize32 target_reg
         in
         if is_register_size sizeof then
           ( rreg,
@@ -233,7 +234,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                    });
             ] )
     | { tac_expression = TESizeof kt; _ } ->
-        let r64 = to_64bits target_reg in
+        let r64 = resize64 target_reg in
         let sizeof = sizeofn rprogram kt in
         ( r64,
           [
@@ -248,7 +249,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         tac_expression = TEConst { name; module_path };
         expr_rktype = RTString_lit;
       } ->
-        let reg64 = to_64bits target_reg in
+        let reg64 = resize64 target_reg in
         ( target_reg,
           load_label (AsmSpec.label_of_constant ~module_path name) reg64 )
     | {
@@ -295,8 +296,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         else
           let rreg =
             match size with
-            | I64 -> to_64bits target_reg
-            | _ -> to_32bits target_reg
+            | I64 -> resize64 target_reg
+            | _ -> resize32 target_reg
           in
           (rreg, mov_integer rreg int_value)
     | _ -> failwith "Other expression"
@@ -479,7 +480,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                          (STR
                             {
                               data_size = None;
-                              source = to_64bits last_reg;
+                              source = resize64 last_reg;
                               adress = address;
                               adress_mode = Immediat;
                             })
@@ -1372,7 +1373,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               (Mov
                  {
                    destination = tmp32reg_4;
-                   flexsec_operand = `Register (to_32bits last_reg);
+                   flexsec_operand = `Register (resize32 last_reg);
                  })
           else
             Instruction

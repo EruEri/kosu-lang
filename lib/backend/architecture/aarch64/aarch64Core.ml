@@ -46,7 +46,6 @@ type adress_mode =
   | Postfix (* out = *(intptr++);*)
 
 type data_size = B | SB | H | SH
-type register_size = SReg32 | SReg64
 
 module Condition_Code = struct
   type condition_code =
@@ -80,124 +79,104 @@ module Condition_Code = struct
 end
 
 module Register = struct
-  type registerf64b =
-    | D0
-    | D1
-    | D2
-    | D3
-    | D4
-    | D5
-    | D6
-    | D7
-    | D8 (* XR *)
-    | D9
-    | D10
-    | D11
-    | D12
-    | D13
-    | D14
-    | D15
-    | D16
-    | D29
-    | D30
-    | DZR
 
-  type register64b =
-    | X0
-    | X1
-    | X2
-    | X3
-    | X4
-    | X5
-    | X6
-    | X7
-    | X8 (* XR *)
-    | X9
-    | X10
-    | X11
-    | X12
-    | X13
-    | X14
-    | X15
-    | X16
-    | X29
-    | X30
-    | XZR
-    | SP
+  type register_size = SReg32 | SReg64
 
-  type register32b =
-    | W0
-    | W1
-    | W2
-    | W3
-    | W4
-    | W5
-    | W6
-    | W7
-    | W8 (* XR *)
-    | W9
-    | W10
-    | W11
-    | W12
-    | W13
-    | W14
-    | W15
-    | W16
-    | W29
-    | W30
-    | WZR
-    | WSP
+  type float_register =
+  | D0
+  | D1
+  | D2
+  | D3
+  | D4
+  | D5
+  | D6
+  | D7
+  | D8 (* XR *)
+  | D9
+  | D10
+  | D11
+  | D12
+  | D13
+  | D14
+  | D15
+  | D16
+  | D29
+  | D30
+  | DZR
 
-  type register =
-    | FRegister64 of registerf64b
-    | Register64 of register64b
-    | Register32 of register32b
+  type int_register =
+  | X0
+  | X1
+  | X2
+  | X3
+  | X4
+  | X5
+  | X6
+  | X7
+  | X8 (* XR *)
+  | X9
+  | X10
+  | X11
+  | X12
+  | X13
+  | X14
+  | X15
+  | X16
+  | X29
+  | X30
+  | XZR
+  | SP
+  
 
-  let reg64_of_32 = function
-    | W0 -> X0
-    | W1 -> X1
-    | W2 -> X2
-    | W3 -> X3
-    | W4 -> X4
-    | W5 -> X5
-    | W6 -> X6
-    | W7 -> X7
-    | W8 -> X8
-    | W9 -> X9
-    | W10 -> X10
-    | W11 -> X11
-    | W12 -> X12
-    | W13 -> X13
-    | W14 -> X14
-    | W15 -> X15
-    | W16 -> X16
-    | W29 -> X29
-    | W30 -> X30
-    | WZR -> XZR
-    | WSP -> SP
 
-  let reg32_of_64 = function
-    | X0 -> W0
-    | X1 -> W1
-    | X2 -> W2
-    | X3 -> W3
-    | X4 -> W4
-    | X5 -> W5
-    | X6 -> W6
-    | X7 -> W7
-    | X8 -> W8
-    | X9 -> W9
-    | X10 -> W10
-    | X11 -> W11
-    | X12 -> W12
-    | X13 -> W13
-    | X14 -> W14
-    | X15 -> W15
-    | X16 -> W16
-    | X29 -> W29
-    | X30 -> W30
-    | XZR -> WZR
-    | SP -> WSP
+  type raw_register = 
+  | FloatReg of float_register
+  | IntegerReg of int_register
+
+  type register = {
+    register: raw_register;
+    size: register_size;
+  }
+
+  let resize64 reg = { reg with size = SReg64 }
+
+  let resize32 reg = { reg with size = SReg32 }
+
+  let x0 = { register = IntegerReg X0; size = SReg64 }
+  let x1 = { register = IntegerReg X1; size = SReg64 }
+  let x2 = { register = IntegerReg X2; size = SReg64 }
+  let x3 = { register = IntegerReg X3; size = SReg64 }
+  let x4 = { register = IntegerReg X4; size = SReg64 }
+  let x5 = { register = IntegerReg X5; size = SReg64 }
+  let x6 = { register = IntegerReg X6; size = SReg64 }
+  let x7 = { register = IntegerReg X7; size = SReg64 }
+  let x8 = { register = IntegerReg X8; size = SReg64 }
+  let w8 = resize32 x8
+  let x9 = { register = IntegerReg X9; size = SReg64 }
+  let w9 = resize32 x9
+  let x10 = { register = IntegerReg X10; size = SReg64 }
+  let w10 = resize32 x10
+
+  let x11 = { register = IntegerReg X11; size = SReg64 }
+  let w11 = resize32 x11
+
+  let xzr = { register = IntegerReg XZR; size = SReg64 }
+  let wzr = { register = IntegerReg XZR; size = SReg32 }
+
+  let x29 = { register  = IntegerReg X29; size = SReg64 }
+  let x30 = { register = IntegerReg X30; size = SReg64 }
+
+  let sp = { register = IntegerReg SP; size = SReg64 }
+
+  let d0 = { register = FloatReg D0; size = SReg64 }
+
+  let d8 = { register = FloatReg D8; size = SReg64 }
+  let d9 = { register = FloatReg D9; size = SReg64 }
+  let s9 = { register = FloatReg D9; size = SReg32 }
+  let d10 = { register = FloatReg D10; size = SReg64 }
+  let d11 = { register = FloatReg D11; size = SReg64 }
+
+
 
   let float64reg_of_64bitsreg = function
     | X0 -> D0
@@ -224,85 +203,57 @@ module Register = struct
 
   let argument_registers =
     [
-      Register64 X0;
-      Register64 X1;
-      Register64 X2;
-      Register64 X3;
-      Register64 X4;
-      Register64 X5;
-      Register64 X6;
-      Register64 X7;
+      x0;
+      x1;
+      x2;
+      x3;
+      x4;
+      x5;
+      x6;
+      x7;
     ]
 
   let syscall_arguments_register =
     [
-      Register64 X0;
-      Register64 X1;
-      Register64 X2;
-      Register64 X3;
-      Register64 X4;
-      Register64 X5;
+      x0;
+      x1;
+      x2;
+      x3;
+      x4;
+      x5;
     ]
 
-  let frame_registers = [ Register64 X29; Register64 X30 ]
+  let frame_registers = [ x29; x30 ]
 
   let return_register_ktype ~float = function
-    | _ when float -> FRegister64 D0
-    | 1L | 2L | 4L -> Register32 W0
-    | 8L -> Register64 X0
-    | _ -> Register64 X8
+    | 4L when float -> resize32 d0
+    | 8L when float -> d0
+    | _ when float -> failwith "Float impossible return type"
+    | 1L | 2L | 4L -> resize32 x0
+    | 8L -> x0
+    | _ -> x8
 
-  let is_f64_reg = function FRegister64 _ -> true | _ -> false
-
-  let are_aliased src dst =
-    match (src, dst) with
-    | Register64 s, Register32 z | Register32 z, Register64 s ->
-        let x_version = reg64_of_32 z in
-        s = x_version
-    | _ -> false
-
-  let reg_of_32 reg = Register32 reg
-  let reg_of_64 reg = Register64 reg
-
-  let to_64bits = function
-    | Register32 reg -> Register64 (reg64_of_32 reg)
-    | Register64 _ as t -> t
-    | FRegister64 _ as t -> t
-
-  let to_32bits = function
-    | FRegister64 _ as t -> t
-    | Register64 reg -> Register32 (reg32_of_64 reg)
-    | Register32 _ as t -> t
-
-  let to_64fbits = function
-    | FRegister64 _ as t -> t
-    | Register32 reg ->
-        FRegister64 (reg |> reg64_of_32 |> float64reg_of_64bitsreg)
-    | Register64 reg64 -> FRegister64 (float64reg_of_64bitsreg reg64)
-
+  let is_f64_reg = function { register = FloatReg _; size = SReg64 }  -> true | _ -> false
   let size_of_ktype_size s = if s <= 4L then SReg32 else SReg64
 
-  let size_of_reg = function
-    | Register32 _ -> SReg32
-    | Register64 _ | FRegister64 _ -> SReg64
+  let size_of_reg register = register.size
 
   let reg_of_size size reg =
-    match size with SReg32 -> to_32bits reg | SReg64 -> to_64bits reg
+    match size with SReg32 -> resize32 reg | SReg64 -> resize64 reg
 
-  let xr = Register64 X8
-  let x29 = Register64 X29
-  let ftmp64reg = FRegister64 D8
-  let tmp64reg = Register64 X8
-  let tmp32reg = Register32 W8
-  let ftmp64reg_2 = FRegister64 D9
-  let tmp64reg_2 = Register64 X9
-  let tmp32reg_2 = Register32 W9
-  let ftmp64reg_3 = FRegister64 D10
-  let tmp32reg_3 = Register32 W10
-  let tmp64reg_3 = Register64 X10
-  let ftmp64reg_4 = FRegister64 D11
-  let tmp32reg_4 = Register32 W11
-  let tmp64reg_4 = Register64 X11
+  let xr = x8
+  let ftmp64reg = d8
+  let tmp64reg = x8
+  let tmp32reg = w8
+  let ftmp64reg_2 = d9
+  let tmp64reg_2 = x9
+  let tmp32reg_2 = w9
+  let ftmp64reg_3 = d10
+  let tmp32reg_3 = w10
+  let tmp64reg_3 = x10
+  let ftmp64reg_4 = d11
+  let tmp32reg_4 = w11
+  let tmp64reg_4 = x11
   let tmpreg_of_size size = if size <= 4L then tmp32reg else tmp64reg
   let tmpreg_of_size_2 size = if size <= 4L then tmp32reg_2 else tmp64reg_2
   let tmpreg_of_size_3 size = if size <= 4L then tmp32reg_3 else tmp64reg_3
@@ -626,7 +577,7 @@ module Instruction = struct
       |> Option.map (fun mp -> asm_const_name mp label)
       |> Option.value ~default:label
     in
-    let register = to_64bits register in
+    let register = resize64 register in
     let load = Instruction (ADRP { dst = register; label }) in
     let add =
       Instruction
@@ -649,7 +600,7 @@ module Instruction = struct
           (LDR
              {
                data_size = Some B;
-               destination = reg_of_32 W10;
+               destination = w10;
                adress_src = create_adress ~offset:1L base_src_reg;
                adress_mode = Postfix;
              });
@@ -657,7 +608,7 @@ module Instruction = struct
           (STR
              {
                data_size = Some B;
-               source = reg_of_32 W10;
+               source = w10;
                adress = adress_str;
                adress_mode = Immediat;
              });
@@ -671,7 +622,7 @@ module Instruction = struct
           (LDR
              {
                data_size = Some H;
-               destination = reg_of_32 W10;
+               destination = w10;
                adress_src = create_adress ~offset:2L base_src_reg;
                adress_mode = Postfix;
              });
@@ -679,7 +630,7 @@ module Instruction = struct
           (STR
              {
                data_size = Some H;
-               source = reg_of_32 W10;
+               source = w10;
                adress = adress_str;
                adress_mode = Immediat;
              });
@@ -693,7 +644,7 @@ module Instruction = struct
           (LDR
              {
                data_size = None;
-               destination = reg_of_32 W10;
+               destination = w10;
                adress_src = create_adress ~offset:4L base_src_reg;
                adress_mode = Postfix;
              });
@@ -701,7 +652,7 @@ module Instruction = struct
           (STR
              {
                data_size = None;
-               source = reg_of_32 W10;
+               source = w10;
                adress = adress_str;
                adress_mode = Immediat;
              });
@@ -716,7 +667,7 @@ module Instruction = struct
           (LDR
              {
                data_size = None;
-               destination = reg_of_64 X10;
+               destination = x10;
                adress_src = create_adress ~offset:8L base_src_reg;
                adress_mode = Postfix;
              });
@@ -724,7 +675,7 @@ module Instruction = struct
           (STR
              {
                data_size = None;
-               source = reg_of_64 X10;
+               source = x10;
                adress = adress_str;
                adress_mode = Immediat;
              });
@@ -748,7 +699,7 @@ module Instruction = struct
             (STR
                {
                  data_size;
-                 source = to_32bits register;
+                 source = resize32 register;
                  adress;
                  adress_mode = Immediat;
                });
@@ -764,7 +715,7 @@ module Instruction = struct
             (STR
                {
                  data_size;
-                 source = to_32bits register;
+                 source = resize32 register;
                  adress;
                  adress_mode = Immediat;
                });
@@ -775,7 +726,7 @@ module Instruction = struct
             (STR
                {
                  data_size = None;
-                 source = to_32bits register;
+                 source = resize32 register;
                  adress;
                  adress_mode = Immediat;
                });
@@ -786,7 +737,7 @@ module Instruction = struct
             (STR
                {
                  data_size = None;
-                 source = to_64bits register;
+                 source = resize64 register;
                  adress;
                  adress_mode = Immediat;
                });
@@ -808,7 +759,7 @@ module Instruction = struct
             (LDR
                {
                  data_size;
-                 destination = to_32bits register;
+                 destination = resize32 register;
                  adress_src = address;
                  adress_mode = Immediat;
                });
@@ -824,7 +775,7 @@ module Instruction = struct
             (LDR
                {
                  data_size;
-                 destination = to_32bits register;
+                 destination = resize32 register;
                  adress_src = address;
                  adress_mode = Immediat;
                });
@@ -835,7 +786,7 @@ module Instruction = struct
             (LDR
                {
                  data_size = None;
-                 destination = to_32bits register;
+                 destination = resize32 register;
                  adress_src = address;
                  adress_mode = Immediat;
                });
@@ -846,7 +797,7 @@ module Instruction = struct
             (LDR
                {
                  data_size = None;
-                 destination = to_64bits register;
+                 destination = resize64 register;
                  adress_src = address;
                  adress_mode = Immediat;
                });
@@ -936,11 +887,11 @@ module FrameManager = struct
                    ~offset:
                      (locals_space |> Int64.neg |> Int64.add offset
                      |> Int64.add stack_future_call)
-                   (Register64 X29)
+                   (x29)
                else
                  create_adress
                    ~offset:(Int64.add stack_future_call offset)
-                   (Register64 SP)
+                   sp
              in
              (* let () = Printf.printf "-> %s : %s == [x29, %Ld] \n" (fst st) (KosuIrTyped.Asttypprint.string_of_rktype @@ snd @@ st) (offset) in *)
              IdVarMap.add st adress acc)
@@ -974,9 +925,9 @@ module FrameManager = struct
       Instruction
         (STP
            {
-             x1 = Register64 X29;
-             x2 = Register64 X30;
-             address = { base = Register64 SP; offset = frame_register_offset };
+             x1 = x29;
+             x2 = x30;
+             address = { base = sp; offset = frame_register_offset };
              adress_mode = Immediat;
            })
     in
@@ -984,8 +935,8 @@ module FrameManager = struct
       Instruction
         (SUB
            {
-             destination = Register64 SP;
-             operand1 = Register64 SP;
+             destination = sp;
+             operand1 = sp;
              operand2 = `ILitteral stack_sub_size;
            })
     in
@@ -993,8 +944,8 @@ module FrameManager = struct
       Instruction
         (ADD
            {
-             destination = Register64 X29;
-             operand1 = Register64 SP;
+             destination = x29;
+             operand1 = sp;
              operand2 = `ILitteral frame_register_offset;
              offset = false;
            })
@@ -1020,7 +971,7 @@ module FrameManager = struct
                KosuIrTyped.Asttyhelper.RType.rpointer kt
              else kt)
     in
-    let sp_address = create_adress ~offset:stack_sub_size (Register64 SP) in
+    let sp_address = create_adress ~offset:stack_sub_size (sp) in
     let copy_stack_params_instruction =
       stack_params
       |> List.mapi (fun index value -> (index, value))
@@ -1073,10 +1024,10 @@ module FrameManager = struct
       Instruction
         (LDP
            {
-             x1 = Register64 X29;
-             x2 = Register64 X30;
+             x1 = x29;
+             x2 = x30;
              address =
-               { base = Register64 SP; offset = Int64.sub stack_space 16L };
+               { base = sp; offset = Int64.sub stack_space 16L };
              adress_mode = Immediat;
            })
     in
@@ -1084,9 +1035,9 @@ module FrameManager = struct
       Instruction
         (ADD
            {
-             destination = Register64 SP;
+             destination = sp;
              offset = false;
-             operand1 = Register64 SP;
+             operand1 = sp;
              operand2 = `ILitteral stack_space;
            })
     in

@@ -23,73 +23,66 @@ module AsmProgram = Common.AsmProgram (Aarch64Core.Instruction)
 open AsmProgram
 
 module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
-  let string_of_f64bits_reg = function
-    | D0 -> "d0"
-    | D1 -> "d1"
-    | D2 -> "d2"
-    | D3 -> "d3"
-    | D4 -> "d4"
-    | D5 -> "d5"
-    | D6 -> "d6"
-    | D7 -> "d7"
-    | D8 -> "d8"
-    | D9 -> "d9"
-    | D10 -> "d10"
-    | D11 -> "d11"
-    | D12 -> "d12"
-    | D13 -> "d13"
-    | D14 -> "d14"
-    | D15 -> "d15"
-    | D16 -> "d16"
-    | D29 -> "d29"
-    | D30 -> "d30"
-    | DZR -> "dzr"
+  let string_of_float_register size freg = 
+    let prefix = match size with
+      | SReg32 -> 's'
+      | SReg64 -> 'd'
+    in
+    let extension = match freg with 
+      | D0 -> "0"
+      | D1 -> "1"
+      | D2 -> "2"
+      | D3 -> "3"
+      | D4 -> "4"
+      | D5 -> "5"
+      | D6 -> "6"
+      | D7 -> "7"
+      | D8 -> "8"
+      | D9 -> "9"
+      | D10 -> "10"
+      | D11 -> "11"
+      | D12 -> "12"
+      | D13 -> "13"
+      | D14 -> "14"
+      | D15 -> "15"
+      | D16 -> "16"
+      | D29 -> "29"
+      | D30 -> "30"
+      | DZR -> "zr"
+    in
+    sprintf "%c%s" prefix extension
 
-  let string_of_32bits_reg = function
-    | W0 -> "w0"
-    | W1 -> "w1"
-    | W2 -> "w2"
-    | W3 -> "w3"
-    | W4 -> "w4"
-    | W5 -> "w5"
-    | W6 -> "w6"
-    | W7 -> "w7"
-    | W8 -> "w8"
-    | W9 -> "w9"
-    | W10 -> "w10"
-    | W11 -> "w11"
-    | W12 -> "w12"
-    | W13 -> "w13"
-    | W14 -> "w14"
-    | W15 -> "w15"
-    | W16 -> "w16"
-    | W29 -> "w29"
-    | W30 -> "w30"
-    | WZR -> "wzr"
-    | WSP -> "wsp"
-
-  let string_of_64bits_reg = function
-    | X0 -> "x0"
-    | X1 -> "x1"
-    | X2 -> "x2"
-    | X3 -> "x3"
-    | X4 -> "x4"
-    | X5 -> "x5"
-    | X6 -> "x6"
-    | X7 -> "x7"
-    | X8 -> "x8"
-    | X9 -> "x9"
-    | X10 -> "x10"
-    | X11 -> "x11"
-    | X12 -> "x12"
-    | X13 -> "x13"
-    | X14 -> "x14"
-    | X15 -> "x15"
-    | X16 -> "x16"
-    | X29 -> "x29"
-    | X30 -> "x30"
-    | XZR -> "xzr"
-    | SP -> "sp"
+  let string_of_int_register size ireg = 
+    let prefix = match size with
+      | SReg32 -> 'w'
+      | SReg64 -> 'x'
+    in
+    let extension = match ireg with
+      | X0 -> "0"
+      | X1 -> "1"
+      | X2 -> "2"
+      | X3 -> "3"
+      | X4 -> "4"
+      | X5 -> "5"
+      | X6 -> "6"
+      | X7 -> "7"
+      | X8 -> "8"
+      | X9 -> "9"
+      | X10 -> "10"
+      | X11 -> "11"
+      | X12 -> "12"
+      | X13 -> "13"
+      | X14 -> "14"
+      | X15 -> "15"
+      | X16 -> "16"
+      | X29 -> "29"
+      | X30 -> "30"
+      | XZR -> "zr"
+      | SP -> "sp"
+    in
+    match ireg with 
+    | SP when size = SReg64 -> extension
+    | _ -> sprintf "%c%s" prefix extension
 
   let string_of_data_size = function
     | SB -> "sb"
@@ -116,10 +109,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     | LE -> "le"
     | AL -> "al"
 
-  let string_of_register = function
-    | FRegister64 freg64 -> string_of_f64bits_reg freg64
-    | Register32 reg32 -> string_of_32bits_reg reg32
-    | Register64 reg64 -> string_of_64bits_reg reg64
+  let string_of_register register = match register.register with
+  | FloatReg freg -> string_of_float_register register.size freg
+  | IntegerReg ireg -> string_of_int_register register.size ireg
 
   let string_of_src = function
     | `F64Litteral float -> Printf.sprintf "#%F" float
