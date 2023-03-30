@@ -437,7 +437,7 @@ module Program = struct
                     (declaration
                     |> List.find (fun (_, value) -> List.length value = 1))
               | _ -> `to_many_declaration declaration)
-          | TInteger _ | TFloat -> `built_in_valid
+          | TInteger _ | TFloat _ -> `built_in_valid
           | _ -> `no_add_for_built_in)
 
   let is_valid_minus_operation lhs rhs program =
@@ -461,7 +461,7 @@ module Program = struct
                     (declaration
                     |> List.find (fun (_, value) -> List.length value = 1))
               | _ -> `to_many_declaration declaration)
-          | TInteger _ | TFloat -> `built_in_valid
+          | TInteger _ | TFloat _ -> `built_in_valid
           | _ -> `no_minus_for_built_in)
 
   let is_valid_mult_operation lhs rhs program =
@@ -479,7 +479,7 @@ module Program = struct
                 (declaration
                 |> List.find (fun (_, value) -> List.length value = 1))
           | _ -> `to_many_declaration declaration)
-      | TInteger _ | TFloat -> `built_in_valid
+      | TInteger _ | TFloat _ -> `built_in_valid
       | _ -> `no_mult_for_built_in
 
   let is_valid_div_operation lhs rhs program =
@@ -497,7 +497,7 @@ module Program = struct
                 (declaration
                 |> List.find (fun (_, value) -> List.length value = 1))
           | _ -> `to_many_declaration declaration)
-      | TInteger _ | TFloat -> `built_in_valid
+      | TInteger _ | TFloat _ -> `built_in_valid
       | _ -> `no_div_for_built_in
 
   let is_valid_mod_operation lhs rhs program =
@@ -623,7 +623,7 @@ module Program = struct
                 (declaration
                 |> List.find (fun (_, value) -> List.length value = 1))
           | _ -> `to_many_declaration declaration)
-      | TInteger _ | TBool | TFloat | TPointer _ -> `built_in_valid
+      | TInteger _ | TBool | TFloat _ | TPointer _ -> `built_in_valid
       | _ -> `no_equal_for_built_in (* Better handle the tuple *)
 
   let is_valid_sup_operation lhs rhs program =
@@ -641,7 +641,7 @@ module Program = struct
                 (declaration
                 |> List.find (fun (_, value) -> List.length value = 1))
           | _ -> `to_many_declaration declaration)
-      | TInteger _ | TFloat -> `built_in_valid
+      | TInteger _ | TFloat _ -> `built_in_valid
       | _ -> `no_sup_for_built_in
 
   let is_valid_supeq_operation lhs rhs program =
@@ -664,7 +664,7 @@ module Program = struct
                 (declaration
                 |> List.find (fun (_, value) -> List.length value = 1))
           | _ -> `to_many_declaration declaration)
-      | TInteger _ | TFloat -> `built_in_valid
+      | TInteger _ | TFloat _ -> `built_in_valid
       | _ -> `no_inf_for_built_in
 
   let is_valid_infeq_operation lhs rhs program =
@@ -697,7 +697,7 @@ module Program = struct
               (declaration
               |> List.find (fun (_, value) -> List.length value = 1))
         | _ -> `to_many_declaration declaration)
-    | TInteger (Signed, _) | TFloat -> `built_in_valid
+    | TInteger (Signed, _) | TFloat _ -> `built_in_valid
     | TInteger (Unsigned, size) -> `invalid_unsigned_op size
     | _ -> `no_uminus_for_built_in
 end
@@ -1969,7 +1969,8 @@ module Sizeof = struct
     match ktype with
     | TUnit | TBool | TUnknow | TChar -> 1L
     | TInteger (_, isize) -> size_of_isize isize / 8 |> Int64.of_int
-    | TFloat | TPointer _ | TString_lit | TFunction _ -> 8L
+    | TFloat fsize -> Fsize.size_of_fsize fsize / 8 |> Int64.of_int
+    | TPointer _ | TString_lit | TFunction _ -> 8L
     | TTuple kts -> (
         kts |> List.map Position.value |> function
         | list -> (
@@ -2003,7 +2004,7 @@ module Sizeof = struct
                    (0L, 0L, 0L)
             in
             match calcul with `size -> size | `align -> align))
-    | kt -> (
+    | TParametric_identifier _ | TType_Identifier _ as kt -> (
         let ktype_def_path = Type.module_path_opt kt |> Option.get in
         let ktype_name = Type.type_name_opt kt |> Option.get in
         let type_decl =

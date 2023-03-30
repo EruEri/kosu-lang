@@ -27,6 +27,10 @@ let string_of_isize = function
   | I32 -> "32"
   | I64 -> "64"
 
+let string_of_fsize = function
+| F32 -> "f32"
+| F64 -> "f64"  
+
 let located_symbole_of_operator = function
   | Unary { op; _ } ->
       op |> Position.map (function PNot -> "!" | PUMinus -> "(-.)")
@@ -80,6 +84,8 @@ let rec string_of_ktype = function
         name.v
   | TInteger (sign, size) ->
       sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
+  | TFloat fsize -> 
+      sprintf "f%s" (string_of_fsize fsize)
   | TPointer ktype -> sprintf "*%s" (string_of_ktype ktype.v)
   | TTuple ktypes ->
       sprintf "(%s)"
@@ -95,7 +101,6 @@ let rec string_of_ktype = function
   | TBool -> "bool"
   | TUnit -> "unit"
   | TUnknow -> "unknow"
-  | TFloat -> "f64"
 
 let rec string_of_kbody = function
   | (statements : kstatement location list), (expr : kexpression location) ->
@@ -140,7 +145,7 @@ and string_of_kexpression = function
       match sign with
       | Signed -> sprintf "%Ld" value
       | Unsigned -> sprintf "%Lu" value)
-  | EFloat f -> string_of_float f
+  | EFloat (_, f) -> string_of_float f
   | EBin_op bin -> string_of_kbin_op bin
   | EUn_op un -> string_of_kunary_op un
   | ESizeof e ->

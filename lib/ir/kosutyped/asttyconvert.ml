@@ -52,7 +52,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
           ( parameters |> List.map (fun kt -> kt |> Position.value |> from_ktype),
             return_type |> Position.value |> from_ktype )
     | TString_lit -> RTString_lit
-    | TFloat -> RTFloat
+    | TFloat fsize -> RTFloat fsize
     | TBool -> RTBool
     | TUnit -> RTUnit
     | TChar -> RTChar
@@ -1039,7 +1039,8 @@ module Sizeof = struct
     match rktype with
     | RTUnit | RTBool | RTUnknow | RTChar -> 1L
     | RTInteger (_, isize) -> Isize.size_of_isize isize / 8 |> Int64.of_int
-    | RTFloat | RTPointer _ | RTString_lit | RTFunction _ -> 8L
+    | RTFloat fsize -> Fsize.size_of_fsize fsize / 8 |> Int64.of_int
+    | RTPointer _ | RTString_lit | RTFunction _ -> 8L
     | RTTuple kts -> size_tuple calcul program kts
     | kt -> (
         let type_decl =

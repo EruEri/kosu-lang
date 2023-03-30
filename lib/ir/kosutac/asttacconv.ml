@@ -322,8 +322,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
   | REInteger (sign, size, int), _ ->
       convert_if_allocated ~expr_rktype:trktype ~allocated
         (TEInt (sign, size, int))
-  | REFloat float, _ ->
-      convert_if_allocated ~expr_rktype:trktype ~allocated (TEFloat float)
+  | REFloat (sfloat), _ ->
+      convert_if_allocated ~expr_rktype:trktype ~allocated (TEFloat sfloat)
   | RESizeof rktype, _ ->
       convert_if_allocated ~expr_rktype:trktype ~allocated (TESizeof rktype)
   | REChar c, _ ->

@@ -32,12 +32,12 @@ type rktype =
     }
   | RTType_Identifier of { module_path : string; name : string }
   | RTInteger of (signedness * isize)
+  | RTFloat of fsize
   | RTPointer of rktype
   | RTTuple of rktype list
   | RTFunction of rktype list * rktype
   | RTString_lit
   | RTUnknow
-  | RTFloat
   | RTChar
   | RTBool
   | RTUnit
@@ -65,7 +65,7 @@ and rkexpression =
   | RFalse
   | RENullptr
   | REInteger of (signedness * isize * int64)
-  | REFloat of float
+  | REFloat of (fsize * float)
   | REChar of char
   | RESizeof of rktype
   | REstring of string

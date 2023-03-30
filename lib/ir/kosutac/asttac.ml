@@ -63,7 +63,7 @@ and tac_expression =
   | TENullptr
   | TEInt of (signedness * isize * int64)
   | TEChar of char
-  | TEFloat of float
+  | TEFloat of (fsize * float)
   | TEIdentifier of string
   | TEString of string
   | TEConst of { module_path : string; name : string }

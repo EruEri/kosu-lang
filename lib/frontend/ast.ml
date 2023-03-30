@@ -19,6 +19,8 @@ open Position
 
 type signedness = Signed | Unsigned
 type isize = I8 | I16 | I32 | I64
+type fsize = F32 | F64
+
 
 type switch_case =
   | SC_Enum_Identifier of { variant : string location }
@@ -55,13 +57,13 @@ type ktype =
       name : string location;
     }
   | TInteger of (signedness * isize)
+  | TFloat of fsize
   | TPointer of ktype location
   | TTuple of ktype location list
   | TFunction of ktype location list * ktype location
   | TString_lit
   | TUnknow
   | TChar
-  | TFloat
   | TBool
   | TUnit
 
@@ -88,7 +90,7 @@ and kexpression =
   | False
   | ENullptr
   | EInteger of (signedness * isize * int64)
-  | EFloat of float
+  | EFloat of (fsize * float)
   | EChar of char
   | ESizeof of (ktype location, kexpression location) Either.t
   | EString of string
@@ -240,6 +242,10 @@ type program = named_module_path list
 
 module Isize = struct
   let size_of_isize = function I8 -> 8 | I16 -> 16 | I32 -> 32 | I64 -> 64
+end
+
+module Fsize = struct
+  let size_of_fsize = function F32 -> 32 | F64 -> 64
 end
 
 module Type_Decl = struct
