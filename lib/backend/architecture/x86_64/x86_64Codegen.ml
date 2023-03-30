@@ -37,6 +37,8 @@ module Codegen (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
   let asm_module_path_of_named_asm_module_path namp =
     namp.asm_module_path.asm_module
 
-  let str_lit_map_of_name_asm_module namp = namp.str_lit_map
+  let str_lit_map_of_name_asm_module namp = namp.litterals.str_lit_map
+
+  let float_lit_map_of_name_asm_module namp = namp.litterals.float_lit_map
   let asm_module_node_list_of_asm_module = function AsmModule rnodes -> rnodes
 end

@@ -84,11 +84,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                ])
     |> Option.value ~default:[]
 
-  let translate_tac_expression ~str_lit_map
+  let translate_tac_expression ~litterals
       ?(target_dst = (`Register { size = L; reg = R10 } : dst)) rprogram
       (fd : FrameManager.frame_desc) = function
     | { tac_expression = TEString s; expr_rktype = _ } ->
-        let (SLit str_labl) = Hashtbl.find str_lit_map s in
+        let (SLit str_labl) = Hashtbl.find litterals.str_lit_map s in
         let resized_dst = resize_dst Q target_dst in
         (resized_dst, load_label (Spec.label_of_constant str_labl) resized_dst)
     | { tac_expression = TEFalse | TEmpty; expr_rktype = _ } -> (
@@ -296,15 +296,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           ] )
     | _ -> failwith "X86_64 : Other expression"
 
-  let move_tte ~str_lit_map ~where ?(offset = 0L) rprogram fd tte =
+  let move_tte ~litterals ~where ?(offset = 0L) rprogram fd tte =
     let where = increment_dst_address offset where in
     let size_of_tte = sizeofn rprogram tte.expr_rktype in
     match is_register_size size_of_tte with
     | true ->
-        translate_tac_expression ~str_lit_map ~target_dst:where rprogram fd tte
+        translate_tac_expression ~litterals ~target_dst:where rprogram fd tte
     | false ->
         let last_dst, tte_instructions =
-          translate_tac_expression ~str_lit_map ~target_dst:where rprogram fd
+          translate_tac_expression ~litterals ~target_dst:where rprogram fd
             tte
         in
         let last_reg =
@@ -323,17 +323,17 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         (last_dst, tte_instructions @ copy_if_addre)
 
-  let translate_tac_binop ~str_lit_map ~cc ~blhs ~brhs ~where rval_rktype
+  let translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where rval_rktype
       rprogram fd =
     let r10 = tmp_r10_ktype rprogram brhs.expr_rktype in
     let rax = tmp_rax_ktype rprogram brhs.expr_rktype in
     let data_size = data_size_of_int64_def @@ sizeofn rprogram rval_rktype in
     let _right_reg, rinstructions =
-      translate_tac_expression ~str_lit_map ~target_dst:(`Register r10) rprogram
+      translate_tac_expression ~litterals ~target_dst:(`Register r10) rprogram
         fd brhs
     in
     let _left_reg, linstructions =
-      translate_tac_expression ~str_lit_map ~target_dst:(`Register rax) rprogram
+      translate_tac_expression ~litterals ~target_dst:(`Register rax) rprogram
         fd blhs
     in
     let raxb = resize_register B rax in
@@ -358,16 +358,16 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     in
     rinstructions @ linstructions @ copy_instructions
 
-  let translate_tac_binop_self ~str_lit_map ~blhs ~brhs ~where fbinop
+  let translate_tac_binop_self ~litterals ~blhs ~brhs ~where fbinop
       rval_rktype rprogram fd =
     let r10 = tmp_r10_ktype rprogram blhs.expr_rktype in
     let rax = tmp_rax_ktype rprogram brhs.expr_rktype in
     let right_reg, rinstructions =
-      translate_tac_expression ~str_lit_map ~target_dst:(`Register r10) rprogram
+      translate_tac_expression ~litterals ~target_dst:(`Register r10) rprogram
         fd brhs
     in
     let left_reg, linstructions =
-      translate_tac_expression ~str_lit_map ~target_dst:(`Register rax) rprogram
+      translate_tac_expression ~litterals ~target_dst:(`Register rax) rprogram
         fd blhs
     in
 
@@ -387,7 +387,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
 
     linstructions @ rinstructions @ mult_instruction @ copy_instruction
 
-  let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
+  let translate_tac_rvalue ?(is_deref = None) ~litterals
       ~(where : address option) current_module rprogram
       (fd : FrameManager.frame_desc) { rvalue; rval_rktype } =
     match rvalue with
@@ -397,7 +397,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           where
           |> Option.map (fun waddress ->
                  let last_dst, tte_instructions =
-                   translate_tac_expression ~str_lit_map
+                   translate_tac_expression ~litterals
                      ~target_dst:(`Address waddress) rprogram fd tte
                  in
                  let copy_instructions =
@@ -444,7 +444,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    where
                    |> Option.map (fun waddress ->
                           let _, instructions =
-                            move_tte ~str_lit_map ~where:(`Address waddress)
+                            move_tte ~litterals ~where:(`Address waddress)
                               ~offset rprogram fd tte
                           in
                           instructions)
@@ -496,7 +496,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                        @@ sizeofn rprogram tte.expr_rktype
                      in
                      let _last_reg, instructions =
-                       translate_tac_expression ~str_lit_map
+                       translate_tac_expression ~litterals
                          ~target_dst:(`Register { size = data_size; reg })
                          rprogram fd tte
                      in
@@ -576,7 +576,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                        @@ sizeofn rprogram tte.expr_rktype
                      in
                      let _last_reg, instructions =
-                       translate_tac_expression ~str_lit_map
+                       translate_tac_expression ~litterals
                          ~target_dst:(`Register { size = data_size; reg })
                          rprogram fd tte
                      in
@@ -656,7 +656,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                        @@ sizeofn rprogram tte.expr_rktype
                      in
                      let _last_reg, instructions =
-                       translate_tac_expression ~str_lit_map
+                       translate_tac_expression ~litterals
                          ~target_dst:(`Register { size = data_size; reg })
                          rprogram fd tte
                      in
@@ -719,7 +719,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                         increment_adress offset waddress
                       in
                       let reg_texp, instructions =
-                        translate_tac_expression rprogram ~str_lit_map
+                        translate_tac_expression rprogram ~litterals
                           ~target_dst:(`Address incremented_adress) fd tte
                       in
 
@@ -922,7 +922,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                         increment_adress offset waddress
                       in
                       let reg_texp, instructions =
-                        translate_tac_expression rprogram ~str_lit_map
+                        translate_tac_expression rprogram ~litterals
                           ~target_dst:(`Address incremented_adress) fd tte
                       in
 
@@ -940,11 +940,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let r9 = tmp_r9_ktype rprogram brhs.expr_rktype in
         let rax = tmp_rax_ktype rprogram blhs.expr_rktype in
         let _right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_dst:(`Register r9)
+          translate_tac_expression ~litterals ~target_dst:(`Register r9)
             rprogram fd brhs
         in
         let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_dst:(`Register rax)
+          translate_tac_expression ~litterals ~target_dst:(`Register rax)
             rprogram fd blhs
         in
         let copy_instructions =
@@ -970,11 +970,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let r9 = tmp_r9_ktype rprogram brhs.expr_rktype in
         let rax = tmp_rax_ktype rprogram blhs.expr_rktype in
         let _right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_dst:(`Register r9)
+          translate_tac_expression ~litterals ~target_dst:(`Register r9)
             rprogram fd brhs
         in
         let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_dst:(`Register rax)
+          translate_tac_expression ~litterals ~target_dst:(`Register rax)
             rprogram fd blhs
         in
         let copy_instructions =
@@ -1004,7 +1004,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let cc =
           Option.get @@ Condition_Code.cc_of_tac_bin ~is_unsigned bool_binop
         in
-        translate_tac_binop ~str_lit_map ~cc ~blhs ~brhs ~where rval_rktype
+        translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where rval_rktype
           rprogram fd
     | RVBuiltinBinop
         {
@@ -1022,14 +1022,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let binop_func =
           binop_instruction_of_tacself ~unsigned:is_unsigned self_binop
         in
-        translate_tac_binop_self ~str_lit_map ~blhs ~brhs ~where binop_func
+        translate_tac_binop_self ~litterals ~blhs ~brhs ~where binop_func
           rval_rktype rprogram fd
     | RVBuiltinBinop
         { binop = TacSelf ((TacAdd | TacMinus) as self_binop); blhs; brhs } -> (
         match KosuIrTyped.Asttyhelper.RType.is_pointer rval_rktype with
         | false ->
             let binop_func = binop_instruction_of_tacself self_binop in
-            translate_tac_binop_self ~str_lit_map ~blhs ~brhs ~where binop_func
+            translate_tac_binop_self ~litterals ~blhs ~brhs ~where binop_func
               rval_rktype rprogram fd
         | true ->
             let pointee_size =
@@ -1037,11 +1037,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
               |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
             in
             let ptr_reg, linstructions =
-              translate_tac_expression ~str_lit_map ~target_dst:(`Register raxq)
+              translate_tac_expression ~litterals ~target_dst:(`Register raxq)
                 rprogram fd blhs
             in
             let nb_reg, rinstructions =
-              translate_tac_expression ~str_lit_map
+              translate_tac_expression ~litterals
                 ~target_dst:(`Register (tmp_r10 8L))
                 rprogram fd brhs
             in
@@ -1090,7 +1090,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             dividende.expr_rktype
         in
         let last_reg10, divisor_instructions =
-          translate_tac_expression ~str_lit_map
+          translate_tac_expression ~litterals
             ~target_dst:(`Register (tmp_r10 8L))
             rprogram fd divisor
         in
@@ -1100,7 +1100,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let scaled_data_size = match raw_data_size with Q -> Q | _ -> L in
 
         let _, instructions =
-          translate_tac_expression ~str_lit_map ~target_dst:(`Register raxq)
+          translate_tac_expression ~litterals ~target_dst:(`Register raxq)
             rprogram fd dividende
         in
         let setup_div = Instruction (division_split scaled_data_size) in
@@ -1125,7 +1125,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             dividende.expr_rktype
         in
         let last_reg10, divisor_instructions =
-          translate_tac_expression ~str_lit_map
+          translate_tac_expression ~litterals
             ~target_dst:(`Register (tmp_r10 8L))
             rprogram fd divisor
         in
@@ -1135,7 +1135,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let scaled_data_size = match raw_data_size with Q -> Q | _ -> L in
 
         let _, instructions =
-          translate_tac_expression ~str_lit_map ~target_dst:(`Register raxq)
+          translate_tac_expression ~litterals ~target_dst:(`Register raxq)
             rprogram fd dividende
         in
         let setup_div = Instruction (division_split scaled_data_size) in
@@ -1156,7 +1156,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     | RVBuiltinUnop { unop = TacUminus; expr } ->
         let rax = tmp_rax_ktype rprogram expr.expr_rktype in
         let last_reg, instructions =
-          translate_tac_expression ~str_lit_map ~target_dst:(`Register rax)
+          translate_tac_expression ~litterals ~target_dst:(`Register rax)
             rprogram fd expr
         in
         let last_reg = Operande.register_of_dst last_reg in
@@ -1170,7 +1170,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     | RVBuiltinUnop { unop = TacNot; expr } ->
         let rax = tmp_rax_ktype rprogram expr.expr_rktype in
         let last_reg, instructions =
-          translate_tac_expression ~str_lit_map ~target_dst:(`Register rax)
+          translate_tac_expression ~litterals ~target_dst:(`Register rax)
             rprogram fd expr
         in
         let last_reg = Operande.register_of_dst last_reg in
@@ -1193,7 +1193,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             in
             let target_reg_rax = sized_register data_size RAX in
             let _, instructions =
-              translate_tac_expression ~str_lit_map
+              translate_tac_expression ~litterals
                 ~target_dst:(`Register target_reg_rax) rprogram fd paramter
             in
             let copy_instructions =
@@ -1226,7 +1226,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           if is_register_size return_size then rdiq else rsiq
         in
         let _, instructions =
-          translate_tac_expression ~str_lit_map
+          translate_tac_expression ~litterals
             ~target_dst:(`Register object_params_regs) rprogram fd unary.expr
         in
         let call_instruction =
@@ -1284,11 +1284,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           if is_register_size return_size then (rdiq, rsiq) else (rsiq, rdxq)
         in
         let _, lhs_instructions =
-          translate_tac_expression ~str_lit_map ~target_dst:(`Register r0)
+          translate_tac_expression ~litterals ~target_dst:(`Register r0)
             rprogram fd self.blhs
         in
         let _, rhs_instructions =
-          translate_tac_expression ~str_lit_map ~target_dst:(`Register r1)
+          translate_tac_expression ~litterals ~target_dst:(`Register r1)
             rprogram fd self.brhs
         in
         let call_instruction =
@@ -1317,7 +1317,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     | RVCustomBinop _ ->
         failwith "Custom comparison operator will be refactor higher in the AST"
 
-  let rec translate_tac_statement ~str_lit_map current_module rprogram
+  let rec translate_tac_statement ~litterals current_module rprogram
       (fd : FrameManager.frame_desc) = function
     | STacDeclaration { identifier; trvalue }
     | STacModification { identifier; trvalue } ->
@@ -1325,7 +1325,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           FrameManager.address_of (identifier, trvalue.rval_rktype) fd
         in
         let instructions =
-          translate_tac_rvalue ~str_lit_map ~where:address current_module
+          translate_tac_rvalue ~litterals ~where:address current_module
             rprogram fd trvalue
         in
         instructions
@@ -1351,7 +1351,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         let true_adress = create_address_offset tmpreg in
         let true_instructions =
-          translate_tac_rvalue ~str_lit_map ~is_deref:intermediary_adress
+          translate_tac_rvalue ~litterals ~is_deref:intermediary_adress
             ~where:(Some true_adress) current_module rprogram fd trvalue
         in
         (Line_Com (Comment "Defered Start") :: instructions :: true_instructions)
@@ -1366,7 +1366,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         let target_adress = increment_adress field_offset root_address in
         let instructions =
-          translate_tac_rvalue ~str_lit_map ~where:(Some target_adress)
+          translate_tac_rvalue ~litterals ~where:(Some target_adress)
             current_module rprogram fd trvalue
         in
         instructions
@@ -1407,7 +1407,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         let true_adress = create_address_offset tmp_rax in
         let true_instructions =
-          translate_tac_rvalue ~str_lit_map
+          translate_tac_rvalue ~litterals
             ~is_deref:(Some intermediary_adress)
               (* Very susciptous abode the use of immediary adress *)
             ~where:(Some true_adress) current_module rprogram fd trvalue
@@ -1432,12 +1432,12 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           |> List.fold_left
                (fun acc stmt ->
                  acc
-                 @ translate_tac_statement ~str_lit_map current_module rprogram
+                 @ translate_tac_statement ~litterals current_module rprogram
                      fd stmt)
                []
         in
         let last_reg, condition_rvalue_inst =
-          translate_tac_expression ~str_lit_map rprogram fd condition
+          translate_tac_expression ~litterals rprogram fd condition
         in
         let data_size =
           match last_reg with `Address _ -> Q | `Register reg -> reg.size
@@ -1451,7 +1451,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
 
         let if_block =
-          translate_tac_body ~str_lit_map ~end_label:(Some self_label)
+          translate_tac_body ~litterals ~end_label:(Some self_label)
             current_module rprogram fd loop_body
         in
         let exit_label = Label exit_label in
@@ -1473,12 +1473,12 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           |> List.fold_left
                (fun acc stmt ->
                  acc
-                 @ translate_tac_statement ~str_lit_map current_module rprogram
+                 @ translate_tac_statement ~litterals current_module rprogram
                      fd stmt)
                []
         in
         let last_reg, condition_rvalue_inst =
-          translate_tac_expression ~str_lit_map rprogram fd condition_rvalue
+          translate_tac_expression ~litterals rprogram fd condition_rvalue
         in
         let data_size =
           match last_reg with `Address _ -> Q | `Register reg -> reg.size
@@ -1490,11 +1490,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let jmp = Instruction (Jmp { cc = Some E; where = `Label goto1 }) in
         let jmp2 = Instruction (Jmp { cc = None; where = `Label goto2 }) in
         let if_block =
-          translate_tac_body ~str_lit_map ~end_label:(Some exit_label)
+          translate_tac_body ~litterals ~end_label:(Some exit_label)
             current_module rprogram fd if_tac_body
         in
         let else_block =
-          translate_tac_body ~str_lit_map ~end_label:(Some exit_label)
+          translate_tac_body ~litterals ~end_label:(Some exit_label)
             current_module rprogram fd else_tac_body
         in
         let exit_label_instr = Label exit_label in
@@ -1514,12 +1514,12 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                  let setup_condition_insts =
                    scases.statement_for_condition
                    |> List.map (fun stmt ->
-                          translate_tac_statement ~str_lit_map current_module
+                          translate_tac_statement ~litterals current_module
                             rprogram fd stmt)
                    |> List.flatten
                  in
                  let last_reg, condition =
-                   translate_tac_expression ~str_lit_map rprogram fd
+                   translate_tac_expression ~litterals rprogram fd
                      scases.condition
                  in
                  let lhs = src_of_dst last_reg in
@@ -1535,7 +1535,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                      (Jmp { cc = None; where = `Label scases.jmp_false })
                  in
                  let body_instruction =
-                   translate_tac_body ~str_lit_map
+                   translate_tac_body ~litterals
                      ~end_label:(Some scases.end_label) current_module rprogram
                      fd scases.tac_body
                  in
@@ -1550,7 +1550,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         let end_label_instruction = Label exit_label in
         let else_body_instruction =
-          translate_tac_body ~str_lit_map ~end_label:(Some exit_label)
+          translate_tac_body ~litterals ~end_label:(Some exit_label)
             current_module rprogram fd else_tac_body
         in
         cases_condition @ cases_body @ else_body_instruction
@@ -1590,14 +1590,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           |> List.fold_left
                (fun acc_stmts value ->
                  let insts =
-                   translate_tac_statement ~str_lit_map current_module rprogram
+                   translate_tac_statement ~litterals current_module rprogram
                      fd value
                  in
                  acc_stmts @ insts)
                []
         in
         let last_dst, condition_switch_instruction =
-          translate_tac_expression ~str_lit_map rprogram fd condition_switch
+          translate_tac_expression ~litterals rprogram fd condition_switch
         in
         let copy_tag =
           if is_register_size (sizeofn rprogram condition_switch.expr_rktype)
@@ -1721,7 +1721,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    |> List.flatten
                  in
                  let genete_block =
-                   translate_tac_body ~str_lit_map
+                   translate_tac_body ~litterals
                      ~end_label:(Some sw_case.sw_exit_label) current_module
                      rprogram fd sw_case.switch_tac_body
                  in
@@ -1738,7 +1738,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let wildcard_body_block =
           wildcard_body
           |> Option.map (fun body ->
-                 translate_tac_body ~str_lit_map ~end_label:(Some sw_exit_label)
+                 translate_tac_body ~litterals ~end_label:(Some sw_exit_label)
                    current_module rprogram fd body)
           |> Option.value ~default:[]
         in
@@ -1747,13 +1747,13 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         @ wildcard_case_jmp @ fn_block @ wildcard_body_block
         @ [ exit_label_instruction ]
 
-  and translate_tac_body ~str_lit_map ?(end_label = None) current_module
+  and translate_tac_body ~litterals ?(end_label = None) current_module
       rprogram (fd : FrameManager.frame_desc) { label; body } =
     let label_instr = Label label in
     let stmt_instr =
       body |> fst
       |> List.map (fun stmt ->
-             translate_tac_statement ~str_lit_map current_module rprogram fd
+             translate_tac_statement ~litterals current_module rprogram fd
                stmt)
       |> List.flatten
     in
@@ -1767,7 +1767,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
       body |> snd
       |> Option.map (fun tte ->
              let last_reg, instructions =
-               translate_tac_expression ~str_lit_map rprogram fd tte
+               translate_tac_expression ~litterals rprogram fd tte
              in
              let sizeof = sizeofn rprogram tte.expr_rktype in
              let return_reg = tmp_rax sizeof in
@@ -1842,10 +1842,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
       filename = "kosu_crt0";
       asm_module_path = kosu_crt0_named_module_path entry_name;
       rprogram = [];
-      str_lit_map = Hashtbl.create 0;
+      litterals = {
+        str_lit_map = Hashtbl.create 0;
+        float_lit_map = Hashtbl.create 0;
+      }
+ 
     }
 
-  let asm_module_of_tac_module ~str_lit_map current_module rprogram =
+  let asm_module_of_tac_module ~litterals current_module rprogram =
     let open KosuIrTyped.Asttyped in
     function
     | TacModule tac_nodes ->
@@ -1899,7 +1903,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                        ~stack_params:stack_param rprogram fd
                    in
                    let conversion =
-                     translate_tac_body ~str_lit_map current_module rprogram fd
+                     translate_tac_body ~litterals current_module rprogram fd
                        function_decl.tac_body
                    in
                    let epilogue = FrameManager.function_epilogue fd in
@@ -1957,7 +1961,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                        ~stack_params:[] rprogram fd
                    in
                    let conversion =
-                     translate_tac_body ~str_lit_map current_module rprogram fd
+                     translate_tac_body ~litterals current_module rprogram fd
                        (KosuIrTAC.Asttachelper.OperatorDeclaration.tac_body self)
                    in
                    let epilogue = FrameManager.function_epilogue fd in
@@ -2006,7 +2010,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                        ~stack_params:[] rprogram fd
                    in
                    let conversion =
-                     translate_tac_body ~str_lit_map current_module rprogram fd
+                     translate_tac_body ~litterals current_module rprogram fd
                        (KosuIrTAC.Asttachelper.OperatorDeclaration.tac_body self)
                    in
                    let epilogue = FrameManager.function_epilogue fd in
@@ -2066,13 +2070,13 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ | _ ->
                    None)
 
-  let asm_module_path_of_tac_module_path ~str_lit_map rprogram
+  let asm_module_path_of_tac_module_path ~litterals rprogram
       { path; tac_module } =
     {
       apath = path;
       asm_module =
         AsmModule
-          (asm_module_of_tac_module ~str_lit_map path rprogram tac_module);
+          (asm_module_of_tac_module ~litterals path rprogram tac_module);
     }
 
   let asm_program_of_tac_program ~(start : string option) tac_program =
@@ -2084,15 +2088,23 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                KosuIrTAC.Asttachelper.StringLitteral
                .map_string_litteral_of_named_rmodule_path named ()
              in
-             {
-               filename =
-                 filename |> Filename.chop_extension |> Printf.sprintf "%s.S";
-               asm_module_path =
-                 asm_module_path_of_tac_module_path ~str_lit_map rprogram
-                   tac_module_path;
-               rprogram;
-               str_lit_map;
-             })
+             let float_lit_map = 
+              KosuIrTAC.Asttachelper.FloatLitteral.map_float_litteral_of_named_rmodule_path named () 
+          in 
+          let litterals = {
+            str_lit_map;
+            float_lit_map
+           }
+          in
+           {
+             filename =
+               filename |> Filename.chop_extension |> Printf.sprintf "%s.S";
+             asm_module_path =
+               asm_module_path_of_tac_module_path ~litterals rprogram
+                 tac_module_path;
+             rprogram;
+             litterals;
+           })
     in
     match start with
     | None -> modules

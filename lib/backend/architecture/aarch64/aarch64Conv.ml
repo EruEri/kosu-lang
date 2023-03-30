@@ -147,11 +147,11 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
            | None -> copy_from_reg return_reg waddress return_type rprogram)
     |> Option.value ~default:[]
 
-  let translate_tac_expression ~str_lit_map ?(target_reg = Register32 W9)
+  let translate_tac_expression ~litterals ?(target_reg = Register32 W9)
       rprogram (fd : FrameManager.frame_desc) = function
     | { tac_expression = TEString s; expr_rktype = _ } ->
         let reg64 = to_64bits target_reg in
-        let (SLit str_labl) = Hashtbl.find str_lit_map s in
+        let (SLit str_labl) = Hashtbl.find litterals.str_lit_map s in
         (target_reg, load_label (AsmSpec.label_of_constant str_labl) reg64)
     | { tac_expression = TEFalse | TEmpty; expr_rktype = _ } ->
         ( to_32bits target_reg,
@@ -191,10 +191,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         (rreg, mov_integer rreg code)
     | { tac_expression = TEFloat float; _ } ->
         let f64reg = to_64fbits target_reg in
-        ( f64reg,
-          Instruction
-            (Mov { destination = f64reg; flexsec_operand = `F64Litteral float })
-          :: [] )
+        let FLit float_label = Hashtbl.find litterals.float_lit_map float in
+        let x11 = tmp64reg_4 in
+        ( f64reg, load_label float_label x11 @ [ Instruction (LDR {data_size = None; destination = f64reg; adress_src = create_adress x11; adress_mode = Immediat })] )
     | { tac_expression = TEIdentifier id; expr_rktype } ->
         let adress =
           FrameManager.address_of (id, expr_rktype) fd |> fun adr ->
@@ -302,7 +301,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           (rreg, mov_integer rreg int_value)
     | _ -> failwith "Other expression"
 
-  let translate_tac_binop ~str_lit_map ~cc ~blhs ~brhs ~where ~rval_rktype
+  let translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where ~rval_rktype
       rprogram fd =
     let r10 = tmpreg_of_ktype_3 rprogram brhs.expr_rktype in
     let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
@@ -313,10 +312,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         (Register64 XZR)
     in
     let right_reg, rinstructions =
-      translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd brhs
+      translate_tac_expression ~litterals ~target_reg:r10 rprogram fd brhs
     in
     let left_reg, linstructions =
-      translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd blhs
+      translate_tac_expression ~litterals ~target_reg:r9 rprogram fd blhs
     in
     let equal_instruction =
       [
@@ -342,16 +341,16 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
       ~before_copy:(fun _ -> linstructions @ rinstructions @ equal_instruction)
       ~where ~register:r8 ~rval_rktype rprogram
 
-  let translate_tac_binop_self ~str_lit_map ~blhs ~brhs ~where ~rval_rktype
+  let translate_tac_binop_self ~litterals ~blhs ~brhs ~where ~rval_rktype
       fbinop rprogram fd =
     let r9 = tmpreg_of_ktype_2 rprogram blhs.expr_rktype in
     let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
     let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
     let right_reg, rinstructions =
-      translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs
+      translate_tac_expression ~litterals ~target_reg:r11 rprogram fd brhs
     in
     let left_reg, linstructions =
-      translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs
+      translate_tac_expression ~litterals ~target_reg:r10 rprogram fd blhs
     in
     let binop_instructtio =
       fbinop ~destination:r9 ~operand1:left_reg ~operand2:right_reg
@@ -359,13 +358,13 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     let before_copy _ = linstructions @ rinstructions @ binop_instructtio in
     copy_result ~before_copy ~where ~register:r9 ~rval_rktype rprogram
 
-  let translate_tac_rvalue ?(is_deref = None) ~str_lit_map
+  let translate_tac_rvalue ?(is_deref = None) ~litterals
       ~(where : address option) current_module rprogram
       (fd : FrameManager.frame_desc) { rval_rktype; rvalue } =
     match rvalue with
     | RVExpression tac_typed_expression ->
         let last_reg, instructions =
-          translate_tac_expression ~str_lit_map rprogram fd tac_typed_expression
+          translate_tac_expression ~litterals rprogram fd tac_typed_expression
         in
         let copy_instruction =
           copy_result ~where ~register:last_reg ~rval_rktype rprogram
@@ -401,7 +400,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         |> List.fold_left
              (fun acc (index, (_field, tte)) ->
                let reg_texp, instructions =
-                 translate_tac_expression ~str_lit_map rprogram fd tte
+                 translate_tac_expression ~litterals rprogram fd tte
                in
                let copy_instruction =
                  copy_result
@@ -458,7 +457,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               |> List.fold_left_map
                    (fun acc (reg, tte) ->
                      let reg, instruction =
-                       translate_tac_expression ~str_lit_map ~target_reg:reg
+                       translate_tac_expression ~litterals ~target_reg:reg
                          rprogram fd tte
                      in
                      (acc @ instruction, `Register reg))
@@ -468,7 +467,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               args_on_stack
               |> List.mapi (fun index tte ->
                      let last_reg, instructions =
-                       translate_tac_expression ~str_lit_map rprogram fd tte
+                       translate_tac_expression ~litterals rprogram fd tte
                      in
                      let address =
                        create_adress
@@ -525,7 +524,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               |> List.fold_left_map
                    (fun acc (reg, tte) ->
                      let reg, instruction =
-                       translate_tac_expression ~str_lit_map ~target_reg:reg
+                       translate_tac_expression ~litterals ~target_reg:reg
                          rprogram fd tte
                      in
                      (acc @ instruction, reg))
@@ -586,7 +585,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               |> List.fold_left_map
                    (fun acc (reg, tte) ->
                      let reg, instruction =
-                       translate_tac_expression ~str_lit_map ~target_reg:reg
+                       translate_tac_expression ~litterals ~target_reg:reg
                          rprogram fd tte
                      in
                      (acc @ instruction, reg))
@@ -636,7 +635,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         |> List.fold_left
              (fun acc (index, tte) ->
                let reg_texp, instructions =
-                 translate_tac_expression rprogram ~str_lit_map fd tte
+                 translate_tac_expression rprogram ~litterals fd tte
                in
                let copy_instructions =
                  copy_result
@@ -823,7 +822,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         |> List.fold_left
              (fun acc (index, tte) ->
                let reg_texp, instructions =
-                 translate_tac_expression rprogram ~str_lit_map fd tte
+                 translate_tac_expression rprogram ~litterals fd tte
                in
                let copy_instructions =
                  copy_result
@@ -841,10 +840,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let r9 = tmpreg_of_ktype_2 rprogram brhs.expr_rktype in
         let r8 = tmpreg_of_ktype rprogram blhs.expr_rktype in
         let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd brhs
+          translate_tac_expression ~litterals ~target_reg:r9 rprogram fd brhs
         in
         let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r8 rprogram fd blhs
+          translate_tac_expression ~litterals ~target_reg:r8 rprogram fd blhs
         in
         let and_or_instruction =
           and_or_or_instruction tac_bool ~destination:r8 ~operand1:left_reg
@@ -866,7 +865,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let cc =
           Option.get @@ Condition_Code.cc_of_tac_bin ~is_unsigned bool_binop
         in
-        translate_tac_binop ~str_lit_map ~cc ~blhs ~brhs ~where ~rval_rktype
+        translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where ~rval_rktype
           rprogram fd
     | RVBuiltinBinop
         {
@@ -883,14 +882,14 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let binop_func =
           binop_instruction_of_tacself ~unsigned:is_unsigned self_binop
         in
-        translate_tac_binop_self ~str_lit_map ~blhs ~brhs ~where ~rval_rktype
+        translate_tac_binop_self ~litterals ~blhs ~brhs ~where ~rval_rktype
           binop_func rprogram fd
     | RVBuiltinBinop
         { binop = TacSelf ((TacAdd | TacMinus) as self_binop); blhs; brhs } -> (
         match KosuIrTyped.Asttyhelper.RType.is_pointer rval_rktype with
         | false ->
             let binop_func = binop_instruction_of_tacself self_binop in
-            translate_tac_binop_self ~str_lit_map ~blhs ~brhs ~where
+            translate_tac_binop_self ~litterals ~blhs ~brhs ~where
               ~rval_rktype binop_func rprogram fd
         | true ->
             let pointee_size =
@@ -904,11 +903,11 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               match blhs.expr_rktype with
               | KosuIrTyped.Asttyped.RTPointer _ ->
                   let _ptr_reg, linstructions =
-                    translate_tac_expression ~str_lit_map ~target_reg:r9
+                    translate_tac_expression ~litterals ~target_reg:r9
                       rprogram fd blhs
                   in
                   let _nb_reg, rinstructions =
-                    translate_tac_expression ~str_lit_map ~target_reg:r10
+                    translate_tac_expression ~litterals ~target_reg:r10
                       rprogram fd brhs
                   in
                   linstructions @ rinstructions
@@ -940,10 +939,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let r10 = tmpreg_of_ktype_3 rprogram blhs.expr_rktype in
         let r11 = tmpreg_of_ktype_4 rprogram brhs.expr_rktype in
         let left_reg, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd blhs
+          translate_tac_expression ~litterals ~target_reg:r10 rprogram fd blhs
         in
         let right_reg, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r11 rprogram fd brhs
+          translate_tac_expression ~litterals ~target_reg:r11 rprogram fd brhs
         in
         let div_instruction =
           if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer rval_rktype then
@@ -978,7 +977,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let r9 = tmpreg_of_ktype_2 rprogram rval_rktype in
         let r10 = tmpreg_of_ktype_3 rprogram expr.expr_rktype in
         let last_reg, instructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd expr
+          translate_tac_expression ~litterals ~target_reg:r10 rprogram fd expr
         in
         let uminus_instructions =
           Instruction (Neg { destination = r9; source = last_reg })
@@ -989,7 +988,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let r9 = tmpreg_of_ktype_2 rprogram rval_rktype in
         let r10 = tmpreg_of_ktype_3 rprogram expr.expr_rktype in
         let last_reg, instructions =
-          translate_tac_expression ~str_lit_map ~target_reg:r10 rprogram fd expr
+          translate_tac_expression ~litterals ~target_reg:r10 rprogram fd expr
         in
         let not_instructions =
           if KosuIrTyped.Asttyhelper.RType.is_bool rval_rktype then
@@ -1013,7 +1012,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             let tte = parameters |> List.hd in
             let r9 = tmp32reg_2 in
             let last_reg, instructions =
-              translate_tac_expression ~str_lit_map ~target_reg:r9 rprogram fd
+              translate_tac_expression ~litterals ~target_reg:r9 rprogram fd
                 tte
             in
             let before_copy _ = instructions in
@@ -1036,7 +1035,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           AsmSpec.label_of_kosu_operator ~module_path:current_module op_decl
         in
         let _, instructions =
-          translate_tac_expression ~str_lit_map ~target_reg:(Register64 X0)
+          translate_tac_expression ~litterals ~target_reg:(Register64 X0)
             rprogram fd record.expr
         in
         let call_instruction =
@@ -1092,11 +1091,11 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           AsmSpec.label_of_kosu_operator ~module_path:current_module op_decl
         in
         let _, linstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:(Register64 X0)
+          translate_tac_expression ~litterals ~target_reg:(Register64 X0)
             rprogram fd self.blhs
         in
         let _, rinstructions =
-          translate_tac_expression ~str_lit_map ~target_reg:(Register64 X1)
+          translate_tac_expression ~litterals ~target_reg:(Register64 X1)
             rprogram fd self.brhs
         in
 
@@ -1140,7 +1139,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         failwith
           "Todo : Redefinition of supeq and infeq => Deep change into ast"
 
-  let rec translate_tac_statement ~str_lit_map current_module rprogram
+  let rec translate_tac_statement ~litterals current_module rprogram
       (fd : FrameManager.frame_desc) = function
     | STacDeclaration { identifier; trvalue }
     | STacModification { identifier; trvalue } ->
@@ -1148,7 +1147,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           FrameManager.address_of (identifier, trvalue.rval_rktype) fd
         in
         let instructions =
-          translate_tac_rvalue ~str_lit_map ~where:address current_module
+          translate_tac_rvalue ~litterals ~where:address current_module
             rprogram fd trvalue
         in
         instructions
@@ -1175,7 +1174,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
         let true_adress = create_adress tmpreg in
         let true_instructions =
-          translate_tac_rvalue ~str_lit_map ~is_deref:intermediary_adress
+          translate_tac_rvalue ~litterals ~is_deref:intermediary_adress
             ~where:(Some true_adress) current_module rprogram fd trvalue
         in
 
@@ -1191,7 +1190,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
         let target_adress = increment_adress field_offset root_adress in
         let instructions =
-          translate_tac_rvalue ~str_lit_map ~where:(Some target_adress)
+          translate_tac_rvalue ~litterals ~where:(Some target_adress)
             current_module rprogram fd trvalue
         in
         instructions
@@ -1240,7 +1239,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
 
         let true_adress = create_adress tmpreg in
         let true_instructions =
-          translate_tac_rvalue ~str_lit_map
+          translate_tac_rvalue ~litterals
             ~is_deref:(Some intermediary_adress)
               (* Very susciptous abode the use of immediary adress *)
             ~where:(Some true_adress) current_module rprogram fd trvalue
@@ -1264,19 +1263,19 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           |> List.fold_left
                (fun acc stmt ->
                  acc
-                 @ translate_tac_statement ~str_lit_map current_module rprogram
+                 @ translate_tac_statement ~litterals current_module rprogram
                      fd stmt)
                []
         in
         let last_reg, condition_rvalue_inst =
-          translate_tac_expression ~str_lit_map rprogram fd condition
+          translate_tac_expression ~litterals rprogram fd condition
         in
         let cmp =
           Instruction (CMP { operand1 = last_reg; operand2 = `ILitteral 0L })
         in
         let jmp = Instruction (B { cc = Some EQ; label = exit_label }) in
         let if_block =
-          translate_tac_body ~str_lit_map ~end_label:(Some self_label)
+          translate_tac_body ~litterals ~end_label:(Some self_label)
             current_module rprogram fd loop_body
         in
         let exit_label = Label exit_label in
@@ -1297,12 +1296,12 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           |> List.fold_left
                (fun acc stmt ->
                  acc
-                 @ translate_tac_statement ~str_lit_map current_module rprogram
+                 @ translate_tac_statement ~litterals current_module rprogram
                      fd stmt)
                []
         in
         let last_reg, condition_rvalue_inst =
-          translate_tac_expression ~str_lit_map rprogram fd condition_rvalue
+          translate_tac_expression ~litterals rprogram fd condition_rvalue
         in
         let cmp =
           Instruction (CMP { operand1 = last_reg; operand2 = `ILitteral 1L })
@@ -1310,11 +1309,11 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let jmp = Instruction (B { cc = Some EQ; label = goto1 }) in
         let jmp2 = Instruction (B { cc = None; label = goto2 }) in
         let if_block =
-          translate_tac_body ~str_lit_map ~end_label:(Some exit_label)
+          translate_tac_body ~litterals ~end_label:(Some exit_label)
             current_module rprogram fd if_tac_body
         in
         let else_block =
-          translate_tac_body ~str_lit_map ~end_label:(Some exit_label)
+          translate_tac_body ~litterals ~end_label:(Some exit_label)
             current_module rprogram fd else_tac_body
         in
         let exit_label_instr = Label exit_label in
@@ -1357,14 +1356,14 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           |> List.fold_left
                (fun acc_stmts value ->
                  let insts =
-                   translate_tac_statement ~str_lit_map current_module rprogram
+                   translate_tac_statement ~litterals current_module rprogram
                      fd value
                  in
                  acc_stmts @ insts)
                []
         in
         let last_reg, condition_switch_instruction =
-          translate_tac_expression ~str_lit_map rprogram fd condition_switch
+          translate_tac_expression ~litterals rprogram fd condition_switch
         in
         let copy_tag =
           if is_register_size (sizeofn rprogram condition_switch.expr_rktype)
@@ -1491,7 +1490,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                    |> List.flatten
                  in
                  let genete_block =
-                   translate_tac_body ~str_lit_map
+                   translate_tac_body ~litterals
                      ~end_label:(Some sw_case.sw_exit_label) current_module
                      rprogram fd sw_case.switch_tac_body
                  in
@@ -1507,7 +1506,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let wildcard_body_block =
           wildcard_body
           |> Option.map (fun body ->
-                 translate_tac_body ~str_lit_map ~end_label:(Some sw_exit_label)
+                 translate_tac_body ~litterals ~end_label:(Some sw_exit_label)
                    current_module rprogram fd body)
           |> Option.value ~default:[]
         in
@@ -1529,12 +1528,12 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                  let setup_condition_insts =
                    scases.statement_for_condition
                    |> List.map (fun stmt ->
-                          translate_tac_statement ~str_lit_map current_module
+                          translate_tac_statement ~litterals current_module
                             rprogram fd stmt)
                    |> List.flatten
                  in
                  let last_reg, condition =
-                   translate_tac_expression ~str_lit_map rprogram fd
+                   translate_tac_expression ~litterals rprogram fd
                      scases.condition
                  in
                  let cmp =
@@ -1548,7 +1547,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                    Instruction (B { cc = None; label = scases.jmp_false })
                  in
                  let body_instruction =
-                   translate_tac_body ~str_lit_map
+                   translate_tac_body ~litterals
                      ~end_label:(Some scases.end_label) current_module rprogram
                      fd scases.tac_body
                  in
@@ -1563,20 +1562,20 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
         let end_label_instruction = Label exit_label in
         let else_body_instruction =
-          translate_tac_body ~str_lit_map ~end_label:(Some exit_label)
+          translate_tac_body ~litterals ~end_label:(Some exit_label)
             current_module rprogram fd else_tac_body
         in
 
         cases_condition @ cases_body @ else_body_instruction
         @ [ end_label_instruction ]
 
-  and translate_tac_body ~str_lit_map ?(end_label = None) current_module
+  and translate_tac_body ~litterals ?(end_label = None) current_module
       rprogram (fd : FrameManager.frame_desc) { label; body } =
     let label_instr = Label label in
     let stmt_instr =
       body |> fst
       |> List.map (fun stmt ->
-             translate_tac_statement ~str_lit_map current_module rprogram fd
+             translate_tac_statement ~litterals current_module rprogram fd
                stmt)
       |> List.flatten
     in
@@ -1589,7 +1588,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
       body |> snd
       |> Option.map (fun tte ->
              let last_reg, instructions =
-               translate_tac_expression ~str_lit_map rprogram fd tte
+               translate_tac_expression ~litterals rprogram fd tte
              in
              let sizeof = sizeofn rprogram tte.expr_rktype in
              let return_reg =
@@ -1629,7 +1628,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     in
     (label_instr :: stmt_instr) @ return_instr @ end_label_inst
 
-  let asm_module_of_tac_module ~str_lit_map current_module rprogram =
+  let asm_module_of_tac_module ~litterals current_module rprogram =
     let open KosuIrTyped.Asttyped in
     function
     | TacModule tac_nodes ->
@@ -1683,7 +1682,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                        ~stack_params:stack_param rprogram fd
                    in
                    let conversion =
-                     translate_tac_body ~str_lit_map current_module rprogram fd
+                     translate_tac_body ~litterals current_module rprogram fd
                        function_decl.tac_body
                    in
                    let epilogue = FrameManager.function_epilogue fd in
@@ -1733,7 +1732,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                        ~stack_params:[] rprogram fd
                    in
                    let conversion =
-                     translate_tac_body ~str_lit_map current_module rprogram fd
+                     translate_tac_body ~litterals current_module rprogram fd
                        (KosuIrTAC.Asttachelper.OperatorDeclaration.tac_body self)
                    in
                    let epilogue = FrameManager.function_epilogue fd in
@@ -1782,7 +1781,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                        ~stack_params:[] rprogram fd
                    in
                    let conversion =
-                     translate_tac_body ~str_lit_map current_module rprogram fd
+                     translate_tac_body ~litterals current_module rprogram fd
                        (KosuIrTAC.Asttachelper.OperatorDeclaration.tac_body self)
                    in
                    let epilogue = FrameManager.function_epilogue fd in
@@ -1842,30 +1841,38 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ | _ ->
                    None)
 
-  let asm_module_path_of_tac_module_path ~str_lit_map rprogram
+  let asm_module_path_of_tac_module_path ~litterals rprogram
       { path; tac_module } =
     {
       apath = path;
       asm_module =
         AsmModule
-          (asm_module_of_tac_module ~str_lit_map path rprogram tac_module);
+          (asm_module_of_tac_module ~litterals path rprogram tac_module);
     }
 
   let asm_program_of_tac_program ~(start : string option) tac_program =
     ignore start;
     tac_program
     |> List.map (fun ({ filename; tac_module_path; rprogram } as named) ->
-           let str_lit_map =
+          let str_lit_map =
              map_string_litteral_of_named_rmodule_path named ()
-           in
+          in
+          let float_lit_map = 
+              KosuIrTAC.Asttachelper.FloatLitteral.map_float_litteral_of_named_rmodule_path named () 
+          in 
+          let litterals = {
+              str_lit_map;
+              float_lit_map
+            }
+          in
            {
              filename =
                filename |> Filename.chop_extension |> Printf.sprintf "%s.S";
              asm_module_path =
-               asm_module_path_of_tac_module_path ~str_lit_map rprogram
+               asm_module_path_of_tac_module_path ~litterals rprogram
                  tac_module_path;
              rprogram;
-             str_lit_map;
+             litterals;
            })
 
   let sort_asm_module (AsmModule anodes) =
