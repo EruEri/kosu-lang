@@ -120,7 +120,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     | `Label label -> label
 
   let prefix_of_float register =
-    if Register.is_f64_reg register then "f" else ""
+    if Register.is_float_reg register then "f" else ""
 
   let string_of_adressage adress_mode { base; offset } =
     match adress_mode with

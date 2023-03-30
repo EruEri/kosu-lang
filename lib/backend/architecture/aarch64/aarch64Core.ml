@@ -220,7 +220,9 @@ module Register = struct
     size = SReg32
   }
 
-
+  let regsize_of_fsize = function
+  | KosuFrontend.Ast.F32 -> SReg32
+  | KosuFrontend.Ast.F64 -> SReg64
 
   let x0 = { register = IntegerReg X0; size = SReg64 }
   let x1 = { register = IntegerReg X1; size = SReg64 }
@@ -307,15 +309,20 @@ module Register = struct
 
   let frame_registers = [ x29; x30 ]
 
-  let return_register_ktype ~float = function
-    | 4L when float -> resize32 d0
-    | 8L when float -> d0
-    | _ when float -> failwith "Float impossible return type"
+  let return_register_ktype ~ktype = 
+    let is_float = KosuIrTyped.Asttyhelper.RType.is_float ktype in
+    function
+    | 4L when is_float -> resize32 d0
+    | 8L when is_float -> d0
+    | _ when is_float -> failwith "Float impossible return type"
     | 1L | 2L | 4L -> resize32 x0
     | 8L -> x0
     | _ -> x8
 
   let is_f64_reg = function { register = FloatReg _; size = SReg64 }  -> true | _ -> false
+  let is_f32_reg = function { register = FloatReg _; size = SReg32 } -> true | _ -> false
+
+  let is_float_reg = function { register = FloatReg _; _} -> true | _ -> false
   let size_of_ktype_size s = if s <= 4L then SReg32 else SReg64
 
   let size_of_reg register = register.size

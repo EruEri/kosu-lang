@@ -190,9 +190,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let rreg = resize32 target_reg in
         (rreg, mov_integer rreg code)
     | { tac_expression = TEFloat (float); _ } ->
-        let f64reg = to_float64reg target_reg in
         let (FLit float_label) = Hashtbl.find litterals.float_lit_map float in
-        ( f64reg, load_label float_label x11 @ [ Instruction (LDR {data_size = None; destination = f64reg; adress_src = create_adress x11; adress_mode = Immediat })] )
+        let fsize = fst float in
+        let destination = resize_register (regsize_of_fsize fsize) target_reg in
+        ( destination, load_label float_label x11 @ [ Instruction (LDR {data_size = None; destination; adress_src = create_adress x11; adress_mode = Immediat })] )
     | { tac_expression = TEIdentifier id; expr_rktype } ->
         let adress =
           FrameManager.address_of (id, expr_rktype) fd |> fun adr ->
@@ -201,14 +202,14 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           | None -> failwith "tte identifier setup null address"
         in
         let sizeof = sizeofn rprogram expr_rktype in
-        let rreg =
-          if KosuIrTyped.Asttyhelper.RType.is_32bits_float expr_rktype then
+        let rreg = Register.reg_of_ktype rprogram expr_rktype ~register:target_reg in
+          (* if KosuIrTyped.Asttyhelper.RType.is_32bits_float expr_rktype then
             s9
           else if KosuIrTyped.Asttyhelper.RType.is_64bits_float expr_rktype then
             d9
           else if sizeof > 4L then resize64 target_reg
           else resize32 target_reg
-        in
+        in *)
         if is_register_size sizeof then
           ( rreg,
             [
@@ -494,9 +495,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             let return_size = sizeofn rprogram external_func_decl.return_type in
             let return_reg =
               return_register_ktype
-                ~float:
-                  (KosuIrTyped.Asttyhelper.RType.is_64bits_float
-                     external_func_decl.return_type)
+                ~ktype:external_func_decl.return_type
                 return_size
             in
             let extern_instructions =
@@ -534,9 +533,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             let return_size = sizeofn rprogram syscall_decl.return_type in
             let return_reg =
               return_register_ktype
-                ~float:
-                  (KosuIrTyped.Asttyhelper.RType.is_64bits_float
-                     syscall_decl.return_type)
+                ~ktype:syscall_decl.return_type (* Syscall cannot handle float*)
                 return_size
             in
             instructions
@@ -601,9 +598,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             let return_size = sizeofn rprogram function_decl.return_type in
             let return_reg =
               return_register_ktype
-                ~float:
-                  (KosuIrTyped.Asttyhelper.RType.is_64bits_float
-                     function_decl.return_type)
+                ~ktype:function_decl.return_type
                 return_size
             in
             (* let () = Printf.printf "Return size : %s = %Lu" function_decl.rfn_name return_size in *)
@@ -1048,7 +1043,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let return_size = sizeofn rprogram return_type in
         let return_reg =
           return_register_ktype
-            ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float return_type)
+            ~ktype:return_type
             return_size
         in
         let operator_instructions =
@@ -1109,7 +1104,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let return_size = sizeofn rprogram return_type in
         let return_reg =
           return_register_ktype
-            ~float:(KosuIrTyped.Asttyhelper.RType.is_64bits_float return_type)
+            ~ktype:return_type
             return_size
         in
         let operator_instructions =
@@ -1594,9 +1589,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
              let sizeof = sizeofn rprogram tte.expr_rktype in
              let return_reg =
                return_register_ktype
-                 ~float:
-                   (KosuIrTyped.Asttyhelper.RType.is_64bits_float
-                      tte.expr_rktype)
+                 ~ktype:tte.expr_rktype
                  sizeof
              in
              instructions
