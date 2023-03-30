@@ -78,7 +78,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                  {
                    destination = register;
                    operand = `ILitteral int32;
-                   shift = Some SH16;
+                   shift = Some SH48;
                  });
           ]
 

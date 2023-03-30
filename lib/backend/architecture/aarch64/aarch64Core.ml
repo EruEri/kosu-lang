@@ -34,9 +34,9 @@ module Immediat = struct
     let int32 = Int64.logand mask_2_4bytes n in
     let int48 = Int64.logand mask_4_6bytes n in
     let int64 = Int64.logand mask_6_8bytes n in
-    ( Int64.shift_right_logical int64 32,
-      Int64.shift_right_logical int48 16,
-      Int64.shift_right_logical int32 8,
+    ( Int64.shift_right_logical int64 48,
+      Int64.shift_right_logical int48 32,
+      Int64.shift_right_logical int32 16,
       int16 )
 end
 
