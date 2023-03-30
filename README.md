@@ -21,7 +21,8 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 - [x] Add while loop
 - [ ] Add anonymous function
 - [ ] Add array Literral
-- [ ] Fix Immediate encoding and stack base function parameters on arm64
+- [x] Fix Immediate encoding on arm64
+- [ ] Fix stack base function parameters on arm64
 - [ ] Implement Float for both architecture
 
 
