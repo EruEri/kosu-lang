@@ -435,6 +435,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             (* let fn_register_params, _stack_param = tac_parameters |> List.mapi (fun index -> fun value -> index, value) |> List.partition_map (fun (index, value) ->
                if index < 8 then Either.left value else Either.right value
                ) in *)
+            let _float_parameters, _other_parametrs = external_func_decl.fn_parameters |> List.partition KosuIrTyped.Asttyhelper.RType.is_float in
+
             let register_param_count =
               min
                 (List.length external_func_decl.fn_parameters)
@@ -577,8 +579,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               AsmSpec.label_of_kosu_function ~module_path function_decl
             in
 
+            let float_parameters, other_parametrs = tac_parameters |> List.partition (fun tte -> KosuIrTyped.Asttyhelper.RType.is_float tte.expr_rktype) in
+
             let instructions, regs =
-              tac_parameters
+            other_parametrs
               |> Util.ListHelper.combine_safe argument_registers
               |> List.fold_left_map
                    (fun acc (reg, tte) ->
@@ -589,6 +593,17 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                      (acc @ instruction, reg))
                    []
             in
+
+            let float_instruction = 
+            float_parameters 
+              |> Util.ListHelper.combine_safe float_arguments_register
+              |> List.fold_left (fun acc (reg, tte) ->
+                let _, instructions = translate_tac_expression ~litterals ~target_reg:reg rprogram fd tte in
+                instructions @ acc
+              ) []
+            in
+
+            let _remains_not_float_parameters = Util.ListHelper.diff argument_registers ~remains:other_parametrs in
 
             let set_on_stack_instructions = [] (* TODO *) in
 
@@ -608,14 +623,14 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                   return_function_instruction_reg_size ~where ~is_deref
                     ~return_reg ~return_type:function_decl.return_type rprogram
                 in
-                instructions @ set_on_stack_instructions @ call_instructions
+                instructions @ float_instruction @ set_on_stack_instructions @ call_instructions
                 @ copy_instruction
                 (* Is not the same check the instructions order*)
             | false ->
                 let copy_instruction =
                   return_function_instruction_none_reg_size ~where ~is_deref
                 in
-                instructions @ set_on_stack_instructions @ copy_instruction
+                instructions @ float_instruction @ set_on_stack_instructions @ copy_instruction
                 @ call_instructions))
     | RVTuple ttes ->
         let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in
@@ -1631,14 +1646,25 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                match node with
                | TNFunction function_decl ->
                    let register_param_count = List.length argument_registers in
+                   let float_reg_count = List.length float_arguments_register in
+                   let float_parameter, other_parameters = function_decl.rparameters |> List.partition (fun (_, kt) -> KosuIrTyped.Asttyhelper.RType.is_float kt) in
                    let fn_register_params, stack_param =
-                     function_decl.rparameters
+                      other_parameters
                      |> List.mapi (fun index value -> (index, value))
                      |> List.partition_map (fun (index, value) ->
                             if index < register_param_count then
                               Either.left value
                             else Either.right value)
                    in
+                   let fn_float_register_params, float_stack = 
+                   float_parameter
+                   |> List.mapi (fun index value -> (index, value))
+                   |> List.partition_map (fun (index, value) ->
+                          if index < float_reg_count then
+                            Either.left value
+                          else Either.right value)
+                 in
+
                    let stack_param_count =
                      Int64.of_int (function_decl.stack_params_count * 8)
                    in
@@ -1665,14 +1691,17 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                    (* let () = Printf.printf "asm name = %s\n" asm_name in *)
                    let fd =
                      FrameManager.frame_descriptor
-                       ~stack_future_call:stack_param_count ~fn_register_params
-                       ~stack_param ~return_type:function_decl.return_type
+                       ~stack_future_call:stack_param_count 
+                       ~fn_register_params
+                       ~fn_float_register_params
+                       ~stack_param:(stack_param @ float_stack) ~return_type:function_decl.return_type
                        ~locals_var
                        ~discarded_values:function_decl.discarded_values rprogram
                    in
                    let prologue =
                      FrameManager.function_prologue
-                       ~fn_register_params:function_decl.rparameters
+                       ~fn_register_params
+                       ~fn_float_register_params
                        ~stack_params:stack_param rprogram fd
                    in
                    let conversion =
@@ -1716,6 +1745,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                    let fd =
                      FrameManager.frame_descriptor
                        ~stack_future_call:stack_param_count
+                       ~fn_float_register_params:[]
                        ~fn_register_params:[ unary_decl.rfield ] ~stack_param:[]
                        ~return_type:unary_decl.return_type ~locals_var
                        ~discarded_values:unary_decl.discarded_values rprogram
@@ -1723,6 +1753,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                    let prologue =
                      FrameManager.function_prologue
                        ~fn_register_params:[ unary_decl.rfield ]
+                       ~fn_float_register_params:[]
                        ~stack_params:[] rprogram fd
                    in
                    let conversion =
@@ -1766,12 +1797,15 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                    let fd =
                      FrameManager.frame_descriptor
                        ~stack_future_call:stack_param_count ~fn_register_params
+                       ~fn_float_register_params:[]
                        ~stack_param:[] ~return_type:binary.return_type
                        ~locals_var ~discarded_values:binary.discarded_values
                        rprogram
                    in
                    let prologue =
-                     FrameManager.function_prologue ~fn_register_params
+                     FrameManager.function_prologue 
+                     ~fn_register_params
+                     ~fn_float_register_params:[]
                        ~stack_params:[] rprogram fd
                    in
                    let conversion =

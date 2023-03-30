@@ -251,7 +251,13 @@ module Register = struct
   let sp = { register = IntegerReg SP; size = SReg64 }
 
   let d0 = { register = FloatReg D0; size = SReg64 }
-
+  let d1 = { register = FloatReg D1; size = SReg64 }
+  let d2 = { register = FloatReg D2; size = SReg64 }
+  let d3 = { register = FloatReg D3; size = SReg64 }
+  let d4 = { register = FloatReg D4; size = SReg64 }
+  let d5 = { register = FloatReg D5; size = SReg64 }
+  let d6 = { register = FloatReg D6; size = SReg64 }
+  let d7 = { register = FloatReg D7; size = SReg64 }
   let d8 = { register = FloatReg D8; size = SReg64 }
   let d9 = { register = FloatReg D9; size = SReg64 }
   let s9 = { register = FloatReg D9; size = SReg32 }
@@ -295,6 +301,18 @@ module Register = struct
       x5;
       x6;
       x7;
+    ]
+
+  let float_arguments_register = 
+    [
+      d0;
+      d1;
+      d2;
+      d3;
+      d4;
+      d5;
+      d6;
+      d7;
     ]
 
   let syscall_arguments_register =
@@ -960,6 +978,7 @@ module FrameManager = struct
 
   let frame_descriptor ?(stack_future_call = 0L)
       ~(fn_register_params : (string * KosuIrTyped.Asttyped.rktype) list)
+      ~(fn_float_register_params: (string * KosuIrTyped.Asttyped.rktype) list)
       ~(stack_param : (string * KosuIrTyped.Asttyped.rktype) list) ~return_type
       ~locals_var ~discarded_values rprogram =
     let stack_param_count = stack_param |> List.length in
@@ -968,7 +987,7 @@ module FrameManager = struct
       |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
       |> is_register_size |> not
     in
-    let stack_concat = fn_register_params @ stack_param @ locals_var in
+    let stack_concat = fn_register_params @ fn_float_register_params @ stack_param @ locals_var in
     let stack_concat =
       if need_xr then
         (indirect_return_var, indirect_return_type) :: stack_concat
@@ -987,7 +1006,7 @@ module FrameManager = struct
       |> List.fold_left
            (fun acc (index, st) ->
              let offset =
-               offset_of_tuple_index ~generics:(Hashtbl.create 0) index
+               offset_of_tuple_index index
                  fake_tuple rprogram
              in
              let x29_relative_address =
@@ -1028,7 +1047,7 @@ module FrameManager = struct
             (Printf.sprintf "Not found: %s : %s" variable
                (KosuIrTyped.Asttypprint.string_of_rktype rktype))
 
-  let function_prologue ~fn_register_params ~stack_params rprogram fd =
+  let function_prologue ~fn_register_params ~fn_float_register_params ~stack_params rprogram fd =
     let frame_register_offset =
       Int64.sub (align_16 (Int64.add 16L fd.locals_space)) 16L
     in
@@ -1127,8 +1146,24 @@ module FrameManager = struct
              acc @ copy_from_reg register whereis kt rprogram)
            []
     in
+
+    let float_copy_instructions =
+      fn_float_register_params
+      |> Util.ListHelper.combine_safe float_arguments_register
+      |> List.fold_left
+           (fun acc (register, (name, kt)) ->
+             let whereis =
+               address_of (name, kt) fd |> fun adr ->
+               match adr with
+               | Some a -> a
+               | None -> failwith "From register setup null address"
+             in
+             acc @ copy_from_reg register whereis kt rprogram)
+           []
+    in
+
     [ stack_sub; base; alignx29 ]
-    @ store_x8 @ copy_stack_params_instruction @ copy_instructions
+    @ store_x8 @ copy_stack_params_instruction @ copy_instructions @ float_copy_instructions
 
   let function_epilogue fd =
     let stack_space = align_16 (Int64.add 16L fd.locals_space) in

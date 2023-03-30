@@ -117,6 +117,12 @@ module ListHelper = struct
     match (lhs, rhs) with
     | [], _ | _, [] -> []
     | t1 :: q1, t2 :: q2 -> (t1, t2) :: combine_safe q1 q2
+
+  let rec diff base ~remains = 
+    match (base, remains) with
+    | _, [] -> []
+    | [], l -> l
+    | _ :: q1, _ :: q2 -> diff q1 ~remains:q2
 end
 
 module StringSet = Set.Make (String)
