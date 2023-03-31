@@ -123,6 +123,13 @@ module ListHelper = struct
     | _, [] -> []
     | [], l -> l
     | _ :: q1, _ :: q2 -> diff q1 ~remains:q2
+
+  let rec shrink ~atlength list = 
+    match (atlength, list) with
+    | (n, _) when n < 0 -> invalid_arg "Negative number"
+    | (0, _) -> []
+    | (_, []) -> []
+    | (n, t::q) -> t::(shrink ~atlength:(n -1 ) q)
 end
 
 module StringSet = Set.Make (String)

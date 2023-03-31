@@ -453,6 +453,7 @@ module Instruction = struct
     | Mvn of { destination : Register.register; operand : src }
     | Not of { destination : Register.register; source : src }
     | Neg of { destination : Register.register; source : Register.register }
+    | FCVT of { into: Register.register; turn: Register.register } (* For float convert *)
     | ADD of {
         destination : Register.register;
         operand1 : Register.register;
@@ -666,6 +667,13 @@ module Instruction = struct
       instruction
       @@ LSR { destination; operand1; operand2 = `Register operand2 };
     ]
+
+  let promote_float register = 
+    if is_f32_reg register then 
+      [
+        Instruction ( FCVT { turn = register; into = resize64 register} )
+      ]
+    else []
 
   let binop_instruction_of_tacself ?(unsigned = false) =
     let open KosuIrTAC.Asttac in

@@ -192,7 +192,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     | { tac_expression = TEFloat (float); _ } ->
         let (FLit float_label) = Hashtbl.find litterals.float_lit_map float in
         let fsize = fst float in
-        let destination = resize_register (regsize_of_fsize fsize) target_reg in
+        let destination = reg_of_ktype rprogram (RTFloat fsize) ~register:target_reg in
         ( destination, load_label float_label x11 @ [ Instruction (LDR {data_size = None; destination; adress_src = create_adress x11; adress_mode = Immediat })] )
     | { tac_expression = TEIdentifier id; expr_rktype } ->
         let adress =
@@ -435,15 +435,16 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             (* let fn_register_params, _stack_param = tac_parameters |> List.mapi (fun index -> fun value -> index, value) |> List.partition_map (fun (index, value) ->
                if index < 8 then Either.left value else Either.right value
                ) in *)
-            let _float_parameters, _other_parametrs = external_func_decl.fn_parameters |> List.partition KosuIrTyped.Asttyhelper.RType.is_float in
+            let _float_parameters, other_parametrs = external_func_decl.fn_parameters |> List.partition KosuIrTyped.Asttyhelper.RType.is_float in
 
+            let variadic_parameters = Util.ListHelper.diff external_func_decl.fn_parameters ~remains:tac_parameters in
             let register_param_count =
               min
-                (List.length external_func_decl.fn_parameters)
+                (List.length other_parametrs)
                 (List.length argument_registers)
             in
             let args_in_reg, args_on_stack =
-              tac_parameters
+              tac_parameters |> Util.ListHelper.shrink ~atlength:(List.length other_parametrs)
               |> List.mapi (fun index value -> (index, value))
               |> List.partition_map (fun (index, value) ->
                      if index < register_param_count then Either.left value
@@ -491,6 +492,30 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                      instructions @ [ set ])
               |> List.flatten
             in
+            let offset = List.length args_on_stack * 8 in
+            let set_on_variadic_args = 
+              variadic_parameters 
+              |> List.mapi (fun index tte -> 
+                let offset = Int64.of_int @@ offset + (index * 8) in
+                let target_reg = reg9_of_ktype rprogram tte.expr_rktype in
+                let last_reg, instructions =
+                  translate_tac_expression ~litterals ~target_reg rprogram fd tte
+                in
+                let promote_instruction = promote_float last_reg in
+                let address = create_adress ~offset sp in
+                let set =
+                  Instruction
+                    (STR
+                       {
+                         data_size = None;
+                         source = resize64 last_reg;
+                         adress = address;
+                         adress_mode = Immediat;
+                       })
+                in
+                instructions @ promote_instruction @ [ set ]
+              ) |> List.flatten
+              in
             let call_instructions =
               FrameManager.call_instruction ~origin:fn_label regs fd
             in
@@ -508,14 +533,14 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                       ~return_reg ~return_type:external_func_decl.return_type
                       rprogram
                   in
-                  instructions @ set_on_stack_instructions @ call_instructions
+                  instructions @ set_on_stack_instructions @ set_on_variadic_args @ call_instructions
                   @ copy_instruction
                   (* Is not the same check the instructions order*)
               | false ->
                   let copy_instruction =
                     return_function_instruction_none_reg_size ~where ~is_deref
                   in
-                  instructions @ set_on_stack_instructions @ copy_instruction
+                  instructions @ set_on_stack_instructions @ set_on_variadic_args @ copy_instruction
                   @ call_instructions
             in
             extern_instructions

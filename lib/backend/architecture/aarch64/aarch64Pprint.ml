@@ -235,6 +235,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           (string_of_register destination)
           (string_of_register operand1)
           (string_of_register operand2)
+    | FCVT {turn; into} ->
+        sprintf "fcvt %s, %s"
+          (string_of_register into)
+          (string_of_register turn)
     | LSR { destination; operand1; operand2 } ->
         sprintf "lsr %s, %s, %s"
           (string_of_register destination)
