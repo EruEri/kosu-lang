@@ -624,7 +624,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               |> Util.ListHelper.combine_safe float_arguments_register
               |> List.fold_left (fun acc (reg, tte) ->
                 let _, instructions = translate_tac_expression ~litterals ~target_reg:reg rprogram fd tte in
-                instructions @ acc
+                acc @ instructions
               ) []
             in
 

@@ -378,7 +378,7 @@ module Register = struct
     | _ -> 
       let sizeof = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
       let size = size_of_ktype_size sizeof in
-      resize_register size x9
+      resize_register size register
 
   let reg8_of_ktype rprogram ktype = 
     reg_of_ktype rprogram ktype ~register:x8
