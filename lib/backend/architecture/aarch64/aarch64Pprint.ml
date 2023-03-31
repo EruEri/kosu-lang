@@ -230,8 +230,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           (string_of_register operand1)
           (string_of_register operand2)
     | SDIV { destination; operand1; operand2 } ->
-        sprintf "%ssdiv %s, %s, %s"
+        sprintf "%s%sdiv %s, %s, %s"
           (prefix_of_float destination)
+          (if is_float_reg destination then "" else "s")
           (string_of_register destination)
           (string_of_register operand1)
           (string_of_register operand2)
