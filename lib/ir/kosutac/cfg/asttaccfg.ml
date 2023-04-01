@@ -6,6 +6,7 @@ module StringSet = Set.Make(String)
 
 module Cfg_Sig_Impl = struct
 
+  type variable = (string * KosuIrTyped.Asttyped.rktype)
   type rktype = KosuIrTyped.Asttyped.rktype
   type tac_typed_rvalue = KosuIrTAC.Asttac.tac_typed_rvalue
   type tac_typed_expression = KosuIrTAC.Asttac.tac_typed_expression
@@ -15,7 +16,14 @@ module Cfg_Sig_Impl = struct
       if string_compare = 0 then compare (snd lhs) (snd rhs)
       else string_compare  
 
+  let repr (variable, ktype) = 
+    Printf.sprintf "%s : %s" variable (KosuIrTyped.Asttypprint.string_of_rktype ktype)
+
   let declaration_typed: tac_typed_rvalue -> rktype = fun ttrv -> ttrv.rval_rktype
+
+  let lvalue_variable: string -> tac_typed_rvalue -> variable = fun identifier ttrv -> identifier, ttrv.rval_rktype
+
+  let lvalue_deref_variable: string -> tac_typed_rvalue -> variable = fun identifier ttrv -> identifier, RTPointer ttrv.rval_rktype
 
   let derefed_typed:  tac_typed_rvalue -> rktype = fun ttrv -> RTPointer ttrv.rval_rktype
 
