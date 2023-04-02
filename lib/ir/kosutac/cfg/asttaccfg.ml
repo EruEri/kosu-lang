@@ -12,20 +12,16 @@ module Cfg_Sig_Impl = struct
   type tac_typed_expression = KosuIrTAC.Asttac.tac_typed_expression
 
   let compare lhs rhs = 
-      let string_compare = compare (fst lhs) (fst rhs) in
+      let string_compare = String.compare (fst lhs) (fst rhs) in
       if string_compare = 0 then compare (snd lhs) (snd rhs)
       else string_compare  
 
   let repr (variable, ktype) = 
     Printf.sprintf "%s : %s" variable (KosuIrTyped.Asttypprint.string_of_rktype ktype)
 
-  let declaration_typed: tac_typed_rvalue -> rktype = fun ttrv -> ttrv.rval_rktype
-
   let lvalue_variable: string -> tac_typed_rvalue -> variable = fun identifier ttrv -> identifier, ttrv.rval_rktype
 
   let lvalue_deref_variable: string -> tac_typed_rvalue -> variable = fun identifier ttrv -> identifier, RTPointer ttrv.rval_rktype
-
-  let derefed_typed:  tac_typed_rvalue -> rktype = fun ttrv -> RTPointer ttrv.rval_rktype
 
   let tte_idenfier_used: tac_typed_expression -> (string * rktype) list = function
   | {tac_expression = TEIdentifier id; expr_rktype} -> (id, expr_rktype)::[]
@@ -50,7 +46,9 @@ module Cfg_Sig_Impl = struct
   | RVCustomBinop {blhs; brhs; _} | RVBuiltinBinop {blhs; brhs; _} -> 
     let lhs_identifier_used = tte_idenfier_used blhs in
     let rhs_identifier_used = tte_idenfier_used brhs in
-    lhs_identifier_used @ rhs_identifier_used
+    let captured =  lhs_identifier_used @ rhs_identifier_used in
+    (* let () = captured |> List.iter (fun elt -> elt |> repr |> Printf.printf "(%s)\n") in *)
+    captured
   | RVStruct {fields; _} -> fields |> List.fold_left (fun acc (_, tte) -> 
     match tte_idenfier_used tte with
     | [] -> acc
@@ -58,6 +56,16 @@ module Cfg_Sig_Impl = struct
     | _::_ -> failwith "UNreachable only one zero element"
   ) []
   | RVDiscard | RVLater -> []
+
+  let variables_as_parameter: tac_typed_rvalue -> (variable * int) list option = fun ttrv -> match ttrv.rvalue with 
+  | RVFunction {tac_parameters = ttes; _} -> 
+    ttes |> List.fold_left (fun (index, acc) tte ->
+      let next_index = index + 1 in
+      match tte_idenfier_used tte with
+      | t::[] -> (next_index, (t, index)::acc) 
+      | [] | _::_ -> (next_index, acc)
+    ) (0, []) |> snd |> List.rev |> Option.some
+  | _ -> None
 
   let is_affectation = function
   | { rvalue = RVDiscard | RVLater; _} -> false
