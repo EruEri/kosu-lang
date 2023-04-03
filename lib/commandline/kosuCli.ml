@@ -83,7 +83,7 @@ module Cli = struct
          (KosuBackend.Aarch64.Aarch64AsmSpecImpl.FreeBSDAarch64AsmSpec))
 
   let name = "kosuc"
-  let version = "0.0.1-not-alpha (%%VCS_COMMIT_ID%%)"
+  let version = "0.0.1-not-alpha (%%VERSION%%)"
 
   type cmd = {
     architecture : architecture;
