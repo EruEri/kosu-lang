@@ -50,6 +50,8 @@ let () =
 
   let infered_grah = Clap.optional_string ~long:"infer" ~short:'i' ~description:"Gererate the Inferenced graph for the selected function" () in
 
+  let colored_graph = Clap.flag ~set_long:"colored" ~set_short:'c' ~description:"Colored graph" false in
+
   let delete_useless_stmt = Clap.flag ~set_long:"del-stmt" ~set_short:'D' ~description:"Delete used statements in the graph" false in
 
   let files = Clap.list_string ~description:"files" ~placeholder:"FILES" () in
@@ -111,9 +113,10 @@ let () =
         | Some o -> open_out o 
       in
       let () = block |> KosuIrCfg.Astcfgpprint.dot_diagrah_of_cfg_liveness |> KosuIrCfg.Astcfgpprint.string_of_dot_graph ~out:outchan in
+      let infered_grah_fn = if colored_graph then KosuIrCfg.Astcfgpprint.export_colored_graph else KosuIrCfg.Astcfgpprint.export_infer_graph_of_cfg in
       let () = Option.iter (fun oc_name -> 
         Out_channel.with_open_bin oc_name (fun oc -> 
-          KosuIrCfg.Astcfgpprint.export_infer_graph_of_cfg ~outchan:oc block ()
+            infered_grah_fn ~outchan:oc block ()
           ) 
       ) infered_grah in
       let () = Option.iter (fun _ -> close_out outchan) out in

@@ -123,7 +123,7 @@ let cfgs_of_tac_program named_tacmodules =
       filename,
       tac_nodes |> List.filter_map (function
       | TNFunction tacfun -> 
-        Some (of_tac_body tacfun.tac_body ~parameters:(Asttaccfg.TypedIdentifierSet.of_list tacfun.rparameters) ~locals_vars:(typed_set_of_locales_vars tacfun.locale_var) )
+        Some (of_tac_body tacfun.tac_body ~parameters:(tacfun.rparameters) ~locals_vars:(typed_set_of_locales_vars tacfun.locale_var) )
       | _ -> None
       )
     )

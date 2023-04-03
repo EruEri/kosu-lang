@@ -163,6 +163,68 @@ let quoted = Printf.sprintf "\"%s\""
   let () = Printf.fprintf outchan "}" in
   () *)
 
+  module Register = struct
+    type color =
+    | R0
+    | R1
+    | R2
+    | R3
+    | R4
+    | R5
+    | R6
+    | R7
+
+    type t = color
+
+    let compare = compare
+
+    let arguments_register = [
+      R0;
+      R1;
+      R2;
+      R3;
+      R4;
+      R5;
+      R6;
+      R7
+    ]
+
+    let color_map = [
+      (R0, "aqua");
+      (R1, "red");
+      (R2, "fuchsia");
+      (R3, "green");
+      (R4, "navyblue");
+      (R5, "pink");
+      (R6, "orange");
+      (R7, "yellow")
+    ]
+  end
+
+  module GreedyColoring = GreedyColoring(Register)
+
+  let export_colored_graph ~outchan (cfg: Asttaccfg.Cfg.Liveness.cfg_liveness_detail) () = 
+    let open GreedyColoring.ColoredGraph in
+    let parameters = Util.ListHelper.combine_safe cfg.parameters Register.arguments_register in
+    let graph = GreedyColoring.coloration ~parameters ~available_color:[R0; R3] cfg in
+    let bindings = GreedyColoring.ColoredGraph.bindings graph in
+    let () = Printf.fprintf outchan "graph %s {\n" (Printf.sprintf "infered_%s" cfg.entry_block) in
+    let () = bindings |> List.iter (fun (node, _) -> 
+      Printf.fprintf outchan "\t%s [color=%s]\n"
+      (node.node |> string_of_typed_indentifier |> quoted)
+      ( match node.color with
+        | None -> "black"
+        | Some c -> Register.color_map |> List.assoc_opt c |> Option.value ~default:"white" |> quoted)
+    ) in
+    let () = bindings |> List.iter (fun (node, edges) ->  
+      Printf.fprintf outchan "\t%s -- {%s}\n" 
+      (node.node |> string_of_typed_indentifier |> quoted)  
+      (edges |> List.map (fun node -> node.node |> string_of_typed_indentifier |> quoted) |> String.concat " ")
+    ) in 
+
+    let () = Printf.fprintf outchan "}" in
+    ()
+
   let export_infer_graph_of_cfg ~outchan (cfg: Asttaccfg.Cfg.Liveness.cfg_liveness_detail) () = 
   let graph = Inference_Graph.infer cfg in
   let bindings = Inference_Graph.IG.bindings graph in
@@ -196,7 +258,7 @@ let string_of_dot_graph ?(out = stdout) graph =
      name 
      (string_of_typed_indentifier_set din_vars)
      name
-     ( elements |> String.concat "\n" |>  String.escaped |> escape ~chars:dot_chars_to_escape)
+     (elements |> String.concat "\n" |>  String.escaped |> escape ~chars:dot_chars_to_escape)
      (ending |> Option.map ( ( ^ ) "\\n") |> Option.value ~default:"")
      (string_of_typed_indentifier_set dout_vars)
     ) |> String.concat "\n"
