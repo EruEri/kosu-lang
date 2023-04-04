@@ -203,7 +203,11 @@ let quoted = Printf.sprintf "\"%s\""
       (R4, "navyblue");
       (R5, "pink");
       (R6, "orange");
-      (R7, "yellow")
+      (R7, "yellow");
+      (R8, "hotpink");
+      (R9, "indigo");
+      (R10, "magenta");
+      (R11, "purple")
     ]
   end
 
@@ -212,7 +216,7 @@ let quoted = Printf.sprintf "\"%s\""
   let export_colored_graph ~outchan (cfg: Asttaccfg.Cfg.Liveness.cfg_liveness_detail) () = 
     let open GreedyColoring.ColoredGraph in
     let parameters = Util.ListHelper.combine_safe cfg.parameters Register.arguments_register in
-    let graph = GreedyColoring.coloration ~parameters ~available_color:[R0] cfg in
+    let graph = GreedyColoring.coloration ~parameters ~available_color:[R0; R9; R10; R3] cfg in
     let bindings = GreedyColoring.ColoredGraph.bindings graph in
     let () = Printf.fprintf outchan "strict graph %s {\n" (Printf.sprintf "infered_%s" cfg.entry_block) in
     let () = bindings |> List.iter (fun (node, _) -> 

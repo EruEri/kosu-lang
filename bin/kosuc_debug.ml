@@ -120,7 +120,7 @@ let () =
           outname, open_out_bin outname
         in 
 
-        let infered_graph_name = Printf.sprintf "infered.%s.png" fn_name_file in
+        let infered_graph_name = Printf.sprintf "infered.%s.png" fn_name in
         let infered_grah_fn = if colored_graph then KosuIrCfg.Astcfgpprint.export_colored_graph else KosuIrCfg.Astcfgpprint.export_infer_graph_of_cfg in
         let () = infered_grah_fn ~outchan:infered_outchan block () in
         let () = close_out infered_outchan in
@@ -164,3 +164,4 @@ let () =
 
     let () = Printf.printf "%s\n" string_cfg in
   ()
+  
