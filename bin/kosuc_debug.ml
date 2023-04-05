@@ -15,10 +15,22 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-open KosuFrontend.Astvalidation
+
 open KosuIrTyped
-open KosuIrTAC
 open KosuCli
+
+module ValidationRule : KosuFrontend.KosuValidationRule = struct end
+module TypeCheckerRule : KosuFrontend.TypeCheckerRule = struct
+  let allow_generics_in_variadic = false
+end
+module Compilation_Files : KosuFrontend.Compilation_Files = struct
+  let std_global_variable = std_global_variable
+end
+module KosuFront =
+  KosuFrontend.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
+
+module Asttyconvert =
+  Asttyconvert.Make (TypeCheckerRule)
 
 type cfg_type = 
 | Basic
@@ -40,7 +52,8 @@ let string_of_cfg_type = function
 let cfg_type = Clap.typ ~name:"cfg_type" ~dummy:Basic ~parse:cfg_type_of_string_opt ~show:string_of_cfg_type
 
 let () = 
-  let () = KosuFrontend.Registerexn.register_kosu_error () in
+
+  let () = KosuFront.Registerexn.register_kosu_error () in
 
   let out = Clap.optional_string ~long:"output" ~short:'o' () in
 
@@ -64,37 +77,19 @@ let () =
 
   let () = Clap.close () in
 
-  let modules_opt = KosuCli.files_to_ast_program kosu_files in
+  let ast_module = KosuFront.ast_modules kosu_files in
+  let typed_program =
+    match Asttyconvert.from_program ast_module with
+    | typed_program -> typed_program
+    | exception KosuFrontend.Ast.Error.Ast_error e ->
+        let () =
+          e |> KosuFront.Pprinterr.string_of_ast_error |> print_endline
+        in
+        failwith "Error while typing ast: Shouldn't append"
+  in
 
   let tac_program =
-    match modules_opt with
-    | Error e -> (
-        match e with
-        | No_input_file -> raise (Invalid_argument "no Input file")
-        | File_error (s, exn) ->
-            Printf.eprintf "%s\n" s;
-            raise exn
-        | Filename_error _ -> raise (Invalid_argument "Filename Error")
-        | Lexer_Error e -> raise e)
-    | Ok modules -> (
-        match valide_program modules with
-        | filename, Error e ->
-            (* Printf.eprintf "\nFile \"%s\", %s\n" filename (Kosu_frontend.Pprint.string_of_validation_error e); *)
-            raise (Error.Validation_error (filename, e))
-        | _, Ok () ->
-            let typed_program =
-              try Asttyconvert.from_program modules
-              with KosuFrontend.Ast.Error.Ast_error e ->
-                let () =
-                  Printf.printf "%s\n"
-                    (KosuFrontend.Pprinterr.string_of_ast_error e)
-                in
-                failwith "failwith"
-            in
-            let tac_program =
-              Asttacconv.tac_program_of_rprogram ~dump_ast:false typed_program
-            in
-            tac_program)
+    KosuIrTAC.Asttacconv.tac_program_of_rprogram typed_program
   in
   let named_cfgs = KosuIrCfg.Astcfgconv.cfgs_of_tac_program tac_program in
 

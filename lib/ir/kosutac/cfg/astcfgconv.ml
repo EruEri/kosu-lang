@@ -54,6 +54,15 @@ end
     let derefaffect = Asttaccfg.Cfg.CFG_STDerefAffectation {identifier; trvalue} in
     of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements:(derefaffect::cfg_statements) (q, return)
 end
+  | STDerefAffectationField _ -> begin
+    failwith "STDerefAffectationField"
+  end
+  | STacModificationField _ -> begin
+    failwith "STacModificationField"
+  end
+  | STWhile _ -> begin 
+    failwith "TODO: STWHile"
+  end  
   | STIf {statement_for_bool; condition_rvalue; goto1; goto2; if_tac_body; else_tac_body; exit_label} ->
     let continuation = 
       of_tac_statements ~start_label ~end_labels:[goto1; goto2]
