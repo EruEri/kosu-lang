@@ -66,7 +66,7 @@ module Condition_Code = struct
     | AL  (** Always*)
 
   (* Inverse of the op > == <= *)
-  let cc_of_tac_bin ?(is_unsigned = false) =
+  let cc_of_tac_bin_reversed ?(is_unsigned = false) =
     let open KosuIrTAC.Asttac in
     function
     | TacOr | TacAnd -> None
@@ -76,6 +76,17 @@ module Condition_Code = struct
     | TacSupEq -> Some (if is_unsigned then CC else LT)
     | TacInfEq -> Some (if is_unsigned then HI else GT)
     | TacInf -> Some (if is_unsigned then CS else GE)
+
+  let cc_of_tac_bin ?(is_unsigned = false) = 
+    let open KosuIrTAC.Asttac in
+    function
+    | TacOr | TacAnd -> None
+    | TacEqual -> Some EQ
+    | TacDiff -> Some NE
+    | TacSup -> Some (if is_unsigned then HI else GT) 
+    | TacSupEq -> Some (if is_unsigned then CS else GE) 
+    | TacInfEq -> Some (if is_unsigned then LS else LE)
+    | TacInf -> Some (if is_unsigned then CC else LT)
 end
 
 module Register = struct
@@ -531,6 +542,7 @@ module Instruction = struct
         condition : condition_code;
       }
     | CMP of { operand1 : Register.register; operand2 : src }
+    | CSET of { register: Register.register; cc: condition_code }
     (* Bitwise And*)
     | AND of {
         destination : Register.register;

@@ -281,6 +281,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         sprintf "%scmp %s, %s" (prefix_of_float operand1)
           (string_of_register operand1)
           (string_of_src operand2)
+    | CSET { register; cc} -> 
+        sprintf "cset %s, %s" (string_of_register register) (string_of_condition_code cc)
     | LDR { data_size; destination; adress_src; adress_mode } ->
         sprintf "ldr%s %s , %s"
           (data_size

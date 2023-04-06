@@ -307,10 +307,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
       rprogram fd =
     let r10 = reg10_of_ktype rprogram brhs.expr_rktype in
     let r9 = reg9_of_ktype rprogram blhs.expr_rktype in
-    let r8 = reg8_of_ktype rprogram brhs.expr_rktype in
-    let zero_reg =
+    let r8 = reg8_of_ktype rprogram rval_rktype in
+    let _zero_reg =
       resize_register
-        (size_of_ktype_size (sizeofn rprogram blhs.expr_rktype))
+        (size_of_ktype_size (sizeofn rprogram rval_rktype))
         xzr
     in
     let right_reg, rinstructions =
@@ -319,25 +319,12 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     let left_reg, linstructions =
       translate_tac_expression ~litterals ~target_reg:r9 rprogram fd blhs
     in
-    let equal_instruction =
+    let equal_instruction = 
       [
-        Instruction (Mov { destination = r8; flexsec_operand = `ILitteral 0L });
-        Instruction
-          (SUBS
-             {
-               destination = r9;
-               operand1 = left_reg;
-               operand2 = `Register right_reg;
-             });
-        Instruction
-          (CSINC
-             {
-               destination = r8;
-               operand1 = r8;
-               operand2 = zero_reg;
-               condition = cc;
-             });
-      ]
+        Instruction (CMP {operand1 = left_reg; operand2 = `Register right_reg} );
+        Instruction (CSET {register = r8; cc});
+        Instruction (AND {destination = r8; operand1 = r8;  operand2 = `ILitteral 1L})
+    ]
     in
     copy_result
       ~before_copy:(fun _ -> linstructions @ rinstructions @ equal_instruction)
