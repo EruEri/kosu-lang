@@ -586,6 +586,9 @@ module Type = struct
     | _ -> false
 
   let is_any_integer = function TInteger _ -> true | _ -> false
+
+  let is_any_float = function TFloat _ -> true | _ -> false
+  
   let is_string_litteral = function TString_lit -> true | _ -> false
 
   let pointee_fail = function

@@ -166,7 +166,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           (string_of_register destination)
           (string_of_src source)
     | Neg { destination; source } ->
-        sprintf "neg %s, %s"
+        sprintf "%sneg %s, %s"
+          (prefix_of_float destination)
           (string_of_register destination)
           (string_of_register source)
     | ADD { destination; operand1; operand2; offset } -> (
@@ -240,6 +241,14 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         sprintf "fcvt %s, %s"
           (string_of_register into)
           (string_of_register turn)
+    | FCVTZS {int_register; float_register} ->
+        sprintf "fcvtzs %s, %s"
+          (string_of_register int_register)
+          (string_of_register float_register)
+    | FCVTZU {int_register; float_register} ->
+      sprintf "fcvtzu %s, %s"
+        (string_of_register int_register)
+        (string_of_register float_register)
     | LSR { destination; operand1; operand2 } ->
         sprintf "lsr %s, %s, %s"
           (string_of_register destination)

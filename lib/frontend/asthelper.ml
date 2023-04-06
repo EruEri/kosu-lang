@@ -18,7 +18,6 @@
 open Ast
 open Printf
 open Position
-open Ast.Isize
 
 let f = sprintf "%Ld"
 
@@ -1542,7 +1541,7 @@ module Builtin_Function = struct
         | [ t ] ->
             let param_type = Position.value t in
             if fn = Tou8 && param_type = TChar then Result.ok fn
-            else if Type.is_any_integer param_type then Result.ok fn
+            else if Type.is_any_integer param_type || Type.is_any_float param_type then Result.ok fn
             else
               Ast.Error.Found_no_Integer { fn_name = fn_location.v; found = t }
               |> Result.error
@@ -1959,126 +1958,4 @@ module Affected_Value = struct
             fields type_decl current_mod_name program
         in
         field_type
-end
-
-module Sizeof = struct
-  let ( ++ ) = Int64.add
-  let ( -- ) = Int64.sub
-
-  let rec size calcul current_module (program : module_path list) ktype =
-    match ktype with
-    | TUnit | TBool | TUnknow | TChar -> 1L
-    | TInteger (_, isize) -> size_of_isize isize / 8 |> Int64.of_int
-    | TFloat fsize -> Fsize.size_of_fsize fsize / 8 |> Int64.of_int
-    | TPointer _ | TString_lit | TFunction _ -> 8L
-    | TTuple kts -> (
-        kts |> List.map Position.value |> function
-        | list -> (
-            let size, align, _packed_size =
-              list
-              |> List.fold_left
-                   (fun (acc_size, acc_align, acc_packed_size) kt ->
-                     let comming_size =
-                       kt |> size `size current_module program
-                     in
-                     let comming_align =
-                       kt |> size `align current_module program
-                     in
-                     let quotient = Int64.unsigned_div acc_size comming_align in
-                     let reminder = Int64.unsigned_rem acc_size comming_align in
-                     let new_pacced_size = comming_size ++ acc_packed_size in
-
-                     let add_size =
-                       if new_pacced_size < acc_size then 0L
-                       else if comming_size < acc_align then acc_align
-                       else comming_size
-                     in
-
-                     let padded_size =
-                       if reminder = 0L || acc_size = 0L then acc_size
-                       else Int64.mul comming_align (quotient ++ 1L)
-                     in
-                     ( padded_size ++ add_size,
-                       max comming_align acc_align,
-                       new_pacced_size ))
-                   (0L, 0L, 0L)
-            in
-            match calcul with `size -> size | `align -> align))
-    | TParametric_identifier _ | TType_Identifier _ as kt -> (
-        let ktype_def_path = Type.module_path_opt kt |> Option.get in
-        let ktype_name = Type.type_name_opt kt |> Option.get in
-        let type_decl =
-          match
-            Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name
-              ~current_module program
-          with
-          | Error e -> e |> Ast.Error.ast_error |> raise
-          | Ok type_decl -> type_decl
-        in
-
-        match type_decl with
-        | Ast.Type_Decl.Decl_Enum enum_decl ->
-            size_enum calcul current_module program
-              (Util.dummy_generic_map
-                 (enum_decl.generics |> List.map Position.value)
-                 (Type.extract_parametrics_ktype kt |> List.map Position.value))
-              enum_decl
-        | Ast.Type_Decl.Decl_Struct struct_decl ->
-            size_struct calcul current_module program
-              (Util.dummy_generic_map
-                 (struct_decl.generics |> List.map Position.value)
-                 (Type.extract_parametrics_ktype kt |> List.map Position.value))
-              struct_decl)
-
-  and size_struct calcul current_module program generics struct_decl =
-    struct_decl.fields
-    |> List.map (fun (_, kt) ->
-           Ast.Type.remap_generic_ktype ~current_module generics kt.v)
-    |> function
-    | list -> (
-        let size, align, _packed_size =
-          list
-          |> List.fold_left
-               (fun (acc_size, acc_align, acc_packed_size) kt ->
-                 let comming_size = kt |> size `size current_module program in
-                 let comming_align = kt |> size `align current_module program in
-                 let quotient = Int64.unsigned_div acc_size comming_align in
-                 let reminder = Int64.unsigned_rem acc_size comming_align in
-                 let new_pacced_size = comming_size ++ acc_packed_size in
-
-                 let add_size =
-                   if new_pacced_size < acc_size then 0L
-                   else if comming_size < acc_align then acc_align
-                   else comming_size
-                 in
-
-                 let padded_size =
-                   if reminder = 0L || acc_size = 0L then acc_size
-                   else Int64.mul comming_align (quotient ++ 1L)
-                 in
-                 ( padded_size ++ add_size,
-                   max comming_align acc_align,
-                   new_pacced_size ))
-               (0L, 0L, 0L)
-        in
-        match calcul with `size -> size | `align -> align)
-
-  and size_enum calcul current_module program generics enum_decl =
-    enum_decl.variants
-    |> List.map (fun (_, kts) ->
-           kts
-           |> List.map
-                (Position.map
-                   (Type.remap_generic_ktype ~current_module generics))
-           |> List.cons
-                { v = TInteger (Unsigned, I32); position = Position.dummy }
-           |> Type.ktuple
-           |> size calcul current_module program)
-    |> List.fold_left max 0L
-
-  let sizeof current_module program ktype =
-    size `size current_module program ktype
-
-  let alignmentof current_module program ktype =
-    size `align current_module program ktype
 end

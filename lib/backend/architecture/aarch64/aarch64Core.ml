@@ -465,6 +465,8 @@ module Instruction = struct
     | Not of { destination : Register.register; source : src }
     | Neg of { destination : Register.register; source : Register.register }
     | FCVT of { into: Register.register; turn: Register.register } (* For float convert *)
+    | FCVTZU of { int_register: Register.register; float_register: Register.register } (* Float -> Uint *)
+    | FCVTZS of { int_register: Register.register; float_register: Register.register } (* Float -> Sint *)
     | ADD of {
         destination : Register.register;
         operand1 : Register.register;
