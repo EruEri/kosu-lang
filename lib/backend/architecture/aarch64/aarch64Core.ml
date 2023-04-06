@@ -467,6 +467,7 @@ module Instruction = struct
     | FCVT of { into: Register.register; turn: Register.register } (* For float convert *)
     | FCVTZU of { int_register: Register.register; float_register: Register.register } (* Float -> Uint *)
     | FCVTZS of { int_register: Register.register; float_register: Register.register } (* Float -> Sint *)
+    | SCVTF of { float_register: Register.register; int_register: Register.register } (* int -> float *)
     | ADD of {
         destination : Register.register;
         operand1 : Register.register;

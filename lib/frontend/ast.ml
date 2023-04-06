@@ -588,7 +588,7 @@ module Type = struct
   let is_any_integer = function TInteger _ -> true | _ -> false
 
   let is_any_float = function TFloat _ -> true | _ -> false
-  
+
   let is_string_litteral = function TString_lit -> true | _ -> false
 
   let pointee_fail = function
@@ -964,15 +964,17 @@ module Builtin_Function = struct
     | Tou16
     | Tos32
     | Tou32
+    | Tof32 
     | Tos64
     | Tou64
+    | Tof64
     | Stringl_ptr
 
   let isize_of_functions = function
     | Tos8 | Tou8 -> I8
     | Tos16 | Tou16 -> I16
-    | Tos32 | Tou32 -> I32
-    | Tos64 | Tou64 | Stringl_ptr -> I64
+    | Tos32 | Tou32 | Tof32 -> I32
+    | Tos64 | Tou64 | Tof64 | Stringl_ptr -> I64
 end
 
 module Env = struct

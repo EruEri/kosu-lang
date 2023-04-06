@@ -1027,7 +1027,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
         let before_copy _ = instructions @ [ not_instructions ] in
         copy_result ~before_copy ~where ~register:r9 ~rval_rktype rprogram
-    | RVBuiltinCall { fn_name; parameters } -> (
+    | RVBuiltinCall { fn_name; parameters } -> begin
         let open KosuFrontend.Ast.Builtin_Function in
         match fn_name with
         | Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64
@@ -1039,6 +1039,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           let conversion_float_fun = match fn_name with
             | Tos8 | Tos16 | Tos32 | Tos64 -> fun int_register float_register -> Instruction (FCVTZS {int_register; float_register})
             | Tou8 | Tou16 | Tou32 | Tou64 | Stringl_ptr -> fun int_register float_register -> Instruction (FCVTZU {int_register; float_register})
+            | Tof32 | Tof64 -> failwith "Unreachable: Float cannot be here"
           in
             let tte = parameters |> List.hd in
             let r9 = tmp32reg_2 in
@@ -1055,7 +1056,25 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             in
             let before_copy _ = instructions @ convert_float_instruction in
             copy_result ~before_copy ~where ~register:last_reg ~rval_rktype
-              rprogram)
+              rprogram
+        | Tof32 | Tof64 -> 
+          let tte = parameters |> List.hd in
+          let r9 = tmp32reg_2 in
+          let last_reg, instructions =
+            translate_tac_expression ~litterals ~target_reg:r9 rprogram fd
+              tte
+          in
+          let last_reg, convert_float_instruction = if KosuIrTyped.Asttyhelper.RType.is_any_integer tte.expr_rktype 
+            then 
+              let target_conv = reg9_of_ktype rprogram rval_rktype in 
+              target_conv, [ Instruction (SCVTF {int_register = last_reg; float_register = target_conv} ) ] 
+          else 
+            last_reg, [] 
+          in
+          let before_copy _ = instructions @ convert_float_instruction in
+          copy_result ~before_copy ~where ~register:last_reg ~rval_rktype
+          rprogram
+        end 
     | RVCustomUnop record ->
         let open KosuIrTAC.Asttachelper.Operator in
         let op_decls =

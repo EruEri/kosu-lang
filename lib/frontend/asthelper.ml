@@ -1513,10 +1513,12 @@ module Builtin_Function = struct
     | Tou8 -> "tou8"
     | Tos16 -> "tos16"
     | Tou16 -> "tou16"
+    | Tof32 -> "tof32"
     | Tos32 -> "tos32"
     | Tou32 -> "tou32"
     | Tos64 -> "tos64"
     | Tou64 -> "tou64"
+    | Tof64 -> "tof64"
     | Stringl_ptr -> "stringlptr"
 
   let builtin_fn_of_fn_name =
@@ -1530,13 +1532,15 @@ module Builtin_Function = struct
     | { v = "tou32"; _ } -> Tou32 |> Result.ok
     | { v = "tos64"; _ } -> Tos64 |> Result.ok
     | { v = "tou64"; _ } -> Tou64 |> Result.ok
+    | { v = "tof64"; _ } -> Tof64 |> Result.ok
+    | { v = "tof32"; _ } -> Tof32 |> Result.ok
     | { v = "stringlptr"; _ } -> Stringl_ptr |> Result.ok
     | _ as fn_name -> Ast.Error.Unknow_built_function fn_name |> Result.error
 
   let is_valide_parameters_type fn_location parameters =
     let open Ast.Builtin_Function in
     function
-    | (Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64) as fn -> (
+    | (Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64 | Tof32 | Tof64) as fn -> (
         match parameters with
         | [ t ] ->
             let param_type = Position.value t in
@@ -1584,6 +1588,8 @@ module Builtin_Function = struct
     | Tou32 -> TInteger (Unsigned, I32)
     | Tos64 -> TInteger (Signed, I64)
     | Tou64 -> TInteger (Unsigned, I64)
+    | Tof32 -> TFloat F32
+    | Tof64 -> TFloat F64
 end
 
 module Function = struct

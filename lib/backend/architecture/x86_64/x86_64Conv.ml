@@ -1181,7 +1181,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           copy_result ~where ~register:last_reg ~rval_rktype rprogram
         in
         instructions @ (uminus_instructions :: copy_instructions)
-    | RVBuiltinCall { fn_name; parameters } -> (
+    | RVBuiltinCall { fn_name; parameters } -> begin
         let open KosuFrontend.Ast.Builtin_Function in
         match fn_name with
         | Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64
@@ -1199,7 +1199,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             let copy_instructions =
               copy_result ~where ~register:target_reg_rax ~rval_rktype rprogram
             in
-            instructions @ copy_instructions)
+            instructions @ copy_instructions
+        | Tof32 | Tof64 -> failwith ""
+      end
+
     | RVCustomUnop unary ->
         let open KosuIrTAC.Asttachelper.Operator in
         let op_decls =

@@ -249,6 +249,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
       sprintf "fcvtzu %s, %s"
         (string_of_register int_register)
         (string_of_register float_register)
+    | SCVTF {float_register; int_register} ->
+      sprintf "scvtf %s, %s"
+        (string_of_register float_register)
+        (string_of_register int_register)
     | LSR { destination; operand1; operand2 } ->
         sprintf "lsr %s, %s, %s"
           (string_of_register destination)
