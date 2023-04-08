@@ -17,4 +17,4 @@
 
 (library
  (name kosuIrCfg)
- (libraries kosuFrontend kosuIrTyped kosuIrTAC util register_allocator))
+ (libraries kosuFrontend kosuIrTyped kosuIrTAC util kosu_register_allocator))

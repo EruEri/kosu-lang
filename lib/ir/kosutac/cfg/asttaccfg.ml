@@ -72,7 +72,9 @@ module Cfg_Sig_Impl = struct
   | _ -> true
 end
 
-module Cfg = Register_allocator.Cgf.Make(Cfg_Sig_Impl)
+module Register_allocator = Kosu_register_allocator
+
+module Cfg = Register_allocator.Cfg.Make(Cfg_Sig_Impl)
 module BasicBlockMap = Cfg.BasicBlockMap
 module TypedIdentifierSet = Cfg.TypedIdentifierSet
 module Ig = Cfg.Inference_Graph
