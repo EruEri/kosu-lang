@@ -7,6 +7,7 @@ module StringSet = Set.Make(String)
 module Cfg_Sig_Impl = struct
 
   type variable = (string * KosuIrTyped.Asttyped.rktype)
+  type t = variable
   type rktype = KosuIrTyped.Asttyped.rktype
   type tac_typed_rvalue = KosuIrTAC.Asttac.tac_typed_rvalue
   type tac_typed_expression = KosuIrTAC.Asttac.tac_typed_expression
@@ -72,9 +73,7 @@ module Cfg_Sig_Impl = struct
   | _ -> true
 end
 
-module Register_allocator = Kosu_register_allocator
-
-module Cfg = Register_allocator.Cfg.Make(Cfg_Sig_Impl)
+module Cfg = KosuRegisterAllocator.Make(Cfg_Sig_Impl)
 module BasicBlockMap = Cfg.BasicBlockMap
 module TypedIdentifierSet = Cfg.TypedIdentifierSet
 module Ig = Cfg.Inference_Graph
