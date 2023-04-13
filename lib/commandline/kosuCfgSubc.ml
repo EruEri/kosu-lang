@@ -61,7 +61,9 @@ let cfg_type_enum = [
 
   let module_term = 
     Arg.(
-      required & opt (some string) None & info ~docv:"module" ~doc:"look for the $(b,function) into $(docv) " ["m"; "module"]
+      required & opt (some string) None & info ~docv:"module" ~doc:"look for the $(b,function) into $(docv). If $(docv) start with a uppercase letter \
+      the module name is matched, otherwise it's the filename with or without the \".kosu\" extension
+      " ["m"; "module"]
     )
 
   let infered_term = 
@@ -195,10 +197,16 @@ let cfg_main cmd =
   let typed_program = Asttyconvert.from_program program in
   let tac_program = KosuIrTAC.Asttacconv.tac_program_of_rprogram typed_program in
   let tac_nodes = tac_program |> List.find_map (fun {filename; tac_module_path; rprogram = _} -> 
-    let () = Printf.printf "filename = %s, module path = %s\n%!" filename (tac_module_path.path) in
-    if filename <> module_name then None else 
-      let TacModule nodes = tac_module_path.tac_module in
-      Some nodes
+    let capitalized = String.capitalize_ascii module_name in
+    if module_name = capitalized then
+      if module_name <> tac_module_path.path  then None else 
+        let TacModule nodes = tac_module_path.tac_module in
+        Some nodes
+    else 
+      let query_module = if String.ends_with ~suffix:".kosu" module_name then module_name else (module_name ^ ".kosu") in 
+      if query_module <> filename then None else 
+        let TacModule nodes = tac_module_path.tac_module in
+        Some nodes  
   ) |> Option.value ~default:[] in
   let filtered_function_in_module = fn_name |> Option.map (fun s -> 
     tac_nodes |> List.filter (fun node -> 
