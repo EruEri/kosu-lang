@@ -1,5 +1,6 @@
 open KosuIrTAC.Asttac
-open Asttaccfg.Cfg.Basic
+open Asttaccfg.KosuRegisterAllocator
+open Asttaccfg.KosuRegisterAllocator.Basic
 
 let fake_label_counter = ref 0
 
@@ -9,7 +10,7 @@ let fake_label () =
   Printf.sprintf "fake_label.%u" n
 
 let merge_basic_block_map lmap rmap = 
-  Asttaccfg.BasicBlockMap.union (fun key m1 m2 ->
+  Asttaccfg.KosuRegisterAllocator.BasicBlockMap.union (fun key m1 m2 ->
     let () = Printf.eprintf "Conficiting label = %s\n" key in
     if (m1 <> m2) then
       failwith "Diff for key"
@@ -23,10 +24,10 @@ let typed_set_of_locales_vars locals_vars =
          match locale with
          | Locale s -> (s, locale_ty)
          | Enum_Assoc_id { name; _ } -> (name, locale_ty))
-  |> Asttaccfg.TypedIdentifierSet.of_list
+  |> Asttaccfg.KosuRegisterAllocator.TypedIdentifierSet.of_list
 
   
-let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements (stmts, return) = let open Asttaccfg.Cfg in match stmts with 
+let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements (stmts, return) = match stmts with 
   | [] -> let block =  {
     label = start_label;
     cfg_statements = List.rev cfg_statements;
@@ -40,18 +41,18 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements (stmt
       end
       | Some tte -> Some (Bbe_return tte) )
   } in
-  Asttaccfg.Cfg.BasicBlockMap.singleton block.label block
+  Asttaccfg.KosuRegisterAllocator.BasicBlockMap.singleton block.label block
 | (stmt::q) as _stmts -> begin match stmt with
   | STacDeclaration {identifier; trvalue} -> begin 
-    let declaration = Asttaccfg.Cfg.CFG_STacDeclaration {identifier; trvalue} in
+    let declaration = Asttaccfg.KosuRegisterAllocator.CFG_STacDeclaration {identifier; trvalue} in
     of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements:(declaration::cfg_statements) (q, return)
   end
   | STacModification {identifier; trvalue} -> begin 
-    let modification = Asttaccfg.Cfg.CFG_STacModification {identifier; trvalue} in
+    let modification = Asttaccfg.KosuRegisterAllocator.CFG_STacModification {identifier; trvalue} in
     of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements:(modification::cfg_statements) (q, return)
 end
   | STDerefAffectation {identifier; trvalue} -> begin 
-    let derefaffect = Asttaccfg.Cfg.CFG_STDerefAffectation {identifier; trvalue} in
+    let derefaffect = Asttaccfg.KosuRegisterAllocator.CFG_STDerefAffectation {identifier; trvalue} in
     of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements:(derefaffect::cfg_statements) (q, return)
 end
   | STDerefAffectationField _ -> begin
@@ -99,7 +100,7 @@ end
       acc
       |> merge_basic_block_map block_condition
       |> merge_basic_block_map block
-  ) Asttaccfg.BasicBlockMap.empty in
+  ) Asttaccfg.KosuRegisterAllocator.BasicBlockMap.empty in
 
   let else_basic_block = of_tac_body ~end_labels:[exit_label] else_tac_body in
 
@@ -124,6 +125,13 @@ let of_tac_body tac_body ~parameters ~locals_vars =
     locals_vars 
   }
 
+let cfg_of_tac_function tacfun = of_tac_body tacfun.tac_body ~parameters:(tacfun.rparameters) ~locals_vars:(typed_set_of_locales_vars tacfun.locale_var)
+
+let cfg_detail_of_tac_function tacfun = 
+  tacfun |> cfg_of_tac_function |> Asttaccfg.KosuRegisterAllocator.Detail.of_cfg
+
+let cfg_liveness_of_tac_function tacfun = 
+  tacfun |> cfg_detail_of_tac_function |> Asttaccfg.KosuRegisterAllocator.Liveness.of_cfg_details ~delete_useless_stmt:false
 
 let cfgs_of_tac_program named_tacmodules =
   named_tacmodules |> List.map (fun {filename; tac_module_path; _} -> 
@@ -132,7 +140,7 @@ let cfgs_of_tac_program named_tacmodules =
       filename,
       tac_nodes |> List.filter_map (function
       | TNFunction tacfun -> 
-        Some (of_tac_body tacfun.tac_body ~parameters:(tacfun.rparameters) ~locals_vars:(typed_set_of_locales_vars tacfun.locale_var) )
+        Some (cfg_of_tac_function tacfun )
       | _ -> None
       )
     )

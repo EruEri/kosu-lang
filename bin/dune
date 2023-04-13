@@ -30,10 +30,10 @@
  (flags
   (:standard -g)))
 
-(executable
- (public_name kosuc_debug)
-  (modules kosuc_debug)
- (name kosuc_debug)
- (libraries kosuFrontend kosuIrTyped kosuBackend kosuIrTAC kosuCli kosuIrCfg clap)
- (flags
-  (:standard -g)))
+; (executable
+;  (public_name kosuc_debug)
+;   (modules kosuc_debug)
+;  (name kosuc_debug)
+;  (libraries kosuFrontend kosuIrTyped kosuBackend kosuIrTAC kosuCli kosuIrCfg clap)
+;  (flags
+;   (:standard -g)))

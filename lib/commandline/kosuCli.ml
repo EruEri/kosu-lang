@@ -15,28 +15,7 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-type architecture = Arm64 | X86_64
-type os = Macos | Linux | FreeBSD
-type archi_target = Arm64e | X86_64m | X86_64
-
-let std_global_variable = "KOSU_STD_PATH"
-let architecture_global_variable = "KOSU_TARGET_ARCHI"
-let os_global_variable = "KOSU_TARGET_OS"
-let std_path = Sys.getenv_opt std_global_variable
-let is_kosu_file file = file |> Filename.extension |> ( = ) ".kosu"
-
-let cc_compilation outputfile ~asm ~other =
-  Sys.command
-    (Printf.sprintf "cc -g -o %s %s %s" outputfile
-       (asm |> String.concat " ")
-       (other |> String.concat " "))
-
-let ccol_compilation cfiles =
-  cfiles
-  |> List.map (fun s ->
-         let tmp_name = Filename.temp_file s ".o" in
-         let code = Sys.command (Printf.sprintf "cc -c -o %s %s" tmp_name s) in
-         if code == 0 then Ok tmp_name else Error code)
+open CliCore
 
 let rec fetch_kosu_file direname () =
   let file_in_dir = Sys.readdir direname in
@@ -60,6 +39,8 @@ let fetch_std_file ~no_std () =
   else
     let std_path = Option.get std_path in
     fetch_kosu_file std_path ()
+
+
 
 module Cli = struct
   open Cmdliner
@@ -116,9 +97,6 @@ module Cli = struct
 
   let default_outfile = "a.out"
 
-  let target_enum =
-    [ ("arm64e", Arm64e); ("x86_64", X86_64); ("x86_64m", X86_64m) ]
-
   let architecture_enum = [ ("arm64", Arm64); ("x86_64", X86_64) ]
   let os_enum = [ ("freebsd", FreeBSD); ("linux", Linux); ("macos", Macos) ]
 
@@ -129,10 +107,6 @@ module Cli = struct
        & info ~docv:"Assembly Target"
            ~doc:(doc_alts_enum ~quoted:true target_enum)
            [ "t"; "target" ]) *)
-
-  let string_of_enum ?(splitter = "|") ?(quoted = false) enum =
-    let f = if quoted then Arg.doc_quote else Fun.id in
-    enum |> List.map (fun (elt, _) -> f elt) |> String.concat splitter
 
   let target_archi_term =
     Arg.(
@@ -289,7 +263,7 @@ module Cli = struct
 
   let kosuc run =
     let info = Cmd.info ~doc:kosuc_doc ~man:kosuc_man ~version name in
-    Cmd.v info (cmd_term run)
+    Cmd.group ~default:(cmd_term run) info [KosuCfgSubc.cfg]
 
   let run cmd =
     let {

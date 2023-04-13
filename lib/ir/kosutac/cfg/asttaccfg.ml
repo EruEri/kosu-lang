@@ -74,7 +74,14 @@ module Cfg_Sig_Impl = struct
   | _ -> true
 end
 
-module Cfg = KosuRegisterAllocator.Make(Cfg_Sig_Impl)
-module BasicBlockMap = Cfg.BasicBlockMap
-module TypedIdentifierSet = Cfg.TypedIdentifierSet
-module Ig = Cfg.Inference_Graph
+module CfgPprint = struct
+  type variable = Cfg_Sig_Impl.variable
+  type atom = Cfg_Sig_Impl.atom
+  type rvalue = Cfg_Sig_Impl.rvalue
+
+  let string_of_variable = Cfg_Sig_Impl.repr
+  let string_of_atom = KosuIrTAC.Asttacpprint.string_of_typed_tac_expression
+  let string_of_rvalue = KosuIrTAC.Asttacpprint.string_of_typed_tac_rvalue
+end
+
+module KosuRegisterAllocator = KosuRegisterAllocator.MakePprint(Cfg_Sig_Impl)(CfgPprint)
