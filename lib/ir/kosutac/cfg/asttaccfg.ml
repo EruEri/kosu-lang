@@ -9,8 +9,9 @@ module Cfg_Sig_Impl = struct
   type variable = (string * KosuIrTyped.Asttyped.rktype)
   type t = variable
   type rktype = KosuIrTyped.Asttyped.rktype
-  type tac_typed_rvalue = KosuIrTAC.Asttac.tac_typed_rvalue
-  type tac_typed_expression = KosuIrTAC.Asttac.tac_typed_expression
+  type atom = KosuIrTAC.Asttac.tac_typed_expression
+  type rvalue = KosuIrTAC.Asttac.tac_typed_rvalue
+
 
   let compare lhs rhs = 
       let string_compare = String.compare (fst lhs) (fst rhs) in
@@ -20,15 +21,15 @@ module Cfg_Sig_Impl = struct
   let repr (variable, ktype) = 
     Printf.sprintf "%s : %s" variable (KosuIrTyped.Asttypprint.string_of_rktype ktype)
 
-  let lvalue_variable: string -> tac_typed_rvalue -> variable = fun identifier ttrv -> identifier, ttrv.rval_rktype
+  let lvalue_variable: string -> rvalue -> variable = fun identifier ttrv -> identifier, ttrv.rval_rktype
 
-  let lvalue_deref_variable: string -> tac_typed_rvalue -> variable = fun identifier ttrv -> identifier, RTPointer ttrv.rval_rktype
+  let lvalue_deref_variable: string -> rvalue -> variable = fun identifier ttrv -> identifier, RTPointer ttrv.rval_rktype
 
-  let tte_idenfier_used: tac_typed_expression -> (string * rktype) list = function
+  let tte_idenfier_used: atom -> (string * rktype) list = function
   | {tac_expression = TEIdentifier id; expr_rktype} -> (id, expr_rktype)::[]
   | _ -> []
 
-  let ttrv_identifiers_used: tac_typed_rvalue -> (string * rktype) list = fun ttrv -> match ttrv.rvalue with
+  let ttrv_identifiers_used: rvalue -> (string * rktype) list = fun ttrv -> match ttrv.rvalue with
   | RVExpression tte 
   | RVFieldAcess {first_expr = tte; _} 
   | RVCustomUnop {expr = tte; _} | RVBuiltinUnop {expr = tte; _}
@@ -58,7 +59,7 @@ module Cfg_Sig_Impl = struct
   ) []
   | RVDiscard | RVLater -> []
 
-  let variables_as_parameter: tac_typed_rvalue -> (variable * int) list option = fun ttrv -> match ttrv.rvalue with 
+  let variables_as_parameter: rvalue -> (variable * int) list option = fun ttrv -> match ttrv.rvalue with 
   | RVFunction {tac_parameters = ttes; _} -> 
     ttes |> List.fold_left (fun (index, acc) tte ->
       let next_index = index + 1 in
