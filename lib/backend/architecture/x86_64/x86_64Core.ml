@@ -20,6 +20,7 @@ module IdVarMap = Common.IdVarMap
 
 type data_size = B | W | L | Q
 
+
 let data_size_of_int64 = function
   | 1L -> Some B
   | 2L -> Some W
@@ -60,31 +61,103 @@ module Register = struct
     | R15
     | RIP
 
+  type int_register = { size : data_size; reg : raw_register }
+
+  type float_register = 
+  | XMM0
+  | XMM1
+  | XMM2
+  | XMM3
+  | XMM4
+  | XMM5
+  | XMM6
+  | XMM7
+  | XMM8
+  | XMM9
+  | XMM10
+  | XMM11
+  | XMM12
+  | XMM13
+  | XMM14
+  | XMM15
+
   let is_numerical_register = function
     | R9 | R10 | R11 | R12 | R13 | R14 | R15 -> true
     | _ -> false
 
   let full_letter_reg = function reg -> not @@ is_numerical_register reg
 
-  type register = { size : data_size; reg : raw_register }
+  type register = 
+  | IntReg of int_register
+  | FloatReg of float_register
+
+  let to_float_register = function
+  | FloatReg _ as fr -> fr
+  | IntReg integ -> begin match integ.reg with
+    | RAX -> FloatReg XMM0
+    | RBX -> FloatReg XMM1
+    | RCX -> FloatReg XMM2
+    | RDX -> FloatReg XMM3
+    | RSI -> FloatReg XMM4
+    | RDI -> FloatReg XMM5
+    | RBP -> FloatReg XMM6
+    | RSP -> FloatReg XMM7
+    | R8 ->  FloatReg XMM8
+    | R9 ->  FloatReg XMM9
+    | R10 -> FloatReg XMM10
+    | R11 -> FloatReg XMM11
+    | R12 -> FloatReg XMM12
+    | R13 -> FloatReg XMM13
+    | R14 -> FloatReg XMM14
+    | R15 -> FloatReg XMM15
+    | RIP -> failwith "RIP: doesnt have Float conterpart"
+  end
+
+  let resize_register size = function
+  | IntReg register -> IntReg { register with size }
+  | FloatReg _ as register -> register
+
+  let reg_of_ktype rprogram ktype ~register = 
+    match ktype with
+    | KosuIrTyped.Asttyped.RTFloat _ -> to_float_register register
+    | _ -> 
+      let sizeof = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+      let size = data_size_of_int64_def ~default:Q sizeof in
+      resize_register size register
+
+
+  let size_of_reg_opt = function
+  | IntReg r -> Some r.size
+  | FloatReg _ -> None
 
   (* %rdi, %rsi, %rdx, %rcx, %r8, %r9 *)
   let argument_registers = [ RDI; RSI; RDX; RCX; R8; R9 ]
   let syscall_arguments_register = [ RDI; RSI; RDX; R10; R8; R9 ]
-  let sized_register size register = { size; reg = register }
-  let resize_register size register = { register with size }
-  let r9q = { size = Q; reg = R9 }
-  let rbpq = { size = Q; reg = RBP }
-  let rspq = { size = Q; reg = RSP }
-  let rdiq = { size = Q; reg = RDI }
-  let rsiq = { size = Q; reg = RSI }
-  let ripq = { size = Q; reg = RIP }
-  let rdxq = { size = Q; reg = RDX }
-  let raxq = { size = Q; reg = RAX }
-  let is_aliased lhs rhs = lhs.reg = rhs.reg
 
-  let return_register ktype rprogram =
-    let return_size = KosuIrTyped.Asttyconvert.Sizeof.sizeof ktype rprogram in
+  let float_arguments_register = [
+    FloatReg XMM0;
+    FloatReg XMM1;
+    FloatReg XMM2;
+    FloatReg XMM3;
+    FloatReg XMM4;
+    FloatReg XMM5;
+    FloatReg XMM6;
+    FloatReg XMM7
+  ]
+  let sized_register size register = IntReg { size; reg = register }
+  let r9q = IntReg { size = Q; reg = R9 }
+  let rbpq = IntReg { size = Q; reg = RBP }
+  let rspq = IntReg { size = Q; reg = RSP }
+  let rdiq = IntReg { size = Q; reg = RDI }
+  let rsiq = IntReg { size = Q; reg = RSI }
+  let ripq = IntReg { size = Q; reg = RIP }
+  let rdxq = IntReg { size = Q; reg = RDX }
+  let raxq = IntReg { size = Q; reg = RAX }
+  (* let is_aliased lhs rhs = lhs.reg = rhs.reg *)
+
+  let return_register rprogram ktype  =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then Option.some @@ FloatReg XMM0 else
+    let return_size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype  in
     return_size |> data_size_of_int64
     |> Option.map (fun size -> resize_register size raxq)
 
@@ -154,7 +227,7 @@ module Operande = struct
     | `Address addr -> `Address addr
     | `Register reg -> `Register reg
 
-  let dummy_dst : dst = `Register { size = L; reg = R10 }
+  let dummy_dst : dst = `Register (IntReg { size = L; reg = R10 })
   let is_adress = function `Address _ -> true | _ -> false
   let is_register = function `Register _ -> true | _ -> false
 
@@ -499,7 +572,7 @@ module FrameManager = struct
              in
              let address =
                create_address_offset ~offset:rbp_relative_address
-                 { size = Q; reg = RBP }
+                 rbpq
              in
              IdVarMap.add st address acc)
            IdVarMap.empty

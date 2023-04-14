@@ -85,7 +85,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     |> Option.value ~default:[]
 
   let translate_tac_expression ~litterals
-      ?(target_dst = (`Register { size = L; reg = R10 } : dst)) rprogram
+      ?(target_dst = (`Register (IntReg { size = L; reg = R10 }) : dst)) rprogram
       (fd : FrameManager.frame_desc) = function
     | { tac_expression = TEString s; expr_rktype = _ } ->
         let (SLit str_labl) = Hashtbl.find litterals.str_lit_map s in
@@ -116,7 +116,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             ( target_dst,
               [
                 Instruction
-                  (Xor { size = reg.size; source = rreg; destination = rreg });
+                  (Xor { size = Option.get @@ Register.size_of_reg_opt reg; source = rreg; destination = rreg });
               ] )
         | `Address _ as addr ->
             ( target_dst,

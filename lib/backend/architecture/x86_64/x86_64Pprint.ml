@@ -46,7 +46,7 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     | R15 -> "r15"
     | RIP -> "rip"
 
-  let string_of_register register =
+  let string_of_register_int_reg register =
     let str_raw_reg = string_of_raw_register register.reg in
     match register.size with
     | Q -> str_raw_reg
@@ -69,8 +69,30 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           | "rdx" -> "dl"
           | other -> Printf.sprintf "%sl" (String.sub other 1 2))
 
-  let string_of_register register =
-    Printf.sprintf "%%%s" (string_of_register register)
+  let string_of_register_int_reg register =
+    Printf.sprintf "%%%s" (string_of_register_int_reg register)
+
+  let string_of_float_register = function
+  | XMM0 -> "%xmm0"
+  | XMM1 -> "%xmm1"
+  | XMM2 -> "%xmm2"
+  | XMM3 -> "%xmm3"
+  | XMM4 -> "%xmm4"
+  | XMM5 -> "%xmm5"
+  | XMM6 -> "%xmm6"
+  | XMM7 -> "%xmm7"
+  | XMM8 -> "%xmm8"
+  | XMM9 -> "%xmm9"
+  | XMM10 -> "%xmm10"
+  | XMM11 -> "%xmm11"
+  | XMM12 -> "%xmm12"
+  | XMM13 -> "%xmm13"
+  | XMM14 -> "%xmm14"
+  | XMM15 -> "%xmm15"
+
+  let string_of_register = function
+  | IntReg register -> string_of_register_int_reg register
+  | FloatReg register -> string_of_float_register register
 
   let string_of_address_offset = function
     | Addr_label (label, offset) ->
