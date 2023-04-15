@@ -25,7 +25,13 @@ module X86Program = Common.AsmProgram (X86_64Core.Instruction)
 open X86Program
 
 module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
-  let string_of_data_size = function B -> "b" | W -> "w" | L -> "l" | Q -> "q"
+  let string_of_int_data_size = function B -> "b" | W -> "w" | L -> "l" | Q -> "q"
+
+  let string_of_float_data_size = function SS -> "ss" | SD -> "sd" 
+
+  let string_of_data_size: type a. a data_size -> string = function
+  | IntSize i -> string_of_int_data_size i
+  | FloatSize f -> string_of_float_data_size f
 
   let string_of_raw_register = function
     | RAX -> "rax"
@@ -138,7 +144,7 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     | Some s -> string_of_condition_code s
 
   let string_of_jmp_operande = function
-    | `Register reg -> sprintf "*%s" (string_of_register reg)
+    | `Register reg -> sprintf "*%s" (string_of_register_int_reg reg)
     | `Label l -> l
 
   let string_of_instruction = function
@@ -146,11 +152,11 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         sprintf "mov%s %s, %s" (string_of_data_size size) (string_of_src source)
           (string_of_dst destination)
     | Movsl { size; source; destination } ->
-        sprintf "movs%sl %s, %s" (string_of_data_size size)
+        sprintf "movs%sl %s, %s" (string_of_int_data_size size)
           (string_of_src source)
           (string_of_dst destination)
     | Movzl { size; source; destination } ->
-        sprintf "movz%sl %s, %s" (string_of_data_size size)
+        sprintf "movz%sl %s, %s" (string_of_int_data_size size)
           (string_of_src source)
           (string_of_dst destination)
     | Set { cc; register } ->
@@ -174,35 +180,39 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         sprintf "sub%s %s, %s" (string_of_data_size size) (string_of_src source)
           (string_of_dst destination)
     | Xor { size; source; destination } ->
-        sprintf "xor%s %s, %s" (string_of_data_size size) (string_of_src source)
+        sprintf "xor%s %s, %s" (string_of_int_data_size size) (string_of_src source)
           (string_of_dst destination)
     | And { size; source; destination } ->
-        sprintf "and%s %s, %s" (string_of_data_size size) (string_of_src source)
+        sprintf "and%s %s, %s" (string_of_int_data_size size) (string_of_src source)
           (string_of_dst destination)
     | Or { size; source; destination } ->
-        sprintf "or%s %s, %s" (string_of_data_size size) (string_of_src source)
+        sprintf "or%s %s, %s" (string_of_int_data_size size) (string_of_src source)
           (string_of_dst destination)
     | Sal { size; shift; destination } ->
-        sprintf "sal%s %s, %s" (string_of_data_size size) (string_of_src shift)
+        sprintf "sal%s %s, %s" (string_of_int_data_size size) (string_of_src shift)
           (string_of_dst destination)
     | Sar { size; shift; destination } ->
-        sprintf "sar%s %s, %s" (string_of_data_size size) (string_of_src shift)
+        sprintf "sar%s %s, %s" (string_of_int_data_size size) (string_of_src shift)
           (string_of_dst destination)
     | Shr { size; shift; destination } ->
-        sprintf "shr%s %s, %s" (string_of_data_size size) (string_of_src shift)
+        sprintf "shr%s %s, %s" (string_of_int_data_size size) (string_of_src shift)
           (string_of_dst destination)
     | IMul { size; source; destination } ->
         sprintf "imul%s %s, %s" (string_of_data_size size)
           (string_of_src source)
           (string_of_register destination)
+    | Fdiv {size; destination; source} ->
+      sprintf "div%s %s, %s" (string_of_float_data_size size)           
+      (string_of_float_register source)
+      (string_of_float_register destination)
     | IDivl { size; divisor } ->
-        sprintf "idiv%s %s" (string_of_data_size size) (string_of_src divisor)
+        sprintf "idiv%s %s" (string_of_int_data_size size) (string_of_src divisor)
     | Div { size; divisor } ->
-        sprintf "div%s %s" (string_of_data_size size) (string_of_src divisor)
+        sprintf "div%s %s" (string_of_int_data_size size) (string_of_src divisor)
     | Push { size; source } ->
-        sprintf "push%s %s" (string_of_data_size size) (string_of_src source)
+        sprintf "push%s %s" (string_of_int_data_size size) (string_of_src source)
     | Pop { size; destination } ->
-        sprintf "pop%s %s" (string_of_data_size size)
+        sprintf "pop%s %s" (string_of_int_data_size size)
           (string_of_dst destination)
     | Cmp { size; lhs; rhs } ->
         sprintf "cmp%s %s, %s" (string_of_data_size size) (string_of_src lhs)
