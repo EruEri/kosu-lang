@@ -18,7 +18,12 @@
 module IdVar = Common.IdVar
 module IdVarMap = Common.IdVarMap
 
-type data_size = B | W | L | Q
+
+type int_data_size = B | W | L | Q
+type float_data_size = SS | SD
+type _ data_size = 
+  | IntSize : int_data_size -> int_data_size data_size
+  | FloatSize : float_data_size -> float_data_size data_size
 
 
 let data_size_of_int64 = function
@@ -27,6 +32,11 @@ let data_size_of_int64 = function
   | 4L -> Some L
   | 8L -> Some Q
   | _ -> None
+
+let float_data_size_of_int64 = function
+| 4L -> Some SS
+| 8L -> Some SD 
+| _ -> None
 
 let need_long_promotion = function B | W -> true | _ -> false
 
@@ -61,7 +71,7 @@ module Register = struct
     | R15
     | RIP
 
-  type int_register = { size : data_size; reg : raw_register }
+  type int_register = { size : int_data_size; reg : raw_register }
 
   type float_register = 
   | XMM0
@@ -297,37 +307,38 @@ module Instruction = struct
     | Line_Com of comment
 
   and instruction =
-    | Mov of { size : data_size; source : src; destination : dst }
-    | Movsl of { size : data_size; source : src; destination : dst }
-    | Movzl of { size : data_size; source : src; destination : dst }
-    | Set of { cc : condition_code; register : Register.register }
-    | Lea of { size : data_size; source : address; destination : register }
-    | Neg of { size : data_size; source : register }
-    | Not of { size : data_size; source : register }
-    | Add of { size : data_size; destination : dst; source : src }
-    | Sub of { size : data_size; destination : dst; source : src }
-    | IMul of { size : data_size; destination : register; source : src }
-    | Xor of { size : data_size; destination : dst; source : src }
-    | Or of { size : data_size; destination : dst; source : src }
-    | And of { size : data_size; destination : dst; source : src }
+    | Mov : { size : 'a data_size; source : src; destination : dst } -> instruction
+    | Movsl of { size : int_data_size; source : src; destination : dst }
+    | Movzl of { size : int_data_size; source : src; destination : dst }
+    | Set : { cc : condition_code; register : Register.register } -> instruction
+    | Lea : { size : 'a data_size; source : address; destination : register } -> instruction
+    | Neg : { size : 'a data_size; source : register } -> instruction
+    | Not : { size : 'a data_size; source : register } -> instruction
+    | Add : { size : 'a data_size; destination : dst; source : src } -> instruction
+    | Sub : { size : 'a data_size; destination : dst; source : src } -> instruction
+    | IMul : { size : 'a data_size; destination : register; source : src } -> instruction
+    | Xor of { size : int_data_size; destination : dst; source : src }
+    | Or of { size :  int_data_size; destination : dst; source : src }
+    | And of { size : int_data_size; destination : dst; source : src }
+    | Fdiv of { size : float_data_size; destination : float_register; source: float_register }
     | IDivl of { (* l | q *)
-                 size : data_size; divisor : src }
+                 size : int_data_size; divisor : src }
     | Div of { (* l | q *)
-               size : data_size; divisor : src }
+               size :  int_data_size; divisor : src }
     (* Shift Left *)
-    | Sal of { size : data_size; shift : src; destination : dst }
+    | Sal of { size : int_data_size; shift : src; destination : dst }
     (* Arithmetic right shift *)
-    | Sar of { size : data_size; shift : src; destination : dst }
+    | Sar of { size : int_data_size; shift : src; destination : dst }
     (* Logical right shift *)
-    | Shr of { size : data_size; shift : src; destination : dst }
-    | Push of { size : data_size; source : src }
-    | Pop of { size : data_size; destination : dst }
-    | Cmp of { size : data_size; lhs : src; rhs : src }
+    | Shr of { size : int_data_size; shift : src; destination : dst }
+    | Push of  { size : int_data_size; source : src } 
+    | Pop of { size : int_data_size; destination : dst } 
+    | Cmp : { size : 'a data_size; lhs : src; rhs : src } -> instruction
     | Jmp of {
         cc : condition_code option;
-        where : [ `Register of register | `Label of string ];
+        where : [ `Register of int_register | `Label of string ];
       }
-    | Call of { what : [ `Register of register | `Label of string ] }
+    | Call of { what : [ `Register of int_register | `Label of string ] }
     | Syscall
     | Cltd
     | Cqto
@@ -337,7 +348,7 @@ module Instruction = struct
 
   let division_instruction ~unsigned size divisor =
     match (unsigned, size) with
-    | false, Q -> Instruction (IDivl { size = Q; divisor })
+    | false, Q -> Instruction (IDivl { size =  Q; divisor })
     | true, Q -> Instruction (Div { size = Q; divisor })
     | false, _ -> Instruction (IDivl { size = L; divisor })
     | true, _ -> Instruction (Div { size = L; divisor })
@@ -348,23 +359,45 @@ module Instruction = struct
   let ins_sub ~size ~destination ~source =
     [ Instruction (Sub { size; destination; source }) ]
 
-  let ins_bitwiseand ~size ~destination ~source =
-    [ Instruction (And { size; destination; source }) ]
+  let ins_bitwiseand: type a. size:a data_size -> destination:dst -> source:src -> raw_line list = fun ~size ~destination ~source -> 
+    match size with
+    | IntSize size ->
+      [ Instruction (And { size; destination; source }) ]
+    | FloatSize _ ->
+      failwith "Invalid Bitwise and"
 
-  let ins_bitwiseor ~size ~destination ~source =
-    [ Instruction (Or { size; destination; source }) ]
+  let ins_bitwiseor: type a. size:a data_size -> destination:dst -> source:src -> raw_line list = fun ~size ~destination ~source -> 
+    match size with
+    | IntSize size ->
+      [ Instruction (Or { size; destination; source }) ]
+    | FloatSize _ ->
+      failwith "Invalid Bitwize Xor"
 
-  let ins_bitwisexor ~size ~destination ~source =
-    [ Instruction (Xor { size; destination; source }) ]
+  let ins_bitwisexor: type a. size:a data_size -> destination:dst -> source:src -> raw_line list = fun ~size ~destination ~source -> 
+    match size with
+    | IntSize size ->
+      [ Instruction (Xor { size; destination; source }) ]
+    | FloatSize _ ->
+      failwith "Invalid Bitwexor float float"
 
-  let ins_shiftleft ~size ~destination ~source =
-    [ Instruction (Sal { size; destination; shift = source }) ]
+  let ins_shiftleft: type a. size:a data_size -> destination:dst -> source:src -> raw_line list = fun ~size ~destination ~source -> 
+    match size with
+    | IntSize size ->
+      [ Instruction (Sal { size; destination; shift = source }) ]
+    | FloatSize _ -> 
+      failwith "Invalid ShiftLeft for float"
 
-  let ins_shift_signed_right ~size ~destination ~source =
-    [ Instruction (Sar { size; destination; shift = source }) ]
+  let ins_shift_signed_right: type a. size:a data_size -> destination:dst -> source:src -> raw_line list = fun ~size ~destination ~source -> 
+    match size with
+    | IntSize size -> [ Instruction (Sar { size; destination; shift = source }) ]
+    | FloatSize _ ->
+      failwith "Invalid ins_shift_signed_righ for float"
 
-  let ins_shift_unsigned_right ~size ~destination ~source =
-    [ Instruction (Shr { size; destination; shift = source }) ]
+  let ins_shift_unsigned_right: type a. size:a data_size -> destination:dst -> source:src -> raw_line list = fun ~size ~destination ~source -> 
+    match size with
+    | IntSize size -> [ Instruction (Shr { size; destination; shift = source }) ]
+    | FloatSize _ ->
+      failwith "Invalid ins_shift_unsigned_right for float"
 
   let ins_mult ~size ~destination ~source =
     [
@@ -398,7 +431,7 @@ module Instruction = struct
             Instruction
               (Movzl { size; destination = resize_dst L dst; source = src })
             :: [])
-    | _ -> Instruction (Mov { size; source = src; destination = dst }) :: []
+    | _ -> Instruction (Mov { size = IntSize size; source = src; destination = dst }) :: []
 end
 
 let rec copy_large ~address_str ~base_address_reg size =
@@ -413,14 +446,14 @@ let rec copy_large ~address_str ~base_address_reg size =
       Instruction
         (Mov
            {
-             size = dsize;
+             size = IntSize dsize;
              source = `Address base_address_reg;
              destination = `Register sized_rax;
            });
       Instruction
         (Mov
            {
-             size = dsize;
+             size = IntSize dsize;
              source = `Register sized_rax;
              destination = `Address address_str;
            });
@@ -447,7 +480,7 @@ let copy_from_reg (register : Register.register) address ktype rprogram =
         Instruction
           (Mov
              {
-               size = data_size;
+               size = IntSize data_size;
                destination = `Address address;
                source = `Register (Register.resize_register data_size register);
              });
@@ -469,7 +502,7 @@ let load_register register (address : Operande.address) ktype_size =
     Instruction
       (Mov
          {
-           size = data_size;
+           size = IntSize data_size;
            source = `Address address;
            destination = `Register register;
          });
@@ -494,21 +527,21 @@ let load_label ?module_path label (dst : Operande.dst) =
   | `Register reg ->
       [
         Instruction
-          (Lea { size = Q; destination = reg; source = address_of_const label });
+          (Lea { size = IntSize Q; destination = reg; source = address_of_const label });
       ]
   | `Address addr ->
       [
         Instruction
           (Lea
              {
-               size = Q;
+               size = IntSize Q;
                destination = Register.raxq;
                source = address_of_const label;
              });
         Instruction
           (Mov
              {
-               size = Q;
+               size = IntSize Q;
                destination = `Address addr;
                source = `Register Register.raxq;
              });
@@ -612,11 +645,11 @@ module FrameManager = struct
       [
         Instruction
           (Mov
-             { size = Q; source = `Register rspq; destination = `Register rbpq });
+             { size = IntSize Q; source = `Register rspq; destination = `Register rbpq });
         Instruction
           (Sub
              {
-               size = Q;
+               size = IntSize Q;
                destination = `Register rspq;
                source = `ILitteral sub_align;
              });
@@ -691,7 +724,7 @@ module FrameManager = struct
     let open Instruction in
     let base =
       Instruction
-        (Mov { size = Q; destination = `Register rspq; source = `Register rbpq })
+        (Mov { size = IntSize Q; destination = `Register rspq; source = `Register rbpq })
     in
     let pop = Instruction (Pop { size = Q; destination = `Register rbpq }) in
     let return = Instruction Ret in
