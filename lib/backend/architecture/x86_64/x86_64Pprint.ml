@@ -29,7 +29,7 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
 
   let string_of_float_data_size = function SS -> "ss" | SD -> "sd" 
 
-  let string_of_data_size: type a. a data_size -> string = function
+  let string_of_data_size = function
   | IntSize i -> string_of_int_data_size i
   | FloatSize f -> string_of_float_data_size f
 

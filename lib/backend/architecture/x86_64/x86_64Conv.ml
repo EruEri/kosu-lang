@@ -361,8 +361,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     in
     rinstructions @ linstructions @ copy_instructions
 
-  let translate_tac_binop_self ~litterals ~blhs ~brhs ~where fbinop
-      rval_rktype rprogram fd =
+  let translate_tac_binop_self:litterals:litterals ->
+    blhs:tac_typed_expression ->
+    brhs:tac_typed_expression ->
+    where: address option ->
+    (size: ('a a data_size -> destination:[> `Register of register] -> source:[> `Register of register] -> raw_line list) )  -> 
+    KosuIrTyped.Asttyped.rktype -> KosuIrTyped.Asttyped.rprogram -> FrameManager.frame_desc ->
+    raw_line list 
+    = fun ~litterals ~blhs ~brhs ~where (fbinop)
+      rval_rktype rprogram fd ->
     let r10 = tmp_r10_ktype rprogram blhs.expr_rktype in
     let rax = tmp_rax_ktype rprogram brhs.expr_rktype in
     let right_reg, rinstructions =
@@ -377,9 +384,12 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     let left_reg = Operande.register_of_dst left_reg in
     let right_reg = Operande.register_of_dst right_reg in
 
-    let mult_instruction =
-      fbinop ~size:left_reg.size ~destination:(`Register left_reg)
-        ~source:(`Register right_reg)
+    let mult_instruction = match size_of_reg left_reg with
+      | `IntS intsize ->
+        fbinop ~size:(IntSize intsize) ~destination:(`Register left_reg)
+          ~source:(`Register right_reg)
+      | `FloatS -> 
+        fbinop ~size:(FloatSize (float_data_size_of_ktype rval_rktype)) ~destination:(`Register left_reg) ~source:(`Register right_reg)
     in
     let copy_instruction =
       where
@@ -529,7 +539,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                   Instruction
                     (Mov
                        {
-                         size = B;
+                         size = ib;
                          destination = `Register (sized_register B RAX);
                          source = `ILitteral count_float_parameters;
                        });
@@ -592,7 +602,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                 Instruction
                   (Mov
                      {
-                       size = L;
+                       size = il;
                        source = `ILitteral syscall_decl.opcode;
                        destination = `Register (sized_register L RAX);
                      });

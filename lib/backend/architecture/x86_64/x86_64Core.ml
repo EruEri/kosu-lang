@@ -21,9 +21,9 @@ module IdVarMap = Common.IdVarMap
 
 type int_data_size = B | W | L | Q
 type float_data_size = SS | SD
-type _ data_size = 
-  | IntSize : int_data_size -> int_data_size data_size
-  | FloatSize : float_data_size -> float_data_size data_size
+type data_size = 
+  | IntSize of int_data_size
+  | FloatSize of float_data_size 
 
 let iq = IntSize Q
 let ib = IntSize B
@@ -151,9 +151,10 @@ module Register = struct
       resize_register size register
 
 
-  let size_of_reg_opt = function
-  | IntReg r -> Some r.size
-  | FloatReg _ -> None
+  let size_of_reg = function
+  | IntReg r -> `IntS r.size
+  | FloatReg _ -> `FloatS
+  
 
   (* %rdi, %rsi, %rdx, %rcx, %r8, %r9 *)
   let argument_registers = [ RDI; RSI; RDX; RCX; R8; R9 ]
@@ -192,6 +193,7 @@ module Register = struct
     sized_register data_size RAX
 
   let tmp_rax_ktype rpogram ktype =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then FloatReg XMM0 else
     let size =
       data_size_of_int64_def
       @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
@@ -203,6 +205,7 @@ module Register = struct
     sized_register data_size R9
 
   let tmp_r9_ktype rpogram ktype =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then FloatReg XMM9 else
     let size =
       data_size_of_int64_def
       @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
@@ -215,6 +218,7 @@ module Register = struct
     sized_register data_size R10
 
   let tmp_r10_ktype rpogram ktype =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then FloatReg XMM10 else
     let size =
       data_size_of_int64_def
       @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
@@ -226,6 +230,7 @@ module Register = struct
     sized_register data_size R11
 
   let tmp_r11_ktype rpogram ktype =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then FloatReg XMM11 else
     let size =
       data_size_of_int64_def
       @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
@@ -322,16 +327,16 @@ module Instruction = struct
     | Line_Com of comment
 
   and instruction =
-    | Mov : { size : 'a data_size; source : src; destination : dst } -> instruction
+    | Mov of { size : data_size; source : src; destination : dst }
     | Movsl of { size : int_data_size; source : src; destination : dst }
     | Movzl of { size : int_data_size; source : src; destination : dst }
-    | Set : { cc : condition_code; register : Register.register } -> instruction
-    | Lea : { size : 'a data_size; source : address; destination : register } -> instruction
-    | Neg : { size : 'a data_size; source : register } -> instruction
-    | Not : { size : 'a data_size; source : register } -> instruction
-    | Add : { size : 'a data_size; destination : dst; source : src } -> instruction
-    | Sub : { size : 'a data_size; destination : dst; source : src } -> instruction
-    | IMul : { size : 'a data_size; destination : register; source : src } -> instruction
+    | Set of { cc : condition_code; register : Register.register }
+    | Lea of { size : data_size; source : address; destination : register }
+    | Neg of { size : data_size; source : register }
+    | Not of { size : data_size; source : register }
+    | Add of { size : data_size; destination : dst; source : src }
+    | Sub of { size : data_size; destination : dst; source : src }
+    | IMul of { size : data_size; destination : register; source : src }
     | Xor of { size : int_data_size; destination : dst; source : src }
     | Or of { size :  int_data_size; destination : dst; source : src }
     | And of { size : int_data_size; destination : dst; source : src }
@@ -348,7 +353,7 @@ module Instruction = struct
     | Shr of { size : int_data_size; shift : src; destination : dst }
     | Push of  { size : int_data_size; source : src } 
     | Pop of { size : int_data_size; destination : dst } 
-    | Cmp : { size : 'a data_size; lhs : src; rhs : src } -> instruction
+    | Cmp of { size : data_size; lhs : src; rhs : src }
     | Jmp of {
         cc : condition_code option;
         where : [ `Register of int_register | `Label of string ];
@@ -374,41 +379,41 @@ module Instruction = struct
   let ins_sub ~size ~destination ~source =
     [ Instruction (Sub { size; destination; source }) ]
 
-  let ins_bitwiseand: type a. size:a data_size -> destination:dst -> source:src -> raw_line list = fun ~size ~destination ~source -> 
+  let ins_bitwiseand = fun ~size ~destination ~source -> 
     match size with
     | IntSize size ->
       [ Instruction (And { size; destination; source }) ]
     | FloatSize _ ->
       failwith "Invalid Bitwise and"
 
-  let ins_bitwiseor: type a. size:a data_size -> destination:dst -> source:src -> raw_line list = fun ~size ~destination ~source -> 
+  let ins_bitwiseor = fun ~size ~destination ~source -> 
     match size with
     | IntSize size ->
       [ Instruction (Or { size; destination; source }) ]
     | FloatSize _ ->
       failwith "Invalid Bitwize Xor"
 
-  let ins_bitwisexor: type a. size:a data_size -> destination:dst -> source:src -> raw_line list = fun ~size ~destination ~source -> 
+  let ins_bitwisexor = fun ~size ~destination ~source -> 
     match size with
     | IntSize size ->
       [ Instruction (Xor { size; destination; source }) ]
     | FloatSize _ ->
       failwith "Invalid Bitwexor float float"
 
-  let ins_shiftleft: type a. size:a data_size -> destination:dst -> source:src -> raw_line list = fun ~size ~destination ~source -> 
+  let ins_shiftleft = fun ~size ~destination ~source -> 
     match size with
     | IntSize size ->
       [ Instruction (Sal { size; destination; shift = source }) ]
     | FloatSize _ -> 
       failwith "Invalid ShiftLeft for float"
 
-  let ins_shift_signed_right: type a. size:a data_size -> destination:dst -> source:src -> raw_line list = fun ~size ~destination ~source -> 
+  let ins_shift_signed_right = fun ~size ~destination ~source -> 
     match size with
     | IntSize size -> [ Instruction (Sar { size; destination; shift = source }) ]
     | FloatSize _ ->
       failwith "Invalid ins_shift_signed_righ for float"
 
-  let ins_shift_unsigned_right: type a. size:a data_size -> destination:dst -> source:src -> raw_line list = fun ~size ~destination ~source -> 
+  let ins_shift_unsigned_right = fun ~size ~destination ~source -> 
     match size with
     | IntSize size -> [ Instruction (Shr { size; destination; shift = source }) ]
     | FloatSize _ ->
