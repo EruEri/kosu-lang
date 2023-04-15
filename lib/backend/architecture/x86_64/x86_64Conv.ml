@@ -46,7 +46,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                Instruction
                  (Mov
                     {
-                      size = Q;
+                      size = IntSize Q;
                       destination = `Register rdiq;
                       source = `Address pointer;
                     })
@@ -65,14 +65,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                  Instruction
                    (Mov
                       {
-                        size = Q;
+                        size = IntSize Q;
                         destination = `Register rdiq;
                         source = `Address pointer;
                       });
                  Instruction
                    (Mov
                       {
-                        size = Q;
+                        size = IntSize Q;
                         destination = `Register rdiq;
                         source = `Address (create_address_offset rdiq);
                       });
@@ -80,7 +80,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
            | None ->
                [
                  Instruction
-                   (Lea { size = Q; destination = rdiq; source = waddress });
+                   (Lea { size = IntSize Q; destination = rdiq; source = waddress });
                ])
     |> Option.value ~default:[]
 
@@ -108,7 +108,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             ( target_dst,
               [
                 Instruction
-                  (Mov { size = B; destination = addr; source = `ILitteral 0L });
+                  (Mov { size = ib; destination = addr; source = `ILitteral 0L });
               ] ))
     | { tac_expression = TENullptr; expr_rktype = _ } -> (
         match target_dst with
@@ -122,7 +122,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             ( target_dst,
               [
                 Instruction
-                  (Mov { size = Q; destination = addr; source = `ILitteral 0L });
+                  (Mov { size = iq; destination = addr; source = `ILitteral 0L });
               ] ))
     | { tac_expression = TETrue; _ } ->
         let resized_dst = resize_dst B target_dst in
@@ -131,7 +131,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             Instruction
               (Mov
                  {
-                   size = L;
+                   size = IntSize L;
                    destination = resize_dst L resized_dst;
                    source = `ILitteral 1L;
                  });
@@ -144,7 +144,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             Instruction
               (Mov
                  {
-                   size = B;
+                   size = IntSize B;
                    destination = target_dst;
                    source = `ILitteral code;
                  });
@@ -158,13 +158,16 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             Instruction
               (Mov
                  {
-                   size = scaled_data_size;
+                   size = IntSize scaled_data_size;
                    source = `ILitteral int64;
                    destination = resize_dst scaled_data_size target_dst;
                  });
           ] )
-    | { tac_expression = TEFloat _float; _ } ->
-        failwith "X86_64: Mov Float todo"
+    | { tac_expression = TEFloat float; _ } ->
+      let (FLit float_label) = Hashtbl.find litterals.float_lit_map float in
+        let fsize = fst float in
+        let instructions = load_float_label fsize float_label target_dst in
+        target_dst, instructions
     | { tac_expression = TEIdentifier id; expr_rktype } -> (
         let adress =
           FrameManager.address_of (id, expr_rktype) fd |> fun adr ->
@@ -196,7 +199,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                       Instruction
                         (Mov
                            {
-                             size = data_size;
+                             size = IntSize data_size;
                              destination = reg;
                              source = `Address adress;
                            });
@@ -208,7 +211,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                     Instruction
                       (Mov
                          {
-                           size = data_size;
+                           size = IntSize data_size;
                            destination = `Register sized_rax;
                            source = `Address adress;
                          });
@@ -216,7 +219,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                     Instruction
                       (Mov
                          {
-                           size = data_size;
+                           size = IntSize data_size;
                            destination = target_dst;
                            source = `Register sized_rax;
                          });
@@ -230,7 +233,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                     (* Line_Com (Comment "Here"); *)
                     Instruction
                       (Lea
-                         { size = Q; source = adress; destination = resied_reg });
+                         { size = iq; source = adress; destination = resied_reg });
                   ] )
             | `Address _ ->
                 ( `Register (tmp_r11 8L),
@@ -238,7 +241,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                     Line_Com (Comment "Mov identifier larger than reg");
                     Instruction
                       (Lea
-                         { size = Q; source = adress; destination = tmp_r11 8L });
+                         { size = iq; source = adress; destination = tmp_r11 8L });
                   ] )))
     | { tac_expression = TESizeof kt; _ } ->
         let sizeof = sizeofn rprogram kt in
@@ -249,7 +252,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             Instruction
               (Mov
                  {
-                   size = Q;
+                   size = iq;
                    destination = target_dst;
                    source = `ILitteral sizeof;
                  });
@@ -289,7 +292,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             Instruction
               (Mov
                  {
-                   size = data_size;
+                   size = IntSize data_size;
                    source = `ILitteral int_value;
                    destination = target_dst;
                  });
@@ -825,7 +828,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           |> Option.map (fun waddress ->
                  [
                    Instruction
-                     (Lea { size = Q; destination = raxq; source = adress });
+                     (Lea { size = iq; destination = raxq; source = adress });
                  ]
                  @ copy_from_reg raxq waddress rval_rktype rprogram)
           |> Option.value ~default:[]
@@ -847,7 +850,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             Instruction
               (Mov
                  {
-                   size = Q;
+                   size = iq;
                    destination = `Register r10q;
                    source = `Address adress;
                  });
@@ -1051,7 +1054,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
               Instruction
                 (Mov
                    {
-                     size = Q;
+                     size = iq;
                      source = `ILitteral 0L;
                      destination = `Register (tmp_r10 8L);
                    })
@@ -1066,7 +1069,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             let scale_instruction =
               if pointee_size = 1L then []
               else
-                ins_mult ~size:Q
+                ins_mult ~size:iq
                   ~destination:(`Register (resize_register Q size_reg))
                   ~source:(`ILitteral pointee_size)
             in
@@ -1120,6 +1123,9 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         @ (setup_div :: divi_instruction :: copy_instructions)
     | RVBuiltinBinop
         { binop = TacSelf TacModulo; blhs = dividende; brhs = divisor } ->
+        let () = if KosuIrTyped.Asttyhelper.RType.is_float rval_rktype
+          then failwith "Modulo not done for X86 float"
+        in
         let unsigned =
           KosuIrTyped.Asttyhelper.RType.is_unsigned_integer
             dividende.expr_rktype
@@ -1347,7 +1353,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           Instruction
             (Mov
                {
-                 size = Q;
+                 size = iq;
                  destination = `Register tmpreg;
                  source = `Address (Option.get intermediary_adress);
                })
@@ -1395,14 +1401,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             Instruction
               (Mov
                  {
-                   size = Q;
+                   size = iq;
                    source = `Address intermediary_adress;
                    destination = `Register tmp_rax;
                  });
             Instruction
               (Add
                  {
-                   size = Q;
+                   size = iq;
                    destination = `Register tmp_rax;
                    source = `ILitteral field_offset;
                  });
@@ -1447,7 +1453,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         let rhs = src_of_dst last_reg in
         let cmp =
-          Instruction (Cmp { size = data_size; rhs; lhs = `ILitteral 0L })
+          Instruction (Cmp { size = IntSize data_size; rhs; lhs = `ILitteral 0L })
         in
         let jmp =
           Instruction (Jmp { cc = Some E; where = `Label exit_label })
@@ -1528,7 +1534,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                  let lhs = src_of_dst last_reg in
                  let rhs = resize_src B lhs in
                  let cmp =
-                   Instruction (Cmp { size = B; rhs; lhs = `ILitteral 1L })
+                   Instruction (Cmp { size = ib; rhs; lhs = `ILitteral 1L })
                  in
                  let if_true_instruction =
                    Instruction (Jmp { cc = Some E; where = `Label scases.goto })
@@ -1608,7 +1614,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             Instruction
               (Mov
                  {
-                   size = L;
+                   size = il;
                    destination = `Register (sized_register L R10);
                    source = src_of_dst @@ resize_dst L last_dst;
                  })
@@ -1616,7 +1622,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             Instruction
               (Mov
                  {
-                   size = L;
+                   size = il;
                    destination = `Register (sized_register L R10);
                    source = `Address (address_of_dst last_dst);
                  })
@@ -1638,7 +1644,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                             Instruction
                               (Cmp
                                  {
-                                   size = L;
+                                   size = il;
                                    rhs = `Register (sized_register L R10);
                                    lhs = `ILitteral (Int64.of_int32 tag);
                                  })
@@ -1675,7 +1681,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                          Instruction
                                            (Mov
                                               {
-                                                size = data_size;
+                                                size = IntSize data_size;
                                                 destination =
                                                   `Register
                                                     (tmp_rax size_of_ktype);
@@ -1687,7 +1693,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                          Instruction
                                            (Mov
                                               {
-                                                size = data_size;
+                                                size = IntSize data_size;
                                                 source =
                                                   `Register
                                                     (tmp_rax size_of_ktype);
@@ -1700,7 +1706,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                          Instruction
                                            (Lea
                                               {
-                                                size = Q;
+                                                size = iq;
                                                 destination = raxq;
                                                 source =
                                                   increment_adress offset_a
@@ -1793,7 +1799,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                  Instruction
                    (Mov
                       {
-                        size = Q;
+                        size = iq;
                         destination = `Register rdiq;
                         source = `Address x8_address;
                       })
@@ -1818,14 +1824,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         Instruction
           (Mov
              {
-               size = L;
+               size = il;
                source = `Address (create_address_offset rspq);
                destination = `Register edi;
              });
         Instruction
           (Lea
              {
-               size = Q;
+               size = iq;
                source = create_address_offset ~offset:8L rspq;
                destination = rsiq;
              });

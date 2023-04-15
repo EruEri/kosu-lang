@@ -25,6 +25,15 @@ type _ data_size =
   | IntSize : int_data_size -> int_data_size data_size
   | FloatSize : float_data_size -> float_data_size data_size
 
+let iq = IntSize Q
+let ib = IntSize B
+let il = IntSize L
+let iw = IntSize W
+
+let float_data_size_of_ktype = function
+| KosuIrTyped.Asttyped.RTFloat KosuFrontend.Ast.F32 -> FloatSize SS
+| RTFloat F64 -> FloatSize SD
+| _ -> failwith "expected float type"
 
 let data_size_of_int64 = function
   | 1L -> Some B
@@ -48,6 +57,12 @@ let int64_of_data_size = function B -> 1L | W -> 2L | L -> 4L | Q -> 8L
 let data_size_of_isize =
   let open KosuFrontend.Ast in
   function I8 -> B | I16 -> W | I32 -> L | I64 -> Q
+
+let fdate_size_of_fsize = 
+  let open KosuFrontend.Ast in
+  function
+  | F32 -> SS
+  | F64 -> SD  
 
 let is_register_size = function 1L | 2L | 4L | 8L -> true | _ -> false
 
@@ -546,6 +561,16 @@ let load_label ?module_path label (dst : Operande.dst) =
                source = `Register Register.raxq;
              });
       ]
+
+  let load_float_label fsize labelname destination = 
+    let open Instruction in
+    let address = address_of_const labelname in
+    let fdata_size = FloatSize (fdate_size_of_fsize fsize) in
+    [
+      Instruction (Mov {size = fdata_size; source = `Address address; destination;})
+    ]
+
+
 
 module FrameManager = struct
   (* open Instruction *)
