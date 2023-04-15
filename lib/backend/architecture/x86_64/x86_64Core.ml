@@ -25,10 +25,16 @@ type data_size =
   | IntSize of int_data_size
   | FloatSize of float_data_size 
 
+let intsize i = IntSize i
+let floatsize f = FloatSize f
+
 let iq = IntSize Q
 let ib = IntSize B
 let il = IntSize L
 let iw = IntSize W
+
+let fss = FloatSize SS
+let fsd = FloatSize SD
 
 let float_data_size_of_ktype = function
 | KosuIrTyped.Asttyped.RTFloat KosuFrontend.Ast.F32 -> FloatSize SS
@@ -49,8 +55,25 @@ let float_data_size_of_int64 = function
 
 let need_long_promotion = function B | W -> true | _ -> false
 
-let data_size_of_int64_def ?(default = Q) size =
+let int_data_size_of_int64_def ?(default = Q) size =
   Option.value ~default @@ data_size_of_int64 size
+
+let data_size_of_ktype rprogram ktype = 
+  match ktype with 
+  | KosuIrTyped.Asttyped.RTFloat KosuFrontend.Ast.F32 -> FloatSize SS
+  | RTFloat F64 -> FloatSize SD
+  | kt -> 
+    let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt in
+    IntSize (Option.get @@ data_size_of_int64 size)
+
+
+  let data_size_of_ktype_opt rprogram ktype =  match ktype with 
+    | KosuIrTyped.Asttyped.RTFloat KosuFrontend.Ast.F32 -> Some (FloatSize SS)
+    | RTFloat F64 -> Some (FloatSize SD)
+    | kt -> 
+      let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt in
+      size |> data_size_of_int64 |> Option.map (fun size -> IntSize size)
+
 
 let int64_of_data_size = function B -> 1L | W -> 2L | L -> 4L | Q -> 8L
 
@@ -62,7 +85,7 @@ let fdate_size_of_fsize =
   let open KosuFrontend.Ast in
   function
   | F32 -> SS
-  | F64 -> SD  
+  | F64 -> SD 
 
 let is_register_size = function 1L | 2L | 4L | 8L -> true | _ -> false
 
@@ -138,22 +161,26 @@ module Register = struct
     | RIP -> failwith "RIP: doesnt have Float conterpart"
   end
 
-  let resize_register size = function
-  | IntReg register -> IntReg { register with size }
-  | FloatReg _ as register -> register
+  let resize_register size register = match register, size with
+  | IntReg register, IntSize size -> IntReg { register with size }
+  | _ , _ -> register
 
   let reg_of_ktype rprogram ktype ~register = 
     match ktype with
     | KosuIrTyped.Asttyped.RTFloat _ -> to_float_register register
     | _ -> 
-      let sizeof = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
-      let size = data_size_of_int64_def ~default:Q sizeof in
+      let size = data_size_of_ktype rprogram ktype in
       resize_register size register
 
 
   let size_of_reg = function
-  | IntReg r -> `IntS r.size
-  | FloatReg _ -> `FloatS
+  | IntReg r -> IntSize r.size
+  | FloatReg _ ->  FloatSize SD
+
+  let int_size_of_reg = function
+  | IntReg r -> r.size
+  | FloatReg _ -> failwith "Float reg expects in reg"
+
   
 
   (* %rdi, %rsi, %rdx, %rcx, %r8, %r9 *)
@@ -183,8 +210,8 @@ module Register = struct
 
   let return_register rprogram ktype  =
     if KosuIrTyped.Asttyhelper.RType.is_float ktype then Option.some @@ FloatReg XMM0 else
-    let return_size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype  in
-    return_size |> data_size_of_int64
+  
+    data_size_of_ktype_opt rprogram ktype
     |> Option.map (fun size -> resize_register size raxq)
 
   (** Rax *)
@@ -195,7 +222,7 @@ module Register = struct
   let tmp_rax_ktype rpogram ktype =
     if KosuIrTyped.Asttyhelper.RType.is_float ktype then FloatReg XMM0 else
     let size =
-      data_size_of_int64_def
+      int_data_size_of_int64_def
       @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
     in
     sized_register size RAX
@@ -207,7 +234,7 @@ module Register = struct
   let tmp_r9_ktype rpogram ktype =
     if KosuIrTyped.Asttyhelper.RType.is_float ktype then FloatReg XMM9 else
     let size =
-      data_size_of_int64_def
+      int_data_size_of_int64_def
       @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
     in
     sized_register size R9
@@ -220,7 +247,7 @@ module Register = struct
   let tmp_r10_ktype rpogram ktype =
     if KosuIrTyped.Asttyhelper.RType.is_float ktype then FloatReg XMM10 else
     let size =
-      data_size_of_int64_def
+      int_data_size_of_int64_def
       @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
     in
     sized_register size R10
@@ -232,7 +259,7 @@ module Register = struct
   let tmp_r11_ktype rpogram ktype =
     if KosuIrTyped.Asttyhelper.RType.is_float ktype then FloatReg XMM11 else
     let size =
-      data_size_of_int64_def
+      int_data_size_of_int64_def
       @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
     in
     sized_register size R11
@@ -445,11 +472,11 @@ module Instruction = struct
         match sign with
         | KosuFrontend.Ast.Signed ->
             Instruction
-              (Movsl { size; destination = resize_dst L dst; source = src })
+              (Movsl { size; destination = resize_dst il dst; source = src })
             :: []
         | KosuFrontend.Ast.Unsigned ->
             Instruction
-              (Movzl { size; destination = resize_dst L dst; source = src })
+              (Movzl { size; destination = resize_dst il dst; source = src })
             :: [])
     | _ -> Instruction (Mov { size = IntSize size; source = src; destination = dst }) :: []
 end
@@ -502,7 +529,7 @@ let copy_from_reg (register : Register.register) address ktype rprogram =
              {
                size = IntSize data_size;
                destination = `Address address;
-               source = `Register (Register.resize_register data_size register);
+               source = `Register (Register.resize_register (IntSize data_size) register);
              });
       ]
   | _ ->
@@ -702,7 +729,7 @@ module FrameManager = struct
                | None -> failwith "X86_64: No stack allocated for this variable"
              in
              let data_size =
-               data_size_of_int64_def
+              int_data_size_of_int64_def
                @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt
              in
              let sized_regiser = sized_register data_size register in
