@@ -58,13 +58,13 @@ let need_long_promotion = function B | W -> true | _ -> false
 let int_data_size_of_int64_def ?(default = Q) size =
   Option.value ~default @@ data_size_of_int64 size
 
-let data_size_of_ktype rprogram ktype = 
+let data_size_of_ktype ?(default = Q) rprogram ktype = 
   match ktype with 
   | KosuIrTyped.Asttyped.RTFloat KosuFrontend.Ast.F32 -> FloatSize SS
   | RTFloat F64 -> FloatSize SD
   | kt -> 
     let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt in
-    IntSize (Option.get @@ data_size_of_int64 size)
+    IntSize (int_data_size_of_int64_def ~default size)
 
 
   let data_size_of_ktype_opt rprogram ktype =  match ktype with 
@@ -206,7 +206,12 @@ module Register = struct
   let ripq = IntReg { size = Q; reg = RIP }
   let rdxq = IntReg { size = Q; reg = RDX }
   let raxq = IntReg { size = Q; reg = RAX }
-  (* let is_aliased lhs rhs = lhs.reg = rhs.reg *)
+
+  let xmm0 = FloatReg XMM0
+
+  let xmm1 = FloatReg XMM1
+
+  let xmm2 = FloatReg XMM2
 
   let return_register rprogram ktype  =
     if KosuIrTyped.Asttyhelper.RType.is_float ktype then Option.some @@ FloatReg XMM0 else
@@ -597,10 +602,19 @@ let load_label ?module_path label (dst : Operande.dst) =
   let load_float_label fsize labelname destination = 
     let open Instruction in
     let address = address_of_const labelname in
+    let source_f = `Address address in
     let fdata_size = FloatSize (fdate_size_of_fsize fsize) in
-    [
-      Instruction (Mov {size = fdata_size; source = `Address address; destination;})
-    ]
+    match destination with
+    | `Register _ ->
+      [
+        Instruction (Mov {size = fdata_size; source = source_f; destination = destination})
+      ]
+    | `Address _ -> 
+      let tmp_xmm0 = `Register Register.xmm0 in
+      [
+        Instruction (Mov {size = fdata_size; source = source_f; destination = tmp_xmm0});
+        Instruction (Mov {size = fdata_size; source = tmp_xmm0; destination = destination})
+      ]
 
 
 
