@@ -75,6 +75,7 @@ let data_size_of_ktype ?(default = Q) rprogram ktype =
       size |> data_size_of_int64 |> Option.map (fun size -> IntSize size)
 
 
+  
 let int64_of_data_size = function B -> 1L | W -> 2L | L -> 4L | Q -> 8L
 
 let data_size_of_isize =
@@ -89,8 +90,12 @@ let fdate_size_of_fsize =
 
 let is_register_size = function 1L | 2L | 4L | 8L -> true | _ -> false
 
+let is_register_size_ktype rprogram ktype = 
+  let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+  is_register_size size
+
 module Register = struct
-  type raw_register =
+  type int_register =
     | RAX
     | RBX
     | RCX
@@ -109,7 +114,7 @@ module Register = struct
     | R15
     | RIP
 
-  type int_register = { size : int_data_size; reg : raw_register }
+
 
   type float_register = 
   | XMM0
@@ -129,60 +134,71 @@ module Register = struct
   | XMM14
   | XMM15
 
-  let is_numerical_register = function
-    | R9 | R10 | R11 | R12 | R13 | R14 | R15 -> true
-    | _ -> false
-
-  let full_letter_reg = function reg -> not @@ is_numerical_register reg
-
-  type register = 
-  | IntReg of int_register
+  type raw_register = 
+  | IntegerReg of int_register
   | FloatReg of float_register
 
-  let to_float_register = function
-  | FloatReg _ as fr -> fr
-  | IntReg integ -> begin match integ.reg with
-    | RAX -> FloatReg XMM0
-    | RBX -> FloatReg XMM1
-    | RCX -> FloatReg XMM2
-    | RDX -> FloatReg XMM3
-    | RSI -> FloatReg XMM4
-    | RDI -> FloatReg XMM5
-    | RBP -> FloatReg XMM6
-    | RSP -> FloatReg XMM7
-    | R8 ->  FloatReg XMM8
-    | R9 ->  FloatReg XMM9
-    | R10 -> FloatReg XMM10
-    | R11 -> FloatReg XMM11
-    | R12 -> FloatReg XMM12
-    | R13 -> FloatReg XMM13
-    | R14 -> FloatReg XMM14
-    | R15 -> FloatReg XMM15
-    | RIP -> failwith "RIP: doesnt have Float conterpart"
-  end
+  type register = {
+    register: raw_register;
+    (* Since the instructions hold the size it's duplicated to have it 
+       also in the register expects if it's needed to be explicitly set
+    *)
+    register_size: data_size option
+  }
 
-  let resize_register size register = match register, size with
-  | IntReg register, IntSize size -> IntReg { register with size }
-  | _ , _ -> register
+  let fregister floatreg = {
+    register = FloatReg floatreg;
+    register_size = None
+  }
 
-  let reg_of_ktype rprogram ktype ~register = 
-    match ktype with
-    | KosuIrTyped.Asttyped.RTFloat _ -> to_float_register register
-    | _ -> 
-      let size = data_size_of_ktype rprogram ktype in
-      resize_register size register
+  let iregister ?(size) ireg = 
+    let register_size = size |> Option.map (fun s -> IntSize s) in
+  {
+    register = IntegerReg ireg;
+    register_size
+  }
+  let rxmm0 = FloatReg XMM0
 
+  let rxmm1 = FloatReg XMM1
 
-  let size_of_reg = function
-  | IntReg r -> IntSize r.size
-  | FloatReg _ ->  FloatSize SD
+  let rxmm2 = FloatReg XMM2
 
-  let int_size_of_reg = function
-  | IntReg r -> r.size
-  | FloatReg _ -> failwith "Float reg expects in reg"
+  let rxmm9 = FloatReg XMM9
 
+  let rxmm10 = FloatReg XMM10
+
+  let rxmm11 = FloatReg XMM11
+
+  let xmm0 = {
+    register = rxmm0;
+    register_size = None
+  }
+
+  let xmm1 = {
+    register = rxmm1;
+    register_size = None
+  }
+
+  let xmm2 = {
+    register = rxmm2;
+    register_size = None
+  }
+
+  let xmm9 = fregister XMM9
+  let xmm10 = fregister XMM10
+  let xmm11 = fregister XMM11
+
+  let r9 = iregister R9
+  let r10 = iregister R10
+  let r11 = iregister R11
+  let rbp = iregister RBP
+  let rsp = iregister RSP
+  let rdi = iregister RDI
+  let rsi = iregister RSI
+  let rip = iregister RIP
+  let rdx = iregister RDX
+  let rax = iregister RAX
   
-
   (* %rdi, %rsi, %rdx, %rcx, %r8, %r9 *)
   let argument_registers = [ RDI; RSI; RDX; RCX; R8; R9 ]
   let syscall_arguments_register = [ RDI; RSI; RDX; R10; R8; R9 ]
@@ -197,77 +213,39 @@ module Register = struct
     FloatReg XMM6;
     FloatReg XMM7
   ]
-  let sized_register size register = IntReg { size; reg = register }
-  let r9q = IntReg { size = Q; reg = R9 }
-  let rbpq = IntReg { size = Q; reg = RBP }
-  let rspq = IntReg { size = Q; reg = RSP }
-  let rdiq = IntReg { size = Q; reg = RDI }
-  let rsiq = IntReg { size = Q; reg = RSI }
-  let ripq = IntReg { size = Q; reg = RIP }
-  let rdxq = IntReg { size = Q; reg = RDX }
-  let raxq = IntReg { size = Q; reg = RAX }
 
-  let xmm0 = FloatReg XMM0
 
-  let xmm1 = FloatReg XMM1
 
-  let xmm2 = FloatReg XMM2
+
 
   let return_register rprogram ktype  =
-    if KosuIrTyped.Asttyhelper.RType.is_float ktype then Option.some @@ FloatReg XMM0 else
-  
-    data_size_of_ktype_opt rprogram ktype
-    |> Option.map (fun size -> resize_register size raxq)
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then Option.some xmm0 else
+    if is_register_size_ktype rprogram ktype then Some rax
+    else None
 
-  (** Rax *)
-  let tmp_rax size =
-    let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
-    sized_register data_size RAX
+  (** RAX *)
+  let tmp_rax_ktype ktype =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then xmm0
+    else rax
 
-  let tmp_rax_ktype rpogram ktype =
-    if KosuIrTyped.Asttyhelper.RType.is_float ktype then FloatReg XMM0 else
-    let size =
-      int_data_size_of_int64_def
-      @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
-    in
-    sized_register size RAX
-
-  let tmp_r9 size =
-    let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
-    sized_register data_size R9
-
-  let tmp_r9_ktype rpogram ktype =
-    if KosuIrTyped.Asttyhelper.RType.is_float ktype then FloatReg XMM9 else
-    let size =
-      int_data_size_of_int64_def
-      @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
-    in
-    sized_register size R9
+  let tmp_r9_ktype ktype =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then xmm9
+    else r9
 
   (** R10 *)
-  let tmp_r10 size =
-    let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
-    sized_register data_size R10
+  let tmp_r10_ktype ktype =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then xmm10
+    else  r10
 
-  let tmp_r10_ktype rpogram ktype =
-    if KosuIrTyped.Asttyhelper.RType.is_float ktype then FloatReg XMM10 else
-    let size =
-      int_data_size_of_int64_def
-      @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
-    in
-    sized_register size R10
+  let tmp_r11_ktype ktype =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then xmm11
+    else  r11
 
-  let tmp_r11 size =
-    let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
-    sized_register data_size R11
+    let is_numerical_register = function
+    | R9 | R10 | R11 | R12 | R13 | R14 | R15 -> true
+    | _ -> false
 
-  let tmp_r11_ktype rpogram ktype =
-    if KosuIrTyped.Asttyhelper.RType.is_float ktype then FloatReg XMM11 else
-    let size =
-      int_data_size_of_int64_def
-      @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
-    in
-    sized_register size R11
+  let full_letter_reg = function reg -> not @@ is_numerical_register reg
 end
 
 module Operande = struct
@@ -289,7 +267,7 @@ module Operande = struct
     | `Address addr -> `Address addr
     | `Register reg -> `Register reg
 
-  let dummy_dst : dst = `Register (IntReg { size = L; reg = R10 })
+  let dummy_dst : dst = `Register Register.r10
   let is_adress = function `Address _ -> true | _ -> false
   let is_register = function `Register _ -> true | _ -> false
 
@@ -317,13 +295,13 @@ module Operande = struct
         | Addr_label (s, o) -> Addr_label (s, Int64.add o by));
     }
 
-  let resize_dst data_size : dst -> dst = function
+  (* let resize_dst data_size : dst -> dst = function
     | `Address _ as addr -> addr
     | `Register reg -> `Register (Register.resize_register data_size reg)
 
   let resize_src data_size : src -> src = function
     | #dst as dst -> dst |> resize_dst data_size |> src_of_dst
-    | a -> a
+    | a -> a *)
 
   let increment_dst_address by : dst -> dst = function
     | `Register _ as reg -> reg
@@ -477,11 +455,11 @@ module Instruction = struct
         match sign with
         | KosuFrontend.Ast.Signed ->
             Instruction
-              (Movsl { size; destination = resize_dst il dst; source = src })
+              (Movsl { size; destination = dst; source = src })
             :: []
         | KosuFrontend.Ast.Unsigned ->
             Instruction
-              (Movzl { size; destination = resize_dst il dst; source = src })
+              (Movzl { size; destination = dst; source = src })
             :: [])
     | _ -> Instruction (Mov { size = IntSize size; source = src; destination = dst }) :: []
 end
@@ -493,20 +471,20 @@ let rec copy_large ~address_str ~base_address_reg size =
   else
     let dsize = size |> data_size_of_int64 |> Option.value ~default:Q in
     let moved_size = int64_of_data_size dsize in
-    let sized_rax = Register.tmp_rax size in
+
     [
       Instruction
         (Mov
            {
              size = IntSize dsize;
              source = `Address base_address_reg;
-             destination = `Register sized_rax;
+             destination = `Register Register.rax;
            });
       Instruction
         (Mov
            {
              size = IntSize dsize;
-             source = `Register sized_rax;
+             source = `Register Register.rax;
              destination = `Address address_str;
            });
     ]
@@ -534,7 +512,7 @@ let copy_from_reg (register : Register.register) address ktype rprogram =
              {
                size = IntSize data_size;
                destination = `Address address;
-               source = `Register (Register.resize_register (IntSize data_size) register);
+               source = `Register register;
              });
       ]
   | _ ->
@@ -566,7 +544,7 @@ let asm_const_name current_module const_name =
     const_name
 
 let address_of_const const_name =
-  Operande.create_address_label ~label:const_name Register.ripq
+  Operande.create_address_label ~label:const_name Register.rip
 
 let load_label ?module_path label (dst : Operande.dst) =
   let open Instruction in
@@ -587,7 +565,7 @@ let load_label ?module_path label (dst : Operande.dst) =
           (Lea
              {
                size = IntSize Q;
-               destination = Register.raxq;
+               destination = Register.rax;
                source = address_of_const label;
              });
         Instruction
@@ -595,7 +573,7 @@ let load_label ?module_path label (dst : Operande.dst) =
              {
                size = IntSize Q;
                destination = `Address addr;
-               source = `Register Register.raxq;
+               source = `Register Register.rax;
              });
       ]
 
@@ -676,7 +654,7 @@ module FrameManager = struct
              in
              let address =
                create_address_offset ~offset:rbp_relative_address
-                 rbpq
+                 rbp
              in
              IdVarMap.add st address acc)
            IdVarMap.empty
@@ -710,18 +688,18 @@ module FrameManager = struct
     *)
   let function_prologue ~fn_register_params ~stack_params rprogram fd =
     let open Instruction in
-    let base = Instruction (Push { size = Q; source = `Register rbpq }) in
+    let base = Instruction (Push { size = Q; source = `Register rbp }) in
     let sub_align = Common.OffsetHelper.align_16 fd.locals_space in
     let sp_sub =
       [
         Instruction
           (Mov
-             { size = IntSize Q; source = `Register rspq; destination = `Register rbpq });
+             { size = iq; source = `Register rsp; destination = `Register rbp });
         Instruction
           (Sub
              {
                size = IntSize Q;
-               destination = `Register rspq;
+               destination = `Register rsp;
                source = `ILitteral sub_align;
              });
       ]
@@ -742,12 +720,7 @@ module FrameManager = struct
                | Some a -> a
                | None -> failwith "X86_64: No stack allocated for this variable"
              in
-             let data_size =
-              int_data_size_of_int64_def
-               @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt
-             in
-             let sized_regiser = sized_register data_size register in
-             acc @ copy_from_reg sized_regiser whereis kt rprogram)
+             acc @ copy_from_reg (iregister register) whereis kt rprogram)
            []
     in
     let stack_params_offset =
@@ -758,7 +731,7 @@ module FrameManager = struct
              else kt)
     in
     let sp_address =
-      Operande.create_address_offset ~offset:(Int64.add 16L sub_align) rspq
+      Operande.create_address_offset ~offset:(Int64.add 16L sub_align) rsp
     in
     let copy_stack_params_instruction =
       stack_params
@@ -778,13 +751,13 @@ module FrameManager = struct
                | None -> failwith "On stack setup null address"
              in
 
-             let tmprreg = tmp_rax sizeofkt in
+
              let param_stack_address = increment_adress offset sp_address in
              let load_instruction =
-               load_register tmprreg param_stack_address sizeofkt
+               load_register Register.rax param_stack_address sizeofkt
              in
              let str_instruction =
-               copy_from_reg tmprreg future_address_location kt rprogram
+               copy_from_reg Register.rax future_address_location kt rprogram
              in
              acc @ str_instruction @ load_instruction)
            []
@@ -795,9 +768,9 @@ module FrameManager = struct
     let open Instruction in
     let base =
       Instruction
-        (Mov { size = IntSize Q; destination = `Register rspq; source = `Register rbpq })
+        (Mov { size = iq; destination = `Register rsp; source = `Register rbp })
     in
-    let pop = Instruction (Pop { size = Q; destination = `Register rbpq }) in
+    let pop = Instruction (Pop { size = Q; destination = `Register rbp }) in
     let return = Instruction Ret in
     [ base; pop; return ]
 end

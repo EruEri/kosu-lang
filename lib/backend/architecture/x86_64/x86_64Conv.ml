@@ -237,12 +237,12 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                          { size = iq; source = adress; destination = resied_reg });
                   ] )
             | `Address _ ->
-                ( `Register (tmp_r11 8L),
+                ( `Register r11q,
                   [
                     Line_Com (Comment "Mov identifier larger than reg");
                     Instruction
                       (Lea
-                         { size = iq; source = adress; destination = tmp_r11 8L });
+                         { size = iq; source = adress; destination = r11q });
                   ] )))
     | { tac_expression = TESizeof kt; _ } ->
         let sizeof = sizeofn rprogram kt in
@@ -623,7 +623,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
               where
               |> Option.map (fun waddress ->
                      let return_reg = sized_register return_reg_data_size RAX in
-                     let r9 = tmp_r9 8L in
+                     let r9 = r9q in
                      match is_deref with
                      | Some pointer ->
                          Instruction
