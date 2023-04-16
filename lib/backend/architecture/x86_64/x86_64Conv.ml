@@ -484,8 +484,12 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         match fn_decl with
         | RExternal_Decl external_func_decl ->
             let fn_label = Spec.label_of_external_function external_func_decl in
+
+            let float_parameters, other_parametrs = tac_parameters |> List.partition (fun tte -> KosuIrTyped.Asttyhelper.RType.is_float tte.expr_rktype) in
+
+            
             let args_in_reg, _args_on_stack =
-              tac_parameters
+              other_parametrs
               |> List.mapi (fun index value -> (index, value))
               |> List.partition_map (fun (index, value) ->
                      if index < available_register_count then Either.left value
@@ -502,12 +506,21 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                      in
                      let _last_reg, instructions =
                        translate_tac_expression ~litterals
-                         ~target_dst:(`Register { size = data_size; reg })
+                         ~target_dst:(`Register (IntReg { size = data_size; reg }))
                          rprogram fd tte
                      in
                      acc @ instructions)
                    []
             in
+
+            let float_instructions = 
+              float_parameters 
+                |> Util.ListHelper.combine_safe float_arguments_register
+                |> List.fold_left (fun acc (reg, tte) ->
+                  let _, instructions = translate_tac_expression ~litterals ~target_dst:(`Register reg) rprogram fd tte in
+                  acc @ instructions
+                ) []
+              in
 
             let set_on_stack_instructions = [] (* TODO *) in
             let count_float_parameters =
@@ -517,7 +530,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                      acc
                      +
                      if
-                       KosuIrTyped.Asttyhelper.RType.is_64bits_float
+                       KosuIrTyped.Asttyhelper.RType.is_float
                          tte.expr_rktype
                      then 1
                      else 0)
@@ -559,7 +572,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                       ~return_reg ~return_type:external_func_decl.return_type
                       rprogram
                   in
-                  set_in_reg_instructions @ set_on_stack_instructions
+                  set_in_reg_instructions @ float_instructions @ set_on_stack_instructions
                   @ variadic_float_use_instruction @ call_instructions
                   @ copy_instruction
               | false ->
@@ -567,22 +580,22 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                     return_function_instruction_none_reg_size ~where ~is_deref
                   in
                   set_in_reg_instructions @ set_on_stack_instructions
-                  @ set_indirect_return_instruction @ call_instructions
+                  @ set_indirect_return_instruction @ float_instructions @ call_instructions
             in
             extern_instructions
         | RSyscall_Decl syscall_decl ->
+          (* Totally use that syscall args cannot contains float according to the Sys V ABI *)
             let set_on_reg_instructions =
               tac_parameters
               |> Util.ListHelper.combine_safe syscall_arguments_register
               |> List.fold_left
                    (fun acc (reg, tte) ->
-                     let data_size =
-                       Option.value ~default:Q @@ data_size_of_int64
-                       @@ sizeofn rprogram tte.expr_rktype
+                    let sizeof = sizeofn rprogram tte.expr_rktype in
+                     let data_size = int_data_size_of_int64_def ~default:W sizeof
                      in
                      let _last_reg, instructions =
                        translate_tac_expression ~litterals
-                         ~target_dst:(`Register { size = data_size; reg })
+                         ~target_dst:(`Register (IntReg { size = data_size; reg }) )
                          rprogram fd tte
                      in
                      acc @ instructions)
@@ -616,7 +629,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                          Instruction
                            (Mov
                               {
-                                size = Q;
+                                size = iq;
                                 destination = `Register r9;
                                 source = `Address pointer;
                               })
@@ -643,16 +656,18 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             let fn_label =
               Spec.label_of_kosu_function ~module_path function_decl
             in
+
+            let float_parameters, other_parametrs = tac_parameters |> List.partition (fun tte -> KosuIrTyped.Asttyhelper.RType.is_float tte.expr_rktype) in
             (* let is_reg_size = rval_rktype |> sizeofn rprogram |> is_register_size in *)
-            let args_in_reg, _args_on_stack =
-              tac_parameters
+            let int_args_in_reg, _int_args_on_stack =
+              other_parametrs
               |> List.mapi (fun index value -> (index, value))
               |> List.partition_map (fun (index, value) ->
                      if index < available_register_count then Either.left value
                      else Either.right value)
             in
             let set_in_reg_instructions =
-              args_in_reg
+              int_args_in_reg
               |> Util.ListHelper.combine_safe available_register_params
               |> List.fold_left
                    (fun acc (reg, tte) ->
@@ -662,12 +677,21 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                      in
                      let _last_reg, instructions =
                        translate_tac_expression ~litterals
-                         ~target_dst:(`Register { size = data_size; reg })
+                         ~target_dst:(`Register (IntReg { size = data_size; reg }))
                          rprogram fd tte
                      in
                      acc @ instructions)
                    []
             in
+
+            let float_instruction = 
+              float_parameters 
+                |> Util.ListHelper.combine_safe float_arguments_register
+                |> List.fold_left (fun acc (reg, tte) ->
+                  let _, instructions = translate_tac_expression ~litterals ~target_dst:(`Register reg) rprogram fd tte in
+                  acc @ instructions
+                ) []
+              in
             (* let set_in_reg_instructions = if need_pass_rdi then
                    (Instruction (Lea {size = Q; source = Option.get where; destination = rdiq}))::set_in_reg_instructions
                  else set_in_reg_instructions
@@ -693,14 +717,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                       ~return_reg ~return_type:function_decl.return_type
                       rprogram
                   in
-                  set_in_reg_instructions @ set_on_stack_instructions
+                  set_in_reg_instructions @ set_on_stack_instructions @ float_instruction
                   @ call_instructions @ copy_instruction
               | false ->
                   let set_indirect_return_instructions =
                     return_function_instruction_none_reg_size ~where ~is_deref
                   in
 
-                  set_in_reg_instructions @ set_on_stack_instructions
+                  set_in_reg_instructions @ set_on_stack_instructions @ float_instruction
                   @ set_indirect_return_instructions @ call_instructions
             in
             kosu_fn_instructions @ [ fn_call_comm ])
