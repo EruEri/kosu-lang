@@ -74,6 +74,10 @@ module Occurence = struct
     | t :: q -> Multiple (t :: q)
 end
 
+module Operator = struct
+  let ( >? ) o v = Option.value ~default:v o
+end
+
 module ListHelper = struct
   let rec index_of_aux f index = function
     | [] -> raise Not_found

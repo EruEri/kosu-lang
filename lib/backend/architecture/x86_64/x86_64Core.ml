@@ -143,7 +143,7 @@ module Register = struct
     (* Since the instructions hold the size it's duplicated to have it 
        also in the register expects if it's needed to be explicitly set
     *)
-    register_size: data_size option
+    register_size: int_data_size option
   }
 
   let fregister floatreg = {
@@ -152,10 +152,9 @@ module Register = struct
   }
 
   let iregister ?(size) ireg = 
-    let register_size = size |> Option.map (fun s -> IntSize s) in
   {
     register = IntegerReg ireg;
-    register_size
+    register_size = size
   }
   let rxmm0 = FloatReg XMM0
 
@@ -340,7 +339,7 @@ module Instruction = struct
     | Mov of { size : data_size; source : src; destination : dst }
     | Movsl of { size : int_data_size; source : src; destination : dst }
     | Movzl of { size : int_data_size; source : src; destination : dst }
-    | Set of { cc : condition_code; register : Register.register }
+    | Set of { size: int_data_size; cc : condition_code; register : Register.register }
     | Lea of { size : data_size; source : address; destination : register }
     | Neg of { size : data_size; source : register }
     | Not of { size : data_size; source : register }
@@ -366,9 +365,9 @@ module Instruction = struct
     | Cmp of { size : data_size; lhs : src; rhs : src }
     | Jmp of {
         cc : condition_code option;
-        where : [ `Register of int_register | `Label of string ];
+        where : [ `Register of register | `Label of string ];
       }
-    | Call of { what : [ `Register of int_register | `Label of string ] }
+    | Call of { what : [ `Register of register | `Label of string ] }
     | Syscall
     | Cltd
     | Cqto
