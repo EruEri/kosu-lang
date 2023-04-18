@@ -367,6 +367,9 @@ module Instruction = struct
     | Xor of { size : int_data_size; destination : dst; source : src }
     | Or of { size :  int_data_size; destination : dst; source : src }
     | And of { size : int_data_size; destination : dst; source : src }
+
+    (* i to f*)
+    | Cvts2s of { source_size: data_size; dst_size: data_size; source: src; destination: dst}
     | Fdiv of { size : float_data_size; destination : float_register; source: float_register }
     | IDivl of { (* l | q *)
                  size : int_data_size; divisor : src }

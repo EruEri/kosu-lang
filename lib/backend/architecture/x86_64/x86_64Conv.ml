@@ -1193,10 +1193,6 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         | Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64
         | Stringl_ptr ->
             let paramter = List.hd parameters in
-            (* let data_size =
-              data_size_of_isize
-              @@ KosuFrontend.Ast.Builtin_Function.isize_of_functions fn_name
-            in *)
             let _, instructions =
               translate_tac_expression ~litterals
                 ~target_dst:(`Register rax) rprogram fd paramter
@@ -1205,7 +1201,25 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
               copy_result ~where ~register:rax ~rval_rktype rprogram
             in
             instructions @ copy_instructions
-        | Tof32 | Tof64 -> failwith ""
+        | Tof32 | Tof64 -> 
+          let parameter = List.hd parameters in
+          let source_data_size = data_size_of_ktype rprogram parameter.expr_rktype in
+          let output_data_size = data_size_of_ktype rprogram rval_rktype in
+          let r0 = tmp_rax_ktype parameter.expr_rktype in
+          let _, mov_instructtion = 
+            translate_tac_expression ~litterals ~target_dst:(`Register r0) rprogram fd parameter
+          in
+          let conv_instrc = Instruction (Cvts2s {
+            source_size = source_data_size;
+            dst_size = output_data_size;
+            source = `Register r0;
+            destination = `Register xmm0
+          })
+        in
+        let copy_instructions = 
+          copy_result ~where ~register:xmm0 ~rval_rktype rprogram
+        in
+        mov_instructtion @ conv_instrc::copy_instructions
       end
 
     | RVCustomUnop unary ->

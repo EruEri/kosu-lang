@@ -155,6 +155,11 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     | `Register reg -> sprintf "*%s" (string_of_register iq reg)
     | `Label l -> l
 
+  let string_of_ctv_data_size = function
+  | IntSize _ as _is -> 
+    Printf.sprintf "si" 
+  | FloatSize _ as fs -> string_of_data_size fs  
+
   let string_of_instruction = function
     | Mov { size; source; destination } ->
         sprintf "mov%s %s, %s" (string_of_data_size size) (string_of_src size source)
@@ -195,6 +200,12 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
       let isize = (intsize size) in
         sprintf "and%s %s, %s" (string_of_int_data_size size) (string_of_src isize source)
           (string_of_dst isize destination)
+    | Cvts2s {source_size; dst_size; source; destination} ->
+        sprintf "cvt%s2%s %s, %s"
+          (string_of_ctv_data_size source_size)
+          (string_of_ctv_data_size dst_size)
+          (string_of_src source_size source)
+          (string_of_dst dst_size destination)
     | Or { size; source; destination } ->
       let isize = (intsize size) in
         sprintf "or%s %s, %s" (string_of_int_data_size size) (string_of_src isize source)
