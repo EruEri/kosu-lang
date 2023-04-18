@@ -162,6 +162,16 @@ module Register = struct
 
   let rxmm2 = FloatReg XMM2
 
+  let rxmm3 = FloatReg XMM3
+
+  let rxmm4 = FloatReg XMM4
+
+  let rxmm5 = FloatReg XMM5
+  
+  let rxmm6 = FloatReg XMM6
+  let rxmm7 = FloatReg XMM7
+  let rxmm8 = FloatReg XMM8
+
   let rxmm9 = FloatReg XMM9
 
   let rxmm10 = FloatReg XMM10
@@ -183,6 +193,13 @@ module Register = struct
     register_size = None
   }
 
+  let xmm3 = fregister XMM3
+  let xmm4 = fregister XMM4
+
+  let xmm5 = fregister XMM5
+  let xmm6 = fregister XMM6
+  let xmm7 = fregister XMM7
+  let xmm8 = fregister XMM8
   let xmm9 = fregister XMM9
   let xmm10 = fregister XMM10
   let xmm11 = fregister XMM11
@@ -203,14 +220,15 @@ module Register = struct
   let syscall_arguments_register = [ RDI; RSI; RDX; R10; R8; R9 ]
 
   let float_arguments_register = [
-    FloatReg XMM0;
-    FloatReg XMM1;
-    FloatReg XMM2;
-    FloatReg XMM3;
-    FloatReg XMM4;
-    FloatReg XMM5;
-    FloatReg XMM6;
-    FloatReg XMM7
+    xmm0;
+    xmm1;
+    xmm2;
+    xmm3;
+    xmm4;
+    xmm5;
+    xmm6;
+    xmm8;
+    xmm7
   ]
 
 
