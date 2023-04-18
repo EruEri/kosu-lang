@@ -130,7 +130,6 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
   let string_of_src :data_size -> src -> string = fun size src -> match src with
     | #dst as dst -> string_of_dst size dst
     | `ILitteral n -> sprintf "$%Ld" n
-    | `F64Litteral f -> sprintf "%f" f
     | `Label l -> l
 
   let string_of_condition_code = function
@@ -238,8 +237,10 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           (string_of_src size source)
           (string_of_register size destination)
     | Fdiv {size; destination; source} ->
-      sprintf "div%s %s, %s" (string_of_float_data_size size)           
-      (string_of_float_register source)
+      let fsize = floatsize size in 
+      sprintf "div%s %s, %s"     
+      (string_of_data_size fsize)   
+      (string_of_src fsize source)
       (string_of_float_register destination)
     | IDivl { size; divisor } ->
       let isize = (intsize size) in

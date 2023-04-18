@@ -202,6 +202,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                            });
                     ] )
             | `Address _ ->
+                let rax = tmp_rax_ktype expr_rktype in 
                 ( target_dst,
                   [
                     Instruction
@@ -1083,42 +1084,56 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     | RVBuiltinBinop
         { binop = TacSelf TacDiv; blhs = dividende; brhs = divisor } ->
 
-          let () = if KosuIrTyped.Asttyhelper.RType.is_float rval_rktype then 
-            failwith "Float division todo"
-        in
-        let unsigned =
-          KosuIrTyped.Asttyhelper.RType.is_unsigned_integer
-            dividende.expr_rktype
-        in
-        let last_reg10, divisor_instructions =
-          translate_tac_expression ~litterals
-            ~target_dst:(`Register r10)
-            rprogram fd divisor
-        in
-        let raw_data_size =
-          int_data_size_of_int64_def @@ sizeofn rprogram dividende.expr_rktype
-        in
-        let scaled_data_size = match raw_data_size with Q -> Q | _ -> L in
+          if KosuIrTyped.Asttyhelper.RType.is_float rval_rktype then 
+            let lsource, linstructions = translate_tac_expression ~litterals ~target_dst:(`Register xmm1) rprogram fd divisor
+          in
+            let _, rinstructions = translate_tac_expression ~litterals ~target_dst:(`Register xmm0) rprogram fd dividende in
+            let lsource = Operande.src_of_dst lsource in
+            let fsize = if KosuIrTyped.Asttyhelper.RType.is_64bits_float divisor.expr_rktype then SD else SS in
+            let fdiv = Instruction (
+              Fdiv {
+                size = fsize;
+                source = lsource;
+                destination = XMM0
+              }
+            ) in
+          linstructions @ rinstructions @ fdiv::(
+            copy_result ~where ~register:xmm0 ~rval_rktype rprogram
+          )
+        else
+          let unsigned =
+            KosuIrTyped.Asttyhelper.RType.is_unsigned_integer
+              dividende.expr_rktype
+          in
+          let last_reg10, divisor_instructions =
+            translate_tac_expression ~litterals
+              ~target_dst:(`Register r10)
+              rprogram fd divisor
+          in
+          let raw_data_size =
+            int_data_size_of_int64_def @@ sizeofn rprogram dividende.expr_rktype
+          in
+          let scaled_data_size = match raw_data_size with Q -> Q | _ -> L in
 
-        let _, instructions =
-          translate_tac_expression ~litterals ~target_dst:(`Register rax)
-            rprogram fd dividende
-        in
-        let setup_div = Instruction (division_split scaled_data_size) in
+          let _, instructions =
+            translate_tac_expression ~litterals ~target_dst:(`Register rax)
+              rprogram fd dividende
+          in
+          let setup_div = Instruction (division_split scaled_data_size) in
 
-        let r10 = register_of_dst last_reg10 in
-        let divi_instruction =
-          division_instruction ~unsigned scaled_data_size
-            (`Register r10)
-        in
+          let r10 = register_of_dst last_reg10 in
+          let divi_instruction =
+            division_instruction ~unsigned scaled_data_size
+              (`Register r10)
+          in
 
-        let copy_instructions =
-          copy_result ~where
-            ~register:(rax)
-            ~rval_rktype rprogram
-        in
-        instructions @ divisor_instructions
-        @ (setup_div :: divi_instruction :: copy_instructions)
+          let copy_instructions =
+            copy_result ~where
+              ~register:(rax)
+              ~rval_rktype rprogram
+          in
+          instructions @ divisor_instructions
+          @ (setup_div :: divi_instruction :: copy_instructions)
     | RVBuiltinBinop
         { binop = TacSelf TacModulo; blhs = dividende; brhs = divisor } ->
         let () = if KosuIrTyped.Asttyhelper.RType.is_float rval_rktype

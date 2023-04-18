@@ -283,7 +283,7 @@ module Operande = struct
   type dst = [ `Register of Register.register | `Address of address ]
 
   type src =
-    [ `ILitteral of int64 | `F64Litteral of float | `Label of string | dst ]
+    [ `ILitteral of int64 | `Label of string | dst ]
 
   let src_of_dst : dst -> src = function
     | `Address addr -> `Address addr
@@ -376,7 +376,7 @@ module Instruction = struct
     (* i to f*)
     | Cvts2s of { source_size: data_size; dst_size: data_size; source: src; destination: dst}
     | Cvtts2s of { source_size: data_size; dst_size: data_size; source: src; destination: dst}
-    | Fdiv of { size : float_data_size; destination : float_register; source: float_register }
+    | Fdiv of { size : float_data_size; destination : float_register; source: src }
     | IDivl of { (* l | q *)
                  size : int_data_size; divisor : src }
     | Div of { (* l | q *)

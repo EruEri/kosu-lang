@@ -44,12 +44,32 @@ _testd:                                 ## @testd
 	.cfi_endproc
                                         ## -- End function
 	.section	__TEXT,__literal8,8byte_literals
-	.p2align	3                               ## -- Begin function main
+	.p2align	3                               ## -- Begin function d
 LCPI2_0:
+	.quad	0x400d99999999999a              ## double 3.7000000000000002
+	.section	__TEXT,__text,regular,pure_instructions
+	.globl	_d
+	.p2align	4, 0x90
+_d:                                     ## @d
+	.cfi_startproc
+## %bb.0:
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset %rbp, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register %rbp
+	movsd	LCPI2_0(%rip), %xmm0            ## xmm0 = mem[0],zero
+	popq	%rbp
+	retq
+	.cfi_endproc
+                                        ## -- End function
+	.section	__TEXT,__literal8,8byte_literals
+	.p2align	3                               ## -- Begin function main
+LCPI3_0:
 	.quad	0x40095c28f5c28f5c              ## double 3.1699999999999999
 	.section	__TEXT,__literal4,4byte_literals
 	.p2align	2
-LCPI2_1:
+LCPI3_1:
 	.long	0x4048f5c3                      ## float 3.1400001
 	.section	__TEXT,__text,regular,pure_instructions
 	.globl	_main
@@ -63,9 +83,12 @@ _main:                                  ## @main
 	movq	%rsp, %rbp
 	.cfi_def_cfa_register %rbp
 	subq	$16, %rsp
-	movss	LCPI2_1(%rip), %xmm0            ## xmm0 = mem[0],zero,zero,zero
+	movss	LCPI3_1(%rip), %xmm0            ## xmm0 = mem[0],zero,zero,zero
 	movss	%xmm0, -4(%rbp)
-	movsd	LCPI2_0(%rip), %xmm0            ## xmm0 = mem[0],zero
+	callq	_d
+	movaps	%xmm0, %xmm1
+	movsd	LCPI3_0(%rip), %xmm0            ## xmm0 = mem[0],zero
+	divsd	%xmm1, %xmm0
 	movsd	%xmm0, -16(%rbp)
 	movss	-4(%rbp), %xmm0                 ## xmm0 = mem[0],zero,zero,zero
 	cvtss2sd	%xmm0, %xmm0
