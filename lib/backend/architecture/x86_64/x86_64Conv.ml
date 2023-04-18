@@ -470,7 +470,6 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           else Register.argument_registers
         in
         let available_register_count = List.length available_register_params in
-        let return_size = sizeofn rprogram rval_rktype in
         match fn_decl with
         | RExternal_Decl external_func_decl ->
             let fn_label = Spec.label_of_external_function external_func_decl in
@@ -490,13 +489,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
               |> Util.ListHelper.combine_safe available_register_params
               |> List.fold_left
                    (fun acc (reg, tte) ->
-                     let data_size =
-                       Option.value ~default:Q @@ data_size_of_int64
-                       @@ sizeofn rprogram tte.expr_rktype
-                     in
+                    let reg = iregister reg in
                      let _last_reg, instructions =
                        translate_tac_expression ~litterals
-                         ~target_dst:(`Register (IntReg { size = data_size; reg }))
+                         ~target_dst:(`Register reg)
                          rprogram fd tte
                      in
                      acc @ instructions)
@@ -545,18 +541,13 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             let call_instructions =
               FrameManager.call_instruction ~origin:(`Label fn_label) [] fd
             in
-
-            let return_reg_data_size =
-              Option.value ~default:Q @@ data_size_of_int64
-              @@ sizeofn rprogram rval_rktype
-            in
-            let return_reg = sized_register return_reg_data_size RAX in
+            let return_reg = return_register rprogram rval_rktype in
 
             let extern_instructions =
               match
-                KosuIrTyped.Asttyconvert.Sizeof.discardable_size return_size
+                return_reg
               with
-              | true ->
+              | Some return_reg ->
                   let copy_instruction =
                     return_function_instruction_reg_size ~where ~is_deref
                       ~return_reg ~return_type:external_func_decl.return_type
@@ -565,7 +556,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                   set_in_reg_instructions @ float_instructions @ set_on_stack_instructions
                   @ variadic_float_use_instruction @ call_instructions
                   @ copy_instruction
-              | false ->
+              | None ->
                   let set_indirect_return_instruction =
                     return_function_instruction_none_reg_size ~where ~is_deref
                   in
@@ -580,12 +571,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
               |> Util.ListHelper.combine_safe syscall_arguments_register
               |> List.fold_left
                    (fun acc (reg, tte) ->
-                    let sizeof = sizeofn rprogram tte.expr_rktype in
-                     let data_size = int_data_size_of_int64_def ~default:W sizeof
-                     in
+                    let reg = iregister reg in
                      let _last_reg, instructions =
                        translate_tac_expression ~litterals
-                         ~target_dst:(`Register (IntReg { size = data_size; reg }) )
+                         ~target_dst:(`Register reg )
                          rprogram fd tte
                      in
                      acc @ instructions)
@@ -599,21 +588,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                      {
                        size = il;
                        source = `ILitteral syscall_decl.opcode;
-                       destination = `Register (sized_register L RAX);
+                       destination = `Register rax;
                      });
                 Instruction Syscall;
               ]
-            in
-            let return_reg_data_size =
-              Option.value ~default:Q @@ data_size_of_int64
-              @@ sizeofn rprogram rval_rktype
             in
 
             let copy_result_instruction =
               where
               |> Option.map (fun waddress ->
-                     let return_reg = sized_register return_reg_data_size RAX in
-                     let r9 = r9q in
                      match is_deref with
                      | Some pointer ->
                          Instruction
@@ -623,10 +606,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                 destination = `Register r9;
                                 source = `Address pointer;
                               })
-                         :: copy_from_reg return_reg (create_address_offset r9)
+                         :: copy_from_reg rax (create_address_offset r9)
                               syscall_decl.return_type rprogram
                      | None ->
-                         copy_from_reg return_reg waddress
+                         copy_from_reg rax waddress
                            syscall_decl.return_type rprogram)
               |> Option.value ~default:[]
             in
@@ -661,13 +644,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
               |> Util.ListHelper.combine_safe available_register_params
               |> List.fold_left
                    (fun acc (reg, tte) ->
-                     let data_size =
-                       Option.value ~default:Q @@ data_size_of_int64
-                       @@ sizeofn rprogram tte.expr_rktype
-                     in
+                    let reg = iregister reg in
                      let _last_reg, instructions =
                        translate_tac_expression ~litterals
-                         ~target_dst:(`Register (IntReg { size = data_size; reg }))
+                         ~target_dst:(`Register reg)
                          rprogram fd tte
                      in
                      acc @ instructions)
@@ -694,14 +674,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
               Line_Com
                 (Comment (Printf.sprintf "%s::%s call end" module_path fn_name))
             in
-            let return_reg_data_size =
-              Option.value ~default:Q @@ data_size_of_int64
-              @@ sizeofn rprogram rval_rktype
-            in
-            let return_reg = sized_register return_reg_data_size RAX in
+            let return_reg = return_register rprogram rval_rktype in
             let kosu_fn_instructions =
-              match is_register_size return_size with
-              | true ->
+              match return_reg with
+              | Some return_reg ->
                   let copy_instruction =
                     return_function_instruction_reg_size ~where ~is_deref
                       ~return_reg ~return_type:function_decl.return_type
@@ -709,7 +685,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                   in
                   set_in_reg_instructions @ set_on_stack_instructions @ float_instruction
                   @ call_instructions @ copy_instruction
-              | false ->
+              | None ->
                   let set_indirect_return_instructions =
                     return_function_instruction_none_reg_size ~where ~is_deref
                   in
@@ -1078,6 +1054,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
 
             let size_reg = register_of_dst @@ nb_reg in
 
+            let data_size = data_size_of_ktype rprogram rval_rktype in
+
             let operator_function_instruction =
               binop_instruction_of_tacself self_binop
             in
@@ -1099,7 +1077,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             linstructions
             @ (null_instruction :: rinstructions)
             @ scale_instruction
-            @ operator_function_instruction ~size:(size_of_reg size_reg)
+            @ operator_function_instruction ~size:data_size
                 ~destination:ptr_reg ~source:(`Register size_reg)
             @ copy_instructions)
     | RVBuiltinBinop
