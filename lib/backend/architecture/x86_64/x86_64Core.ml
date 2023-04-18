@@ -522,12 +522,12 @@ let copy_from_reg (register : Register.register) address ktype rprogram =
   let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
   match size with
   | s when is_register_size s ->
-      let data_size = Option.get @@ data_size_of_int64 s in
+      let data_size = data_size_of_ktype rprogram ktype in
       [
         Instruction
           (Mov
              {
-               size = IntSize data_size;
+               size = data_size;
                destination = `Address address;
                source = `Register register;
              });
