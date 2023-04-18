@@ -156,8 +156,12 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     | `Label l -> l
 
   let string_of_ctv_data_size = function
-  | IntSize _ as _is -> 
-    Printf.sprintf "si" 
+  | IntSize _ as _is -> "si" 
+  | FloatSize _ as fs -> string_of_data_size fs  
+
+  let string_of_cttv_data_size = function
+  | IntSize _ as is -> 
+    Printf.sprintf "si%s" (string_of_data_size is)
   | FloatSize _ as fs -> string_of_data_size fs  
 
   let string_of_instruction = function
@@ -206,6 +210,13 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           (string_of_ctv_data_size dst_size)
           (string_of_src source_size source)
           (string_of_dst dst_size destination)
+
+    | Cvtts2s {source_size; dst_size; source; destination} ->
+      sprintf "cvtt%s2%s %s, %s"
+        (string_of_ctv_data_size source_size)
+        (string_of_cttv_data_size dst_size)
+        (string_of_src source_size source)
+        (string_of_dst dst_size destination)
     | Or { size; source; destination } ->
       let isize = (intsize size) in
         sprintf "or%s %s, %s" (string_of_int_data_size size) (string_of_src isize source)

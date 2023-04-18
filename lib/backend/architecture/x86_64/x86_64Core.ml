@@ -74,7 +74,12 @@ let data_size_of_ktype ?(default = Q) rprogram ktype =
       let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt in
       size |> data_size_of_int64 |> Option.map (fun size -> IntSize size)
 
-
+  let data_size_min_l = function
+  | IntSize s -> IntSize begin match s with
+    | Q | L as s -> s
+    | W | B -> L
+    end
+  | FloatSize _ as t -> t 
   
 let int64_of_data_size = function B -> 1L | W -> 2L | L -> 4L | Q -> 8L
 
@@ -370,6 +375,7 @@ module Instruction = struct
 
     (* i to f*)
     | Cvts2s of { source_size: data_size; dst_size: data_size; source: src; destination: dst}
+    | Cvtts2s of { source_size: data_size; dst_size: data_size; source: src; destination: dst}
     | Fdiv of { size : float_data_size; destination : float_register; source: float_register }
     | IDivl of { (* l | q *)
                  size : int_data_size; divisor : src }
