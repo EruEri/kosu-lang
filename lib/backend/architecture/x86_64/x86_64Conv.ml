@@ -505,7 +505,19 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                 |> Util.ListHelper.combine_safe float_arguments_register
                 |> List.fold_left (fun acc (reg, tte) ->
                   let _, instructions = translate_tac_expression ~litterals ~target_dst:(`Register reg) rprogram fd tte in
-                  acc @ instructions
+                  let promote_float_instrcution = if external_func_decl.is_variadic && KosuIrTyped.Asttyhelper.RType.is_32bits_float tte.expr_rktype then 
+                    (Instruction (
+                      Cvts2s {
+                        source_size = fss;
+                        dst_size = fsd;
+                        source = `Register reg;
+                        destination = `Register reg
+                      }
+                    ))::[]
+                  else 
+                    []
+                  in
+                  acc @ instructions @ promote_float_instrcution
                 ) []
               in
 
