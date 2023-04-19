@@ -321,33 +321,25 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
 
   let translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where rval_rktype
       rprogram fd =
-    let r10 = tmp_r10_ktype brhs.expr_rktype in
-    let rax = tmp_rax_ktype brhs.expr_rktype in
-    let data_size = data_size_of_ktype rprogram rval_rktype in
+    let tr10 = tmp_r10_ktype brhs.expr_rktype in
+    let trax = tmp_rax_ktype brhs.expr_rktype in
+    let data_size = data_size_of_ktype rprogram blhs.expr_rktype in
     let _right_reg, rinstructions =
-      translate_tac_expression ~litterals ~target_dst:(`Register r10) rprogram
+      translate_tac_expression ~litterals ~target_dst:(`Register tr10) rprogram
         fd brhs
     in
     let _left_reg, linstructions =
-      translate_tac_expression ~litterals ~target_dst:(`Register rax) rprogram
+      translate_tac_expression ~litterals ~target_dst:(`Register trax) rprogram
         fd blhs
     in
     let copy_instructions =
       where
       |> Option.map (fun waddress ->
+              let cmp_instruction = Instruction (cmp_instruction data_size ~lhs:(`Register trax) ~rhs:(`Register tr10)) in
              let equal_instruction =
-               [
-                 Instruction
-                   (Cmp
-                      {
-                        size = data_size;
-                        lhs = `Register rax;
-                        rhs = `Register r10;
-                      });
-                 Instruction (Set { cc; size = B; register = rax });
-               ]
+              Instruction (Set { cc; size = B; register = Register.rax });
              in
-             equal_instruction
+             cmp_instruction::equal_instruction::[]
              @ copy_from_reg rax waddress rval_rktype rprogram)
       |> Option.value ~default:[]
     in
@@ -1347,8 +1339,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let return_size = sizeofn rprogram return_type in
         let return_reg = return_register rprogram return_type in
 
-        let r0, r1 =
-          if is_register_size return_size then (rdi, rsi) else (rsi, rdx)
+        let r0, r1 = 
+          match KosuIrTyped.Asttyhelper.RType.is_float rval_rktype with
+          | true -> xmm0, xmm1
+          | false ->
+            if is_register_size return_size then (rdi, rsi) else (rsi, rdx)
         in
         let _, lhs_instructions =
           translate_tac_expression ~litterals ~target_dst:(`Register r0)

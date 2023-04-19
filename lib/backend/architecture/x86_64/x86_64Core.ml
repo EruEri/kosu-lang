@@ -373,6 +373,8 @@ module Instruction = struct
     | Or of { size :  int_data_size; destination : dst; source : src }
     | And of { size : int_data_size; destination : dst; source : src }
 
+    | Ucomi of { size: float_data_size; source: src; destination : src}
+
     (* i to f*)
     | Cvts2s of { source_size: data_size; dst_size: data_size; source: src; destination: dst}
     | Cvtts2s of { source_size: data_size; dst_size: data_size; source: src; destination: dst}
@@ -408,6 +410,12 @@ module Instruction = struct
     | true, Q -> Instruction (Div { size = Q; divisor })
     | false, _ -> Instruction (IDivl { size = L; divisor })
     | true, _ -> Instruction (Div { size = L; divisor })
+
+
+  let cmp_instruction size ~lhs ~rhs = 
+    match size with
+    | FloatSize fs -> Ucomi {size = fs; source = lhs; destination = rhs}
+    | IntSize _ as size -> Cmp {size; lhs; rhs }
 
   let ins_add ~size ~destination ~source =
     [ Instruction (Add { size; destination; source }) ]
