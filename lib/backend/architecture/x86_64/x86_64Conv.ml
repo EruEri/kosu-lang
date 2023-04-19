@@ -1820,8 +1820,9 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     let return_instr =
       body |> snd
       |> Option.map (fun tte ->
+              let tr10 = tmp_r10_ktype tte.expr_rktype in
              let last_reg, instructions =
-               translate_tac_expression ~litterals ~target_dst:(`Register Register.r10) rprogram fd tte
+               translate_tac_expression ~litterals ~target_dst:(`Register tr10) rprogram fd tte
              in
              let sizeof = sizeofn rprogram tte.expr_rktype in
              let data_size = data_size_of_ktype rprogram tte.expr_rktype in
@@ -1910,24 +1911,36 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         |> List.filter_map (fun node ->
                match node with
                | TNFunction function_decl ->
-                   let rparameters =
+                let register_param_count = List.length argument_registers in
+                let float_reg_count = List.length float_arguments_register in
+                let float_parameter, other_parameters = function_decl.rparameters |> List.partition (fun (_, kt) -> KosuIrTyped.Asttyhelper.RType.is_float kt) in
+                   let int_params =
                      if
                        is_register_size
                          (sizeofn rprogram function_decl.return_type)
-                     then function_decl.rparameters
+                     then other_parameters
                      else
                        X86_64Core.FrameManager.indirect_return_vt
-                       :: function_decl.rparameters
+                       :: other_parameters
                    in
-                   let register_param_count = List.length argument_registers in
                    let fn_register_params, stack_param =
-                     rparameters
+                    int_params
                      |> List.mapi (fun index value -> (index, value))
                      |> List.partition_map (fun (index, value) ->
                             if index < register_param_count then
                               Either.left value
                             else Either.right value)
                    in
+
+                   let fn_float_register_params, float_stack = 
+                   float_parameter
+                   |> List.mapi (fun index value -> (index, value))
+                   |> List.partition_map (fun (index, value) ->
+                          if index < float_reg_count then
+                            Either.left value
+                          else Either.right value)
+                 in
+
                    let stack_param_count =
                      Int64.of_int (function_decl.stack_params_count * 8)
                    in
@@ -1947,12 +1960,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    let fd =
                      FrameManager.frame_descriptor
                        ~stack_future_call:stack_param_count ~fn_register_params
-                       ~stack_param ~return_type:function_decl.return_type
+                       ~fn_float_register_params
+                       ~stack_param:(stack_param @ float_stack) ~return_type:function_decl.return_type
                        ~locals_var
                        ~discarded_values:function_decl.discarded_values rprogram
                    in
                    let prologue =
                      FrameManager.function_prologue ~fn_register_params
+                       ~fn_float_register_params
                        ~stack_params:stack_param rprogram fd
                    in
                    let conversion =
@@ -2005,12 +2020,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    let fd =
                      FrameManager.frame_descriptor
                        ~stack_future_call:stack_param_count ~fn_register_params
+                       ~fn_float_register_params:[]
                        ~stack_param:[] ~return_type:unary_decl.return_type
                        ~locals_var ~discarded_values:unary_decl.discarded_values
                        rprogram
                    in
                    let prologue =
                      FrameManager.function_prologue ~fn_register_params
+                      ~fn_float_register_params:[]
                        ~stack_params:[] rprogram fd
                    in
                    let conversion =
@@ -2054,12 +2071,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    let fd =
                      FrameManager.frame_descriptor
                        ~stack_future_call:stack_param_count ~fn_register_params
+                       ~fn_float_register_params:[]
                        ~stack_param:[] ~return_type:binary.return_type
                        ~locals_var ~discarded_values:binary.discarded_values
                        rprogram
                    in
                    let prologue =
                      FrameManager.function_prologue ~fn_register_params
+                      ~fn_float_register_params:[]
                        ~stack_params:[] rprogram fd
                    in
                    let conversion =

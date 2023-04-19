@@ -642,6 +642,7 @@ module FrameManager = struct
 
   let frame_descriptor ?(stack_future_call = 0L)
       ~(fn_register_params : (string * KosuIrTyped.Asttyped.rktype) list)
+      ~(fn_float_register_params: (string * KosuIrTyped.Asttyped.rktype) list)
       ~(stack_param : (string * KosuIrTyped.Asttyped.rktype) list) ~return_type
       ~locals_var ~discarded_values rprogram =
     let open Operande in
@@ -657,7 +658,7 @@ module FrameManager = struct
          (sizeof rprogram return_type)
          (need_result_ptr)
        in *)
-    let stack_concat = fn_register_params @ stack_param @ locals_var in
+    let stack_concat = fn_register_params @ fn_float_register_params @ stack_param @ locals_var in
 
     let fake_tuple = stack_concat |> List.map snd in
     let locals_space =
@@ -712,7 +713,7 @@ module FrameManager = struct
         Assumption on [fn_register_params] 
           already containing [rdi] if return type cannot be contain in [rax] 
     *)
-  let function_prologue ~fn_register_params ~stack_params rprogram fd =
+  let function_prologue ~fn_register_params ~fn_float_register_params ~stack_params rprogram fd =
     let open Instruction in
     let base = Instruction (Push { size = Q; source = `Register rbp }) in
     let sub_align = Common.OffsetHelper.align_16 fd.locals_space in
@@ -788,7 +789,23 @@ module FrameManager = struct
              acc @ str_instruction @ load_instruction)
            []
     in
-    (base :: sp_sub) @ copy_reg_instruction @ copy_stack_params_instruction
+
+    let float_copy_instructions =
+      fn_float_register_params
+      |> Util.ListHelper.combine_safe float_arguments_register
+      |> List.fold_left
+           (fun acc (register, (name, kt)) ->
+             let whereis =
+               address_of (name, kt) fd |> fun adr ->
+               match adr with
+               | Some a -> a
+               | None -> failwith "From register setup null address"
+             in
+             acc @ copy_from_reg register whereis kt rprogram)
+           []
+    in 
+
+    (base :: sp_sub) @ copy_reg_instruction @ float_copy_instructions @ copy_stack_params_instruction
 
   let function_epilogue _fd =
     let open Instruction in
