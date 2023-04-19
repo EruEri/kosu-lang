@@ -283,7 +283,7 @@ module Operande = struct
   type dst = [ `Register of Register.register | `Address of address ]
 
   type src =
-    [ `ILitteral of int64 | `Label of string | dst ]
+    [ `ILitteral of int64 | `ULitteral of int64 | `Label of string | dst ]
 
   let src_of_dst : dst -> src = function
     | `Address addr -> `Address addr
@@ -369,6 +369,7 @@ module Instruction = struct
     | Add of { size : data_size; destination : dst; source : src }
     | Sub of { size : data_size; destination : dst; source : src }
     | IMul of { size : data_size; destination : register; source : src }
+    | Mul of { size : data_size; destination : register; source : src }
     | Xor of { size : int_data_size; destination : dst; source : src }
     | Or of { size :  int_data_size; destination : dst; source : src }
     | And of { size : int_data_size; destination : dst; source : src }
@@ -411,7 +412,19 @@ module Instruction = struct
     | false, _ -> Instruction (IDivl { size = L; divisor })
     | true, _ -> Instruction (Div { size = L; divisor })
 
-
+  let mult_instruction data_size ~unsigned source destination = ignore unsigned; match data_size with
+  | FloatSize _ -> Mul {size = data_size; source; destination}
+  | IntSize _ -> IMul {size = data_size; source; destination}
+  let neg_instruction size dst = 
+    match size with
+    | IntSize _ as size ->
+      [ Neg {size; source = dst} ]
+    | FloatSize _ as size -> 
+      [ 
+        Mov {size = il; source = `ULitteral (-1L); destination = `Register rax};
+        Cvts2s {source_size = il; dst_size = size; source = `Register rax; destination = `Register xmm1};
+        Mul {size; source = `Register xmm1; destination = dst} 
+      ]
   let cmp_instruction size ~lhs ~rhs = 
     match size with
     | FloatSize fs -> Ucomi {size = fs; source = lhs; destination = rhs}
@@ -464,9 +477,9 @@ module Instruction = struct
       failwith "Invalid ins_shift_unsigned_right for float"
 
   let ins_mult ~size ~destination ~source =
+    let reg = register_of_dst destination in
     [
-      (let reg = register_of_dst destination in
-       Instruction (IMul { size; destination = reg; source }));
+       Instruction (IMul { size; destination = reg; source });
     ]
 
   let binop_instruction_of_tacself ?(unsigned = false) =

@@ -1017,7 +1017,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         } ->
         (* let size = int_data_size_of_int64_def @@ sizeofn rprogram blhs.expr_rktype in *)
         let is_unsigned =
-          KosuIrTyped.Asttyhelper.RType.is_unsigned_integer blhs.expr_rktype
+          KosuIrTyped.Asttyhelper.RType.is_raw_unsigned blhs.expr_rktype
         in
         let binop_func =
           binop_instruction_of_tacself ~unsigned:is_unsigned self_binop
@@ -1185,12 +1185,12 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let size = data_size_of_ktype rprogram expr.expr_rktype in
         let last_reg = Operande.register_of_dst last_reg in
         let uminus_instructions =
-          Instruction (Neg { size = size; source = last_reg })
+          last_reg |> neg_instruction size |> List.map (fun inst -> Instruction inst)
         in
         let copy_instructions =
           copy_result ~where ~register:last_reg ~rval_rktype rprogram
         in
-        instructions @ (uminus_instructions :: copy_instructions)
+        instructions @ (uminus_instructions @ copy_instructions)
     | RVBuiltinUnop { unop = TacNot; expr } ->
         let rax = tmp_rax_ktype expr.expr_rktype in
         let size = data_size_of_ktype rprogram expr.expr_rktype in
