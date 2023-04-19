@@ -1241,6 +1241,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         | Tof32 | Tof64 -> 
           let parameter = List.hd parameters in
           let source_data_size = data_size_of_ktype rprogram parameter.expr_rktype in
+          let source_data_size = data_size_min_l source_data_size in
           let output_data_size = data_size_of_ktype rprogram rval_rktype in
           let r0 = tmp_rax_ktype parameter.expr_rktype in
           let _, mov_instructtion = 
