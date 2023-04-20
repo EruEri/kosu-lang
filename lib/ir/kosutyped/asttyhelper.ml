@@ -197,7 +197,8 @@ module Binop = struct
     | RBInf (lhs, _)
     | RBInfEq (lhs, _)
     | RBEqual (lhs, _)
-    | RBDif (lhs, _) ->
+    | RBDif (lhs, _)
+    | RBCmp (lhs, _ ) ->
         lhs
 
   let right_operand = function
@@ -218,7 +219,8 @@ module Binop = struct
     | RBInf (_, rhs)
     | RBInfEq (_, rhs)
     | RBEqual (_, rhs)
-    | RBDif (_, rhs) ->
+    | RBDif (_, rhs) 
+    | RBCmp (_, rhs) ->
         rhs
 
   let operands = function
@@ -239,7 +241,8 @@ module Binop = struct
     | RBInf (lhs, rhs)
     | RBInfEq (lhs, rhs)
     | RBEqual (lhs, rhs)
-    | RBDif (lhs, rhs) ->
+    | RBDif (lhs, rhs)
+    | RBCmp (lhs, rhs ) ->
         (lhs, rhs)
 end
 
@@ -396,7 +399,7 @@ module Generics = struct
         REWhile
           ( instanciate_generics_typed_expression generics te,
             instanciate_generics_kbody generics body )
-    | ( REmpty | RTrue | RFalse | RENullptr | REInteger _ | REFloat _ | REChar _
+    | ( REmpty | RTrue | RFalse | RENullptr | RECmpLess | RECmpEqual | RECmpGreater | REInteger _ | REFloat _ | REChar _
       | REstring _ | REAdress _
       | REDeference (_, _)
       | REIdentifier _ | REConst_Identifier _ ) as t ->
@@ -489,6 +492,10 @@ module Generics = struct
         RBDif
           ( instanciate_generics_typed_expression generics lhs,
             instanciate_generics_typed_expression generics rhs )
+    | RBCmp (lhs, rhs) ->
+        RBCmp 
+          ( instanciate_generics_typed_expression generics lhs,
+          instanciate_generics_typed_expression generics rhs )
 end
 
 module Function = struct
@@ -1152,7 +1159,7 @@ module RProgram = struct
         body
         |> specialise_generics_function_kbody ~ignored current_module rprogram
         |> FnSpec.union fn_expr
-    | REmpty | RTrue | RFalse | RENullptr | REInteger _ | REFloat _ | REChar _
+    | REmpty | RTrue | RFalse | RECmpEqual | RECmpLess | RECmpGreater | RENullptr | REInteger _ | REFloat _ | REChar _
     | RESizeof _ | REstring _ | REAdress _
     | REDeference (_, _)
     | REIdentifier _ | REConst_Identifier _ ->

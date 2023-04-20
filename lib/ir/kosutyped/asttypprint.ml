@@ -34,8 +34,7 @@ let symbole_of_roperator = function
       | BitwiseXor -> "^"
       | ShiftLeft -> "<<"
       | ShiftRight -> ">>"
-      | Sup -> ">"
-      | Inf -> "<"
+      | Spaceship -> "<=>"
       | Equal -> "==")
 
 let name_of_roperator = function
@@ -52,8 +51,7 @@ let name_of_roperator = function
       | BitwiseXor -> "botwisexor"
       | ShiftLeft -> "shiftleft"
       | ShiftRight -> "shiftright"
-      | Sup -> "sup"
-      | Inf -> "inf"
+      | Spaceship -> "spaceshift"
       | Equal -> "equal")
 
 let rec string_of_rktype = function
@@ -76,6 +74,7 @@ let rec string_of_rktype = function
         (parameters |> List.map string_of_rktype |> String.concat ", ")
         (string_of_rktype r_type)
   | RTString_lit -> "stringl"
+  | RTOrdered -> "order"
   | RTBool -> "bool"
   | RTUnit -> "unit"
   | RTChar -> "char"
@@ -105,6 +104,7 @@ let rec string_of_label_rktype = function
         (parameters |> List.map string_of_label_rktype |> String.concat "_")
         (string_of_label_rktype r_type)
   | RTString_lit -> "stringl"
+  | RTOrdered -> "order"
   | RTBool -> "bool"
   | RTUnit -> "unit"
   | RTChar -> "char"
@@ -146,6 +146,9 @@ and string_of_rkexpression = function
   | RTrue -> "true"
   | RFalse -> "false"
   | RENullptr -> "nullptr"
+  | RECmpLess -> "lt"
+  | RECmpEqual -> "eq"
+  | RECmpGreater -> "gt"
   | REChar c -> Printf.sprintf "\'%c\'" c
   | REInteger (sign, _, value) -> (
       match sign with
@@ -302,6 +305,10 @@ and string_of_rkbin_op = function
         (string_of_typed_expression rhs)
   | RBDif (lhs, rhs) ->
       sprintf "(%s != %s)"
+        (string_of_typed_expression lhs)
+        (string_of_typed_expression rhs)
+  | RBCmp (lhs, rhs) ->
+      sprintf "(%s <=> %s)"
         (string_of_typed_expression lhs)
         (string_of_typed_expression rhs)
 

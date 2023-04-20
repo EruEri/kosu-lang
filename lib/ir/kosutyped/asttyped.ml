@@ -36,6 +36,7 @@ type rktype =
   | RTPointer of rktype
   | RTTuple of rktype list
   | RTFunction of rktype list * rktype
+  | RTOrdered
   | RTString_lit
   | RTUnknow
   | RTChar
@@ -64,6 +65,9 @@ and rkexpression =
   | RTrue
   | RFalse
   | RENullptr
+  | RECmpLess
+  | RECmpEqual
+  | RECmpGreater
   | REInteger of (signedness * isize * int64)
   | REFloat of (fsize * float)
   | REChar of char
@@ -128,6 +132,7 @@ and rkbin_op =
   | RBInfEq of typed_expression * typed_expression
   | RBEqual of typed_expression * typed_expression
   | RBDif of typed_expression * typed_expression
+  | RBCmp of typed_expression * typed_expression
 
 and rkunary_op = RUMinus of typed_expression | RUNot of typed_expression
 

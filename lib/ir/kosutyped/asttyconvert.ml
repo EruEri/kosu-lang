@@ -54,6 +54,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | TString_lit -> RTString_lit
     | TFloat fsize -> RTFloat fsize
     | TBool -> RTBool
+    | TOredered -> RTOrdered
     | TUnit -> RTUnit
     | TChar -> RTChar
     | TUnknow -> RTUnknow
@@ -257,6 +258,9 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | Empty -> REmpty
     | True -> RTrue
     | False -> RFalse
+    | ECmpEqual -> RECmpEqual
+    | ECmpGreater -> RECmpGreater
+    | ECmpLess -> RECmpLess
     | ENullptr -> RENullptr
     | EChar c -> REChar c
     | EInteger (sign, size, value) -> REInteger (sign, size, value)
@@ -846,6 +850,16 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                   current_module program rhs
               in
               RBDif (ltyped, rtyped)
+          | BCmp (lhs, rhs) ->
+            let ltyped =
+              typed_expression_of_kexpression ~generics_resolver env
+                current_module program lhs
+            in
+            let rtyped =
+              typed_expression_of_kexpression ~generics_resolver env
+                current_module program rhs
+            in
+            RBCmp (ltyped, rtyped)
         in
         let lhs, rhs = Binop.operands rkbin in
         if
