@@ -37,8 +37,8 @@ module Operator = struct
     | TacSelf TacBitwiseXor -> BitwiseXor
     | TacSelf TacShiftLeft -> ShiftLeft
     | TacSelf TacShiftRight -> ShiftRight
-    | TacBool TacSup | TacBool TacSupEq -> Sup
-    | TacBool TacInf | TacBool TacInfEq -> Inf
+    | TacBool TacSup | TacBool TacSupEq -> Spaceship
+    | TacBool TacInf | TacBool TacInfEq -> Spaceship
     | TacBool TacEqual | TacBool TacDiff -> Equal
     | _ -> failwith "Operator not Overridable"
 
@@ -61,6 +61,7 @@ module Operator = struct
     | RBInfEq _ -> TacBool TacInfEq
     | RBEqual _ -> TacBool TacEqual
     | RBDif _ -> TacBool TacDiff
+    | RBCmp _ -> TacCmp TacOrdered
 
   let unary_operator = function RUMinus _ -> TacUminus | RUNot _ -> TacNot
   let typed_operand = function RUMinus e | RUNot e -> e
