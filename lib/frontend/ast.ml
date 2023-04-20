@@ -302,6 +302,7 @@ module OperatorFunction = struct
     | BitwiseXor
     | ShiftLeft
     | ShiftRight
+    | CompareOp
     | And
     | Or
     | Sup
@@ -332,6 +333,7 @@ module OperatorFunction = struct
     | InfEq -> "infeq"
     | Equal -> "equal"
     | Diff -> "diff"
+    | CompareOp -> "cmp"
     | UMinus -> "uminus"
     | Not -> "not"
 
@@ -354,6 +356,7 @@ module OperatorFunction = struct
     | InfEq -> "<="
     | Equal -> "=="
     | Diff -> "!="
+    | CompareOp -> "<=>"
     | Not -> "!"
     | UMinus -> "(-)"
 end

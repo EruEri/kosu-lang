@@ -544,6 +544,12 @@ module Program = struct
   let is_valid_infeq_operation =
     is_valid_sup_operation
 
+  let is_valid_cmp_operation  =
+    is_valid_op Ast.Spaceship ~no_decl:(is_valid_spaceship_operator) (function
+    | TInteger _ | TFloat _ | TOredered -> true
+    | _ -> false 
+    )
+
   let is_valid_not_operation ktype program =
     match ktype with
     | TType_Identifier _ as kt -> (
