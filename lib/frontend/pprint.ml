@@ -45,8 +45,7 @@ let located_symbole_of_operator = function
            | BitwiseXor -> "^"
            | ShiftLeft -> "<<"
            | ShiftRight -> ">>"
-           | Sup -> ">"
-           | Inf -> "<"
+           | Spaceship -> "<=>"
            | Equal -> "==")
 
 let string_of_position_error { start_position; end_position } =

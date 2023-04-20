@@ -183,8 +183,7 @@ binary_operator_symbol:
     | SHIFTLEFT { ShiftLeft }
     | SHIFTRIGHT { ShiftRight }
     | DOUBLEQUAL { Equal }
-    | SUP { Sup }
-    | INF { Inf }
+    | INF_EQ_SUP { Spaceship }
 ;;
 
 operator_decl:

@@ -41,9 +41,8 @@ type parser_binary_op =
   | BitwiseXor
   | ShiftLeft
   | ShiftRight
-  | Sup
-  | Inf
   | Equal
+  | Spaceship
 
 type ktype =
   | TParametric_identifier of {
@@ -427,7 +426,17 @@ module Error = struct
       }
     | Unknow_Function_Error
 
+    type operator_validation = 
+    | No_declaration_found 
+    | Builin_Invalid
+    | Diff_type
+    | Too_many_decl of {
+      decls: (string * operator_decl list) list
+    }
+    | VInvalid_Pointer_A 
+
   type operator_error =
+
     | Invalid_pointer_arithmetic of ktype location
     | No_built_in_op of {
         bin_op : OperatorFunction.operator;
