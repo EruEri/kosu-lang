@@ -13,17 +13,23 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 - [x] Type checking the Ast
 - [x] Annote the Ast with type
 - [x] Create an intermediate representation using the 3 adress code method 
-- [ ] Write a register allocator throught graph-coloring method (Will be in an other repository, to be used as a depedency)
 - [x] Generate basic Arm64 assembly for MacOs
 - [x] Generate basic x86_64 assembly
 - [x] Fix Syntax issues
-- [ ] Integer size inference
 - [x] Add while loop
+- [x] Fix Immediate encoding on arm64
+- [x] Implement Float for both architecture
+- [ ] Implement Operator overload
+
+== Version 0.1.0 == 
+
+- [ ] Write a register allocator throught graph-coloring method (Will be in an other repository, to be used as a depedency)
+- [ ] Integer size inference
 - [ ] Add anonymous function
 - [ ] Add array Literral
-- [x] Fix Immediate encoding on arm64
-- [ ] Fix stack base function parameters on arm64
-- [ ] Implement Float for both architecture
+- [ ] Fix stack base function parameters on arm64/x86_64
+- [ ] Improve c compatibily ABI
+
 
 
 ## Example
