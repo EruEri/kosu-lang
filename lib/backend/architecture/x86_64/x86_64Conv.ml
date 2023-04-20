@@ -1016,6 +1016,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where rval_rktype
           rprogram fd
+    | RVBuiltinBinop {binop = TacCmp TacOrdered; blhs = _; brhs = _} ->
+      failwith ""
     | RVBuiltinBinop
         {
           binop =
