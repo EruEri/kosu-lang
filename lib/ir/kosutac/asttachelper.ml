@@ -24,26 +24,8 @@ module Operator = struct
     let open KosuFrontend.Ast in
     function TacNot -> PNot | TacUminus -> PUMinus
 
-  let pbadd = ParBinOp KosuFrontend.Ast.Add
-  let pbminus = ParBinOp KosuFrontend.Ast.Minus
-  let pbmult = ParBinOp KosuFrontend.Ast.Mult
-  let pbmodulo = ParBinOp KosuFrontend.Ast.Modulo
-  let pbdiv = ParBinOp KosuFrontend.Ast.Div
-  let pbbitwiseor = ParBinOp KosuFrontend.Ast.BitwiseOr
-  let pbbitwisexor = ParBinOp KosuFrontend.Ast.BitwiseXor
-  let pbbitwiseoand = ParBinOp KosuFrontend.Ast.BitwiseAnd
-  let pbshiftleft = ParBinOp KosuFrontend.Ast.ShiftLeft
-  let pbshiftright = ParBinOp KosuFrontend.Ast.ShiftRight
-  let pbequal = ParBinOp KosuFrontend.Ast.Equal
-
-  let pbordered = ParBinOp KosuFrontend.Ast.Spaceship
-  let pbsup = ParserSup
-  let pbinf = ParserInf
-  let pbsupeq = ParserSupEq
-  let pbinfeq = ParserInfEq
-  let pbdiff = ParserDiff
-
   let parser_binary_op_of_tac_binary_op =
+    let open KosuIrTyped.Asttyhelper.Binop in
     function
     | TacSelf TacAdd -> pbadd
     | TacSelf TacMinus -> pbminus

@@ -179,6 +179,26 @@ module OperatorDeclaration = struct
 end
 
 module Binop = struct
+  let pbadd = ParBinOp KosuFrontend.Ast.Add
+  let pbminus = ParBinOp KosuFrontend.Ast.Minus
+  let pbmult = ParBinOp KosuFrontend.Ast.Mult
+  let pbmodulo = ParBinOp KosuFrontend.Ast.Modulo
+  let pbdiv = ParBinOp KosuFrontend.Ast.Div
+  let pbbitwiseor = ParBinOp KosuFrontend.Ast.BitwiseOr
+  let pbbitwisexor = ParBinOp KosuFrontend.Ast.BitwiseXor
+  let pbbitwiseoand = ParBinOp KosuFrontend.Ast.BitwiseAnd
+  let pbshiftleft = ParBinOp KosuFrontend.Ast.ShiftLeft
+  let pbshiftright = ParBinOp KosuFrontend.Ast.ShiftRight
+  let pbequal = ParBinOp KosuFrontend.Ast.Equal
+
+  let pbordered = ParBinOp KosuFrontend.Ast.Spaceship
+  let pbsup = ParserSup
+  let pbinf = ParserInf
+  let pbsupeq = ParserSupEq
+  let pbinfeq = ParserInfEq
+  let pbdiff = ParserDiff
+
+
   let left_operande = function
     | RBAdd (lhs, _)
     | RBMinus (lhs, _)
@@ -1220,15 +1240,144 @@ module RProgram = struct
            |> List.fold_left FnSpec.union FnSpec.empty)
     |> List.fold_left FnSpec.union FnSpec.empty
 
+  let generate_function_from_spaceship_decl ~generate_equal (binary_operator_decl: binary_operator_decl) = 
+    let open Binop in
+    let typed_expr_of_parameter p = 
+    {
+      rktype = snd p;
+      rexpression = REIdentifier {modules_path = ""; identifier = fst p}
+    } in 
+    let lhs = typed_expr_of_parameter @@ fst binary_operator_decl.rbfields in
+    let rhs = typed_expr_of_parameter @@ snd binary_operator_decl.rbfields in
+    let cmp_rkbin_op_expr = REBin_op (RBCmp (lhs, rhs)) in
+    let typed_cmp = {
+      rktype = RTOrdered;
+      rexpression = cmp_rkbin_op_expr
+    } in 
 
- 
+    let create_node op return_type params kbody = 
+      RNOperator (
+        RBinary {
+          op;
+          return_type;
+          rbfields = params;
+          kbody
+        }
+      )
+    in
+
+    let or_op lhs rhs = 
+      let expr =  REBin_op (
+        RBAnd (lhs, rhs)
+      ) in
+      {
+        rktype = RTBool;
+        rexpression = expr
+      }
+    in
+
+    let equal_op lhs rhs =
+      let expr =  REBin_op (
+        RBEqual (lhs, rhs)
+      ) in
+      {
+        rktype = RTBool;
+        rexpression = expr
+      }
+    in
+
+    let not_op lhs = 
+      let expr = REUn_op (
+        RUMinus lhs
+      ) 
+    in
+    {
+      rktype = lhs.rktype;
+      rexpression = expr
+    } in
+
+    let inline_var_name = "#compare" in
+    let inline_var_expr = typed_expr_of_parameter (inline_var_name, RTOrdered) in
+
+    let gt = {
+      rktype = RTOrdered;
+      rexpression = RECmpGreater
+    } in
+
+    let eq = {
+      rktype = RTOrdered;
+      rexpression = RECmpEqual
+    } in
+
+    let lt = {
+      rktype = RTOrdered;
+      rexpression = RECmpLess
+    } in
+
+    let spaceshift_call_typed_expression = 
+      RSDeclaration {is_const = true; variable_name = "compare"; typed_expression = typed_cmp } in
+
+    let sup_expr = equal_op inline_var_expr gt in
+    let supeq_expr = or_op 
+      (equal_op inline_var_expr eq) 
+      (equal_op inline_var_expr gt)
+    in 
+    let inf_expr = equal_op inline_var_expr lt in
+    let infeq_expr = or_op 
+      (equal_op inline_var_expr eq) 
+      (equal_op inline_var_expr lt)
+  in
+
+  let rtbool = RTBool in
+
+  let rfields = binary_operator_decl.rbfields in
+
+  let equal_expr = equal_op inline_var_expr eq in
+  let dif_expr = not_op equal_expr in
+
+  let spaceshift_call_stmt = [spaceshift_call_typed_expression] in 
+
+  let supbody : rkbody = ( spaceshift_call_stmt , sup_expr) in
+  let supeqbody : rkbody = ( spaceshift_call_stmt , supeq_expr) in
+
+  let infbody : rkbody = ( spaceshift_call_stmt, inf_expr) in
+  let infeqbody : rkbody = ( spaceshift_call_stmt , infeq_expr) in
+  let diffbody : rkbody = spaceshift_call_stmt, dif_expr in
+
+  let supnode = create_node pbsup rtbool rfields supbody in
+  let supeqnode = create_node pbsupeq rtbool rfields supeqbody in
+  let infnode = create_node pbinf rtbool rfields infbody in
+  let infeqnode = create_node pbinfeq rtbool rfields infeqbody in
+  let diffnode = create_node pbdiff rtbool rfields diffbody in
+
+  let always_generated = [supnode; supeqnode; infnode; infeqnode; diffnode] in
+  match generate_equal with
+  | false -> always_generated
+  | true -> 
+    let equal_body : rkbody = ( spaceshift_call_stmt, equal_expr) in
+    let eq_node = create_node pbequal rtbool rfields equal_body in
+    eq_node::always_generated
+
+
 
   let create_compare_function rprogram = 
     rprogram 
-    |> List.map (fun { rmodule_path = { path  = _; rmodule }; _ }  -> 
-      let _spaceshift_operator_decl = Rmodule.retrieve_binary_function_decl (ParBinOp KosuFrontend.Ast.Spaceship) rmodule in
-      failwith ""
+    |> List.map (fun { filename; rmodule_path = { path; rmodule }}  -> 
+      let spaceshift_operator_decl = Rmodule.retrieve_binary_function_decl (ParBinOp KosuFrontend.Ast.Spaceship) rmodule in
+      let generated =  spaceshift_operator_decl |> List.map (fun decl ->
+        generate_function_from_spaceship_decl ~generate_equal:true decl
+      ) |> List.flatten in 
+
+      let rmodule = generated |> List.fold_left (fun acc_module node -> Rmodule.add_node node acc_module) rmodule in
+      {
+        filename;
+        rmodule_path = {
+          path;
+          rmodule
+        }
+      }
     )
+
 
   let remove_generics rprogram =
     rprogram
