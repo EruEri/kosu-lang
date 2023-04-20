@@ -122,18 +122,18 @@ module ListHelper = struct
     | [], _ | _, [] -> []
     | t1 :: q1, t2 :: q2 -> (t1, t2) :: combine_safe q1 q2
 
-  let rec diff base ~remains = 
+  let rec diff base ~remains =
     match (base, remains) with
     | _, [] -> []
     | [], l -> l
     | _ :: q1, _ :: q2 -> diff q1 ~remains:q2
 
-  let rec shrink ~atlength list = 
+  let rec shrink ~atlength list =
     match (atlength, list) with
-    | (n, _) when n < 0 -> invalid_arg "Negative number"
-    | (0, _) -> []
-    | (_, []) -> []
-    | (n, t::q) -> t::(shrink ~atlength:(n -1 ) q)
+    | n, _ when n < 0 -> invalid_arg "Negative number"
+    | 0, _ -> []
+    | _, [] -> []
+    | n, t :: q -> t :: shrink ~atlength:(n - 1) q
 end
 
 module StringSet = Set.Make (String)

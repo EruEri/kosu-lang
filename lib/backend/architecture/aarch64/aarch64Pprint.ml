@@ -23,12 +23,10 @@ module AsmProgram = Common.AsmProgram (Aarch64Core.Instruction)
 open AsmProgram
 
 module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
-  let string_of_float_register size freg = 
-    let prefix = match size with
-      | SReg32 -> 's'
-      | SReg64 -> 'd'
-    in
-    let extension = match freg with 
+  let string_of_float_register size freg =
+    let prefix = match size with SReg32 -> 's' | SReg64 -> 'd' in
+    let extension =
+      match freg with
       | D0 -> "0"
       | D1 -> "1"
       | D2 -> "2"
@@ -52,12 +50,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     in
     sprintf "%c%s" prefix extension
 
-  let string_of_int_register size ireg = 
-    let prefix = match size with
-      | SReg32 -> 'w'
-      | SReg64 -> 'x'
-    in
-    let extension = match ireg with
+  let string_of_int_register size ireg =
+    let prefix = match size with SReg32 -> 'w' | SReg64 -> 'x' in
+    let extension =
+      match ireg with
       | X0 -> "0"
       | X1 -> "1"
       | X2 -> "2"
@@ -80,7 +76,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
       | XZR -> "zr"
       | SP -> "sp"
     in
-    match ireg with 
+    match ireg with
     | SP when size = SReg64 -> extension
     | _ -> sprintf "%c%s" prefix extension
 
@@ -109,9 +105,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     | LE -> "le"
     | AL -> "al"
 
-  let string_of_register register = match register.register with
-  | FloatReg freg -> string_of_float_register register.size freg
-  | IntegerReg ireg -> string_of_int_register register.size ireg
+  let string_of_register register =
+    match register.register with
+    | FloatReg freg -> string_of_float_register register.size freg
+    | IntegerReg ireg -> string_of_int_register register.size ireg
 
   let string_of_src = function
     | `F64Litteral float -> Printf.sprintf "#%F" float
@@ -237,22 +234,21 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           (string_of_register destination)
           (string_of_register operand1)
           (string_of_register operand2)
-    | FCVT {turn; into} ->
-        sprintf "fcvt %s, %s"
-          (string_of_register into)
+    | FCVT { turn; into } ->
+        sprintf "fcvt %s, %s" (string_of_register into)
           (string_of_register turn)
-    | FCVTZS {int_register; float_register} ->
+    | FCVTZS { int_register; float_register } ->
         sprintf "fcvtzs %s, %s"
           (string_of_register int_register)
           (string_of_register float_register)
-    | FCVTZU {int_register; float_register} ->
-      sprintf "fcvtzu %s, %s"
-        (string_of_register int_register)
-        (string_of_register float_register)
-    | SCVTF {float_register; int_register} ->
-      sprintf "scvtf %s, %s"
-        (string_of_register float_register)
-        (string_of_register int_register)
+    | FCVTZU { int_register; float_register } ->
+        sprintf "fcvtzu %s, %s"
+          (string_of_register int_register)
+          (string_of_register float_register)
+    | SCVTF { float_register; int_register } ->
+        sprintf "scvtf %s, %s"
+          (string_of_register float_register)
+          (string_of_register int_register)
     | LSR { destination; operand1; operand2 } ->
         sprintf "lsr %s, %s, %s"
           (string_of_register destination)
@@ -294,8 +290,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         sprintf "%scmp %s, %s" (prefix_of_float operand1)
           (string_of_register operand1)
           (string_of_src operand2)
-    | CSET { register; cc} -> 
-        sprintf "cset %s, %s" (string_of_register register) (string_of_condition_code cc)
+    | CSET { register; cc } ->
+        sprintf "cset %s, %s"
+          (string_of_register register)
+          (string_of_condition_code cc)
     | LDR { data_size; destination; adress_src; adress_mode } ->
         sprintf "ldr%s %s , %s"
           (data_size

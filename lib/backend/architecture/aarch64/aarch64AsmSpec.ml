@@ -32,7 +32,7 @@ module type Aarch64AsmSpecification = sig
   val string_litteral_section_end : string
   val string_litteral_directive : string
   val size_directive_of_size : KosuFrontend.Ast.isize -> string
-  val directive_of_fsize: KosuFrontend.Ast.fsize -> string
+  val directive_of_fsize : KosuFrontend.Ast.fsize -> string
   val label_prefix : string
   val label_of_constant : ?module_path:string -> string -> string
 

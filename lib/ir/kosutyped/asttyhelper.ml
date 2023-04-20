@@ -37,9 +37,7 @@ module RType = struct
     | _ -> None
 
   let is_64bits_float = function RTFloat F64 -> true | _ -> false
-
   let is_32bits_float = function RTFloat F32 -> true | _ -> false
-
   let is_float = function RTFloat _ -> true | _ -> false
 
   let is_builtin_type = function

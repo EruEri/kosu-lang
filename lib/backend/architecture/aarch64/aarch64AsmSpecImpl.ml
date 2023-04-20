@@ -54,8 +54,8 @@ module MacOSAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
     let open KosuFrontend.Ast in
     function I8 -> "byte" | I16 -> "value" | I32 -> "long" | I64 -> "quad"
 
-    let directive_of_fsize = function
-    | KosuFrontend.Ast.F32 -> "long" 
+  let directive_of_fsize = function
+    | KosuFrontend.Ast.F32 -> "long"
     | F64 -> "quad"
 end
 
@@ -101,6 +101,6 @@ module FreeBSDAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
     function I8 -> "byte" | I16 -> "hword" | I32 -> "word" | I64 -> "xword"
 
   let directive_of_fsize = function
-    | KosuFrontend.Ast.F32 -> "word" 
+    | KosuFrontend.Ast.F32 -> "word"
     | F64 -> "xword"
 end

@@ -69,7 +69,6 @@ let rec string_of_rktype = function
       sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
   | RTFloat fsize -> sprintf "f%s" (string_of_fsize fsize)
   | RTPointer ktype -> sprintf "*%s" (string_of_rktype ktype)
-  
   | RTTuple ktypes ->
       sprintf "(%s)" (ktypes |> List.map string_of_rktype |> String.concat ", ")
   | RTFunction (parameters, r_type) ->
@@ -81,7 +80,6 @@ let rec string_of_rktype = function
   | RTUnit -> "unit"
   | RTChar -> "char"
   | RTUnknow -> "unknwon"
-
 
 let asm_module_path_name = String.map (fun c -> if c = ':' then '_' else c)
 

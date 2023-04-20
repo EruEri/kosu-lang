@@ -285,13 +285,12 @@ module FloatLitteral = struct
 
   let rec map_fill_float_lit_of_tac_expression map expression () =
     match expression with
-    | TEFloat float ->
-      begin match Hashtbl.find_opt map float with
+    | TEFloat float -> (
+        match Hashtbl.find_opt map float with
         | None ->
             Hashtbl.add map float
               (make_float_litteral_label (map |> Hashtbl.length))
-        | Some _ -> ()
-      end
+        | Some _ -> ())
     | _ -> ()
 
   and map_fill_float_lit_of_trvalue map trvalue () =
@@ -333,8 +332,7 @@ module FloatLitteral = struct
       { statement_for_condition; condition; tac_body; _ } () =
     let () =
       statement_for_condition
-      |> List.iter (fun stmt ->
-             map_fill_float_lit_of_tac_statement map stmt ())
+      |> List.iter (fun stmt -> map_fill_float_lit_of_tac_statement map stmt ())
     in
     let () =
       map_fill_float_lit_of_tac_expression map condition.tac_expression ()
@@ -420,8 +418,7 @@ module FloatLitteral = struct
       () =
     let () =
       statements
-      |> List.iter (fun stmt ->
-             map_fill_float_lit_of_tac_statement map stmt ())
+      |> List.iter (fun stmt -> map_fill_float_lit_of_tac_statement map stmt ())
     in
     last
     |> Option.iter (fun expr ->
@@ -442,8 +439,7 @@ module FloatLitteral = struct
     let map = Hashtbl.create 10 in
     let () =
       rmodule
-      |> List.iter (fun modul ->
-             map_fill_float_lit_of_module_node map modul ())
+      |> List.iter (fun modul -> map_fill_float_lit_of_module_node map modul ())
     in
     map
 

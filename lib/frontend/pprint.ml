@@ -27,9 +27,7 @@ let string_of_isize = function
   | I32 -> "32"
   | I64 -> "64"
 
-let string_of_fsize = function
-| F32 -> "32"
-| F64 -> "64"  
+let string_of_fsize = function F32 -> "32" | F64 -> "64"
 
 let located_symbole_of_operator = function
   | Unary { op; _ } ->
@@ -84,8 +82,7 @@ let rec string_of_ktype = function
         name.v
   | TInteger (sign, size) ->
       sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
-  | TFloat fsize -> 
-      sprintf "f%s" (string_of_fsize fsize)
+  | TFloat fsize -> sprintf "f%s" (string_of_fsize fsize)
   | TPointer ktype -> sprintf "*%s" (string_of_ktype ktype.v)
   | TTuple ktypes ->
       sprintf "(%s)"

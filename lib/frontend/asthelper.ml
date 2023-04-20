@@ -857,10 +857,10 @@ module Kbody = struct
               wildcard_case
               |> Option.map (remap_body_explicit_type generics current_module);
           }
-    | EWhile (te, body) -> EWhile (
-      remap_located_expr_explicit_type generics current_module te,
-      remap_body_explicit_type generics current_module body
-    ) 
+    | EWhile (te, body) ->
+        EWhile
+          ( remap_located_expr_explicit_type generics current_module te,
+            remap_body_explicit_type generics current_module body )
     | EUn_op (UMinus expr) ->
         EUn_op
           (UMinus
@@ -958,9 +958,11 @@ module Kbody = struct
           (BDif
              ( remap_located_expr_explicit_type generics current_module lhs,
                remap_located_expr_explicit_type generics current_module rhs ))
-    | Empty | True | False | ENullptr | EInteger _ | EFloat _ | EChar _ 
-    | EString _ | EAdress _| EDeference (_, _) 
-    | EIdentifier _ as t -> t 
+    | ( Empty | True | False | ENullptr | EInteger _ | EFloat _ | EChar _
+      | EString _ | EAdress _
+      | EDeference (_, _)
+      | EIdentifier _ ) as t ->
+        t
 end
 
 module Switch_case = struct
@@ -1540,12 +1542,15 @@ module Builtin_Function = struct
   let is_valide_parameters_type fn_location parameters =
     let open Ast.Builtin_Function in
     function
-    | (Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64 | Tof32 | Tof64) as fn -> (
+    | ( Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64 | Tof32
+      | Tof64 ) as fn -> (
         match parameters with
         | [ t ] ->
             let param_type = Position.value t in
             if fn = Tou8 && param_type = TChar then Result.ok fn
-            else if Type.is_any_integer param_type || Type.is_any_float param_type then Result.ok fn
+            else if
+              Type.is_any_integer param_type || Type.is_any_float param_type
+            then Result.ok fn
             else
               Ast.Error.Found_no_Integer { fn_name = fn_location.v; found = t }
               |> Result.error

@@ -21,7 +21,6 @@ type signedness = Signed | Unsigned
 type isize = I8 | I16 | I32 | I64
 type fsize = F32 | F64
 
-
 type switch_case =
   | SC_Enum_Identifier of { variant : string location }
   | SC_Enum_Identifier_Assoc of {
@@ -586,9 +585,7 @@ module Type = struct
     | _ -> false
 
   let is_any_integer = function TInteger _ -> true | _ -> false
-
   let is_any_float = function TFloat _ -> true | _ -> false
-
   let is_string_litteral = function TString_lit -> true | _ -> false
 
   let pointee_fail = function
@@ -964,7 +961,7 @@ module Builtin_Function = struct
     | Tou16
     | Tos32
     | Tou32
-    | Tof32 
+    | Tof32
     | Tos64
     | Tou64
     | Tof64

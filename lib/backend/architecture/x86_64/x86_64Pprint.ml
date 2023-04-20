@@ -26,13 +26,17 @@ open X86Program
 open Util.Operator
 
 module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
-  let string_of_int_data_size = function B -> "b" | W -> "w" | L -> "l" | Q -> "q"
+  let string_of_int_data_size = function
+    | B -> "b"
+    | W -> "w"
+    | L -> "l"
+    | Q -> "q"
 
-  let string_of_float_data_size = function SS -> "ss" | SD -> "sd" 
+  let string_of_float_data_size = function SS -> "ss" | SD -> "sd"
 
   let string_of_data_size = function
-  | IntSize i -> string_of_int_data_size i
-  | FloatSize f -> string_of_float_data_size f
+    | IntSize i -> string_of_int_data_size i
+    | FloatSize f -> string_of_float_data_size f
 
   let string_of_raw_register = function
     | RAX -> "rax"
@@ -80,33 +84,33 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     Printf.sprintf "%%%s" (string_of_register_int_reg size register)
 
   let string_of_float_register = function
-  | XMM0 -> "%xmm0"
-  | XMM1 -> "%xmm1"
-  | XMM2 -> "%xmm2"
-  | XMM3 -> "%xmm3"
-  | XMM4 -> "%xmm4"
-  | XMM5 -> "%xmm5"
-  | XMM6 -> "%xmm6"
-  | XMM7 -> "%xmm7"
-  | XMM8 -> "%xmm8"
-  | XMM9 -> "%xmm9"
-  | XMM10 -> "%xmm10"
-  | XMM11 -> "%xmm11"
-  | XMM12 -> "%xmm12"
-  | XMM13 -> "%xmm13"
-  | XMM14 -> "%xmm14"
-  | XMM15 -> "%xmm15"
-
+    | XMM0 -> "%xmm0"
+    | XMM1 -> "%xmm1"
+    | XMM2 -> "%xmm2"
+    | XMM3 -> "%xmm3"
+    | XMM4 -> "%xmm4"
+    | XMM5 -> "%xmm5"
+    | XMM6 -> "%xmm6"
+    | XMM7 -> "%xmm7"
+    | XMM8 -> "%xmm8"
+    | XMM9 -> "%xmm9"
+    | XMM10 -> "%xmm10"
+    | XMM11 -> "%xmm11"
+    | XMM12 -> "%xmm12"
+    | XMM13 -> "%xmm13"
+    | XMM14 -> "%xmm14"
+    | XMM15 -> "%xmm15"
 
   let int_data_size_of_datasize = function
-  | IntSize s -> s 
-  | FloatSize _ -> Q (* word size *)
+    | IntSize s -> s
+    | FloatSize _ -> Q (* word size *)
 
-  let string_of_register size reg = 
+  let string_of_register size reg =
     let defaultsize = int_data_size_of_datasize size in
-  match reg.register with
-  | IntegerReg register -> string_of_register_int_reg (reg.register_size >? defaultsize) register
-  | FloatReg register -> string_of_float_register register
+    match reg.register with
+    | IntegerReg register ->
+        string_of_register_int_reg (reg.register_size >? defaultsize) register
+    | FloatReg register -> string_of_float_register register
 
   let string_of_address_offset = function
     | Addr_label (label, offset) ->
@@ -123,11 +127,15 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
       |> Option.value ~default:"")
       (if scale = 1 then "" else sprintf "%u" scale)
 
-  let string_of_dst: data_size -> dst -> string = fun size dst -> match dst with
+  let string_of_dst : data_size -> dst -> string =
+   fun size dst ->
+    match dst with
     | `Register reg -> string_of_register size reg
     | `Address addr -> string_of_address addr
 
-  let string_of_src :data_size -> src -> string = fun size src -> match src with
+  let string_of_src : data_size -> src -> string =
+   fun size src ->
+    match src with
     | #dst as dst -> string_of_dst size dst
     | `ILitteral n -> sprintf "$%Ld" n
     | `ULitteral n -> sprintf "$%Lu" n
@@ -156,26 +164,28 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     | `Label l -> l
 
   let string_of_ctv_data_size = function
-  | IntSize _ as _is -> "si" 
-  | FloatSize _ as fs -> string_of_data_size fs  
+    | IntSize _ as _is -> "si"
+    | FloatSize _ as fs -> string_of_data_size fs
 
   let string_of_cttv_data_size = function
-  | IntSize _ as is -> 
-    Printf.sprintf "si%s" (string_of_data_size is)
-  | FloatSize _ as fs -> string_of_data_size fs  
+    | IntSize _ as is -> Printf.sprintf "si%s" (string_of_data_size is)
+    | FloatSize _ as fs -> string_of_data_size fs
 
   let string_of_instruction = function
     | Mov { size; source; destination } ->
-        sprintf "mov%s %s, %s" (string_of_data_size size) (string_of_src size source)
+        sprintf "mov%s %s, %s" (string_of_data_size size)
+          (string_of_src size source)
           (string_of_dst size destination)
     | Movsl { size; source; destination } ->
-        sprintf "movs%sl %s, %s" (string_of_int_data_size size)
-          (string_of_src (il) source)
-          (string_of_dst (il) destination)
+        sprintf "movs%sl %s, %s"
+          (string_of_int_data_size size)
+          (string_of_src il source)
+          (string_of_dst il destination)
     | Movzl { size; source; destination } ->
-        sprintf "movz%sl %s, %s" (string_of_int_data_size size)
-          (string_of_src (il) source)
-          (string_of_dst (il) destination)
+        sprintf "movz%sl %s, %s"
+          (string_of_int_data_size size)
+          (string_of_src il source)
+          (string_of_dst il destination)
     | Set { cc; size; register } ->
         sprintf "set%s %s"
           (string_of_condition_code cc)
@@ -191,87 +201,108 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         sprintf "not%s %s" (string_of_data_size size)
           (string_of_register size source)
     | Add { size; source; destination } ->
-        sprintf "add%s %s, %s" (string_of_data_size size) (string_of_src size source)
+        sprintf "add%s %s, %s" (string_of_data_size size)
+          (string_of_src size source)
           (string_of_dst size destination)
     | Sub { size; source; destination } ->
-        sprintf "sub%s %s, %s" (string_of_data_size size) (string_of_src size source)
+        sprintf "sub%s %s, %s" (string_of_data_size size)
+          (string_of_src size source)
           (string_of_dst size destination)
     | Xor { size; source; destination } ->
-      let isize = (intsize size) in
-        sprintf "xor%s %s, %s" (string_of_int_data_size size) (string_of_src isize source)
+        let isize = intsize size in
+        sprintf "xor%s %s, %s"
+          (string_of_int_data_size size)
+          (string_of_src isize source)
           (string_of_dst isize destination)
     | And { size; source; destination } ->
-      let isize = (intsize size) in
-        sprintf "and%s %s, %s" (string_of_int_data_size size) (string_of_src isize source)
+        let isize = intsize size in
+        sprintf "and%s %s, %s"
+          (string_of_int_data_size size)
+          (string_of_src isize source)
           (string_of_dst isize destination)
-    | Cvts2s {source_size; dst_size; source; destination} ->
+    | Cvts2s { source_size; dst_size; source; destination } ->
         sprintf "cvt%s2%s %s, %s"
           (string_of_ctv_data_size source_size)
           (string_of_ctv_data_size dst_size)
           (string_of_src source_size source)
           (string_of_dst dst_size destination)
-    | Ucomi {size; source; destination} -> 
-      let fsize = floatsize size in 
-      sprintf "ucomi%s %s, %s"
-        (string_of_float_data_size size)
-        (string_of_src fsize source)
-        (string_of_src fsize destination)
-    | Comi {size; source; destination} -> 
-      let fsize = floatsize size in 
-      sprintf "comi%s %s, %s"
-        (string_of_float_data_size size)
-        (string_of_src fsize source)
-        (string_of_src fsize destination)
-    | Cvtts2s {source_size; dst_size; source; destination} ->
-      sprintf "cvtt%s2%s %s, %s"
-        (string_of_ctv_data_size source_size)
-        (string_of_cttv_data_size dst_size)
-        (string_of_src source_size source)
-        (string_of_dst dst_size destination)
+    | Ucomi { size; source; destination } ->
+        let fsize = floatsize size in
+        sprintf "ucomi%s %s, %s"
+          (string_of_float_data_size size)
+          (string_of_src fsize source)
+          (string_of_src fsize destination)
+    | Comi { size; source; destination } ->
+        let fsize = floatsize size in
+        sprintf "comi%s %s, %s"
+          (string_of_float_data_size size)
+          (string_of_src fsize source)
+          (string_of_src fsize destination)
+    | Cvtts2s { source_size; dst_size; source; destination } ->
+        sprintf "cvtt%s2%s %s, %s"
+          (string_of_ctv_data_size source_size)
+          (string_of_cttv_data_size dst_size)
+          (string_of_src source_size source)
+          (string_of_dst dst_size destination)
     | Or { size; source; destination } ->
-      let isize = (intsize size) in
-        sprintf "or%s %s, %s" (string_of_int_data_size size) (string_of_src isize source)
+        let isize = intsize size in
+        sprintf "or%s %s, %s"
+          (string_of_int_data_size size)
+          (string_of_src isize source)
           (string_of_dst isize destination)
     | Sal { size; shift; destination } ->
-      let isize = (intsize size) in
-        sprintf "sal%s %s, %s" (string_of_int_data_size size) (string_of_src isize shift)
+        let isize = intsize size in
+        sprintf "sal%s %s, %s"
+          (string_of_int_data_size size)
+          (string_of_src isize shift)
           (string_of_dst isize destination)
     | Sar { size; shift; destination } ->
-        let isize = (intsize size) in
-        sprintf "sar%s %s, %s" (string_of_int_data_size size) (string_of_src isize shift)
+        let isize = intsize size in
+        sprintf "sar%s %s, %s"
+          (string_of_int_data_size size)
+          (string_of_src isize shift)
           (string_of_dst isize destination)
     | Shr { size; shift; destination } ->
-      let isize = (intsize size) in
-        sprintf "shr%s %s, %s" (string_of_int_data_size size) (string_of_src isize shift)
+        let isize = intsize size in
+        sprintf "shr%s %s, %s"
+          (string_of_int_data_size size)
+          (string_of_src isize shift)
           (string_of_dst isize destination)
     | IMul { size; source; destination } ->
         sprintf "imul%s %s, %s" (string_of_data_size size)
           (string_of_src size source)
           (string_of_register size destination)
     | Mul { size; source; destination } ->
-      sprintf "mul%s %s, %s" (string_of_data_size size)
-        (string_of_src size source)
-        (string_of_register size destination)
-    | Fdiv {size; destination; source} ->
-      let fsize = floatsize size in 
-      sprintf "div%s %s, %s"     
-      (string_of_data_size fsize)   
-      (string_of_src fsize source)
-      (string_of_float_register destination)
+        sprintf "mul%s %s, %s" (string_of_data_size size)
+          (string_of_src size source)
+          (string_of_register size destination)
+    | Fdiv { size; destination; source } ->
+        let fsize = floatsize size in
+        sprintf "div%s %s, %s"
+          (string_of_data_size fsize)
+          (string_of_src fsize source)
+          (string_of_float_register destination)
     | IDivl { size; divisor } ->
-      let isize = (intsize size) in
-        sprintf "idiv%s %s" (string_of_int_data_size size) (string_of_src isize divisor)
+        let isize = intsize size in
+        sprintf "idiv%s %s"
+          (string_of_int_data_size size)
+          (string_of_src isize divisor)
     | Div { size; divisor } ->
-      let isize = (intsize size) in
-        sprintf "div%s %s" (string_of_int_data_size size) (string_of_src isize divisor)
+        let isize = intsize size in
+        sprintf "div%s %s"
+          (string_of_int_data_size size)
+          (string_of_src isize divisor)
     | Push { size; source } ->
-        sprintf "push%s %s" (string_of_int_data_size size) (string_of_src (intsize size) source)
+        sprintf "push%s %s"
+          (string_of_int_data_size size)
+          (string_of_src (intsize size) source)
     | Pop { size; destination } ->
-        sprintf "pop%s %s" (string_of_int_data_size size)
+        sprintf "pop%s %s"
+          (string_of_int_data_size size)
           (string_of_dst (intsize size) destination)
     | Cmp { size; lhs; rhs } ->
-        sprintf "cmp%s %s, %s" (string_of_data_size size) (string_of_src size lhs)
-          (string_of_src size rhs)
+        sprintf "cmp%s %s, %s" (string_of_data_size size)
+          (string_of_src size lhs) (string_of_src size rhs)
     | Jmp { cc; where } ->
         sprintf "j%s %s"
           (string_of_condition_code_opt cc)
