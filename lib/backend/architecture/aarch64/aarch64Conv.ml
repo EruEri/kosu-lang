@@ -148,12 +148,12 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     |> Option.value ~default:[]
 
   let translate_tac_expression ~litterals ?(target_reg = w9) rprogram
-      (fd : FrameManager.frame_desc) = function
-    | { tac_expression = TEString s; expr_rktype = _ } ->
+      (fd : FrameManager.frame_desc) tte = let expr_rktype = tte.expr_rktype in match tte.tac_expression with
+    |  TEString s ->
         let reg64 = resize64 target_reg in
         let (SLit str_labl) = Hashtbl.find litterals.str_lit_map s in
         (target_reg, load_label (AsmSpec.label_of_constant str_labl) reg64)
-    | { tac_expression = TEFalse | TEmpty; expr_rktype = _ } ->
+    | TEFalse | TEmpty->
         ( resize32 target_reg,
           Instruction
             (Mov
@@ -162,30 +162,31 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                  flexsec_operand = `Register wzr;
                })
           :: [] )
-    | { tac_expression = TENullptr; expr_rktype = _ } ->
+    | TENullptr ->
         let r64 = resize64 target_reg in
         ( r64,
           Instruction
             (Mov { destination = r64; flexsec_operand = `Register xzr })
           :: [] )
-    | { tac_expression = TETrue; _ } ->
+    | TETrue ->
         let s32 = resize32 target_reg in
         ( s32,
           Instruction
             (Mov { destination = s32; flexsec_operand = `ILitteral 1L })
           :: [] )
-    | { tac_expression = TEInt (_, isize, int64); _ } ->
+    | TEInt (_, isize, int64) ->
         let rreg =
           match isize with
           | I64 -> resize64 target_reg
           | _ -> resize32 target_reg
         in
         (rreg, mov_integer rreg int64)
-    | { tac_expression = TEChar c; _ } ->
+
+    | TEChar c ->
         let code = Char.code c |> Int64.of_int in
         let rreg = resize32 target_reg in
         (rreg, mov_integer rreg code)
-    | { tac_expression = TEFloat float; _ } ->
+    | TEFloat float ->
         let (FLit float_label) = Hashtbl.find litterals.float_lit_map float in
         let fsize = fst float in
         let destination =
@@ -203,7 +204,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                      adress_mode = Immediat;
                    });
             ] )
-    | { tac_expression = TEIdentifier id; expr_rktype } ->
+    | TEIdentifier id ->
         let adress =
           FrameManager.address_of (id, expr_rktype) fd |> fun adr ->
           match adr with
@@ -245,7 +246,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                      operand2 = `ILitteral adress.offset;
                    });
             ] )
-    | { tac_expression = TESizeof kt; _ } ->
+    | TESizeof kt ->
         let r64 = resize64 target_reg in
         let sizeof = sizeofn rprogram kt in
         ( r64,
@@ -257,19 +258,14 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             Instruction
               (Mov { destination = r64; flexsec_operand = `ILitteral sizeof });
           ] )
-    | {
-        tac_expression = TEConst { name; module_path };
-        expr_rktype = RTString_lit;
-      } ->
+    | TEConst { name; module_path } when expr_rktype = RTString_lit  ->
         let reg64 = resize64 target_reg in
         ( target_reg,
           load_label (AsmSpec.label_of_constant ~module_path name) reg64 )
-    | {
-        tac_expression = TEConst { name; module_path };
-        expr_rktype = RTInteger (_, size) as kt;
-      } ->
+    | TEConst { name; module_path } when KosuIrTyped.Asttyhelper.RType.is_any_integer expr_rktype ->
+        let _, size = Option.get @@ KosuIrTyped.Asttyhelper.RType.integer_info expr_rktype in
         let data_size =
-          compute_data_size kt
+          compute_data_size expr_rktype
             (Int64.of_int @@ KosuFrontend.Ast.Isize.size_of_isize size)
         in
         (* let open KosuIrTyped.Asttyped in *)
@@ -312,7 +308,25 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             | _ -> resize32 target_reg
           in
           (rreg, mov_integer rreg int_value)
-    | _ -> failwith "Other expression"
+      | TEConst { name = _; module_path = _ } -> failwith "Other constant"
+      | TECmpLesser ->
+        let s32 = resize32 target_reg in
+        s32,
+          Instruction
+            (Mov { destination = s32; flexsec_operand = `ILitteral 0L })
+          :: []
+      | TECmpGreater -> 
+        let s32 = resize32 target_reg in
+        s32,
+          Instruction
+            (Mov { destination = s32; flexsec_operand = `ILitteral 2L })
+          :: []
+      | TECmpEqual ->         
+        let s32 = resize32 target_reg in
+        s32,
+        Instruction
+          (Mov { destination = s32; flexsec_operand = `ILitteral 1L })
+        :: [] 
 
   let translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where ~rval_rktype
       rprogram fd =

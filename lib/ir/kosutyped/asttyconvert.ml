@@ -1051,12 +1051,12 @@ module Sizeof = struct
 
   let rec size calcul program rktype =
     match rktype with
-    | RTUnit | RTBool | RTUnknow | RTChar -> 1L
+    | RTUnit | RTBool | RTUnknow | RTChar | RTOrdered -> 1L
     | RTInteger (_, isize) -> Isize.size_of_isize isize / 8 |> Int64.of_int
     | RTFloat fsize -> Fsize.size_of_fsize fsize / 8 |> Int64.of_int
     | RTPointer _ | RTString_lit | RTFunction _ -> 8L
     | RTTuple kts -> size_tuple calcul program kts
-    | kt -> (
+    | (RTParametric_identifier _ | RTType_Identifier _) as kt -> (
         let type_decl =
           RProgram.find_type_decl_from_rktye kt program |> Option.get
         in
