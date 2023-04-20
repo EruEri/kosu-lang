@@ -1039,6 +1039,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
          (fun acc node -> RProgram.append_function_decl node acc)
          rprogram
     |> RProgram.remove_generics
+    |> RProgram.create_compare_function
 end
 
 module Sizeof = struct

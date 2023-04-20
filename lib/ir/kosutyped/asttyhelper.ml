@@ -1359,13 +1359,17 @@ module RProgram = struct
     eq_node::always_generated
 
 
-
+  (**
+    Gerete compare function from spceshift [<=>] operator    
+  *)
   let create_compare_function rprogram = 
     rprogram 
     |> List.map (fun { filename; rmodule_path = { path; rmodule }}  -> 
       let spaceshift_operator_decl = Rmodule.retrieve_binary_function_decl (ParBinOp KosuFrontend.Ast.Spaceship) rmodule in
       let generated =  spaceshift_operator_decl |> List.map (fun decl ->
-        generate_function_from_spaceship_decl ~generate_equal:true decl
+        let (_, ltype), (_, rtype) = decl.rbfields in
+        let find_eq_decl = find_binary_operator_decl Binop.pbequal (ltype, rtype) ~r_type:RTBool rprogram in
+        generate_function_from_spaceship_decl ~generate_equal:(find_eq_decl = []) decl
       ) |> List.flatten in 
 
       let rmodule = generated |> List.fold_left (fun acc_module node -> Rmodule.add_node node acc_module) rmodule in
