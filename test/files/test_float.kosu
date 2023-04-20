@@ -191,7 +191,7 @@ fn test_cmp_f64() {
 
 fn main() s32 {
     discard test_arith_f64();
-    discard test_cmp_f32();
+    discard test_cmp_f64();
 
     discard test_arith_f32();
     discard test_cmp_f32();
