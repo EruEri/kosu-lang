@@ -958,7 +958,12 @@ module Kbody = struct
           (BDif
              ( remap_located_expr_explicit_type generics current_module lhs,
                remap_located_expr_explicit_type generics current_module rhs ))
-    | ( Empty | True | False | ENullptr | EInteger _ | EFloat _ | EChar _
+    | EBin_op (BCmp (lhs, rhs)) ->
+      EBin_op
+        (BCmp
+            ( remap_located_expr_explicit_type generics current_module lhs,
+              remap_located_expr_explicit_type generics current_module rhs ))
+    | ( Empty | True | False | ECmpEqual | ECmpLess | ECmpGreater |  ENullptr | EInteger _ | EFloat _ | EChar _
       | EString _ | EAdress _
       | EDeference (_, _)
       | EIdentifier _ ) as t ->

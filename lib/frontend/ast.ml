@@ -60,6 +60,7 @@ type ktype =
   | TPointer of ktype location
   | TTuple of ktype location list
   | TFunction of ktype location list * ktype location
+  | TOredered
   | TString_lit
   | TUnknow
   | TChar
@@ -88,6 +89,9 @@ and kexpression =
   | True
   | False
   | ENullptr
+  | ECmpLess
+  | ECmpEqual
+  | ECmpGreater
   | EInteger of (signedness * isize * int64)
   | EFloat of (fsize * float)
   | EChar of char
@@ -159,6 +163,7 @@ and kbin_op =
   | BInfEq of kexpression location * kexpression location
   | BEqual of kexpression location * kexpression location
   | BDif of kexpression location * kexpression location
+  | BCmp of kexpression location * kexpression location
 
 and kunary_op = UMinus of kexpression location | UNot of kexpression location
 

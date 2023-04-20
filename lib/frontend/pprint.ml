@@ -94,6 +94,7 @@ let rec string_of_ktype = function
         |> String.concat ", ")
         (string_of_ktype r_type.v)
   | TString_lit -> "stringl"
+  | TOredered -> "order"
   | TChar -> "char"
   | TBool -> "bool"
   | TUnit -> "unit"
@@ -137,6 +138,9 @@ and string_of_kexpression = function
   | True -> "true"
   | False -> "false"
   | ENullptr -> "nullptr"
+  | ECmpEqual -> "eq"
+  | ECmpGreater -> "gt"
+  | ECmpLess -> "lt"
   | EChar c -> Printf.sprintf "\'%c\'" c
   | EInteger (sign, _, value) -> (
       match sign with
@@ -306,6 +310,10 @@ and string_of_kbin_op = function
         (string_of_kexpression rhs.v)
   | BDif (lhs, rhs) ->
       sprintf "(%s != %s)"
+        (string_of_kexpression lhs.v)
+        (string_of_kexpression rhs.v)
+  | BCmp (lhs, rhs) ->
+      sprintf "(%s <=> %s)"
         (string_of_kexpression lhs.v)
         (string_of_kexpression rhs.v)
 

@@ -255,6 +255,7 @@ Return the type of an expression
     match expression.v with
     | Empty -> TUnit
     | True | False -> TBool
+    | ECmpLess | ECmpEqual | ECmpGreater -> TOredered
     | ENullptr -> TPointer { v = TUnknow; position = expression.position }
     | EInteger (sign, size, _) -> TInteger (sign, size)
     | EChar _ -> TChar
@@ -1562,6 +1563,7 @@ Return the type of an expression
         | `no_inf_for_built_in ->
             No_built_in_op { bin_op = Ast.OperatorFunction.Inf; ktype = l_type }
             |> operator_error |> raise)
+    | EBin_op (BCmp (_lhs, _rhs)) -> failwith ""
     | EUn_op (UNot lhs) -> (
         let l_type =
           lhs

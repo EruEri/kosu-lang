@@ -52,9 +52,11 @@
     f lexbuf
 
     let keywords = Hashtbl.create 20
-    let _ = [("and", FULLAND); "cases", CASES; "const", CONST; "enum", ENUM; "external", EXTERNAL; "empty", EMPTY; "discard", DISCARD ; "else", ELSE; "fn", FUNCTION; 
-    "false", FALSE; "nullptr", NULLPTR ;"struct", STRUCT; "syscall", SYSCALL ;("of", OF); ("or", FULLOR); "operator", OPERATOR; "true", TRUE; "switch", SWITCH; "sizeof", SIZEOF; "if", IF; 
-     "var", VAR; "while", WHILE
+    let _ = [("and", FULLAND); ("cases", CASES); ("const", CONST); ("discard", DISCARD); 
+    ("enum", ENUM); ("external", EXTERNAL); ("empty", EMPTY); ("else", ELSE); ("eq", CMP_EQUAL);
+    ("fn", FUNCTION); ("false", FALSE); ("gt", CMP_GREATER); ("lt", CMP_LESS); ("nullptr", NULLPTR); 
+    ("struct", STRUCT); ("syscall", SYSCALL); ("of", OF); ("or", FULLOR); ("operator", OPERATOR); ("true", TRUE); 
+    ("switch", SWITCH); ("sizeof", SIZEOF); ("if", IF); ("var", VAR); ("while", WHILE)
     ] |> List.iter (fun (s,t) -> Hashtbl.add keywords s t)
 }
 
@@ -115,6 +117,7 @@ rule token = parse
 | "->" { MINUSUP }
 | "$" { DOLLAR }
 | "==" { DOUBLEQUAL }
+| "<=>" { INF_EQ_SUP }
 | "!=" { DIF }
 | "!" { NOT }
 | "+" { PLUS }
