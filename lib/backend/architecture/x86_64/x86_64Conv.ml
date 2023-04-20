@@ -1000,6 +1000,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let is_unsigned =
           KosuIrTyped.Asttyhelper.RType.is_raw_unsigned blhs.expr_rktype
           || KosuIrTyped.Asttyhelper.RType.is_raw_unsigned brhs.expr_rktype
+          || KosuIrTyped.Asttyhelper.RType.is_float blhs.expr_rktype
         in
         let cc =
           Option.get @@ Condition_Code.cc_of_tac_bin ~is_unsigned bool_binop

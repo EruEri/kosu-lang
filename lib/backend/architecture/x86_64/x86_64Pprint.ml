@@ -216,6 +216,12 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         (string_of_float_data_size size)
         (string_of_src fsize source)
         (string_of_src fsize destination)
+    | Comi {size; source; destination} -> 
+      let fsize = floatsize size in 
+      sprintf "comi%s %s, %s"
+        (string_of_float_data_size size)
+        (string_of_src fsize source)
+        (string_of_src fsize destination)
     | Cvtts2s {source_size; dst_size; source; destination} ->
       sprintf "cvtt%s2%s %s, %s"
         (string_of_ctv_data_size source_size)

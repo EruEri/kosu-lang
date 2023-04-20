@@ -333,6 +333,7 @@ end
 module Condition_Code = struct
   type condition_code = E | NE | S | NS | G | GE | L | LE | A | AE | B | BE
 
+  (* Float should use unsigned condition code *)
   let cc_of_tac_bin ?(is_unsigned = false) =
     let open KosuIrTAC.Asttac in
     function
@@ -373,7 +374,7 @@ module Instruction = struct
     | Xor of { size : int_data_size; destination : dst; source : src }
     | Or of { size :  int_data_size; destination : dst; source : src }
     | And of { size : int_data_size; destination : dst; source : src }
-
+    | Comi of { size: float_data_size; source: src; destination : src}
     | Ucomi of { size: float_data_size; source: src; destination : src}
 
     (* i to f*)
