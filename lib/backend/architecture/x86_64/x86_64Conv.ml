@@ -1257,20 +1257,23 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
               translate_tac_expression ~litterals ~target_dst:(`Register r0)
                 rprogram fd parameter
             in
-            let conv_instrc = if source_data_size = output_data_size then [] 
-            else Instruction
-                (Cvts2s
-                   {
-                     source_size = source_data_size;
-                     dst_size = output_data_size;
-                     source = `Register r0;
-                     destination = `Register xmm0;
-                   })::[]
+            let conv_instrc =
+              if source_data_size = output_data_size then []
+              else
+                Instruction
+                  (Cvts2s
+                     {
+                       source_size = source_data_size;
+                       dst_size = output_data_size;
+                       source = `Register r0;
+                       destination = `Register xmm0;
+                     })
+                :: []
             in
             let copy_instructions =
               copy_result ~where ~register:xmm0 ~rval_rktype rprogram
             in
-            mov_instructtion @ (conv_instrc @ copy_instructions))
+            mov_instructtion @ conv_instrc @ copy_instructions)
     | RVCustomUnop unary ->
         let open KosuIrTAC.Asttachelper.Operator in
         let op_decls =
