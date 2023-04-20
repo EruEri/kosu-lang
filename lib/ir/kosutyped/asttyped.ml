@@ -43,6 +43,14 @@ type rktype =
   | RTBool
   | RTUnit
 
+type extended_parser_operator = 
+| ParBinOp of parser_binary_op
+| ParserSup
+| ParserSupEq
+| ParserInf
+| ParserInfEq
+| ParserDiff
+
 type rkbody = rkstatement list * typed_expression
 and typed_expression = { rktype : rktype; rexpression : rkexpression }
 
@@ -157,19 +165,23 @@ type rfunction_decl = {
   rbody : rkbody;
 }
 
+type unary_operator_decl = {
+  op : parser_unary_op;
+  rfield : string * rktype;
+  return_type : rktype;
+  kbody : rkbody;
+}
+
+type binary_operator_decl = {
+  op : extended_parser_operator;
+  rbfields : (string * rktype) * (string * rktype);
+  return_type : rktype;
+  kbody : rkbody;
+}
+
 type roperator_decl =
-  | RUnary of {
-      op : parser_unary_op;
-      rfield : string * rktype;
-      return_type : rktype;
-      kbody : rkbody;
-    }
-  | RBinary of {
-      op : parser_binary_op;
-      rfields : (string * rktype) * (string * rktype);
-      return_type : rktype;
-      kbody : rkbody;
-    }
+  | RUnary of unary_operator_decl
+  | RBinary of binary_operator_decl
 
 type rsyscall_decl = {
   rsyscall_name : string;

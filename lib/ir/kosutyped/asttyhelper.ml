@@ -170,9 +170,9 @@ module OperatorDeclaration = struct
           (KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_unary op)
           (Asttypprint.string_of_label_rktype rktype)
           (Asttypprint.string_of_label_rktype return_type)
-    | RBinary { op; rfields = (_, ltype), (_, rtype); return_type; _ } ->
+    | RBinary { op; rbfields = (_, ltype), (_, rtype); return_type; _ } ->
         Printf.sprintf "_%s.%s_%s__%s"
-          (KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_binary op)
+          (Asttypprint.string_name_of_extended_parser_binary op)
           (Asttypprint.string_of_label_rktype ltype)
           (Asttypprint.string_of_label_rktype rtype)
           (Asttypprint.string_of_label_rktype return_type)
@@ -638,7 +638,7 @@ module Renum = struct
 end
 
 module RStruct = struct
-  let instanciate_struct_decl generics struct_decl =
+  let instanciate_struct_decl generics (struct_decl: rstruct_decl) =
     let generics = generics |> List.to_seq |> Hashtbl.of_seq in
     {
       struct_decl with
@@ -647,7 +647,7 @@ module RStruct = struct
         |> List.map (fun (s, kt) -> (s, RType.remap_generic_ktype generics kt));
     }
 
-  let rktype_of_field_opt field struct_decl =
+  let rktype_of_field_opt field (struct_decl: rstruct_decl) =
     struct_decl.rfields |> List.assoc_opt field
 end
 
@@ -706,6 +706,12 @@ module Rmodule = struct
                | RNOperator roperator_decl -> Some (RFOperator roperator_decl)
                | _ -> None)
 
+  let retrieve_binary_function_decl op = function
+  | RModule rnodes -> 
+    rnodes |> List.filter_map (function
+    | RNOperator RBinary bod when bod.op = op -> Some bod
+    | _ -> None
+    )
   let retrive_functions_decl = function
     | RModule rnodes ->
         rnodes
@@ -841,7 +847,7 @@ module RProgram = struct
 
   let register_params_count = 8
 
-  let find_binary_operator_decl (op : KosuFrontend.Ast.parser_binary_op)
+  let find_binary_operator_decl (op : extended_parser_operator)
       (lhs, rhs) ~r_type rprogram =
     rprogram
     |> List.map (fun { filename = _; rmodule_path } ->
@@ -849,7 +855,7 @@ module RProgram = struct
            |> List.filter (function
                 | RUnary _ -> false
                 | RBinary record ->
-                    let (_, kt1), (_, kt2) = record.rfields in
+                    let (_, kt1), (_, kt2) = record.rbfields in
                     op = record.op
                     && record.return_type = r_type
                     && lhs = kt1 && rhs = kt2))
@@ -1213,6 +1219,16 @@ module RProgram = struct
                     specialise_generics_function_kbody path rprogram kbody)
            |> List.fold_left FnSpec.union FnSpec.empty)
     |> List.fold_left FnSpec.union FnSpec.empty
+
+
+ 
+
+  let create_compare_function rprogram = 
+    rprogram 
+    |> List.map (fun { rmodule_path = { path  = _; rmodule }; _ }  -> 
+      let _spaceshift_operator_decl = Rmodule.retrieve_binary_function_decl (ParBinOp KosuFrontend.Ast.Spaceship) rmodule in
+      failwith ""
+    )
 
   let remove_generics rprogram =
     rprogram

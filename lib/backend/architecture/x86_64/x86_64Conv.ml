@@ -1332,10 +1332,9 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
              TacSelf _ | TacBool TacSup | TacBool TacInf | TacBool TacEqual;
            _;
          } as self) ->
-        let open KosuIrTAC.Asttachelper.Operator in
         let op_decls =
           KosuIrTyped.Asttyhelper.RProgram.find_binary_operator_decl
-            (parser_binary_op_of_tac_binary_op self.binop)
+            (KosuIrTAC.Asttachelper.Operator.parser_binary_op_of_tac_binary_op self.binop)
             (self.blhs.expr_rktype, self.brhs.expr_rktype)
             ~r_type:rval_rktype rprogram
         in

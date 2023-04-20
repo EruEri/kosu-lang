@@ -926,8 +926,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
         RNOperator
           (RBinary
              {
-               op = op.v;
-               rfields =
+               op = ParBinOp op.v;
+               rbfields =
                  ( (field1.v, from_ktype ktype1.v),
                    (field2.v, from_ktype ktype2.v) );
                return_type = return_type |> Position.value |> from_ktype;

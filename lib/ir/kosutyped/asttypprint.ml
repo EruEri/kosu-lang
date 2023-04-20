@@ -22,8 +22,9 @@ open KosuFrontend.Pprint
 
 let symbole_of_roperator = function
   | RUnary { op; _ } -> ( op |> function PNot -> "!" | PUMinus -> "(-.)")
-  | RBinary { op; _ } -> (
-      op |> function
+  | RBinary { op; _ } -> begin
+        match op with 
+    | ParBinOp op -> begin match op with
       | Add -> "+"
       | Minus -> "-"
       | Mult -> "*"
@@ -35,12 +36,20 @@ let symbole_of_roperator = function
       | ShiftLeft -> "<<"
       | ShiftRight -> ">>"
       | Spaceship -> "<=>"
-      | Equal -> "==")
+      | Equal -> "=="
+    end
+    | ParserDiff -> "!="
+    | ParserInfEq -> "<="
+    | ParserSupEq -> ">="
+    | ParserInf -> "<"
+    | ParserSup -> ">"
+  end
 
 let name_of_roperator = function
   | RUnary { op; _ } -> ( op |> function PNot -> "not" | PUMinus -> "unminus")
-  | RBinary { op; _ } -> (
-      op |> function
+  | RBinary { op; _ } -> begin
+    match op with 
+    | ParBinOp op -> begin match op with
       | Add -> "add"
       | Minus -> "minus"
       | Mult -> "mult"
@@ -52,7 +61,22 @@ let name_of_roperator = function
       | ShiftLeft -> "shiftleft"
       | ShiftRight -> "shiftright"
       | Spaceship -> "spaceshift"
-      | Equal -> "equal")
+      | Equal -> "equal"
+    end
+    | ParserDiff -> "diff"
+    | ParserInfEq -> "infeq"
+    | ParserSupEq -> "supeq"
+    | ParserInf -> "inf"
+    | ParserSup -> "sup"
+  end 
+
+let string_name_of_extended_parser_binary = function
+  | ParBinOp op -> KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_binary op
+  | ParserDiff -> "diff"
+  | ParserInfEq -> "infeq"
+  | ParserSupEq -> "supeq"
+  | ParserInf -> "inf"
+  | ParserSup -> "sup"
 
 let rec string_of_rktype = function
   | RTParametric_identifier { module_path; parametrics_type; name } ->

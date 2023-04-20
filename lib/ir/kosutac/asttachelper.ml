@@ -24,23 +24,45 @@ module Operator = struct
     let open KosuFrontend.Ast in
     function TacNot -> PNot | TacUminus -> PUMinus
 
+  let pbadd = ParBinOp KosuFrontend.Ast.Add
+  let pbminus = ParBinOp KosuFrontend.Ast.Minus
+  let pbmult = ParBinOp KosuFrontend.Ast.Mult
+  let pbmodulo = ParBinOp KosuFrontend.Ast.Modulo
+  let pbdiv = ParBinOp KosuFrontend.Ast.Div
+  let pbbitwiseor = ParBinOp KosuFrontend.Ast.BitwiseOr
+  let pbbitwisexor = ParBinOp KosuFrontend.Ast.BitwiseXor
+  let pbbitwiseoand = ParBinOp KosuFrontend.Ast.BitwiseAnd
+  let pbshiftleft = ParBinOp KosuFrontend.Ast.ShiftLeft
+  let pbshiftright = ParBinOp KosuFrontend.Ast.ShiftRight
+  let pbequal = ParBinOp KosuFrontend.Ast.Equal
+
+  let pbordered = ParBinOp KosuFrontend.Ast.Spaceship
+  let pbsup = ParserSup
+  let pbinf = ParserInf
+  let pbsupeq = ParserSupEq
+  let pbinfeq = ParserInfEq
+  let pbdiff = ParserDiff
+
   let parser_binary_op_of_tac_binary_op =
-    let open KosuFrontend.Ast in
     function
-    | TacSelf TacAdd -> Add
-    | TacSelf TacMinus -> Minus
-    | TacSelf TacMult -> Mult
-    | TacSelf TacDiv -> Div
-    | TacSelf TacModulo -> Modulo
-    | TacSelf TacBitwiseOr -> BitwiseOr
-    | TacSelf TacBitwiseAnd -> BitwiseAnd
-    | TacSelf TacBitwiseXor -> BitwiseXor
-    | TacSelf TacShiftLeft -> ShiftLeft
-    | TacSelf TacShiftRight -> ShiftRight
-    | TacBool TacSup | TacBool TacSupEq -> Spaceship
-    | TacBool TacInf | TacBool TacInfEq -> Spaceship
-    | TacBool TacEqual | TacBool TacDiff -> Equal
-    | _ -> failwith "Operator not Overridable"
+    | TacSelf TacAdd -> pbadd
+    | TacSelf TacMinus -> pbminus
+    | TacSelf TacMult -> pbmult
+    | TacSelf TacDiv -> pbdiv
+    | TacSelf TacModulo -> pbmodulo
+    | TacSelf TacBitwiseOr -> pbbitwiseor
+    | TacSelf TacBitwiseAnd -> pbbitwiseoand
+    | TacSelf TacBitwiseXor -> pbbitwisexor
+    | TacSelf TacShiftLeft -> pbshiftleft
+    | TacSelf TacShiftRight -> pbshiftright
+    | TacBool TacSup -> pbsup
+    | TacBool TacSupEq -> pbsupeq
+    | TacBool TacInf -> pbinf
+    | TacBool TacInfEq -> pbinfeq
+    | TacBool TacEqual -> pbequal
+    | TacBool TacDiff -> pbdiff
+    | TacCmp TacOrdered -> pbordered
+    | TacBool (TacOr|TacAnd) -> failwith "Operator not overloadable"
 
   let bin_operantor = function
     | RBAdd _ -> TacSelf TacAdd

@@ -1162,7 +1162,7 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
           discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
         }
   | RBinary
-      { op; rfields = ((_f1, _), (_f2, _)) as rfields; return_type; kbody } as
+      { op; rbfields = ((_f1, _), (_f2, _)) as rfields; return_type; kbody } as
     self ->
       let asm_name =
         KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator self

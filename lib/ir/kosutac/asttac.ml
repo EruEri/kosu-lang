@@ -217,7 +217,7 @@ type tac_operator_decl =
       discarded_values : (string * rktype) list;
     }
   | TacBinary of {
-      op : parser_binary_op;
+      op : extended_parser_operator;
       asm_name : string;
       rfields : (string * rktype) * (string * rktype);
       return_type : rktype;
