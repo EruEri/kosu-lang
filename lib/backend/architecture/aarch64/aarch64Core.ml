@@ -46,7 +46,6 @@ type adress_mode =
   | Postfix (* out = *(intptr++);*)
 
 type data_size = B | SB | H | SH
-type register_size = SReg32 | SReg64
 
 module Condition_Code = struct
   type condition_code =
@@ -67,7 +66,7 @@ module Condition_Code = struct
     | AL  (** Always*)
 
   (* Inverse of the op > == <= *)
-  let cc_of_tac_bin ?(is_unsigned = false) =
+  let cc_of_tac_bin_reversed ?(is_unsigned = false) =
     let open KosuIrTAC.Asttac in
     function
     | TacOr | TacAnd -> None
@@ -77,10 +76,23 @@ module Condition_Code = struct
     | TacSupEq -> Some (if is_unsigned then CC else LT)
     | TacInfEq -> Some (if is_unsigned then HI else GT)
     | TacInf -> Some (if is_unsigned then CS else GE)
+
+  let cc_of_tac_bin ?(is_unsigned = false) =
+    let open KosuIrTAC.Asttac in
+    function
+    | TacOr | TacAnd -> None
+    | TacEqual -> Some EQ
+    | TacDiff -> Some NE
+    | TacSup -> Some (if is_unsigned then HI else GT)
+    | TacSupEq -> Some (if is_unsigned then CS else GE)
+    | TacInfEq -> Some (if is_unsigned then LS else LE)
+    | TacInf -> Some (if is_unsigned then CC else LT)
 end
 
 module Register = struct
-  type registerf64b =
+  type register_size = SReg32 | SReg64
+
+  type float_register =
     | D0
     | D1
     | D2
@@ -102,7 +114,7 @@ module Register = struct
     | D30
     | DZR
 
-  type register64b =
+  type int_register =
     | X0
     | X1
     | X2
@@ -125,79 +137,121 @@ module Register = struct
     | XZR
     | SP
 
-  type register32b =
-    | W0
-    | W1
-    | W2
-    | W3
-    | W4
-    | W5
-    | W6
-    | W7
-    | W8 (* XR *)
-    | W9
-    | W10
-    | W11
-    | W12
-    | W13
-    | W14
-    | W15
-    | W16
-    | W29
-    | W30
-    | WZR
-    | WSP
+  let floatreg_of_intreg = function
+    | X0 -> D0
+    | X1 -> D1
+    | X2 -> D2
+    | X3 -> D3
+    | X4 -> D4
+    | X5 -> D5
+    | X6 -> D6
+    | X7 -> D7
+    | X8 -> D8
+    | X9 -> D9
+    | X10 -> D10
+    | X11 -> D11
+    | X12 -> D12
+    | X13 -> D13
+    | X14 -> D14
+    | X15 -> D15
+    | X16 -> D16
+    | X29 -> D29
+    | X30 -> D30
+    | XZR -> DZR
+    | SP -> failwith "SP has not float equivalent"
 
-  type register =
-    | FRegister64 of registerf64b
-    | Register64 of register64b
-    | Register32 of register32b
+  let intreg_of_floatreg = function
+    | D0 -> X0
+    | D1 -> X1
+    | D2 -> X2
+    | D3 -> X3
+    | D4 -> X4
+    | D5 -> X5
+    | D6 -> X6
+    | D7 -> X7
+    | D8 -> X8
+    | D9 -> X9
+    | D10 -> X10
+    | D11 -> X11
+    | D12 -> X12
+    | D13 -> X13
+    | D14 -> X14
+    | D15 -> X15
+    | D16 -> X16
+    | D29 -> X29
+    | D30 -> X30
+    | DZR -> XZR
 
-  let reg64_of_32 = function
-    | W0 -> X0
-    | W1 -> X1
-    | W2 -> X2
-    | W3 -> X3
-    | W4 -> X4
-    | W5 -> X5
-    | W6 -> X6
-    | W7 -> X7
-    | W8 -> X8
-    | W9 -> X9
-    | W10 -> X10
-    | W11 -> X11
-    | W12 -> X12
-    | W13 -> X13
-    | W14 -> X14
-    | W15 -> X15
-    | W16 -> X16
-    | W29 -> X29
-    | W30 -> X30
-    | WZR -> XZR
-    | WSP -> SP
+  type raw_register = FloatReg of float_register | IntegerReg of int_register
+  type register = { register : raw_register; size : register_size }
 
-  let reg32_of_64 = function
-    | X0 -> W0
-    | X1 -> W1
-    | X2 -> W2
-    | X3 -> W3
-    | X4 -> W4
-    | X5 -> W5
-    | X6 -> W6
-    | X7 -> W7
-    | X8 -> W8
-    | X9 -> W9
-    | X10 -> W10
-    | X11 -> W11
-    | X12 -> W12
-    | X13 -> W13
-    | X14 -> W14
-    | X15 -> W15
-    | X16 -> W16
-    | X29 -> W29
-    | X30 -> W30
-    | XZR -> WZR
-    | SP -> WSP
+  let resize64 reg = { reg with size = SReg64 }
+  let resize32 reg = { reg with size = SReg32 }
+  let resize_register size register = { register with size }
+
+  let to_float64reg reg =
+    match reg.register with
+    | FloatReg _ -> resize64 reg
+    | IntegerReg reg ->
+        { register = FloatReg (floatreg_of_intreg reg); size = SReg64 }
+
+  let to_int64reg reg =
+    match reg.register with
+    | IntegerReg _ -> resize64 reg
+    | FloatReg reg ->
+        { register = IntegerReg (intreg_of_floatreg reg); size = SReg64 }
+
+  let to_int32reg reg =
+    match reg.register with
+    | IntegerReg _ -> resize64 reg
+    | FloatReg reg ->
+        { register = IntegerReg (intreg_of_floatreg reg); size = SReg32 }
+
+  let to_float32reg reg =
+    match reg.register with
+    | FloatReg _ -> resize32 reg
+    | IntegerReg reg ->
+        { register = FloatReg (floatreg_of_intreg reg); size = SReg32 }
+
+  let regsize_of_fsize = function
+    | KosuFrontend.Ast.F32 -> SReg32
+    | KosuFrontend.Ast.F64 -> SReg64
+
+  let x0 = { register = IntegerReg X0; size = SReg64 }
+  let x1 = { register = IntegerReg X1; size = SReg64 }
+  let x2 = { register = IntegerReg X2; size = SReg64 }
+  let x3 = { register = IntegerReg X3; size = SReg64 }
+  let x4 = { register = IntegerReg X4; size = SReg64 }
+  let x5 = { register = IntegerReg X5; size = SReg64 }
+  let x6 = { register = IntegerReg X6; size = SReg64 }
+  let x7 = { register = IntegerReg X7; size = SReg64 }
+  let x8 = { register = IntegerReg X8; size = SReg64 }
+  let w8 = resize32 x8
+  let x9 = { register = IntegerReg X9; size = SReg64 }
+  let w9 = resize32 x9
+  let x10 = { register = IntegerReg X10; size = SReg64 }
+  let w10 = resize32 x10
+  let x11 = { register = IntegerReg X11; size = SReg64 }
+  let w11 = resize32 x11
+  let xzr = { register = IntegerReg XZR; size = SReg64 }
+  let wzr = { register = IntegerReg XZR; size = SReg32 }
+  let x29 = { register = IntegerReg X29; size = SReg64 }
+  let x30 = { register = IntegerReg X30; size = SReg64 }
+  let sp = { register = IntegerReg SP; size = SReg64 }
+  let d0 = { register = FloatReg D0; size = SReg64 }
+  let d1 = { register = FloatReg D1; size = SReg64 }
+  let d2 = { register = FloatReg D2; size = SReg64 }
+  let d3 = { register = FloatReg D3; size = SReg64 }
+  let d4 = { register = FloatReg D4; size = SReg64 }
+  let d5 = { register = FloatReg D5; size = SReg64 }
+  let d6 = { register = FloatReg D6; size = SReg64 }
+  let d7 = { register = FloatReg D7; size = SReg64 }
+  let d8 = { register = FloatReg D8; size = SReg64 }
+  let d9 = { register = FloatReg D9; size = SReg64 }
+  let s9 = { register = FloatReg D9; size = SReg32 }
+  let d10 = { register = FloatReg D10; size = SReg64 }
+  let d11 = { register = FloatReg D11; size = SReg64 }
+  let x16 = { register = IntegerReg X16; size = SReg64 }
 
   let float64reg_of_64bitsreg = function
     | X0 -> D0
@@ -222,115 +276,98 @@ module Register = struct
     | XZR -> DZR
     | SP -> failwith "SP has not float equivalent"
 
-  let argument_registers =
-    [
-      Register64 X0;
-      Register64 X1;
-      Register64 X2;
-      Register64 X3;
-      Register64 X4;
-      Register64 X5;
-      Register64 X6;
-      Register64 X7;
-    ]
+  let argument_registers = [ x0; x1; x2; x3; x4; x5; x6; x7 ]
+  let float_arguments_register = [ d0; d1; d2; d3; d4; d5; d6; d7 ]
+  let syscall_arguments_register = [ x0; x1; x2; x3; x4; x5 ]
+  let frame_registers = [ x29; x30 ]
 
-  let syscall_arguments_register =
-    [
-      Register64 X0;
-      Register64 X1;
-      Register64 X2;
-      Register64 X3;
-      Register64 X4;
-      Register64 X5;
-    ]
+  let return_register_ktype ~ktype =
+    let is_float = KosuIrTyped.Asttyhelper.RType.is_float ktype in
+    function
+    | 4L when is_float -> resize32 d0
+    | 8L when is_float -> d0
+    | _ when is_float -> failwith "Float impossible return type"
+    | 1L | 2L | 4L -> resize32 x0
+    | 8L -> x0
+    | _ -> x8
 
-  let frame_registers = [ Register64 X29; Register64 X30 ]
-
-  let return_register_ktype ~float = function
-    | _ when float -> FRegister64 D0
-    | 1L | 2L | 4L -> Register32 W0
-    | 8L -> Register64 X0
-    | _ -> Register64 X8
-
-  let is_f64_reg = function FRegister64 _ -> true | _ -> false
-
-  let are_aliased src dst =
-    match (src, dst) with
-    | Register64 s, Register32 z | Register32 z, Register64 s ->
-        let x_version = reg64_of_32 z in
-        s = x_version
+  let is_f64_reg = function
+    | { register = FloatReg _; size = SReg64 } -> true
     | _ -> false
 
-  let reg_of_32 reg = Register32 reg
-  let reg_of_64 reg = Register64 reg
+  let is_f32_reg = function
+    | { register = FloatReg _; size = SReg32 } -> true
+    | _ -> false
 
-  let to_64bits = function
-    | Register32 reg -> Register64 (reg64_of_32 reg)
-    | Register64 _ as t -> t
-    | FRegister64 _ as t -> t
-
-  let to_32bits = function
-    | FRegister64 _ as t -> t
-    | Register64 reg -> Register32 (reg32_of_64 reg)
-    | Register32 _ as t -> t
-
-  let to_64fbits = function
-    | FRegister64 _ as t -> t
-    | Register32 reg ->
-        FRegister64 (reg |> reg64_of_32 |> float64reg_of_64bitsreg)
-    | Register64 reg64 -> FRegister64 (float64reg_of_64bitsreg reg64)
+  let is_float_reg = function
+    | { register = FloatReg _; _ } -> true
+    | _ -> false
 
   let size_of_ktype_size s = if s <= 4L then SReg32 else SReg64
+  let size_of_reg register = register.size
 
-  let size_of_reg = function
-    | Register32 _ -> SReg32
-    | Register64 _ | FRegister64 _ -> SReg64
+  (* let reg_of_size size reg =
+     match size with SReg32 -> resize32 reg | SReg64 -> resize64 reg *)
 
-  let reg_of_size size reg =
-    match size with SReg32 -> to_32bits reg | SReg64 -> to_64bits reg
-
-  let xr = Register64 X8
-  let x29 = Register64 X29
-  let ftmp64reg = FRegister64 D8
-  let tmp64reg = Register64 X8
-  let tmp32reg = Register32 W8
-  let ftmp64reg_2 = FRegister64 D9
-  let tmp64reg_2 = Register64 X9
-  let tmp32reg_2 = Register32 W9
-  let ftmp64reg_3 = FRegister64 D10
-  let tmp32reg_3 = Register32 W10
-  let tmp64reg_3 = Register64 X10
-  let ftmp64reg_4 = FRegister64 D11
-  let tmp32reg_4 = Register32 W11
-  let tmp64reg_4 = Register64 X11
+  let xr = x8
+  let ftmp64reg = d8
+  let tmp64reg = x8
+  let tmp32reg = w8
+  let ftmp64reg_2 = d9
+  let tmp64reg_2 = x9
+  let tmp32reg_2 = w9
+  let ftmp64reg_3 = d10
+  let tmp32reg_3 = w10
+  let tmp64reg_3 = x10
+  let ftmp64reg_4 = d11
+  let tmp32reg_4 = w11
+  let tmp64reg_4 = x11
   let tmpreg_of_size size = if size <= 4L then tmp32reg else tmp64reg
   let tmpreg_of_size_2 size = if size <= 4L then tmp32reg_2 else tmp64reg_2
   let tmpreg_of_size_3 size = if size <= 4L then tmp32reg_3 else tmp64reg_3
   let tmpreg_of_size_4 size = if size <= 4L then tmp32reg_4 else tmp64reg_4
 
-  let tmpreg_of_ktype rprogram ktype =
-    if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg
-    else
-      let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
-      tmpreg_of_size size
+  let regsize_of_ktype size =
+    match size with 1L | 2L | 4L -> SReg32 | _ -> SReg64
 
-  let tmpreg_of_ktype_2 rprogram ktype =
-    if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_2
-    else
-      let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
-      tmpreg_of_size_2 size
+  let reg_of_ktype rprogram ktype ~register =
+    match ktype with
+    | KosuIrTyped.Asttyped.RTFloat KosuFrontend.Ast.F32 ->
+        to_float32reg register
+    | RTFloat F64 -> to_float64reg register
+    | _ ->
+        let sizeof = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+        let size = size_of_ktype_size sizeof in
+        resize_register size register
 
-  let tmpreg_of_ktype_3 rprogram ktype =
-    if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_3
-    else
-      let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
-      tmpreg_of_size_3 size
+  let reg8_of_ktype rprogram ktype = reg_of_ktype rprogram ktype ~register:x8
+  let reg9_of_ktype = reg_of_ktype ~register:x9
+  let reg10_of_ktype = reg_of_ktype ~register:x10
+  let reg11_of_ktype = reg_of_ktype ~register:x11
 
-  let tmpreg_of_ktype_4 rprogram ktype =
-    if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_4
-    else
-      let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
-      tmpreg_of_size_4 size
+  (* let tmpreg_of_ktype rprogram ktype =
+     if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg
+     else
+       let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+       tmpreg_of_size size *)
+
+  (* let tmpreg_of_ktype_2 rprogram ktype =
+     if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_2
+     else
+       let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+       tmpreg_of_size_2 size *)
+  (*
+     let tmpreg_of_ktype_3 rprogram ktype =
+       if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_3
+       else
+         let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+         tmpreg_of_size_3 size *)
+
+  (* let tmpreg_of_ktype_4 rprogram ktype =
+     if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_4
+     else
+       let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+       tmpreg_of_size_4 size *)
 end
 
 open Register
@@ -372,6 +409,23 @@ module Instruction = struct
     | Mvn of { destination : Register.register; operand : src }
     | Not of { destination : Register.register; source : src }
     | Neg of { destination : Register.register; source : Register.register }
+    | FCVT of { into : Register.register; turn : Register.register }
+      (* For float convert *)
+    | FCVTZU of {
+        int_register : Register.register;
+        float_register : Register.register;
+      }
+      (* Float -> Uint *)
+    | FCVTZS of {
+        int_register : Register.register;
+        float_register : Register.register;
+      }
+      (* Float -> Sint *)
+    | SCVTF of {
+        float_register : Register.register;
+        int_register : Register.register;
+      }
+      (* int -> float *)
     | ADD of {
         destination : Register.register;
         operand1 : Register.register;
@@ -449,6 +503,7 @@ module Instruction = struct
         condition : condition_code;
       }
     | CMP of { operand1 : Register.register; operand2 : src }
+    | CSET of { register : Register.register; cc : condition_code }
     (* Bitwise And*)
     | AND of {
         destination : Register.register;
@@ -586,6 +641,11 @@ module Instruction = struct
       @@ LSR { destination; operand1; operand2 = `Register operand2 };
     ]
 
+  let promote_float register =
+    if is_f32_reg register then
+      [ Instruction (FCVT { turn = register; into = resize64 register }) ]
+    else []
+
   let binop_instruction_of_tacself ?(unsigned = false) =
     let open KosuIrTAC.Asttac in
     function
@@ -626,7 +686,7 @@ module Instruction = struct
       |> Option.map (fun mp -> asm_const_name mp label)
       |> Option.value ~default:label
     in
-    let register = to_64bits register in
+    let register = resize64 register in
     let load = Instruction (ADRP { dst = register; label }) in
     let add =
       Instruction
@@ -649,7 +709,7 @@ module Instruction = struct
           (LDR
              {
                data_size = Some B;
-               destination = reg_of_32 W10;
+               destination = w10;
                adress_src = create_adress ~offset:1L base_src_reg;
                adress_mode = Postfix;
              });
@@ -657,7 +717,7 @@ module Instruction = struct
           (STR
              {
                data_size = Some B;
-               source = reg_of_32 W10;
+               source = w10;
                adress = adress_str;
                adress_mode = Immediat;
              });
@@ -671,7 +731,7 @@ module Instruction = struct
           (LDR
              {
                data_size = Some H;
-               destination = reg_of_32 W10;
+               destination = w10;
                adress_src = create_adress ~offset:2L base_src_reg;
                adress_mode = Postfix;
              });
@@ -679,7 +739,7 @@ module Instruction = struct
           (STR
              {
                data_size = Some H;
-               source = reg_of_32 W10;
+               source = w10;
                adress = adress_str;
                adress_mode = Immediat;
              });
@@ -693,7 +753,7 @@ module Instruction = struct
           (LDR
              {
                data_size = None;
-               destination = reg_of_32 W10;
+               destination = w10;
                adress_src = create_adress ~offset:4L base_src_reg;
                adress_mode = Postfix;
              });
@@ -701,7 +761,7 @@ module Instruction = struct
           (STR
              {
                data_size = None;
-               source = reg_of_32 W10;
+               source = w10;
                adress = adress_str;
                adress_mode = Immediat;
              });
@@ -716,7 +776,7 @@ module Instruction = struct
           (LDR
              {
                data_size = None;
-               destination = reg_of_64 X10;
+               destination = x10;
                adress_src = create_adress ~offset:8L base_src_reg;
                adress_mode = Postfix;
              });
@@ -724,7 +784,7 @@ module Instruction = struct
           (STR
              {
                data_size = None;
-               source = reg_of_64 X10;
+               source = x10;
                adress = adress_str;
                adress_mode = Immediat;
              });
@@ -748,7 +808,7 @@ module Instruction = struct
             (STR
                {
                  data_size;
-                 source = to_32bits register;
+                 source = resize32 register;
                  adress;
                  adress_mode = Immediat;
                });
@@ -764,7 +824,7 @@ module Instruction = struct
             (STR
                {
                  data_size;
-                 source = to_32bits register;
+                 source = resize32 register;
                  adress;
                  adress_mode = Immediat;
                });
@@ -775,7 +835,7 @@ module Instruction = struct
             (STR
                {
                  data_size = None;
-                 source = to_32bits register;
+                 source = resize32 register;
                  adress;
                  adress_mode = Immediat;
                });
@@ -786,7 +846,7 @@ module Instruction = struct
             (STR
                {
                  data_size = None;
-                 source = to_64bits register;
+                 source = resize64 register;
                  adress;
                  adress_mode = Immediat;
                });
@@ -808,7 +868,7 @@ module Instruction = struct
             (LDR
                {
                  data_size;
-                 destination = to_32bits register;
+                 destination = resize32 register;
                  adress_src = address;
                  adress_mode = Immediat;
                });
@@ -824,7 +884,7 @@ module Instruction = struct
             (LDR
                {
                  data_size;
-                 destination = to_32bits register;
+                 destination = resize32 register;
                  adress_src = address;
                  adress_mode = Immediat;
                });
@@ -835,7 +895,7 @@ module Instruction = struct
             (LDR
                {
                  data_size = None;
-                 destination = to_32bits register;
+                 destination = resize32 register;
                  adress_src = address;
                  adress_mode = Immediat;
                });
@@ -846,7 +906,7 @@ module Instruction = struct
             (LDR
                {
                  data_size = None;
-                 destination = to_64bits register;
+                 destination = resize64 register;
                  adress_src = address;
                  adress_mode = Immediat;
                });
@@ -897,6 +957,7 @@ module FrameManager = struct
 
   let frame_descriptor ?(stack_future_call = 0L)
       ~(fn_register_params : (string * KosuIrTyped.Asttyped.rktype) list)
+      ~(fn_float_register_params : (string * KosuIrTyped.Asttyped.rktype) list)
       ~(stack_param : (string * KosuIrTyped.Asttyped.rktype) list) ~return_type
       ~locals_var ~discarded_values rprogram =
     let stack_param_count = stack_param |> List.length in
@@ -905,7 +966,9 @@ module FrameManager = struct
       |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
       |> is_register_size |> not
     in
-    let stack_concat = fn_register_params @ stack_param @ locals_var in
+    let stack_concat =
+      fn_register_params @ fn_float_register_params @ stack_param @ locals_var
+    in
     let stack_concat =
       if need_xr then
         (indirect_return_var, indirect_return_type) :: stack_concat
@@ -923,10 +986,7 @@ module FrameManager = struct
       |> List.mapi (fun index value -> (index, value))
       |> List.fold_left
            (fun acc (index, st) ->
-             let offset =
-               offset_of_tuple_index ~generics:(Hashtbl.create 0) index
-                 fake_tuple rprogram
-             in
+             let offset = offset_of_tuple_index index fake_tuple rprogram in
              let x29_relative_address =
                locals_space |> Int64.neg |> Int64.add offset
              in
@@ -936,11 +996,9 @@ module FrameManager = struct
                    ~offset:
                      (locals_space |> Int64.neg |> Int64.add offset
                      |> Int64.add stack_future_call)
-                   (Register64 X29)
+                   x29
                else
-                 create_adress
-                   ~offset:(Int64.add stack_future_call offset)
-                   (Register64 SP)
+                 create_adress ~offset:(Int64.add stack_future_call offset) sp
              in
              (* let () = Printf.printf "-> %s : %s == [x29, %Ld] \n" (fst st) (KosuIrTyped.Asttypprint.string_of_rktype @@ snd @@ st) (offset) in *)
              IdVarMap.add st adress acc)
@@ -965,7 +1023,8 @@ module FrameManager = struct
             (Printf.sprintf "Not found: %s : %s" variable
                (KosuIrTyped.Asttypprint.string_of_rktype rktype))
 
-  let function_prologue ~fn_register_params ~stack_params rprogram fd =
+  let function_prologue ~fn_register_params ~fn_float_register_params
+      ~stack_params rprogram fd =
     let frame_register_offset =
       Int64.sub (align_16 (Int64.add 16L fd.locals_space)) 16L
     in
@@ -974,9 +1033,9 @@ module FrameManager = struct
       Instruction
         (STP
            {
-             x1 = Register64 X29;
-             x2 = Register64 X30;
-             address = { base = Register64 SP; offset = frame_register_offset };
+             x1 = x29;
+             x2 = x30;
+             address = { base = sp; offset = frame_register_offset };
              adress_mode = Immediat;
            })
     in
@@ -984,8 +1043,8 @@ module FrameManager = struct
       Instruction
         (SUB
            {
-             destination = Register64 SP;
-             operand1 = Register64 SP;
+             destination = sp;
+             operand1 = sp;
              operand2 = `ILitteral stack_sub_size;
            })
     in
@@ -993,8 +1052,8 @@ module FrameManager = struct
       Instruction
         (ADD
            {
-             destination = Register64 X29;
-             operand1 = Register64 SP;
+             destination = x29;
+             operand1 = sp;
              operand2 = `ILitteral frame_register_offset;
              offset = false;
            })
@@ -1020,7 +1079,7 @@ module FrameManager = struct
                KosuIrTyped.Asttyhelper.RType.rpointer kt
              else kt)
     in
-    let sp_address = create_adress ~offset:stack_sub_size (Register64 SP) in
+    let sp_address = create_adress ~offset:stack_sub_size sp in
     let copy_stack_params_instruction =
       stack_params
       |> List.mapi (fun index value -> (index, value))
@@ -1038,7 +1097,7 @@ module FrameManager = struct
                | Some a -> a
                | None -> failwith "On stack setup null address"
              in
-             let tmprreg = tmpreg_of_ktype rprogram kt in
+             let tmprreg = reg8_of_ktype rprogram kt in
              let param_stack_address = increment_adress offset sp_address in
              let load_instruction =
                load_register tmprreg param_stack_address kt sizeofkt
@@ -1064,8 +1123,25 @@ module FrameManager = struct
              acc @ copy_from_reg register whereis kt rprogram)
            []
     in
+
+    let float_copy_instructions =
+      fn_float_register_params
+      |> Util.ListHelper.combine_safe float_arguments_register
+      |> List.fold_left
+           (fun acc (register, (name, kt)) ->
+             let whereis =
+               address_of (name, kt) fd |> fun adr ->
+               match adr with
+               | Some a -> a
+               | None -> failwith "From register setup null address"
+             in
+             acc @ copy_from_reg register whereis kt rprogram)
+           []
+    in
+
     [ stack_sub; base; alignx29 ]
     @ store_x8 @ copy_stack_params_instruction @ copy_instructions
+    @ float_copy_instructions
 
   let function_epilogue fd =
     let stack_space = align_16 (Int64.add 16L fd.locals_space) in
@@ -1073,10 +1149,9 @@ module FrameManager = struct
       Instruction
         (LDP
            {
-             x1 = Register64 X29;
-             x2 = Register64 X30;
-             address =
-               { base = Register64 SP; offset = Int64.sub stack_space 16L };
+             x1 = x29;
+             x2 = x30;
+             address = { base = sp; offset = Int64.sub stack_space 16L };
              adress_mode = Immediat;
            })
     in
@@ -1084,9 +1159,9 @@ module FrameManager = struct
       Instruction
         (ADD
            {
-             destination = Register64 SP;
+             destination = sp;
              offset = false;
-             operand1 = Register64 SP;
+             operand1 = sp;
              operand2 = `ILitteral stack_space;
            })
     in

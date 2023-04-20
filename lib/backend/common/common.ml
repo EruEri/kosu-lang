@@ -74,6 +74,12 @@ module type InstructionLine = sig
 end
 
 module AsmProgram (InstructionLine : InstructionLine) = struct
+  type litterals = {
+    str_lit_map : (string, Util.stringlit_label) Hashtbl.t;
+    float_lit_map :
+      (KosuFrontend.Ast.fsize * float, Util.floatlit_label) Hashtbl.t;
+  }
+
   type raw_line = InstructionLine.raw_line
   type asm_function_decl = { asm_name : string; asm_body : raw_line list }
 
@@ -93,7 +99,7 @@ module AsmProgram (InstructionLine : InstructionLine) = struct
     filename : string;
     asm_module_path : asm_module_path;
     rprogram : KosuIrTyped.Asttyped.rprogram;
-    str_lit_map : (string, Util.stringlit_label) Hashtbl.t;
+    litterals : litterals;
   }
 
   type asm_program = named_asm_module_path list

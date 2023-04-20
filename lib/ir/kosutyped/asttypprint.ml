@@ -67,6 +67,7 @@ let rec string_of_rktype = function
         name
   | RTInteger (sign, size) ->
       sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
+  | RTFloat fsize -> sprintf "f%s" (string_of_fsize fsize)
   | RTPointer ktype -> sprintf "*%s" (string_of_rktype ktype)
   | RTTuple ktypes ->
       sprintf "(%s)" (ktypes |> List.map string_of_rktype |> String.concat ", ")
@@ -79,7 +80,6 @@ let rec string_of_rktype = function
   | RTUnit -> "unit"
   | RTChar -> "char"
   | RTUnknow -> "unknwon"
-  | RTFloat -> "f64"
 
 let asm_module_path_name = String.map (fun c -> if c = ':' then '_' else c)
 
@@ -95,6 +95,7 @@ let rec string_of_label_rktype = function
       sprintf "%s%s" (asm_module_path_name module_path) name
   | RTInteger (sign, size) ->
       sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
+  | RTFloat fsize -> sprintf "f%s" (string_of_fsize fsize)
   | RTPointer ktype -> sprintf "ptr_%s" (string_of_rktype ktype)
   | RTTuple ktypes ->
       sprintf "(%s)"
@@ -108,7 +109,6 @@ let rec string_of_label_rktype = function
   | RTUnit -> "unit"
   | RTChar -> "char"
   | RTUnknow -> "unknwon"
-  | RTFloat -> "f64"
 
 let rec string_of_rkbody = function
   | (statements : rkstatement list), (expr : typed_expression) ->
@@ -151,7 +151,7 @@ and string_of_rkexpression = function
       match sign with
       | Signed -> sprintf "%Ld" value
       | Unsigned -> sprintf "%Lu" value)
-  | REFloat f -> string_of_float f
+  | REFloat (_, f) -> string_of_float f
   | REBin_op bin | REBinOperator_Function_call bin -> string_of_rkbin_op bin
   | REUn_op un | REUnOperator_Function_call un -> string_of_rkunary_op un
   | RESizeof rktype -> sprintf "sizeof(%s)" (string_of_rktype rktype)

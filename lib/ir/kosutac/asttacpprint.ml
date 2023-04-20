@@ -236,7 +236,7 @@ and string_of_tac_expression = function
   | TEInt (sign, _, value) ->
       let format = if sign = Unsigned then sprintf "%Lu" else sprintf "%Ld" in
       format value
-  | TEFloat float -> string_of_float float
+  | TEFloat (_, float) -> string_of_float float
   | TEIdentifier id -> id
   | TEString s -> sprintf "\"%s\"" s
   | TEConst { module_path; name } -> sprintf "%s::%s" module_path name

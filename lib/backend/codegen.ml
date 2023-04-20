@@ -34,6 +34,7 @@ module type AsmProgram = sig
   val string_litteral_section_end : string
   val string_of_asm_node : asm_module_node -> string
   val string_litteral_directive : string
+  val directive_of_fsize : KosuFrontend.Ast.fsize -> string
   val filename_of_named_asm_module_path : named_asm_module_path -> string
 
   val asm_module_path_of_named_asm_module_path :
@@ -41,6 +42,10 @@ module type AsmProgram = sig
 
   val str_lit_map_of_name_asm_module :
     named_asm_module_path -> (string, stringlit_label) Hashtbl.t
+
+  val float_lit_map_of_name_asm_module :
+    named_asm_module_path ->
+    (KosuFrontend.Ast.fsize * float, floatlit_label) Hashtbl.t
 
   val asm_module_node_list_of_asm_module : asm_module -> asm_module_node list
 end
@@ -57,14 +62,20 @@ module Make (AsmProgram : AsmProgram) : S = struct
 
   let is_asm_module_empty asm_module =
     let str_lit_map = str_lit_map_of_name_asm_module asm_module in
+    let float_lit_map = float_lit_map_of_name_asm_module asm_module in
     let asm_module_nodes =
       asm_module |> AsmProgram.asm_module_path_of_named_asm_module_path
       |> AsmProgram.asm_module_node_list_of_asm_module
     in
-    List.length asm_module_nodes = 0 && Hashtbl.length str_lit_map = 0
+    List.length asm_module_nodes = 0
+    && Hashtbl.length str_lit_map = 0
+    && Hashtbl.length float_lit_map = 0
 
   let export_asm_module_opened_file file named_asm_module_path =
     let str_lit_map = str_lit_map_of_name_asm_module named_asm_module_path in
+    let float_lit_map =
+      float_lit_map_of_name_asm_module named_asm_module_path
+    in
     let asm_module_nodes =
       named_asm_module_path
       |> AsmProgram.asm_module_path_of_named_asm_module_path
@@ -75,6 +86,19 @@ module Make (AsmProgram : AsmProgram) : S = struct
       rnodes
       |> List.iter (fun node ->
              Printf.fprintf file "%s\n\n" (string_of_asm_node node))
+    in
+
+    let () =
+      float_lit_map |> Hashtbl.to_seq
+      |> Seq.iter (fun ((fsize, float), FLit label) ->
+             let s =
+               match fsize with
+               | KosuFrontend.Ast.F32 ->
+                   float |> Int32.bits_of_float |> Printf.sprintf "0x%lX"
+               | F64 -> float |> Int64.bits_of_float |> Printf.sprintf "0x%LX"
+             in
+             Printf.fprintf file "%s:\n\t.%s %s\n\n" label
+               (directive_of_fsize fsize) s)
     in
 
     let () = Printf.fprintf file "\n\t%s\n" string_litteral_section_start in

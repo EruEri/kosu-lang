@@ -60,6 +60,7 @@
 
 let integer_sigdness = ('s' | 'u')
 let integer_size = ('8' | "16" | "32" | "64")
+let fsize = ("f32" | "f64")
 let digit = ['0'-'9']
 let loLetter = ['a'-'z']
 let upLetter = ['A'-'Z']
@@ -165,8 +166,16 @@ rule token = parse
 | '\'' (_ as c) '\'' {
     Char_lit c
 }
-| float_literal as f {
-    Float_lit ( float_of_string f)
+| (float_literal as f) (fsize as fsize) {
+    let size = match fsize with
+    | "f32" -> Ast.F32
+    | "f64" -> Ast.F64 
+    | _ -> failwith "Unreachable code"
+    in 
+    Float_lit (size, float_of_string f)
+}
+| (float_literal as f) {
+    Float_lit (Ast.F64, float_of_string f)
 }
 | (number as n) (integer_sigdness as sign) (integer_size as size) {
     let signdess = if sign = 'u' then Ast.Unsigned else Ast.Signed in

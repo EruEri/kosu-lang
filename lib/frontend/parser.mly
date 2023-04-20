@@ -27,7 +27,7 @@
 %token <Ast.signedness * Ast.isize * int64> Integer_lit
 %token <string> String_lit
 %token <char> Char_lit
-%token <float> Float_lit
+%token <Ast.fsize * float> Float_lit
 %token <string> IDENT
 %token <string> BUILTIN
 %token <string> Constant
@@ -281,7 +281,7 @@ const_decl:
     | CONST located(Constant) EQUAL located(Float_lit) option(SEMICOLON) {
         {
             const_name = $2;
-            explicit_type = TFloat;
+            explicit_type = TFloat F64; (* For the time, waiting struct constant refacto *)
             value =  $4 |> Position.map ( fun f -> EFloat f)
         }
     }
@@ -452,7 +452,8 @@ s_case:
 ctype:
     | modules_path=module_path id=located(IDENT) { 
         match id.v with
-        | "f64" -> TFloat
+        | "f64" -> TFloat F64
+        | "f32" -> TFloat F32
         | "unit" -> TUnit
         | "bool" -> TBool
         | "stringl" -> TString_lit
@@ -475,7 +476,8 @@ ctype:
 ktype:
     | modules_path=module_path id=located(IDENT) {
         match id.v with
-        | "f64" -> TFloat
+        | "f64" -> TFloat F64
+        | "f32" -> TFloat F32
         | "unit" -> TUnit
         | "bool" -> TBool
         | "char" -> TChar

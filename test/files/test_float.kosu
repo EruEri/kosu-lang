@@ -1,0 +1,201 @@
+fn string_of_bool(b: bool) stringl = if ( b ) { $ "true" } else { $ "false" }
+
+external printf(format: stringl; ...) s32
+
+fn test_arith_f64_aux(lhs: f64, rhs: f64) {
+    const add = lhs + rhs;
+    const minus = lhs - rhs;
+    const div = lhs / rhs;
+
+    discard printf("f64: %f + %f = %f\n", lhs , rhs , add);
+    discard printf("f64: %f - %f = %f\n", lhs , rhs , minus);
+    discard printf("f64: %f / %f = %f\n", lhs , rhs , div);
+
+    $ empty
+}
+
+fn test_arith_f32_aux(lhs: f32, rhs: f32) {
+    const add = lhs + rhs;
+    const minus = lhs - rhs;
+    const div = lhs / rhs;
+
+    discard printf("f32: %f + %f = %f\n", lhs , rhs , add);
+    discard printf("f32: %f - %f = %f\n", lhs , rhs , minus);
+    discard printf("f32: %f / %f = %f\n", lhs , rhs , div);
+
+    $ empty
+}
+
+fn test_arith_f64() {
+    discard test_arith_f64_aux(3.14, 3.14);
+    discard test_arith_f64_aux(0.1, 0.2);
+    discard test_arith_f64_aux(-3.67, 3.671);
+    discard test_arith_f64_aux(-7.98, 0.45);
+    $ empty
+}
+
+fn test_arith_f32() {
+    discard test_arith_f32_aux(3.14f32, 3.14f32);
+    discard test_arith_f32_aux(0.1f32, 0.2f32);
+    discard test_arith_f32_aux(-3.67f32, 3.671f32);
+    discard test_arith_f32_aux(-7.98f32, 0.45f32);
+    $ empty
+}
+
+fn covert_u64_float_aux(n: u64) {
+    const f64 = @tof64(n);
+    const f32 = @tof32(n);
+    discard printf("u64: n = %lu, f32: %f, f64: %f\n", n , f32, f64);
+    $ empty
+}
+
+fn covert_s64_float_aux(n: s64) {
+    const f64 = @tof64(n);
+    const f32 = @tof32(n);
+    discard printf("s64: n = %ld, f32: %f, f64: %f\n", n , f32, f64);
+    $ empty
+}
+
+fn covert_u32_float_aux(n: u32) {
+    const f64 = @tof64(n);
+    const f32 = @tof32(n);
+    discard printf("u32: n = %u, f32: %f, f64: %f\n", n , f32, f64);
+    $ empty
+}
+
+fn covert_s32_float_aux(n: s32) {
+    const f64 = @tof64(n);
+    const f32 = @tof32(n);
+    discard printf("s32: n = %d, f32: %f, f64: %f\n", n , f32, f64);
+    $ empty
+}
+
+fn covert_u16_float_aux(n: u16) {
+    const f64 = @tof64(n);
+    const f32 = @tof32(n);
+    discard printf("u16: n = %hu, f32: %f, f64: %f\n", n , f32, f64);
+    $ empty
+}
+
+fn covert_s16_float_aux(n: s16) {
+    const f64 = @tof64(n);
+    const f32 = @tof32(n);
+    discard printf("s16: n = %hd, f32: %f, f64: %f\n", n , f32, f64);
+    $ empty
+}
+
+fn covert_u8_float_aux(n: u8) {
+    const f64 = @tof64(n);
+    const f32 = @tof32(n);
+    discard printf("u8: n = %hhu, f32: %f, f64: %f\n", n , f32, f64);
+    $ empty
+}
+
+fn covert_s8_float_aux(n: s8) {
+    const f64 = @tof64(n);
+    const f32 = @tof32(n);
+    discard printf("s8: n = %hhd, f32: %f, f64: %f\n", n , f32, f64);
+    $ empty
+}
+
+fn test_convert() {
+    discard covert_u64_float_aux(56787009823568u64);
+    discard covert_u64_float_aux(5786u64);
+    discard covert_u64_float_aux(0u64);
+
+    discard covert_s64_float_aux(68103730810s64);
+    discard covert_s64_float_aux(-68103730810s64);
+    discard covert_s64_float_aux(0s64);
+
+    discard covert_s32_float_aux(6810810s32);
+    discard covert_s32_float_aux(-610s32);
+    discard covert_u32_float_aux(0u32);
+
+    discard covert_u32_float_aux(6810810u32);
+    discard covert_u32_float_aux(610u32);
+    discard covert_u32_float_aux(0u32);
+
+    discard covert_s16_float_aux(60810s16);
+    discard covert_s16_float_aux(-610s16);
+    discard covert_s16_float_aux(0s16);
+
+    discard covert_u16_float_aux(6810810u16);
+    discard covert_u16_float_aux(610u16);
+    discard covert_u16_float_aux(0u16);
+
+    discard covert_s8_float_aux(10s8);
+    discard covert_s8_float_aux(-61s8);
+    discard covert_s8_float_aux(0s8);
+
+    discard covert_u8_float_aux(210u8);
+    discard covert_u8_float_aux(10u8);
+    discard covert_u8_float_aux(0u8);
+    $ empty 
+}
+
+fn test_cmp_f32_aux(lhs: f32, rhs: f32) {
+    const cmp_1_lt_2 = lhs < rhs;
+    const cmp_1_le_2 = lhs <= rhs;
+    const cmp_1_gt_2 = lhs > rhs;
+    const cmp_1_ge_2 = lhs >= rhs;
+    const cmp_1_eq_2 = lhs == rhs;
+    const cmp_1_df_2 = lhs != rhs;
+
+    discard printf("f32: %f < %f  : %s\n",  lhs, rhs, string_of_bool(cmp_1_lt_2) );
+    discard printf("f32: %f <= %f : %s\n", lhs, rhs, string_of_bool(cmp_1_le_2) );
+    discard printf("f32: %f > %f  : %s\n",  lhs, rhs, string_of_bool(cmp_1_gt_2) );
+    discard printf("f32: %f >= %f : %s\n", lhs, rhs, string_of_bool(cmp_1_ge_2) );
+    discard printf("f32: %f == %f : %s\n", lhs, rhs, string_of_bool(cmp_1_eq_2) );
+    discard printf("f32: %f != %f : %s\n\n", lhs, rhs, string_of_bool(cmp_1_df_2) );
+    $ empty
+}
+
+fn test_cmp_f64_aux(lhs: f64, rhs: f64) {
+    const cmp_1_lt_2 = lhs < rhs;
+    const cmp_1_le_2 = lhs <= rhs;
+    const cmp_1_gt_2 = lhs > rhs;
+    const cmp_1_ge_2 = lhs >= rhs;
+    const cmp_1_eq_2 = lhs == rhs;
+    const cmp_1_df_2 = lhs != rhs;
+
+    discard printf("f64: %f < %f  : %s\n",  lhs, rhs, string_of_bool(cmp_1_lt_2) );
+    discard printf("f64: %f <= %f : %s\n", lhs, rhs, string_of_bool(cmp_1_le_2) );
+    discard printf("f64: %f > %f  : %s\n",  lhs, rhs, string_of_bool(cmp_1_gt_2) );
+    discard printf("f64: %f >= %f : %s\n", lhs, rhs, string_of_bool(cmp_1_ge_2) );
+    discard printf("f64: %f == %f : %s\n", lhs, rhs, string_of_bool(cmp_1_eq_2) );
+    discard printf("f64: %f != %f : %s\n\n", lhs, rhs, string_of_bool(cmp_1_df_2) );
+    $ empty
+}
+
+fn test_cmp_f32() {
+    discard test_cmp_f32_aux(0.0f32, 2.7f32);
+    discard test_cmp_f32_aux(65.7f32, 87.0f32);
+    discard test_cmp_f32_aux(4.0f32, 4.0f32);
+    discard test_cmp_f32_aux(0.0f32, 0.0f32);
+    discard test_cmp_f32_aux(1.0f32, 1.0f32);
+    discard test_cmp_f32_aux(-7.6f32, -7.6f32);
+    discard test_cmp_f32_aux(-5.9863f32, -7.1f32);
+    $ ()
+}
+
+fn test_cmp_f64() {
+    discard test_cmp_f64_aux(0.0f64, 2.7f64);
+    discard test_cmp_f64_aux(65.7f64, 87.0f64);
+    discard test_cmp_f64_aux(4.0f64, 4.0f64);
+    discard test_cmp_f64_aux(0.0f64, 0.0f64);
+    discard test_cmp_f64_aux(1.0f64, 1.0f64);
+    discard test_cmp_f64_aux(-7.6f64, -7.6f64);
+    discard test_cmp_f64_aux(-5.9863f64, -7.1f64);
+    $ ()
+}
+
+fn main() s32 {
+    discard test_arith_f64();
+    discard test_cmp_f64();
+
+    discard test_arith_f32();
+    discard test_cmp_f32();
+
+    discard test_convert();
+    $ 0
+}

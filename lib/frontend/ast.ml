@@ -19,6 +19,7 @@ open Position
 
 type signedness = Signed | Unsigned
 type isize = I8 | I16 | I32 | I64
+type fsize = F32 | F64
 
 type switch_case =
   | SC_Enum_Identifier of { variant : string location }
@@ -55,13 +56,13 @@ type ktype =
       name : string location;
     }
   | TInteger of (signedness * isize)
+  | TFloat of fsize
   | TPointer of ktype location
   | TTuple of ktype location list
   | TFunction of ktype location list * ktype location
   | TString_lit
   | TUnknow
   | TChar
-  | TFloat
   | TBool
   | TUnit
 
@@ -88,7 +89,7 @@ and kexpression =
   | False
   | ENullptr
   | EInteger of (signedness * isize * int64)
-  | EFloat of float
+  | EFloat of (fsize * float)
   | EChar of char
   | ESizeof of (ktype location, kexpression location) Either.t
   | EString of string
@@ -240,6 +241,10 @@ type program = named_module_path list
 
 module Isize = struct
   let size_of_isize = function I8 -> 8 | I16 -> 16 | I32 -> 32 | I64 -> 64
+end
+
+module Fsize = struct
+  let size_of_fsize = function F32 -> 32 | F64 -> 64
 end
 
 module Type_Decl = struct
@@ -580,6 +585,7 @@ module Type = struct
     | _ -> false
 
   let is_any_integer = function TInteger _ -> true | _ -> false
+  let is_any_float = function TFloat _ -> true | _ -> false
   let is_string_litteral = function TString_lit -> true | _ -> false
 
   let pointee_fail = function
@@ -955,15 +961,17 @@ module Builtin_Function = struct
     | Tou16
     | Tos32
     | Tou32
+    | Tof32
     | Tos64
     | Tou64
+    | Tof64
     | Stringl_ptr
 
   let isize_of_functions = function
     | Tos8 | Tou8 -> I8
     | Tos16 | Tou16 -> I16
-    | Tos32 | Tou32 -> I32
-    | Tos64 | Tou64 | Stringl_ptr -> I64
+    | Tos32 | Tou32 | Tof32 -> I32
+    | Tos64 | Tou64 | Tof64 | Stringl_ptr -> I64
 end
 
 module Env = struct

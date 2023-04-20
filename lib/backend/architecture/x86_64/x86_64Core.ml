@@ -18,7 +18,23 @@
 module IdVar = Common.IdVar
 module IdVarMap = Common.IdVarMap
 
-type data_size = B | W | L | Q
+type int_data_size = B | W | L | Q
+type float_data_size = SS | SD
+type data_size = IntSize of int_data_size | FloatSize of float_data_size
+
+let intsize i = IntSize i
+let floatsize f = FloatSize f
+let iq = IntSize Q
+let ib = IntSize B
+let il = IntSize L
+let iw = IntSize W
+let fss = FloatSize SS
+let fsd = FloatSize SD
+
+let float_data_size_of_ktype = function
+  | KosuIrTyped.Asttyped.RTFloat KosuFrontend.Ast.F32 -> FloatSize SS
+  | RTFloat F64 -> FloatSize SD
+  | _ -> failwith "expected float type"
 
 let data_size_of_int64 = function
   | 1L -> Some B
@@ -27,10 +43,35 @@ let data_size_of_int64 = function
   | 8L -> Some Q
   | _ -> None
 
+let float_data_size_of_int64 = function
+  | 4L -> Some SS
+  | 8L -> Some SD
+  | _ -> None
+
 let need_long_promotion = function B | W -> true | _ -> false
 
-let data_size_of_int64_def ?(default = Q) size =
+let int_data_size_of_int64_def ?(default = Q) size =
   Option.value ~default @@ data_size_of_int64 size
+
+let data_size_of_ktype ?(default = Q) rprogram ktype =
+  match ktype with
+  | KosuIrTyped.Asttyped.RTFloat KosuFrontend.Ast.F32 -> FloatSize SS
+  | RTFloat F64 -> FloatSize SD
+  | kt ->
+      let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt in
+      IntSize (int_data_size_of_int64_def ~default size)
+
+let data_size_of_ktype_opt rprogram ktype =
+  match ktype with
+  | KosuIrTyped.Asttyped.RTFloat KosuFrontend.Ast.F32 -> Some (FloatSize SS)
+  | RTFloat F64 -> Some (FloatSize SD)
+  | kt ->
+      let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt in
+      size |> data_size_of_int64 |> Option.map (fun size -> IntSize size)
+
+let data_size_min_l = function
+  | IntSize s -> IntSize (match s with (Q | L) as s -> s | W | B -> L)
+  | FloatSize _ as t -> t
 
 let int64_of_data_size = function B -> 1L | W -> 2L | L -> 4L | Q -> 8L
 
@@ -38,10 +79,18 @@ let data_size_of_isize =
   let open KosuFrontend.Ast in
   function I8 -> B | I16 -> W | I32 -> L | I64 -> Q
 
+let fdate_size_of_fsize =
+  let open KosuFrontend.Ast in
+  function F32 -> SS | F64 -> SD
+
 let is_register_size = function 1L | 2L | 4L | 8L -> true | _ -> false
 
+let is_register_size_ktype rprogram ktype =
+  let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+  is_register_size size
+
 module Register = struct
-  type raw_register =
+  type int_register =
     | RAX
     | RBX
     | RCX
@@ -60,79 +109,106 @@ module Register = struct
     | R15
     | RIP
 
+  type float_register =
+    | XMM0
+    | XMM1
+    | XMM2
+    | XMM3
+    | XMM4
+    | XMM5
+    | XMM6
+    | XMM7
+    | XMM8
+    | XMM9
+    | XMM10
+    | XMM11
+    | XMM12
+    | XMM13
+    | XMM14
+    | XMM15
+
+  type raw_register = IntegerReg of int_register | FloatReg of float_register
+
+  type register = {
+    register : raw_register;
+    (* Since the instructions hold the size it's duplicated to have it
+       also in the register expects if it's needed to be explicitly set
+    *)
+    register_size : int_data_size option;
+  }
+
+  let fregister floatreg =
+    { register = FloatReg floatreg; register_size = None }
+
+  let iregister ?size ireg =
+    { register = IntegerReg ireg; register_size = size }
+
+  let rxmm0 = FloatReg XMM0
+  let rxmm1 = FloatReg XMM1
+  let rxmm2 = FloatReg XMM2
+  let rxmm3 = FloatReg XMM3
+  let rxmm4 = FloatReg XMM4
+  let rxmm5 = FloatReg XMM5
+  let rxmm6 = FloatReg XMM6
+  let rxmm7 = FloatReg XMM7
+  let rxmm8 = FloatReg XMM8
+  let rxmm9 = FloatReg XMM9
+  let rxmm10 = FloatReg XMM10
+  let rxmm11 = FloatReg XMM11
+  let xmm0 = { register = rxmm0; register_size = None }
+  let xmm1 = { register = rxmm1; register_size = None }
+  let xmm2 = { register = rxmm2; register_size = None }
+  let xmm3 = fregister XMM3
+  let xmm4 = fregister XMM4
+  let xmm5 = fregister XMM5
+  let xmm6 = fregister XMM6
+  let xmm7 = fregister XMM7
+  let xmm8 = fregister XMM8
+  let xmm9 = fregister XMM9
+  let xmm10 = fregister XMM10
+  let xmm11 = fregister XMM11
+  let r9 = iregister R9
+  let r10 = iregister R10
+  let r11 = iregister R11
+  let rbp = iregister RBP
+  let rsp = iregister RSP
+  let rdi = iregister RDI
+  let rsi = iregister RSI
+  let rip = iregister RIP
+  let rdx = iregister RDX
+  let rax = iregister RAX
+
+  (* %rdi, %rsi, %rdx, %rcx, %r8, %r9 *)
+  let argument_registers = [ RDI; RSI; RDX; RCX; R8; R9 ]
+  let syscall_arguments_register = [ RDI; RSI; RDX; R10; R8; R9 ]
+
+  let float_arguments_register =
+    [ xmm0; xmm1; xmm2; xmm3; xmm4; xmm5; xmm6; xmm8; xmm7 ]
+
+  let return_register rprogram ktype =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then Option.some xmm0
+    else if is_register_size_ktype rprogram ktype then Some rax
+    else None
+
+  (** RAX *)
+  let tmp_rax_ktype ktype =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then xmm0 else rax
+
+  let tmp_r9_ktype ktype =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then xmm9 else r9
+
+  (** R10 *)
+  let tmp_r10_ktype ktype =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then xmm10 else r10
+
+  let tmp_r11_ktype ktype =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then xmm11 else r11
+
   let is_numerical_register = function
     | R9 | R10 | R11 | R12 | R13 | R14 | R15 -> true
     | _ -> false
 
   let full_letter_reg = function reg -> not @@ is_numerical_register reg
-
-  type register = { size : data_size; reg : raw_register }
-
-  (* %rdi, %rsi, %rdx, %rcx, %r8, %r9 *)
-  let argument_registers = [ RDI; RSI; RDX; RCX; R8; R9 ]
-  let syscall_arguments_register = [ RDI; RSI; RDX; R10; R8; R9 ]
-  let sized_register size register = { size; reg = register }
-  let resize_register size register = { register with size }
-  let r9q = { size = Q; reg = R9 }
-  let rbpq = { size = Q; reg = RBP }
-  let rspq = { size = Q; reg = RSP }
-  let rdiq = { size = Q; reg = RDI }
-  let rsiq = { size = Q; reg = RSI }
-  let ripq = { size = Q; reg = RIP }
-  let rdxq = { size = Q; reg = RDX }
-  let raxq = { size = Q; reg = RAX }
-  let is_aliased lhs rhs = lhs.reg = rhs.reg
-
-  let return_register ktype rprogram =
-    let return_size = KosuIrTyped.Asttyconvert.Sizeof.sizeof ktype rprogram in
-    return_size |> data_size_of_int64
-    |> Option.map (fun size -> resize_register size raxq)
-
-  (** Rax *)
-  let tmp_rax size =
-    let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
-    sized_register data_size RAX
-
-  let tmp_rax_ktype rpogram ktype =
-    let size =
-      data_size_of_int64_def
-      @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
-    in
-    sized_register size RAX
-
-  let tmp_r9 size =
-    let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
-    sized_register data_size R9
-
-  let tmp_r9_ktype rpogram ktype =
-    let size =
-      data_size_of_int64_def
-      @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
-    in
-    sized_register size R9
-
-  (** R10 *)
-  let tmp_r10 size =
-    let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
-    sized_register data_size R10
-
-  let tmp_r10_ktype rpogram ktype =
-    let size =
-      data_size_of_int64_def
-      @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
-    in
-    sized_register size R10
-
-  let tmp_r11 size =
-    let data_size = size |> data_size_of_int64 |> Option.value ~default:Q in
-    sized_register data_size R11
-
-  let tmp_r11_ktype rpogram ktype =
-    let size =
-      data_size_of_int64_def
-      @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rpogram ktype
-    in
-    sized_register size R11
 end
 
 module Operande = struct
@@ -148,13 +224,13 @@ module Operande = struct
   type dst = [ `Register of Register.register | `Address of address ]
 
   type src =
-    [ `ILitteral of int64 | `F64Litteral of float | `Label of string | dst ]
+    [ `ILitteral of int64 | `ULitteral of int64 | `Label of string | dst ]
 
   let src_of_dst : dst -> src = function
     | `Address addr -> `Address addr
     | `Register reg -> `Register reg
 
-  let dummy_dst : dst = `Register { size = L; reg = R10 }
+  let dummy_dst : dst = `Register Register.r10
   let is_adress = function `Address _ -> true | _ -> false
   let is_register = function `Register _ -> true | _ -> false
 
@@ -182,13 +258,13 @@ module Operande = struct
         | Addr_label (s, o) -> Addr_label (s, Int64.add o by));
     }
 
-  let resize_dst data_size : dst -> dst = function
-    | `Address _ as addr -> addr
-    | `Register reg -> `Register (Register.resize_register data_size reg)
+  (* let resize_dst data_size : dst -> dst = function
+       | `Address _ as addr -> addr
+       | `Register reg -> `Register (Register.resize_register data_size reg)
 
-  let resize_src data_size : src -> src = function
-    | #dst as dst -> dst |> resize_dst data_size |> src_of_dst
-    | a -> a
+     let resize_src data_size : src -> src = function
+       | #dst as dst -> dst |> resize_dst data_size |> src_of_dst
+       | a -> a *)
 
   let increment_dst_address by : dst -> dst = function
     | `Register _ as reg -> reg
@@ -198,6 +274,7 @@ end
 module Condition_Code = struct
   type condition_code = E | NE | S | NS | G | GE | L | LE | A | AE | B | BE
 
+  (* Float should use unsigned condition code *)
   let cc_of_tac_bin ?(is_unsigned = false) =
     let open KosuIrTAC.Asttac in
     function
@@ -225,30 +302,55 @@ module Instruction = struct
 
   and instruction =
     | Mov of { size : data_size; source : src; destination : dst }
-    | Movsl of { size : data_size; source : src; destination : dst }
-    | Movzl of { size : data_size; source : src; destination : dst }
-    | Set of { cc : condition_code; register : Register.register }
+    | Movsl of { size : int_data_size; source : src; destination : dst }
+    | Movzl of { size : int_data_size; source : src; destination : dst }
+    | Set of {
+        size : int_data_size;
+        cc : condition_code;
+        register : Register.register;
+      }
     | Lea of { size : data_size; source : address; destination : register }
     | Neg of { size : data_size; source : register }
     | Not of { size : data_size; source : register }
     | Add of { size : data_size; destination : dst; source : src }
     | Sub of { size : data_size; destination : dst; source : src }
     | IMul of { size : data_size; destination : register; source : src }
-    | Xor of { size : data_size; destination : dst; source : src }
-    | Or of { size : data_size; destination : dst; source : src }
-    | And of { size : data_size; destination : dst; source : src }
+    | Mul of { size : data_size; destination : register; source : src }
+    | Xor of { size : int_data_size; destination : dst; source : src }
+    | Or of { size : int_data_size; destination : dst; source : src }
+    | And of { size : int_data_size; destination : dst; source : src }
+    | Comi of { size : float_data_size; source : src; destination : src }
+    | Ucomi of { size : float_data_size; source : src; destination : src }
+    (* i to f*)
+    | Cvts2s of {
+        source_size : data_size;
+        dst_size : data_size;
+        source : src;
+        destination : dst;
+      }
+    | Cvtts2s of {
+        source_size : data_size;
+        dst_size : data_size;
+        source : src;
+        destination : dst;
+      }
+    | Fdiv of {
+        size : float_data_size;
+        destination : float_register;
+        source : src;
+      }
     | IDivl of { (* l | q *)
-                 size : data_size; divisor : src }
+                 size : int_data_size; divisor : src }
     | Div of { (* l | q *)
-               size : data_size; divisor : src }
+               size : int_data_size; divisor : src }
     (* Shift Left *)
-    | Sal of { size : data_size; shift : src; destination : dst }
+    | Sal of { size : int_data_size; shift : src; destination : dst }
     (* Arithmetic right shift *)
-    | Sar of { size : data_size; shift : src; destination : dst }
+    | Sar of { size : int_data_size; shift : src; destination : dst }
     (* Logical right shift *)
-    | Shr of { size : data_size; shift : src; destination : dst }
-    | Push of { size : data_size; source : src }
-    | Pop of { size : data_size; destination : dst }
+    | Shr of { size : int_data_size; shift : src; destination : dst }
+    | Push of { size : int_data_size; source : src }
+    | Pop of { size : int_data_size; destination : dst }
     | Cmp of { size : data_size; lhs : src; rhs : src }
     | Jmp of {
         cc : condition_code option;
@@ -269,6 +371,38 @@ module Instruction = struct
     | false, _ -> Instruction (IDivl { size = L; divisor })
     | true, _ -> Instruction (Div { size = L; divisor })
 
+  let mult_instruction data_size ~unsigned source destination =
+    ignore unsigned;
+    match data_size with
+    | FloatSize _ -> Mul { size = data_size; source; destination }
+    | IntSize _ -> IMul { size = data_size; source; destination }
+
+  let neg_instruction size dst =
+    match size with
+    | IntSize _ as size -> [ Neg { size; source = dst } ]
+    | FloatSize _ as size ->
+        [
+          Mov
+            {
+              size = il;
+              source = `ULitteral (-1L);
+              destination = `Register rax;
+            };
+          Cvts2s
+            {
+              source_size = il;
+              dst_size = size;
+              source = `Register rax;
+              destination = `Register xmm1;
+            };
+          Mul { size; source = `Register xmm1; destination = dst };
+        ]
+
+  let cmp_instruction size ~lhs ~rhs =
+    match size with
+    | FloatSize fs -> Ucomi { size = fs; source = lhs; destination = rhs }
+    | IntSize _ as size -> Cmp { size; lhs; rhs }
+
   let ins_add ~size ~destination ~source =
     [ Instruction (Add { size; destination; source }) ]
 
@@ -276,28 +410,41 @@ module Instruction = struct
     [ Instruction (Sub { size; destination; source }) ]
 
   let ins_bitwiseand ~size ~destination ~source =
-    [ Instruction (And { size; destination; source }) ]
+    match size with
+    | IntSize size -> [ Instruction (And { size; destination; source }) ]
+    | FloatSize _ -> failwith "Invalid Bitwise and"
 
   let ins_bitwiseor ~size ~destination ~source =
-    [ Instruction (Or { size; destination; source }) ]
+    match size with
+    | IntSize size -> [ Instruction (Or { size; destination; source }) ]
+    | FloatSize _ -> failwith "Invalid Bitwize Xor"
 
   let ins_bitwisexor ~size ~destination ~source =
-    [ Instruction (Xor { size; destination; source }) ]
+    match size with
+    | IntSize size -> [ Instruction (Xor { size; destination; source }) ]
+    | FloatSize _ -> failwith "Invalid Bitwexor float float"
 
   let ins_shiftleft ~size ~destination ~source =
-    [ Instruction (Sal { size; destination; shift = source }) ]
+    match size with
+    | IntSize size ->
+        [ Instruction (Sal { size; destination; shift = source }) ]
+    | FloatSize _ -> failwith "Invalid ShiftLeft for float"
 
   let ins_shift_signed_right ~size ~destination ~source =
-    [ Instruction (Sar { size; destination; shift = source }) ]
+    match size with
+    | IntSize size ->
+        [ Instruction (Sar { size; destination; shift = source }) ]
+    | FloatSize _ -> failwith "Invalid ins_shift_signed_righ for float"
 
   let ins_shift_unsigned_right ~size ~destination ~source =
-    [ Instruction (Shr { size; destination; shift = source }) ]
+    match size with
+    | IntSize size ->
+        [ Instruction (Shr { size; destination; shift = source }) ]
+    | FloatSize _ -> failwith "Invalid ins_shift_unsigned_right for float"
 
   let ins_mult ~size ~destination ~source =
-    [
-      (let reg = register_of_dst destination in
-       Instruction (IMul { size; destination = reg; source }));
-    ]
+    let reg = register_of_dst destination in
+    [ Instruction (IMul { size; destination = reg; source }) ]
 
   let binop_instruction_of_tacself ?(unsigned = false) =
     let open KosuIrTAC.Asttac in
@@ -318,14 +465,13 @@ module Instruction = struct
     | (W | B) when is_register dst -> (
         match sign with
         | KosuFrontend.Ast.Signed ->
-            Instruction
-              (Movsl { size; destination = resize_dst L dst; source = src })
-            :: []
+            Instruction (Movsl { size; destination = dst; source = src }) :: []
         | KosuFrontend.Ast.Unsigned ->
-            Instruction
-              (Movzl { size; destination = resize_dst L dst; source = src })
-            :: [])
-    | _ -> Instruction (Mov { size; source = src; destination = dst }) :: []
+            Instruction (Movzl { size; destination = dst; source = src }) :: [])
+    | _ ->
+        Instruction
+          (Mov { size = IntSize size; source = src; destination = dst })
+        :: []
 end
 
 let rec copy_large ~address_str ~base_address_reg size =
@@ -335,20 +481,20 @@ let rec copy_large ~address_str ~base_address_reg size =
   else
     let dsize = size |> data_size_of_int64 |> Option.value ~default:Q in
     let moved_size = int64_of_data_size dsize in
-    let sized_rax = Register.tmp_rax size in
+
     [
       Instruction
         (Mov
            {
-             size = dsize;
+             size = IntSize dsize;
              source = `Address base_address_reg;
-             destination = `Register sized_rax;
+             destination = `Register Register.rax;
            });
       Instruction
         (Mov
            {
-             size = dsize;
-             source = `Register sized_rax;
+             size = IntSize dsize;
+             source = `Register Register.rax;
              destination = `Address address_str;
            });
     ]
@@ -369,14 +515,14 @@ let copy_from_reg (register : Register.register) address ktype rprogram =
   let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
   match size with
   | s when is_register_size s ->
-      let data_size = Option.get @@ data_size_of_int64 s in
+      let data_size = data_size_of_ktype rprogram ktype in
       [
         Instruction
           (Mov
              {
                size = data_size;
                destination = `Address address;
-               source = `Register (Register.resize_register data_size register);
+               source = `Register register;
              });
       ]
   | _ ->
@@ -396,7 +542,7 @@ let load_register register (address : Operande.address) ktype_size =
     Instruction
       (Mov
          {
-           size = data_size;
+           size = IntSize data_size;
            source = `Address address;
            destination = `Register register;
          });
@@ -408,7 +554,7 @@ let asm_const_name current_module const_name =
     const_name
 
 let address_of_const const_name =
-  Operande.create_address_label ~label:const_name Register.ripq
+  Operande.create_address_label ~label:const_name Register.rip
 
 let load_label ?module_path label (dst : Operande.dst) =
   let open Instruction in
@@ -421,24 +567,47 @@ let load_label ?module_path label (dst : Operande.dst) =
   | `Register reg ->
       [
         Instruction
-          (Lea { size = Q; destination = reg; source = address_of_const label });
+          (Lea
+             {
+               size = IntSize Q;
+               destination = reg;
+               source = address_of_const label;
+             });
       ]
   | `Address addr ->
       [
         Instruction
           (Lea
              {
-               size = Q;
-               destination = Register.raxq;
+               size = IntSize Q;
+               destination = Register.rax;
                source = address_of_const label;
              });
         Instruction
           (Mov
              {
-               size = Q;
+               size = IntSize Q;
                destination = `Address addr;
-               source = `Register Register.raxq;
+               source = `Register Register.rax;
              });
+      ]
+
+let load_float_label fsize labelname destination =
+  let open Instruction in
+  let address = address_of_const labelname in
+  let source_f = `Address address in
+  let fdata_size = FloatSize (fdate_size_of_fsize fsize) in
+  match destination with
+  | `Register _ ->
+      [
+        Instruction (Mov { size = fdata_size; source = source_f; destination });
+      ]
+  | `Address _ ->
+      let tmp_xmm0 = `Register Register.xmm0 in
+      [
+        Instruction
+          (Mov { size = fdata_size; source = source_f; destination = tmp_xmm0 });
+        Instruction (Mov { size = fdata_size; source = tmp_xmm0; destination });
       ]
 
 module FrameManager = struct
@@ -461,6 +630,7 @@ module FrameManager = struct
 
   let frame_descriptor ?(stack_future_call = 0L)
       ~(fn_register_params : (string * KosuIrTyped.Asttyped.rktype) list)
+      ~(fn_float_register_params : (string * KosuIrTyped.Asttyped.rktype) list)
       ~(stack_param : (string * KosuIrTyped.Asttyped.rktype) list) ~return_type
       ~locals_var ~discarded_values rprogram =
     let open Operande in
@@ -476,7 +646,9 @@ module FrameManager = struct
          (sizeof rprogram return_type)
          (need_result_ptr)
        in *)
-    let stack_concat = fn_register_params @ stack_param @ locals_var in
+    let stack_concat =
+      fn_register_params @ fn_float_register_params @ stack_param @ locals_var
+    in
 
     let fake_tuple = stack_concat |> List.map snd in
     let locals_space =
@@ -498,8 +670,7 @@ module FrameManager = struct
                locals_space |> Int64.neg |> Int64.add offset
              in
              let address =
-               create_address_offset ~offset:rbp_relative_address
-                 { size = Q; reg = RBP }
+               create_address_offset ~offset:rbp_relative_address rbp
              in
              IdVarMap.add st address acc)
            IdVarMap.empty
@@ -531,20 +702,21 @@ module FrameManager = struct
         Assumption on [fn_register_params] 
           already containing [rdi] if return type cannot be contain in [rax] 
     *)
-  let function_prologue ~fn_register_params ~stack_params rprogram fd =
+  let function_prologue ~fn_register_params ~fn_float_register_params
+      ~stack_params rprogram fd =
     let open Instruction in
-    let base = Instruction (Push { size = Q; source = `Register rbpq }) in
+    let base = Instruction (Push { size = Q; source = `Register rbp }) in
     let sub_align = Common.OffsetHelper.align_16 fd.locals_space in
     let sp_sub =
       [
         Instruction
           (Mov
-             { size = Q; source = `Register rspq; destination = `Register rbpq });
+             { size = iq; source = `Register rsp; destination = `Register rbp });
         Instruction
           (Sub
              {
-               size = Q;
-               destination = `Register rspq;
+               size = IntSize Q;
+               destination = `Register rsp;
                source = `ILitteral sub_align;
              });
       ]
@@ -565,12 +737,7 @@ module FrameManager = struct
                | Some a -> a
                | None -> failwith "X86_64: No stack allocated for this variable"
              in
-             let data_size =
-               data_size_of_int64_def
-               @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt
-             in
-             let sized_regiser = sized_register data_size register in
-             acc @ copy_from_reg sized_regiser whereis kt rprogram)
+             acc @ copy_from_reg (iregister register) whereis kt rprogram)
            []
     in
     let stack_params_offset =
@@ -581,7 +748,7 @@ module FrameManager = struct
              else kt)
     in
     let sp_address =
-      Operande.create_address_offset ~offset:(Int64.add 16L sub_align) rspq
+      Operande.create_address_offset ~offset:(Int64.add 16L sub_align) rsp
     in
     let copy_stack_params_instruction =
       stack_params
@@ -601,26 +768,42 @@ module FrameManager = struct
                | None -> failwith "On stack setup null address"
              in
 
-             let tmprreg = tmp_rax sizeofkt in
              let param_stack_address = increment_adress offset sp_address in
              let load_instruction =
-               load_register tmprreg param_stack_address sizeofkt
+               load_register Register.rax param_stack_address sizeofkt
              in
              let str_instruction =
-               copy_from_reg tmprreg future_address_location kt rprogram
+               copy_from_reg Register.rax future_address_location kt rprogram
              in
              acc @ str_instruction @ load_instruction)
            []
     in
-    (base :: sp_sub) @ copy_reg_instruction @ copy_stack_params_instruction
+
+    let float_copy_instructions =
+      fn_float_register_params
+      |> Util.ListHelper.combine_safe float_arguments_register
+      |> List.fold_left
+           (fun acc (register, (name, kt)) ->
+             let whereis =
+               address_of (name, kt) fd |> fun adr ->
+               match adr with
+               | Some a -> a
+               | None -> failwith "From register setup null address"
+             in
+             acc @ copy_from_reg register whereis kt rprogram)
+           []
+    in
+
+    (base :: sp_sub) @ copy_reg_instruction @ float_copy_instructions
+    @ copy_stack_params_instruction
 
   let function_epilogue _fd =
     let open Instruction in
     let base =
       Instruction
-        (Mov { size = Q; destination = `Register rspq; source = `Register rbpq })
+        (Mov { size = iq; destination = `Register rsp; source = `Register rbp })
     in
-    let pop = Instruction (Pop { size = Q; destination = `Register rbpq }) in
+    let pop = Instruction (Pop { size = Q; destination = `Register rbp }) in
     let return = Instruction Ret in
     [ base; pop; return ]
 end

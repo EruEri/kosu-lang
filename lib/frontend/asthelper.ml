@@ -18,7 +18,6 @@
 open Ast
 open Printf
 open Position
-open Ast.Isize
 
 let f = sprintf "%Ld"
 
@@ -437,7 +436,7 @@ module Program = struct
                     (declaration
                     |> List.find (fun (_, value) -> List.length value = 1))
               | _ -> `to_many_declaration declaration)
-          | TInteger _ | TFloat -> `built_in_valid
+          | TInteger _ | TFloat _ -> `built_in_valid
           | _ -> `no_add_for_built_in)
 
   let is_valid_minus_operation lhs rhs program =
@@ -461,7 +460,7 @@ module Program = struct
                     (declaration
                     |> List.find (fun (_, value) -> List.length value = 1))
               | _ -> `to_many_declaration declaration)
-          | TInteger _ | TFloat -> `built_in_valid
+          | TInteger _ | TFloat _ -> `built_in_valid
           | _ -> `no_minus_for_built_in)
 
   let is_valid_mult_operation lhs rhs program =
@@ -479,7 +478,7 @@ module Program = struct
                 (declaration
                 |> List.find (fun (_, value) -> List.length value = 1))
           | _ -> `to_many_declaration declaration)
-      | TInteger _ | TFloat -> `built_in_valid
+      | TInteger _ | TFloat _ -> `built_in_valid
       | _ -> `no_mult_for_built_in
 
   let is_valid_div_operation lhs rhs program =
@@ -497,7 +496,7 @@ module Program = struct
                 (declaration
                 |> List.find (fun (_, value) -> List.length value = 1))
           | _ -> `to_many_declaration declaration)
-      | TInteger _ | TFloat -> `built_in_valid
+      | TInteger _ | TFloat _ -> `built_in_valid
       | _ -> `no_div_for_built_in
 
   let is_valid_mod_operation lhs rhs program =
@@ -623,7 +622,7 @@ module Program = struct
                 (declaration
                 |> List.find (fun (_, value) -> List.length value = 1))
           | _ -> `to_many_declaration declaration)
-      | TInteger _ | TBool | TFloat | TPointer _ -> `built_in_valid
+      | TInteger _ | TBool | TFloat _ | TPointer _ -> `built_in_valid
       | _ -> `no_equal_for_built_in (* Better handle the tuple *)
 
   let is_valid_sup_operation lhs rhs program =
@@ -641,7 +640,7 @@ module Program = struct
                 (declaration
                 |> List.find (fun (_, value) -> List.length value = 1))
           | _ -> `to_many_declaration declaration)
-      | TInteger _ | TFloat -> `built_in_valid
+      | TInteger _ | TFloat _ -> `built_in_valid
       | _ -> `no_sup_for_built_in
 
   let is_valid_supeq_operation lhs rhs program =
@@ -664,7 +663,7 @@ module Program = struct
                 (declaration
                 |> List.find (fun (_, value) -> List.length value = 1))
           | _ -> `to_many_declaration declaration)
-      | TInteger _ | TFloat -> `built_in_valid
+      | TInteger _ | TFloat _ -> `built_in_valid
       | _ -> `no_inf_for_built_in
 
   let is_valid_infeq_operation lhs rhs program =
@@ -697,7 +696,7 @@ module Program = struct
               (declaration
               |> List.find (fun (_, value) -> List.length value = 1))
         | _ -> `to_many_declaration declaration)
-    | TInteger (Signed, _) | TFloat -> `built_in_valid
+    | TInteger (Signed, _) | TFloat _ -> `built_in_valid
     | TInteger (Unsigned, size) -> `invalid_unsigned_op size
     | _ -> `no_uminus_for_built_in
 end
@@ -858,10 +857,10 @@ module Kbody = struct
               wildcard_case
               |> Option.map (remap_body_explicit_type generics current_module);
           }
-    | EWhile (te, body) -> EWhile (
-      remap_located_expr_explicit_type generics current_module te,
-      remap_body_explicit_type generics current_module body
-    ) 
+    | EWhile (te, body) ->
+        EWhile
+          ( remap_located_expr_explicit_type generics current_module te,
+            remap_body_explicit_type generics current_module body )
     | EUn_op (UMinus expr) ->
         EUn_op
           (UMinus
@@ -959,9 +958,11 @@ module Kbody = struct
           (BDif
              ( remap_located_expr_explicit_type generics current_module lhs,
                remap_located_expr_explicit_type generics current_module rhs ))
-    | Empty | True | False | ENullptr | EInteger _ | EFloat _ | EChar _ 
-    | EString _ | EAdress _| EDeference (_, _) 
-    | EIdentifier _ as t -> t 
+    | ( Empty | True | False | ENullptr | EInteger _ | EFloat _ | EChar _
+      | EString _ | EAdress _
+      | EDeference (_, _)
+      | EIdentifier _ ) as t ->
+        t
 end
 
 module Switch_case = struct
@@ -1514,10 +1515,12 @@ module Builtin_Function = struct
     | Tou8 -> "tou8"
     | Tos16 -> "tos16"
     | Tou16 -> "tou16"
+    | Tof32 -> "tof32"
     | Tos32 -> "tos32"
     | Tou32 -> "tou32"
     | Tos64 -> "tos64"
     | Tou64 -> "tou64"
+    | Tof64 -> "tof64"
     | Stringl_ptr -> "stringlptr"
 
   let builtin_fn_of_fn_name =
@@ -1531,18 +1534,23 @@ module Builtin_Function = struct
     | { v = "tou32"; _ } -> Tou32 |> Result.ok
     | { v = "tos64"; _ } -> Tos64 |> Result.ok
     | { v = "tou64"; _ } -> Tou64 |> Result.ok
+    | { v = "tof64"; _ } -> Tof64 |> Result.ok
+    | { v = "tof32"; _ } -> Tof32 |> Result.ok
     | { v = "stringlptr"; _ } -> Stringl_ptr |> Result.ok
     | _ as fn_name -> Ast.Error.Unknow_built_function fn_name |> Result.error
 
   let is_valide_parameters_type fn_location parameters =
     let open Ast.Builtin_Function in
     function
-    | (Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64) as fn -> (
+    | ( Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64 | Tof32
+      | Tof64 ) as fn -> (
         match parameters with
         | [ t ] ->
             let param_type = Position.value t in
             if fn = Tou8 && param_type = TChar then Result.ok fn
-            else if Type.is_any_integer param_type then Result.ok fn
+            else if
+              Type.is_any_integer param_type || Type.is_any_float param_type
+            then Result.ok fn
             else
               Ast.Error.Found_no_Integer { fn_name = fn_location.v; found = t }
               |> Result.error
@@ -1585,6 +1593,8 @@ module Builtin_Function = struct
     | Tou32 -> TInteger (Unsigned, I32)
     | Tos64 -> TInteger (Signed, I64)
     | Tou64 -> TInteger (Unsigned, I64)
+    | Tof32 -> TFloat F32
+    | Tof64 -> TFloat F64
 end
 
 module Function = struct
@@ -1959,125 +1969,4 @@ module Affected_Value = struct
             fields type_decl current_mod_name program
         in
         field_type
-end
-
-module Sizeof = struct
-  let ( ++ ) = Int64.add
-  let ( -- ) = Int64.sub
-
-  let rec size calcul current_module (program : module_path list) ktype =
-    match ktype with
-    | TUnit | TBool | TUnknow | TChar -> 1L
-    | TInteger (_, isize) -> size_of_isize isize / 8 |> Int64.of_int
-    | TFloat | TPointer _ | TString_lit | TFunction _ -> 8L
-    | TTuple kts -> (
-        kts |> List.map Position.value |> function
-        | list -> (
-            let size, align, _packed_size =
-              list
-              |> List.fold_left
-                   (fun (acc_size, acc_align, acc_packed_size) kt ->
-                     let comming_size =
-                       kt |> size `size current_module program
-                     in
-                     let comming_align =
-                       kt |> size `align current_module program
-                     in
-                     let quotient = Int64.unsigned_div acc_size comming_align in
-                     let reminder = Int64.unsigned_rem acc_size comming_align in
-                     let new_pacced_size = comming_size ++ acc_packed_size in
-
-                     let add_size =
-                       if new_pacced_size < acc_size then 0L
-                       else if comming_size < acc_align then acc_align
-                       else comming_size
-                     in
-
-                     let padded_size =
-                       if reminder = 0L || acc_size = 0L then acc_size
-                       else Int64.mul comming_align (quotient ++ 1L)
-                     in
-                     ( padded_size ++ add_size,
-                       max comming_align acc_align,
-                       new_pacced_size ))
-                   (0L, 0L, 0L)
-            in
-            match calcul with `size -> size | `align -> align))
-    | kt -> (
-        let ktype_def_path = Type.module_path_opt kt |> Option.get in
-        let ktype_name = Type.type_name_opt kt |> Option.get in
-        let type_decl =
-          match
-            Program.find_type_decl_from_ktype ~ktype_def_path ~ktype_name
-              ~current_module program
-          with
-          | Error e -> e |> Ast.Error.ast_error |> raise
-          | Ok type_decl -> type_decl
-        in
-
-        match type_decl with
-        | Ast.Type_Decl.Decl_Enum enum_decl ->
-            size_enum calcul current_module program
-              (Util.dummy_generic_map
-                 (enum_decl.generics |> List.map Position.value)
-                 (Type.extract_parametrics_ktype kt |> List.map Position.value))
-              enum_decl
-        | Ast.Type_Decl.Decl_Struct struct_decl ->
-            size_struct calcul current_module program
-              (Util.dummy_generic_map
-                 (struct_decl.generics |> List.map Position.value)
-                 (Type.extract_parametrics_ktype kt |> List.map Position.value))
-              struct_decl)
-
-  and size_struct calcul current_module program generics struct_decl =
-    struct_decl.fields
-    |> List.map (fun (_, kt) ->
-           Ast.Type.remap_generic_ktype ~current_module generics kt.v)
-    |> function
-    | list -> (
-        let size, align, _packed_size =
-          list
-          |> List.fold_left
-               (fun (acc_size, acc_align, acc_packed_size) kt ->
-                 let comming_size = kt |> size `size current_module program in
-                 let comming_align = kt |> size `align current_module program in
-                 let quotient = Int64.unsigned_div acc_size comming_align in
-                 let reminder = Int64.unsigned_rem acc_size comming_align in
-                 let new_pacced_size = comming_size ++ acc_packed_size in
-
-                 let add_size =
-                   if new_pacced_size < acc_size then 0L
-                   else if comming_size < acc_align then acc_align
-                   else comming_size
-                 in
-
-                 let padded_size =
-                   if reminder = 0L || acc_size = 0L then acc_size
-                   else Int64.mul comming_align (quotient ++ 1L)
-                 in
-                 ( padded_size ++ add_size,
-                   max comming_align acc_align,
-                   new_pacced_size ))
-               (0L, 0L, 0L)
-        in
-        match calcul with `size -> size | `align -> align)
-
-  and size_enum calcul current_module program generics enum_decl =
-    enum_decl.variants
-    |> List.map (fun (_, kts) ->
-           kts
-           |> List.map
-                (Position.map
-                   (Type.remap_generic_ktype ~current_module generics))
-           |> List.cons
-                { v = TInteger (Unsigned, I32); position = Position.dummy }
-           |> Type.ktuple
-           |> size calcul current_module program)
-    |> List.fold_left max 0L
-
-  let sizeof current_module program ktype =
-    size `size current_module program ktype
-
-  let alignmentof current_module program ktype =
-    size `align current_module program ktype
 end
