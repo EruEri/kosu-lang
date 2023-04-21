@@ -43,6 +43,7 @@ let symbole_of_binary binary =
   | TacBool TacInfEq -> "<="
   | TacBool TacEqual -> "=="
   | TacBool TacDiff -> "!="
+  | TacCmp TacOrdered -> "<=>"
 
 let rec string_of_typed_locale typed_locale =
   let stype = string_of_rktype typed_locale.locale_ty in
@@ -232,6 +233,9 @@ and string_of_tac_expression = function
   | TETrue -> "true"
   | TEmpty -> "empty"
   | TENullptr -> "nullptr"
+  | TECmpLesser -> "lt"
+  | TECmpGreater -> "gt"
+  | TECmpEqual -> "eq"
   | TEChar c -> Printf.sprintf "\'%c\'" c
   | TEInt (sign, _, value) ->
       let format = if sign = Unsigned then sprintf "%Lu" else sprintf "%Ld" in

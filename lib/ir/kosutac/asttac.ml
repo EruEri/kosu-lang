@@ -40,7 +40,13 @@ type tac_binop_self =
   | TacShiftLeft
   | TacShiftRight
 
-type tac_binop = TacSelf of tac_binop_self | TacBool of tac_binop_bool
+type tac_binop_cmp = TacOrdered
+
+type tac_binop =
+  | TacSelf of tac_binop_self
+  | TacBool of tac_binop_bool
+  | TacCmp of tac_binop_cmp
+
 type tac_unop = TacNot | TacUminus
 
 type tac_local_variable =
@@ -61,6 +67,9 @@ and tac_expression =
   | TETrue
   | TEmpty
   | TENullptr
+  | TECmpLesser
+  | TECmpGreater
+  | TECmpEqual
   | TEInt of (signedness * isize * int64)
   | TEChar of char
   | TEFloat of (fsize * float)
@@ -211,7 +220,7 @@ type tac_operator_decl =
       discarded_values : (string * rktype) list;
     }
   | TacBinary of {
-      op : parser_binary_op;
+      op : extended_parser_operator;
       asm_name : string;
       rfields : (string * rktype) * (string * rktype);
       return_type : rktype;

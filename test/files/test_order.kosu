@@ -1,0 +1,81 @@
+external printf(format: stringl; ...) s32 
+external puts(_: stringl) s32
+
+fn string_of_cmp(o: order) stringl = cases {
+    of o == lt => { $ "lt" }
+    of o == eq => { $ "eq" }
+    else { $ "gt" }
+}
+
+fn string_of_bool(b: bool) stringl = if (b) { $ "true" } else { $ "false" }
+
+struct coordinate {
+    x: s32,
+    y: s32
+}
+
+operator <=>(lhs: coordinate, rhs: coordinate) order {
+    const xcmp = lhs.x <=> rhs.x;
+    $ if (xcmp == eq) {
+        $ lhs.y <=> rhs.y
+    } else {
+        $ xcmp
+    }
+}
+
+fn show_coordinate(c: coordinate) {
+    discard printf("(x: %d, y: %d)", c.x, c.y);
+    $ empty
+}
+
+fn show_order(o: order, lhs: coordinate, rhs: coordinate) {
+    discard show_coordinate(lhs);
+    discard printf(" <=> ");
+    discard show_coordinate(rhs);
+    discard printf(" : %s\n", string_of_cmp(o));
+    $ empty
+}
+
+fn show_cmp(op: stringl, b: bool, lhs: coordinate, rhs: coordinate) {
+    discard show_coordinate(lhs);
+    discard printf(" %s ", op );
+    discard show_coordinate(rhs);
+    discard printf(" : %s\n", string_of_bool(b));
+    $ empty
+}
+
+fn test_coordinate(lhs: coordinate, rhs: coordinate) {
+    const cmp = lhs <=> rhs;
+    const equal = lhs == rhs;
+    const diff = lhs != rhs;
+    const sup = lhs > rhs;
+    const supeq = lhs >= rhs;
+    const inf = lhs < rhs;
+    const infeq = lhs <= rhs;
+    discard show_order(cmp, lhs, rhs);
+    discard show_cmp("==", equal, lhs, rhs);
+    discard show_cmp("!=", diff, lhs, rhs);
+    discard show_cmp(">", sup, lhs, rhs);
+    discard show_cmp(">=", supeq, lhs, rhs);
+    discard show_cmp("<", inf, lhs, rhs);
+    discard show_cmp("<=", infeq, lhs, rhs);
+    discard puts("");
+    $ empty
+}
+
+
+
+fn main() s32 {
+    discard puts("Compare coordinate by x then y\n");
+    const c1 = coordinate { x = 10, y = 20 };
+    const c2 = coordinate { x = 9, y = 19 };
+    const c3 = coordinate { x = 11, y = 18 };
+    const c4 = coordinate { x = 8, y = 21 };
+
+    discard test_coordinate(c1, c2);
+    discard test_coordinate(c1, c1);
+    discard test_coordinate(c3, c1);
+    discard test_coordinate(c1, c3);
+    discard test_coordinate(c1, c4);
+    $ 0
+}

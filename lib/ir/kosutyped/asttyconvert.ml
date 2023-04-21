@@ -54,6 +54,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | TString_lit -> RTString_lit
     | TFloat fsize -> RTFloat fsize
     | TBool -> RTBool
+    | TOredered -> RTOrdered
     | TUnit -> RTUnit
     | TChar -> RTChar
     | TUnknow -> RTUnknow
@@ -257,6 +258,9 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | Empty -> REmpty
     | True -> RTrue
     | False -> RFalse
+    | ECmpEqual -> RECmpEqual
+    | ECmpGreater -> RECmpGreater
+    | ECmpLess -> RECmpLess
     | ENullptr -> RENullptr
     | EChar c -> REChar c
     | EInteger (sign, size, value) -> REInteger (sign, size, value)
@@ -846,6 +850,16 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                   current_module program rhs
               in
               RBDif (ltyped, rtyped)
+          | BCmp (lhs, rhs) ->
+              let ltyped =
+                typed_expression_of_kexpression ~generics_resolver env
+                  current_module program lhs
+              in
+              let rtyped =
+                typed_expression_of_kexpression ~generics_resolver env
+                  current_module program rhs
+              in
+              RBCmp (ltyped, rtyped)
         in
         let lhs, rhs = Binop.operands rkbin in
         if
@@ -912,8 +926,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
         RNOperator
           (RBinary
              {
-               op = op.v;
-               rfields =
+               op = ParBinOp op.v;
+               rbfields =
                  ( (field1.v, from_ktype ktype1.v),
                    (field2.v, from_ktype ktype2.v) );
                return_type = return_type |> Position.value |> from_ktype;
@@ -1024,7 +1038,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     |> List.fold_left
          (fun acc node -> RProgram.append_function_decl node acc)
          rprogram
-    |> RProgram.remove_generics
+    |> RProgram.remove_generics |> RProgram.create_compare_function
 end
 
 module Sizeof = struct
@@ -1037,12 +1051,12 @@ module Sizeof = struct
 
   let rec size calcul program rktype =
     match rktype with
-    | RTUnit | RTBool | RTUnknow | RTChar -> 1L
+    | RTUnit | RTBool | RTUnknow | RTChar | RTOrdered -> 1L
     | RTInteger (_, isize) -> Isize.size_of_isize isize / 8 |> Int64.of_int
     | RTFloat fsize -> Fsize.size_of_fsize fsize / 8 |> Int64.of_int
     | RTPointer _ | RTString_lit | RTFunction _ -> 8L
     | RTTuple kts -> size_tuple calcul program kts
-    | kt -> (
+    | (RTParametric_identifier _ | RTType_Identifier _) as kt -> (
         let type_decl =
           RProgram.find_type_decl_from_rktye kt program |> Option.get
         in

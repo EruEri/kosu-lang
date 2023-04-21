@@ -317,6 +317,12 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
   | REmpty, _ -> convert_if_allocated ~expr_rktype:trktype ~allocated TEmpty
   | RFalse, _ -> convert_if_allocated ~expr_rktype:trktype ~allocated TEFalse
   | RTrue, _ -> convert_if_allocated ~expr_rktype:trktype ~allocated TETrue
+  | RECmpEqual, _ ->
+      convert_if_allocated ~expr_rktype:trktype ~allocated TECmpEqual
+  | RECmpGreater, _ ->
+      convert_if_allocated ~expr_rktype:trktype ~allocated TECmpGreater
+  | RECmpLess, _ ->
+      convert_if_allocated ~expr_rktype:trktype ~allocated TECmpLesser
   | RENullptr, _ ->
       convert_if_allocated ~expr_rktype:trktype ~allocated TENullptr
   | REInteger (sign, size, int), _ ->
@@ -1159,7 +1165,7 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
           discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
         }
   | RBinary
-      { op; rfields = ((_f1, _), (_f2, _)) as rfields; return_type; kbody } as
+      { op; rbfields = ((_f1, _), (_f2, _)) as rfields; return_type; kbody } as
     self ->
       let asm_name =
         KosuIrTyped.Asttyhelper.OperatorDeclaration.label_of_operator self

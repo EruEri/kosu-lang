@@ -35,6 +35,7 @@
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
 %token ENUM EXTERNAL FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE
+%token CMP_LESS CMP_EQUAL CMP_GREATER  
 %token TRIPLEDOT
 %token COMMA
 %token PIPESUP
@@ -44,7 +45,7 @@
 %token AND FULLAND
 %token XOR
 %token AMPERSAND
-%token DOUBLEQUAL DIF
+%token DOUBLEQUAL DIF INF_EQ_SUP
 %token SUP SUPEQ INF INFEQ
 %token SHIFTLEFT SHIFTRIGHT
 %token PLUS MINUS
@@ -65,7 +66,7 @@
 %left PIPE
 %left XOR
 %left AMPERSAND
-%left DOUBLEQUAL DIF
+%left DOUBLEQUAL DIF INF_EQ_SUP
 %left SUP SUPEQ INF INFEQ
 %left SHIFTLEFT SHIFTRIGHT
 %left PLUS MINUS
@@ -182,8 +183,7 @@ binary_operator_symbol:
     | SHIFTLEFT { ShiftLeft }
     | SHIFTRIGHT { ShiftRight }
     | DOUBLEQUAL { Equal }
-    | SUP { Sup }
-    | INF { Inf }
+    | INF_EQ_SUP { Spaceship }
 ;;
 
 operator_decl:
@@ -300,6 +300,9 @@ expr:
     | FALSE { False }
     | EMPTY { Empty }
     | NULLPTR { ENullptr }
+    | CMP_LESS { ECmpLess }
+    | CMP_EQUAL { ECmpEqual }
+    | CMP_GREATER { ECmpGreater }
     | SIZEOF delimited(LPARENT, preceded(COLON, located(expr)) , RPARENT) { ESizeof ( Either.Right( $2) ) }
     | SIZEOF delimited(LPARENT, t=located(ktype) { t } , RPARENT) { ESizeof (Either.Left $2)  }
     | nonempty_list(MULT) located(IDENT) { 
@@ -309,6 +312,7 @@ expr:
     | WHILE delimited(LPARENT, located(expr), RPARENT) kbody {
         EWhile ($2, $3)
     }
+    | located(expr) INF_EQ_SUP located(expr) { EBin_op( BCmp ($1, $3)) }
     | located(expr) PLUS located(expr) { EBin_op (BAdd ($1, $3) ) }
     | located(expr) MINUS located(expr) { EBin_op (BMinus ($1, $3)) }
     | located(expr) MULT located(expr) { EBin_op (BMult ($1, $3)) }
@@ -489,6 +493,7 @@ ktype:
         | "u32" -> TInteger( Unsigned, I32)
         | "s64" -> TInteger( Signed, I64)
         | "u64" -> TInteger( Unsigned, I64)
+        | "order" -> TOredered
         | "stringl" -> TString_lit
         | _ -> TType_Identifier {
             module_path = modules_path;

@@ -53,6 +53,8 @@ let rec fetch_kosu_file direname () =
   in
   kosu_files
 
+let commit_hash () = KosuHash.commit_hash
+
 let fetch_std_file ~no_std () =
   if no_std || Option.is_none std_path then []
   else
@@ -83,7 +85,19 @@ module Cli = struct
          (KosuBackend.Aarch64.Aarch64AsmSpecImpl.FreeBSDAarch64AsmSpec))
 
   let name = "kosuc"
-  let version = "0.0.1-not-alpha (%%VERSION%%)"
+
+  let version =
+    let commit_hash =
+      () |> commit_hash
+      |> Option.map (Printf.sprintf "[%s]")
+      |> Option.value ~default:""
+    in
+    let v =
+      match Build_info.V1.version () with
+      | None -> "n/a"
+      | Some v -> Build_info.V1.Version.to_string v
+    in
+    Printf.sprintf "%s %s" v commit_hash
 
   type cmd = {
     architecture : architecture;

@@ -58,9 +58,10 @@ module Make (N : NamingSig) = struct
     label_of_function ~module_path ~main ~label_prefix
       ~fn_name:tac_function_decl.rfn_name ~generics:tac_function_decl.generics
 
-  let label_of_bin_operator (op : KosuFrontend.Ast.parser_binary_op) ktypes =
+  let label_of_bin_operator (op : KosuIrTyped.Asttyped.extended_parser_operator)
+      ktypes =
     Printf.sprintf "%s%s.%s" label_prefix
-      (KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_binary op)
+      (KosuIrTyped.Asttypprint.string_name_of_extended_parser_binary op)
       (ktypes
       |> List.map KosuIrTyped.Asttypprint.string_of_label_rktype
       |> String.concat "_")
@@ -78,9 +79,9 @@ module Make (N : NamingSig) = struct
     function
     | RUnary { op; rfield; return_type; _ } ->
         label_of_unary_operator op [ snd rfield; return_type ]
-    | RBinary { op; rfields; return_type; _ } ->
+    | RBinary { op; rbfields; return_type; _ } ->
         label_of_bin_operator op
-          [ snd @@ fst rfields; snd @@ snd rfields; return_type ]
+          [ snd @@ fst rbfields; snd @@ snd rbfields; return_type ]
 
   let label_of_tac_operator ~(module_path : string) =
     let open KosuIrTAC.Asttac in

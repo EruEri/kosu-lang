@@ -170,15 +170,33 @@ module OperatorDeclaration = struct
           (KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_unary op)
           (Asttypprint.string_of_label_rktype rktype)
           (Asttypprint.string_of_label_rktype return_type)
-    | RBinary { op; rfields = (_, ltype), (_, rtype); return_type; _ } ->
+    | RBinary { op; rbfields = (_, ltype), (_, rtype); return_type; _ } ->
         Printf.sprintf "_%s.%s_%s__%s"
-          (KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_binary op)
+          (Asttypprint.string_name_of_extended_parser_binary op)
           (Asttypprint.string_of_label_rktype ltype)
           (Asttypprint.string_of_label_rktype rtype)
           (Asttypprint.string_of_label_rktype return_type)
 end
 
 module Binop = struct
+  let pbadd = ParBinOp KosuFrontend.Ast.Add
+  let pbminus = ParBinOp KosuFrontend.Ast.Minus
+  let pbmult = ParBinOp KosuFrontend.Ast.Mult
+  let pbmodulo = ParBinOp KosuFrontend.Ast.Modulo
+  let pbdiv = ParBinOp KosuFrontend.Ast.Div
+  let pbbitwiseor = ParBinOp KosuFrontend.Ast.BitwiseOr
+  let pbbitwisexor = ParBinOp KosuFrontend.Ast.BitwiseXor
+  let pbbitwiseoand = ParBinOp KosuFrontend.Ast.BitwiseAnd
+  let pbshiftleft = ParBinOp KosuFrontend.Ast.ShiftLeft
+  let pbshiftright = ParBinOp KosuFrontend.Ast.ShiftRight
+  let pbequal = ParBinOp KosuFrontend.Ast.Equal
+  let pbordered = ParBinOp KosuFrontend.Ast.Spaceship
+  let pbsup = ParserSup
+  let pbinf = ParserInf
+  let pbsupeq = ParserSupEq
+  let pbinfeq = ParserInfEq
+  let pbdiff = ParserDiff
+
   let left_operande = function
     | RBAdd (lhs, _)
     | RBMinus (lhs, _)
@@ -197,7 +215,8 @@ module Binop = struct
     | RBInf (lhs, _)
     | RBInfEq (lhs, _)
     | RBEqual (lhs, _)
-    | RBDif (lhs, _) ->
+    | RBDif (lhs, _)
+    | RBCmp (lhs, _) ->
         lhs
 
   let right_operand = function
@@ -218,7 +237,8 @@ module Binop = struct
     | RBInf (_, rhs)
     | RBInfEq (_, rhs)
     | RBEqual (_, rhs)
-    | RBDif (_, rhs) ->
+    | RBDif (_, rhs)
+    | RBCmp (_, rhs) ->
         rhs
 
   let operands = function
@@ -239,7 +259,8 @@ module Binop = struct
     | RBInf (lhs, rhs)
     | RBInfEq (lhs, rhs)
     | RBEqual (lhs, rhs)
-    | RBDif (lhs, rhs) ->
+    | RBDif (lhs, rhs)
+    | RBCmp (lhs, rhs) ->
         (lhs, rhs)
 end
 
@@ -396,8 +417,9 @@ module Generics = struct
         REWhile
           ( instanciate_generics_typed_expression generics te,
             instanciate_generics_kbody generics body )
-    | ( REmpty | RTrue | RFalse | RENullptr | REInteger _ | REFloat _ | REChar _
-      | REstring _ | REAdress _
+    | ( REmpty | RTrue | RFalse | RENullptr | RECmpLess | RECmpEqual
+      | RECmpGreater | REInteger _ | REFloat _ | REChar _ | REstring _
+      | REAdress _
       | REDeference (_, _)
       | REIdentifier _ | REConst_Identifier _ ) as t ->
         t
@@ -487,6 +509,10 @@ module Generics = struct
             instanciate_generics_typed_expression generics rhs )
     | RBDif (lhs, rhs) ->
         RBDif
+          ( instanciate_generics_typed_expression generics lhs,
+            instanciate_generics_typed_expression generics rhs )
+    | RBCmp (lhs, rhs) ->
+        RBCmp
           ( instanciate_generics_typed_expression generics lhs,
             instanciate_generics_typed_expression generics rhs )
 end
@@ -631,7 +657,7 @@ module Renum = struct
 end
 
 module RStruct = struct
-  let instanciate_struct_decl generics struct_decl =
+  let instanciate_struct_decl generics (struct_decl : rstruct_decl) =
     let generics = generics |> List.to_seq |> Hashtbl.of_seq in
     {
       struct_decl with
@@ -640,7 +666,7 @@ module RStruct = struct
         |> List.map (fun (s, kt) -> (s, RType.remap_generic_ktype generics kt));
     }
 
-  let rktype_of_field_opt field struct_decl =
+  let rktype_of_field_opt field (struct_decl : rstruct_decl) =
     struct_decl.rfields |> List.assoc_opt field
 end
 
@@ -698,6 +724,13 @@ module Rmodule = struct
                         })
                | RNOperator roperator_decl -> Some (RFOperator roperator_decl)
                | _ -> None)
+
+  let retrieve_binary_function_decl op = function
+    | RModule rnodes ->
+        rnodes
+        |> List.filter_map (function
+             | RNOperator (RBinary bod) when bod.op = op -> Some bod
+             | _ -> None)
 
   let retrive_functions_decl = function
     | RModule rnodes ->
@@ -834,15 +867,15 @@ module RProgram = struct
 
   let register_params_count = 8
 
-  let find_binary_operator_decl (op : KosuFrontend.Ast.parser_binary_op)
-      (lhs, rhs) ~r_type rprogram =
+  let find_binary_operator_decl (op : extended_parser_operator) (lhs, rhs)
+      ~r_type rprogram =
     rprogram
     |> List.map (fun { filename = _; rmodule_path } ->
            rmodule_path.rmodule |> Rmodule.retrive_operator_decl
            |> List.filter (function
                 | RUnary _ -> false
                 | RBinary record ->
-                    let (_, kt1), (_, kt2) = record.rfields in
+                    let (_, kt1), (_, kt2) = record.rbfields in
                     op = record.op
                     && record.return_type = r_type
                     && lhs = kt1 && rhs = kt2))
@@ -1152,8 +1185,9 @@ module RProgram = struct
         body
         |> specialise_generics_function_kbody ~ignored current_module rprogram
         |> FnSpec.union fn_expr
-    | REmpty | RTrue | RFalse | RENullptr | REInteger _ | REFloat _ | REChar _
-    | RESizeof _ | REstring _ | REAdress _
+    | REmpty | RTrue | RFalse | RECmpEqual | RECmpLess | RECmpGreater
+    | RENullptr | REInteger _ | REFloat _ | REChar _ | RESizeof _ | REstring _
+    | REAdress _
     | REDeference (_, _)
     | REIdentifier _ | REConst_Identifier _ ->
         FnSpec.empty
@@ -1206,6 +1240,132 @@ module RProgram = struct
                     specialise_generics_function_kbody path rprogram kbody)
            |> List.fold_left FnSpec.union FnSpec.empty)
     |> List.fold_left FnSpec.union FnSpec.empty
+
+  let generate_function_from_spaceship_decl ~generate_equal
+      (binary_operator_decl : binary_operator_decl) =
+    let open Binop in
+    let typed_expr_of_parameter p =
+      {
+        rktype = snd p;
+        rexpression = REIdentifier { modules_path = ""; identifier = fst p };
+      }
+    in
+    let lhs = typed_expr_of_parameter @@ fst binary_operator_decl.rbfields in
+    let rhs = typed_expr_of_parameter @@ snd binary_operator_decl.rbfields in
+    let cmp_rkbin_op_expr = REBinOperator_Function_call (RBCmp (lhs, rhs)) in
+    let typed_cmp = { rktype = RTOrdered; rexpression = cmp_rkbin_op_expr } in
+
+    let create_node op return_type params kbody =
+      RNOperator (RBinary { op; return_type; rbfields = params; kbody })
+    in
+
+    let or_op lhs rhs =
+      let expr = REBin_op (RBOr (lhs, rhs)) in
+      { rktype = RTBool; rexpression = expr }
+    in
+
+    let equal_op lhs rhs =
+      let expr = REBin_op (RBEqual (lhs, rhs)) in
+      { rktype = RTBool; rexpression = expr }
+    in
+
+    let not_op lhs =
+      let expr = REUn_op (RUNot lhs) in
+      { rktype = lhs.rktype; rexpression = expr }
+    in
+
+    let inline_var_name = "#compare" in
+    let inline_var_expr =
+      typed_expr_of_parameter (inline_var_name, RTOrdered)
+    in
+
+    let gt = { rktype = RTOrdered; rexpression = RECmpGreater } in
+
+    let eq = { rktype = RTOrdered; rexpression = RECmpEqual } in
+
+    let lt = { rktype = RTOrdered; rexpression = RECmpLess } in
+
+    let spaceshift_call_typed_expression =
+      RSDeclaration
+        {
+          is_const = true;
+          variable_name = inline_var_name;
+          typed_expression = typed_cmp;
+        }
+    in
+
+    let sup_expr = equal_op inline_var_expr gt in
+    let supeq_expr =
+      or_op (equal_op inline_var_expr eq) (equal_op inline_var_expr gt)
+    in
+    let inf_expr = equal_op inline_var_expr lt in
+    let infeq_expr =
+      or_op (equal_op inline_var_expr eq) (equal_op inline_var_expr lt)
+    in
+
+    let rtbool = RTBool in
+
+    let rfields = binary_operator_decl.rbfields in
+
+    let equal_expr = equal_op inline_var_expr eq in
+    let dif_expr = not_op equal_expr in
+
+    let spaceshift_call_stmt = [ spaceshift_call_typed_expression ] in
+
+    let supbody : rkbody = (spaceshift_call_stmt, sup_expr) in
+    let supeqbody : rkbody = (spaceshift_call_stmt, supeq_expr) in
+
+    let infbody : rkbody = (spaceshift_call_stmt, inf_expr) in
+    let infeqbody : rkbody = (spaceshift_call_stmt, infeq_expr) in
+    let diffbody : rkbody = (spaceshift_call_stmt, dif_expr) in
+
+    let supnode = create_node pbsup rtbool rfields supbody in
+    let supeqnode = create_node pbsupeq rtbool rfields supeqbody in
+    let infnode = create_node pbinf rtbool rfields infbody in
+    let infeqnode = create_node pbinfeq rtbool rfields infeqbody in
+    let diffnode = create_node pbdiff rtbool rfields diffbody in
+
+    (* let () = Printf.printf "expr = %s\n%!" (Asttypprint.string_of_rkbody diffbody) in *)
+    let always_generated =
+      [ supnode; supeqnode; infnode; infeqnode; diffnode ]
+    in
+    match generate_equal with
+    | false -> always_generated
+    | true ->
+        let equal_body : rkbody = (spaceshift_call_stmt, equal_expr) in
+        let eq_node = create_node pbequal rtbool rfields equal_body in
+        eq_node :: always_generated
+
+  (**
+    Gerete compare function from spaceshift [<=>] operator    
+  *)
+  let create_compare_function rprogram =
+    rprogram
+    |> List.map (fun { filename; rmodule_path = { path; rmodule } } ->
+           let spaceshift_operator_decl =
+             Rmodule.retrieve_binary_function_decl
+               (ParBinOp KosuFrontend.Ast.Spaceship) rmodule
+           in
+           let generated =
+             spaceshift_operator_decl
+             |> List.map (fun decl ->
+                    let (_, ltype), (_, rtype) = decl.rbfields in
+                    let find_eq_decl =
+                      find_binary_operator_decl Binop.pbequal (ltype, rtype)
+                        ~r_type:RTBool rprogram
+                    in
+                    generate_function_from_spaceship_decl
+                      ~generate_equal:(find_eq_decl = []) decl)
+             |> List.flatten
+           in
+
+           let rmodule =
+             generated
+             |> List.fold_left
+                  (fun acc_module node -> Rmodule.add_node node acc_module)
+                  rmodule
+           in
+           { filename; rmodule_path = { path; rmodule } })
 
   let remove_generics rprogram =
     rprogram

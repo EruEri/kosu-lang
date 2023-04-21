@@ -41,9 +41,8 @@ type parser_binary_op =
   | BitwiseXor
   | ShiftLeft
   | ShiftRight
-  | Sup
-  | Inf
   | Equal
+  | Spaceship
 
 type ktype =
   | TParametric_identifier of {
@@ -60,6 +59,7 @@ type ktype =
   | TPointer of ktype location
   | TTuple of ktype location list
   | TFunction of ktype location list * ktype location
+  | TOredered
   | TString_lit
   | TUnknow
   | TChar
@@ -88,6 +88,9 @@ and kexpression =
   | True
   | False
   | ENullptr
+  | ECmpLess
+  | ECmpEqual
+  | ECmpGreater
   | EInteger of (signedness * isize * int64)
   | EFloat of (fsize * float)
   | EChar of char
@@ -159,6 +162,7 @@ and kbin_op =
   | BInfEq of kexpression location * kexpression location
   | BEqual of kexpression location * kexpression location
   | BDif of kexpression location * kexpression location
+  | BCmp of kexpression location * kexpression location
 
 and kunary_op = UMinus of kexpression location | UNot of kexpression location
 
@@ -298,6 +302,7 @@ module OperatorFunction = struct
     | BitwiseXor
     | ShiftLeft
     | ShiftRight
+    | CompareOp
     | And
     | Or
     | Sup
@@ -328,6 +333,7 @@ module OperatorFunction = struct
     | InfEq -> "infeq"
     | Equal -> "equal"
     | Diff -> "diff"
+    | CompareOp -> "cmp"
     | UMinus -> "uminus"
     | Not -> "not"
 
@@ -350,6 +356,7 @@ module OperatorFunction = struct
     | InfEq -> "<="
     | Equal -> "=="
     | Diff -> "!="
+    | CompareOp -> "<=>"
     | Not -> "!"
     | UMinus -> "(-)"
 end
@@ -421,6 +428,13 @@ module Error = struct
         found : ktype location;
       }
     | Unknow_Function_Error
+
+  type operator_validation =
+    | No_declaration_found
+    | Builin_Invalid
+    | Diff_type
+    | Too_many_decl of { decls : (string * operator_decl list) list }
+    | VInvalid_Pointer_A
 
   type operator_error =
     | Invalid_pointer_arithmetic of ktype location

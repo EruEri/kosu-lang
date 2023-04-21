@@ -18,6 +18,7 @@
 open Ast
 open Printf
 open Position
+open Ast.Error
 
 let f = sprintf "%Ld"
 
@@ -414,262 +415,119 @@ module Program = struct
             ktypes_parameters return_type)
     |> List.filter (function One _ -> true | _ -> false)
 
-  let is_valid_add_operation lhs rhs program =
-    let open Ast.Type in
+  let is_valid_add_minus_operator ~freturn ~rtype op lhs rhs program =
+    ignore freturn;
     match lhs with
     | TPointer _ -> (
         match rhs with
-        | TInteger _ -> `built_in_ptr_valid
-        | _ -> `invalid_add_pointer)
+        | TInteger _ -> Ok None
+        | _ -> Result.error @@ VInvalid_Pointer_A)
     | _ -> (
-        if ( !== ) lhs rhs then `diff_types
+        if Ast.Type.( !== ) lhs rhs then Result.error Diff_type
         else
           match lhs with
           | TType_Identifier _ as kt -> (
               let declaration =
-                program |> find_binary_operator Ast.Add (kt, kt) kt
+                program |> find_binary_operator op (kt, kt) rtype
               in
               match declaration |> Util.ListHelper.inner_count with
-              | 0 -> `no_function_found
+              | 0 -> Result.error No_declaration_found
               | 1 ->
-                  `valid
-                    (declaration
-                    |> List.find (fun (_, value) -> List.length value = 1))
-              | _ -> `to_many_declaration declaration)
-          | TInteger _ | TFloat _ -> `built_in_valid
-          | _ -> `no_add_for_built_in)
+                  Result.ok @@ Option.some
+                  @@ (declaration
+                     |> List.find (fun (_, value) -> List.length value = 1))
+              | _ -> Result.error @@ Too_many_decl { decls = declaration })
+          | TInteger _ | TFloat _ -> Ok None
+          | _ -> Result.error Error.Builin_Invalid)
 
-  let is_valid_minus_operation lhs rhs program =
-    match lhs with
-    | TPointer _ -> (
-        match rhs with
-        | TInteger _ -> `built_in_ptr_valid
-        | _ -> `invalid_add_pointer)
-    | _ -> (
-        if Ast.Type.( !== ) lhs rhs then `diff_types
-        else
-          match lhs with
-          | TType_Identifier _ as kt -> (
-              let declaration =
-                program |> find_binary_operator Ast.Minus (kt, kt) kt
-              in
-              match declaration |> Util.ListHelper.inner_count with
-              | 0 -> `no_function_found
-              | 1 ->
-                  `valid
-                    (declaration
-                    |> List.find (fun (_, value) -> List.length value = 1))
-              | _ -> `to_many_declaration declaration)
-          | TInteger _ | TFloat _ -> `built_in_valid
-          | _ -> `no_minus_for_built_in)
+  let is_valid_add_operation = is_valid_add_minus_operator Ast.Add
+  let is_valid_minus_operation = is_valid_add_minus_operator Ast.Minus
 
-  let is_valid_mult_operation lhs rhs program =
-    if Ast.Type.( !== ) lhs rhs then `diff_types
+  let is_valid_op ?no_decl op fvalid ~freturn ~rtype lhs rhs program =
+    if Ast.Type.( !== ) lhs rhs then Result.error Diff_type
     else
       match lhs with
       | TType_Identifier _ as kt -> (
-          let declaration =
-            program |> find_binary_operator Ast.Mult (kt, kt) kt
-          in
+          let declaration = program |> find_binary_operator op (kt, kt) rtype in
           match declaration |> Util.ListHelper.inner_count with
-          | 0 -> `no_function_found
+          | 0 -> (
+              match no_decl with
+              | Some f -> f ~rtype:freturn lhs rhs program
+              | None -> Result.error No_declaration_found)
           | 1 ->
-              `valid
-                (declaration
-                |> List.find (fun (_, value) -> List.length value = 1))
-          | _ -> `to_many_declaration declaration)
-      | TInteger _ | TFloat _ -> `built_in_valid
-      | _ -> `no_mult_for_built_in
+              Result.ok @@ Option.some
+              @@ (declaration
+                 |> List.find (fun (_, value) -> List.length value = 1))
+          | _ -> Result.error @@ Too_many_decl { decls = declaration })
+      | kt when fvalid kt -> Ok None
+      | _ -> Result.error Error.Builin_Invalid
 
-  let is_valid_div_operation lhs rhs program =
-    if Ast.Type.( !== ) lhs rhs then `diff_types
-    else
-      match lhs with
-      | TType_Identifier _ as kt -> (
-          let declaration =
-            program |> find_binary_operator Ast.Div (kt, kt) kt
-          in
-          match declaration |> Util.ListHelper.inner_count with
-          | 0 -> `no_function_found
-          | 1 ->
-              `valid
-                (declaration
-                |> List.find (fun (_, value) -> List.length value = 1))
-          | _ -> `to_many_declaration declaration)
-      | TInteger _ | TFloat _ -> `built_in_valid
-      | _ -> `no_div_for_built_in
+  let is_valid_mult_operation ~freturn =
+    is_valid_op ~freturn Ast.Mult (function
+      | TInteger _ | TFloat _ -> true
+      | _ -> false)
 
-  let is_valid_mod_operation lhs rhs program =
-    if Ast.Type.( !== ) lhs rhs then `diff_types
-    else
-      match lhs with
-      | TType_Identifier _ as kt -> (
-          let declaration =
-            program |> find_binary_operator Ast.Modulo (kt, kt) kt
-          in
-          match declaration |> Util.ListHelper.inner_count with
-          | 0 -> `no_function_found
-          | 1 ->
-              `valid
-                (declaration
-                |> List.find (fun (_, value) -> List.length value = 1))
-          | _ -> `to_many_declaration declaration)
-      | TInteger _ -> `built_in_valid
-      | _ -> `no_mod_for_built_in
+  let is_valid_div_operation ~freturn =
+    is_valid_op ~freturn Ast.Div (function
+      | TInteger _ | TFloat _ -> true
+      | _ -> false)
 
-  let is_valid_bitwiseor_operation lhs rhs program =
-    if Ast.Type.( !== ) lhs rhs then `diff_types
-    else
-      match lhs with
-      | TType_Identifier _ as kt -> (
-          let declaration =
-            program |> find_binary_operator Ast.BitwiseOr (kt, kt) kt
-          in
-          match declaration |> Util.ListHelper.inner_count with
-          | 0 -> `no_function_found
-          | 1 ->
-              `valid
-                (declaration
-                |> List.find (fun (_, value) -> List.length value = 1))
-          | _ -> `to_many_declaration declaration)
-      | TInteger _ -> `built_in_valid
-      | _ -> `no_bitwiseor_for_built_in
+  let is_valid_mod_operation ~freturn =
+    is_valid_op ~freturn Ast.Modulo (function TInteger _ -> true | _ -> false)
 
-  let is_valid_bitwiseand_operation lhs rhs program =
-    if Ast.Type.( !== ) lhs rhs then `diff_types
-    else
-      match lhs with
-      | TType_Identifier _ as kt -> (
-          let declaration =
-            program |> find_binary_operator Ast.BitwiseAnd (kt, kt) kt
-          in
-          match declaration |> Util.ListHelper.inner_count with
-          | 0 -> `no_function_found
-          | 1 ->
-              `valid
-                (declaration
-                |> List.find (fun (_, value) -> List.length value = 1))
-          | _ -> `to_many_declaration declaration)
-      | TInteger _ -> `built_in_valid
-      | _ -> `no_bitwiseand_for_built_in
+  let is_valid_bitwiseor_operation ~freturn =
+    is_valid_op ~freturn Ast.BitwiseOr (function
+      | TInteger _ -> true
+      | _ -> false)
 
-  let is_valid_bitwisexor_operation lhs rhs program =
-    if Ast.Type.( !== ) lhs rhs then `diff_types
-    else
-      match lhs with
-      | TType_Identifier _ as kt -> (
-          let declaration =
-            program |> find_binary_operator Ast.BitwiseXor (kt, kt) kt
-          in
-          match declaration |> Util.ListHelper.inner_count with
-          | 0 -> `no_function_found
-          | 1 ->
-              `valid
-                (declaration
-                |> List.find (fun (_, value) -> List.length value = 1))
-          | _ -> `to_many_declaration declaration)
-      | TInteger _ -> `built_in_valid
-      | _ -> `no_bitwisexor_for_built_in
+  let is_valid_bitwiseand_operation ~freturn =
+    is_valid_op ~freturn Ast.BitwiseAnd (function
+      | TInteger _ -> true
+      | _ -> false)
 
-  let is_valid_shiftleft_operation lhs rhs program =
-    if Ast.Type.( !== ) lhs rhs then `diff_types
-    else
-      match lhs with
-      | TType_Identifier _ as kt -> (
-          let declaration =
-            program |> find_binary_operator Ast.ShiftLeft (kt, kt) kt
-          in
-          match declaration |> Util.ListHelper.inner_count with
-          | 0 -> `no_function_found
-          | 1 ->
-              `valid
-                (declaration
-                |> List.find (fun (_, value) -> List.length value = 1))
-          | _ -> `to_many_declaration declaration)
-      | TInteger _ -> `built_in_valid
-      | _ -> `no_shiftleft_for_built_in
+  let is_valid_bitwisexor_operation ~freturn =
+    is_valid_op ~freturn Ast.BitwiseXor (function
+      | TInteger _ -> true
+      | _ -> false)
 
-  let is_valid_shiftright_operation lhs rhs program =
-    if Ast.Type.( !== ) lhs rhs then `diff_types
-    else
-      match lhs with
-      | TType_Identifier _ as kt -> (
-          let declaration =
-            program |> find_binary_operator Ast.ShiftRight (kt, kt) kt
-          in
-          match declaration |> Util.ListHelper.inner_count with
-          | 0 -> `no_function_found
-          | 1 ->
-              `valid
-                (declaration
-                |> List.find (fun (_, value) -> List.length value = 1))
-          | _ -> `to_many_declaration declaration)
-      | TInteger _ -> `built_in_valid
-      | _ -> `no_shiftright_for_built_in
+  let is_valid_shiftleft_operation ~freturn =
+    is_valid_op ~freturn Ast.ShiftLeft (function
+      | TInteger _ -> true
+      | _ -> false)
 
-  let is_valid_equal_operation lhs rhs program =
-    if Ast.Type.( !== ) lhs rhs then `diff_types
-    else
-      match lhs with
-      | TType_Identifier _ as kt -> (
-          let declaration =
-            program |> find_binary_operator Ast.Equal (kt, kt) TBool
-          in
-          match declaration |> Util.ListHelper.inner_count with
-          | 0 -> `no_function_found
-          | 1 ->
-              `valid
-                (declaration
-                |> List.find (fun (_, value) -> List.length value = 1))
-          | _ -> `to_many_declaration declaration)
-      | TInteger _ | TBool | TFloat _ | TPointer _ -> `built_in_valid
-      | _ -> `no_equal_for_built_in (* Better handle the tuple *)
+  let is_valid_shiftright_operation ~(freturn : ktype) =
+    is_valid_op ~freturn Ast.ShiftRight (function
+      | TInteger _ -> true
+      | _ -> false)
 
-  let is_valid_sup_operation lhs rhs program =
-    if Ast.Type.( !== ) lhs rhs then `diff_types
-    else
-      match lhs with
-      | TType_Identifier _ as kt -> (
-          let declaration =
-            program |> find_binary_operator Ast.Sup (kt, kt) TBool
-          in
-          match declaration |> Util.ListHelper.inner_count with
-          | 0 -> `no_function_found
-          | 1 ->
-              `valid
-                (declaration
-                |> List.find (fun (_, value) -> List.length value = 1))
-          | _ -> `to_many_declaration declaration)
-      | TInteger _ | TFloat _ -> `built_in_valid
-      | _ -> `no_sup_for_built_in
+  let is_valid_spaceship_operator =
+    is_valid_op Ast.Spaceship (function
+      | TInteger _ | TFloat _ | TOredered -> true
+      | _ -> false)
 
-  let is_valid_supeq_operation lhs rhs program =
-    match is_valid_equal_operation lhs rhs program with
-    | `built_in_valid | `valid _ -> is_valid_sup_operation lhs rhs program
-    | _ as r -> r
+  let is_valid_equal_operation ~freturn =
+    is_valid_op Ast.Equal ~freturn
+      ~no_decl:(is_valid_spaceship_operator ~freturn) (function
+      | TInteger _ | TBool | TFloat _ | TPointer _ | TOredered -> true
+      | _ -> false)
 
-  let is_valid_inf_operation lhs rhs program =
-    if Ast.Type.( !== ) lhs rhs then `diff_types
-    else
-      match lhs with
-      | TType_Identifier _ as kt -> (
-          let declaration =
-            program |> find_binary_operator Ast.Inf (kt, kt) TBool
-          in
-          match declaration |> Util.ListHelper.inner_count with
-          | 0 -> `no_function_found
-          | 1 ->
-              `valid
-                (declaration
-                |> List.find (fun (_, value) -> List.length value = 1))
-          | _ -> `to_many_declaration declaration)
-      | TInteger _ | TFloat _ -> `built_in_valid
-      | _ -> `no_inf_for_built_in
+  let is_valid_diff_operation ~freturn = is_valid_equal_operation ~freturn
 
-  let is_valid_infeq_operation lhs rhs program =
-    match is_valid_equal_operation lhs rhs program with
-    | `built_in_valid | `valid _ -> is_valid_inf_operation lhs rhs program
-    | _ as r -> r
+  let is_valid_sup_operation ~freturn =
+    is_valid_op Ast.Spaceship ~freturn
+      ~no_decl:(is_valid_spaceship_operator ~freturn) (function
+      | TInteger _ | TFloat _ | TOredered -> true
+      | _ -> false)
+
+  let is_valid_supeq_operation ~freturn = is_valid_sup_operation ~freturn
+  let is_valid_inf_operation = is_valid_sup_operation
+  let is_valid_infeq_operation = is_valid_sup_operation
+
+  let is_valid_cmp_operation ~(freturn : ktype) =
+    is_valid_op Ast.Spaceship ~freturn
+      ~no_decl:(is_valid_spaceship_operator ~freturn) (function
+      | TInteger _ | TFloat _ | TOredered -> true
+      | _ -> false)
 
   let is_valid_not_operation ktype program =
     match ktype with
@@ -958,8 +816,13 @@ module Kbody = struct
           (BDif
              ( remap_located_expr_explicit_type generics current_module lhs,
                remap_located_expr_explicit_type generics current_module rhs ))
-    | ( Empty | True | False | ENullptr | EInteger _ | EFloat _ | EChar _
-      | EString _ | EAdress _
+    | EBin_op (BCmp (lhs, rhs)) ->
+        EBin_op
+          (BCmp
+             ( remap_located_expr_explicit_type generics current_module lhs,
+               remap_located_expr_explicit_type generics current_module rhs ))
+    | ( Empty | True | False | ECmpEqual | ECmpLess | ECmpGreater | ENullptr
+      | EInteger _ | EFloat _ | EChar _ | EString _ | EAdress _
       | EDeference (_, _)
       | EIdentifier _ ) as t ->
         t
@@ -1754,8 +1617,7 @@ module ParserOperator = struct
     | BitwiseXor -> "^"
     | ShiftLeft -> "<<"
     | ShiftRight -> ">>"
-    | Sup -> ">"
-    | Inf -> "<"
+    | Spaceship -> "<=>"
     | Equal -> "=="
 
   let string_name_of_parser_binary = function
@@ -1769,8 +1631,7 @@ module ParserOperator = struct
     | BitwiseXor -> "bwx"
     | ShiftLeft -> "sfl"
     | ShiftRight -> "sfr"
-    | Sup -> "sup"
-    | Inf -> "inf"
+    | Spaceship -> "shp"
     | Equal -> "eql"
 
   let parameters = function
@@ -1824,7 +1685,8 @@ module ParserOperator = struct
     | Add | Minus | Mult | Div | Modulo | BitwiseOr | BitwiseAnd | BitwiseXor
     | ShiftLeft | ShiftRight ->
         ktype
-    | Sup | Inf | Equal -> TBool
+    | Equal -> TBool
+    | Spaceship -> TOredered
 
   let expected_op_return_type ktype op =
     match op with

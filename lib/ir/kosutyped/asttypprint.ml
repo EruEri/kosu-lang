@@ -23,38 +23,59 @@ open KosuFrontend.Pprint
 let symbole_of_roperator = function
   | RUnary { op; _ } -> ( op |> function PNot -> "!" | PUMinus -> "(-.)")
   | RBinary { op; _ } -> (
-      op |> function
-      | Add -> "+"
-      | Minus -> "-"
-      | Mult -> "*"
-      | Div -> "/"
-      | Modulo -> "%"
-      | BitwiseAnd -> "&"
-      | BitwiseOr -> "|"
-      | BitwiseXor -> "^"
-      | ShiftLeft -> "<<"
-      | ShiftRight -> ">>"
-      | Sup -> ">"
-      | Inf -> "<"
-      | Equal -> "==")
+      match op with
+      | ParBinOp op -> (
+          match op with
+          | Add -> "+"
+          | Minus -> "-"
+          | Mult -> "*"
+          | Div -> "/"
+          | Modulo -> "%"
+          | BitwiseAnd -> "&"
+          | BitwiseOr -> "|"
+          | BitwiseXor -> "^"
+          | ShiftLeft -> "<<"
+          | ShiftRight -> ">>"
+          | Spaceship -> "<=>"
+          | Equal -> "==")
+      | ParserDiff -> "!="
+      | ParserInfEq -> "<="
+      | ParserSupEq -> ">="
+      | ParserInf -> "<"
+      | ParserSup -> ">")
 
 let name_of_roperator = function
   | RUnary { op; _ } -> ( op |> function PNot -> "not" | PUMinus -> "unminus")
   | RBinary { op; _ } -> (
-      op |> function
-      | Add -> "add"
-      | Minus -> "minus"
-      | Mult -> "mult"
-      | Div -> "dic"
-      | Modulo -> "module"
-      | BitwiseAnd -> "bitwiseand"
-      | BitwiseOr -> "bitwiseor"
-      | BitwiseXor -> "botwisexor"
-      | ShiftLeft -> "shiftleft"
-      | ShiftRight -> "shiftright"
-      | Sup -> "sup"
-      | Inf -> "inf"
-      | Equal -> "equal")
+      match op with
+      | ParBinOp op -> (
+          match op with
+          | Add -> "add"
+          | Minus -> "minus"
+          | Mult -> "mult"
+          | Div -> "dic"
+          | Modulo -> "module"
+          | BitwiseAnd -> "bitwiseand"
+          | BitwiseOr -> "bitwiseor"
+          | BitwiseXor -> "botwisexor"
+          | ShiftLeft -> "shiftleft"
+          | ShiftRight -> "shiftright"
+          | Spaceship -> "spaceshift"
+          | Equal -> "equal")
+      | ParserDiff -> "diff"
+      | ParserInfEq -> "infeq"
+      | ParserSupEq -> "supeq"
+      | ParserInf -> "inf"
+      | ParserSup -> "sup")
+
+let string_name_of_extended_parser_binary = function
+  | ParBinOp op ->
+      KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_binary op
+  | ParserDiff -> "diff"
+  | ParserInfEq -> "infeq"
+  | ParserSupEq -> "supeq"
+  | ParserInf -> "inf"
+  | ParserSup -> "sup"
 
 let rec string_of_rktype = function
   | RTParametric_identifier { module_path; parametrics_type; name } ->
@@ -76,6 +97,7 @@ let rec string_of_rktype = function
         (parameters |> List.map string_of_rktype |> String.concat ", ")
         (string_of_rktype r_type)
   | RTString_lit -> "stringl"
+  | RTOrdered -> "order"
   | RTBool -> "bool"
   | RTUnit -> "unit"
   | RTChar -> "char"
@@ -105,6 +127,7 @@ let rec string_of_label_rktype = function
         (parameters |> List.map string_of_label_rktype |> String.concat "_")
         (string_of_label_rktype r_type)
   | RTString_lit -> "stringl"
+  | RTOrdered -> "order"
   | RTBool -> "bool"
   | RTUnit -> "unit"
   | RTChar -> "char"
@@ -138,14 +161,18 @@ and string_of_rkstatement = function
         (string_of_typed_expression exprssion)
 
 and string_of_typed_expression { rktype; rexpression } =
-  sprintf "(type = %s) :=> %s" (string_of_rktype rktype)
+  sprintf "(%s : %s)"
     (string_of_rkexpression rexpression)
+    (string_of_rktype rktype)
 
 and string_of_rkexpression = function
   | REmpty -> "empty"
   | RTrue -> "true"
   | RFalse -> "false"
   | RENullptr -> "nullptr"
+  | RECmpLess -> "lt"
+  | RECmpEqual -> "eq"
+  | RECmpGreater -> "gt"
   | REChar c -> Printf.sprintf "\'%c\'" c
   | REInteger (sign, _, value) -> (
       match sign with
@@ -302,6 +329,10 @@ and string_of_rkbin_op = function
         (string_of_typed_expression rhs)
   | RBDif (lhs, rhs) ->
       sprintf "(%s != %s)"
+        (string_of_typed_expression lhs)
+        (string_of_typed_expression rhs)
+  | RBCmp (lhs, rhs) ->
+      sprintf "(%s <=> %s)"
         (string_of_typed_expression lhs)
         (string_of_typed_expression rhs)
 
