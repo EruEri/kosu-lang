@@ -54,14 +54,7 @@ let rec fetch_kosu_file direname () =
   kosu_files
 
 let commit_hash () = 
-  
-  let command = "git describe --always --abbrev=7" in
-  try
-    let inp = Unix.open_process_in command in
-    let r = In_channel.input_line inp in
-    In_channel.close inp; 
-    r
-  with _ -> None
+  KosuHash.commit_hash
 
 let fetch_std_file ~no_std () =
   if no_std || Option.is_none std_path then []

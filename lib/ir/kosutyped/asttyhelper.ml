@@ -1350,7 +1350,7 @@ module RProgram = struct
   let infeqnode = create_node pbinfeq rtbool rfields infeqbody in
   let diffnode = create_node pbdiff rtbool rfields diffbody in
 
-  let () = Printf.printf "expr = %s\n%!" (Asttypprint.string_of_rkbody diffbody) in
+  (* let () = Printf.printf "expr = %s\n%!" (Asttypprint.string_of_rkbody diffbody) in *)
 
   let always_generated = [supnode; supeqnode; infnode; infeqnode; diffnode] in
   match generate_equal with
