@@ -1315,7 +1315,7 @@ module RProgram = struct
     } in
 
     let spaceshift_call_typed_expression = 
-      RSDeclaration {is_const = true; variable_name = "compare"; typed_expression = typed_cmp } in
+      RSDeclaration {is_const = true; variable_name = inline_var_name; typed_expression = typed_cmp } in
 
     let sup_expr = equal_op inline_var_expr gt in
     let supeq_expr = or_op 
@@ -1360,7 +1360,7 @@ module RProgram = struct
 
 
   (**
-    Gerete compare function from spceshift [<=>] operator    
+    Gerete compare function from spaceshift [<=>] operator    
   *)
   let create_compare_function rprogram = 
     rprogram 

@@ -927,33 +927,34 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where ~rval_rktype
           rprogram fd
     | RVBuiltinBinop {binop = TacCmp TacOrdered; blhs; brhs} ->
-      
-      let r9 = reg9_of_ktype rprogram brhs.expr_rktype in
-      let r10 = reg10_of_ktype rprogram blhs.expr_rktype in
-      let r8 = reg8_of_ktype rprogram rval_rktype in
+      let st = KosuIrTyped.Asttypprint.string_of_rktype in
+      let rr9 = reg9_of_ktype rprogram brhs.expr_rktype in
+      let rr10 = reg10_of_ktype rprogram blhs.expr_rktype in
+      let rr8 = reg8_of_ktype rprogram rval_rktype in
+      let () = Printf.printf "blhs = %s, brhs: %s, rval: %s\n%!" (st brhs.expr_rktype) (st blhs.expr_rktype) (st rval_rktype) in 
       let rr9, rinstructions =
-        translate_tac_expression ~litterals ~target_reg:r9 rprogram fd brhs
+        translate_tac_expression ~litterals ~target_reg:rr9 rprogram fd brhs
       in
       let lr10, linstructions =
-        translate_tac_expression ~litterals ~target_reg:r10 rprogram fd blhs
+        translate_tac_expression ~litterals ~target_reg:rr10 rprogram fd blhs
       in
       let cmp_instructions = [
         Instruction (CMP {operand1 = lr10; operand2 = `Register rr9} );
-        Instruction (CSET { register = r8; cc = GE});
+        Instruction (CSET { register = rr8; cc = GE});
         Instruction
-          (AND { destination = r8; operand1 = r8; operand2 = `ILitteral 1L });
+          (AND { destination = rr8; operand1 = rr8; operand2 = `ILitteral 1L });
         Instruction (CMP {operand1 = lr10; operand2 = `Register rr9} );
-        Instruction (CSET {register = lr10; cc = GT});
+        Instruction (CSET {register = w10; cc = GT});
         Instruction
-        (AND { destination = lr10; operand1 = lr10; operand2 = `ILitteral 1L });
+        (AND { destination = w10; operand1 = w10; operand2 = `ILitteral 1L });
         Instruction (
-          ADD {destination = r8; operand1 = r8; operand2 = `Register lr10; offset = false }
+          ADD {destination = rr8; operand1 = rr8; operand2 = `Register Register.w10; offset = false }
         )
       ] in
 
       let before_copy _ = rinstructions @ linstructions @ cmp_instructions in
 
-      copy_result ~before_copy ~where ~register:r8 ~rval_rktype rprogram
+      copy_result ~before_copy ~where ~register:rr8 ~rval_rktype rprogram
     | RVBuiltinBinop
         {
           binop =
