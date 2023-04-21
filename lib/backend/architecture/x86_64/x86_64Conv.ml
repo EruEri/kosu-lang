@@ -1015,8 +1015,24 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where rval_rktype
           rprogram fd
-    | RVBuiltinBinop {binop = TacCmp TacOrdered; blhs = _; brhs = _} ->
-      failwith ""
+    | RVBuiltinBinop {binop = TacCmp TacOrdered; blhs ; brhs} ->
+      let rr9 = tmp_r9_ktype blhs.expr_rktype in
+      let rr10 = tmp_r10_ktype brhs.expr_rktype in
+      let rrax = tmp_rax_ktype rval_rktype in
+      let data_size = data_size_of_ktype rprogram blhs.expr_rktype in
+      let rr9, linstructions = translate_tac_expression ~litterals ~target_dst:(`Register rr9) rprogram fd blhs in
+      let rr10, rinstructions = translate_tac_expression ~litterals ~target_dst:(`Register rr10) rprogram fd brhs in
+      let cmp_instructions = [
+        Instruction ( cmp_instruction data_size ~lhs:(src_of_dst rr10) ~rhs:(src_of_dst rr9) );
+        Instruction (Set {size = B; cc = GE; register = rrax});
+        Instruction ( cmp_instruction data_size ~lhs:(src_of_dst rr10) ~rhs:(src_of_dst rr9) );
+        Instruction (Set {size = B; cc = G; register = r9});
+        Instruction (Add {size = ib; destination = `Register rrax; source = `Register Register.r9})
+      ] in
+
+      let cp_instructions = copy_result ~where ~register:(Register.rax) ~rval_rktype rprogram in
+      linstructions @ rinstructions @ cmp_instructions @ cp_instructions
+      
     | RVBuiltinBinop
         {
           binop =
@@ -1328,7 +1344,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     | RVCustomBinop
         ({
            binop =
-             TacSelf _ | TacBool TacSup | TacBool TacInf | TacBool TacEqual;
+             TacSelf _ | TacBool _ | TacCmp TacOrdered;
            _;
          } as self) ->
         let op_decls =
@@ -1391,8 +1407,6 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
               @ set_indirect_return_instructions @ call_instruction
         in
         operator_instructions
-    | RVCustomBinop _ ->
-        failwith "Custom comparison operator will be refactor higher in the AST"
 
   let rec translate_tac_statement ~litterals current_module rprogram
       (fd : FrameManager.frame_desc) = function
