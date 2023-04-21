@@ -904,11 +904,7 @@ Return the type of an expression
                       { index = None; syscall_decl }
                     |> func_error |> raise
                 else Unknow_Function_Error |> func_error |> raise))
-    | EBin_op (BAdd (lhs, rhs)) ->
-      typecheck_binary ~fvalid:(Asthelper.Program.is_valid_add_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.Add lhs rhs prog
-    | EBin_op (BMinus (lhs, rhs)) -> 
-      typecheck_binary ~fvalid:(Asthelper.Program.is_valid_minus_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.Minus lhs rhs prog
-    | EBin_op (BMult (lhs, rhs)) -> 
+    | EBin_op (BMult (lhs, rhs)) ->
       typecheck_binary ~fvalid:(Asthelper.Program.is_valid_mult_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.Mult lhs rhs prog
     | EBin_op (BDiv (lhs, rhs)) -> 
       typecheck_binary ~fvalid:(Asthelper.Program.is_valid_div_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.Div lhs rhs prog
@@ -924,6 +920,10 @@ Return the type of an expression
       typecheck_binary ~fvalid:(Asthelper.Program.is_valid_shiftleft_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.ShiftLeft lhs rhs prog
     | EBin_op (BShiftRight (lhs, rhs)) -> 
       typecheck_binary ~fvalid:(Asthelper.Program.is_valid_shiftright_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.ShiftRight lhs rhs prog
+    | EBin_op (BAdd (lhs, rhs)) ->
+        typecheck_binary ~fvalid:(Asthelper.Program.is_valid_add_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.Add lhs rhs prog
+    | EBin_op (BMinus (lhs, rhs)) -> 
+        typecheck_binary ~fvalid:(Asthelper.Program.is_valid_minus_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.Minus lhs rhs prog
     | EBin_op (BAnd (lhs, rhs)) -> begin      
         let l_type =
         lhs
@@ -963,17 +963,17 @@ Return the type of an expression
       | _, _ -> Not_Boolean_operand_in_Or l_type |> operator_error |> raise
     end
     | EBin_op (BEqual (lhs, rhs) | BDif (lhs, rhs)) -> 
-      typecheck_binary ~ktype:(TBool) ~fvalid:(Asthelper.Program.is_valid_equal_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.Equal lhs rhs prog
+      typecheck_binary ~ktype:TBool ~freturn:TOredered ~fvalid:(Asthelper.Program.is_valid_equal_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.Equal lhs rhs prog
     | EBin_op (BSup (lhs, rhs)) -> 
-      typecheck_binary ~ktype:(TBool) ~fvalid:(Asthelper.Program.is_valid_sup_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.Sup lhs rhs prog
+      typecheck_binary ~ktype:TBool ~freturn:TOredered ~fvalid:(Asthelper.Program.is_valid_sup_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.Sup lhs rhs prog
     | EBin_op (BSupEq (lhs, rhs)) -> 
-      typecheck_binary ~ktype:TBool ~fvalid:(Asthelper.Program.is_valid_supeq_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.SupEq lhs rhs prog
+      typecheck_binary ~ktype:TBool ~freturn:TOredered ~fvalid:(Asthelper.Program.is_valid_supeq_operation ) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.SupEq lhs rhs prog
     | EBin_op (BInf (lhs, rhs)) -> 
-      typecheck_binary ~ktype:TBool ~fvalid:(Asthelper.Program.is_valid_inf_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.Inf lhs rhs prog
+      typecheck_binary ~ktype:TBool ~freturn:TOredered ~fvalid:(Asthelper.Program.is_valid_inf_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.Inf lhs rhs prog
     | EBin_op (BInfEq (lhs, rhs)) -> 
-      typecheck_binary ~ktype:TBool ~fvalid:(Asthelper.Program.is_valid_infeq_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.InfEq lhs rhs prog
+      typecheck_binary ~ktype:TBool ~freturn:TOredered ~fvalid:(Asthelper.Program.is_valid_infeq_operation ) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.InfEq lhs rhs prog
     | EBin_op (BCmp (lhs, rhs)) -> 
-      typecheck_binary ~ktype:TOredered ~fvalid:(Asthelper.Program.is_valid_cmp_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.CompareOp lhs rhs prog
+      typecheck_binary ~ktype:TOredered ~freturn:TOredered ~fvalid:(Asthelper.Program.is_valid_cmp_operation) ~generics_resolver ~expression ~env ~current_mod_name OperatorFunction.CompareOp lhs rhs prog
     | EUn_op (UNot lhs) -> (
         let l_type =
           lhs
@@ -1227,7 +1227,7 @@ Return the type of an expression
                      else Type.restrict_type acc case_type)
                    t)
 
- and typecheck_binary ~fvalid ~generics_resolver ~expression ~env ~current_mod_name ?(ktype) op lhs rhs program = 
+ and typecheck_binary ~fvalid ?freturn ?ktype ~generics_resolver ~expression ~env ~current_mod_name  op lhs rhs program = 
   let l_type =
     lhs
     |> Position.map_use
@@ -1238,13 +1238,12 @@ Return the type of an expression
     |> Position.map_use
         (typeof ~generics_resolver env current_mod_name program)
   in
+  let rtype = (Option.value ~default:l_type.v ktype) in
+  let freturn = (Option.value ~default:rtype freturn) in
   match
-    fvalid l_type.v r_type.v program
+    fvalid ~freturn ~rtype l_type.v r_type.v program
   with
-  | Ok (None | Some _) -> begin match ktype with 
-    | Some kt -> kt
-    | None -> l_type.v
-  end 
+  | Ok (None | Some _) -> rtype
   | Error VInvalid_Pointer_A ->
       Invalid_pointer_arithmetic r_type |> operator_error |> raise
   | Error Diff_type ->

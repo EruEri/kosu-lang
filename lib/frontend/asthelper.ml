@@ -415,7 +415,8 @@ module Program = struct
             ktypes_parameters return_type)
     |> List.filter (function One _ -> true | _ -> false)
 
-  let is_valid_add_minus_operator op lhs rhs program = 
+  let is_valid_add_minus_operator ~freturn ~rtype op lhs rhs program = 
+    ignore freturn;
     match lhs with
     | TPointer _ -> (
         match rhs with
@@ -427,7 +428,7 @@ module Program = struct
           match lhs with
           | TType_Identifier _ as kt -> (
               let declaration =
-                program |> find_binary_operator op (kt, kt) kt
+                program |> find_binary_operator op (kt, kt) rtype
               in
               match declaration |> Util.ListHelper.inner_count with
               | 0 -> Result.error No_declaration_found
@@ -438,23 +439,23 @@ module Program = struct
               | _ -> Result.error @@ Too_many_decl {decls = declaration} )
           | TInteger _ | TFloat _ -> Ok None
           | _ -> Result.error Error.Builin_Invalid)
-  let is_valid_add_operation  =
+  let is_valid_add_operation =
    is_valid_add_minus_operator Ast.Add
 
   let is_valid_minus_operation  =
     is_valid_add_minus_operator Ast.Minus
 
-  let is_valid_op ?no_decl op fvalid lhs rhs program = 
+  let is_valid_op ?no_decl op fvalid ~freturn ~rtype lhs rhs program = 
     if Ast.Type.( !== ) lhs rhs then Result.error Diff_type
     else
       match lhs with
       | TType_Identifier _ as kt -> (
           let declaration =
-            program |> find_binary_operator op (kt, kt) kt
+            program |> find_binary_operator op (kt, kt) rtype
           in
           match declaration |> Util.ListHelper.inner_count with
           | 0 -> begin match no_decl with
-            | Some f -> f lhs rhs program
+            | Some f -> f ~rtype:freturn lhs rhs program
             | None -> Result.error No_declaration_found
           end
           | 1 ->
@@ -465,50 +466,50 @@ module Program = struct
       | kt when fvalid kt  -> Ok None
       | _ -> Result.error Error.Builin_Invalid
 
-  let is_valid_mult_operation =
-    is_valid_op Ast.Mult (function
+  let is_valid_mult_operation ~freturn =
+    is_valid_op ~freturn Ast.Mult (function
     | TInteger _ | TFloat _ -> true
     | _ -> false
     )
 
-  let is_valid_div_operation =
-    is_valid_op Ast.Div (function
+  let is_valid_div_operation ~freturn =
+    is_valid_op ~freturn Ast.Div (function
     | TInteger _ | TFloat _ -> true
     | _ -> false
     )
 
-  let is_valid_mod_operation =
-    is_valid_op Ast.Modulo (function
+  let is_valid_mod_operation ~freturn =
+    is_valid_op ~freturn Ast.Modulo (function
     | TInteger _ -> true
     | _ -> false 
     )
 
-  let is_valid_bitwiseor_operation =
-    is_valid_op Ast.BitwiseOr (function
+  let is_valid_bitwiseor_operation ~freturn =
+    is_valid_op ~freturn Ast.BitwiseOr (function
     | TInteger _ -> true
     | _ -> false 
     )
 
-  let is_valid_bitwiseand_operation =
-    is_valid_op Ast.BitwiseAnd (function
+  let is_valid_bitwiseand_operation ~freturn =
+    is_valid_op ~freturn Ast.BitwiseAnd (function
     | TInteger _ -> true
     | _ -> false 
     )
 
-  let is_valid_bitwisexor_operation  =
-    is_valid_op Ast.BitwiseXor (function
+  let is_valid_bitwisexor_operation ~freturn =
+    is_valid_op ~freturn Ast.BitwiseXor (function
     | TInteger _ -> true
     | _ -> false 
     )
 
-  let is_valid_shiftleft_operation =
-    is_valid_op Ast.ShiftLeft (function
+  let is_valid_shiftleft_operation ~freturn =
+    is_valid_op ~freturn Ast.ShiftLeft (function
     | TInteger _ -> true
     | _ -> false 
     )
 
-  let is_valid_shiftright_operation =
-    is_valid_op Ast.ShiftRight (function
+  let is_valid_shiftright_operation ~(freturn: ktype) =
+    is_valid_op ~freturn Ast.ShiftRight (function
     | TInteger _ -> true
     | _ -> false 
     )
@@ -519,33 +520,33 @@ module Program = struct
     | _ -> false 
     )
 
-  let is_valid_equal_operation  =
-    is_valid_op Ast.Equal ~no_decl:(is_valid_spaceship_operator) (function
+  let is_valid_equal_operation ~freturn  =
+    is_valid_op Ast.Equal  ~freturn ~no_decl:(is_valid_spaceship_operator ~freturn) (function
     | TInteger _ | TBool | TFloat _ | TPointer _ | TOredered -> true
     | _ -> false 
     )
 
-  let is_valid_diff_operation = 
-    is_valid_equal_operation
+  let is_valid_diff_operation ~freturn = 
+    is_valid_equal_operation ~freturn
 
-  let is_valid_sup_operation  =
-    is_valid_op Ast.Spaceship ~no_decl:(is_valid_spaceship_operator) (function
+  let is_valid_sup_operation ~freturn  =
+    is_valid_op Ast.Spaceship ~freturn ~no_decl:(is_valid_spaceship_operator ~freturn) (function
     | TInteger _ | TFloat _ | TOredered -> true
     | _ -> false 
     )
 
-  let is_valid_supeq_operation =
+  let is_valid_supeq_operation ~freturn =
+    is_valid_sup_operation ~freturn 
+
+  let is_valid_inf_operation  =
+    is_valid_sup_operation  
+
+
+  let is_valid_infeq_operation  =
     is_valid_sup_operation
 
-  let is_valid_inf_operation =
-    is_valid_sup_operation
-
-
-  let is_valid_infeq_operation =
-    is_valid_sup_operation
-
-  let is_valid_cmp_operation  =
-    is_valid_op Ast.Spaceship ~no_decl:(is_valid_spaceship_operator) (function
+  let is_valid_cmp_operation ~(freturn: ktype)  =
+    is_valid_op Ast.Spaceship ~freturn ~no_decl:(is_valid_spaceship_operator ~freturn) (function
     | TInteger _ | TFloat _ | TOredered -> true
     | _ -> false 
     )
