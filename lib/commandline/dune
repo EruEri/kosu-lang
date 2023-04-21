@@ -19,10 +19,16 @@
  (target kosuHash.ml)
  (deps commit_hash.sh)
  (action
-  (system "sh -e commit_hash.sh")
- )
-)
+  (system "sh -e commit_hash.sh")))
 
 (library
  (name kosuCli)
- (libraries kosuFrontend kosuIrTyped kosuIrTAC clap cmdliner ldSpec common dune-build-info))
+ (libraries
+  kosuFrontend
+  kosuIrTyped
+  kosuIrTAC
+  clap
+  cmdliner
+  ldSpec
+  common
+  dune-build-info))

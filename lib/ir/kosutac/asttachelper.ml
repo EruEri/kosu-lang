@@ -44,7 +44,7 @@ module Operator = struct
     | TacBool TacEqual -> pbequal
     | TacBool TacDiff -> pbdiff
     | TacCmp TacOrdered -> pbordered
-    | TacBool (TacOr|TacAnd) -> failwith "Operator not overloadable"
+    | TacBool (TacOr | TacAnd) -> failwith "Operator not overloadable"
 
   let bin_operantor = function
     | RBAdd _ -> TacSelf TacAdd

@@ -43,13 +43,13 @@ type rktype =
   | RTBool
   | RTUnit
 
-type extended_parser_operator = 
-| ParBinOp of parser_binary_op
-| ParserSup
-| ParserSupEq
-| ParserInf
-| ParserInfEq
-| ParserDiff
+type extended_parser_operator =
+  | ParBinOp of parser_binary_op
+  | ParserSup
+  | ParserSupEq
+  | ParserInf
+  | ParserInfEq
+  | ParserDiff
 
 type rkbody = rkstatement list * typed_expression
 and typed_expression = { rktype : rktype; rexpression : rkexpression }

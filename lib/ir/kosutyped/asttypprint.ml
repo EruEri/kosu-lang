@@ -22,56 +22,55 @@ open KosuFrontend.Pprint
 
 let symbole_of_roperator = function
   | RUnary { op; _ } -> ( op |> function PNot -> "!" | PUMinus -> "(-.)")
-  | RBinary { op; _ } -> begin
-        match op with 
-    | ParBinOp op -> begin match op with
-      | Add -> "+"
-      | Minus -> "-"
-      | Mult -> "*"
-      | Div -> "/"
-      | Modulo -> "%"
-      | BitwiseAnd -> "&"
-      | BitwiseOr -> "|"
-      | BitwiseXor -> "^"
-      | ShiftLeft -> "<<"
-      | ShiftRight -> ">>"
-      | Spaceship -> "<=>"
-      | Equal -> "=="
-    end
-    | ParserDiff -> "!="
-    | ParserInfEq -> "<="
-    | ParserSupEq -> ">="
-    | ParserInf -> "<"
-    | ParserSup -> ">"
-  end
+  | RBinary { op; _ } -> (
+      match op with
+      | ParBinOp op -> (
+          match op with
+          | Add -> "+"
+          | Minus -> "-"
+          | Mult -> "*"
+          | Div -> "/"
+          | Modulo -> "%"
+          | BitwiseAnd -> "&"
+          | BitwiseOr -> "|"
+          | BitwiseXor -> "^"
+          | ShiftLeft -> "<<"
+          | ShiftRight -> ">>"
+          | Spaceship -> "<=>"
+          | Equal -> "==")
+      | ParserDiff -> "!="
+      | ParserInfEq -> "<="
+      | ParserSupEq -> ">="
+      | ParserInf -> "<"
+      | ParserSup -> ">")
 
 let name_of_roperator = function
   | RUnary { op; _ } -> ( op |> function PNot -> "not" | PUMinus -> "unminus")
-  | RBinary { op; _ } -> begin
-    match op with 
-    | ParBinOp op -> begin match op with
-      | Add -> "add"
-      | Minus -> "minus"
-      | Mult -> "mult"
-      | Div -> "dic"
-      | Modulo -> "module"
-      | BitwiseAnd -> "bitwiseand"
-      | BitwiseOr -> "bitwiseor"
-      | BitwiseXor -> "botwisexor"
-      | ShiftLeft -> "shiftleft"
-      | ShiftRight -> "shiftright"
-      | Spaceship -> "spaceshift"
-      | Equal -> "equal"
-    end
-    | ParserDiff -> "diff"
-    | ParserInfEq -> "infeq"
-    | ParserSupEq -> "supeq"
-    | ParserInf -> "inf"
-    | ParserSup -> "sup"
-  end 
+  | RBinary { op; _ } -> (
+      match op with
+      | ParBinOp op -> (
+          match op with
+          | Add -> "add"
+          | Minus -> "minus"
+          | Mult -> "mult"
+          | Div -> "dic"
+          | Modulo -> "module"
+          | BitwiseAnd -> "bitwiseand"
+          | BitwiseOr -> "bitwiseor"
+          | BitwiseXor -> "botwisexor"
+          | ShiftLeft -> "shiftleft"
+          | ShiftRight -> "shiftright"
+          | Spaceship -> "spaceshift"
+          | Equal -> "equal")
+      | ParserDiff -> "diff"
+      | ParserInfEq -> "infeq"
+      | ParserSupEq -> "supeq"
+      | ParserInf -> "inf"
+      | ParserSup -> "sup")
 
 let string_name_of_extended_parser_binary = function
-  | ParBinOp op -> KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_binary op
+  | ParBinOp op ->
+      KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_binary op
   | ParserDiff -> "diff"
   | ParserInfEq -> "infeq"
   | ParserSupEq -> "supeq"
@@ -162,10 +161,9 @@ and string_of_rkstatement = function
         (string_of_typed_expression exprssion)
 
 and string_of_typed_expression { rktype; rexpression } =
-  sprintf "(%s : %s)" 
-  (string_of_rkexpression rexpression)
-  (string_of_rktype rktype)
-
+  sprintf "(%s : %s)"
+    (string_of_rkexpression rexpression)
+    (string_of_rktype rktype)
 
 and string_of_rkexpression = function
   | REmpty -> "empty"

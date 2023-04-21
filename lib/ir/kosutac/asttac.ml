@@ -40,10 +40,13 @@ type tac_binop_self =
   | TacShiftLeft
   | TacShiftRight
 
-type tac_binop_cmp = 
-  | TacOrdered
+type tac_binop_cmp = TacOrdered
 
-type tac_binop = TacSelf of tac_binop_self | TacBool of tac_binop_bool | TacCmp of tac_binop_cmp
+type tac_binop =
+  | TacSelf of tac_binop_self
+  | TacBool of tac_binop_bool
+  | TacCmp of tac_binop_cmp
+
 type tac_unop = TacNot | TacUminus
 
 type tac_local_variable =

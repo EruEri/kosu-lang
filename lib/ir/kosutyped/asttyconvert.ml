@@ -851,15 +851,15 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               in
               RBDif (ltyped, rtyped)
           | BCmp (lhs, rhs) ->
-            let ltyped =
-              typed_expression_of_kexpression ~generics_resolver env
-                current_module program lhs
-            in
-            let rtyped =
-              typed_expression_of_kexpression ~generics_resolver env
-                current_module program rhs
-            in
-            RBCmp (ltyped, rtyped)
+              let ltyped =
+                typed_expression_of_kexpression ~generics_resolver env
+                  current_module program lhs
+              in
+              let rtyped =
+                typed_expression_of_kexpression ~generics_resolver env
+                  current_module program rhs
+              in
+              RBCmp (ltyped, rtyped)
         in
         let lhs, rhs = Binop.operands rkbin in
         if
@@ -1038,8 +1038,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     |> List.fold_left
          (fun acc node -> RProgram.append_function_decl node acc)
          rprogram
-    |> RProgram.remove_generics
-    |> RProgram.create_compare_function
+    |> RProgram.remove_generics |> RProgram.create_compare_function
 end
 
 module Sizeof = struct

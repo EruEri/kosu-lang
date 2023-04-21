@@ -58,7 +58,8 @@ module Make (N : NamingSig) = struct
     label_of_function ~module_path ~main ~label_prefix
       ~fn_name:tac_function_decl.rfn_name ~generics:tac_function_decl.generics
 
-  let label_of_bin_operator (op : KosuIrTyped.Asttyped.extended_parser_operator) ktypes =
+  let label_of_bin_operator (op : KosuIrTyped.Asttyped.extended_parser_operator)
+      ktypes =
     Printf.sprintf "%s%s.%s" label_prefix
       (KosuIrTyped.Asttypprint.string_name_of_extended_parser_binary op)
       (ktypes

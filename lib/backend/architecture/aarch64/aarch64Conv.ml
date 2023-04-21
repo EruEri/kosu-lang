@@ -148,12 +148,14 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     |> Option.value ~default:[]
 
   let translate_tac_expression ~litterals ?(target_reg = w9) rprogram
-      (fd : FrameManager.frame_desc) tte = let expr_rktype = tte.expr_rktype in match tte.tac_expression with
-    |  TEString s ->
+      (fd : FrameManager.frame_desc) tte =
+    let expr_rktype = tte.expr_rktype in
+    match tte.tac_expression with
+    | TEString s ->
         let reg64 = resize64 target_reg in
         let (SLit str_labl) = Hashtbl.find litterals.str_lit_map s in
         (target_reg, load_label (AsmSpec.label_of_constant str_labl) reg64)
-    | TEFalse | TEmpty->
+    | TEFalse | TEmpty ->
         ( resize32 target_reg,
           Instruction
             (Mov
@@ -181,7 +183,6 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           | _ -> resize32 target_reg
         in
         (rreg, mov_integer rreg int64)
-
     | TEChar c ->
         let code = Char.code c |> Int64.of_int in
         let rreg = resize32 target_reg in
@@ -258,12 +259,15 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             Instruction
               (Mov { destination = r64; flexsec_operand = `ILitteral sizeof });
           ] )
-    | TEConst { name; module_path } when expr_rktype = RTString_lit  ->
+    | TEConst { name; module_path } when expr_rktype = RTString_lit ->
         let reg64 = resize64 target_reg in
         ( target_reg,
           load_label (AsmSpec.label_of_constant ~module_path name) reg64 )
-    | TEConst { name; module_path } when KosuIrTyped.Asttyhelper.RType.is_any_integer expr_rktype ->
-        let _, size = Option.get @@ KosuIrTyped.Asttyhelper.RType.integer_info expr_rktype in
+    | TEConst { name; module_path }
+      when KosuIrTyped.Asttyhelper.RType.is_any_integer expr_rktype ->
+        let _, size =
+          Option.get @@ KosuIrTyped.Asttyhelper.RType.integer_info expr_rktype
+        in
         let data_size =
           compute_data_size expr_rktype
             (Int64.of_int @@ KosuFrontend.Ast.Isize.size_of_isize size)
@@ -308,25 +312,25 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             | _ -> resize32 target_reg
           in
           (rreg, mov_integer rreg int_value)
-      | TEConst { name = _; module_path = _ } -> failwith "Other constant"
-      | TECmpLesser ->
+    | TEConst { name = _; module_path = _ } -> failwith "Other constant"
+    | TECmpLesser ->
         let s32 = resize32 target_reg in
-        s32,
+        ( s32,
           Instruction
             (Mov { destination = s32; flexsec_operand = `ILitteral 0L })
-          :: []
-      | TECmpGreater -> 
+          :: [] )
+    | TECmpGreater ->
         let s32 = resize32 target_reg in
-        s32,
+        ( s32,
           Instruction
             (Mov { destination = s32; flexsec_operand = `ILitteral 2L })
-          :: []
-      | TECmpEqual ->         
+          :: [] )
+    | TECmpEqual ->
         let s32 = resize32 target_reg in
-        s32,
-        Instruction
-          (Mov { destination = s32; flexsec_operand = `ILitteral 1L })
-        :: [] 
+        ( s32,
+          Instruction
+            (Mov { destination = s32; flexsec_operand = `ILitteral 1L })
+          :: [] )
 
   let translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where ~rval_rktype
       rprogram fd =
@@ -926,35 +930,44 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
         translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where ~rval_rktype
           rprogram fd
-    | RVBuiltinBinop {binop = TacCmp TacOrdered; blhs; brhs} ->
-      (* let st = KosuIrTyped.Asttypprint.string_of_rktype in *)
-      let rr9 = reg9_of_ktype rprogram brhs.expr_rktype in
-      let rr10 = reg10_of_ktype rprogram blhs.expr_rktype in
-      let rr8 = reg8_of_ktype rprogram rval_rktype in
-      (* let () = Printf.printf "blhs = %s, brhs: %s, rval: %s\n%!" (st brhs.expr_rktype) (st blhs.expr_rktype) (st rval_rktype) in  *)
-      let rr9, rinstructions =
-        translate_tac_expression ~litterals ~target_reg:rr9 rprogram fd brhs
-      in
-      let lr10, linstructions =
-        translate_tac_expression ~litterals ~target_reg:rr10 rprogram fd blhs
-      in
-      let cmp_instructions = [
-        Instruction (CMP {operand1 = lr10; operand2 = `Register rr9} );
-        Instruction (CSET { register = rr8; cc = GE});
-        Instruction
-          (AND { destination = rr8; operand1 = rr8; operand2 = `ILitteral 1L });
-        Instruction (CMP {operand1 = lr10; operand2 = `Register rr9} );
-        Instruction (CSET {register = w10; cc = GT});
-        Instruction
-        (AND { destination = w10; operand1 = w10; operand2 = `ILitteral 1L });
-        Instruction (
-          ADD {destination = rr8; operand1 = rr8; operand2 = `Register Register.w10; offset = false }
-        )
-      ] in
+    | RVBuiltinBinop { binop = TacCmp TacOrdered; blhs; brhs } ->
+        (* let st = KosuIrTyped.Asttypprint.string_of_rktype in *)
+        let rr9 = reg9_of_ktype rprogram brhs.expr_rktype in
+        let rr10 = reg10_of_ktype rprogram blhs.expr_rktype in
+        let rr8 = reg8_of_ktype rprogram rval_rktype in
+        (* let () = Printf.printf "blhs = %s, brhs: %s, rval: %s\n%!" (st brhs.expr_rktype) (st blhs.expr_rktype) (st rval_rktype) in  *)
+        let rr9, rinstructions =
+          translate_tac_expression ~litterals ~target_reg:rr9 rprogram fd brhs
+        in
+        let lr10, linstructions =
+          translate_tac_expression ~litterals ~target_reg:rr10 rprogram fd blhs
+        in
+        let cmp_instructions =
+          [
+            Instruction (CMP { operand1 = lr10; operand2 = `Register rr9 });
+            Instruction (CSET { register = rr8; cc = GE });
+            Instruction
+              (AND
+                 { destination = rr8; operand1 = rr8; operand2 = `ILitteral 1L });
+            Instruction (CMP { operand1 = lr10; operand2 = `Register rr9 });
+            Instruction (CSET { register = w10; cc = GT });
+            Instruction
+              (AND
+                 { destination = w10; operand1 = w10; operand2 = `ILitteral 1L });
+            Instruction
+              (ADD
+                 {
+                   destination = rr8;
+                   operand1 = rr8;
+                   operand2 = `Register Register.w10;
+                   offset = false;
+                 });
+          ]
+        in
 
-      let before_copy _ = rinstructions @ linstructions @ cmp_instructions in
+        let before_copy _ = rinstructions @ linstructions @ cmp_instructions in
 
-      copy_result ~before_copy ~where ~register:rr8 ~rval_rktype rprogram
+        copy_result ~before_copy ~where ~register:rr8 ~rval_rktype rprogram
     | RVBuiltinBinop
         {
           binop =
@@ -1194,11 +1207,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
         operator_instructions
     | RVCustomBinop
-        ({
-           binop =
-             TacSelf _ | TacBool _ | TacCmp TacOrdered ;
-           _;
-         } as self) ->
+        ({ binop = TacSelf _ | TacBool _ | TacCmp TacOrdered; _ } as self) ->
         let open KosuIrTAC.Asttachelper.Operator in
         let op_decls =
           KosuIrTyped.Asttyhelper.RProgram.find_binary_operator_decl
@@ -1252,7 +1261,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               @ call_instruction
         in
         operator_instructions
-    (* | RVCustomBinop {binop = TacBool (TacOr|TacSupEq|TacInfEq|TacDiff|TacAnd); _ } -> failwith ""  *)
+  (* | RVCustomBinop {binop = TacBool (TacOr|TacSupEq|TacInfEq|TacDiff|TacAnd); _ } -> failwith ""  *)
 
   let rec translate_tac_statement ~litterals current_module rprogram
       (fd : FrameManager.frame_desc) = function
