@@ -1249,7 +1249,7 @@ module RProgram = struct
     } in 
     let lhs = typed_expr_of_parameter @@ fst binary_operator_decl.rbfields in
     let rhs = typed_expr_of_parameter @@ snd binary_operator_decl.rbfields in
-    let cmp_rkbin_op_expr = REBin_op (RBCmp (lhs, rhs)) in
+    let cmp_rkbin_op_expr = REBinOperator_Function_call (RBCmp (lhs, rhs)) in
     let typed_cmp = {
       rktype = RTOrdered;
       rexpression = cmp_rkbin_op_expr
