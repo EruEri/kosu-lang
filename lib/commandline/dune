@@ -17,6 +17,7 @@
 
 (rule
  (target kosuHash.ml)
+ (deps commit_hash.sh)
  (action
   (system "sh -e commit_hash.sh")
  )

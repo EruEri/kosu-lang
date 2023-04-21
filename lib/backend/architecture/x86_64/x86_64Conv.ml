@@ -85,11 +85,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     |> Option.value ~default:[]
 
   let translate_tac_expression ~litterals ~(target_dst : dst) rprogram
-      (fd : FrameManager.frame_desc) = function
-    | { tac_expression = TEString s; expr_rktype = _ } ->
+      (fd : FrameManager.frame_desc) tte = let expr_rktype = tte.expr_rktype in match tte.tac_expression with
+    | TEString s->
         let (SLit str_labl) = Hashtbl.find litterals.str_lit_map s in
         (target_dst, load_label (Spec.label_of_constant str_labl) target_dst)
-    | { tac_expression = TEFalse | TEmpty; expr_rktype = _ } -> (
+    | TEFalse | TEmpty-> (
         match target_dst with
         | `Register _ as rreg ->
             ( target_dst,
@@ -103,7 +103,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                 Instruction
                   (Mov { size = ib; destination = addr; source = `ILitteral 0L });
               ] ))
-    | { tac_expression = TENullptr; expr_rktype = _ } -> (
+    | TENullptr -> (
         match target_dst with
         | `Register _ as rreg ->
             ( target_dst,
@@ -117,7 +117,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                 Instruction
                   (Mov { size = iq; destination = addr; source = `ILitteral 0L });
               ] ))
-    | { tac_expression = TETrue; _ } ->
+    | TETrue ->
         ( target_dst,
           [
             Instruction
@@ -128,7 +128,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    source = `ILitteral 1L;
                  });
           ] )
-    | { tac_expression = TEChar c; _ } ->
+    |  TEChar c ->
         let code = Char.code c |> Int64.of_int in
 
         ( target_dst,
@@ -141,7 +141,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    source = `ILitteral code;
                  });
           ] )
-    | { tac_expression = TEInt (_, isize, int64); _ } ->
+    | TEInt (_, isize, int64)->
         let size = data_size_of_isize isize in
         let scaled_data_size = (function Q -> Q | _ -> L) size in
         ( target_dst,
@@ -154,12 +154,12 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    destination = target_dst;
                  });
           ] )
-    | { tac_expression = TEFloat float; _ } ->
+    |  TEFloat float ->
         let (FLit float_label) = Hashtbl.find litterals.float_lit_map float in
         let fsize = fst float in
         let instructions = load_float_label fsize float_label target_dst in
         (target_dst, instructions)
-    | { tac_expression = TEIdentifier id; expr_rktype } -> (
+    | TEIdentifier id -> (
         let adress =
           FrameManager.address_of (id, expr_rktype) fd |> fun adr ->
           match adr with
@@ -230,7 +230,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                     Instruction
                       (Lea { size = iq; source = adress; destination = r11 });
                   ] )))
-    | { tac_expression = TESizeof kt; _ } ->
+    | TESizeof kt ->
         let sizeof = sizeofn rprogram kt in
         ( target_dst,
           [
@@ -243,16 +243,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    source = `ILitteral sizeof;
                  });
           ] )
-    | {
-        tac_expression = TEConst { name; module_path };
-        expr_rktype = RTString_lit;
-      } ->
+    | TEConst { name; module_path } when expr_rktype = RTString_lit ->
         ( target_dst,
           load_label (Spec.label_of_constant ~module_path name) target_dst )
-    | {
-        tac_expression = TEConst { name; module_path };
-        expr_rktype = RTInteger (_, size);
-      } ->
+    | TEConst { name; module_path } when KosuIrTyped.Asttyhelper.RType.is_any_integer expr_rktype ->
+        let _, size = Option.get @@ KosuIrTyped.Asttyhelper.RType.integer_info expr_rktype in
         let data_size = data_size_of_isize size in
         let const_decl =
           match
@@ -281,7 +276,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    destination = target_dst;
                  });
           ] )
-    | _ -> failwith "X86_64 : Other expression"
+    | TEConst { name = _; module_path = _} -> failwith "Other constant"
+    | TECmpEqual -> target_dst, [ Instruction (Mov {size = ib; destination = target_dst; source = `ILitteral 1L}) ]
+    | TECmpLesser -> target_dst, [ Instruction (Mov {size = ib; destination = target_dst; source = `ILitteral 0L}) ]
+    | TECmpGreater -> target_dst, [ Instruction (Mov {size = ib; destination = target_dst; source = `ILitteral 2L}) ]
+
 
   let move_tte ~litterals ~where ?(offset = 0L) rprogram fd tte =
     let where = increment_dst_address offset where in
