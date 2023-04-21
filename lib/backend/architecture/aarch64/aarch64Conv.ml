@@ -927,11 +927,11 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where ~rval_rktype
           rprogram fd
     | RVBuiltinBinop {binop = TacCmp TacOrdered; blhs; brhs} ->
-      let st = KosuIrTyped.Asttypprint.string_of_rktype in
+      (* let st = KosuIrTyped.Asttypprint.string_of_rktype in *)
       let rr9 = reg9_of_ktype rprogram brhs.expr_rktype in
       let rr10 = reg10_of_ktype rprogram blhs.expr_rktype in
       let rr8 = reg8_of_ktype rprogram rval_rktype in
-      let () = Printf.printf "blhs = %s, brhs: %s, rval: %s\n%!" (st brhs.expr_rktype) (st blhs.expr_rktype) (st rval_rktype) in 
+      (* let () = Printf.printf "blhs = %s, brhs: %s, rval: %s\n%!" (st brhs.expr_rktype) (st blhs.expr_rktype) (st rval_rktype) in  *)
       let rr9, rinstructions =
         translate_tac_expression ~litterals ~target_reg:rr9 rprogram fd brhs
       in

@@ -1268,7 +1268,7 @@ module RProgram = struct
 
     let or_op lhs rhs = 
       let expr =  REBin_op (
-        RBAnd (lhs, rhs)
+        RBOr (lhs, rhs)
       ) in
       {
         rktype = RTBool;
@@ -1349,6 +1349,8 @@ module RProgram = struct
   let infnode = create_node pbinf rtbool rfields infbody in
   let infeqnode = create_node pbinfeq rtbool rfields infeqbody in
   let diffnode = create_node pbdiff rtbool rfields diffbody in
+
+  (* let () = Printf.printf "expr = %s\n%!" (Asttypprint.string_of_rkbody supeqbody) in *)
 
   let always_generated = [supnode; supeqnode; infnode; infeqnode; diffnode] in
   match generate_equal with

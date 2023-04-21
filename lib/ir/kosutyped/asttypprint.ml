@@ -162,8 +162,10 @@ and string_of_rkstatement = function
         (string_of_typed_expression exprssion)
 
 and string_of_typed_expression { rktype; rexpression } =
-  sprintf "(type = %s) :=> %s" (string_of_rktype rktype)
-    (string_of_rkexpression rexpression)
+  sprintf "(%s : %s)" 
+  (string_of_rkexpression rexpression)
+  (string_of_rktype rktype)
+
 
 and string_of_rkexpression = function
   | REmpty -> "empty"
