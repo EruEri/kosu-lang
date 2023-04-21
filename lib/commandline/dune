@@ -17,4 +17,4 @@
 
 (library
  (name kosuCli)
- (libraries kosuFrontend kosuIrTyped kosuIrTAC clap cmdliner ldSpec common))
+ (libraries kosuFrontend kosuIrTyped kosuIrTAC clap cmdliner ldSpec common dune-build-info))
