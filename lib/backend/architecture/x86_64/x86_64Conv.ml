@@ -1215,18 +1215,26 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     | RVBuiltinUnop { unop = TacNot; expr } ->
         let rax = tmp_rax_ktype expr.expr_rktype in
         let size = data_size_of_ktype rprogram expr.expr_rktype in
-        let last_reg, instructions =
+        let dlast_reg, instructions =
           translate_tac_expression ~litterals ~target_dst:(`Register rax)
             rprogram fd expr
         in
-        let last_reg = Operande.register_of_dst last_reg in
-        let uminus_instructions =
+        let last_reg = Operande.register_of_dst dlast_reg in
+        
+        let not_instruction =
+          if KosuIrTyped.Asttyhelper.RType.is_bool rval_rktype then 
+            let idata_size = match size with
+            | IntSize i -> i
+            | FloatSize _ -> failwith "Proabily unreachable exist if bool are encoded as float"
+          in
+          Instruction (Xor {size = idata_size; source = (`ILitteral 1L); destination = dlast_reg })
+          else
           Instruction (Not { size; source = last_reg })
         in
         let copy_instructions =
           copy_result ~where ~register:last_reg ~rval_rktype rprogram
         in
-        instructions @ (uminus_instructions :: copy_instructions)
+        instructions @ (not_instruction :: copy_instructions)
     | RVBuiltinCall { fn_name; parameters } -> (
         let open KosuFrontend.Ast.Builtin_Function in
         match fn_name with
