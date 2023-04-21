@@ -27,6 +27,7 @@
   kosuFrontend
   kosuIrTyped
   kosuIrTAC
+  kosuIrCfg
   cmdliner
   ldSpec
   common
