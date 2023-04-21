@@ -341,6 +341,8 @@ module Register = struct
         resize_register size register
 
   let reg8_of_ktype rprogram ktype = reg_of_ktype rprogram ktype ~register:x8
+
+  let reg0_of_ktype = reg_of_ktype ~register:x0
   let reg9_of_ktype = reg_of_ktype ~register:x9
   let reg10_of_ktype = reg_of_ktype ~register:x10
   let reg11_of_ktype = reg_of_ktype ~register:x11

@@ -926,8 +926,34 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
         translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where ~rval_rktype
           rprogram fd
-    | RVBuiltinBinop {binop = TacCmp TacOrdered; blhs = _; brhs = _} ->
-        failwith "Builtin cmp todo"
+    | RVBuiltinBinop {binop = TacCmp TacOrdered; blhs; brhs} ->
+      
+      let r9 = reg9_of_ktype rprogram brhs.expr_rktype in
+      let r10 = reg10_of_ktype rprogram blhs.expr_rktype in
+      let r8 = reg8_of_ktype rprogram rval_rktype in
+      let rr9, rinstructions =
+        translate_tac_expression ~litterals ~target_reg:r9 rprogram fd brhs
+      in
+      let lr10, linstructions =
+        translate_tac_expression ~litterals ~target_reg:r10 rprogram fd blhs
+      in
+      let cmp_instructions = [
+        Instruction (CMP {operand1 = lr10; operand2 = `Register rr9} );
+        Instruction (CSET { register = r8; cc = GE});
+        Instruction
+          (AND { destination = r8; operand1 = r8; operand2 = `ILitteral 1L });
+        Instruction (CMP {operand1 = lr10; operand2 = `Register rr9} );
+        Instruction (CSET {register = lr10; cc = GT});
+        Instruction
+        (AND { destination = lr10; operand1 = lr10; operand2 = `ILitteral 1L });
+        Instruction (
+          ADD {destination = r8; operand1 = r8; operand2 = `Register lr10; offset = false }
+        )
+      ] in
+
+      let before_copy _ = rinstructions @ linstructions @ cmp_instructions in
+
+      copy_result ~before_copy ~where ~register:r8 ~rval_rktype rprogram
     | RVBuiltinBinop
         {
           binop =
@@ -1169,7 +1195,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     | RVCustomBinop
         ({
            binop =
-             TacSelf _ | TacBool TacSup | TacBool TacInf | TacBool TacEqual;
+             TacSelf _ | TacBool _ | TacCmp TacOrdered ;
            _;
          } as self) ->
         let open KosuIrTAC.Asttachelper.Operator in
@@ -1225,15 +1251,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               @ call_instruction
         in
         operator_instructions
-    | RVCustomBinop { binop = TacBool TacDiff; _ } ->
-        failwith "Todo : Deep cgange into ast "
-    | s ->
-        let () =
-          Printf.printf "trvalue = %s\n"
-            (KosuIrTAC.Asttacpprint.string_of_tac_rvalue s)
-        in
-        failwith
-          "Todo : Redefinition of supeq and infeq => Deep change into ast"
+    (* | RVCustomBinop {binop = TacBool (TacOr|TacSupEq|TacInfEq|TacDiff|TacAnd); _ } -> failwith ""  *)
 
   let rec translate_tac_statement ~litterals current_module rprogram
       (fd : FrameManager.frame_desc) = function
