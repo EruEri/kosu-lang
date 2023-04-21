@@ -1288,7 +1288,7 @@ module RProgram = struct
 
     let not_op lhs = 
       let expr = REUn_op (
-        RUMinus lhs
+        RUNot lhs
       ) 
     in
     {
@@ -1350,7 +1350,7 @@ module RProgram = struct
   let infeqnode = create_node pbinfeq rtbool rfields infeqbody in
   let diffnode = create_node pbdiff rtbool rfields diffbody in
 
-  (* let () = Printf.printf "expr = %s\n%!" (Asttypprint.string_of_rkbody supeqbody) in *)
+  let () = Printf.printf "expr = %s\n%!" (Asttypprint.string_of_rkbody diffbody) in
 
   let always_generated = [supnode; supeqnode; infnode; infeqnode; diffnode] in
   match generate_equal with
