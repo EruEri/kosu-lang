@@ -5,5 +5,4 @@ if [ "$?" -eq "0" ]; then
         echo "$FORMAT = Some \"$HASH\"" > kosuHash.ml
     else
         echo "$FORMAT = None" 
-fi
-
+fi 
