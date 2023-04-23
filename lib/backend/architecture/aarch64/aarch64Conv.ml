@@ -170,17 +170,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
              else resize32 target_reg
            in *)
         if is_register_size sizeof then
-          ( rreg,
-            [
-              Instruction
-                (LDR
-                   {
-                     data_size = compute_data_size expr_rktype sizeof;
-                     destination = rreg;
-                     adress_src = adress;
-                     adress_mode = Immediat;
-                   });
-            ] )
+          rreg, ldr_instr ~data_size:(compute_data_size expr_rktype sizeof) ~mode:Immediat ~destination:rreg adress
         else
           ( rreg,
             [

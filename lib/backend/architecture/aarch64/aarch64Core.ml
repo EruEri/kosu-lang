@@ -388,14 +388,26 @@ type adress_offset = [
 
 let src_of_adress_offset (adress_offset: adress_offset) = (adress_offset :> src)
 
+
 type address = { base : register; offset : adress_offset }
 
 let create_adress ?(offset = 0L) base = { base; offset = `ILitteral offset }
 
+let is_register_based_address address = match address with
+| `ILitteral _ -> false
+| `Register _ -> true
+
+let str_ldr_offset_range n = 
+  -256L < n && n < 255L
+
+let is_offset_too_far address = match address with
+| `ILitteral i when not @@ str_ldr_offset_range i -> true
+| `ILitteral _ | `Register _ -> false
+
 let increment_adress off adress = 
   match adress.offset with
   | `ILitteral offset ->   { adress with offset = `ILitteral ( Int64.add offset off) }
-  | `Register _reg -> failwith ""
+  | `Register _reg -> failwith "Increment register based address"
 
 let asm_const_name current_module const_name =
   Printf.sprintf "_%s_%s"
@@ -584,7 +596,6 @@ module Instruction = struct
 
   let instruction i = Instruction i
 
-
   let mov_integer register n =
     let open Immediat in
     if is_direct_immediat n then
@@ -638,6 +649,29 @@ module Instruction = struct
                    shift = Some SH48;
                  });
           ]
+
+  let str_instr ?(mode = Immediat) ~data_size ~source address = 
+    match address.offset with
+    | `ILitteral i when not @@ str_ldr_offset_range i ->
+      let mov = mov_integer x15 i in
+      let adress = {base = address.base; offset = `Register x15 } in
+      let str = [instruction @@ STR {data_size; source; adress = adress; adress_mode = mode }] in
+      mov @ str
+    | `Register _ | `ILitteral _-> [
+      instruction @@ STR {data_size; source; adress = address; adress_mode = mode }
+    ]
+
+    let ldr_instr ?(mode = Immediat) ~data_size ~destination address = 
+      match address.offset with
+      | `ILitteral i when not @@ str_ldr_offset_range i ->
+        let mov = mov_integer x15 i in
+        let adress = {base = address.base; offset = `Register x15 } in
+        let str = [instruction @@ LDR {data_size; destination; adress_src = adress; adress_mode = mode }] in
+        mov @ str
+      | `Register _ | `ILitteral _-> [
+        instruction @@ LDR {data_size; destination; adress_src = address; adress_mode = mode }
+      ]
+
 
   let ins_madd ~destination ~operand1_base ~operand2 ~scale =
     [ instruction @@ MADD { destination; operand1_base; operand2; scale } ]
@@ -712,7 +746,6 @@ module Instruction = struct
     if is_f32_reg register then
       [ Instruction (FCVT { turn = register; into = resize64 register }) ]
     else []
-
 
   let is_stp_range n = 
     -512L <= n && n <= 504L
@@ -842,24 +875,9 @@ module Instruction = struct
           base_src_reg (Int64.sub size 4L)
     else
       (*size >= 8L*)
-      [
-        Instruction
-          (LDR
-             {
-               data_size = None;
-               destination = x10;
-               adress_src = create_adress ~offset:8L base_src_reg;
-               adress_mode = Postfix;
-             });
-        Instruction
-          (STR
-             {
-               data_size = None;
-               source = x10;
-               adress = adress_str;
-               adress_mode = Immediat;
-             });
-      ]
+    ldr_instr ~data_size:None ~mode:(Postfix) ~destination:x10 (create_adress ~offset:8L base_src_reg)
+    @
+    str_instr ~data_size:None ~mode:(Immediat) ~source:x10 adress_str
       @ copy_large
           (increment_adress 8L adress_str)
           base_src_reg (Int64.sub size 8L)
@@ -912,17 +930,8 @@ module Instruction = struct
                });
         ]
     | 8L ->
-        [
-          Instruction
-            (STR
-               {
-                 data_size = None;
-                 source = resize64 register;
-                 adress;
-                 adress_mode = Immediat;
-               });
-          Line_Com (Comment "Above");
-        ]
+      str_instr ~data_size:None ~source:(resize64 register) adress
+      @ Line_Com (Comment "Above")::[];
     | _ -> copy_large adress register size
 
   let load_register register (address : address) ktype ktype_size =
