@@ -28,60 +28,6 @@ open AsmProgram
 module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
   module Pp = Aarch64Pprint.Make (AsmSpec)
 
-  let mov_integer register n =
-    let open Immediat in
-    if is_direct_immediat n then
-      Instruction
-        (Mov { destination = register; flexsec_operand = `ILitteral n })
-      :: []
-    else
-      let int64, int48, int32, int16 = split n in
-      let base =
-        [
-          Instruction
-            (Mov { destination = register; flexsec_operand = `ILitteral int16 });
-        ]
-      in
-      ( ( base |> fun l ->
-          if int32 = 0L then l
-          else
-            l
-            @ [
-                Instruction
-                  (Movk
-                     {
-                       destination = register;
-                       operand = `ILitteral int32;
-                       shift = Some SH16;
-                     });
-              ] )
-      |> fun l ->
-        if int48 = 0L then l
-        else
-          l
-          @ [
-              Instruction
-                (Movk
-                   {
-                     destination = register;
-                     operand = `ILitteral int48;
-                     shift = Some SH32;
-                   });
-            ] )
-      |> fun l ->
-      if int64 = 0L then l
-      else
-        l
-        @ [
-            Instruction
-              (Movk
-                 {
-                   destination = register;
-                   operand = `ILitteral int32;
-                   shift = Some SH48;
-                 });
-          ]
-
   let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
 
   let copy_result ?(before_copy = fun _ -> []) ~where ~register ~rval_rktype
@@ -122,7 +68,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                       {
                         destination = Register.xr;
                         operand1 = waddress.base;
-                        operand2 = `ILitteral waddress.offset;
+                        operand2 = src_of_adress_offset waddress.offset;
                         offset = false;
                       });
                ])
@@ -244,7 +190,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                      destination = rreg;
                      offset = false;
                      operand1 = adress.base;
-                     operand2 = `ILitteral adress.offset;
+                     operand2 = src_of_adress_offset adress.offset;
                    });
             ] )
     | TESizeof kt ->
@@ -766,7 +712,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                        {
                          destination = tmpreg;
                          operand1 = field_address.base;
-                         operand2 = `ILitteral field_address.offset;
+                         operand2 = src_of_adress_offset field_address.offset;
                          offset = false;
                        });
                 ])
@@ -794,7 +740,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                      {
                        destination = tmp64reg;
                        operand1 = adress.base;
-                       operand2 = `ILitteral adress.offset;
+                       operand2 = src_of_adress_offset adress.offset;
                        offset = false;
                      });
               ])
@@ -1586,6 +1532,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                                               });
                                        ]
                                      else
+                                      let i = increment_adress offset_a switch_variable_address in
                                        Instruction
                                          (ADD
                                             {
@@ -1593,10 +1540,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                                               operand1 =
                                                 switch_variable_address.base;
                                               operand2 =
-                                                `ILitteral
-                                                  (Int64.add
-                                                     switch_variable_address
-                                                       .offset offset_a);
+                                                ( i.offset :> src);
                                               offset = false;
                                             })
                                        :: copy_from_reg tmp64reg

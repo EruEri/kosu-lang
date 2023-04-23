@@ -233,6 +233,8 @@ module Register = struct
   let w10 = resize32 x10
   let x11 = { register = IntegerReg X11; size = SReg64 }
   let w11 = resize32 x11
+
+  let x15 = { register = IntegerReg X15; size = SReg64 }
   let xzr = { register = IntegerReg XZR; size = SReg64 }
   let wzr = { register = IntegerReg XZR; size = SReg32 }
   let x29 = { register = IntegerReg X29; size = SReg64 }
@@ -379,12 +381,21 @@ type src =
   | `Register of register
   | `Label of string ]
 
-type address = { base : register; offset : int64 }
+type adress_offset = [
+    `ILitteral of int64
+    | `Register of register
+]
 
-let create_adress ?(offset = 0L) base = { base; offset }
+let src_of_adress_offset (adress_offset: adress_offset) = (adress_offset :> src)
 
-let increment_adress off adress =
-  { adress with offset = Int64.add adress.offset off }
+type address = { base : register; offset : adress_offset }
+
+let create_adress ?(offset = 0L) base = { base; offset = `ILitteral offset }
+
+let increment_adress off adress = 
+  match adress.offset with
+  | `ILitteral offset ->   { adress with offset = `ILitteral ( Int64.add offset off) }
+  | `Register _reg -> failwith ""
 
 let asm_const_name current_module const_name =
   Printf.sprintf "_%s_%s"
@@ -573,6 +584,61 @@ module Instruction = struct
 
   let instruction i = Instruction i
 
+
+  let mov_integer register n =
+    let open Immediat in
+    if is_direct_immediat n then
+      Instruction
+        (Mov { destination = register; flexsec_operand = `ILitteral n })
+      :: []
+    else
+      let int64, int48, int32, int16 = split n in
+      let base =
+        [
+          Instruction
+            (Mov { destination = register; flexsec_operand = `ILitteral int16 });
+        ]
+      in
+      ( ( base |> fun l ->
+          if int32 = 0L then l
+          else
+            l
+            @ [
+                Instruction
+                  (Movk
+                     {
+                       destination = register;
+                       operand = `ILitteral int32;
+                       shift = Some SH16;
+                     });
+              ] )
+      |> fun l ->
+        if int48 = 0L then l
+        else
+          l
+          @ [
+              Instruction
+                (Movk
+                   {
+                     destination = register;
+                     operand = `ILitteral int48;
+                     shift = Some SH32;
+                   });
+            ] )
+      |> fun l ->
+      if int64 = 0L then l
+      else
+        l
+        @ [
+            Instruction
+              (Movk
+                 {
+                   destination = register;
+                   operand = `ILitteral int32;
+                   shift = Some SH48;
+                 });
+          ]
+
   let ins_madd ~destination ~operand1_base ~operand2 ~scale =
     [ instruction @@ MADD { destination; operand1_base; operand2; scale } ]
 
@@ -646,6 +712,10 @@ module Instruction = struct
     if is_f32_reg register then
       [ Instruction (FCVT { turn = register; into = resize64 register }) ]
     else []
+
+
+  let is_stp_range n = 
+    -512L <= n && n <= 504L
 
   let binop_instruction_of_tacself ?(unsigned = false) =
     let open KosuIrTAC.Asttac in
@@ -1024,22 +1094,63 @@ module FrameManager = struct
             (Printf.sprintf "Not found: %s : %s" variable
                (KosuIrTyped.Asttypprint.string_of_rktype rktype))
 
+  let prologue_epilogue_stack_size framesize = 
+    if is_stp_range framesize then
+      [], { base = sp; offset = `ILitteral framesize } 
+    else 
+  mov_integer x15 framesize
+  @ (instruction @@ SUB { destination = sp; operand1 = sp; operand2 = (`ILitteral (Int64.add 16L framesize))})
+  ::ins_add ~destination:x15 ~operand1:sp ~operand2:(x15)
+  ,  { base = x15; offset = `ILitteral 0L }
+  
+
+  let stp_inst ~vframe =
+      if is_stp_range vframe then 
+      let address = { base = sp; offset = `ILitteral vframe } in
+        [instruction @@ 
+          STP
+            {
+              x1 = x29;
+              x2 = x30;
+              address = address;
+              adress_mode = Immediat;
+            }]
+    else
+      let x29_address = create_adress ~offset:(Int64.add 8L vframe) sp in
+      let x30_address = create_adress ~offset:(vframe) sp in
+      [
+        instruction @@ STR {data_size = None; source = x29; adress = x29_address; adress_mode = Immediat};
+        instruction @@ STR {data_size = None; source = x30; adress = x30_address; adress_mode = Immediat};
+      ]
+
+  let ldp_instr ~vframe = 
+    if is_stp_range vframe then 
+      let address = { base = sp; offset = `ILitteral vframe } in
+      [
+        instruction @@ LDP {
+        x1 = x29;
+        x2 = x30;
+        address = address;
+        adress_mode = Immediat;
+      }
+      ]
+    else
+      let x29_address = create_adress ~offset:(Int64.add 8L vframe) sp in
+      let x30_address = create_adress ~offset:(vframe) sp in
+      [
+        instruction @@ LDR {data_size = None; destination = x29; adress_src = x29_address; adress_mode = Immediat};
+        instruction @@ LDR {data_size = None; destination = x30; adress_src = x30_address; adress_mode = Immediat};
+      ]
+
+
   let function_prologue ~fn_register_params ~fn_float_register_params
       ~stack_params rprogram fd =
-    let frame_register_offset =
-      Int64.sub (align_16 (Int64.add 16L fd.locals_space)) 16L
+      let stack_sub_size = align_16 (Int64.add 16L fd.locals_space) in
+    let variable_frame_size =
+      Int64.sub stack_sub_size 16L
     in
-    let stack_sub_size = align_16 (Int64.add 16L fd.locals_space) in
-    let base =
-      Instruction
-        (STP
-           {
-             x1 = x29;
-             x2 = x30;
-             address = { base = sp; offset = frame_register_offset };
-             adress_mode = Immediat;
-           })
-    in
+    (* let stp_instructions, address = prologue_epilogue_stack_size frame_register_offset in *)
+    let base = stp_inst ~vframe:variable_frame_size in
     let stack_sub =
       Instruction
         (SUB
@@ -1055,7 +1166,7 @@ module FrameManager = struct
            {
              destination = x29;
              operand1 = sp;
-             operand2 = `ILitteral frame_register_offset;
+             operand2 = `ILitteral variable_frame_size;
              offset = false;
            })
     in
@@ -1140,22 +1251,14 @@ module FrameManager = struct
            []
     in
 
-    [ stack_sub; base; alignx29 ]
+     stack_sub::base @ [ alignx29 ]
     @ store_x8 @ copy_stack_params_instruction @ copy_instructions
     @ float_copy_instructions
 
   let function_epilogue fd =
     let stack_space = align_16 (Int64.add 16L fd.locals_space) in
-    let base =
-      Instruction
-        (LDP
-           {
-             x1 = x29;
-             x2 = x30;
-             address = { base = sp; offset = Int64.sub stack_space 16L };
-             adress_mode = Immediat;
-           })
-    in
+    let vframe = Int64.sub stack_space 16L in
+    let base = ldp_instr ~vframe in 
     let stack_add =
       Instruction
         (ADD
@@ -1168,7 +1271,7 @@ module FrameManager = struct
     in
     let return = Instruction RET in
 
-    [ base; stack_add; return ]
+    base @ stack_add::return::[]
 
   let call_instruction ~origin _stack_param (_fd : frame_desc) =
     let call = Instruction (BL { cc = None; label = origin }) in
