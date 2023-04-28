@@ -220,10 +220,20 @@ function_call:
 
 fun_kbody:
     | EQUAL located(expr) option(SEMICOLON) { [], $2 }
-    | kbody { $1 }
+    | fkbody { $1 }
+
+%inline fkbody:
+    | delimited(LBRACE, l=list(located(statement)) e=located(option(preceded(DOLLAR, located(expr)))) { l , e } , RBRACE)  { 
+       let stmts, expr_loc = $1 in
+       match expr_loc.v with
+       | Some expr -> (stmts, expr)
+       | None -> stmts, (expr_loc |> Position.map (fun _ -> Empty))
+    }
 
 kbody:
-    | delimited(LBRACE, l=list(located(statement)) DOLLAR e=located(expr) { l , e } , RBRACE)  { $1 }
+    | fkbody { $1 }
+    | delimited(LPARENT, located(expr), RPARENT) { [], $1 }
+
 statement:
     | declarer located(IDENT) explicit_type=option(COLON k=located(ktype) {k} ) EQUAL expression=located(expr) SEMICOLON { 
         SDeclaration { 
@@ -421,12 +431,15 @@ expr:
             else_case
         }
     }
-    | IF delimited(LPARENT, located(expr), RPARENT) kbody ELSE kbody  {
+    | IF delimited(LPARENT, located(expr), RPARENT) kbody located(option(preceded(ELSE, kbody))) {
         EIf (
             $2, 
             $3, 
-            $5
-            (* $4 |> Option.map (fun e -> (SExpression e)::[] ) *)
+            (match $4.v with
+            | Some body -> body
+            | None -> [], ($4 |> Position.map (fun _ -> Empty)) 
+            )
+
         )
     }
     | SWITCH delimited(LPARENT, located(expr), RPARENT) LBRACE nonempty_list(cases=separated_nonempty_list(PIPE, s_case) ARROWFUNC stmts=kbody { cases, stmts } ) 

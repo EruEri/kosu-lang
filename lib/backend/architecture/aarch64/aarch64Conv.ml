@@ -43,12 +43,11 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     |> Option.map (fun waddress ->
            match is_deref with
            | Some pointer ->
-              let fldr = 
-                ldr_instr ~data_size:None ~destination:xr pointer in
-              let sldr = 
-                ldr_instr ~data_size:None ~destination:xr (create_adress xr)
-              in
-              fldr @ sldr
+               let fldr = ldr_instr ~data_size:None ~destination:xr pointer in
+               let sldr =
+                 ldr_instr ~data_size:None ~destination:xr (create_adress xr)
+               in
+               fldr @ sldr
            | None ->
                [
                  Instruction
@@ -68,11 +67,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     |> Option.map (fun waddress ->
            match is_deref with
            | Some pointer ->
-            let ldr = 
-              ldr_instr ~data_size:None ~destination:xr pointer 
-            in 
-               ldr @ copy_from_reg return_reg (create_adress xr) return_type
-                    rprogram
+               let ldr = ldr_instr ~data_size:None ~destination:xr pointer in
+               ldr
+               @ copy_from_reg return_reg (create_adress xr) return_type
+                   rprogram
            | None -> copy_from_reg return_reg waddress return_type rprogram)
     |> Option.value ~default:[]
 
@@ -122,12 +120,11 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let destination =
           reg_of_ktype rprogram (RTFloat fsize) ~register:target_reg
         in
-        let instructions = 
-          load_label float_label x11 
-          @
-          ldr_instr ~data_size:None ~destination (create_adress x11)
+        let instructions =
+          load_label float_label x11
+          @ ldr_instr ~data_size:None ~destination (create_adress x11)
         in
-        ( destination, instructions )
+        (destination, instructions)
     | TEIdentifier id ->
         let adress =
           FrameManager.address_of (id, expr_rktype) fd |> fun adr ->
@@ -147,7 +144,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
              else resize32 target_reg
            in *)
         if is_register_size sizeof then
-          rreg, ldr_instr ~data_size:(compute_data_size expr_rktype sizeof) ~mode:Immediat ~destination:rreg adress
+          ( rreg,
+            ldr_instr
+              ~data_size:(compute_data_size expr_rktype sizeof)
+              ~mode:Immediat ~destination:rreg adress )
         else
           ( rreg,
             [
@@ -208,9 +208,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           let tmp11 = tmp64reg_4 in
           let load_instruction = load_label ~module_path name tmp11 in
           let fetch =
-            ldr_instr ~data_size ~destination:(target_reg) (create_adress tmp11)
+            ldr_instr ~data_size ~destination:target_reg (create_adress tmp11)
           in
-          (target_reg, load_instruction @ fetch )
+          (target_reg, load_instruction @ fetch)
         else
           let rreg =
             match size with
@@ -503,12 +503,12 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               |> Option.map (fun waddress ->
                      match is_deref with
                      | Some pointer ->
-                      let ldr = 
-                        ldr_instr
-                        ~destination:xr ~data_size:None
-                        pointer in
-                         ldr @ copy_from_reg return_reg (create_adress xr)
-                              syscall_decl.return_type rprogram
+                         let ldr =
+                           ldr_instr ~destination:xr ~data_size:None pointer
+                         in
+                         ldr
+                         @ copy_from_reg return_reg (create_adress xr)
+                             syscall_decl.return_type rprogram
                      | None ->
                          copy_from_reg return_reg waddress
                            syscall_decl.return_type rprogram)
@@ -651,9 +651,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           copy_result
             ~before_copy:(fun _ ->
               if is_register_size sizeof then
-                ldr_instr ~data_size:size
-                ~destination:tmpreg
-                field_address
+                ldr_instr ~data_size:size ~destination:tmpreg field_address
               else
                 [
                   Instruction
@@ -707,18 +705,17 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           | None -> failwith "defer of null address"
         in
         let load_instruction =
-          ldr_instr ~data_size:None ~destination:x9 adress 
+          ldr_instr ~data_size:None ~destination:x9 adress
         in
         let last_reg, load_indirect =
           if
             is_register_size
             @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram rval_rktype
           then
-            let ldr = 
-              ldr_instr ~data_size:None
-              ~destination:x8 (create_adress x9)
+            let ldr =
+              ldr_instr ~data_size:None ~destination:x8 (create_adress x9)
             in
-            ( x8, ldr )
+            (x8, ldr)
           else (x9, [])
         in
         (* let sizeof = sizeofn rprogram rval_rktype in *)
@@ -1167,10 +1164,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             fd
         in
         let instructions =
-          ldr_instr
-          ~data_size:None
-          ~destination:(reg8)
-          (Option.get intermediary_adress)
+          ldr_instr ~data_size:None ~destination:reg8
+            (Option.get intermediary_adress)
         in
         let true_adress = create_adress reg8 in
         let true_instructions =
@@ -1178,7 +1173,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             ~where:(Some true_adress) current_module rprogram fd trvalue
         in
 
-        (Line_Com (Comment "Defered Start") :: instructions @ true_instructions)
+        ((Line_Com (Comment "Defered Start") :: instructions)
+        @ true_instructions)
         @ [ Line_Com (Comment "Defered end") ]
     | STacModificationField { identifier_root; fields; trvalue } ->
         let root_adress =
@@ -1217,23 +1213,20 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
            let () = Printf.printf "offset = %Lu\n" field_offset in
            let () = Printf.printf "target addres = [%s]\n" (Pp.string_of_adressage Immediat target_adress) in *)
         let instructions =
-          let ldr = 
-            ldr_instr
-            ~data_size:None
-            ~destination:reg8
-            intermediary_adress
+          let ldr =
+            ldr_instr ~data_size:None ~destination:reg8 intermediary_adress
           in
-          ldr @
-          [
-            Instruction
-              (ADD
-                 {
-                   destination = reg8;
-                   operand1 = reg8;
-                   operand2 = `ILitteral field_offset;
-                   offset = false;
-                 });
-          ]
+          ldr
+          @ [
+              Instruction
+                (ADD
+                   {
+                     destination = reg8;
+                     operand1 = reg8;
+                     operand2 = `ILitteral field_offset;
+                     offset = false;
+                   });
+            ]
         in
 
         let true_adress = create_adress reg8 in
@@ -1372,10 +1365,11 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                  {
                    destination = tmp32reg_4;
                    flexsec_operand = `Register (resize32 last_reg);
-                 })::[]
+                 })
+            :: []
           else
             ldr_instr ~data_size:None ~destination:tmp32reg_4
-            (create_adress last_reg)
+              (create_adress last_reg)
         in
         let switch_variable_name =
           match condition_switch.tac_expression with
@@ -1426,24 +1420,35 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                                    in
                                    let copy_instructions =
                                      if is_register_size size_of_ktype then
-                                      let resized_reg = resize_register (size_of_ktype_size size_of_ktype) x8 in
-                                      let ldr = 
-                                        ldr_instr ~data_size ~destination:resized_reg (increment_adress offset_a switch_variable_address)
-                                      in
-                                      let str = 
-                                        str_instr ~data_size ~source:resized_reg destination_address
-                                      in
-                                      ldr @ str
+                                       let resized_reg =
+                                         resize_register
+                                           (size_of_ktype_size size_of_ktype)
+                                           x8
+                                       in
+                                       let ldr =
+                                         ldr_instr ~data_size
+                                           ~destination:resized_reg
+                                           (increment_adress offset_a
+                                              switch_variable_address)
+                                       in
+                                       let str =
+                                         str_instr ~data_size
+                                           ~source:resized_reg
+                                           destination_address
+                                       in
+                                       ldr @ str
                                      else
-                                      let i = increment_adress offset_a switch_variable_address in
+                                       let i =
+                                         increment_adress offset_a
+                                           switch_variable_address
+                                       in
                                        Instruction
                                          (ADD
                                             {
                                               destination = tmp64reg;
                                               operand1 =
                                                 switch_variable_address.base;
-                                              operand2 =
-                                                ( i.offset :> src);
+                                              operand2 = (i.offset :> src);
                                               offset = false;
                                             })
                                        :: copy_from_reg tmp64reg
@@ -1483,9 +1488,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
 
         setup_instructions @ condition_switch_instruction
-        @ copy_tag_instructions @ cmp_instrution_list
-        @ wildcard_case_jmp @ fn_block @ wildcard_body_block
-        @ [ exit_label_instruction ]
+        @ copy_tag_instructions @ cmp_instrution_list @ wildcard_case_jmp
+        @ fn_block @ wildcard_body_block @ [ exit_label_instruction ]
     | SCases { cases; else_tac_body; exit_label } ->
         let cases_body, cases_condition =
           cases
@@ -1578,10 +1582,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                let x8_address =
                  Option.get @@ FrameManager.(address_of indirect_return_vt fd)
                in
-               let ldr = 
-                ldr_instr ~data_size:None ~destination:xr 
-                x8_address
-               in
+               let ldr = ldr_instr ~data_size:None ~destination:xr x8_address in
                ldr @ copy_large (create_adress xr) last_reg sizeof)
       |> Option.value ~default:[]
     in
