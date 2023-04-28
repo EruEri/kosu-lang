@@ -139,18 +139,12 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let destination =
           reg_of_ktype rprogram (RTFloat fsize) ~register:target_reg
         in
-        ( destination,
-          load_label float_label x11
-          @ [
-              Instruction
-                (LDR
-                   {
-                     data_size = None;
-                     destination;
-                     adress_src = create_adress x11;
-                     adress_mode = Immediat;
-                   });
-            ] )
+        let instructions = 
+          load_label float_label x11 
+          @
+          ldr_instr ~data_size:None ~destination (create_adress x11)
+        in
+        ( destination, instructions )
     | TEIdentifier id ->
         let adress =
           FrameManager.address_of (id, expr_rktype) fd |> fun adr ->
@@ -231,16 +225,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           let tmp11 = tmp64reg_4 in
           let load_instruction = load_label ~module_path name tmp11 in
           let fetch =
-            Instruction
-              (LDR
-                 {
-                   data_size;
-                   destination = target_reg;
-                   adress_src = create_adress tmp11;
-                   adress_mode = Immediat;
-                 })
+            ldr_instr ~data_size ~destination:(target_reg) (create_adress tmp11)
           in
-          (target_reg, load_instruction @ [ fetch ])
+          (target_reg, load_instruction @ fetch )
         else
           let rreg =
             match size with
@@ -533,15 +520,11 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               |> Option.map (fun waddress ->
                      match is_deref with
                      | Some pointer ->
-                         Instruction
-                           (LDR
-                              {
-                                data_size = None;
-                                destination = xr;
-                                adress_src = pointer;
-                                adress_mode = Immediat;
-                              })
-                         :: copy_from_reg return_reg (create_adress xr)
+                      let ldr = 
+                        ldr_instr
+                        ~destination:xr ~data_size:None
+                        pointer in
+                         ldr @ copy_from_reg return_reg (create_adress xr)
                               syscall_decl.return_type rprogram
                      | None ->
                          copy_from_reg return_reg waddress
@@ -685,16 +668,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           copy_result
             ~before_copy:(fun _ ->
               if is_register_size sizeof then
-                [
-                  Instruction
-                    (LDR
-                       {
-                         data_size = size;
-                         destination = tmpreg;
-                         adress_src = field_address;
-                         adress_mode = Immediat;
-                       });
-                ]
+                ldr_instr ~data_size:size
+                ~destination:tmpreg
+                field_address
               else
                 [
                   Instruction
@@ -748,34 +724,19 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           | None -> failwith "defer of null address"
         in
         let load_instruction =
-          [
-            Instruction
-              (LDR
-                 {
-                   data_size = None;
-                   destination = tmp64reg_2;
-                   adress_src = adress;
-                   adress_mode = Immediat;
-                 });
-          ]
+          ldr_instr ~data_size:None ~destination:x9 adress 
         in
         let last_reg, load_indirect =
           if
             is_register_size
             @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram rval_rktype
           then
-            ( tmp64reg,
-              [
-                Instruction
-                  (LDR
-                     {
-                       data_size = None;
-                       destination = tmp64reg;
-                       adress_src = create_adress tmp64reg_2;
-                       adress_mode = Immediat;
-                     });
-              ] )
-          else (tmp64reg_2, [])
+            let ldr = 
+              ldr_instr ~data_size:None
+              ~destination:x8 (create_adress x9)
+            in
+            ( x8, ldr )
+          else (x9, [])
         in
         (* let sizeof = sizeofn rprogram rval_rktype in *)
         let copy_instructions =
@@ -1212,7 +1173,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
         instructions
     | STDerefAffectation { identifier; trvalue } ->
-        let tmpreg =
+        let reg8 =
           reg8_of_ktype rprogram
             (KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype)
         in
@@ -1223,22 +1184,18 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             fd
         in
         let instructions =
-          Instruction
-            (LDR
-               {
-                 data_size = None;
-                 destination = tmpreg;
-                 adress_src = Option.get intermediary_adress;
-                 adress_mode = Immediat;
-               })
+          ldr_instr
+          ~data_size:None
+          ~destination:(reg8)
+          (Option.get intermediary_adress)
         in
-        let true_adress = create_adress tmpreg in
+        let true_adress = create_adress reg8 in
         let true_instructions =
           translate_tac_rvalue ~litterals ~is_deref:intermediary_adress
             ~where:(Some true_adress) current_module rprogram fd trvalue
         in
 
-        (Line_Com (Comment "Defered Start") :: instructions :: true_instructions)
+        (Line_Com (Comment "Defered Start") :: instructions @ true_instructions)
         @ [ Line_Com (Comment "Defered end") ]
     | STacModificationField { identifier_root; fields; trvalue } ->
         let root_adress =

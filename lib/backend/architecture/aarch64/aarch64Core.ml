@@ -839,118 +839,6 @@ module Instruction = struct
       @
       next_instructions
 
-  let copy_from_reg register (adress : address) ktype rprogram =
-    let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
-    match size with
-    | 1L ->
-        let data_size =
-          Some
-            (if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then
-             (B : data_size)
-            else SB)
-        in
-        [
-          Instruction
-            (STR
-               {
-                 data_size;
-                 source = resize32 register;
-                 adress;
-                 adress_mode = Immediat;
-               });
-        ]
-    | 2L ->
-        let data_size =
-          Some
-            (if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then H
-            else SH)
-        in
-        [
-          Instruction
-            (STR
-               {
-                 data_size;
-                 source = resize32 register;
-                 adress;
-                 adress_mode = Immediat;
-               });
-        ]
-    | 4L ->
-        [
-          Instruction
-            (STR
-               {
-                 data_size = None;
-                 source = resize32 register;
-                 adress;
-                 adress_mode = Immediat;
-               });
-        ]
-    | 8L ->
-      str_instr ~data_size:None ~source:(resize64 register) adress
-      @ Line_Com (Comment "Above")::[];
-    | _ -> copy_large adress register size
-
-  let load_register register (address : address) ktype ktype_size =
-    match ktype_size with
-    | 1L ->
-        let data_size =
-          Some
-            (if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then
-             (B : data_size)
-            else SB)
-        in
-        [
-          Instruction
-            (LDR
-               {
-                 data_size;
-                 destination = resize32 register;
-                 adress_src = address;
-                 adress_mode = Immediat;
-               });
-        ]
-    | 2L ->
-        let data_size =
-          Some
-            (if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then H
-            else SH)
-        in
-        [
-          Instruction
-            (LDR
-               {
-                 data_size;
-                 destination = resize32 register;
-                 adress_src = address;
-                 adress_mode = Immediat;
-               });
-        ]
-    | 4L ->
-        [
-          Instruction
-            (LDR
-               {
-                 data_size = None;
-                 destination = resize32 register;
-                 adress_src = address;
-                 adress_mode = Immediat;
-               });
-        ]
-    | 8L ->
-        [
-          Instruction
-            (LDR
-               {
-                 data_size = None;
-                 destination = resize64 register;
-                 adress_src = address;
-                 adress_mode = Immediat;
-               });
-        ]
-    | _ -> []
-end
-
 let is_register_size = function 1L | 2L | 4L | 8L -> true | _ -> false
 
 let compute_data_size ktype = function
@@ -965,6 +853,29 @@ let compute_data_size ktype = function
          SH
         else H)
   | _ -> None
+
+  let copy_from_reg register (adress : address) ktype rprogram =
+    let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+    let is_reg_size = is_register_size size in
+    match is_reg_size with
+    | false -> copy_large adress register size
+    | true ->
+      let data_size = compute_data_size ktype size in
+      let reg = resize_register (regsize_of_ktype size) register in
+      let strs =
+        str_instr ~data_size ~source:reg adress
+      in
+      strs
+
+
+  let load_register register (address : address) ktype ktype_size =
+    match is_register_size ktype_size with
+    | false -> []
+    | true ->
+      let data_size = compute_data_size ktype ktype_size in
+      let reg = resize_register (regsize_of_ktype ktype_size) register in
+      ldr_instr ~data_size ~destination:reg address
+end
 
 let unsigned_data_size = function SH -> H | SB -> B | t -> t
 
