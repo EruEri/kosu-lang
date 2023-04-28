@@ -397,11 +397,15 @@ let is_register_based_address address = match address with
 | `ILitteral _ -> false
 | `Register _ -> true
 
-let str_ldr_offset_range n = 
-  -256L < n && n < 255L
+let str_ldr_offset_range reg n = 
+  if n < 0L then -256L < n 
+  else
+  match reg.size with
+  | SReg32 -> n < 255L || ((Int64.unsigned_rem n 4L) = 0L && n < 16380L)
+  | SReg64 -> n < 255L || ((Int64.unsigned_rem n 8L) = 0L && n < 32760L)
 
-let is_offset_too_far address = match address with
-| `ILitteral i when not @@ str_ldr_offset_range i -> true
+let is_offset_too_far reg address = match address with
+| `ILitteral i when not @@ str_ldr_offset_range reg i -> true
 | `ILitteral _ | `Register _ -> false
 
 let increment_adress off adress = 
@@ -652,7 +656,7 @@ module Instruction = struct
 
   let str_instr ?(mode = Immediat) ~data_size ~source address = 
     match address.offset with
-    | `ILitteral i when not @@ str_ldr_offset_range i ->
+    | `ILitteral i when not @@ str_ldr_offset_range source i ->
       let mov = mov_integer x15 i in
       let adress = {base = address.base; offset = `Register x15 } in
       let str = [instruction @@ STR {data_size; source; adress = adress; adress_mode = mode }] in
@@ -663,7 +667,7 @@ module Instruction = struct
 
     let ldr_instr ?(mode = Immediat) ~data_size ~destination address = 
       match address.offset with
-      | `ILitteral i when not @@ str_ldr_offset_range i ->
+      | `ILitteral i when not @@ str_ldr_offset_range destination i ->
         let mov = mov_integer x15 i in
         let adress = {base = address.base; offset = `Register x15 } in
         let str = [instruction @@ LDR {data_size; destination; adress_src = adress; adress_mode = mode }] in
