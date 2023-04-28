@@ -233,6 +233,8 @@ module Register = struct
   let w10 = resize32 x10
   let x11 = { register = IntegerReg X11; size = SReg64 }
   let w11 = resize32 x11
+
+  let x15 = { register = IntegerReg X15; size = SReg64 }
   let xzr = { register = IntegerReg XZR; size = SReg64 }
   let wzr = { register = IntegerReg XZR; size = SReg32 }
   let x29 = { register = IntegerReg X29; size = SReg64 }
@@ -379,12 +381,37 @@ type src =
   | `Register of register
   | `Label of string ]
 
-type address = { base : register; offset : int64 }
+type adress_offset = [
+    `ILitteral of int64
+    | `Register of register
+]
 
-let create_adress ?(offset = 0L) base = { base; offset }
+let src_of_adress_offset (adress_offset: adress_offset) = (adress_offset :> src)
 
-let increment_adress off adress =
-  { adress with offset = Int64.add adress.offset off }
+
+type address = { base : register; offset : adress_offset }
+
+let create_adress ?(offset = 0L) base = { base; offset = `ILitteral offset }
+
+let is_register_based_address address = match address with
+| `ILitteral _ -> false
+| `Register _ -> true
+
+let str_ldr_offset_range reg n = 
+  if n < 0L then -256L < n 
+  else
+  match reg.size with
+  | SReg32 -> n < 255L || ((Int64.unsigned_rem n 4L) = 0L && n < 16380L)
+  | SReg64 -> n < 255L || ((Int64.unsigned_rem n 8L) = 0L && n < 32760L)
+
+let is_offset_too_far reg address = match address with
+| `ILitteral i when not @@ str_ldr_offset_range reg i -> true
+| `ILitteral _ | `Register _ -> false
+
+let increment_adress off adress = 
+  match adress.offset with
+  | `ILitteral offset ->   { adress with offset = `ILitteral ( Int64.add offset off) }
+  | `Register _reg -> failwith "Increment register based address"
 
 let asm_const_name current_module const_name =
   Printf.sprintf "_%s_%s"
@@ -573,6 +600,83 @@ module Instruction = struct
 
   let instruction i = Instruction i
 
+  let mov_integer register n =
+    let open Immediat in
+    if is_direct_immediat n then
+      Instruction
+        (Mov { destination = register; flexsec_operand = `ILitteral n })
+      :: []
+    else
+      let int64, int48, int32, int16 = split n in
+      let base =
+        [
+          Instruction
+            (Mov { destination = register; flexsec_operand = `ILitteral int16 });
+        ]
+      in
+      ( ( base |> fun l ->
+          if int32 = 0L then l
+          else
+            l
+            @ [
+                Instruction
+                  (Movk
+                     {
+                       destination = register;
+                       operand = `ILitteral int32;
+                       shift = Some SH16;
+                     });
+              ] )
+      |> fun l ->
+        if int48 = 0L then l
+        else
+          l
+          @ [
+              Instruction
+                (Movk
+                   {
+                     destination = register;
+                     operand = `ILitteral int48;
+                     shift = Some SH32;
+                   });
+            ] )
+      |> fun l ->
+      if int64 = 0L then l
+      else
+        l
+        @ [
+            Instruction
+              (Movk
+                 {
+                   destination = register;
+                   operand = `ILitteral int32;
+                   shift = Some SH48;
+                 });
+          ]
+
+  let str_instr ?(mode = Immediat) ~data_size ~source address = 
+    match address.offset with
+    | `ILitteral i when not @@ str_ldr_offset_range source i ->
+      let mov = mov_integer x15 i in
+      let adress = {base = address.base; offset = `Register x15 } in
+      let str = [instruction @@ STR {data_size; source; adress = adress; adress_mode = mode }] in
+      mov @ str
+    | `Register _ | `ILitteral _-> [
+      instruction @@ STR {data_size; source; adress = address; adress_mode = mode }
+    ]
+
+    let ldr_instr ?(mode = Immediat) ~data_size ~destination address = 
+      match address.offset with
+      | `ILitteral i when not @@ str_ldr_offset_range destination i ->
+        let mov = mov_integer x15 i in
+        let adress = {base = address.base; offset = `Register x15 } in
+        let str = [instruction @@ LDR {data_size; destination; adress_src = adress; adress_mode = mode }] in
+        mov @ str
+      | `Register _ | `ILitteral _-> [
+        instruction @@ LDR {data_size; destination; adress_src = address; adress_mode = mode }
+      ]
+
+
   let ins_madd ~destination ~operand1_base ~operand2 ~scale =
     [ instruction @@ MADD { destination; operand1_base; operand2; scale } ]
 
@@ -647,6 +751,9 @@ module Instruction = struct
       [ Instruction (FCVT { turn = register; into = resize64 register }) ]
     else []
 
+  let is_stp_range n = 
+    -512L <= n && n <= 504L
+
   let binop_instruction_of_tacself ?(unsigned = false) =
     let open KosuIrTAC.Asttac in
     function
@@ -701,219 +808,40 @@ module Instruction = struct
     in
     [ load; add ]
 
+  (**
+    [copy_large adress_str base_src_reg size] 
+      Copy [size] bytes from value where the base address is held by the register [base_src_reg]
+      at the adress [adress_str]
+
+  *)
   let rec copy_large adress_str base_src_reg size =
     if size < 0L then failwith "Negive size to copy"
     else if size = 0L then []
-    else if size < 2L && size >= 1L then
-      [
-        Instruction
-          (LDR
-             {
-               data_size = Some B;
-               destination = w10;
-               adress_src = create_adress ~offset:1L base_src_reg;
-               adress_mode = Postfix;
-             });
-        Instruction
-          (STR
-             {
-               data_size = Some B;
-               source = w10;
-               adress = adress_str;
-               adress_mode = Immediat;
-             });
-      ]
-      @ copy_large
-          (increment_adress 1L adress_str)
-          base_src_reg (Int64.sub size 1L)
-    else if size < 4L && size >= 2L then
-      [
-        Instruction
-          (LDR
-             {
-               data_size = Some H;
-               destination = w10;
-               adress_src = create_adress ~offset:2L base_src_reg;
-               adress_mode = Postfix;
-             });
-        Instruction
-          (STR
-             {
-               data_size = Some H;
-               source = w10;
-               adress = adress_str;
-               adress_mode = Immediat;
-             });
-      ]
-      @ copy_large
-          (increment_adress 2L adress_str)
-          base_src_reg (Int64.sub size 2L)
-    else if size < 8L && size >= 4L then
-      [
-        Instruction
-          (LDR
-             {
-               data_size = None;
-               destination = w10;
-               adress_src = create_adress ~offset:4L base_src_reg;
-               adress_mode = Postfix;
-             });
-        Instruction
-          (STR
-             {
-               data_size = None;
-               source = w10;
-               adress = adress_str;
-               adress_mode = Immediat;
-             });
-      ]
-      @ copy_large
-          (increment_adress 4L adress_str)
-          base_src_reg (Int64.sub size 4L)
-    else
-      (*size >= 8L*)
-      [
-        Instruction
-          (LDR
-             {
-               data_size = None;
-               destination = x10;
-               adress_src = create_adress ~offset:8L base_src_reg;
-               adress_mode = Postfix;
-             });
-        Instruction
-          (STR
-             {
-               data_size = None;
-               source = x10;
-               adress = adress_str;
-               adress_mode = Immediat;
-             });
-      ]
-      @ copy_large
-          (increment_adress 8L adress_str)
-          base_src_reg (Int64.sub size 8L)
+    else 
+      let (data_size, offset) : (data_size option * int64 )= 
+      if size = 0L then None, 0L
+      else if 1L <= size && size < 2L then (Some B), 1L
+      else if 2L <= size && size < 4L then (Some H), 2L
+      else if 4L <= size && size < 8L then None, 4L
+      else None, 8L
+      in
+      let ldr_instructions = 
+        ldr_instr ~data_size:data_size ~mode:(Postfix) ~destination:x10 (create_adress ~offset:offset base_src_reg) 
+      in
+      let str_instructions = 
+        str_instr ~data_size:data_size ~mode:(Immediat) ~source:x10 adress_str 
+      in
+      let next_adresss_store = increment_adress offset adress_str in
+  
+      let next_size = Int64.sub size offset in
 
-  let copy_from_reg register (adress : address) ktype rprogram =
-    let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
-    match size with
-    | 1L ->
-        let data_size =
-          Some
-            (if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then
-             (B : data_size)
-            else SB)
-        in
-        [
-          Instruction
-            (STR
-               {
-                 data_size;
-                 source = resize32 register;
-                 adress;
-                 adress_mode = Immediat;
-               });
-        ]
-    | 2L ->
-        let data_size =
-          Some
-            (if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then H
-            else SH)
-        in
-        [
-          Instruction
-            (STR
-               {
-                 data_size;
-                 source = resize32 register;
-                 adress;
-                 adress_mode = Immediat;
-               });
-        ]
-    | 4L ->
-        [
-          Instruction
-            (STR
-               {
-                 data_size = None;
-                 source = resize32 register;
-                 adress;
-                 adress_mode = Immediat;
-               });
-        ]
-    | 8L ->
-        [
-          Instruction
-            (STR
-               {
-                 data_size = None;
-                 source = resize64 register;
-                 adress;
-                 adress_mode = Immediat;
-               });
-          Line_Com (Comment "Above");
-        ]
-    | _ -> copy_large adress register size
+      let next_instructions = copy_large next_adresss_store base_src_reg next_size in
 
-  let load_register register (address : address) ktype ktype_size =
-    match ktype_size with
-    | 1L ->
-        let data_size =
-          Some
-            (if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then
-             (B : data_size)
-            else SB)
-        in
-        [
-          Instruction
-            (LDR
-               {
-                 data_size;
-                 destination = resize32 register;
-                 adress_src = address;
-                 adress_mode = Immediat;
-               });
-        ]
-    | 2L ->
-        let data_size =
-          Some
-            (if KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype then H
-            else SH)
-        in
-        [
-          Instruction
-            (LDR
-               {
-                 data_size;
-                 destination = resize32 register;
-                 adress_src = address;
-                 adress_mode = Immediat;
-               });
-        ]
-    | 4L ->
-        [
-          Instruction
-            (LDR
-               {
-                 data_size = None;
-                 destination = resize32 register;
-                 adress_src = address;
-                 adress_mode = Immediat;
-               });
-        ]
-    | 8L ->
-        [
-          Instruction
-            (LDR
-               {
-                 data_size = None;
-                 destination = resize64 register;
-                 adress_src = address;
-                 adress_mode = Immediat;
-               });
-        ]
-    | _ -> []
-end
+      ldr_instructions
+      @
+      str_instructions
+      @
+      next_instructions
 
 let is_register_size = function 1L | 2L | 4L | 8L -> true | _ -> false
 
@@ -929,6 +857,29 @@ let compute_data_size ktype = function
          SH
         else H)
   | _ -> None
+
+  let copy_from_reg register (adress : address) ktype rprogram =
+    let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+    let is_reg_size = is_register_size size in
+    match is_reg_size with
+    | false -> copy_large adress register size
+    | true ->
+      let data_size = compute_data_size ktype size in
+      let reg = resize_register (regsize_of_ktype size) register in
+      let strs =
+        str_instr ~data_size ~source:reg adress
+      in
+      strs
+
+
+  let load_register register (address : address) ktype ktype_size =
+    match is_register_size ktype_size with
+    | false -> []
+    | true ->
+      let data_size = compute_data_size ktype ktype_size in
+      let reg = resize_register (regsize_of_ktype ktype_size) register in
+      ldr_instr ~data_size ~destination:reg address
+end
 
 let unsigned_data_size = function SH -> H | SB -> B | t -> t
 
@@ -1024,22 +975,63 @@ module FrameManager = struct
             (Printf.sprintf "Not found: %s : %s" variable
                (KosuIrTyped.Asttypprint.string_of_rktype rktype))
 
+  let prologue_epilogue_stack_size framesize = 
+    if is_stp_range framesize then
+      [], { base = sp; offset = `ILitteral framesize } 
+    else 
+  mov_integer x15 framesize
+  @ (instruction @@ SUB { destination = sp; operand1 = sp; operand2 = (`ILitteral (Int64.add 16L framesize))})
+  ::ins_add ~destination:x15 ~operand1:sp ~operand2:(x15)
+  ,  { base = x15; offset = `ILitteral 0L }
+  
+
+  let stp_inst ~vframe =
+      if is_stp_range vframe then 
+      let address = { base = sp; offset = `ILitteral vframe } in
+        [instruction @@ 
+          STP
+            {
+              x1 = x29;
+              x2 = x30;
+              address = address;
+              adress_mode = Immediat;
+            }]
+    else
+      let x29_address = create_adress ~offset:(Int64.add 8L vframe) sp in
+      let x30_address = create_adress ~offset:(vframe) sp in
+      [
+        instruction @@ STR {data_size = None; source = x29; adress = x29_address; adress_mode = Immediat};
+        instruction @@ STR {data_size = None; source = x30; adress = x30_address; adress_mode = Immediat};
+      ]
+
+  let ldp_instr ~vframe = 
+    if is_stp_range vframe then 
+      let address = { base = sp; offset = `ILitteral vframe } in
+      [
+        instruction @@ LDP {
+        x1 = x29;
+        x2 = x30;
+        address = address;
+        adress_mode = Immediat;
+      }
+      ]
+    else
+      let x29_address = create_adress ~offset:(Int64.add 8L vframe) sp in
+      let x30_address = create_adress ~offset:(vframe) sp in
+      [
+        instruction @@ LDR {data_size = None; destination = x29; adress_src = x29_address; adress_mode = Immediat};
+        instruction @@ LDR {data_size = None; destination = x30; adress_src = x30_address; adress_mode = Immediat};
+      ]
+
+
   let function_prologue ~fn_register_params ~fn_float_register_params
       ~stack_params rprogram fd =
-    let frame_register_offset =
-      Int64.sub (align_16 (Int64.add 16L fd.locals_space)) 16L
+      let stack_sub_size = align_16 (Int64.add 16L fd.locals_space) in
+    let variable_frame_size =
+      Int64.sub stack_sub_size 16L
     in
-    let stack_sub_size = align_16 (Int64.add 16L fd.locals_space) in
-    let base =
-      Instruction
-        (STP
-           {
-             x1 = x29;
-             x2 = x30;
-             address = { base = sp; offset = frame_register_offset };
-             adress_mode = Immediat;
-           })
-    in
+    (* let stp_instructions, address = prologue_epilogue_stack_size frame_register_offset in *)
+    let base = stp_inst ~vframe:variable_frame_size in
     let stack_sub =
       Instruction
         (SUB
@@ -1055,7 +1047,7 @@ module FrameManager = struct
            {
              destination = x29;
              operand1 = sp;
-             operand2 = `ILitteral frame_register_offset;
+             operand2 = `ILitteral variable_frame_size;
              offset = false;
            })
     in
@@ -1140,22 +1132,14 @@ module FrameManager = struct
            []
     in
 
-    [ stack_sub; base; alignx29 ]
+     stack_sub::base @ [ alignx29 ]
     @ store_x8 @ copy_stack_params_instruction @ copy_instructions
     @ float_copy_instructions
 
   let function_epilogue fd =
     let stack_space = align_16 (Int64.add 16L fd.locals_space) in
-    let base =
-      Instruction
-        (LDP
-           {
-             x1 = x29;
-             x2 = x30;
-             address = { base = sp; offset = Int64.sub stack_space 16L };
-             adress_mode = Immediat;
-           })
-    in
+    let vframe = Int64.sub stack_space 16L in
+    let base = ldp_instr ~vframe in 
     let stack_add =
       Instruction
         (ADD
@@ -1168,7 +1152,7 @@ module FrameManager = struct
     in
     let return = Instruction RET in
 
-    [ base; stack_add; return ]
+    base @ stack_add::return::[]
 
   let call_instruction ~origin _stack_param (_fd : frame_desc) =
     let call = Instruction (BL { cc = None; label = origin }) in

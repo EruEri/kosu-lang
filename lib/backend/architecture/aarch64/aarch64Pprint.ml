@@ -119,23 +119,20 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
   let prefix_of_float register =
     if Register.is_float_reg register then "f" else ""
 
+  let string_of_address_offset = function
+  | `Register reg -> Printf.sprintf ", %s" (string_of_register reg)
+  | `ILitteral f -> if f = 0L then "" else Printf.sprintf ", #%Ld" f
   let string_of_adressage adress_mode { base; offset } =
     match adress_mode with
     | Immediat ->
         sprintf "[%s%s]" (string_of_register base)
-          ((if offset = 0L then None else Some offset)
-          |> Option.map (sprintf ", #%Ld")
-          |> Option.value ~default:"")
+        (string_of_address_offset offset)
     | Prefix ->
         sprintf "[%s%s]!" (string_of_register base)
-          ((if offset = 0L then None else Some offset)
-          |> Option.map (sprintf ", #%Ld")
-          |> Option.value ~default:"")
+        (string_of_address_offset offset)
     | Postfix ->
         sprintf "[%s]%s" (string_of_register base)
-          ((if offset = 0L then None else Some offset)
-          |> Option.map (sprintf ", #%Ld")
-          |> Option.value ~default:"")
+        (string_of_address_offset offset)
 
   let value_of_shift = function SH16 -> 16 | SH32 -> 32 | SH48 -> 48
 

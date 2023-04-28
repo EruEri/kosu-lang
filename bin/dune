@@ -24,7 +24,6 @@
   kosuBackend
   kosuIrTAC
   kosuCli
-  clap
   ldSpec
   common)
  (flags
