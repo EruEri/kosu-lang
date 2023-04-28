@@ -222,6 +222,13 @@ fun_kbody:
     | EQUAL located(expr) option(SEMICOLON) { [], $2 }
     | fkbody { $1 }
 
+%inline else_block_opt:
+    | located(option(preceded(ELSE, kbody))) { 
+        match $1.v with
+        | Some body -> body
+        | None -> [], ($1 |> Position.map (fun _ -> Empty))  
+    }
+    
 %inline fkbody:
     | delimited(LBRACE, l=list(located(statement)) e=located(option(preceded(DOLLAR, located(expr)))) { l , e } , RBRACE)  { 
        let stmts, expr_loc = $1 in
@@ -424,21 +431,18 @@ expr:
     }
     | CASES delimited(LBRACE, 
         s=nonempty_list(OF conds=located(expr) ARROWFUNC body=kbody { conds, body } ) 
-        ELSE else_case=kbody { s, else_case } , RBRACE) {
+        else_case=else_block_opt { s, else_case }, RBRACE) {
             let cases, else_case = $2 in
         ECases {
             cases;
             else_case
         }
     }
-    | IF delimited(LPARENT, located(expr), RPARENT) kbody located(option(preceded(ELSE, kbody))) {
+    | IF delimited(LPARENT, located(expr), RPARENT) kbody else_block_opt {
         EIf (
             $2, 
             $3, 
-            (match $4.v with
-            | Some body -> body
-            | None -> [], ($4 |> Position.map (fun _ -> Empty)) 
-            )
+            $4
 
         )
     }
