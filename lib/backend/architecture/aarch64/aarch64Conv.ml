@@ -43,24 +43,12 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     |> Option.map (fun waddress ->
            match is_deref with
            | Some pointer ->
-               [
-                 Instruction
-                   (LDR
-                      {
-                        data_size = None;
-                        destination = xr;
-                        adress_src = pointer;
-                        adress_mode = Immediat;
-                      });
-                 Instruction
-                   (LDR
-                      {
-                        data_size = None;
-                        destination = xr;
-                        adress_src = create_adress xr;
-                        adress_mode = Immediat;
-                      });
-               ]
+              let fldr = 
+                ldr_instr ~data_size:None ~destination:xr pointer in
+              let sldr = 
+                ldr_instr ~data_size:None ~destination:xr (create_adress xr)
+              in
+              fldr @ sldr
            | None ->
                [
                  Instruction
@@ -80,15 +68,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     |> Option.map (fun waddress ->
            match is_deref with
            | Some pointer ->
-               Instruction
-                 (LDR
-                    {
-                      data_size = None;
-                      destination = xr;
-                      adress_src = pointer;
-                      adress_mode = Immediat;
-                    })
-               :: copy_from_reg return_reg (create_adress xr) return_type
+            let ldr = 
+              ldr_instr ~data_size:None ~destination:xr pointer 
+            in 
+               ldr @ copy_from_reg return_reg (create_adress xr) return_type
                     rprogram
            | None -> copy_from_reg return_reg waddress return_type rprogram)
     |> Option.value ~default:[]
@@ -1212,7 +1195,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
         instructions
     | STDerefAffectationField { identifier_root; fields; trvalue } ->
-        let tmpreg =
+        let reg8 =
           reg8_of_ktype rprogram
             (KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype)
         in
@@ -1234,27 +1217,26 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
            let () = Printf.printf "offset = %Lu\n" field_offset in
            let () = Printf.printf "target addres = [%s]\n" (Pp.string_of_adressage Immediat target_adress) in *)
         let instructions =
+          let ldr = 
+            ldr_instr
+            ~data_size:None
+            ~destination:reg8
+            intermediary_adress
+          in
+          ldr @
           [
-            Instruction
-              (LDR
-                 {
-                   data_size = None;
-                   destination = tmpreg;
-                   adress_src = intermediary_adress;
-                   adress_mode = Immediat;
-                 });
             Instruction
               (ADD
                  {
-                   destination = tmpreg;
-                   operand1 = tmpreg;
+                   destination = reg8;
+                   operand1 = reg8;
                    operand2 = `ILitteral field_offset;
                    offset = false;
                  });
           ]
         in
 
-        let true_adress = create_adress tmpreg in
+        let true_adress = create_adress reg8 in
         let true_instructions =
           translate_tac_rvalue ~litterals
             ~is_deref:(Some intermediary_adress)
@@ -1382,7 +1364,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let last_reg, condition_switch_instruction =
           translate_tac_expression ~litterals rprogram fd condition_switch
         in
-        let copy_tag =
+        let copy_tag_instructions =
           if is_register_size (sizeofn rprogram condition_switch.expr_rktype)
           then
             Instruction
@@ -1390,16 +1372,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                  {
                    destination = tmp32reg_4;
                    flexsec_operand = `Register (resize32 last_reg);
-                 })
+                 })::[]
           else
-            Instruction
-              (LDR
-                 {
-                   data_size = None;
-                   destination = tmp32reg_4;
-                   adress_src = create_adress last_reg;
-                   adress_mode = Immediat;
-                 })
+            ldr_instr ~data_size:None ~destination:tmp32reg_4
+            (create_adress last_reg)
         in
         let switch_variable_name =
           match condition_switch.tac_expression with
@@ -1450,34 +1426,14 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                                    in
                                    let copy_instructions =
                                      if is_register_size size_of_ktype then
-                                       [
-                                         Instruction
-                                           (LDR
-                                              {
-                                                data_size;
-                                                destination =
-                                                  resize_register
-                                                    (size_of_ktype_size
-                                                       size_of_ktype)
-                                                    tmp64reg;
-                                                adress_src =
-                                                  increment_adress offset_a
-                                                    switch_variable_address;
-                                                adress_mode = Immediat;
-                                              });
-                                         Instruction
-                                           (STR
-                                              {
-                                                data_size;
-                                                source =
-                                                  resize_register
-                                                    (size_of_ktype_size
-                                                       size_of_ktype)
-                                                    tmp64reg;
-                                                adress = destination_address;
-                                                adress_mode = Immediat;
-                                              });
-                                       ]
+                                      let resized_reg = resize_register (size_of_ktype_size size_of_ktype) x8 in
+                                      let ldr = 
+                                        ldr_instr ~data_size ~destination:resized_reg (increment_adress offset_a switch_variable_address)
+                                      in
+                                      let str = 
+                                        str_instr ~data_size ~source:resized_reg destination_address
+                                      in
+                                      ldr @ str
                                      else
                                       let i = increment_adress offset_a switch_variable_address in
                                        Instruction
@@ -1527,7 +1483,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         in
 
         setup_instructions @ condition_switch_instruction
-        @ (copy_tag :: cmp_instrution_list)
+        @ copy_tag_instructions @ cmp_instrution_list
         @ wildcard_case_jmp @ fn_block @ wildcard_body_block
         @ [ exit_label_instruction ]
     | SCases { cases; else_tac_body; exit_label } ->
@@ -1622,18 +1578,11 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                let x8_address =
                  Option.get @@ FrameManager.(address_of indirect_return_vt fd)
                in
-               let str =
-                 Instruction
-                   (LDR
-                      {
-                        data_size = None;
-                        destination = xr;
-                        adress_src = x8_address;
-                        adress_mode = Immediat;
-                      })
+               let ldr = 
+                ldr_instr ~data_size:None ~destination:xr 
+                x8_address
                in
-
-               str :: copy_large (create_adress xr) last_reg sizeof)
+               ldr @ copy_large (create_adress xr) last_reg sizeof)
       |> Option.value ~default:[]
     in
     (label_instr :: stmt_instr) @ return_instr @ end_label_inst
