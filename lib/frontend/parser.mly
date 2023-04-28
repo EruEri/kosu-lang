@@ -226,7 +226,7 @@ fun_kbody:
     | delimited(LBRACE, l=list(located(statement)) e=located(option(preceded(DOLLAR, located(expr)))) { l , e } , RBRACE)  { 
        let stmts, expr_loc = $1 in
        match expr_loc.v with
-       | Some expr -> (stmts,  expr)
+       | Some expr -> (stmts, expr)
        | None -> stmts, (expr_loc |> Position.map (fun _ -> Empty))
     }
 
