@@ -220,15 +220,20 @@ function_call:
 
 fun_kbody:
     | EQUAL located(expr) option(SEMICOLON) { [], $2 }
-    | kbody { $1 }
+    | fkbody { $1 }
 
-kbody:
+%inline fkbody:
     | delimited(LBRACE, l=list(located(statement)) e=located(option(preceded(DOLLAR, located(expr)))) { l , e } , RBRACE)  { 
        let stmts, expr_loc = $1 in
        match expr_loc.v with
        | Some expr -> (stmts,  expr)
        | None -> stmts, (expr_loc |> Position.map (fun _ -> Empty))
     }
+
+kbody:
+    | fkbody { $1 }
+    | delimited(LPARENT, located(expr), RPARENT) { [], $1 }
+
 statement:
     | declarer located(IDENT) explicit_type=option(COLON k=located(ktype) {k} ) EQUAL expression=located(expr) SEMICOLON { 
         SDeclaration { 
