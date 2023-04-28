@@ -92,6 +92,11 @@ modul:
   Position.located_value $startpos $endpos x
 };;
 
+%inline trailing_separated_list(sep, elt):
+    | nonempty_list(terminated(elt, sep)) { $1 }
+    | separated_nonempty_list(sep, elt) { $1 }
+
+
 %inline module_path:
     | mp=located( loption(terminated(separated_nonempty_list(DOUBLECOLON, Module_IDENT), DOT)) ) { mp |> Position.map( String.concat "::") }
     // | mp=located( terminated(separated_list(DOUBLECOLON, Module_IDENT), DOT)) { mp |> Position.map( String.concat "::") }
