@@ -804,83 +804,40 @@ module Instruction = struct
     in
     [ load; add ]
 
+  (**
+    [copy_large adress_str base_src_reg size] 
+      Copy [size] bytes from value where the base address is held by the register [base_src_reg]
+      at the adress [adress_str]
+
+  *)
   let rec copy_large adress_str base_src_reg size =
     if size < 0L then failwith "Negive size to copy"
     else if size = 0L then []
-    else if size < 2L && size >= 1L then
-      [
-        Instruction
-          (LDR
-             {
-               data_size = Some B;
-               destination = w10;
-               adress_src = create_adress ~offset:1L base_src_reg;
-               adress_mode = Postfix;
-             });
-        Instruction
-          (STR
-             {
-               data_size = Some B;
-               source = w10;
-               adress = adress_str;
-               adress_mode = Immediat;
-             });
-      ]
-      @ copy_large
-          (increment_adress 1L adress_str)
-          base_src_reg (Int64.sub size 1L)
-    else if size < 4L && size >= 2L then
-      [
-        Instruction
-          (LDR
-             {
-               data_size = Some H;
-               destination = w10;
-               adress_src = create_adress ~offset:2L base_src_reg;
-               adress_mode = Postfix;
-             });
-        Instruction
-          (STR
-             {
-               data_size = Some H;
-               source = w10;
-               adress = adress_str;
-               adress_mode = Immediat;
-             });
-      ]
-      @ copy_large
-          (increment_adress 2L adress_str)
-          base_src_reg (Int64.sub size 2L)
-    else if size < 8L && size >= 4L then
-      [
-        Instruction
-          (LDR
-             {
-               data_size = None;
-               destination = w10;
-               adress_src = create_adress ~offset:4L base_src_reg;
-               adress_mode = Postfix;
-             });
-        Instruction
-          (STR
-             {
-               data_size = None;
-               source = w10;
-               adress = adress_str;
-               adress_mode = Immediat;
-             });
-      ]
-      @ copy_large
-          (increment_adress 4L adress_str)
-          base_src_reg (Int64.sub size 4L)
-    else
-      (*size >= 8L*)
-    ldr_instr ~data_size:None ~mode:(Postfix) ~destination:x10 (create_adress ~offset:8L base_src_reg)
-    @
-    str_instr ~data_size:None ~mode:(Immediat) ~source:x10 adress_str
-      @ copy_large
-          (increment_adress 8L adress_str)
-          base_src_reg (Int64.sub size 8L)
+    else 
+      let (data_size, offset) : (data_size option * int64 )= 
+      if size = 0L then None, 0L
+      else if 1L <= size && size < 2L then (Some B), 1L
+      else if 2L <= size && size < 4L then (Some H), 2L
+      else if 4L <= size && size < 8L then None, 4L
+      else None, 8L
+      in
+      let ldr_instructions = 
+        ldr_instr ~data_size:data_size ~mode:(Postfix) ~destination:x10 (create_adress ~offset:offset base_src_reg) 
+      in
+      let str_instructions = 
+        str_instr ~data_size:data_size ~mode:(Immediat) ~source:x10 adress_str 
+      in
+      let next_adresss_store = increment_adress offset adress_str in
+  
+      let next_size = Int64.sub size offset in
+
+      let next_instructions = copy_large next_adresss_store base_src_reg next_size in
+
+      ldr_instructions
+      @
+      str_instructions
+      @
+      next_instructions
 
   let copy_from_reg register (adress : address) ktype rprogram =
     let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
