@@ -22,7 +22,7 @@
   (system "sh -e commit_hash.sh")))
 
 (library
- (name kosuCli)
+ (name kosuClis)
  (libraries
   kosuFrontend
   kosuIrTyped

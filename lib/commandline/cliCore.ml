@@ -20,6 +20,19 @@
 type architecture = Arm64 | X86_64
 type os = Macos | Linux | FreeBSD
 
+let commit_hash () = KosuHash.commit_hash
+let version =
+  let commit_hash =
+    () |> commit_hash
+    |> Option.map (Printf.sprintf "[%s]")
+    |> Option.value ~default:""
+  in
+  let v =
+    match Build_info.V1.version () with
+    | None -> "n/a"
+    | Some v -> Build_info.V1.Version.to_string v
+  in
+  Printf.sprintf "%s %s" v commit_hash
 
 let std_global_variable = "KOSU_STD_PATH"
 let architecture_global_variable = "KOSU_TARGET_ARCHI"
