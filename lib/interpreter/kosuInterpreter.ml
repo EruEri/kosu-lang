@@ -41,6 +41,8 @@ struct
     modules = []
   }
 
+  let print_welcome () = 
+    Printf.printf "%s"
   let expression_prompt ktype () = 
     Printf.printf "- : %s\n%!" (Pprint.string_of_ktype ktype)
 
@@ -53,7 +55,8 @@ struct
       let s = FrontEnd.Registerexn.string_of_lexer_error "" e in
       let () = Printf.printf "%s\n" s in
       repl ienv ()
-    | Ok inode -> begin 
+    | Ok (None) -> Printf.printf "\n%!"
+    | Ok (Some inode) -> begin 
       try
         match inode with
         | IExpression kexpression -> 
@@ -77,7 +80,8 @@ struct
           repl ienv ()
     end
 
-  let repl () = 
+  let repl ~welcome () = 
+    let () = Printf.printf "%s\n\n" welcome in
     repl empty_env ()
 
 end

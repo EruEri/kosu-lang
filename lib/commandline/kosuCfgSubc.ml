@@ -106,8 +106,8 @@ let cfg_type_enum = [
   let cfg_man = [
     `S Manpage.s_description;
     `P 
-      "kosuc-cfg allows you to visual control flow graphs (cfg) and variable inference graph";
-    `P "kosuc-cfg relies heavily on the $(b,dot) language and the $(b,graphviz) library to display graphs";  
+      "kosu-cfg allows you to visual control flow graphs (cfg) and variable inference graph";
+    `P "kosu-cfg relies heavily on the $(b,dot) language and the $(b,graphviz) library to display graphs";  
     `S Manpage.s_see_also;
     `Noblank;
     `P "$(b,dot)(1)";

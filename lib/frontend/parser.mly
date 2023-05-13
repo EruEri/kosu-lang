@@ -82,7 +82,7 @@
 %type <Ast.ktype> ktype
 %type <Ast._module> modul
 %type <Ast.kexpression> expr
-%type <Ast.iexpression_node> iexpression_node
+%type <Ast.iexpression_node option> iexpression_node
 
 %%
 
@@ -91,7 +91,8 @@ modul:
 ;;
 
 iexpression_node:
-    | iexpression_nodes { $1 }
+    | iexpression_nodes { Some $1 }
+    | EOF { None }
 
 iexpression_nodes:
     | module_nodes { IModule_Node $1 }

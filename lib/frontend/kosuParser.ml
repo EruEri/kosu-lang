@@ -45,7 +45,7 @@ let rec parse lexbuf (checkpoint : Ast._module I.checkpoint) =
            })
 
 
-let rec kosu_repl_parse lexbuf (checkpoint : Ast.iexpression_node I.checkpoint) =
+let rec kosu_repl_parse lexbuf (checkpoint : Ast.iexpression_node option I.checkpoint) =
   match checkpoint with
   | I.InputNeeded _env -> (
       try
