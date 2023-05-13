@@ -26,13 +26,13 @@ type cmd = {
 
 let interpreted_file_term = 
   Arg.(
-    value & pos ~rev:true 0 (some file) None & info [] ~docv:"File" 
-    ~doc:"If $(docv,b) is given, phrases are read instead of reding the stdin"
+    value & opt (some file) None & info ["e"; "eval"] ~docv:"FILE" 
+    ~doc:"If $(docv,b) is given, phrases are read instead of reading from the stdin"
   )
 
 let modules_files_term = 
   Arg.( 
-    value & pos_left ~rev:true 0 (file) [] & info [] ~docv:"FILES"
+    value & pos_all file [] & info [] ~docv:"FILES"
     ~doc:"Compile the files to be loaded by the repl"
   )
 
