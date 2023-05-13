@@ -36,10 +36,16 @@ struct
       path = ""
     }::[]
 
-  let empty_env = {
+  let empty_ienv = {
     env = Env.empty;
     modules = []
   }
+
+  let replace_env env ienv =
+    {
+      ienv with env
+    } 
+
 
   let print_welcome () = 
     Printf.printf "%s"
@@ -69,7 +75,16 @@ struct
           in
           let () = expression_prompt typeof () in
           repl ienv ()
-        | IStatement _stmt -> failwith ""
+        | IStatement stmt -> 
+          let new_env, typeof = FrontEnd.Typecheck.typeof_statement ~generics_resolver:(Hashtbl.create 0) 
+            ienv.env 
+            ""
+            (module_path_of_ienv ienv)
+            stmt
+          in
+          let () = expression_prompt typeof () in
+          let env = replace_env new_env ienv in
+          repl env ()
         | IModule_Node _node -> failwith ""   
       with 
         | FrontEnd.Astvalidation.VError.Validation_error (_, _) -> 
@@ -82,6 +97,6 @@ struct
 
   let repl ~welcome () = 
     let () = Printf.printf "%s\n\n" welcome in
-    repl empty_env ()
+    repl empty_ienv ()
 
 end
