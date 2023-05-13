@@ -342,6 +342,11 @@ let string_of_enum_decl (enum_decl : enum_decl) =
     |> List.map string_of_enum_variant
     |> String.concat ", ")
 
+let string_of_const_decl (const_decl: const_decl) = 
+    sprintf "const %s : %s "
+    (const_decl.const_name.v)
+    (string_of_ktype const_decl.explicit_type)
+
 let string_of_struct_decl (struct_decl : struct_decl) =
   sprintf "struct (%s) %s := { %s }"
     (struct_decl.generics |> List.map value |> String.concat ", ")
