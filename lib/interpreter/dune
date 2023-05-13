@@ -1,7 +1,7 @@
 ;**********************************************************************************************;
 ;*                                                                                            *;
 ;* This file is part of Kosu                                                                  *;
-;* Copyright (C) 2022 Yves Ndiaye                                                             *;
+;* Copyright (C) 2023 Yves Ndiaye                                                             *;
 ;*                                                                                            *;
 ;* Kosu is free software: you can redistribute it and/or modify it under the terms            *;
 ;* of the GNU General Public License as published by the Free Software Foundation,            *;
@@ -15,21 +15,8 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
-(rule
- (target kosuHash.ml)
- (deps commit_hash.sh)
- (action
-  (system "sh -e commit_hash.sh")))
+
 
 (library
- (name kosuClis)
- (libraries
-  kosuFrontend
-  kosuInterpreter
-  kosuIrTyped
-  kosuIrTAC
-  kosuIrCfg
-  cmdliner
-  ldSpec
-  common
-  dune-build-info))
+ (name kosuInterpreter)
+ (libraries kosuFrontend kosuIrTyped))

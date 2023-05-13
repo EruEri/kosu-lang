@@ -19,6 +19,16 @@ open Cmdliner
 
 let name = "kosu"
 
+let cmd_term run = 
+  let combine () = 
+    run @@ () 
+  in
+  Term.const @@ combine ()
+
+let kosu_run () = 
+  CliCore.DefaultFront.KosuFrontInterpret.repl ()
+
+
 let kosu_doc = "The Kosu interpreter"
 
 let kosu_man =
@@ -45,5 +55,5 @@ let kosu_man =
 
   let kosu =
     let info = Cmd.info ~doc:kosu_doc ~man:kosu_man ~version:(CliCore.version) name in
-    Cmd.group info [KosuCfgSubc.cfg]
+    Cmd.group ~default:(cmd_term kosu_run) info [KosuCfgSubc.cfg]
   let eval () = Cmd.eval @@ kosu

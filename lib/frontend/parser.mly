@@ -76,17 +76,28 @@
 // %nonassoc ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
 
 %start modul
+%start iexpression_node
 
 %type <Ast.kbody> kbody
 %type <Ast.ktype> ktype
 %type <Ast._module> modul
 %type <Ast.kexpression> expr
+%type <Ast.iexpression_node> iexpression_node
 
 %%
 
 modul:
     | pns = list(module_nodes) EOF { Mod pns }
 ;;
+
+iexpression_node:
+    | iexpression_nodes { $1 }
+
+iexpression_nodes:
+    | module_nodes { IModule_Node $1 }
+    | statement { IStatement $1 }
+    | DOLLAR located(expr) SEMICOLON { IExpression $2 }
+
 
 %inline located(X): x=X {
   Position.located_value $startpos $endpos x

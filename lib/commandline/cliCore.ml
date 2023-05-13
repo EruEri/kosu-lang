@@ -57,6 +57,9 @@ module DefaultFront = struct
   module KosuFront =
     KosuFrontend.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
 
+  module KosuFrontInterpret = 
+    KosuInterpreter.Make(Compilation_Files)(ValidationRule)(TypeCheckerRule)
+    
   module Asttyconvert =
     KosuIrTyped.Asttyconvert.Make (TypeCheckerRule)
 end

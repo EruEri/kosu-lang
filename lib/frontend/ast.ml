@@ -238,6 +238,12 @@ type module_node =
   | NEnum of enum_decl
   | NConst of const_decl
 
+
+type iexpression_node = 
+| IModule_Node of module_node
+| IStatement of kstatement
+| IExpression of kexpression location
+
 type _module = Mod of module_node list
 type module_path = { path : string; _module : _module }
 type named_module_path = { filename : string; module_path : module_path }
