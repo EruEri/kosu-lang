@@ -92,8 +92,8 @@ let escape ~chars s =
     () *)
 
  let export_infer_graph_of_cfg ~outchan (cfg: Liveness.cfg_liveness_detail) () = 
-    let graph = Inference_Graph.infer cfg in
-    let bindings = Inference_Graph.IG.bindings graph in
+    let graph = Interference_Graph.interfere cfg in
+    let bindings = Interference_Graph.IG.bindings graph in
     let () = Printf.fprintf outchan "strict graph %s {\n" (Printf.sprintf "infered_%s" cfg.entry_block) in
     let () = bindings |> List.iter (fun (node, edges) ->   
       Printf.fprintf outchan "\t%s -- {%s}\n" 

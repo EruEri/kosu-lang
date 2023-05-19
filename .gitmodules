@@ -1,0 +1,3 @@
+[submodule "lib/kosu-register-allocator"]
+	path = lib/kosu-register-allocator
+	url = https://github.com/EruEri/kosu-register-allocator

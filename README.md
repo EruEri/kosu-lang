@@ -81,8 +81,7 @@ fn main() s32 {
 
 ## How to build 
 ```bash
-  $ opam install cmdliner clap menhir dune
-  $ opam pin add kosu_register_allocator https://github.com/EruEri/kosu-register-allocator.git
+  $ opam install dune cmdliner menhir
   $ git clone https://github.com/EruEri/kosu-lang
   $ cd kosu-lang
   $ dune build
