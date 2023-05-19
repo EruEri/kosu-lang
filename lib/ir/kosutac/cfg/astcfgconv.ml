@@ -136,9 +136,7 @@ let of_tac_body tac_body ~parameters ~locals_vars =
   }
 
 let cfg_of_tac_function tacfun = 
-  let s = of_tac_body tacfun.tac_body ~parameters:(tacfun.rparameters) ~locals_vars:(typed_set_of_locales_vars tacfun.locale_var) in
-  let () = Printf.printf "converted\n%!" in
-  s
+  of_tac_body tacfun.tac_body ~parameters:(tacfun.rparameters) ~locals_vars:(typed_set_of_locales_vars tacfun.locale_var)
 
 let cfg_detail_of_tac_function tacfun = 
   tacfun |> cfg_of_tac_function |> Asttaccfg.KosuRegisterAllocator.Detail.of_cfg
