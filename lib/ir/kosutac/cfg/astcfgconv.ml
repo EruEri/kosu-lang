@@ -61,8 +61,18 @@ end
   | STacModificationField _ -> begin
     failwith "STacModificationField"
   end
-  | STWhile _ -> begin 
-    failwith "TODO: STWHile"
+  | STWhile {statements_condition; condition; loop_body; self_label; inner_body_label; exit_label} -> begin 
+    let pre_jump = 
+      of_tac_statements ~start_label:(self_label) ~end_labels:[exit_label; inner_body_label]
+      ~ending:(Some {condition = condition; if_label = inner_body_label; else_label = exit_label}) 
+      ~cfg_statements (statements_condition, None)
+    in 
+    let loop_blocks = of_tac_body ~end_labels:[self_label] loop_body in
+    let blocks_continuation = of_tac_statements ~start_label:exit_label ~end_labels ~ending ~cfg_statements:[] (q, return) in
+    
+    pre_jump
+    |> merge_basic_block_map loop_blocks
+    |> merge_basic_block_map blocks_continuation
   end  
   | STIf {statement_for_bool; condition_rvalue; goto1; goto2; if_tac_body; else_tac_body; exit_label} ->
     let continuation = 
@@ -92,7 +102,7 @@ end
   let blocks_continuation = of_tac_statements ~start_label:exit_label ~end_labels ~ending ~cfg_statements:[] (q, return) in
 
   let cases_basic_block = tac_cases |> List.fold_left (fun acc {condition_label; statement_for_condition; condition; goto; jmp_false; end_label; tac_body} -> 
-    let start_label = match condition_label with Some s -> s | None -> "Very wierd start label for cases should be None" in
+    let start_label = match condition_label with Some s -> s | None -> failwith "Very wierd start label for cases should be None" in
     let block_condition = of_tac_statements ~start_label:start_label ~end_labels:[goto; jmp_false] 
         ~ending:(Some {condition; if_label = goto; else_label = jmp_false})
         ~cfg_statements:[] (statement_for_condition, None) in
@@ -125,7 +135,10 @@ let of_tac_body tac_body ~parameters ~locals_vars =
     locals_vars 
   }
 
-let cfg_of_tac_function tacfun = of_tac_body tacfun.tac_body ~parameters:(tacfun.rparameters) ~locals_vars:(typed_set_of_locales_vars tacfun.locale_var)
+let cfg_of_tac_function tacfun = 
+  let s = of_tac_body tacfun.tac_body ~parameters:(tacfun.rparameters) ~locals_vars:(typed_set_of_locales_vars tacfun.locale_var) in
+  let () = Printf.printf "converted\n%!" in
+  s
 
 let cfg_detail_of_tac_function tacfun = 
   tacfun |> cfg_of_tac_function |> Asttaccfg.KosuRegisterAllocator.Detail.of_cfg

@@ -55,7 +55,7 @@ module Cfg_Sig_Impl = struct
     match tte_idenfier_used tte with
     | [] -> acc
     | t::[] -> t::acc
-    | _::_ -> failwith "UNreachable only one zero element"
+    | _::_ -> failwith "Unreachable only one zero element"
   ) []
   | RVDiscard | RVLater -> []
 
