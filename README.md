@@ -82,7 +82,7 @@ fn main() s32 {
 ## How to build 
 ```bash
   $ opam install dune cmdliner menhir
-  $ git clone https://github.com/EruEri/kosu-lang
+  $ git clone --recurse-submodules  https://github.com/EruEri/kosu-lang
   $ cd kosu-lang
   $ dune build
 ```
