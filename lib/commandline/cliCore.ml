@@ -15,37 +15,50 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-open Cmdliner
+type architecture = Arm64 | X86_64
+type os = Macos | Linux | FreeBSD
 
-let name = "kosu"
-let kosu_doc = "The Kosu interpreter"
+let commit_hash () = KosuHash.commit_hash
 
-let kosu_man =
-  [
-    `S Manpage.s_description;
-    `P
-      "Kosu is (or will be at least I hope) a statically-typed, \
-       expression-oriented language.";
-    `P
-      "The philosophy of Kosu is to have as control over memory as C (manual \
-       memory management, pointers) while having some higher features like \
-       generics or sum type.";
-    `S Manpage.s_see_also;
-    `P "$(b,kosuc)(1)";
-    `Noblank;
-    `P "Repository:  https://github.com/EruEri/kosu-lang";
-    `S Manpage.s_authors;
-    `P "Yves Ndiaye";
-    `S "COPYRIGHT";
-    `P "Yves Ndiaye";
-    `S "LICENSE";
-    `P "Kosuc is distributed under the GNU GPL-3.0";
-  ]
-
-let kosu =
-  let info =
-    Cmd.info ~doc:kosu_doc ~man:kosu_man ~version:CliCore.version name
+let version =
+  let commit_hash =
+    () |> commit_hash
+    |> Option.map (Printf.sprintf "[%s]")
+    |> Option.value ~default:""
   in
-  Cmd.group info [ KosuRepl.repl; KosuCfgSubc.cfg ]
+  let v =
+    match Build_info.V1.version () with
+    | None -> "n/a"
+    | Some v -> Build_info.V1.Version.to_string v
+  in
+  Printf.sprintf "%s %s" v commit_hash
 
-let eval () = Cmd.eval @@ kosu
+let std_global_variable = "KOSU_STD_PATH"
+let architecture_global_variable = "KOSU_TARGET_ARCHI"
+let os_global_variable = "KOSU_TARGET_OS"
+let std_path = Sys.getenv_opt std_global_variable
+let is_kosu_file file = file |> Filename.extension |> ( = ) ".kosu"
+
+let string_of_enum ?(splitter = "|") ?(quoted = false) enum =
+  let f = if quoted then Cmdliner.Arg.doc_quote else Fun.id in
+  enum |> List.map (fun (elt, _) -> f elt) |> String.concat splitter
+
+module DefaultFront = struct
+  module ValidationRule : KosuFrontend.KosuValidationRule = struct end
+
+  module TypeCheckerRule : KosuFrontend.TypeCheckerRule = struct
+    let allow_generics_in_variadic = false
+  end
+
+  module Compilation_Files : KosuFrontend.Compilation_Files = struct
+    let std_global_variable = std_global_variable
+  end
+
+  module KosuFront =
+    KosuFrontend.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
+
+  module KosuFrontInterpret =
+    KosuInterpreter.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
+
+  module Asttyconvert = KosuIrTyped.Asttyconvert.Make (TypeCheckerRule)
+end

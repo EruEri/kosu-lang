@@ -174,7 +174,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       in
       ( STIf
           {
-            statement_for_bool = statement_for_bool @ stmt;
+            statement_for_bool = stmt @ statement_for_bool;
             condition_rvalue;
             goto1 = goto_label1;
             goto2 = goto_label2;
@@ -704,6 +704,10 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       failwith
         "Compiler code Error: Cannot create branch without previous allocation"
 
+(**
+    convert a rkbofy to a tac body
+    This function mostly unfold most the nested expression (.ie if) to a more flat representation 
+*)
 and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
     ~discarded_value ~count_var ~if_count ~cases_count ~switch_count
     ?(function_return = false) ~rprogram (rkbody : rkbody) =
@@ -1201,7 +1205,8 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
           discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
         }
 
-let rec tac_module_node_from_rmodule_node current_module rprogram = function
+let rec tac_module_node_from_rmodule_node current_module ?(dump_ast = false)
+    rprogram = function
   | RNExternFunc f -> TNExternFunc f
   | RNSyscall f -> TNSyscall f
   | RNStruct s -> TNStruct s
@@ -1209,18 +1214,20 @@ let rec tac_module_node_from_rmodule_node current_module rprogram = function
   | RNConst s -> TNConst s
   | RNFunction f ->
       let tmp = tac_function_decl_of_rfunction current_module rprogram f in
-      (* let () =
-           Printf.printf "Locales = %s\nBody:\n%s\n"
-             (tmp.locale_var
-             |> List.map Asttacpprint.string_of_typed_locale
-             |> String.concat ", ")
-             (Asttacpprint.string_of_label_tac_body tmp.tac_body)
-         in *)
+
+      let () =
+        if dump_ast then
+          Printf.eprintf "Locales = %s\nBody:\n%s\n"
+            (tmp.locale_var
+            |> List.map Asttacpprint.string_of_typed_locale
+            |> String.concat ", ")
+            (Asttacpprint.string_of_label_tac_body tmp.tac_body)
+      in
       TNFunction tmp
   | RNOperator s ->
       TNOperator (tac_operator_decl_of_roperator_decl current_module rprogram s)
 
-and tac_module_path_of_rmodule_path rprogram
+and tac_module_path_of_rmodule_path ?(dump_ast = false) rprogram
     { path; rmodule = RModule module_nodes } =
   {
     path;
@@ -1228,15 +1235,16 @@ and tac_module_path_of_rmodule_path rprogram
       TacModule
         (module_nodes
         |> List.map (fun node ->
-               tac_module_node_from_rmodule_node path rprogram node));
+               tac_module_node_from_rmodule_node ~dump_ast path rprogram node));
   }
 
-and tac_program_of_rprogram (rprogram : rprogram) : tac_program =
+and tac_program_of_rprogram ?(dump_ast = false) (rprogram : rprogram) :
+    tac_program =
   rprogram
   |> List.map (fun { filename; rmodule_path } ->
          {
            filename;
            tac_module_path =
-             tac_module_path_of_rmodule_path rprogram rmodule_path;
+             tac_module_path_of_rmodule_path ~dump_ast rprogram rmodule_path;
            rprogram;
          })

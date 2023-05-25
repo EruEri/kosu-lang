@@ -1386,12 +1386,12 @@ module RProgram = struct
                  path;
                  rmodule =
                    (if path = module_path then
-                    Rmodule.add_node
-                      (RNFunction
-                         (Function.function_decl_of_rtrue_function_decl
-                            rtrue_function_decl))
-                      rmodule
-                   else rmodule);
+                      Rmodule.add_node
+                        (RNFunction
+                           (Function.function_decl_of_rtrue_function_decl
+                              rtrue_function_decl))
+                        rmodule
+                    else rmodule);
                };
            })
 end

@@ -118,6 +118,7 @@ and string_of_tac_statement = function
         else_tac_body;
       } ->
       let buffer = Buffer.create 64 in
+      (* let () = Buffer.add_string buffer "### Start inner statement if\n" in *)
       let () =
         statement_for_bool
         |> List.iter (fun stmt ->
@@ -279,11 +280,11 @@ and string_of_tac_rvalue = function
         (enum_name |> Option.fold ~none:" " ~some:Fun.id)
         variant
         (if assoc_tac_exprs = [] then ""
-        else
-          sprintf "(%s)"
-            (assoc_tac_exprs
-            |> List.map string_of_typed_tac_expression
-            |> String.concat ", "))
+         else
+           sprintf "(%s)"
+             (assoc_tac_exprs
+             |> List.map string_of_typed_tac_expression
+             |> String.concat ", "))
   | RVTuple exprs ->
       sprintf "(%s)"
         (exprs |> List.map string_of_typed_tac_expression |> String.concat ", ")
@@ -305,7 +306,7 @@ and string_of_tac_rvalue = function
   | RVDiscard -> "discard"
 
 and string_of_typed_tac_rvalue { rval_rktype; rvalue } =
-  sprintf "%s ::> %s"
+  sprintf "%s :: %s"
     (string_of_tac_rvalue rvalue)
     (string_of_rktype rval_rktype)
 

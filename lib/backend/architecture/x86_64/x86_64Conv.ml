@@ -811,25 +811,25 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    Line_Com (Comment debug)
                    ::
                    (if is_register_size sizeof then
-                    [
-                      Instruction
-                        (Mov
-                           {
-                             size;
-                             destination = `Register tmpreg;
-                             source = `Address field_address;
-                           });
-                    ]
-                   else
-                     [
-                       Instruction
-                         (Lea
-                            {
-                              size = iq;
-                              source = field_address;
-                              destination = tmpreg;
-                            });
-                     ])
+                      [
+                        Instruction
+                          (Mov
+                             {
+                               size;
+                               destination = `Register tmpreg;
+                               source = `Address field_address;
+                             });
+                      ]
+                    else
+                      [
+                        Instruction
+                          (Lea
+                             {
+                               size = iq;
+                               source = field_address;
+                               destination = tmpreg;
+                             });
+                      ])
                  in
                  let cp_instrucion =
                    copy_from_reg tmpreg waddress rval_rktype rprogram
