@@ -143,8 +143,8 @@ module Program = struct
     let ( >>= ) = Result.bind in
 
     (if module_path.v = "" then
-     Some (program |> module_of_string current_module_name)
-    else program |> module_of_string_opt module_path.v)
+       Some (program |> module_of_string current_module_name)
+     else program |> module_of_string_opt module_path.v)
     |> Option.map Module.retrieve_struct_decl
     |> Option.to_result ~none:(Ast.Error.Unbound_Module module_path)
     >>= fun structs ->

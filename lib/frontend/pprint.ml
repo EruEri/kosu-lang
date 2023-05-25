@@ -58,7 +58,7 @@ let string_of_position_error { start_position; end_position } =
   let column_string =
     Printf.sprintf "%d%s" start_position_column
       (if start_position_column = end_position_column then ""
-      else " - " ^ string_of_int end_position_column)
+       else " - " ^ string_of_int end_position_column)
   in
   if start_position_line = end_position_line then
     Printf.sprintf "Line %d, Characters %s" start_position_line column_string
@@ -178,11 +178,11 @@ and string_of_kexpression = function
         (enum_name |> Option.fold ~none:" " ~some:Position.value)
         variant.v
         (if assoc_exprs = [] then ""
-        else
-          sprintf "(%s)"
-            (assoc_exprs |> List.map Position.value
-            |> List.map string_of_kexpression
-            |> String.concat ", "))
+         else
+           sprintf "(%s)"
+             (assoc_exprs |> List.map Position.value
+             |> List.map string_of_kexpression
+             |> String.concat ", "))
   | EWhile (condition, body) ->
       sprintf "while (%s) %s"
         (string_of_kexpression condition.v)
@@ -340,11 +340,10 @@ let string_of_enum_decl (enum_decl : enum_decl) =
     (enum_decl.variants
     |> List.map (fun (sl, kl) -> (sl.v, kl |> List.map Position.value))
     |> List.map string_of_enum_variant
-    |> String.concat ", ")
+    |> String.concat " | ")
 
-let string_of_const_decl (const_decl: const_decl) = 
-    sprintf "const %s : %s "
-    (const_decl.const_name.v)
+let string_of_const_decl (const_decl : const_decl) =
+  sprintf "const %s : %s " const_decl.const_name.v
     (string_of_ktype const_decl.explicit_type)
 
 let string_of_struct_decl (struct_decl : struct_decl) =
@@ -386,9 +385,10 @@ let string_of_syscall (syscall_decl : syscall_decl) =
 let string_of_func_decl (function_decl : function_decl) =
   sprintf "fn %s%s(%s)%s%s" function_decl.fn_name.v
     (if function_decl.generics = [] then ""
-    else
-      sprintf "<%s>"
-        (function_decl.generics |> List.map Position.value |> String.concat ", "))
+     else
+       sprintf "<%s>"
+         (function_decl.generics |> List.map Position.value
+        |> String.concat ", "))
     (function_decl.parameters
     |> List.map (fun (id, ktype) ->
            sprintf "%s: %s" id.v (string_of_ktype ktype.v))

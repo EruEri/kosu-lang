@@ -38,8 +38,6 @@ let fetch_std_file ~no_std () =
     let std_path = Option.get std_path in
     fetch_kosu_file std_path ()
 
-
-
 module Cli = struct
   open Cmdliner
 
@@ -81,7 +79,6 @@ module Cli = struct
   }
 
   let default_outfile = "a.out"
-
   let architecture_enum = [ ("arm64", Arm64); ("x86_64", X86_64) ]
   let os_enum = [ ("freebsd", FreeBSD); ("linux", Linux); ("macos", Macos) ]
 
@@ -247,8 +244,10 @@ module Cli = struct
     ]
 
   let kosuc run =
-    let info = Cmd.info ~doc:kosuc_doc ~man:kosuc_man ~version:(CliCore.version) name in
-    Cmd.v info (cmd_term run) 
+    let info =
+      Cmd.info ~doc:kosuc_doc ~man:kosuc_man ~version:CliCore.version name
+    in
+    Cmd.v info (cmd_term run)
 
   let run cmd =
     let {
@@ -285,19 +284,20 @@ module Cli = struct
       KosuFrontend.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
     in
     let module Asttyconvert = KosuIrTyped.Asttyconvert.Make (TypeCheckerRule) in
-    let module Codegen = (val match (architecture, os) with
-                              | X86_64, (FreeBSD | Linux) -> (module LinuxX86)
-                              | X86_64, Macos -> (module Mac0SX86)
-                              | Arm64, Macos -> (module MacOSAarch64)
-                              | Arm64, (FreeBSD | Linux) ->
-                                  (module FreebBSDAarch64)
-                            : KosuBackend.Codegen.S)
+    let module Codegen =
+      (val match (architecture, os) with
+           | X86_64, (FreeBSD | Linux) -> (module LinuxX86)
+           | X86_64, Macos -> (module Mac0SX86)
+           | Arm64, Macos -> (module MacOSAarch64)
+           | Arm64, (FreeBSD | Linux) -> (module FreebBSDAarch64)
+          : KosuBackend.Codegen.S)
     in
-    let module LinkerOption = (val match os with
-                                   | FreeBSD -> (module LdSpec.FreeBSDLdSpec)
-                                   | Linux -> (module LdSpec.LinuxLdSpec)
-                                   | Macos -> (module LdSpec.MacOSLdSpec)
-                                 : KosuBackend.Compil.LinkerOption)
+    let module LinkerOption =
+      (val match os with
+           | FreeBSD -> (module LdSpec.FreeBSDLdSpec)
+           | Linux -> (module LdSpec.LinuxLdSpec)
+           | Macos -> (module LdSpec.MacOSLdSpec)
+          : KosuBackend.Compil.LinkerOption)
     in
     let module Compiler = KosuBackend.Compil.Make (Codegen) (LinkerOption) in
     let () = KosuFront.Registerexn.register_kosu_error () in

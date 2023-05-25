@@ -19,50 +19,46 @@ open Cmdliner
 
 let name = "repl"
 
-type cmd = {
-  modules_files: string list;
-  interpreted_file: string option;
-}
+type cmd = { modules_files : string list; interpreted_file : string option }
 
-let interpreted_file_term = 
+let interpreted_file_term =
   Arg.(
-    value & opt (some file) None & info ["e"; "eval"] ~docv:"FILE" 
-    ~doc:"If $(docv,b) is given, phrases are read instead of reading from the stdin"
-  )
+    value
+    & opt (some file) None
+    & info [ "e"; "eval" ] ~docv:"FILE"
+        ~doc:
+          "If $(docv,b) is given, phrases are read instead of reading from the \
+           stdin")
 
-let modules_files_term = 
-  Arg.( 
-    value & pos_all file [] & info [] ~docv:"FILES"
-    ~doc:"Compile the files to be loaded by the repl"
-  )
+let modules_files_term =
+  Arg.(
+    value & pos_all file []
+    & info [] ~docv:"FILES" ~doc:"Compile the files to be loaded by the repl")
 
-let cmd_term run = 
-  let combine modules_files interpreted_file = 
-    run @@ {modules_files; interpreted_file}
+let cmd_term run =
+  let combine modules_files interpreted_file =
+    run @@ { modules_files; interpreted_file }
   in
-  Term.(const combine 
-    $ modules_files_term
-    $ interpreted_file_term
-  )
-  
+  Term.(const combine $ modules_files_term $ interpreted_file_term)
+
 let repl_doc = "Interpret through a read-eval-print-loop (REPL)"
 
-let repl_man = [
-  `S Manpage.s_description;
-  `P 
-    "kosu-repl allows you to evaluate phrases in a REPL";
-  `S Manpage.s_see_also;
-  `Noblank;
-]
+let repl_man =
+  [
+    `S Manpage.s_description;
+    `P "kosu-repl allows you to evaluate phrases in a REPL";
+    `S Manpage.s_see_also;
+    `Noblank;
+  ]
 
-let repl_main cmd = 
-  (* let () = Printf.printf "nb file : %u\n" (List.length cmd.modules_files) in 
-  let () = Printf.printf "Is some : %b\n" (Option.is_some cmd.interpreted_file) in *)
+let repl_main cmd =
+  (* let () = Printf.printf "nb file : %u\n" (List.length cmd.modules_files) in
+     let () = Printf.printf "Is some : %b\n" (Option.is_some cmd.interpreted_file) in *)
   let () = ignore cmd in
-  CliCore.DefaultFront.KosuFrontInterpret.repl 
-  ~welcome:(Printf.sprintf "Kosu version %s" CliCore.version)
-  ()
+  CliCore.DefaultFront.KosuFrontInterpret.repl
+    ~welcome:(Printf.sprintf "Kosu version %s" CliCore.version)
+    ()
 
-let repl = 
+let repl =
   let info = Cmd.info ~doc:repl_doc ~man:repl_man name in
   Cmd.v info (cmd_term repl_main)

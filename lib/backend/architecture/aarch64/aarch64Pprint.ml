@@ -180,7 +180,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               (string_of_register destination)
               (string_of_register operand1)
               (if not offset then string_of_src operand2
-              else sprintf ":lo12:%s" (string_of_src operand2)))
+               else sprintf ":lo12:%s" (string_of_src operand2)))
     | MADD { destination; operand1_base; operand2; scale } ->
         sprintf "madd %s, %s, %s, %s"
           (string_of_register destination)

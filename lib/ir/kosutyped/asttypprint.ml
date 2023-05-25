@@ -205,11 +205,11 @@ and string_of_rkexpression = function
         (enum_name |> Option.fold ~none:" " ~some:Fun.id)
         variant
         (if assoc_exprs = [] then ""
-        else
-          sprintf "(%s)"
-            (assoc_exprs
-            |> List.map string_of_typed_expression
-            |> String.concat ", "))
+         else
+           sprintf "(%s)"
+             (assoc_exprs
+             |> List.map string_of_typed_expression
+             |> String.concat ", "))
   | RETuple exprs ->
       sprintf "(%s)"
         (exprs |> List.map string_of_typed_expression |> String.concat ", ")
@@ -351,7 +351,7 @@ and string_of_rswitch_case = function
 let string_of_rfunc_decl (function_decl : rfunction_decl) =
   sprintf "fn %s%s(%s)%s%s" function_decl.rfn_name
     (if function_decl.generics = [] then ""
-    else sprintf "<%s>" (function_decl.generics |> String.concat ", "))
+     else sprintf "<%s>" (function_decl.generics |> String.concat ", "))
     (function_decl.rparameters
     |> List.map (fun (id, ktype) ->
            sprintf "%s: %s" id (string_of_rktype ktype))

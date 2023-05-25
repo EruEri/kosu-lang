@@ -18,8 +18,6 @@
 open Cmdliner
 
 let name = "kosu"
-
-
 let kosu_doc = "The Kosu interpreter"
 
 let kosu_man =
@@ -29,9 +27,9 @@ let kosu_man =
       "Kosu is (or will be at least I hope) a statically-typed, \
        expression-oriented language.";
     `P
-    "The philosophy of Kosu is to have as control over memory as C (manual \
-    memory management, pointers) while having some higher features like \
-    generics or sum type.";
+      "The philosophy of Kosu is to have as control over memory as C (manual \
+       memory management, pointers) while having some higher features like \
+       generics or sum type.";
     `S Manpage.s_see_also;
     `P "$(b,kosuc)(1)";
     `Noblank;
@@ -44,7 +42,10 @@ let kosu_man =
     `P "Kosuc is distributed under the GNU GPL-3.0";
   ]
 
-  let kosu =
-    let info = Cmd.info ~doc:kosu_doc ~man:kosu_man ~version:(CliCore.version) name in
-    Cmd.group info [KosuRepl.repl;KosuCfgSubc.cfg]
-  let eval () = Cmd.eval @@ kosu
+let kosu =
+  let info =
+    Cmd.info ~doc:kosu_doc ~man:kosu_man ~version:CliCore.version name
+  in
+  Cmd.group info [ KosuRepl.repl; KosuCfgSubc.cfg ]
+
+let eval () = Cmd.eval @@ kosu

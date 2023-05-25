@@ -868,13 +868,13 @@ module Instruction = struct
     | 1L ->
         Some
           (if not @@ KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype
-          then SB
-          else B)
+           then SB
+           else B)
     | 2L ->
         Some
           (if not @@ KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype
-          then SH
-          else H)
+           then SH
+           else H)
     | _ -> None
 
   let copy_from_reg register (adress : address) ktype rprogram =

@@ -60,6 +60,7 @@ let rec string_of_typed_locale typed_locale =
 and string_of_label_tac_body ?(end_jmp = None) tac_body =
   sprintf "%s:\n\t%s \n\n" tac_body.label
     (string_of_tac_body ~end_jmp tac_body.body)
+
 and string_of_tac_statement = function
   | STacDeclaration { identifier; trvalue } ->
       sprintf "%s = %s" identifier (string_of_typed_tac_rvalue trvalue)
@@ -279,11 +280,11 @@ and string_of_tac_rvalue = function
         (enum_name |> Option.fold ~none:" " ~some:Fun.id)
         variant
         (if assoc_tac_exprs = [] then ""
-        else
-          sprintf "(%s)"
-            (assoc_tac_exprs
-            |> List.map string_of_typed_tac_expression
-            |> String.concat ", "))
+         else
+           sprintf "(%s)"
+             (assoc_tac_exprs
+             |> List.map string_of_typed_tac_expression
+             |> String.concat ", "))
   | RVTuple exprs ->
       sprintf "(%s)"
         (exprs |> List.map string_of_typed_tac_expression |> String.concat ", ")

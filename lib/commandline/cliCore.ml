@@ -13,14 +13,13 @@
 (* You should have received a copy of the GNU General Public License along with Kosu.         *)
 (* If not, see <http://www.gnu.org/licenses/>.                                                *)
 (*                                                                                            *)
-(**********************************************************************************************) 
-
-
+(**********************************************************************************************)
 
 type architecture = Arm64 | X86_64
 type os = Macos | Linux | FreeBSD
 
 let commit_hash () = KosuHash.commit_hash
+
 let version =
   let commit_hash =
     () |> commit_hash
@@ -44,22 +43,22 @@ let string_of_enum ?(splitter = "|") ?(quoted = false) enum =
   let f = if quoted then Cmdliner.Arg.doc_quote else Fun.id in
   enum |> List.map (fun (elt, _) -> f elt) |> String.concat splitter
 
-
 module DefaultFront = struct
-  
   module ValidationRule : KosuFrontend.KosuValidationRule = struct end
+
   module TypeCheckerRule : KosuFrontend.TypeCheckerRule = struct
     let allow_generics_in_variadic = false
   end
+
   module Compilation_Files : KosuFrontend.Compilation_Files = struct
     let std_global_variable = std_global_variable
   end
+
   module KosuFront =
     KosuFrontend.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
 
-  module KosuFrontInterpret = 
-    KosuInterpreter.Make(Compilation_Files)(ValidationRule)(TypeCheckerRule)
-    
-  module Asttyconvert =
-    KosuIrTyped.Asttyconvert.Make (TypeCheckerRule)
+  module KosuFrontInterpret =
+    KosuInterpreter.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
+
+  module Asttyconvert = KosuIrTyped.Asttyconvert.Make (TypeCheckerRule)
 end

@@ -40,7 +40,7 @@ module Make (N : NamingSig) = struct
       Printf.sprintf "%s%s.%s%s" label_prefix
         (asm_module_path module_path)
         (if generics = [] then ""
-        else generics |> String.concat "." |> Printf.sprintf "_%s_")
+         else generics |> String.concat "." |> Printf.sprintf "_%s_")
         fn_name
 
   let label_of_external_function rextern_func_decl =

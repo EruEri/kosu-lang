@@ -238,11 +238,10 @@ type module_node =
   | NEnum of enum_decl
   | NConst of const_decl
 
-
-type iexpression_node = 
-| IModule_Node of module_node
-| IStatement of kstatement
-| IExpression of kexpression location
+type iexpression_node =
+  | IModule_Node of module_node
+  | IStatement of kstatement
+  | IExpression of kexpression location
 
 type _module = Mod of module_node list
 type module_path = { path : string; _module : _module }
@@ -629,8 +628,8 @@ module Type = struct
           {
             module_path =
               (if module_path.v = "" then
-               { v = new_module_name; position = module_path.position }
-              else module_path);
+                 { v = new_module_name; position = module_path.position }
+               else module_path);
             parametrics_type =
               parametrics_type
               |> List.map

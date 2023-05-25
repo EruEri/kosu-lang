@@ -32,8 +32,14 @@
 
 (executable
  (public_name kosu)
-  (modules kosu)
+ (modules kosu)
  (name kosu)
- (libraries kosuFrontend kosuIrTyped kosuBackend kosuIrTAC kosuClis kosuIrCfg)
+ (libraries
+  kosuFrontend
+  kosuIrTyped
+  kosuBackend
+  kosuIrTAC
+  kosuClis
+  kosuIrCfg)
  (flags
   (:standard -g)))

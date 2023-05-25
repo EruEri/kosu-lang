@@ -44,8 +44,8 @@ let rec parse lexbuf (checkpoint : Ast._module I.checkpoint) =
              state = None;
            })
 
-
-let rec kosu_repl_parse lexbuf (checkpoint : Ast.iexpression_node option I.checkpoint) =
+let rec kosu_repl_parse lexbuf
+    (checkpoint : Ast.iexpression_node option I.checkpoint) =
   match checkpoint with
   | I.InputNeeded _env -> (
       try
@@ -71,9 +71,9 @@ let rec kosu_repl_parse lexbuf (checkpoint : Ast.iexpression_node option I.check
       let current_lexeme = Lexing.lexeme lexbuf in
       Result.error
         (Syntax_Error
-            {
-              position;
-              current_lexeme;
-              message = "Parser reject the input";
-              state = None;
-            })
+           {
+             position;
+             current_lexeme;
+             message = "Parser reject the input";
+             state = None;
+           })
