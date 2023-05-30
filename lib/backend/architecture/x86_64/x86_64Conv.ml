@@ -1827,7 +1827,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                            (Mov
                                               {
                                                 size = IntSize data_size;
-                                                destination = `Register rax;
+                                                destination = `Register r11;
                                                 source =
                                                   `Address
                                                     (increment_adress offset_a
@@ -1837,7 +1837,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                            (Mov
                                               {
                                                 size = IntSize data_size;
-                                                source = `Register rax;
+                                                source = `Register r11;
                                                 destination =
                                                   `Address destination_address;
                                               });
@@ -1848,14 +1848,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                            (Lea
                                               {
                                                 size = iq;
-                                                destination = rax;
+                                                destination = r11;
                                                 source =
                                                   increment_adress offset_a
                                                     switch_variable_address;
                                               })
                                        in
                                        leaq
-                                       :: copy_from_reg rax destination_address
+                                       :: copy_from_reg r11 destination_address
                                             ktyte rprogram
                                    in
 
