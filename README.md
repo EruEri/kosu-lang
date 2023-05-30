@@ -20,7 +20,7 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 - [x] Fix Immediate encoding on arm64
 - [x] Implement Float for both architecture
 - [x] Implement Operator overload
-
+- [ ] Compile [kotoba](https://github.com/EruEri/kotoba) on arm and x86_64
 == Version 0.1.0 == 
 
 - [ ] Write a register allocator throught graph-coloring method (Will be in an other repository, to be used as a depedency)
