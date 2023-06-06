@@ -199,7 +199,7 @@ end
 module Instruction = struct
   open ConditionCode
   open Operande
-  open Register
+  (* open Register *)
   open Location
 
   type single_operande = {

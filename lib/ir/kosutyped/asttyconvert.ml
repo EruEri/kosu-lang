@@ -1048,6 +1048,9 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
 end
 
 module Sizeof = struct
+
+  let mapsize : (rktype, int64) Hashtbl.t = Hashtbl.create 17
+
   let ( ++ ) = Int64.add
   let ( -- ) = Int64.sub
 
@@ -1165,4 +1168,128 @@ module Sizeof = struct
   let discardable_size = function
     | 1L | 2L | 4L | 8L | 9L | 10L | 12L | 16L -> true
     | _ -> false
+
+    let compute_ktype rprogram ktype = 
+      match Hashtbl.find_opt mapsize ktype with
+      | Some _ -> ()
+      | None -> 
+        let size = sizeof rprogram ktype in
+        Hashtbl.replace mapsize ktype size
+
+    let rec compute_all_size_typed_expr rprogram typed_expression = 
+      let () = compute_ktype rprogram typed_expression.rktype in
+      match typed_expression.rexpression with
+      | REmpty
+      | RTrue
+      | RFalse
+      | RENullptr
+      | RECmpLess
+      | RECmpEqual
+      | RECmpGreater 
+      | REInteger (_, _, _)
+      | REFloat (_, _)
+      | REChar _
+      | REstring _
+      | REAdress _
+      | REDeference (_, _)
+      | REIdentifier _
+      | REConst_Identifier _ -> ()
+      | REStruct struct_expr -> 
+        struct_expr.fields |> List.iter (fun (_, type_expr) -> compute_all_size_typed_expr rprogram type_expr)
+      | REEnum {assoc_exprs = ty_exprs; _} 
+      | RETuple (ty_exprs)
+      | REBuiltin_Function_call {parameters = ty_exprs; _}
+      | REFunction_call {parameters = ty_exprs; _} -> 
+        ty_exprs |> List.iter (compute_all_size_typed_expr rprogram)
+      | REWhile (condition_expr, kbody) -> 
+        let () = compute_all_size_typed_expr rprogram condition_expr in
+        let () = compute_all_size_kbody rprogram kbody in
+        ()
+      | REIf (condition, if_body, else_body) -> 
+        let () = compute_all_size_typed_expr rprogram condition in
+        let () = compute_all_size_kbody rprogram if_body in
+        let () = compute_all_size_kbody rprogram else_body in
+        ()
+      | RECases {cases; else_case} -> 
+        let () = cases |> List.iter (fun (condition, body) -> 
+          let () = compute_all_size_typed_expr rprogram condition in
+          let () = compute_all_size_kbody rprogram body in
+          ()
+        ) in
+        let () = compute_all_size_kbody rprogram else_case in
+        ()
+      | RESizeof rktype -> compute_ktype rprogram rktype
+      | REFieldAcces {first_expr; _ } -> compute_all_size_typed_expr rprogram first_expr
+      | RESwitch {
+        rexpression;
+        cases;
+        wildcard_case : rkbody option 
+      } -> 
+        let () = compute_all_size_typed_expr rprogram rexpression in
+        let () = cases |> List.iter (fun (_, uplets, kbody) -> 
+          let () = uplets |> List.iter (fun (_, _, kt) -> compute_ktype rprogram kt) in
+          compute_all_size_kbody rprogram kbody
+        ) in
+        let () = wildcard_case |> Option.iter (compute_all_size_kbody rprogram) in
+        ()
+      | REBinOperator_Function_call binop | REBin_op binop -> 
+        let lhs, rhs = Asttyhelper.Binop.operands binop in
+        let () = compute_all_size_typed_expr rprogram lhs in
+        let () = compute_all_size_typed_expr rprogram rhs in
+        ()
+      | REUnOperator_Function_call unop | REUn_op unop -> 
+        begin match unop with
+        | RUMinus typed_expression | RUNot typed_expression -> 
+          compute_all_size_typed_expr rprogram typed_expression
+      end 
+
+    and compute_all_size_statement rprogram = function
+      | RSDeclaration { typed_expression; _ }
+      | RSAffection (_, typed_expression)
+      | RSDiscard typed_expression
+      | RSDerefAffectation (_, typed_expression) -> compute_all_size_typed_expr rprogram typed_expression
+    and compute_all_size_kbody rprogram (stmts, final_expr) = 
+      let () = stmts |> List.iter (compute_all_size_statement rprogram) in
+      let () = compute_all_size_typed_expr rprogram final_expr in
+      ()
+    let compute_all_size_module_node rprogram = function
+    | RNConst rconst_decl -> compute_ktype rprogram rconst_decl.value.rktype
+    | RNExternFunc {fn_parameters = parameters; return_type; _ } | RNSyscall {parameters; return_type; _} -> 
+      let () = parameters |> List.iter (compute_ktype rprogram) in
+      let () = compute_ktype rprogram return_type in
+      ()
+    | RNOperator roperator_decl -> begin 
+      match roperator_decl with
+      | RBinary {rbfields = (_, lhs), (_, rhs); return_type; kbody; _} -> 
+        let () = compute_ktype rprogram lhs in
+        let () = compute_ktype rprogram rhs in
+        let () = compute_ktype rprogram return_type in
+        compute_all_size_kbody rprogram kbody
+      | RUnary {rfield = (_, kt); return_type; kbody; _} -> 
+        let () = compute_ktype rprogram kt in
+        let () = compute_ktype rprogram return_type in
+        compute_all_size_kbody rprogram kbody
+    end
+    | RNEnum renum_decl -> 
+      let () = renum_decl.rvariants |> List.iter ( fun (_, kts) -> 
+        kts |> List.iter (compute_ktype rprogram)
+      ) in
+      ()
+    | RNStruct { rfields; _ } -> 
+      rfields |> List.iter (fun (_, kt) -> compute_ktype rprogram kt)
+    | RNFunction rfunction_decl -> 
+      let () = rfunction_decl.rparameters |> List.iter (fun (_, kt) -> compute_ktype rprogram kt) in
+      let () = compute_ktype rprogram rfunction_decl.return_type in
+      let () = compute_all_size_kbody rprogram rfunction_decl.rbody in
+      ()
+
+    let compute_all_size_module_path rprogram {rmodule = RModule rmodules; _} = 
+      rmodules |> List.iter (compute_all_size_module_node rprogram)
+      
+    (** To be call once all generics are replaced *)
+    let compute_all_size rprogram () = 
+      rprogram
+      |> List.iter (fun { rmodule_path : rmodule_path; _} -> 
+        compute_all_size_module_path rprogram rmodule_path
+      )
 end
