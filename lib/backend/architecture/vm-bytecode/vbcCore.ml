@@ -176,61 +176,61 @@ module Instruction = struct
   }
 
   type t = 
-  | Halt
-  | Ret
-  | Syscall
-  | CCall of src
-  | Mvnt of single_operande
-  | Mvng of single_operande
-  | Mv of single_operande
-  | Mva of {
-    operandes : single_operande;
-    shift : shift
-  }
-  | Jump of src
-  | Br of src
-  | Lea of {
-    destination : Register.register;
-    operande: lea_operande
-  }
-  | Add of bin_op_operande
-  | Sub of bin_op_operande
-  | Mult of bin_op_operande
-  | Div of {
-    operande: bin_op_operande;
-    signed: bool
-  }
-  | Mod of {
-    operande: bin_op_operande;
-    signed: bool
-  }
-  | And of bin_op_operande
-  | Or of bin_op_operande
-  | Xor of bin_op_operande
-  | Lsl of bin_op_operande
-  | Asr of bin_op_operande
-  | Lsr of bin_op_operande
-  | Cmp of {
-    cc: condition_code;
-    lhs: Register.register;
-    rhs: Register.register;
-  }
-  | Cset of {
-    cc: condition_code;
-    destination: Register.register;
-    lhs: Register.register;
-    rhs: Register.register;
-    update_last_cmp: bool;
-  }
-  | Ldr of {
-    data_size: data_size;
-    destination: Register.register;
-    address: address
-  }
-  | Str of {
-    data_size: data_size;
-    destination: Register.register;
-    address: address
-  }
+    | Halt
+    | Ret
+    | Syscall
+    | CCall of src
+    | Mvnt of single_operande
+    | Mvng of single_operande
+    | Mv of single_operande
+    | Mva of {
+      operandes : single_operande;
+      shift : shift
+    }
+    | Jump of src
+    | Br of src
+    | Lea of {
+      destination : Register.register;
+      operande: lea_operande
+    }
+    | Add of bin_op_operande
+    | Sub of bin_op_operande
+    | Mult of bin_op_operande
+    | Div of {
+      operande: bin_op_operande;
+      signed: bool
+    }
+    | Mod of {
+      operande: bin_op_operande;
+      signed: bool
+    }
+    | And of bin_op_operande
+    | Or of bin_op_operande
+    | Xor of bin_op_operande
+    | Lsl of bin_op_operande
+    | Asr of bin_op_operande
+    | Lsr of bin_op_operande
+    | Cmp of {
+      cc: condition_code;
+      lhs: Register.register;
+      rhs: Register.register;
+    }
+    | Cset of {
+      cc: condition_code;
+      destination: Register.register;
+      lhs: Register.register;
+      rhs: Register.register;
+      update_last_cmp: bool;
+    }
+    | Ldr of {
+      data_size: data_size;
+      destination: Register.register;
+      address: address
+    }
+    | Str of {
+      data_size: data_size;
+      destination: Register.register;
+      address: address
+    }
 
 end
