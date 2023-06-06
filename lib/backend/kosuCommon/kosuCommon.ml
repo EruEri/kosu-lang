@@ -57,7 +57,7 @@ module OffsetHelper = struct
              RStruct.instanciate_struct_decl mapped_generics struct_decl
            in
            let offset =
-             KosuIrTyped.Asttyconvert.Sizeof.offset_of_field
+             KosuIrTyped.Sizeof.offset_of_field
                ~generics:hashmap_generis field struct_decl rprogram
            in
            let acc_offset = Int64.add acc_offset offset in

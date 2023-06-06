@@ -58,7 +58,7 @@ let data_size_of_ktype ?(default = Q) rprogram ktype =
   | KosuIrTyped.Asttyped.RTFloat KosuFrontend.Ast.F32 -> FloatSize SS
   | RTFloat F64 -> FloatSize SD
   | kt ->
-      let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt in
+      let size = KosuIrTyped.Sizeof.sizeof rprogram kt in
       IntSize (int_data_size_of_int64_def ~default size)
 
 let data_size_of_ktype_opt rprogram ktype =
@@ -66,7 +66,7 @@ let data_size_of_ktype_opt rprogram ktype =
   | KosuIrTyped.Asttyped.RTFloat KosuFrontend.Ast.F32 -> Some (FloatSize SS)
   | RTFloat F64 -> Some (FloatSize SD)
   | kt ->
-      let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt in
+      let size = KosuIrTyped.Sizeof.sizeof rprogram kt in
       size |> data_size_of_int64 |> Option.map (fun size -> IntSize size)
 
 let data_size_min_l = function
@@ -86,7 +86,7 @@ let fdate_size_of_fsize =
 let is_register_size = function 1L | 2L | 4L | 8L -> true | _ -> false
 
 let is_register_size_ktype rprogram ktype =
-  let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+  let size = KosuIrTyped.Sizeof.sizeof rprogram ktype in
   is_register_size size
 
 module Register = struct
@@ -512,7 +512,7 @@ let rec copy_large ~address_str ~base_address_reg size =
   *)
 let copy_from_reg (register : Register.register) address ktype rprogram =
   let open Instruction in
-  let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+  let size = KosuIrTyped.Sizeof.sizeof rprogram ktype in
   match size with
   | s when is_register_size s ->
       let data_size = data_size_of_ktype rprogram ktype in
@@ -614,7 +614,7 @@ module FrameManager = struct
   (* open Instruction *)
   open Register
   open Operande
-  open KosuIrTyped.Asttyconvert.Sizeof
+  open KosuIrTyped.Sizeof
 
   type frame_desc = {
     stack_param_count : int;
@@ -637,7 +637,7 @@ module FrameManager = struct
     let stack_param_count = stack_param |> List.length in
     let need_result_ptr =
       return_type
-      |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+      |> KosuIrTyped.Sizeof.sizeof rprogram
       |> is_register_size |> not
     in
 
@@ -653,7 +653,7 @@ module FrameManager = struct
     let fake_tuple = stack_concat |> List.map snd in
     let locals_space =
       fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
-      |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+      |> KosuIrTyped.Sizeof.sizeof rprogram
     in
     let locals_space = Int64.add locals_space stack_future_call in
 
@@ -743,7 +743,7 @@ module FrameManager = struct
     let stack_params_offset =
       stack_params
       |> List.map (fun (_, kt) ->
-             if KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt > 8L then
+             if KosuIrTyped.Sizeof.sizeof rprogram kt > 8L then
                KosuIrTyped.Asttyhelper.RType.rpointer kt
              else kt)
     in
@@ -756,7 +756,7 @@ module FrameManager = struct
       |> List.fold_left
            (fun acc (index, (name, kt)) ->
              let sizeofkt =
-               KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt
+               KosuIrTyped.Sizeof.sizeof rprogram kt
              in
              let offset =
                offset_of_tuple_index index stack_params_offset rprogram

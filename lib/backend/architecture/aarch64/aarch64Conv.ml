@@ -18,7 +18,7 @@
 open Aarch64Core
 open Aarch64Core.Instruction
 open Aarch64Core.Register
-open KosuIrTyped.Asttyconvert.Sizeof
+open KosuIrTyped.Sizeof
 open KosuIrTAC.Asttachelper.StringLitteral
 open KosuIrTAC.Asttac
 open Util
@@ -28,7 +28,7 @@ open AsmProgram
 module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
   module Pp = Aarch64Pprint.Make (AsmSpec)
 
-  let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
+  let sizeofn = KosuIrTyped.Sizeof.sizeof
 
   let copy_result ?(before_copy = fun _ -> []) ~where ~register ~rval_rktype
       rprogram =
@@ -765,7 +765,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let last_reg, load_indirect =
           if
             is_register_size
-            @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram rval_rktype
+            @@ KosuIrTyped.Sizeof.sizeof rprogram rval_rktype
           then
             let ldr =
               ldr_instr ~data_size:None ~destination:x8 (create_adress x9)
@@ -927,7 +927,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         | true ->
             let pointee_size =
               rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee
-              |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+              |> KosuIrTyped.Sizeof.sizeof rprogram
             in
             let r9 = tmp64reg_2 in
             let r10 = tmp64reg_3 in

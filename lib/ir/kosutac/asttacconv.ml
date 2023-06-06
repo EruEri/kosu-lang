@@ -853,13 +853,13 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
           in
 
           let sizeof_discard =
-            KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+            KosuIrTyped.Sizeof.sizeof rprogram
               discard_typed_expression.rktype
           in
           let () =
             match tac_rvalue.tac_expression with
             | TEIdentifier id
-              when KosuIrTyped.Asttyconvert.Sizeof.discardable_size
+              when KosuIrTyped.Sizeof.discardable_size
                      sizeof_discard ->
                 let () = Hashtbl.remove map id in
                 let () =

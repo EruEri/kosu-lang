@@ -19,11 +19,11 @@ open X86_64Core
 open X86_64Core.Register
 open X86_64Core.Operande
 open X86_64Core.Instruction
-open KosuIrTyped.Asttyconvert.Sizeof
+open KosuIrTyped.Sizeof
 open KosuIrTAC.Asttac
 open Util
 
-let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
+let sizeofn = KosuIrTyped.Sizeof.sizeof
 
 module X86Program = KosuCommon.AsmProgram (X86_64Core.Instruction)
 open X86Program
@@ -964,7 +964,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let last_reg, load_indirect =
           if
             is_register_size
-            @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram rval_rktype
+            @@ KosuIrTyped.Sizeof.sizeof rprogram rval_rktype
           then
             ( rax,
               [
@@ -1180,7 +1180,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         | true ->
             let pointee_size =
               rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee
-              |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+              |> KosuIrTyped.Sizeof.sizeof rprogram
             in
             let ptr_reg, linstructions =
               translate_tac_expression ~litterals ~target_dst:(`Register rax)
