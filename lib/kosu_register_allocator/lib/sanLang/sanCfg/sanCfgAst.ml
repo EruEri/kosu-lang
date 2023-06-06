@@ -72,8 +72,13 @@ module CfgPprint = struct
   let string_of_atom = SanTyped.SanTyPprint.string_of_typed_atom
   let string_of_rvalue = SanTyped.SanTyPprint.string_of_typed_san_rvalue
 end
+<<<<<<< HEAD
 
 module SanRegisterAllocator =
   KosuRegisterAllocator.MakePprint (Cfg_Sig) (CfgPprint)
 
 module GreedyColoring = SanRegisterAllocator.GreedyColoring (SanCfgRegister)
+=======
+module SanRegisterAllocator = KosuRegisterAllocator.MakePprint( Cfg_Sig)(CfgPprint)
+module GreedyColoring = SanRegisterAllocator.GreedyColoring(SanCfgRegister)
+>>>>>>> fd18d3e ([San]: Mov Sancfg to SanCommon)

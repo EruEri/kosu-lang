@@ -18,6 +18,14 @@
 module AsmAst = AsmAst
 module NamingConvention = NamingConvention
 
+
+module SanRegisterAllocator = CfgBase.SanRegisterAllocator
+module SanVariableMap = CfgBase.SanVariableMap
+module Cfg_Sig = CfgBase.Cfg_Sig
+module CfgPprint = CfgBase.CfgPprint
+module CfgConv = CfgBase.Conv
+
+
 module Sizeof = struct
   let align n b =
     let m = n mod b in

@@ -61,7 +61,8 @@ module type ABI = sig
   val callee_saved_register : t list
   val caller_saved_register : t list
   val syscall_register : t list
-  val arguments_register : t list
+  val arguments_register : variable -> t list
+  val is_valid_register : variable -> t -> bool
   val does_return_hold_in_register : variable -> bool
   val indirect_return_register : t
   val return_strategy : variable -> return_strategy
@@ -1084,11 +1085,11 @@ module Make (CfgS : CfgS) :
       in
       cg
 
-    let coloration ~(parameters : (TypedIdentifierSet.elt * ABI.t) list)
-        ~available_color (cfg : Liveness.cfg_liveness_detail) =
-      let cg = base_coloration ~parameters ~available_color cfg in
-      let cg = decolaration ~parameters cfg cg in
-      cg
+      let coloration ~(parameters : (TypedIdentifierSet.elt * ABI.t) list)
+        ~available_color (cfg : Liveness.cfg_liveness_detail) = 
+        let cg = base_coloration ~parameters ~available_color ~select:ABI.is_valid_register cfg in
+        let cg = decolaration ~parameters cfg cg in
+        cg
   end
 end
 

@@ -93,6 +93,7 @@ let escape ~chars s =
   in
   buffer |> Buffer.to_bytes |> Bytes.to_string
 
+<<<<<<< HEAD
 let export_colored_graph ~outchan (cfg : Liveness.cfg_liveness_detail) () =
   let open SanCfgAst in
   let open SanCfgAst.GreedyColoring.ColoredGraph in
@@ -130,6 +131,27 @@ let export_colored_graph ~outchan (cfg : Liveness.cfg_liveness_detail) () =
                     node.node |> SanCfgAst.Cfg_Sig.repr |> quoted)
              |> String.concat " "))
   in
+=======
+let export_colored_graph ~outchan (cfg: Liveness.cfg_liveness_detail) () = 
+    let open SanCfgAst in
+    let open SanCfgAst.GreedyColoring.ColoredGraph in
+    let parameters = combine_safe cfg.parameters (SanCfgRegister.arguments_register ()) in
+    let graph = GreedyColoring.coloration ~parameters ~available_color:[R8; R9; R10; R11; R12] cfg in
+    let bindings = GreedyColoring.ColoredGraph.bindings graph in
+    let () = Printf.fprintf outchan "strict graph %s {\n" (Printf.sprintf "infered_%s" cfg.entry_block) in
+    let () = bindings |> List.iter (fun (node, _) -> 
+      Printf.fprintf outchan "\t%s [color=%s]\n"
+      (node.node |> SanCfgAst.Cfg_Sig.repr |> quoted)
+      ( match node.color with
+        | None -> "black"
+        | Some c -> SanCfgRegister.color_map |> List.assoc_opt c |> Option.value ~default:"white" |> quoted)
+    ) in
+    let () = bindings |> List.iter (fun (node, edges) ->  
+      Printf.fprintf outchan "\t%s -- {%s}\n" 
+      (node.node |> SanCfgAst.Cfg_Sig.repr |> quoted)  
+      (edges |> List.map (fun node -> node.node |> SanCfgAst.Cfg_Sig.repr |> quoted) |> String.concat " ")
+    ) in 
+>>>>>>> fd18d3e ([San]: Mov Sancfg to SanCommon)
 
   let () = Printf.fprintf outchan "}" in
   ()

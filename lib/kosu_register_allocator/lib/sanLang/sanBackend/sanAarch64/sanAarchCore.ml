@@ -15,8 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module SanVariableMap = SanCfg.SanVariableMap
-open Common
+module SanVariableMap = SanCommon.SanVariableMap
+open SanCommon
 
 module Immediat = struct
   let mask_6_8bytes = 0xFFFF_0000_0000_0000L
@@ -187,6 +187,8 @@ module Register = struct
   let arguments_register = [ X0; X1; X2; X3; X4; X5; X6; X7 ]
   let syscall_register = [ X0; X1; X2; X3; X4; X5 ]
   let available_register = [ X8; X9; X10; X11; X12 ]
+
+  let is_valid_register (_: variable) (_: t) = true
   let does_return_hold_in_register _ = true
   let indirect_return_register = X8
   let return_strategy _ = Simple_return X0
@@ -211,7 +213,7 @@ module Operande = struct
   type dst = Register.register
 end
 
-module GreedyColoration = SanCfg.SanRegisterAllocator.GreedyColoring (Register)
+module GreedyColoration = SanCommon.SanRegisterAllocator.GreedyColoring(Register)
 
 module Location = struct
   type adress_offset = [ `ILitteral of int64 | `Register of Register.register ]
@@ -733,6 +735,7 @@ module FrameManager = struct
            (`ILitteral (Int64.of_int variable_frame_size))
     in
 
+<<<<<<< HEAD
     let parameter_count = List.length Register.arguments_register in
     let register_parameters, _stack_parameters =
       function_decl.parameters |> List.mapi Util.couple
@@ -740,9 +743,16 @@ module FrameManager = struct
              if index < parameter_count then Either.left variable
              else Either.right variable)
     in
+=======
+    let parameter_count = List.length (Register.arguments_register ()) in
+    let register_parameters, _stack_parameters = function_decl.parameters |> List.mapi Util.couple |> List.partition_map (fun (index, variable) ->
+      if index < parameter_count then Either.left variable else Either.right variable
+    ) in
+>>>>>>> fd18d3e ([San]: Mov Sancfg to SanCommon)
 
     let store_parameters_value =
       register_parameters
+<<<<<<< HEAD
       |> Util.combine_safe Register.arguments_register
       |> List.filter_map (fun (register, variable) ->
              match location_of variable fd with
@@ -753,6 +763,20 @@ module FrameManager = struct
                ~data_size:(Condition_Code.data_size_of_variable variable)
                ~source:(Register.according_register_variable register variable)
                address)
+=======
+      |> Util.combine_safe (Register.arguments_register ())
+      |> List.filter_map (fun (register, variable) -> 
+        match location_of variable fd with
+        | LocAddr address -> Some (variable, register, address)
+        | LocReg _ -> None
+      )
+      |> List.map (fun (variable, register, address) -> 
+        str_instr 
+          ~data_size:(Condition_Code.data_size_of_variable variable)
+          ~source:(Register.according_register_variable register variable)
+          address
+      )
+>>>>>>> fd18d3e ([San]: Mov Sancfg to SanCommon)
       |> List.flatten
     in
     (stack_sub_line :: base) @ (alignx29_line :: store_parameters_value)

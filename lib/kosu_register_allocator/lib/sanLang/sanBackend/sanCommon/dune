@@ -16,8 +16,8 @@
 ;**********************************************************************************************;
 
 (library
- (name common)
+ (name sanCommon)
  (enabled_if
   (= %{profile} san))
- (modules common asmAst namingConvention)
- (libraries util sanTyped))
+  (modules sanCommon asmAst namingConvention cfgBase)
+ (libraries util sanTyped kosuRegisterAllocator))

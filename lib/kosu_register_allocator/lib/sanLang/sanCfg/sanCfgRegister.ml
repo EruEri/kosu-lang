@@ -48,8 +48,21 @@ let callee_saved_register = []
 let caller_saved_register =
   [ R0; R1; R2; R3; R4; R5; R6; R7; R8; R9; R10; R11; R12; R13 ]
 
+<<<<<<< HEAD
 let arguments_register = [ R0; R1; R2; R3; R4; R5; R6; R7 ]
 let available_register = [ R8; R9; R10; R11; R12 ]
+=======
+let arguments_register _ = [
+    R0;
+    R1;
+    R2;
+    R3;
+    R4;
+    R5;
+    R6;
+    R7
+  ]
+>>>>>>> fd18d3e ([San]: Mov Sancfg to SanCommon)
 
 let color_map =
   [
@@ -70,4 +83,11 @@ let color_map =
 
 let does_return_hold_in_register _ = true
 let indirect_return_register = R8
+<<<<<<< HEAD
 let return_strategy _ = Simple_return R0
+=======
+
+let is_valid_register _ _ = true
+
+let return_strategy _ = Simple_return R0 
+>>>>>>> fd18d3e ([San]: Mov Sancfg to SanCommon)

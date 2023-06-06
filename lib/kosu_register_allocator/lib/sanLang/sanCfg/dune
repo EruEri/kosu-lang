@@ -19,5 +19,10 @@
  (name sanCfg)
  (enabled_if
   (= %{profile} san))
+<<<<<<< HEAD
  (modules sanCfg sanCfgConv sanCfgAst sanCfgPprint sanCfgRegister)
  (libraries kosuRegisterAllocator sanTyped sanFrontend util))
+=======
+  (modules sanCfg sanCfgConv sanCfgAst sanCfgPprint sanCfgRegister)
+ (libraries kosuRegisterAllocator sanTyped sanFrontend util sanBackend))
+>>>>>>> fd18d3e ([San]: Mov Sancfg to SanCommon)

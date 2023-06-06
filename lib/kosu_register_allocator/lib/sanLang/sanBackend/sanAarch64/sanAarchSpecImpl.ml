@@ -24,7 +24,7 @@ struct
     let label_prefix = "_"
   end
 
-  module MacosNamingConvention = Common.NamingConvention.Make (MacosNamingSig)
+  module MacosNamingConvention = SanCommon.NamingConvention.Make(MacosNamingSig)
   include MacosNamingConvention
 
   type address_load_style = MacOS | Other
