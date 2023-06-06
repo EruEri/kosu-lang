@@ -18,3 +18,7 @@
 module Codegen = SanAarchCodegen
 module Specification = SanAarchSpecification
 module Implementation = SanAarchSpecImpl
+<<<<<<< HEAD
+=======
+module Register = SanAarchCore.Register
+>>>>>>> 4dfa4e5 ([San]: fix compilation)

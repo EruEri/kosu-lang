@@ -106,7 +106,31 @@ module Register = struct
     | XZR
     | SP
 
+<<<<<<< HEAD
   type register = { register : raw_register; size : register_size }
+=======
+    let color_map = [
+    (X0, "aqua");
+    (X1, "red");
+    (X2, "fuchsia");
+    (X3, "green");
+    (X4, "navyblue");
+    (X5, "pink");
+    (X6, "orange");
+    (X7, "yellow");
+    (X8, "hotpink");
+    (X9, "indigo");
+    (X10, "magenta");
+    (X11, "purple");
+    (X12, "cyan")
+  ]
+
+  type register = {
+    register: raw_register;
+    size: register_size
+  }
+
+>>>>>>> 4dfa4e5 ([San]: fix compilation)
   type t = raw_register
 
   let word_regsize =
@@ -183,10 +207,50 @@ module Register = struct
       X15;
     ]
 
+<<<<<<< HEAD
   let callee_saved_register = [ X16; X29; X30; SP ]
   let arguments_register = [ X0; X1; X2; X3; X4; X5; X6; X7 ]
   let syscall_register = [ X0; X1; X2; X3; X4; X5 ]
   let available_register = [ X8; X9; X10; X11; X12 ]
+=======
+  let callee_saved_register = [
+    X16;
+    X29;
+    X30;
+    SP
+  ]
+
+  let non_float_argument_registers = 
+    [
+    X0;
+    X1;
+    X2;
+    X3;
+    X4;
+    X5;
+    X6;
+    X7;
+  ]
+
+  let arguments_register _ = non_float_argument_registers
+
+  let syscall_register = [
+    X0;
+    X1;
+    X2;
+    X3;
+    X4;
+    X5;
+  ]
+
+  let available_register = [
+    X8;
+    X9;
+    X10;
+    X11;
+    X12
+  ]
+>>>>>>> 4dfa4e5 ([San]: fix compilation)
 
   let is_valid_register (_: variable) (_: t) = true
   let does_return_hold_in_register _ = true

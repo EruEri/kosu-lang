@@ -112,6 +112,8 @@ end
     *)
     val arguments_register : variable -> t list
 
+    val non_float_argument_registers : t list
+
     val is_valid_register : variable -> t -> bool
 
     val does_return_hold_in_register : variable -> bool

@@ -166,15 +166,14 @@ module Cfg_Command = struct
       (san_function : SanTyped.SanTyAst.ty_san_function) =
     match infered with
     | false -> ()
-    | true ->
-        let livecfg =
-          SanCfg.SanCfgConv.liveness_of_san_tyfunction san_function
-        in
-        let transform =
-          if colored then SanCfg.SanCfgPprint.export_colored_graph
-          else SanCfg.SanCfgPprint.export_infer_graph_of_cfg
-        in
-        transform ~outchan:oc livecfg ()
+    | true -> 
+      let livecfg = SanCommon.CfgConv.liveness_of_san_tyfunction san_function in
+      let transform = if colored then SanCfg.SanCfgPprint.export_colored_graph 
+        ~color_map:SanAarch64.Register.color_map
+        ~available_color:SanAarch64.Register.available_register
+        else SanCfg.SanCfgPprint.export_infer_graph_of_cfg
+      in
+      transform ~outchan:oc livecfg ()
 
   let export_from_san_function cmd
       (san_function : SanTyped.SanTyAst.ty_san_function) =

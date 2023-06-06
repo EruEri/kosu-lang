@@ -16,3 +16,7 @@
 (**********************************************************************************************)
 
 module Aarch64 = SanAarch64
+<<<<<<< HEAD
+=======
+module SanCommon = SanCommon
+>>>>>>> 4dfa4e5 ([San]: fix compilation)
