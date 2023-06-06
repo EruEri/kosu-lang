@@ -46,7 +46,7 @@ typedef enum {
     CSET,
     LDR,
     STR
-} opcode_t;
+} vm_opcode_t;
 
 
 typedef enum {

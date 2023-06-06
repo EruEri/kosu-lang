@@ -18,6 +18,7 @@
 #include "vm.h"
 #include "stack.h"
 #include "util.h"
+#include "vm_base.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -37,6 +38,9 @@
 #define CC_ONLY_MASK 0xF
 #define BR_JMP_MASK 0X3
 #define DATA_SIZE_MASK 0x3
+
+#define VM_INSTR_SUCESS 0
+#define VM_HALT_EXIT_CODE 1
 
 const uint32_t VM_OPCODE_MASK = 0b11111000000000000000000000000000;
 const uint32_t VM_INSTRUCTION_SIZE = 32;
@@ -157,10 +161,10 @@ int64_t sext16(instruction_t instruction) {
     }
 }
 
-int64_t sext14(instruction_t instruction) {
-    const uint32_t eigthteen_first_mask = 0xFFFF8000;
+int64_t sext13(instruction_t instruction) {
+    const uint32_t eigthteen_first_mask = 0xFFFFC000;
     const uint32_t litteral = instruction & ~eigthteen_first_mask;
-    if (is_set(instruction, mask_bit(13))) {
+    if (is_set(instruction, mask_bit(12))) {
         return eigthteen_first_mask | litteral;
     } else {
         return litteral;
@@ -505,6 +509,9 @@ int cmp(vm_t* vm, instruction_t instruction) {
     if (is_cset) {
         reg_t* reg3 = register_of_int32(vm, instruction, 12);
         *reg3 = value;
+        if (is_set(instruction, mask_bit(11))) {
+            vm->last_cmp = value;
+        }
     } else {
         vm->last_cmp = value;
     }
@@ -516,7 +523,10 @@ int ldr(vm_t* vm, instruction_t instruction) {
     data_size_t ds = (instruction >> 24) & DATA_SIZE_MASK;
     reg_t* dst = register_of_int32(vm, instruction, 19);
     reg_t* base = register_of_int32(vm, instruction, 14);
-    int64_t offset = sext14(instruction);
+    bool_t is_offset_reg = is_set(instruction, mask_bit(13));
+    int64_t offset = is_offset_reg 
+        ? *register_of_int32(vm, instruction, 12) 
+        : sext13(instruction);
     switch (ds) {
     case S8:
         *dst = *((uint8_t*) base + offset);
@@ -539,7 +549,10 @@ int str(vm_t* vm, instruction_t instruction) {
     data_size_t ds = (instruction >> 24) & DATA_SIZE_MASK;
     reg_t* src = register_of_int32(vm, instruction, 19);
     reg_t* base = register_of_int32(vm, instruction, 14);
-    int64_t offset = sext14(instruction);
+    bool_t is_offset_reg = is_set(instruction, mask_bit(13));
+    int64_t offset = is_offset_reg 
+        ? *register_of_int32(vm, instruction, 12) 
+        : sext13(instruction);
     switch (ds) {
     case S8:
         *((uint8_t*) base + offset) = (uint8_t) *src;
@@ -563,16 +576,14 @@ int ldr_str(vm_t* vm, instruction_t instruction) {
     return is_str ? str(vm, instruction) : ldr(vm, instruction);
 }
 
-int vm_run(vm_t* vm){
-    while (true) {
-        instruction_t instruction = fetch_instruction(vm);
-        opcode_t ist = opcode_value(instruction);
+int vm_run_single(vm_t* vm, instruction_t instruction) {
+        vm_opcode_t ist = opcode_value(instruction);
         switch (ist) { 
             case HALT: {
                 bool_t b;
                 int status = halt_opcode(vm, instruction, &b);
                 if (b) {
-                    return status;
+                    return VM_HALT_EXIT_CODE;
                 } 
                 break;
             }
@@ -637,9 +648,18 @@ int vm_run(vm_t* vm){
                 failwith("", 1);
             break;
         }
-
         show_status(vm);
-    }
+    return VM_INSTR_SUCESS;
+}
+
+int vm_run(vm_t* vm){
+    int status;
+    do {
+        instruction_t instruction = fetch_instruction(vm);
+        status = vm_run_single(vm, instruction);
+        show_status(vm);
+    } while (status != VM_HALT_EXIT_CODE);
+
     return 0;
 }
 
