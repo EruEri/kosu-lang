@@ -1,0 +1,19 @@
+external puts(stringl) s32;
+
+def add($x: ssize, $y: ssize) ssize:
+    $z = $x + $y;
+    return $z
+end
+
+def factoriel($n: ssize) ssize:
+    $cmp = $n <= 1;
+    if $cmp goto Lending
+    goto Lcontinue
+Lending:
+    return 1
+Lcontinue:
+    $sub = $n - 1;
+    $res = factoriel( $sub );
+    $res2 = $n * $res;
+    return $res2
+end

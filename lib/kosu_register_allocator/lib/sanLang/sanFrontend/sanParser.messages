@@ -1,0 +1,768 @@
+san_module: EXTERNAL XOR
+##
+## Ends in an error in state: 1.
+##
+## san_node -> EXTERNAL . Label LPARENT loption(separated_nonempty_list(COMMA,located(san_type))) RPARENT san_type option(preceded(EQUAL,located(String_lit))) [ EXTERNAL EOF DEF ]
+##
+## The known suffix of the stack is as follows:
+## EXTERNAL
+##
+
+Expected "<c function name>"
+
+san_module: EXTERNAL Label XOR
+##
+## Ends in an error in state: 2.
+##
+## san_node -> EXTERNAL Label . LPARENT loption(separated_nonempty_list(COMMA,located(san_type))) RPARENT san_type option(preceded(EQUAL,located(String_lit))) [ EXTERNAL EOF DEF ]
+##
+## The known suffix of the stack is as follows:
+## EXTERNAL Label
+##
+
+Expected "("
+
+san_module: EXTERNAL Label LPARENT XOR
+##
+## Ends in an error in state: 3.
+##
+## san_node -> EXTERNAL Label LPARENT . loption(separated_nonempty_list(COMMA,located(san_type))) RPARENT san_type option(preceded(EQUAL,located(String_lit))) [ EXTERNAL EOF DEF ]
+##
+## The known suffix of the stack is as follows:
+## EXTERNAL Label LPARENT
+##
+
+Expected "<type>"
+
+san_module: EXTERNAL Label LPARENT BOOL XOR
+##
+## Ends in an error in state: 9.
+##
+## separated_nonempty_list(COMMA,located(san_type)) -> san_type . [ RPARENT ]
+## separated_nonempty_list(COMMA,located(san_type)) -> san_type . COMMA separated_nonempty_list(COMMA,located(san_type)) [ RPARENT ]
+##
+## The known suffix of the stack is as follows:
+## san_type
+##
+
+Expected ")" or ","
+
+san_module: EXTERNAL Label LPARENT BOOL COMMA XOR
+##
+## Ends in an error in state: 10.
+##
+## separated_nonempty_list(COMMA,located(san_type)) -> san_type COMMA . separated_nonempty_list(COMMA,located(san_type)) [ RPARENT ]
+##
+## The known suffix of the stack is as follows:
+## san_type COMMA
+##
+
+Expected "<type>"
+
+san_module: EXTERNAL Label LPARENT RPARENT XOR
+##
+## Ends in an error in state: 14.
+##
+## san_node -> EXTERNAL Label LPARENT loption(separated_nonempty_list(COMMA,located(san_type))) RPARENT . san_type option(preceded(EQUAL,located(String_lit))) [ EXTERNAL EOF DEF ]
+##
+## The known suffix of the stack is as follows:
+## EXTERNAL Label LPARENT loption(separated_nonempty_list(COMMA,located(san_type))) RPARENT
+##
+
+Expected "<type>"
+
+san_module: EXTERNAL Label LPARENT RPARENT BOOL XOR
+##
+## Ends in an error in state: 15.
+##
+## san_node -> EXTERNAL Label LPARENT loption(separated_nonempty_list(COMMA,located(san_type))) RPARENT san_type . option(preceded(EQUAL,located(String_lit))) [ EXTERNAL EOF DEF ]
+##
+## The known suffix of the stack is as follows:
+## EXTERNAL Label LPARENT loption(separated_nonempty_list(COMMA,located(san_type))) RPARENT san_type
+##
+
+Expected "=" or "<end of external declaration>"
+
+san_module: EXTERNAL Label LPARENT RPARENT BOOL EQUAL XOR
+##
+## Ends in an error in state: 16.
+##
+## option(preceded(EQUAL,located(String_lit))) -> EQUAL . String_lit [ EXTERNAL EOF DEF ]
+##
+## The known suffix of the stack is as follows:
+## EQUAL
+##
+
+Expected "String litteral"
+
+san_module: DEF XOR
+##
+## Ends in an error in state: 19.
+##
+## san_function -> DEF . Label LPARENT loption(separated_nonempty_list(COMMA,__anonymous_0)) RPARENT san_type COLON starting_basic_block list(san_basic_block) END [ EXTERNAL EOF DEF ]
+##
+## The known suffix of the stack is as follows:
+## DEF
+##
+
+Expected "<function name>"
+
+san_module: DEF Label XOR
+##
+## Ends in an error in state: 20.
+##
+## san_function -> DEF Label . LPARENT loption(separated_nonempty_list(COMMA,__anonymous_0)) RPARENT san_type COLON starting_basic_block list(san_basic_block) END [ EXTERNAL EOF DEF ]
+##
+## The known suffix of the stack is as follows:
+## DEF Label
+##
+
+Expected "("
+
+san_module: DEF Label LPARENT XOR
+##
+## Ends in an error in state: 21.
+##
+## san_function -> DEF Label LPARENT . loption(separated_nonempty_list(COMMA,__anonymous_0)) RPARENT san_type COLON starting_basic_block list(san_basic_block) END [ EXTERNAL EOF DEF ]
+##
+## The known suffix of the stack is as follows:
+## DEF Label LPARENT
+##
+
+Expected "<parameter name>"
+
+san_module: DEF Label LPARENT Identifier XOR
+##
+## Ends in an error in state: 22.
+##
+## separated_nonempty_list(COMMA,__anonymous_0) -> Identifier . COLON parameter_san_type [ RPARENT ]
+## separated_nonempty_list(COMMA,__anonymous_0) -> Identifier . COLON parameter_san_type COMMA separated_nonempty_list(COMMA,__anonymous_0) [ RPARENT ]
+##
+## The known suffix of the stack is as follows:
+## Identifier
+##
+
+Expected ":"
+
+san_module: DEF Label LPARENT Identifier COLON XOR
+##
+## Ends in an error in state: 23.
+##
+## separated_nonempty_list(COMMA,__anonymous_0) -> Identifier COLON . parameter_san_type [ RPARENT ]
+## separated_nonempty_list(COMMA,__anonymous_0) -> Identifier COLON . parameter_san_type COMMA separated_nonempty_list(COMMA,__anonymous_0) [ RPARENT ]
+##
+## The known suffix of the stack is as follows:
+## Identifier COLON
+##
+
+Expected "<type>"
+
+san_module: DEF Label LPARENT Identifier COLON BOOL XOR
+##
+## Ends in an error in state: 24.
+##
+## separated_nonempty_list(COMMA,__anonymous_0) -> Identifier COLON parameter_san_type . [ RPARENT ]
+## separated_nonempty_list(COMMA,__anonymous_0) -> Identifier COLON parameter_san_type . COMMA separated_nonempty_list(COMMA,__anonymous_0) [ RPARENT ]
+##
+## The known suffix of the stack is as follows:
+## Identifier COLON parameter_san_type
+##
+
+Expected "," or ")"
+
+san_module: DEF Label LPARENT Identifier COLON BOOL COMMA XOR
+##
+## Ends in an error in state: 25.
+##
+## separated_nonempty_list(COMMA,__anonymous_0) -> Identifier COLON parameter_san_type COMMA . separated_nonempty_list(COMMA,__anonymous_0) [ RPARENT ]
+##
+## The known suffix of the stack is as follows:
+## Identifier COLON parameter_san_type COMMA
+##
+
+Expected ","
+
+san_module: DEF Label LPARENT RPARENT XOR
+##
+## Ends in an error in state: 29.
+##
+## san_function -> DEF Label LPARENT loption(separated_nonempty_list(COMMA,__anonymous_0)) RPARENT . san_type COLON starting_basic_block list(san_basic_block) END [ EXTERNAL EOF DEF ]
+##
+## The known suffix of the stack is as follows:
+## DEF Label LPARENT loption(separated_nonempty_list(COMMA,__anonymous_0)) RPARENT
+##
+
+Expected "<type>"
+
+san_module: DEF Label LPARENT RPARENT BOOL XOR
+##
+## Ends in an error in state: 30.
+##
+## san_function -> DEF Label LPARENT loption(separated_nonempty_list(COMMA,__anonymous_0)) RPARENT san_type . COLON starting_basic_block list(san_basic_block) END [ EXTERNAL EOF DEF ]
+##
+## The known suffix of the stack is as follows:
+## DEF Label LPARENT loption(separated_nonempty_list(COMMA,__anonymous_0)) RPARENT san_type
+##
+
+Expected ":"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON XOR
+##
+## Ends in an error in state: 31.
+##
+## san_function -> DEF Label LPARENT loption(separated_nonempty_list(COMMA,__anonymous_0)) RPARENT san_type COLON . starting_basic_block list(san_basic_block) END [ EXTERNAL EOF DEF ]
+##
+## The known suffix of the stack is as follows:
+## DEF Label LPARENT loption(separated_nonempty_list(COMMA,__anonymous_0)) RPARENT san_type COLON
+##
+
+Expected "<first statement>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier XOR
+##
+## Ends in an error in state: 39.
+##
+## san_statement -> Identifier . EQUAL san_rvalue SEMICOLON [ RETURN Label Identifier IF END ]
+##
+## The known suffix of the stack is as follows:
+## Identifier
+##
+
+Expected "="
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL XOR
+##
+## Ends in an error in state: 40.
+##
+## san_statement -> Identifier EQUAL . san_rvalue SEMICOLON [ RETURN Label Identifier IF END ]
+##
+## The known suffix of the stack is as follows:
+## Identifier EQUAL
+##
+
+Expected "discard", "lateinit", "<identifier>", "-", "!", "true", "false", "<number>", "<string litteral>" or "<identifier>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL NOT XOR
+##
+## Ends in an error in state: 41.
+##
+## san_rvalue -> NOT . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## NOT
+##
+
+Expected "true", "false", "<number>", "<string litteral>" or "<identifier>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL MINUS XOR
+##
+## Ends in an error in state: 43.
+##
+## san_rvalue -> MINUS . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## MINUS
+##
+
+Expected "true", "false", "<number>", "<string litteral>" or "<identifier>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL LATEINIT XOR
+##
+## Ends in an error in state: 53.
+##
+## san_rvalue -> LATEINIT . COLON san_type [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## LATEINIT
+##
+
+Expected ": <type>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL LATEINIT COLON XOR
+##
+## Ends in an error in state: 54.
+##
+## san_rvalue -> LATEINIT COLON . san_type [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## LATEINIT COLON
+##
+
+Expected ": <type>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL DISCARD XOR
+##
+## Ends in an error in state: 56.
+##
+## san_rvalue -> DISCARD . COLON san_type [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## DISCARD
+##
+
+Expected ": <type>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL DISCARD COLON XOR
+##
+## Ends in an error in state: 57.
+##
+## san_rvalue -> DISCARD COLON . san_type [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## DISCARD COLON
+##
+
+Expected "<type>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL MINUS FALSE XOR
+##
+## Ends in an error in state: 59.
+##
+## san_statement -> Identifier EQUAL san_rvalue . SEMICOLON [ RETURN Label Identifier IF END ]
+##
+## The known suffix of the stack is as follows:
+## Identifier EQUAL san_rvalue
+##
+
+Expected ";"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL FALSE UNIT
+##
+## Ends in an error in state: 61.
+##
+## san_rvalue -> atom . [ SEMICOLON ]
+## san_rvalue -> atom . PLUS atom [ SEMICOLON ]
+## san_rvalue -> atom . MINUS atom [ SEMICOLON ]
+## san_rvalue -> atom . MULT atom [ SEMICOLON ]
+## san_rvalue -> atom . DIV atom [ SEMICOLON ]
+## san_rvalue -> atom . PIPE atom [ SEMICOLON ]
+## san_rvalue -> atom . AMPERSAND atom [ SEMICOLON ]
+## san_rvalue -> atom . XOR atom [ SEMICOLON ]
+## san_rvalue -> atom . SHIFTLEFT atom [ SEMICOLON ]
+## san_rvalue -> atom . SHIFTRIGHT atom [ SEMICOLON ]
+## san_rvalue -> atom . OR atom [ SEMICOLON ]
+## san_rvalue -> atom . AND atom [ SEMICOLON ]
+## san_rvalue -> atom . SUP atom [ SEMICOLON ]
+## san_rvalue -> atom . SUPEQ atom [ SEMICOLON ]
+## san_rvalue -> atom . INF atom [ SEMICOLON ]
+## san_rvalue -> atom . INFEQ atom [ SEMICOLON ]
+## san_rvalue -> atom . DOUBLEQUAL atom [ SEMICOLON ]
+## san_rvalue -> atom . DIF atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom
+##
+
+Expected "<binary operator>" or ";"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier XOR XOR
+##
+## Ends in an error in state: 62.
+##
+## san_rvalue -> atom XOR . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom XOR
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SUPEQ XOR
+##
+## Ends in an error in state: 64.
+##
+## san_rvalue -> atom SUPEQ . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom SUPEQ
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SUP XOR
+##
+## Ends in an error in state: 66.
+##
+## san_rvalue -> atom SUP . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom SUP
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SHIFTRIGHT XOR
+##
+## Ends in an error in state: 68.
+##
+## san_rvalue -> atom SHIFTRIGHT . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom SHIFTRIGHT
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SHIFTLEFT XOR
+##
+## Ends in an error in state: 70.
+##
+## san_rvalue -> atom SHIFTLEFT . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom SHIFTLEFT
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier PLUS XOR
+##
+## Ends in an error in state: 72.
+##
+## san_rvalue -> atom PLUS . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom PLUS
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier PIPE XOR
+##
+## Ends in an error in state: 74.
+##
+## san_rvalue -> atom PIPE . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom PIPE
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier OR XOR
+##
+## Ends in an error in state: 76.
+##
+## san_rvalue -> atom OR . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom OR
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier MULT XOR
+##
+## Ends in an error in state: 78.
+##
+## san_rvalue -> atom MULT . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom MULT
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier MINUS XOR
+##
+## Ends in an error in state: 80.
+##
+## san_rvalue -> atom MINUS . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom MINUS
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier INFEQ XOR
+##
+## Ends in an error in state: 82.
+##
+## san_rvalue -> atom INFEQ . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom INFEQ
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier INF XOR
+##
+## Ends in an error in state: 84.
+##
+## san_rvalue -> atom INF . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom INF
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier DOUBLEQUAL XOR
+##
+## Ends in an error in state: 86.
+##
+## san_rvalue -> atom DOUBLEQUAL . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom DOUBLEQUAL
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier DIV XOR
+##
+## Ends in an error in state: 88.
+##
+## san_rvalue -> atom DIV . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom DIV
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier DIF XOR
+##
+## Ends in an error in state: 90.
+##
+## san_rvalue -> atom DIF . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom DIF
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier AND XOR
+##
+## Ends in an error in state: 92.
+##
+## san_rvalue -> atom AND . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom AND
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier AMPERSAND XOR
+##
+## Ends in an error in state: 94.
+##
+## san_rvalue -> atom AMPERSAND . atom [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## atom AMPERSAND
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SEMICOLON RETURN FALSE XOR
+##
+## Ends in an error in state: 102.
+##
+## san_function -> DEF Label LPARENT loption(separated_nonempty_list(COMMA,__anonymous_0)) RPARENT san_type COLON starting_basic_block . list(san_basic_block) END [ EXTERNAL EOF DEF ]
+##
+## The known suffix of the stack is as follows:
+## DEF Label LPARENT loption(separated_nonempty_list(COMMA,__anonymous_0)) RPARENT san_type COLON starting_basic_block
+##
+
+Expected "end" or "<label>:"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SEMICOLON Label XOR
+##
+## Ends in an error in state: 103.
+##
+## san_basic_block -> Label . COLON nonempty_list(san_statement) option(san_ending) [ Label END ]
+## san_basic_block -> Label . COLON san_ending [ Label END ]
+##
+## The known suffix of the stack is as follows:
+## Label
+##
+
+Expected ":"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SEMICOLON Label COLON XOR
+##
+## Ends in an error in state: 104.
+##
+## san_basic_block -> Label COLON . nonempty_list(san_statement) option(san_ending) [ Label END ]
+## san_basic_block -> Label COLON . san_ending [ Label END ]
+##
+## The known suffix of the stack is as follows:
+## Label COLON
+##
+
+Expected "<identifier> = ..."
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SEMICOLON XOR
+##
+## Ends in an error in state: 105.
+##
+## nonempty_list(san_statement) -> san_statement . [ RETURN Label IF END ]
+## nonempty_list(san_statement) -> san_statement . nonempty_list(san_statement) [ RETURN Label IF END ]
+##
+## The known suffix of the stack is as follows:
+## san_statement
+##
+
+Expected "return", "if" or "<label>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SEMICOLON RETURN XOR
+##
+## Ends in an error in state: 32.
+##
+## san_ending -> RETURN . atom [ Label END ]
+##
+## The known suffix of the stack is as follows:
+## RETURN
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SEMICOLON IF XOR
+##
+## Ends in an error in state: 96.
+##
+## san_ending -> IF . atom GOTO Label GOTO Label [ Label END ]
+##
+## The known suffix of the stack is as follows:
+## IF
+##
+
+Expected "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SEMICOLON IF FALSE XOR
+##
+## Ends in an error in state: 97.
+##
+## san_ending -> IF atom . GOTO Label GOTO Label [ Label END ]
+##
+## The known suffix of the stack is as follows:
+## IF atom
+##
+
+Expected "goto"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SEMICOLON IF FALSE GOTO XOR
+##
+## Ends in an error in state: 98.
+##
+## san_ending -> IF atom GOTO . Label GOTO Label [ Label END ]
+##
+## The known suffix of the stack is as follows:
+## IF atom GOTO
+##
+
+Expected "<label>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SEMICOLON IF FALSE GOTO Label XOR
+##
+## Ends in an error in state: 99.
+##
+## san_ending -> IF atom GOTO Label . GOTO Label [ Label END ]
+##
+## The known suffix of the stack is as follows:
+## IF atom GOTO Label
+##
+
+Expected "goto"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SEMICOLON IF FALSE GOTO Label GOTO XOR
+##
+## Ends in an error in state: 100.
+##
+## san_ending -> IF atom GOTO Label GOTO . Label [ Label END ]
+##
+## The known suffix of the stack is as follows:
+## IF atom GOTO Label GOTO
+##
+
+Expected "<label>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Identifier SEMICOLON Label COLON Identifier EQUAL Identifier SEMICOLON RETURN FALSE XOR
+##
+## Ends in an error in state: 111.
+##
+## list(san_basic_block) -> san_basic_block . list(san_basic_block) [ END ]
+##
+## The known suffix of the stack is as follows:
+## san_basic_block
+##
+
+Expected "end" or "<identifier> = ..."
+
+san_module: EXTERNAL Label LPARENT RPARENT BOOL EQUAL String_lit XOR
+##
+## Ends in an error in state: 118.
+##
+## list(san_node) -> san_node . list(san_node) [ EOF ]
+##
+## The known suffix of the stack is as follows:
+## san_node
+##
+
+Expected "external", "def" or "<eof>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Label XOR
+##
+## Ends in an error in state: 45.
+##
+## san_rvalue -> Label . LPARENT loption(separated_nonempty_list(COMMA,located(atom))) RPARENT [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## Label
+##
+
+Expected "("
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Label LPARENT XOR
+##
+## Ends in an error in state: 46.
+##
+## san_rvalue -> Label LPARENT . loption(separated_nonempty_list(COMMA,located(atom))) RPARENT [ SEMICOLON ]
+##
+## The known suffix of the stack is as follows:
+## Label LPARENT
+##
+
+Expected "(" or "<atom>"
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Label LPARENT FALSE XOR
+##
+## Ends in an error in state: 50.
+##
+## separated_nonempty_list(COMMA,located(atom)) -> atom . [ RPARENT ]
+## separated_nonempty_list(COMMA,located(atom)) -> atom . COMMA separated_nonempty_list(COMMA,located(atom)) [ RPARENT ]
+##
+## The known suffix of the stack is as follows:
+## atom
+##
+
+Expected ")" or ","
+
+san_module: DEF Label LPARENT RPARENT BOOL COLON Identifier EQUAL Label LPARENT FALSE COMMA XOR
+##
+## Ends in an error in state: 51.
+##
+## separated_nonempty_list(COMMA,located(atom)) -> atom COMMA . separated_nonempty_list(COMMA,located(atom)) [ RPARENT ]
+##
+## The known suffix of the stack is as follows:
+## atom COMMA
+##
+
+Expected "<atom>"
+
+san_module: XOR
+##
+## Ends in an error in state: 0.
+##
+## san_module' -> . san_module [ # ]
+##
+## The known suffix of the stack is as follows:
+##
+##
+
+Expected "def" or "external"

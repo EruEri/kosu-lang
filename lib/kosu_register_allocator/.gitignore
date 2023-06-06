@@ -1,0 +1,10 @@
+_build
+.DS_Store
+.vscode
+san
+*.dot
+*.png
+*.s
+main
+*.c
+*.kosu

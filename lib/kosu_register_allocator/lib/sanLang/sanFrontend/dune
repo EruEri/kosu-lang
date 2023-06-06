@@ -1,0 +1,97 @@
+;**********************************************************************************************;
+;*                                                                                            *;
+;* This file is part of San: A 3 address code language/compiler                               *;
+;* Copyright (C) 2023 Yves Ndiaye                                                             *;
+;*                                                                                            *;
+;* San is free software: you can redistribute it and/or modify it under the terms             *;
+;* of the GNU General Public License as published by the Free Software Foundation,            *;
+;* either version 3 of the License, or (at your option) any later version.                    *;
+;*                                                                                            *;
+;* San is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;           *;
+;* without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR           *;
+;* PURPOSE.  See the GNU General Public License for more details.                             *;
+;* You should have received a copy of the GNU General Public License along with San.          *;
+;* If not, see <http://www.gnu.org/licenses/>.                                                *;
+;*                                                                                            *;
+;**********************************************************************************************;
+
+(rule
+ (enabled_if
+  (= %{profile} san))
+ (target lexer.ml)
+ (deps lexer.mll)
+ (action
+  (chdir
+   %{workspace_root}
+   (run %{bin:ocamllex} -q -o %{target} %{deps}))))
+
+(rule
+ (enabled_if
+  (= %{profile} san))
+ (targets parser.ml parser.mli)
+ (deps parser.mly)
+ (action
+  (chdir
+   %{workspace_root}
+   (run %{bin:menhir} --table %{deps}))))
+
+(rule
+ (enabled_if
+  (= %{profile} san))
+ (target new.messages)
+ (deps
+  (:parser parser.mly))
+ (action
+  (with-stdout-to
+   %{target}
+   (run menhir %{parser} --base %{parser} --list-errors))))
+
+(rule
+ (target updated.messages)
+  (enabled_if
+   (= %{profile} san))
+ (deps
+  (:parser parser.mly)
+  (:msg sanParser.messages))
+ (action
+  (with-stdout-to
+   %{target}
+   (run menhir %{parser} --base %{parser} --update-errors %{msg}))))
+
+(rule
+ (enabled_if
+  (= %{profile} san))
+ (target parser.messages.updated)
+ (deps
+  (:parser parser.mly)
+  (:new new.messages)
+  (:updated updated.messages))
+ (action
+  (with-stdout-to
+   %{target}
+   (run
+    menhir
+    %{parser}
+    --base
+    %{parser}
+    --merge-errors
+    %{new}
+    --merge-errors
+    %{updated}))))
+
+(rule
+ (enabled_if
+  (= %{profile} san))
+ (targets sanParserMessages.ml)
+ (deps sanParser.messages parser.mly)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run menhir --compile-errors %{deps}))))
+
+(library
+ (name sanFrontend)
+ (enabled_if
+  (= %{profile} san))
+ (modules lexer parser sanAst sanParser sanError sanPosition sanTypechecker sanValidation sanHelper sanEnv sanPprintErr sanPprint sanParserMessages sanFrontend)
+ (libraries menhirLib))
