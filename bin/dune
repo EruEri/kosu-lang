@@ -26,7 +26,7 @@
   kosuIrTAC
   kosuClis
   ldSpec
-  common)
+  kosuCommon)
  (flags
   (:standard -g)))
 

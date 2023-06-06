@@ -15,8 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module IdVar = Common.IdVar
-module IdVarMap = Common.IdVarMap
+module IdVar = KosuCommon.IdVar
+module IdVarMap = KosuCommon.IdVarMap
 
 type int_data_size = B | W | L | Q
 type float_data_size = SS | SD
@@ -706,7 +706,7 @@ module FrameManager = struct
       ~stack_params rprogram fd =
     let open Instruction in
     let base = Instruction (Push { size = Q; source = `Register rbp }) in
-    let sub_align = Common.OffsetHelper.align_16 fd.locals_space in
+    let sub_align = KosuCommon.OffsetHelper.align_16 fd.locals_space in
     let sp_sub =
       [
         Instruction

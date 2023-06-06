@@ -21,7 +21,7 @@ open X86_64Core.Operande
 open X86_64Core.Register
 open X86_64Core
 open Printf
-module X86Program = Common.AsmProgram (X86_64Core.Instruction)
+module X86Program = KosuCommon.AsmProgram (X86_64Core.Instruction)
 open X86Program
 open Util.Operator
 

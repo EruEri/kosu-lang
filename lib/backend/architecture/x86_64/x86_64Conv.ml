@@ -25,7 +25,7 @@ open Util
 
 let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
 
-module X86Program = Common.AsmProgram (X86_64Core.Instruction)
+module X86Program = KosuCommon.AsmProgram (X86_64Core.Instruction)
 open X86Program
 
 module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
@@ -1609,7 +1609,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           Option.get @@ FrameManager.address_of identifier_root fd
         in
         let field_offset =
-          Common.OffsetHelper.offset_of_field_access (snd identifier_root)
+          KosuCommon.OffsetHelper.offset_of_field_access (snd identifier_root)
             ~fields rprogram
         in
         let target_adress = increment_adress field_offset root_address in
@@ -1629,7 +1629,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             identifier_root
         in
         let field_offset =
-          Common.OffsetHelper.offset_of_field_access pointee_type ~fields
+          KosuCommon.OffsetHelper.offset_of_field_access pointee_type ~fields
             rprogram
         in
         let _target_adress =

@@ -19,7 +19,7 @@ open Aarch64Core
 open Aarch64Core.Register
 open Aarch64Core.Instruction
 open Printf
-module AsmProgram = Common.AsmProgram (Aarch64Core.Instruction)
+module AsmProgram = KosuCommon.AsmProgram (Aarch64Core.Instruction)
 open AsmProgram
 
 module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct

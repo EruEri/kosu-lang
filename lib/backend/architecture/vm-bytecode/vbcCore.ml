@@ -15,8 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module IdVar = Common.IdVar
-module IdVarMap = Common.IdVarMap
+module IdVar = KosuCommon.IdVar
+module IdVarMap = KosuCommon.IdVarMap
 
 module Immediat = struct
   let mask_6_8bytes = 0xFFFF_0000_0000_0000L
@@ -64,6 +64,8 @@ module ConditionCode = struct
 end
 
 module Register = struct
+  type variable = string * KosuIrTyped.Asttyped.rktype
+
   type register = 
   | R0
   | R1
@@ -105,10 +107,27 @@ module Register = struct
   type return_strategy =
   | Indirect_return
   | Simple_return of t
+  | Splitted_return of t * t
 
   let compare = Stdlib.compare
 
-  let arguments_register = [
+  let is_float_register = function
+    | FR0
+    | FR1
+    | FR2
+    | FR3 
+    | FR4
+    | FR5
+    | FR6
+    | FR7
+    | FR8
+    | FR9
+    | FR10
+    | FR11
+    | FR12 -> true
+    | _ -> false 
+
+  let non_float_argument_registers = [
     R0;
     R1;
     R2;
@@ -118,6 +137,22 @@ module Register = struct
     R6;
     R7;
   ]
+
+  let float_argument_registers = [
+    FR0;
+    FR1;
+    FR2;
+    FR3;
+    FR4;
+    FR5;
+    FR6;
+    FR7;
+  ]
+  let arguments_register variable = 
+    if KosuIrTyped.Asttyhelper.RType.is_float @@ snd variable then
+      float_argument_registers
+    else
+      non_float_argument_registers
 
   let syscall_register = [
     R0;
@@ -137,6 +172,13 @@ module Register = struct
   ]
 
   let indirect_return_register = IR
+
+  let is_valid_register (variable: variable) (register: t) = 
+    let _, rktype = variable in
+    let is_float = KosuIrTyped.Asttyhelper.RType.is_float rktype in
+    let is_float_register = is_float_register register in
+    is_float = is_float_register
+    (* float == float || other == other *)
 
 end
 

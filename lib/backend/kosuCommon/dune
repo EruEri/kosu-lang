@@ -16,5 +16,5 @@
 ;**********************************************************************************************;
 
 (library
- (name common)
+ (name kosuCommon)
  (libraries kosuIrTyped kosuIrTAC))

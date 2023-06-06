@@ -15,8 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module IdVar = Common.IdVar
-module IdVarMap = Common.IdVarMap
+module IdVar = KosuCommon.IdVar
+module IdVarMap = KosuCommon.IdVarMap
 
 module Immediat = struct
   let mask_6_8bytes = 0xFFFF_0000_0000_0000L

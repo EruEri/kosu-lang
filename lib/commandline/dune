@@ -31,5 +31,5 @@
   kosuIrCfg
   cmdliner
   ldSpec
-  common
+  kosuCommon
   dune-build-info))

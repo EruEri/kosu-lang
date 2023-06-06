@@ -18,7 +18,7 @@
 module Codegen (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
   module X86_64 = X86_64Conv.Make (AsmSpec)
   module X86_64Pprint = X86_64Pprint.Make (AsmSpec)
-  module AsmProgram = Common.AsmProgram (X86_64Core.Instruction)
+  module AsmProgram = KosuCommon.AsmProgram (X86_64Core.Instruction)
   include AsmProgram
 
   let asm_program_of_tac_program = X86_64.asm_program_of_tac_program
