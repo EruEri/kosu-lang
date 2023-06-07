@@ -28,6 +28,10 @@ let align n b =
   let m = Int64.unsigned_rem n b in
   if m = 0L then n else n ++ b -- m
 
+let align_16 b = align b 16L
+
+let align_8 b = align b 8L
+
 let rec size calcul program rktype =
   match rktype with
   | RTUnit | RTBool | RTUnknow | RTChar | RTOrdered -> 1L

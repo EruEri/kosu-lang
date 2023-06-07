@@ -19,12 +19,29 @@ module IdVar = KosuCommon.IdVar
 module IdVarMap = KosuCommon.IdVarMap
 
 module Immediat = struct
+  module VmConst = struct
+    let mv_immediat_size = 21
+    let mva_immediat_size = 19
+  end
   let mask_6_8bytes = 0xFFFF_0000_0000_0000L
   let mask_4_6bytes = 0x0000_FFFF_0000_0000L
   let mask_2_4bytes = 0x0000_0000_FFFF_0000L
   let mask_0_2bytes = 0x0000_0000_0000_FFFFL
   let max_16bits_immediat = 65535L
   let min_16bits_immediat = -65535L
+
+  let max_nbits_immediat n = 
+    let tmp = Int64.shift_left 1L (n - 1) in
+    Int64.sub tmp 1L
+
+  let min_nbits_immediat n = 
+    let tmp = Int64.shift_left 1L (n - 1) in
+    Int64.neg tmp
+
+  let is_encodable nbits value = 
+    let max = max_nbits_immediat nbits in
+    let min = min_nbits_immediat nbits in
+    value >= min && value <= max
 
   let is_direct_immediat int16 =
     int16 >= min_16bits_immediat && int16 <= max_16bits_immediat
@@ -236,14 +253,6 @@ end
 
 module GreedyColoration = KosuIrCfg.Asttaccfg.KosuRegisterAllocator.GreedyColoring(Register)
 
-module Operande = struct
-  type src = [
-    `ILitteral of int64
-    | `Register of Register.register
-  ]
-
-  type dst = Register.register
-end
 
 module Location = struct
   type address_offset = [ `ILitteral of int64 | `Register of Register.register ]
@@ -266,11 +275,13 @@ module Location = struct
   
 end
 
-module Instruction = struct
-  open ConditionCode
-  open Operande
-  (* open Register *)
-  open Location
+module Operande = struct
+  type src = [
+    `ILitteral of int64
+    | `Register of Register.register
+  ]
+
+  type dst = Register.register
 
   type single_operande = {
     destination: dst;
@@ -279,7 +290,22 @@ module Instruction = struct
 
   type lea_operande = 
     | LeaPcRel of int64
-    | LeaRegAbs of address
+    | LeaRegAbs of Location.address
+
+  let ilitteral n = (`ILitteral n :> src)
+  let iregister reg : src = `Register reg
+
+  let lea_pc_relatif n = LeaPcRel n
+  let lea_reg_abs address = LeaRegAbs address
+end
+
+module Instruction = struct
+  open ConditionCode
+  open Operande
+  (* open Register *)
+  open Location
+
+
 
   type bin_op_operande = {
     destination : Register.register;
@@ -344,6 +370,77 @@ module Instruction = struct
       destination: Register.register;
       address: address
     }
+
+    let halt = Halt
+
+    let ret = Ret
+
+    let syscall = Syscall
+
+    let ccall src = CCall src
+    
+    let mvnt destination source = Mvnt {destination; source}
+
+    let mvng destination source = Mvng {destination; source}
+
+    let mv destination source = Mv {destination; source}
+
+    let mva destination source shift = Mva {
+      operandes = {destination; source};
+      shift
+    }
+
+    let jump src = Jump src
+
+    let br src = Br src
+
+    let lea destination operande = Lea {destination; operande}
+  
+end
+
+module Line = struct
+  type line = 
+  | Instruction of Instruction.t
+  | Comment of string
+  | Label of string
+
+  type asmline = AsmLine of line * string option
+
+  let instruction ?comment instr = AsmLine (Instruction instr, comment)
+
+  let instructions instrs = instrs |> List.map instruction
+
+  let comment message = AsmLine (Comment message, None)
+
+  let label ?comment l = AsmLine (Label l, comment)
+end
+
+module LineInstruction = struct
+  open Instruction
+  open Line
+
+  let mv_integer register n = 
+    let open Immediat in
+    if is_encodable Immediat.VmConst.mv_immediat_size n then
+    instructions @@ [mv register @@ Operande.ilitteral n]
+    else
+      let int64, int48, int32, int16 = split n in
+      let mvs = [mv register @@ Operande.ilitteral int16] in
+      let mvs = 
+        if int32 = 0L then mvs 
+        else mva register (Operande.ilitteral int32) ConditionCode.SH16 :: mvs
+      in
+      let mvs = 
+        if int48 = 0L then mvs 
+        else mva register (Operande.ilitteral int48) ConditionCode.SH32 :: mvs
+      in
+      let mvs = 
+        if int64 = 0L then mvs 
+        else mva register (Operande.ilitteral int64) ConditionCode.SH48 :: mvs
+      in
+    instructions mvs
+
+
 
 end
 
@@ -448,4 +545,12 @@ module FrameManager = struct
       variable_map;
       discarded_values = function_decl.discarded_values
     }
+
+    let prologue (function_decl: KosuIrTAC.Asttac.tac_function_decl) fd =
+      let ( ++ ) = Int64.add in
+      let ( -- ) = Int64.sub in
+      let stack_sub_size = KosuIrTyped.Sizeof.align_8 (8L ++ fd.local_space) in
+      let variable_frame = stack_sub_size -- 8L in
+      
+      failwith ""
 end
