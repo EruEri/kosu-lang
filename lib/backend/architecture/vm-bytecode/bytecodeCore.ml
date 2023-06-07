@@ -716,4 +716,20 @@ module FrameManager = struct
       in
       sub_sp_instructions @ str_fp @ align_fp_instructions @ store_value_instructions
 
+
+      let epilogue fd = 
+        let open Instruction in
+        let open Register in
+        let open Line in
+        let ( ++ ) = Int64.add in
+        let ( -- ) = Int64.sub in
+        let stack_spaces = KosuIrTyped.Sizeof.align_8 (8L ++ fd.local_space) in
+        let variable_frame = stack_spaces -- 8L in
+        let address = Location.create_address ~offset:variable_frame Register.sp in
+        let ldr_fp_instructions = LineInstruction.sldr ConditionCode.SIZE_64 Register.fp address in
+        let add_sp_instructions = LineInstruction.sadd Register.sp Register.sp @@ Operande.ilitteral stack_spaces in
+        let return_instruction = sinstruction Instruction.ret in
+        ldr_fp_instructions @ add_sp_instructions @ return_instruction
+
+
 end
