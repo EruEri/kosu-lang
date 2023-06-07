@@ -22,6 +22,12 @@ module Immediat = struct
   module VmConst = struct
     let mv_immediat_size = 21
     let mva_immediat_size = 19
+
+    let str_immediat_size = 13
+
+    let binop_immediat_size = 16
+
+    let ldr_immediat_size = str_immediat_size
   end
   let mask_6_8bytes = 0xFFFF_0000_0000_0000L
   let mask_4_6bytes = 0x0000_FFFF_0000_0000L
@@ -78,6 +84,14 @@ module ConditionCode = struct
     | UNSIGNED_INF
     | INFEQ
     | UNSIGNED_INFEQ
+
+  let data_size_of_kt kt =
+    let size = KosuIrTyped.Sizeof.sizeof_kt kt in
+    match size with
+    | 1L -> SIZE_8
+    | 2L -> SIZE_16
+    | 4L -> SIZE_32
+    | _ -> SIZE_64 
 end
 
 module Register = struct
@@ -237,18 +251,25 @@ module Register = struct
     is_float = is_float_register
     (* float == float || other == other *)
 
+  let does_return_hold_in_register_kt kt = 
+    match KosuIrTyped.Sizeof.sizeof_kt kt with
+      | 1L | 2L | 4L | 8L -> true
+      | _ -> false
+
   let does_return_hold_in_register variable = 
-    let _, ktype = variable in
-    match KosuIrTyped.Sizeof.sizeof_kt ktype with
-    | 1L | 2L | 4L | 8L -> true
-    | _ -> false
+    does_return_hold_in_register_kt @@ snd variable
 
   let return_strategy variable = 
     match does_return_hold_in_register variable with
     | true -> Simple_return R0
     | false -> Indirect_return
 
+
+  let r13 = R13
+  let r14 = R14
   let sp = SP
+
+  let fp = FP
 end
 
 module GreedyColoration = KosuIrCfg.Asttaccfg.KosuRegisterAllocator.GreedyColoring(Register)
@@ -265,7 +286,9 @@ module Location = struct
   let loc_reg r = LocReg r
   let loc_addr a = LocAddr a
 
-  let create_adress ?(offset = 0L) base = { base; offset = `ILitteral offset }
+  let create_address ?(offset = 0L) base = { base; offset = `ILitteral offset }
+
+  let address_register base offset = {base; offset = `Register offset}
 
   let increment_adress off adress =
     match adress.offset with
@@ -395,6 +418,19 @@ module Instruction = struct
     let br src = Br src
 
     let lea destination operande = Lea {destination; operande}
+
+    let sub destination operande1 operande2 = 
+      Sub {destination; operande1; operande2}
+
+    let add destination operande1 operande2 = 
+      Add {destination; operande1; operande2}
+
+    let str data_size destination address = 
+      Str {data_size; destination; address}
+
+    let ldr data_size destination address = 
+      Ldr {data_size; destination; address}
+    
   
 end
 
@@ -410,6 +446,8 @@ module Line = struct
 
   let instructions instrs = instrs |> List.map instruction
 
+  let sinstruction instruction = instructions [instruction]
+
   let comment message = AsmLine (Comment message, None)
 
   let label ?comment l = AsmLine (Label l, comment)
@@ -417,7 +455,9 @@ end
 
 module LineInstruction = struct
   open Instruction
+  open Location
   open Line
+  open Immediat
 
   let mv_integer register n = 
     let open Immediat in
@@ -440,6 +480,93 @@ module LineInstruction = struct
       in
     instructions mvs
 
+  let ssub destination source (operande: Operande.src) = 
+    match operande with
+    | `Register _ -> 
+      sinstruction @@ sub destination source operande
+    | `ILitteral n when is_encodable VmConst.binop_immediat_size n ->
+      sinstruction @@ sub destination source operande
+    | `ILitteral n -> 
+      let large_mov = mv_integer Register.r14 n in
+      let sub_i = instruction @@ sub destination source @@ Operande.iregister Register.r14 in
+      large_mov @ [sub_i]
+
+    let sadd destination source (operande: Operande.src) = 
+      match operande with
+      | `Register _ -> 
+        sinstruction @@ sub destination source operande
+      | `ILitteral n when is_encodable VmConst.binop_immediat_size n ->
+        sinstruction @@ sub destination source operande
+      | `ILitteral n -> 
+        let large_mov = mv_integer Register.r14 n in
+        let sub_i = instruction @@ sub destination source @@ Operande.iregister Register.r14 in
+        large_mov @ [sub_i]
+
+  let sstr data_size destination address = 
+    match address.offset with
+    | `ILitteral n -> begin 
+      match n with
+      | n when is_encodable VmConst.str_immediat_size n -> 
+        instructions [str data_size destination address]
+      | n ->
+        let mov_int = mv_integer Register.r14 n in
+        let address = Location.address_register address.base Register.r14 in
+        let str_i = instruction @@ str data_size destination address in
+        mov_int @ [str_i]
+    end
+    | `Register _ -> instructions [str data_size destination address]
+
+    let sldr data_size destination address = 
+      match address.offset with
+      | `ILitteral n -> begin 
+        match n with
+        | n when is_encodable VmConst.ldr_immediat_size n -> 
+          sinstruction @@ ldr data_size destination address
+        | n ->
+          let mov_int = mv_integer Register.r14 n in
+          let address = Location.address_register address.base Register.r14 in
+          let ldr_i = instruction @@ ldr data_size destination address in
+          mov_int @ [ldr_i]
+      end
+      | `Register _ -> instructions [ldr data_size destination address]
+
+  let simple_copy register (address : address) ktype = 
+    let data_size = ConditionCode.data_size_of_kt ktype in
+    sstr data_size register address
+
+  let rec large_copy_size ~increment register address size = 
+    if size < 0L then failwith "negative size to copy"
+    else if size = 0L then []
+    else 
+      let (data_size, offset) : ConditionCode.data_size * int64 =
+      let open ConditionCode in
+      if size = 0L then (SIZE_8, 0L)
+      else if 1L <= size && size < 2L then SIZE_8, 1L
+      else if 2L <= size && size < 4L then SIZE_16, 2L
+      else if 4L <= size && size < 8L then SIZE_32, 4L
+      else SIZE_64, 8L
+    in
+    let register_address = create_address ?offset:increment register in
+
+    let ldr_instructions = sldr data_size Register.r13 register_address in
+    let str_instructions = sstr data_size Register.r13 address in
+    let next_adresss_store = increment_adress offset address in
+
+    let next_size = Int64.sub size offset in
+    let next_instructions =
+      large_copy_size ~increment:(Some offset) register next_adresss_store  next_size 
+    in
+
+    ldr_instructions @ str_instructions @ next_instructions
+
+  let large_copy register address kt = 
+    large_copy_size ~increment:None register address @@ KosuIrTyped.Sizeof.sizeof_kt kt
+
+
+    let scopy register (address : address) ktype = 
+      match Register.does_return_hold_in_register_kt ktype with
+      | true -> simple_copy register address ktype
+      | false -> large_copy register address ktype
 
 
 end
@@ -479,9 +606,9 @@ module FrameManager = struct
         ~iregs:Register.non_float_argument_registers
         ~fpstyle:(fun (_, kt) -> 
           if KosuIrTyped.Asttyhelper.RType.is_float kt then 
-            Simple_Reg Other
-          else
             Simple_Reg Float
+          else
+            Simple_Reg Other
         ) function_decl.rparameters 
       in
 
@@ -509,7 +636,7 @@ module FrameManager = struct
 
 
       
-    let base_address = Location.create_adress ~offset:0L Register.sp in
+    let base_address = Location.create_address ~offset:0L Register.sp in
 
     let variable_map, stack_variable = function_decl.locale_var |> List.sort (fun lhs rhs ->
         let lsize = KosuIrTyped.Sizeof.sizeof_kt lhs.locale_ty in
@@ -547,10 +674,46 @@ module FrameManager = struct
     }
 
     let prologue (function_decl: KosuIrTAC.Asttac.tac_function_decl) fd =
+      let open Util.Args in
+      let open Location in
       let ( ++ ) = Int64.add in
       let ( -- ) = Int64.sub in
       let stack_sub_size = KosuIrTyped.Sizeof.align_8 (8L ++ fd.local_space) in
       let variable_frame = stack_sub_size -- 8L in
-      
-      failwith ""
+      let address = Location.create_address ~offset:variable_frame Register.sp in
+      let str_fp = LineInstruction.sstr ConditionCode.SIZE_64 Register.fp address in
+      let sub_sp_instructions = LineInstruction.ssub Register.sp Register.sp @@ Operande.ilitteral stack_sub_size in
+      let align_fp_instructions = LineInstruction.sadd Register.fp Register.sp @@ Operande.ilitteral variable_frame in
+
+      let iparas, fparams, stack_parameters = 
+        Util.Args.consume_args 
+        ~fregs:Register.float_argument_registers 
+        ~iregs:Register.non_float_argument_registers
+        ~fpstyle:(fun (_, kt) -> 
+          if KosuIrTyped.Asttyhelper.RType.is_float kt then 
+            Simple_Reg Float
+          else
+            Simple_Reg Other
+        ) function_decl.rparameters 
+      in
+      let store_value_instructions = 
+        iparas |> ( @ ) fparams 
+          |> List.filter_map ( fun (variable, return_kind) -> 
+            match return_kind with
+            | Double_return _ -> failwith "Unreachable"
+            | Simple_return reg -> begin 
+              match location_of variable fd with
+              | Some LocReg _ | None -> None
+              | Some LocAddr address -> 
+                Some (variable, reg, address)
+            end
+          )
+          |> List.map (fun (variable, reg, address) -> 
+            let ds = ConditionCode.data_size_of_kt @@ snd variable in
+            LineInstruction.sstr ds reg address
+          )
+          |> List.flatten
+      in
+      sub_sp_instructions @ str_fp @ align_fp_instructions @ store_value_instructions
+
 end
