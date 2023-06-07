@@ -15,6 +15,9 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
+
+module Args = Args
+
 type stringlit_label = SLit of string
 type floatlit_label = FLit of string
 type coordinate = { line : int; column : int }

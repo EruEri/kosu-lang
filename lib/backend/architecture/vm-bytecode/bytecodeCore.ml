@@ -127,6 +127,43 @@ module Register = struct
     | FR12 -> true
     | _ -> false 
 
+    let caller_saved_register = [
+      R0;
+      R1;
+      R2;
+      R3;
+      R4;
+      R5;
+      R6;
+      R7;
+      R8; (* XR *)
+      R9;
+      R10;
+      R11;
+      R12;
+      
+      FR0;
+      FR1;
+      FR2;
+      FR3;
+      FR4;
+      FR5;
+      FR6;
+      FR7;
+      FR8;
+      FR9;
+      FR10;
+      FR11;
+      FR12;
+      IR;
+      SC;
+    ]
+  
+    let callee_saved_register = [
+      FP;
+      SP
+    ]
+
   let non_float_argument_registers = [
     R0;
     R1;
@@ -180,7 +217,21 @@ module Register = struct
     is_float = is_float_register
     (* float == float || other == other *)
 
+  let does_return_hold_in_register variable = 
+    let _, ktype = variable in
+    match KosuIrTyped.Sizeof.sizeof_kt ktype with
+    | 1L | 2L | 4L | 8L -> true
+    | _ -> false
+
+  let return_strategy variable = 
+    match does_return_hold_in_register variable with
+    | true -> Simple_return R0
+    | false -> Indirect_return
+
+  let sp = SP
 end
+
+module GreedyColoration = KosuIrCfg.Asttaccfg.KosuRegisterAllocator.GreedyColoring(Register)
 
 module Operande = struct
   type src = [
@@ -194,6 +245,22 @@ end
 module Location = struct
   type address_offset = [ `ILitteral of int64 | `Register of Register.register ]
   type address = { base : Register.register; offset : address_offset}
+
+  type location = 
+  | LocReg of Register.register
+  | LocAddr of address
+
+  let loc_reg r = LocReg r
+  let loc_addr a = LocAddr a
+
+  let create_adress ?(offset = 0L) base = { base; offset = `ILitteral offset }
+
+  let increment_adress off adress =
+    match adress.offset with
+    | `ILitteral offset ->
+        { adress with offset = `ILitteral (Int64.add offset off) }
+    | `Register _reg -> failwith "Increment register based address"
+  
 end
 
 module Instruction = struct
@@ -275,4 +342,84 @@ module Instruction = struct
       address: address
     }
 
+end
+
+module FrameManager = struct
+  type description = {
+    local_space: int64;
+    variable_map: Location.location KosuCommon.IdVarMap.t
+  }
+
+  let variable_of_tac_locale_variable = 
+    let open KosuIrTAC.Asttac in
+    fun { locale_ty; locale } ->
+      match locale with
+      | Locale s -> (s, locale_ty)
+      | Enum_Assoc_id { name; _ } -> (name, locale_ty)
+
+  let location_of variable fd = 
+    match IdVarMap.find_opt variable fd.variable_map with
+    | None -> Printf.sprintf "location of: %s failed" ("") |> failwith
+    | Some loc -> loc
+
+    let frame_descriptor rprogram (function_decl: KosuIrTAC.Asttac.tac_function_decl) = 
+      let open KosuIrTAC.Asttac in
+      let open Util.Args in
+      let iparas, fparams, stack_parameters = 
+        Util.Args.consume_args 
+        ~fregs:Register.float_argument_registers 
+        ~iregs:Register.non_float_argument_registers
+        ~fpstyle:(fun (_, kt) -> 
+          if KosuIrTyped.Asttyhelper.RType.is_float kt then 
+            Simple_Reg Other
+          else
+            Simple_Reg Float
+        ) function_decl.rparameters 
+      in
+
+      let parameters = iparas |> ( @ ) fparams |> List.map (fun (variable, return_kind) -> 
+        match return_kind with
+        | Simple_return reg -> variable, reg
+        | Double_return _ -> failwith "Unreachable"
+      ) in
+
+      let cfg = KosuIrCfg.Astcfgconv.cfg_liveness_of_tac_function function_decl in
+      let colored_graph = GreedyColoration.coloration 
+      ~parameters:parameters
+      ~available_color:Register.available_register cfg
+    in
+    let base_address = Location.create_adress ~offset:0L Register.sp in
+
+    let variable_map, stack_variable = function_decl.locale_var |> List.sort (fun lhs rhs ->
+        let lsize = KosuIrTyped.Sizeof.sizeof_kt lhs.locale_ty in
+        let rsize = KosuIrTyped.Sizeof.sizeof_kt rhs.locale_ty in
+        compare rsize lsize
+        ) |> List.fold_left (fun (acc_map, acc_stack_variable) variable -> 
+          let variable = variable_of_tac_locale_variable variable in
+          let open GreedyColoration.ColoredGraph in
+          let node = GreedyColoration.ColoredGraph.find variable colored_graph in
+          match node.color with
+          | Some color -> 
+            (* let () = Printf.printf "%s : %d\n" (fst variable) (Obj.magic color) in *)
+            let reg = Location.loc_reg color in
+            IdVarMap.add variable reg acc_map, acc_stack_variable
+          | None -> 
+            acc_map, variable::acc_stack_variable
+      )  (IdVarMap.empty, []) in
+
+    let stack_variable_types = List.map snd stack_variable in
+
+    let variable_map = stack_variable |> List.mapi Util.couple |> List.fold_left (fun (acc_address, acc_map) (index, variable) ->
+      let offset = KosuIrTyped.Sizeof.offset_of_tuple_index index stack_variable_types rprogram in
+      let address = Location.increment_adress offset base_address in
+      let loc_adrress =  Location.loc_addr address in
+      address, IdVarMap.add variable loc_adrress acc_map
+    ) (base_address, variable_map) |> snd 
+    in
+
+    let local_space = KosuIrTyped.Sizeof.sizeof rprogram ( KosuIrTyped.Asttyhelper.RType.rtuple stack_variable_types) in
+    {
+      local_space;
+      variable_map
+    }
 end

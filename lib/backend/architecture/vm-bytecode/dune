@@ -17,4 +17,4 @@
 
 (library
  (name vmBytecode)
- (libraries kosuIrTyped kosuIrTAC kosuFrontend kosuCommon))
+ (libraries kosuIrTyped kosuIrTAC kosuFrontend kosuCommon kosuIrCfg))
