@@ -190,21 +190,53 @@ reg_t* register_of_int32(vm_t* vm, uint32_t bits, uint32_t shift) {
     case 7:
         return &vm->r7; 
     case 8:
-        return &vm->fr0; 
+        return &vm->r8;
     case 9:
-        return &vm->fr1; 
+        return &vm->r9;
     case 10:
-        return &vm->fr2; 
+        return &vm->r10;
     case 11:
-        return &vm->fr3; 
+        return &vm->r11;
     case 12:
-        return &vm->fr4; 
+        return &vm->r12;
     case 13:
-        return &vm->fr5; 
+        return &vm->r13;
     case 14:
-        return &vm->fr6; 
+        return &vm->r14;
     case 15:
+        return &vm->fr0; 
+    case 16:
+        return &vm->fr1; 
+    case 17:
+        return &vm->fr2; 
+    case 18:
+        return &vm->fr3; 
+    case 19:
+        return &vm->fr4; 
+    case 20:
+        return &vm->fr5; 
+    case 21:
+        return &vm->fr6; 
+    case 22:
         return &vm->fr7; 
+    case 23:
+        return &vm->fr8;
+    case 24:
+        return &vm->fr9;
+    case 25:
+        return &vm->fr10;
+    case 26:
+        return &vm->fr11;
+    case 27:
+        return &vm->fr12;
+    case 28:
+        return &vm->ir;
+    case 29:
+        return &vm->sc;
+    case 30:
+        return &vm->fp;
+    case 31:
+        return &vm->stack->sp;
     default:
         failwith("Wrong register number", 1);
     }

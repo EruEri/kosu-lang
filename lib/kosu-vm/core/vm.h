@@ -89,7 +89,7 @@ typedef struct {
     bool_t last_cmp;
     const instruction_t* ip;
     vm_stack_t* stack;
-    reg_t fp;
+
 
     // Register parameters
     reg_t r0;
@@ -100,18 +100,13 @@ typedef struct {
     reg_t r5;
     reg_t r6;
     reg_t r7;
-
-    // Indirect return register
-    reg_t ir;
-    // Syscall code register
-    reg_t sc;
-
     reg_t r8;
     reg_t r9;
     reg_t r10;
     reg_t r11;
     reg_t r12;
-
+    reg_t r13;
+    reg_t r14;
     // Register parameters float
     freg_t fr0;
     freg_t fr1;
@@ -121,12 +116,19 @@ typedef struct {
     freg_t fr5;
     freg_t fr6;
     freg_t fr7;
-
     freg_t fr8;
     freg_t fr9;
     freg_t fr10;
     freg_t fr11;
     freg_t fr12;
+
+
+    // Indirect return register
+    reg_t ir;
+    // Syscall code register
+    reg_t sc;
+    // Frame pointer register
+    reg_t fp;
 } vm_t;
 
 

@@ -80,6 +80,8 @@ module Register = struct
   | R10
   | R11
   | R12
+  | R13
+  | R14
   (* Float register*)
   | FR0
   | FR1
@@ -136,12 +138,14 @@ module Register = struct
       R5;
       R6;
       R7;
-      R8; (* XR *)
+      R8;
       R9;
       R10;
       R11;
       R12;
-      
+      R13;
+      R14;
+
       FR0;
       FR1;
       FR2;
@@ -205,7 +209,6 @@ module Register = struct
     R9;
     R10;
     R11;
-    R12
   ]
 
   let indirect_return_register = IR
@@ -346,9 +349,16 @@ end
 
 module FrameManager = struct
   type description = {
+    (* need to save indirect return register*)
+    need_ir: bool;
     local_space: int64;
+    discarded_values: Register.variable list;
     variable_map: Location.location KosuCommon.IdVarMap.t
   }
+
+  let indirect_return_var = "@xreturn"
+  let indirect_return_type = KosuIrTyped.Asttyped.(RTPointer RTUnknow)
+  let indirect_return_vt = (indirect_return_var, indirect_return_type)
 
   let variable_of_tac_locale_variable = 
     let open KosuIrTAC.Asttac in
@@ -358,9 +368,10 @@ module FrameManager = struct
       | Enum_Assoc_id { name; _ } -> (name, locale_ty)
 
   let location_of variable fd = 
-    match IdVarMap.find_opt variable fd.variable_map with
-    | None -> Printf.sprintf "location of: %s failed" ("") |> failwith
-    | Some loc -> loc
+    if List.mem variable fd.discarded_values then None 
+    else match IdVarMap.find_opt variable fd.variable_map with
+    | None -> Printf.sprintf "location of: %s failed" (fst variable) |> failwith
+    | Some _ as loc -> loc
 
     let frame_descriptor rprogram (function_decl: KosuIrTAC.Asttac.tac_function_decl) = 
       let open KosuIrTAC.Asttac in
@@ -385,9 +396,22 @@ module FrameManager = struct
 
       let cfg = KosuIrCfg.Astcfgconv.cfg_liveness_of_tac_function function_decl in
       let colored_graph = GreedyColoration.coloration 
-      ~parameters:parameters
-      ~available_color:Register.available_register cfg
+        ~parameters:parameters
+        ~available_color:Register.available_register cfg
+      in
+
+    let need_ir = not @@ Register.does_return_hold_in_register ((), function_decl.return_type) in
+
+    let colored_graph = 
+      if not need_ir 
+        then colored_graph 
+    else
+      let colored_node = GreedyColoration.ColoredGraph.create_colored None indirect_return_vt in
+      GreedyColoration.ColoredGraph.add_node colored_node colored_graph
     in
+
+
+      
     let base_address = Location.create_adress ~offset:0L Register.sp in
 
     let variable_map, stack_variable = function_decl.locale_var |> List.sort (fun lhs rhs ->
@@ -419,7 +443,9 @@ module FrameManager = struct
 
     let local_space = KosuIrTyped.Sizeof.sizeof rprogram ( KosuIrTyped.Asttyhelper.RType.rtuple stack_variable_types) in
     {
+      need_ir;
       local_space;
-      variable_map
+      variable_map;
+      discarded_values = function_decl.discarded_values
     }
 end
