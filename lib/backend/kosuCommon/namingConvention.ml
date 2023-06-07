@@ -27,6 +27,11 @@ end
 module Make (N : NamingSig) = struct
   include N
 
+  let const_label_format module_name const_name = 
+    Printf.sprintf "_%s_%s"
+    (asm_module_path module_name)
+    const_name
+
   let label_of_constant ?module_path const_name =
     Printf.sprintf "%s%s"
       (module_path |> Option.map asm_module_path

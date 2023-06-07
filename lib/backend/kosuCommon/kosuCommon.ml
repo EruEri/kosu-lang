@@ -70,7 +70,7 @@ module OffsetHelper = struct
 end
 
 module type InstructionLine = sig
-  type raw_line
+  type line
 end
 
 module AsmProgram (InstructionLine : InstructionLine) = struct
@@ -80,7 +80,7 @@ module AsmProgram (InstructionLine : InstructionLine) = struct
       (KosuFrontend.Ast.fsize * float, Util.floatlit_label) Hashtbl.t;
   }
 
-  type raw_line = InstructionLine.raw_line
+  type raw_line = InstructionLine.line
   type asm_function_decl = { asm_name : string; asm_body : raw_line list }
 
   type asm_const_decl = {

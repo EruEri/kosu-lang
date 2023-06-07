@@ -587,13 +587,13 @@ module Instruction = struct
 
   type comment = Comment of string
 
-  type raw_line =
+  type line =
     | Instruction of instruction
     | Directive of string
     | Label of string
     | Line_Com of comment
 
-  type line = raw_line * comment option
+  (* type line = raw_line * comment option *)
 
   let instruction i = Instruction i
 

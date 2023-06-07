@@ -17,6 +17,11 @@
 
 module IdVar = KosuCommon.IdVar
 module IdVarMap = KosuCommon.IdVarMap
+module NamingConvention = KosuCommon.NamingConvention.Make(struct
+ let label_prefix = ""
+  let main = "main"
+
+end)
 
 module Immediat = struct
   module VmConst = struct
@@ -312,13 +317,13 @@ module Operande = struct
   }
 
   type lea_operande = 
-    | LeaPcRel of int64
+    | LeaPcRel of string
     | LeaRegAbs of Location.address
 
   let ilitteral n = (`ILitteral n :> src)
   let iregister reg : src = `Register reg
 
-  let lea_pc_relatif n = LeaPcRel n
+  let lea_pc_relatif s = LeaPcRel s
   let lea_reg_abs address = LeaRegAbs address
 end
 
@@ -436,9 +441,9 @@ end
 
 module Line = struct
   type line = 
-  | Instruction of Instruction.t
-  | Comment of string
-  | Label of string
+    | Instruction of Instruction.t
+    | Comment of string
+    | Label of string
 
   type asmline = AsmLine of line * string option
 
@@ -453,11 +458,15 @@ module Line = struct
   let label ?comment l = AsmLine (Label l, comment)
 end
 
+module BytecodeProgram = KosuCommon.AsmProgram(Line)
+
 module LineInstruction = struct
   open Instruction
   open Location
   open Line
   open Immediat
+
+
 
   let mv_integer register n = 
     let open Immediat in
@@ -479,6 +488,19 @@ module LineInstruction = struct
         else mva register (Operande.ilitteral int64) ConditionCode.SH48 :: mvs
       in
     instructions mvs
+
+    let smv register src = 
+      match src with
+      | `Register _ -> sinstruction @@ mv register src
+      | `ILitteral n -> mv_integer register n
+
+    let lea_label destination ?module_path label = 
+      let label =
+        module_path
+        |> Option.map (fun mp -> NamingConvention.const_label_format mp label)
+        |> Option.value ~default:label
+      in
+      sinstruction @@ lea destination @@ Operande.lea_pc_relatif label
 
   let ssub destination source (operande: Operande.src) = 
     match operande with
@@ -709,8 +731,7 @@ module FrameManager = struct
             end
           )
           |> List.map (fun (variable, reg, address) -> 
-            let ds = ConditionCode.data_size_of_kt @@ snd variable in
-            LineInstruction.sstr ds reg address
+            LineInstruction.scopy reg address @@ snd variable
           )
           |> List.flatten
       in

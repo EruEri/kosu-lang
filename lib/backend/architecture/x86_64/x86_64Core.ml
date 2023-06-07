@@ -294,7 +294,7 @@ module Instruction = struct
 
   type comment = Comment of string
 
-  and raw_line =
+  and line =
     | Instruction of instruction
     | Directive of string
     | Label of string
