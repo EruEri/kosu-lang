@@ -1693,9 +1693,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                             if index < float_reg_count then Either.left value
                             else Either.right value)
                    in
-
+                   let tmp_dummy_value = 4 in
                    let stack_param_count =
-                     Int64.of_int (function_decl.stack_params_count * 8)
+                     Int64.of_int (tmp_dummy_value * 8)
                    in
                    let locals_var =
                      function_decl.locale_var
@@ -1754,8 +1754,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                             @ [ Directive "cfi_endproc" ];
                         })
                | TNOperator (TacUnary unary_decl as self) ->
+                let tmp_dummy_value = 4 in
                    let stack_param_count =
-                     Int64.of_int (unary_decl.stack_params_count * 8)
+                     Int64.of_int (tmp_dummy_value * 8)
                    in
                    let locals_var =
                      unary_decl.locale_var
@@ -1797,8 +1798,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                             @ [ Directive "cfi_endproc" ];
                         })
                | TNOperator (TacBinary binary as self) ->
+                let tmp_dummy_value = 4 in
                    let stack_param_count =
-                     Int64.of_int (binary.stack_params_count * 8)
+                     Int64.of_int (tmp_dummy_value * 8)
                    in
                    let locals_var =
                      binary.locale_var

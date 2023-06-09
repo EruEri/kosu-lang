@@ -790,6 +790,11 @@ module Rmodule = struct
                | _ -> None)
 end
 
+module FnCallInfo = Set.Make(struct 
+  type t = function_call_info 
+  let compare = Stdlib.compare 
+end)
+
 module RProgram = struct
   type fn_signature = {
     fn_name : string;
@@ -901,50 +906,48 @@ module RProgram = struct
                     op = record.op && record.return_type = r_type && lhs = kt1))
     |> List.flatten
 
+  
   let rec stack_parameters_in_expression current_module rprogram = function
     | REFunction_call
-        { modules_path; fn_name; parameters; generics_resolver = _ } -> (
+        { modules_path; fn_name; parameters; generics_resolver = _ } -> begin
         let cmodule =
           if modules_path = "" then current_module else modules_path
         in
-        let ktypes = parameters |> List.map (fun { rktype; _ } -> rktype) in
         let fn_decl =
           rprogram |> find_function_decl_of_name cmodule fn_name |> function
           | Some s -> s
           | None -> failwith "814"
         in
         match fn_decl with
-        | RSyscall_Decl _ -> 0
+        | RSyscall_Decl rsyscall_decl -> 
+          FnCallInfo.singleton {varia_index = None; parameters = rsyscall_decl.parameters; return_type = rsyscall_decl.return_type} 
         | RExternal_Decl extenal_decl when not extenal_decl.is_variadic ->
-            let parmas_count = extenal_decl.fn_parameters |> List.length in
-            let count = parmas_count - register_params_count in
-            if count < 0 then 0 else count
+          FnCallInfo.singleton {varia_index = None; parameters = extenal_decl.fn_parameters; return_type = extenal_decl.return_type} 
         | RExternal_Decl external_decl ->
-            let non_variadic_count = List.length external_decl.fn_parameters in
-            let call_params_count = List.length ktypes in
-            let concrete_params_count =
-              min non_variadic_count register_params_count
-            in
-            let count = call_params_count - concrete_params_count in
-            count
+          FnCallInfo.singleton {
+            varia_index = Option.some @@ List.length external_decl.fn_parameters;
+            parameters = parameters |> List.map (fun { rktype; rexpression = _ } -> rktype
+            );
+            return_type = external_decl.return_type;
+          }
         | RKosufn_Decl fn_decl ->
-            let parmas_count = fn_decl.rparameters |> List.length in
-            let count = parmas_count - register_params_count in
-            if count < 0 then 0 else count)
+          let parameters = List.map snd fn_decl.rparameters in
+          FnCallInfo.singleton {varia_index = None; parameters = parameters ; return_type = fn_decl.return_type} 
+        end
     | REFieldAcces { first_expr; _ } ->
         stack_parameters_in_typed_expression current_module rprogram first_expr
     | REStruct { fields; _ } ->
         fields
         |> List.map (fun (_, te) ->
                stack_parameters_in_typed_expression current_module rprogram te)
-        |> List.fold_left max 0
+        |> List.fold_left FnCallInfo.union FnCallInfo.empty
     | REEnum { assoc_exprs = tes; _ }
     | RETuple tes
     | REBuiltin_Function_call { parameters = tes; _ } ->
         tes
         |> List.map
              (stack_parameters_in_typed_expression current_module rprogram)
-        |> List.fold_left max 0
+        |> List.fold_left FnCallInfo.union FnCallInfo.empty
     | REUnOperator_Function_call un | REUn_op un -> (
         match un with
         | RUMinus te | RUNot te ->
@@ -978,12 +981,12 @@ module RProgram = struct
                    stack_parameters_in_body current_module rprogram kbody
                  in
                  max te_count kb_count)
-          |> List.fold_left max 0
+          |> List.fold_left FnCallInfo.union FnCallInfo.empty
         in
         let else_count =
           stack_parameters_in_body current_module rprogram else_case
         in
-        max cases_max else_count
+        FnCallInfo.union cases_max else_count
     | RESwitch { rexpression; cases; wildcard_case } ->
         let te_count =
           stack_parameters_in_typed_expression current_module rprogram
@@ -993,15 +996,15 @@ module RProgram = struct
           cases
           |> List.map (fun (_, _, kb) ->
                  stack_parameters_in_body current_module rprogram kb)
-          |> List.fold_left max 0
+          |> List.fold_left FnCallInfo.union FnCallInfo.empty
         in
         let wildcard_count =
           wildcard_case
           |> Option.map (stack_parameters_in_body current_module rprogram)
-          |> Option.value ~default:0
+          |> Option.value ~default:FnCallInfo.empty
         in
-        te_count |> max cases_count |> max wildcard_count
-    | _ -> 0
+        te_count |> FnCallInfo.union cases_count |> FnCallInfo.union wildcard_count
+    | _ ->  FnCallInfo.empty
 
   and stack_parameters_in_typed_expression current_module rprogram
       { rexpression; _ } =
@@ -1018,12 +1021,12 @@ module RProgram = struct
     let stmts_max =
       stmts
       |> List.map (stack_parameters_in_statement current_module rprogram)
-      |> List.fold_left max 0
+      |> List.fold_left FnCallInfo.union FnCallInfo.empty
     in
     let te_count =
       stack_parameters_in_typed_expression current_module rprogram te
     in
-    max stmts_max te_count
+    FnCallInfo.union stmts_max te_count
 
   let rec specialise_generics_function current_module ~ignored rprogram =
     function

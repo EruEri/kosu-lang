@@ -1142,8 +1142,8 @@ let tac_function_decl_of_rfunction current_module rprogram
        let s = (function Locale s -> s | Enum_Assoc_id {name; _} -> name) locale in
        Printf.sprintf "%s : %s" (s) (KosuIrTyped.Asttypprint.string_of_rktype locale_ty)
      ) |> String.concat "\n" |> Printf.printf "%s\n" in *)
-  let stack_params_count =
-    KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
+  let fn_call_infos =
+    KosuIrTyped.Asttyhelper.FnCallInfo.elements @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
       rprogram rfunction_decl.rbody
   in
   {
@@ -1152,7 +1152,7 @@ let tac_function_decl_of_rfunction current_module rprogram
     rparameters = rfunction_decl.rparameters;
     return_type = rfunction_decl.return_type;
     tac_body;
-    stack_params_count;
+    fn_call_infos;
     locale_var;
     discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
   }
@@ -1176,8 +1176,8 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
                if is_in_body key tac_body then Some value else None)
       in
       let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
-      let stack_params_count =
-        KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
+      let fn_call_infos =
+        KosuIrTyped.Asttyhelper.FnCallInfo.elements @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
           rprogram kbody
       in
       TacUnary
@@ -1187,7 +1187,7 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
           rfield;
           return_type;
           tac_body;
-          stack_params_count;
+          fn_call_infos;
           locale_var;
           discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
         }
@@ -1212,8 +1212,8 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
                if is_in_body key tac_body then Some value else None)
       in
       let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
-      let stack_params_count =
-        KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
+      let fn_call_infos =
+        KosuIrTyped.Asttyhelper.FnCallInfo.elements @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
           rprogram kbody
       in
       TacBinary
@@ -1223,7 +1223,7 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
           rfields;
           return_type;
           tac_body;
-          stack_params_count;
+          fn_call_infos;
           locale_var;
           discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
         }

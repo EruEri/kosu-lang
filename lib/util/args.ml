@@ -40,38 +40,44 @@ let double_pop_opt = function
 | ([] | _::[] as l) -> None, l
 | t::t2::q -> Some (t, t2), q
 
-let rec consume_args ~fregs ~iregs ~fargs ~iargs ~stacks_args ~fpstyle ttes = match ttes with
+let rec consume_args ?novariadic_args ~fregs ~iregs ~fargs ~iargs ~stacks_args ~fpstyle ~i ttes = match ttes with
 | [] -> List.rev iargs, List.rev fargs, List.rev stacks_args
 | t::q -> 
+  let next_i = i + 1 in
+  begin match novariadic_args with
+    | Some nvags when i > nvags -> 
+      consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle ~stacks_args:(t::stacks_args)  ~i:next_i q
+    | None | Some _ -> 
   begin match fpstyle t with
   | Simple_Reg kind -> begin match kind with
     | Other -> 
       let head_reg, remain_reg = pop_opt iregs in
       begin match head_reg with
-      | None -> consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle ~stacks_args:(t::stacks_args) q
-      | Some reg -> consume_args ~fregs ~iregs:remain_reg ~fargs ~iargs:((t, simple_return reg)::iargs) ~stacks_args ~fpstyle q
+      | None -> consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle ~stacks_args:(t::stacks_args) ~i:next_i q
+      | Some reg -> consume_args ~fregs ~iregs:remain_reg ~fargs ~iargs:((t, simple_return reg)::iargs) ~stacks_args ~fpstyle ~i:next_i q
       end
     | Float -> 
       let head_reg, freg_remain = pop_opt fregs in
       begin match head_reg with
-      | None -> consume_args ~fregs ~iregs ~fargs ~iargs ~stacks_args:(t::stacks_args) ~fpstyle q
-      | Some reg -> consume_args ~fregs:freg_remain ~iregs ~fargs:((t, simple_return reg)::fargs) ~iargs ~stacks_args ~fpstyle q
+      | None -> consume_args ~fregs ~iregs ~fargs ~iargs ~stacks_args:(t::stacks_args) ~fpstyle ~i:next_i q
+      | Some reg -> consume_args ~fregs:freg_remain ~iregs ~fargs:((t, simple_return reg)::fargs) ~iargs ~stacks_args ~fpstyle ~i:next_i q
       end
   end
   | Double_Reg (lhs, rhs) -> begin match lhs, rhs with  
     | Float, Float -> begin match fregs with
-    | [] | _::[] -> consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle ~stacks_args:(t::stacks_args) q
+    | [] | _::[] -> consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle ~stacks_args:(t::stacks_args) ~i:next_i q
     | fr1::fr2::remains -> 
       let arg = t, double_return fr1 fr2 in
-      consume_args ~fregs:remains ~iregs ~fargs:(arg::fargs) ~iargs ~fpstyle ~stacks_args:(t::stacks_args) q
+      consume_args ~fregs:remains ~iregs ~fargs:(arg::fargs) ~iargs ~fpstyle ~stacks_args:(t::stacks_args) ~i:next_i q
     end 
     | _ -> begin match fregs with
-      | [] | _::[] -> consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle ~stacks_args:(t::stacks_args) q
+      | [] | _::[] -> consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle ~stacks_args:(t::stacks_args) ~i:next_i q
       | ir1::ir2::remains -> 
         let arg = t, double_return ir1 ir2 in
-        consume_args ~fregs ~iregs:remains ~fargs ~iargs:(arg::iargs) ~fpstyle ~stacks_args:(t::stacks_args) q
+        consume_args ~fregs ~iregs:remains ~fargs ~iargs:(arg::iargs) ~fpstyle ~stacks_args:(t::stacks_args) ~i:next_i q
   end
   end
 end
+end
 
-let consume_args = consume_args ~fargs:[] ~iargs:[] ~stacks_args:[]
+let consume_args = consume_args ~fargs:[] ~iargs:[] ~stacks_args:[] ~i:0

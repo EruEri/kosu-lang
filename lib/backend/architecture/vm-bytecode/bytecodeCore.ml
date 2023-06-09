@@ -622,7 +622,7 @@ module FrameManager = struct
     let frame_descriptor rprogram (function_decl: KosuIrTAC.Asttac.tac_function_decl) = 
       let open KosuIrTAC.Asttac in
       let open Util.Args in
-      let iparas, fparams, stack_parameters = 
+      let iparas, fparams, _stack_parameters = 
         Util.Args.consume_args 
         ~fregs:Register.float_argument_registers 
         ~iregs:Register.non_float_argument_registers
@@ -679,7 +679,7 @@ module FrameManager = struct
 
     let stack_variable_types = List.map snd stack_variable in
 
-    let variable_map = stack_variable |> List.mapi Util.couple |> List.fold_left (fun (acc_address, acc_map) (index, variable) ->
+    let variable_map = stack_variable |> List.mapi Util.couple |> List.fold_left (fun (_acc_address, acc_map) (index, variable) ->
       let offset = KosuIrTyped.Sizeof.offset_of_tuple_index index stack_variable_types rprogram in
       let address = Location.increment_adress offset base_address in
       let loc_adrress =  Location.loc_addr address in
@@ -707,7 +707,7 @@ module FrameManager = struct
       let sub_sp_instructions = LineInstruction.ssub Register.sp Register.sp @@ Operande.ilitteral stack_sub_size in
       let align_fp_instructions = LineInstruction.sadd Register.fp Register.sp @@ Operande.ilitteral variable_frame in
 
-      let iparas, fparams, stack_parameters = 
+      let iparas, fparams, _stack_parameters = 
         Util.Args.consume_args 
         ~fregs:Register.float_argument_registers 
         ~iregs:Register.non_float_argument_registers
@@ -739,8 +739,6 @@ module FrameManager = struct
 
 
       let epilogue fd = 
-        let open Instruction in
-        let open Register in
         let open Line in
         let ( ++ ) = Int64.add in
         let ( -- ) = Int64.sub in

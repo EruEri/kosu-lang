@@ -923,6 +923,28 @@ module FrameManager = struct
     let modulo = if Int64.unsigned_rem size 16L = 0L then 0L else 1L in
     16L ** (div ++ modulo)
 
+
+  (* let frame_descriptor rprogram (tac_function: KosuIrTAC.Asttac.tac_function_decl) = 
+    let open KosuIrTAC.Asttac in
+    let open Util.Args in
+    let iparas, fparams, stack_parameters = 
+    Util.Args.consume_args 
+    ~fregs:Register.float_arguments_register 
+    ~iregs:Register.argument_registers
+    ~fpstyle:(fun (_, kt) -> 
+      if KosuIrTyped.Asttyhelper.RType.is_float kt then 
+        Simple_Reg Float
+      else
+        Simple_Reg Other
+    ) tac_function.rparameters 
+  in
+    let need_xr =
+      tac_function.return_type
+      |> KosuIrTyped.Sizeof.sizeof rprogram
+      |> is_register_size |> not
+    in
+    failwith "" *)
+
   let frame_descriptor ?(stack_future_call = 0L)
       ~(fn_register_params : (string * KosuIrTyped.Asttyped.rktype) list)
       ~(fn_float_register_params : (string * KosuIrTyped.Asttyped.rktype) list)

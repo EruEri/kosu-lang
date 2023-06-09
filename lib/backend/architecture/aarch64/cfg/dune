@@ -1,0 +1,3 @@
+(library
+ (name aarch64cfg)
+ (libraries kosuIrTyped kosuIrTAC kosuIrCfg kosuFrontend kosuCommon))
