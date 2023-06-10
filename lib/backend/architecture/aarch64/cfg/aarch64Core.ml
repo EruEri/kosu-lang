@@ -488,3 +488,31 @@ module Instruction = struct
     | SVC
     | RET
 end
+
+module Line = struct
+  type line = 
+    | Instruction of Instruction.instruction
+    | Comment of string
+    | Label of string
+
+  type asmline = AsmLine of line * string option
+
+  let instruction ?comment instr = AsmLine (Instruction instr, comment)
+
+  let instructions instrs = instrs |> List.map instruction
+
+  let sinstruction instruction = instructions [instruction]
+
+  let comment message = AsmLine (Comment message, None)
+
+  let label ?comment l = AsmLine (Label l, comment)
+end
+
+module AarchProgramType = KosuCommon.AsmProgram(Line)
+
+module LineInstruction = struct
+  open Instruction
+  open Location
+  open Line
+  open Immediat
+end

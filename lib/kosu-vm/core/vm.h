@@ -119,16 +119,15 @@ typedef struct {
     freg_t fr8;
     freg_t fr9;
     freg_t fr10;
-    freg_t fr11;
-    freg_t fr12;
-
 
     // Indirect return register
-    reg_t ir;
+    reg_t irp;
     // Syscall code register
-    reg_t sc;
+    reg_t scp;
     // Frame pointer register
     reg_t fp;
+    // Return adress register
+    reg_t rap;
 } vm_t;
 
 

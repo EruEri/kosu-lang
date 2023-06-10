@@ -73,8 +73,9 @@ int show_status(vm_t* vm) {
     printf("last_cmp = %u\n", vm->last_cmp);
     printf("ip = %p\n", vm->ip - (uint64_t) vm->code);
     printf("fp = %p\n", (void *) vm->fp);
-    printf("sc = %llu\n", vm->sc);
-    printf("ir = %p\n", (void *) vm->sc);
+    printf("sc = %llu\n", vm->scp);
+    printf("ir = %p\n", (void *) vm->irp);
+    printf("ra = %p\n", (void *) vm->rap);
     show_reg("r0", vm->r0, false);
     show_reg("r1", vm->r1, false);
     show_reg("r2", vm->r2, false);
@@ -226,16 +227,14 @@ reg_t* register_of_int32(vm_t* vm, uint32_t bits, uint32_t shift) {
     case 25:
         return &vm->fr10;
     case 26:
-        return &vm->fr11;
+        return &vm->irp;
     case 27:
-        return &vm->fr12;
+        return &vm->scp;
     case 28:
-        return &vm->ir;
-    case 29:
-        return &vm->sc;
-    case 30:
         return &vm->fp;
-    case 31:
+    case 29:
+        return &vm->rap;
+    case 30:
         return &vm->stack->sp;
     default:
         failwith("Wrong register number", 1);
@@ -338,13 +337,13 @@ int br(vm_t* vm, instruction_t instruction) {
     if (is_register) {
        reg_t* src = register_of_int32(vm, instruction, 20);
        if (is_branch_link) {
-            vm->fp = (reg_t) vm->ip;
+            vm->rap = (reg_t) vm->ip + 1;
        }
        vm->ip = vm->code + *src;
     } else {
         int64_t value = sext25(instruction);
         if (is_branch_link) {
-            vm->fp = (reg_t) vm->ip;
+            vm->rap = (reg_t) vm->ip + 1;
         }
         vm->ip = vm->ip + value;
     }

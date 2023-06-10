@@ -130,14 +130,14 @@ module Register = struct
   | FR8
   | FR9
   | FR10
-  | FR11
-  | FR12
   (* Indirect return register *)
   | IR
   (* Syscall code register*)
   | SC
   (* Frame pointer register*)
   | FP
+  (* Return Address register *)
+  | RAP 
   (* Stack pointer register*)
   | SP
   type t = register
@@ -160,9 +160,7 @@ module Register = struct
     | FR7
     | FR8
     | FR9
-    | FR10
-    | FR11
-    | FR12 -> true
+    | FR10 -> true
     | _ -> false 
 
     let caller_saved_register = [
@@ -193,15 +191,14 @@ module Register = struct
       FR8;
       FR9;
       FR10;
-      FR11;
-      FR12;
       IR;
       SC;
     ]
   
     let callee_saved_register = [
       FP;
-      SP
+      SP;
+      RAP
     ]
 
   let non_float_argument_registers = [
@@ -270,10 +267,16 @@ module Register = struct
     | false -> Indirect_return
 
 
+  let r0 = R0
+
+  let r1 = R1
   let r13 = R13
   let r14 = R14
   let sp = SP
 
+  let ir = IR
+  let sc = SC
+  let rap = RAP
   let fp = FP
 end
 
@@ -307,6 +310,11 @@ module Operande = struct
   type src = [
     `ILitteral of int64
     | `Register of Register.register
+  ]
+
+  type jump_src = [
+    | `Label of string
+    | `Register of Register.register 
   ]
 
   type dst = Register.register
@@ -353,8 +361,8 @@ module Instruction = struct
       operandes : single_operande;
       shift : shift
     }
-    | Jump of src
-    | Br of src
+    | Jump of jump_src
+    | Br of jump_src
     | Lea of {
       destination : Register.register;
       operande: lea_operande
@@ -585,11 +593,19 @@ module LineInstruction = struct
     large_copy_size ~increment:None register address @@ KosuIrTyped.Sizeof.sizeof_kt kt
 
 
-    let scopy register (address : address) ktype = 
-      match Register.does_return_hold_in_register_kt ktype with
-      | true -> simple_copy register address ktype
-      | false -> large_copy register address ktype
+  let scopy register (address : address) ktype = 
+    match Register.does_return_hold_in_register_kt ktype with
+    | true -> simple_copy register address ktype
+    | false -> large_copy register address ktype
 
+  let scall_label label =
+    instruction @@ br @@ `Label label
+
+  let scall_reg reg = 
+    instruction @@ br @@ `Register reg
+
+  let slea_address target address = 
+    sadd target address.Location.base address.Location.offset
 
 end
 
@@ -700,10 +716,12 @@ module FrameManager = struct
       let open Location in
       let ( ++ ) = Int64.add in
       let ( -- ) = Int64.sub in
-      let stack_sub_size = KosuIrTyped.Sizeof.align_8 (8L ++ fd.local_space) in
-      let variable_frame = stack_sub_size -- 8L in
-      let address = Location.create_address ~offset:variable_frame Register.sp in
-      let str_fp = LineInstruction.sstr ConditionCode.SIZE_64 Register.fp address in
+      let stack_sub_size = KosuIrTyped.Sizeof.align_16 (16L ++ fd.local_space) in
+      let variable_frame = stack_sub_size -- 16L in
+      let fp_address = Location.create_address ~offset:variable_frame Register.sp in
+      let rap_address = Location.create_address ~offset:(variable_frame ++ 8L) Register.sp in
+      let str_fp = LineInstruction.sstr ConditionCode.SIZE_64 Register.fp fp_address in
+      let str_rap = LineInstruction.sstr ConditionCode.SIZE_64 Register.rap rap_address in
       let sub_sp_instructions = LineInstruction.ssub Register.sp Register.sp @@ Operande.ilitteral stack_sub_size in
       let align_fp_instructions = LineInstruction.sadd Register.fp Register.sp @@ Operande.ilitteral variable_frame in
 
@@ -735,20 +753,23 @@ module FrameManager = struct
           )
           |> List.flatten
       in
-      sub_sp_instructions @ str_fp @ align_fp_instructions @ store_value_instructions
+      sub_sp_instructions @ str_rap @ str_fp @ align_fp_instructions @ store_value_instructions
 
 
       let epilogue fd = 
         let open Line in
         let ( ++ ) = Int64.add in
         let ( -- ) = Int64.sub in
-        let stack_spaces = KosuIrTyped.Sizeof.align_8 (8L ++ fd.local_space) in
-        let variable_frame = stack_spaces -- 8L in
-        let address = Location.create_address ~offset:variable_frame Register.sp in
-        let ldr_fp_instructions = LineInstruction.sldr ConditionCode.SIZE_64 Register.fp address in
+        let stack_spaces = KosuIrTyped.Sizeof.align_16 (16L ++ fd.local_space) in
+        let variable_frame = stack_spaces -- 16L in
+        let fp_address = Location.create_address ~offset:variable_frame Register.sp in
+        let rap_address = Location.create_address ~offset:(variable_frame ++ 8L) Register.sp in
+        
+        let ldr_fp_instructions = LineInstruction.sldr ConditionCode.SIZE_64 Register.fp fp_address in
+        let ldr_rad_instructions = LineInstruction.sldr ConditionCode.SIZE_64 Register.rap rap_address in
         let add_sp_instructions = LineInstruction.sadd Register.sp Register.sp @@ Operande.ilitteral stack_spaces in
         let return_instruction = sinstruction Instruction.ret in
-        ldr_fp_instructions @ add_sp_instructions @ return_instruction
+        ldr_rad_instructions @ ldr_fp_instructions @ add_sp_instructions @ return_instruction
 
 
 end

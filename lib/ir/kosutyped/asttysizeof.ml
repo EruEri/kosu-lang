@@ -249,14 +249,14 @@ let discardable_size = function
       let () = compute_ktype rprogram return_type in
       compute_all_size_kbody rprogram kbody
   end
-  | RNEnum renum_decl -> 
-    let () = renum_decl.rvariants |> List.iter ( fun (_, kts) -> 
+  | RNEnum _ -> 
+    (* let () = renum_decl.rvariants |> List.iter ( fun (_, kts) -> 
       kts |> List.iter (compute_ktype rprogram)
-    ) in
+    ) in *)
     ()
-  | RNStruct { rfields; _ } -> 
-    rfields |> List.iter (fun (_, kt) -> compute_ktype rprogram kt)
+  | RNStruct { rfields = _; _ } -> ()
   | RNFunction rfunction_decl -> 
+    (* let () = Printf.printf "fn = %s\n%!" rfunction_decl.rfn_name in *)
     let () = rfunction_decl.rparameters |> List.iter (fun (_, kt) -> compute_ktype rprogram kt) in
     let () = compute_ktype rprogram rfunction_decl.return_type in
     let () = compute_all_size_kbody rprogram rfunction_decl.rbody in
