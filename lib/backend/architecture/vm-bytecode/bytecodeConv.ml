@@ -359,3 +359,98 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
       mov_field_adrress_instruction @ sis
   | RVFieldAcess _ -> failwith ""
   | _ -> failwith "TODO"
+
+let rec translate_tac_statement ~litterals current_module rprogram fd = function
+| STacDeclaration { identifier; trvalue }
+| STacModification { identifier; trvalue } ->  
+  let location = FrameManager.location_of (identifier, trvalue.rval_rktype) fd in
+  translate_tac_rvalue ~litterals ~where:location rprogram  current_module fd trvalue
+| STDerefAffectation { identifier; trvalue } ->
+  failwith ""
+| _ -> failwith ""
+
+and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
+(fd : FrameManager.description) { label; body } = 
+  let label = Line.label label in
+  let stmt_instrs =
+    body 
+    |> fst
+    |> List.map (fun stmt ->
+           translate_tac_statement ~litterals current_module rprogram fd stmt)
+    |> List.flatten
+  in
+  let end_label_insts =
+    end_label
+    |> Option.map sjump_label
+    |> Option.to_list
+  in
+  let return_instructions = 
+    body 
+    |> snd
+    |> Option.map (fun tte -> 
+      match does_return_hold_in_register_kt tte.expr_rktype with
+      | true -> translate_tac_expression ~litterals ~target_reg:Register.r0 fd tte
+      | false -> 
+        let address_indirect_return = Location.get_address @@ Option.get @@ FrameManager.location_of FrameManager.indirect_return_vt fd in
+        let tte_instructions = translate_tac_expression ~litterals ~target_reg:Register.r0 fd tte in
+        let ldr_indirect_address = LineInstruction.sldr SIZE_64 Register.ir address_indirect_return in
+        let copy_address = Location.create_address Register.ir in
+        let store_res_instructions =  LineInstruction.scopy Register.r0 copy_address tte.expr_rktype in
+        tte_instructions @ ldr_indirect_address @ store_res_instructions
+    )
+    |> Option.value ~default:[]
+  in
+  (label :: stmt_instrs) @ return_instructions @ end_label_insts 
+
+let asm_module_of_tac_module ~litterals current_module rprogram = 
+  let open KosuIrTyped.Asttyped in
+  function
+  | TacModule tac_nodes -> 
+    tac_nodes |> List.filter_map (function
+    | TNFunction function_decl -> 
+      let asm_name =
+        NamingConvention.label_of_tac_function ~module_path:current_module
+          function_decl
+      in
+      let fd = FrameManager.frame_descriptor rprogram function_decl in
+
+      let prologue = FrameManager.prologue function_decl fd in
+      let epilogue = FrameManager.epilogue fd in
+      let conversion =
+        translate_tac_body ~litterals rprogram current_module fd
+          function_decl.tac_body
+      in
+      let asm_body = prologue @ (conversion |> List.tl) @ epilogue in
+      Option.some @@ 
+      Afunction {
+        asm_name;
+        asm_body
+      }
+      | TNOperator operator -> 
+        let function_decl = 
+          KosuIrTAC.Asttachelper.OperatorDeclaration.tac_function_of_operator operator
+        in
+        let fd = 
+          FrameManager.frame_descriptor rprogram function_decl 
+        in
+        let asm_name =
+          NamingConvention.label_of_tac_operator 
+            ~module_path:current_module
+            operator
+        in
+        let prologue = FrameManager.prologue function_decl fd in
+        let epilogue = FrameManager.epilogue fd in
+        let conversion =
+          translate_tac_body ~litterals rprogram current_module fd
+            function_decl.tac_body
+        in
+        let asm_body = prologue @ (conversion |> List.tl) @ epilogue in
+        Option.some @@ 
+        Afunction {
+          asm_name;
+          asm_body
+        }
+      | TNConst _ -> failwith ""
+      | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ ->
+        None
+  )

@@ -245,6 +245,10 @@ module Location = struct
   let increment_location off = function
     | LocAddr address -> loc_addr @@ increment_adress off address
     | loc -> loc
+
+  let get_address = function
+  | LocAddr address -> address
+  | LocReg _ -> failwith "Location is register"
 end
 
 module Operande = struct
@@ -348,12 +352,12 @@ module Instruction = struct
 end
 
 module Line = struct
-  type line =
+  type raw_line =
     | Instruction of Instruction.t
     | Comment of string
     | Label of string
 
-  type asmline = AsmLine of line * string option
+  type line = AsmLine of raw_line * string option
 
   let instruction ?comment instr = AsmLine (Instruction instr, comment)
   let instructions instrs = instrs |> List.map instruction
@@ -497,6 +501,8 @@ module LineInstruction = struct
 
   let scall_label label = instruction @@ br @@ `Label label
   let scall_reg reg = instruction @@ br @@ `Register reg
+
+  let sjump_label label = instruction @@ jump @@ `Label label
 
   let slea_address target address =
     sadd target address.Location.base address.Location.offset
