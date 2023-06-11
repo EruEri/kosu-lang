@@ -17,27 +17,6 @@
 
 open CliCommon
 
-let rec fetch_kosu_file direname () =
-  let file_in_dir = Sys.readdir direname in
-  let kosu_files =
-    file_in_dir
-    |> Array.fold_left
-         (fun acc_kosu_files file ->
-           let file = Printf.sprintf "%s%s%s" direname Filename.dir_sep file in
-           if Sys.is_directory file then
-             acc_kosu_files @ fetch_kosu_file file ()
-           else if is_kosu_file file then file :: acc_kosu_files
-           else acc_kosu_files)
-         []
-  in
-  kosu_files
-
-let fetch_std_file ~no_std () =
-  if no_std || Option.is_none std_path then []
-  else
-    let std_path = Option.get std_path in
-    fetch_kosu_file std_path ()
-
 module Cli = struct
   open Cmdliner
 
@@ -327,4 +306,6 @@ module Cli = struct
     ()
 
   let eval () = run |> kosuc |> Cmd.eval ~catch:true
+
+  let eval' = Cmd.eval_result
 end

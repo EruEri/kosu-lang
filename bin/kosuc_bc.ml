@@ -15,6 +15,5 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module Kosu = CliKosu
-module Kosuc = CliKosuc
-module Kosubc = CliKosubc
+let code = KosuClis.Kosubc.Cli.eval ()
+let () = exit code

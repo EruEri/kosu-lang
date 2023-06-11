@@ -17,4 +17,4 @@
 
 (library
  (name kosuClis)
- (libraries cliKosu cliKosuc dune-build-info))
+ (libraries cliKosu cliKosuc cliKosubc dune-build-info))
