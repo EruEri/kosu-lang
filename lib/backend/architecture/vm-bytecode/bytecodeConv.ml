@@ -25,14 +25,18 @@ open BytecodeCore.Location
 open KosuIrTAC.Asttachelper.StringLitteral
 open KosuIrTAC.Asttac
 
-let store_instruction ~data_size ~reg ~where = match where with
+let store_instruction ~large_cp ~rval_rktype ~reg ~where = match where with
   | None -> []
   | Some LocReg rloc -> 
     if rloc = reg then []
     else
       LineInstruction.smv rloc @@ Operande.iregister reg
   | Some LocAddr address -> 
-    LineInstruction.sstr data_size reg address
+    if large_cp then 
+      LineInstruction.scopy reg address rval_rktype
+    else
+      let data_size = ConditionCode.data_size_of_kt rval_rktype in
+      LineInstruction.sstr data_size reg address
 
 
 let translate_tac_expression ~litterals ~target_reg fd tte = 
@@ -80,7 +84,7 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
   | TEConst _ -> failwith "Other constant todo"
 
 
-let translate_and_store ~where  ~litterals ~target_reg fd tte = 
+let translate_and_store ~where ~litterals ~target_reg fd tte = 
  match where with
   | Some LocReg reg ->
     translate_tac_expression ~litterals ~target_reg:reg fd tte
@@ -161,7 +165,8 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where: location option) current_
     let mov_syscall_code_instruction = LineInstruction.mv_integer Register.sc syscall_decl.opcode in
     let syscall_instruction = Line.instruction Instruction.syscall in
     let store_res_instructions = store_instruction 
-      ~data_size:(ConditionCode.data_size_of_kt rvalue.rval_rktype)
+      ~rval_rktype:rvalue.rval_rktype
+      ~large_cp:false
       ~reg:Register.r0
       ~where
     in
@@ -208,7 +213,9 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where: location option) current_
     let call_instruction = LineInstruction.scall_label fn_label in
     match Register.does_return_hold_in_register_kt rvalue.rval_rktype with
     | true -> 
-      let normal_store_instructions = store_instruction ~data_size:(ConditionCode.data_size_of_kt rvalue.rval_rktype)
+      let normal_store_instructions = store_instruction 
+      ~rval_rktype:rvalue.rval_rktype
+      ~large_cp:false
       ~reg:Register.r0
       ~where
     in
@@ -269,4 +276,68 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where: location option) current_
     match does_return_hold_in_register_kt external_func_decl.
     *)
   end 
+  | RVTuple ttes ->
+    let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in
+    let offset_list =
+      ttes
+      |> List.mapi (fun index _value ->
+             KosuIrTyped.Sizeof.offset_of_tuple_index index ktlis rprogram)
+      |> List.tl
+      |> fun l -> l @ [ 0L ]
+    in
+    ttes
+    |> List.mapi (fun index tte ->
+      let where = where |> Option.map (function
+      | LocAddr address -> 
+        let offset = List.nth offset_list index in
+        Location.loc_addr @@ increment_adress offset address
+      | loc -> loc  
+      ) in 
+      translate_and_store ~where ~litterals ~target_reg:Register.r13 fd tte
+    )
+    |> List.flatten
+  | RVFieldAcess 
+    {
+      first_expr = { expr_rktype; tac_expression = TEIdentifier struct_id };
+      field;
+    } -> 
+      let struct_decl =
+        match
+          KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
+            expr_rktype rprogram
+        with
+        | Some (RDecl_Struct s) -> s
+        | Some (RDecl_Enum _) ->
+            failwith "Expected to find a struct get an enum"
+        | None -> failwith "Non type decl ??? my validation is very weak"
+      in
+
+      let data_size = ConditionCode.data_size_of_kt rvalue.rval_rktype in
+
+      let generics =
+        expr_rktype
+        |> KosuIrTyped.Asttyhelper.RType.extract_parametrics_rktype
+        |> List.combine struct_decl.generics
+        |> List.to_seq |> Hashtbl.of_seq
+      in
+      let offset = KosuIrTyped.Sizeof.offset_of_field ~generics field struct_decl rprogram in
+      let struct_address =
+        FrameManager.location_of (struct_id, expr_rktype) fd |> fun adr ->
+        match adr with
+        | Some a -> a
+        | None -> failwith "field access null address"
+      in
+      let field_address = increment_location offset struct_address in
+      let is_lea = not @@ does_return_hold_in_register_kt rvalue.rval_rktype in
+      let mov_field_adrress_instruction = 
+        LineInstruction.smv_location ~lea:is_lea ~data_size Register.r13 field_address
+      in
+      let sis =  store_instruction 
+        ~rval_rktype:rvalue.rval_rktype
+        ~large_cp:true
+        ~reg:Register.r13
+        ~where
+    in
+    mov_field_adrress_instruction @ sis
+  | RVFieldAcess _ -> failwith ""
   | _ -> failwith "TODO"

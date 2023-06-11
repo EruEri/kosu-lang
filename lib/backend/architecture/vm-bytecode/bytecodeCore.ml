@@ -303,6 +303,11 @@ module Location = struct
     | `ILitteral offset ->
         { adress with offset = `ILitteral (Int64.add offset off) }
     | `Register _reg -> failwith "Increment register based address"
+
+  let increment_location off = 
+    function
+    | LocAddr address -> loc_addr @@ increment_adress off address
+    | loc -> loc
   
 end
 
@@ -607,6 +612,15 @@ module LineInstruction = struct
   let slea_address target address = 
     sadd target address.Location.base address.Location.offset
 
+  let smv_location ~lea ~data_size destination = function
+  | LocReg reg -> 
+    if destination = reg then [] 
+    else sinstruction @@ mv destination @@ Operande.iregister reg
+  | LocAddr address -> 
+    if lea then 
+      slea_address destination address
+    else
+    sldr data_size destination address
 end
 
 module FrameManager = struct
