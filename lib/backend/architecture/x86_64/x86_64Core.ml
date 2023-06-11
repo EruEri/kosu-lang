@@ -755,9 +755,7 @@ module FrameManager = struct
       |> List.mapi (fun index value -> (index, value))
       |> List.fold_left
            (fun acc (index, (name, kt)) ->
-             let sizeofkt =
-               KosuIrTyped.Sizeof.sizeof rprogram kt
-             in
+             let sizeofkt = KosuIrTyped.Sizeof.sizeof rprogram kt in
              let offset =
                offset_of_tuple_index index stack_params_offset rprogram
              in

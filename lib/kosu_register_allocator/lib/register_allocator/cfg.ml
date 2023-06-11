@@ -986,12 +986,14 @@ module Make (CfgS : CfgS) :
                match VariableAbiMap.find_opt variable acc_map with
                (* check if the parameter function variable has already been colored *)
                | None -> (
-                   match List.nth_opt ABI.arguments_register index with
+                   match
+                     List.nth_opt (ABI.arguments_register variable) index
+                   with
                    | None -> acc_map
                    | Some color -> try_color base_graph variable color acc_map)
                | Some color ->
                    let index_color =
-                     ABI.arguments_register |> List.mapi Util.couple
+                     variable |> ABI.arguments_register |> List.mapi Util.couple
                      |> List.find_map (fun (index, reg) ->
                             if ABI.compare reg color = 0 then Some index
                             else None)
@@ -1086,11 +1088,14 @@ module Make (CfgS : CfgS) :
       in
       cg
 
-      let coloration ~(parameters : (TypedIdentifierSet.elt * ABI.t) list)
-        ~available_color (cfg : Liveness.cfg_liveness_detail) = 
-        let cg = base_coloration ~parameters ~available_color ~select:ABI.is_valid_register cfg in
-        let cg = decolaration ~parameters cfg cg in
-        cg
+    let coloration ~(parameters : (TypedIdentifierSet.elt * ABI.t) list)
+        ~available_color (cfg : Liveness.cfg_liveness_detail) =
+      let cg =
+        base_coloration ~parameters ~available_color
+          ~select:ABI.is_valid_register cfg
+      in
+      let cg = decolaration ~parameters cfg cg in
+      cg
   end
 end
 

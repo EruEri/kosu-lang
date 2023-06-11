@@ -3,9 +3,9 @@ open Asttaccfg.KosuRegisterAllocator
 open Asttaccfg.KosuRegisterAllocator.Basic
 
 let fake_label_counter = ref 0
-
 let tag_variable_conter = ref 0
-let tag_variable () = 
+
+let tag_variable () =
   let n = !tag_variable_conter in
   let () = incr tag_variable_conter in
   Printf.sprintf "@tag.%u" n
@@ -30,8 +30,8 @@ let typed_set_of_locales_vars locals_vars =
          | Enum_Assoc_id { name; _ } -> (name, locale_ty))
   |> Asttaccfg.KosuRegisterAllocator.TypedIdentifierSet.of_list
 
-let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending ~cfg_statements
-    (stmts, return) =
+let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
+    ~cfg_statements (stmts, return) =
   match stmts with
   | [] ->
       let block =
@@ -49,7 +49,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending ~cfg_stateme
         }
       in
       Asttaccfg.KosuRegisterAllocator.BasicBlockMap.singleton block.label block
-  | stmt :: q as _stmts -> begin
+  | stmt :: q as _stmts -> (
       match stmt with
       | STacDeclaration { identifier; trvalue } ->
           let declaration =
@@ -64,7 +64,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending ~cfg_stateme
             Asttaccfg.KosuRegisterAllocator.CFG_STacModification
               { identifier; trvalue }
           in
-          of_tac_statements  ~tag_map ~start_label ~end_labels ~ending
+          of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             ~cfg_statements:(modification :: cfg_statements)
             (q, return)
       | STDerefAffectation { identifier; trvalue } ->
@@ -72,7 +72,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending ~cfg_stateme
             Asttaccfg.KosuRegisterAllocator.CFG_STDerefAffectation
               { identifier; trvalue }
           in
-          of_tac_statements  ~tag_map ~start_label ~end_labels ~ending
+          of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             ~cfg_statements:(derefaffect :: cfg_statements)
             (q, return)
       | STDerefAffectationField _ -> failwith "STDerefAffectationField"
@@ -87,7 +87,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending ~cfg_stateme
             exit_label;
           } ->
           let pre_jump =
-            of_tac_statements  ~tag_map ~start_label:self_label
+            of_tac_statements ~tag_map ~start_label:self_label
               ~end_labels:[ exit_label; inner_body_label ]
               ~ending:
                 (Some
@@ -99,10 +99,12 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending ~cfg_stateme
               ~cfg_statements
               (statements_condition, None)
           in
-          let loop_blocks = of_tac_body ~tag_map ~end_labels:[ self_label ] loop_body in
+          let loop_blocks =
+            of_tac_body ~tag_map ~end_labels:[ self_label ] loop_body
+          in
           let blocks_continuation =
-            of_tac_statements  ~tag_map ~start_label:exit_label ~end_labels ~ending
-              ~cfg_statements:[] (q, return)
+            of_tac_statements ~tag_map ~start_label:exit_label ~end_labels
+              ~ending ~cfg_statements:[] (q, return)
           in
 
           pre_jump
@@ -119,7 +121,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending ~cfg_stateme
             exit_label;
           } ->
           let continuation =
-            of_tac_statements  ~tag_map ~start_label ~end_labels:[ goto1; goto2 ]
+            of_tac_statements ~tag_map ~start_label ~end_labels:[ goto1; goto2 ]
               ~ending:
                 (Some
                    {
@@ -129,14 +131,16 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending ~cfg_stateme
                    })
               ~cfg_statements (statement_for_bool, None)
           in
-          let if_blocks = of_tac_body  ~tag_map ~end_labels:[ exit_label ] if_tac_body in
+          let if_blocks =
+            of_tac_body ~tag_map ~end_labels:[ exit_label ] if_tac_body
+          in
           let else_blocks =
-            of_tac_body  ~tag_map ~end_labels:[ exit_label ] else_tac_body
+            of_tac_body ~tag_map ~end_labels:[ exit_label ] else_tac_body
           in
 
           let blocks_continuation =
-            of_tac_statements  ~tag_map ~start_label:exit_label ~end_labels ~ending
-              ~cfg_statements:[] (q, return)
+            of_tac_statements ~tag_map ~start_label:exit_label ~end_labels
+              ~ending ~cfg_statements:[] (q, return)
           in
 
           continuation
@@ -167,19 +171,20 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending ~cfg_stateme
                 @@ Printf.sprintf "First cases with a label name ? : %s" s
           in
           let continuation =
-            of_tac_statements  ~tag_map ~start_label ~end_labels:[ goto; jmp_false ]
+            of_tac_statements ~tag_map ~start_label
+              ~end_labels:[ goto; jmp_false ]
               ~ending:
                 (Some { condition; if_label = goto; else_label = jmp_false })
               ~cfg_statements
               (statement_for_condition, None)
           in
           let first_block_body =
-            of_tac_body  ~tag_map ~end_labels:[ end_label ] tac_body
+            of_tac_body ~tag_map ~end_labels:[ end_label ] tac_body
           in
 
           let blocks_continuation =
-            of_tac_statements  ~tag_map ~start_label:exit_label ~end_labels ~ending
-              ~cfg_statements:[] (q, return)
+            of_tac_statements ~tag_map ~start_label:exit_label ~end_labels
+              ~ending ~cfg_statements:[] (q, return)
           in
 
           let cases_basic_block =
@@ -203,7 +208,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending ~cfg_stateme
                            "Very wierd start label for cases should be None"
                    in
                    let block_condition =
-                     of_tac_statements  ~tag_map ~start_label
+                     of_tac_statements ~tag_map ~start_label
                        ~end_labels:[ goto; jmp_false ]
                        ~ending:
                          (Some
@@ -215,7 +220,9 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending ~cfg_stateme
                        ~cfg_statements:[]
                        (statement_for_condition, None)
                    in
-                   let block = of_tac_body  ~tag_map ~end_labels:[ end_label ] tac_body in
+                   let block =
+                     of_tac_body ~tag_map ~end_labels:[ end_label ] tac_body
+                   in
                    acc
                    |> merge_basic_block_map block_condition
                    |> merge_basic_block_map block)
@@ -223,7 +230,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending ~cfg_stateme
           in
 
           let else_basic_block =
-            of_tac_body  ~tag_map ~end_labels:[ exit_label ] else_tac_body
+            of_tac_body ~tag_map ~end_labels:[ exit_label ] else_tac_body
           in
 
           continuation
@@ -231,34 +238,37 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending ~cfg_stateme
           |> merge_basic_block_map cases_basic_block
           |> merge_basic_block_map else_basic_block
           |> merge_basic_block_map blocks_continuation
-
-      | STSwitch { statemenets_for_case; condition_switch; 
-        sw_cases = {
-          variants_to_match;
-          assoc_bound;
-          sw_goto;
-          sw_exit_label;
-          switch_tac_body
-        }::sw_cases; 
-        wildcard_label; 
-        wildcard_body; 
-      } -> 
-        (* let continuation =
-          of_tac_statements  ~tag_map ~start_label ~end_labels:[ goto1; goto2 ]
-            ~ending:
-              (Some
-                 {
-                   condition = condition_switch;
-                   if_label = goto1;
-                   else_label = goto2;
-                 })
-            ~cfg_statements (statemenets_for_case, None)
-        in *)
-        failwith "switch todo"
+      | STSwitch
+          {
+            statemenets_for_case;
+            condition_switch;
+            sw_cases =
+              {
+                variants_to_match;
+                assoc_bound;
+                sw_goto;
+                sw_exit_label;
+                switch_tac_body;
+              }
+              :: sw_cases;
+            wildcard_label;
+            wildcard_body;
+          } ->
+          (* let continuation =
+               of_tac_statements  ~tag_map ~start_label ~end_labels:[ goto1; goto2 ]
+                 ~ending:
+                   (Some
+                      {
+                        condition = condition_switch;
+                        if_label = goto1;
+                        else_label = goto2;
+                      })
+                 ~cfg_statements (statemenets_for_case, None)
+             in *)
+          failwith "switch todo"
       | SCases { cases = []; else_tac_body = _; exit_label = _ } ->
-        failwith "Unreachable code: Syntax force at least a branch"
-      | STSwitch _ -> failwith ""
-    end
+          failwith "Unreachable code: Syntax force at least a branch"
+      | STSwitch _ -> failwith "")
 
 and of_tac_body ~tag_map ~end_labels ({ label; body } : tac_body) =
   of_tac_statements ~tag_map ~ending:None ~start_label:label ~end_labels

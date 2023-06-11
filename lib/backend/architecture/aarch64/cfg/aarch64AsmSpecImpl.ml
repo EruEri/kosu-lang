@@ -23,7 +23,9 @@ module MacOSAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
     let label_prefix = "_"
   end
 
-  module MacosNamingConvention = KosuCommon.NamingConvention.Make (MacosNamingSig)
+  module MacosNamingConvention =
+    KosuCommon.NamingConvention.Make (MacosNamingSig)
+
   include MacosNamingConvention
 
   type address_load_style = MacOS | Other
@@ -68,7 +70,7 @@ module FreeBSDAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
   end
 
   module FreeBSDNamingConvention =
-  KosuCommon.NamingConvention.Make (FreeBSDNamingSig)
+    KosuCommon.NamingConvention.Make (FreeBSDNamingSig)
 
   include FreeBSDNamingConvention
 

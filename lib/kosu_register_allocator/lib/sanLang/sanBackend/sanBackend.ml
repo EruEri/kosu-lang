@@ -17,6 +17,10 @@
 
 module Aarch64 = SanAarch64
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 module SanCommon = SanCommon
 >>>>>>> 4dfa4e5 ([San]: fix compilation)
+=======
+module SanCommon = SanCommon
+>>>>>>> ce71891 ([Fmt + Folder cli struct])

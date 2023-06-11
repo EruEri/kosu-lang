@@ -44,6 +44,7 @@ module type CfgS = sig
   (** return whenever the rvalue affected a value to the variable *)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   val variables_as_parameter : rvalue -> (variable * int) list option
 end
 
@@ -105,13 +106,42 @@ end
     val callee_saved_register : t list
     val caller_saved_register : t list
     val syscall_register : t list
+=======
+  val variables_as_parameter : rvalue -> (variable * int) list option
+end
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
 
-    (** 
+module type CfgPprintSig = sig
+  type variable
+  type rvalue
+  type atom
+
+  val string_of_variable : variable -> string
+  val string_of_rvalue : rvalue -> string
+  val string_of_atom : atom -> string
+end
+
+module type ABI = sig
+  type t
+  type variable
+
+  type return_strategy =
+    | Indirect_return
+    | Simple_return of t
+    | Splitted_return of t * t
+
+  val compare : t -> t -> int
+  val callee_saved_register : t list
+  val caller_saved_register : t list
+  val syscall_register : t list
+
+  val arguments_register : variable -> t list
+  (** 
       Select the argument registers list used for [variable]
       Can be used for example to distinguish float arguments
     *)
-    val arguments_register : variable -> t list
 
+<<<<<<< HEAD
     val non_float_argument_registers : t list
 
     val is_valid_register : variable -> t -> bool
@@ -121,6 +151,14 @@ end
     val return_strategy : variable -> return_strategy
   end
 >>>>>>> fd18d3e ([San]: Mov Sancfg to SanCommon)
+=======
+  val non_float_argument_registers : t list
+  val is_valid_register : variable -> t -> bool
+  val does_return_hold_in_register : variable -> bool
+  val indirect_return_register : t
+  val return_strategy : variable -> return_strategy
+end
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
 
 module type ColoredType = Graph.ColoredType
 

@@ -1040,14 +1040,15 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
          (fnspect.rmaped_generics |> List.map Asttypprint.string_of_rktype |> String.concat ", ")
          (fnspect.rparameters |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s" s (Asttypprint.string_of_rktype kt) ) |> String.concat ", ")
        ) in *)
-    let rmodule = specialised_functions
-    |> List.fold_left
-         (fun acc node -> RProgram.append_function_decl node acc)
-         rprogram
-    |> RProgram.remove_generics |> RProgram.create_compare_function 
-  in
+    let rmodule =
+      specialised_functions
+      |> List.fold_left
+           (fun acc node -> RProgram.append_function_decl node acc)
+           rprogram
+      |> RProgram.remove_generics |> RProgram.create_compare_function
+    in
 
-  let () = Asttysizeof.compute_all_size rmodule () in
+    let () = Asttysizeof.compute_all_size rmodule () in
 
-  rmodule
+    rmodule
 end

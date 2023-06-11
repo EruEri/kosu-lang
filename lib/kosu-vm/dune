@@ -20,10 +20,7 @@
 (library
  (name kosuVirtualMachine)
  (install_c_headers stack util vm)
-   (foreign_stubs (language c) (names stack util vm)
-    (flags 
-      (-Wall)
-      (-fPIC)
-    )
-  )
-)
+ (foreign_stubs
+  (language c)
+  (names stack util vm)
+  (flags (-Wall) (-fPIC))))

@@ -962,9 +962,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           ]
         in
         let last_reg, load_indirect =
-          if
-            is_register_size
-            @@ KosuIrTyped.Sizeof.sizeof rprogram rval_rktype
+          if is_register_size @@ KosuIrTyped.Sizeof.sizeof rprogram rval_rktype
           then
             ( rax,
               [
@@ -2141,9 +2139,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                             else Either.right value)
                    in
                    let tmp_dummy_value = 4 in
-                   let stack_param_count =
-                     Int64.of_int (tmp_dummy_value * 8)
-                   in
+                   let stack_param_count = Int64.of_int (tmp_dummy_value * 8) in
                    let locals_var =
                      function_decl.locale_var
                      |> List.map (fun { locale_ty; locale } ->
@@ -2193,10 +2189,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                             @ [ Directive "cfi_endproc" ];
                         })
                | TNOperator (TacUnary unary_decl as self) ->
-                let tmp_dummy_value = 4 in
-                   let stack_param_count =
-                     Int64.of_int (tmp_dummy_value * 8)
-                   in
+                   let tmp_dummy_value = 4 in
+                   let stack_param_count = Int64.of_int (tmp_dummy_value * 8) in
                    let locals_var =
                      unary_decl.locale_var
                      |> List.map (fun { locale_ty; locale } ->
@@ -2244,10 +2238,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                             @ [ Directive "cfi_endproc" ];
                         })
                | TNOperator (TacBinary binary as self) ->
-                let tmp_dummy_value = 4 in
-                   let stack_param_count =
-                     Int64.of_int (tmp_dummy_value * 8)
-                   in
+                   let tmp_dummy_value = 4 in
+                   let stack_param_count = Int64.of_int (tmp_dummy_value * 8) in
                    let locals_var =
                      binary.locale_var
                      |> List.map (fun { locale_ty; locale } ->

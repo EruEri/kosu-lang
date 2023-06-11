@@ -15,7 +15,7 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-open CliCore
+open CliCommon
 
 let rec fetch_kosu_file direname () =
   let file_in_dir = Sys.readdir direname in
@@ -245,7 +245,7 @@ module Cli = struct
 
   let kosuc run =
     let info =
-      Cmd.info ~doc:kosuc_doc ~man:kosuc_man ~version:CliCore.version name
+      Cmd.info ~doc:kosuc_doc ~man:kosuc_man ~version:CliCommon.version name
     in
     Cmd.v info (cmd_term run)
 

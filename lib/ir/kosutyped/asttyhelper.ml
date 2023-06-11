@@ -790,9 +790,10 @@ module Rmodule = struct
                | _ -> None)
 end
 
-module FnCallInfo = Set.Make(struct 
-  type t = function_call_info 
-  let compare = Stdlib.compare 
+module FnCallInfo = Set.Make (struct
+  type t = function_call_info
+
+  let compare = Stdlib.compare
 end)
 
 module RProgram = struct
@@ -906,10 +907,9 @@ module RProgram = struct
                     op = record.op && record.return_type = r_type && lhs = kt1))
     |> List.flatten
 
-  
   let rec stack_parameters_in_expression current_module rprogram = function
     | REFunction_call
-        { modules_path; fn_name; parameters; generics_resolver = _ } -> begin
+        { modules_path; fn_name; parameters; generics_resolver = _ } -> (
         let cmodule =
           if modules_path = "" then current_module else modules_path
         in
@@ -919,21 +919,38 @@ module RProgram = struct
           | None -> failwith "814"
         in
         match fn_decl with
-        | RSyscall_Decl rsyscall_decl -> 
-          FnCallInfo.singleton {varia_index = None; parameters = rsyscall_decl.parameters; return_type = rsyscall_decl.return_type} 
+        | RSyscall_Decl rsyscall_decl ->
+            FnCallInfo.singleton
+              {
+                varia_index = None;
+                parameters = rsyscall_decl.parameters;
+                return_type = rsyscall_decl.return_type;
+              }
         | RExternal_Decl extenal_decl when not extenal_decl.is_variadic ->
-          FnCallInfo.singleton {varia_index = None; parameters = extenal_decl.fn_parameters; return_type = extenal_decl.return_type} 
+            FnCallInfo.singleton
+              {
+                varia_index = None;
+                parameters = extenal_decl.fn_parameters;
+                return_type = extenal_decl.return_type;
+              }
         | RExternal_Decl external_decl ->
-          FnCallInfo.singleton {
-            varia_index = Option.some @@ List.length external_decl.fn_parameters;
-            parameters = parameters |> List.map (fun { rktype; rexpression = _ } -> rktype
-            );
-            return_type = external_decl.return_type;
-          }
+            FnCallInfo.singleton
+              {
+                varia_index =
+                  Option.some @@ List.length external_decl.fn_parameters;
+                parameters =
+                  parameters
+                  |> List.map (fun { rktype; rexpression = _ } -> rktype);
+                return_type = external_decl.return_type;
+              }
         | RKosufn_Decl fn_decl ->
-          let parameters = List.map snd fn_decl.rparameters in
-          FnCallInfo.singleton {varia_index = None; parameters = parameters ; return_type = fn_decl.return_type} 
-        end
+            let parameters = List.map snd fn_decl.rparameters in
+            FnCallInfo.singleton
+              {
+                varia_index = None;
+                parameters;
+                return_type = fn_decl.return_type;
+              })
     | REFieldAcces { first_expr; _ } ->
         stack_parameters_in_typed_expression current_module rprogram first_expr
     | REStruct { fields; _ } ->
@@ -1003,8 +1020,10 @@ module RProgram = struct
           |> Option.map (stack_parameters_in_body current_module rprogram)
           |> Option.value ~default:FnCallInfo.empty
         in
-        te_count |> FnCallInfo.union cases_count |> FnCallInfo.union wildcard_count
-    | _ ->  FnCallInfo.empty
+        te_count
+        |> FnCallInfo.union cases_count
+        |> FnCallInfo.union wildcard_count
+    | _ -> FnCallInfo.empty
 
   and stack_parameters_in_typed_expression current_module rprogram
       { rexpression; _ } =

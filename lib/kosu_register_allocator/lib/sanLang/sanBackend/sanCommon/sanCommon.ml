@@ -17,14 +17,11 @@
 
 module AsmAst = AsmAst
 module NamingConvention = NamingConvention
-
-
 module SanRegisterAllocator = CfgBase.SanRegisterAllocator
 module SanVariableMap = CfgBase.SanVariableMap
 module Cfg_Sig = CfgBase.Cfg_Sig
 module CfgPprint = CfgBase.CfgPprint
 module CfgConv = CfgBase.Conv
-
 
 module Sizeof = struct
   let align n b =
@@ -68,12 +65,16 @@ module Sizeof = struct
              let new_align = max acc_align comming_align in
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
              if found then acc
              else if index = tindex then (aligned, new_align, true)
              else (aligned + comming_size, new_align, found))
            (0, 1, false)
       |> function
       | a, _, _ -> a
+<<<<<<< HEAD
 end
 =======
           if found then acc
@@ -82,67 +83,79 @@ end
         (0, 1, false)
     |> function
     | a, _, _ -> a
+=======
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
 end
 
 module Args = struct
-  type passed_kind = 
-  | Other
-  | Float
+  type passed_kind = Other | Float
 
-  type passing_style = 
-  | Simple_Reg of passed_kind
-  | Double_Reg of passed_kind * passed_kind
+  type passing_style =
+    | Simple_Reg of passed_kind
+    | Double_Reg of passed_kind * passed_kind
 
-  type ('a, 'b) return_kind = 
-  | Simple_return of 'a
-  | Double_return of ('a * 'b)
+  type ('a, 'b) return_kind = Simple_return of 'a | Double_return of ('a * 'b)
 
   let simple_return a = Simple_return a
-
   let double_return a b = Double_return (a, b)
-
-  let pop_opt = function
-  | [] -> None, []
-  | t::q -> Some t, q
+  let pop_opt = function [] -> (None, []) | t :: q -> (Some t, q)
 
   let double_pop_opt = function
-  | ([] | _::[] as l) -> None, l
-  | t::t2::q -> Some (t, t2), q
+    | ([] | _ :: []) as l -> (None, l)
+    | t :: t2 :: q -> (Some (t, t2), q)
 
-  let rec consume_args ~fregs ~iregs ~fargs ~iargs ~stacks_args ~fpstyle ttes = match ttes with
-  | [] -> List.rev iargs, List.rev fargs, List.rev stacks_args
-  | t::q -> 
-    begin match fpstyle t with
-    | Simple_Reg kind -> begin match kind with
-      | Other -> 
-        let head_reg, remain_reg = pop_opt iregs in
-        begin match head_reg with
-        | None -> consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle ~stacks_args:(t::stacks_args) q
-        | Some reg -> consume_args ~fregs ~iregs:remain_reg ~fargs ~iargs:((t, simple_return reg)::iargs) ~stacks_args ~fpstyle q
-        end
-      | Float -> 
-        let head_reg, freg_remain = pop_opt fregs in
-        begin match head_reg with
-        | None -> consume_args ~fregs ~iregs ~fargs ~iargs ~stacks_args:(t::stacks_args) ~fpstyle q
-        | Some reg -> consume_args ~fregs:freg_remain ~iregs ~fargs:((t, simple_return reg)::fargs) ~iargs ~stacks_args ~fpstyle q
-        end
-    end
-    | Double_Reg (lhs, rhs) -> begin match lhs, rhs with  
-      | Float, Float -> begin match fregs with
-      | [] | _::[] -> consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle ~stacks_args:(t::stacks_args) q
-      | fr1::fr2::remains -> 
-        let arg = t, double_return fr1 fr2 in
-        consume_args ~fregs:remains ~iregs ~fargs:(arg::fargs) ~iargs ~fpstyle ~stacks_args:(t::stacks_args) q
-      end 
-      | _ -> begin match fregs with
-        | [] | _::[] -> consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle ~stacks_args:(t::stacks_args) q
-        | ir1::ir2::remains -> 
-          let arg = t, double_return ir1 ir2 in
-          consume_args ~fregs ~iregs:remains ~fargs ~iargs:(arg::iargs) ~fpstyle ~stacks_args:(t::stacks_args) q
-    end
-    end
-  end
+  let rec consume_args ~fregs ~iregs ~fargs ~iargs ~stacks_args ~fpstyle ttes =
+    match ttes with
+    | [] -> (List.rev iargs, List.rev fargs, List.rev stacks_args)
+    | t :: q -> (
+        match fpstyle t with
+        | Simple_Reg kind -> (
+            match kind with
+            | Other -> (
+                let head_reg, remain_reg = pop_opt iregs in
+                match head_reg with
+                | None ->
+                    consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle
+                      ~stacks_args:(t :: stacks_args) q
+                | Some reg ->
+                    consume_args ~fregs ~iregs:remain_reg ~fargs
+                      ~iargs:((t, simple_return reg) :: iargs)
+                      ~stacks_args ~fpstyle q)
+            | Float -> (
+                let head_reg, freg_remain = pop_opt fregs in
+                match head_reg with
+                | None ->
+                    consume_args ~fregs ~iregs ~fargs ~iargs
+                      ~stacks_args:(t :: stacks_args) ~fpstyle q
+                | Some reg ->
+                    consume_args ~fregs:freg_remain ~iregs
+                      ~fargs:((t, simple_return reg) :: fargs)
+                      ~iargs ~stacks_args ~fpstyle q))
+        | Double_Reg (lhs, rhs) -> (
+            match (lhs, rhs) with
+            | Float, Float -> (
+                match fregs with
+                | [] | _ :: [] ->
+                    consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle
+                      ~stacks_args:(t :: stacks_args) q
+                | fr1 :: fr2 :: remains ->
+                    let arg = (t, double_return fr1 fr2) in
+                    consume_args ~fregs:remains ~iregs ~fargs:(arg :: fargs)
+                      ~iargs ~fpstyle ~stacks_args:(t :: stacks_args) q)
+            | _ -> (
+                match fregs with
+                | [] | _ :: [] ->
+                    consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle
+                      ~stacks_args:(t :: stacks_args) q
+                | ir1 :: ir2 :: remains ->
+                    let arg = (t, double_return ir1 ir2) in
+                    consume_args ~fregs ~iregs:remains ~fargs
+                      ~iargs:(arg :: iargs) ~fpstyle
+                      ~stacks_args:(t :: stacks_args) q)))
 
   let consume_args = consume_args ~fargs:[] ~iargs:[] ~stacks_args:[]
 end
+<<<<<<< HEAD
 >>>>>>> 4dfa4e5 ([San]: fix compilation)
+=======
+>>>>>>> ce71891 ([Fmt + Folder cli struct])

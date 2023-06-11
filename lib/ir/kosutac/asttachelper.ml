@@ -78,45 +78,50 @@ module OperatorDeclaration = struct
   let tac_body = function
     | TacUnary { tac_body; _ } | TacBinary { tac_body; _ } -> tac_body
 
-  let tac_function_of_operator : tac_operator_decl -> tac_function_decl = function
-    | TacUnary {
-      op = _ ;
-      asm_name;
-      rfield;
-      return_type;
-      tac_body;
-      fn_call_infos;
-      locale_var;
-      discarded_values;
-    } -> {
-      rfn_name = asm_name;
-      generics = [];
-      rparameters = [rfield];
-      return_type;
-      tac_body;
-      fn_call_infos;
-      locale_var;
-      discarded_values
-    }
-    | TacBinary {
-      op = _;
-      asm_name;
-      rfields = (lhs, rhs);
-      return_type;
-      tac_body;
-      fn_call_infos;
-      locale_var;
-      discarded_values;
-    } -> {
-      rfn_name = asm_name;
-      generics = [];
-      rparameters = lhs::rhs::[];
-      return_type;
-      tac_body;
-      fn_call_infos;
-      locale_var;
-      discarded_values
-    }
+  let tac_function_of_operator : tac_operator_decl -> tac_function_decl =
+    function
+    | TacUnary
+        {
+          op = _;
+          asm_name;
+          rfield;
+          return_type;
+          tac_body;
+          fn_call_infos;
+          locale_var;
+          discarded_values;
+        } ->
+        {
+          rfn_name = asm_name;
+          generics = [];
+          rparameters = [ rfield ];
+          return_type;
+          tac_body;
+          fn_call_infos;
+          locale_var;
+          discarded_values;
+        }
+    | TacBinary
+        {
+          op = _;
+          asm_name;
+          rfields = lhs, rhs;
+          return_type;
+          tac_body;
+          fn_call_infos;
+          locale_var;
+          discarded_values;
+        } ->
+        {
+          rfn_name = asm_name;
+          generics = [];
+          rparameters = [ lhs; rhs ];
+          return_type;
+          tac_body;
+          fn_call_infos;
+          locale_var;
+          discarded_values;
+        }
 end
 
 module Function = struct

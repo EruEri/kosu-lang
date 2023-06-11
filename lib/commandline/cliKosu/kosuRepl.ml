@@ -55,8 +55,8 @@ let repl_main cmd =
   (* let () = Printf.printf "nb file : %u\n" (List.length cmd.modules_files) in
      let () = Printf.printf "Is some : %b\n" (Option.is_some cmd.interpreted_file) in *)
   let () = ignore cmd in
-  CliCore.DefaultFront.KosuFrontInterpret.repl
-    ~welcome:(Printf.sprintf "Kosu version %s" CliCore.version)
+  CliCommon.DefaultFront.KosuFrontInterpret.repl
+    ~welcome:(Printf.sprintf "Kosu version %s" CliCommon.version)
     ()
 
 let repl =

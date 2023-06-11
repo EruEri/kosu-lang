@@ -145,19 +145,19 @@ module Cfg_Command = struct
     match cfg_type with
     | Basic ->
         let converted =
-          SanCfg.SanCfgConv.basic_of_san_tyfunction san_function
+          SanCommon.CfgConv.basic_of_san_tyfunction san_function
         in
         converted |> SanCfg.SanCfgPprint.dot_diagrah_of_cfg_basic
         |> SanCfg.SanCfgPprint.string_of_dot_graph ~out:oc
     | Detail ->
         let converted =
-          SanCfg.SanCfgConv.detail_of_san_tyfunction san_function
+          SanCommon.CfgConv.detail_of_san_tyfunction san_function
         in
         converted |> SanCfg.SanCfgPprint.dot_diagrah_of_cfg_detail
         |> SanCfg.SanCfgPprint.string_of_dot_graph ~out:oc
     | Liveness ->
         let converted =
-          SanCfg.SanCfgConv.liveness_of_san_tyfunction san_function
+          SanCommon.CfgConv.liveness_of_san_tyfunction san_function
         in
         converted |> SanCfg.SanCfgPprint.dot_diagrah_of_cfg_liveness
         |> SanCfg.SanCfgPprint.string_of_dot_graph ~out:oc
@@ -166,14 +166,18 @@ module Cfg_Command = struct
       (san_function : SanTyped.SanTyAst.ty_san_function) =
     match infered with
     | false -> ()
-    | true -> 
-      let livecfg = SanCommon.CfgConv.liveness_of_san_tyfunction san_function in
-      let transform = if colored then SanCfg.SanCfgPprint.export_colored_graph 
-        ~color_map:SanAarch64.Register.color_map
-        ~available_color:SanAarch64.Register.available_register
-        else SanCfg.SanCfgPprint.export_infer_graph_of_cfg
-      in
-      transform ~outchan:oc livecfg ()
+    | true ->
+        let livecfg =
+          SanCommon.CfgConv.liveness_of_san_tyfunction san_function
+        in
+        let transform =
+          if colored then
+            SanCfg.SanCfgPprint.export_colored_graph
+              ~color_map:SanAarch64.Register.color_map
+              ~available_color:SanAarch64.Register.available_register
+          else SanCfg.SanCfgPprint.export_infer_graph_of_cfg
+        in
+        transform ~outchan:oc livecfg ()
 
   let export_from_san_function cmd
       (san_function : SanTyped.SanTyAst.ty_san_function) =

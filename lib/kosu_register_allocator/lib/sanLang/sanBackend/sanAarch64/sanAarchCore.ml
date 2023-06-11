@@ -107,6 +107,7 @@ module Register = struct
     | SP
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   type register = { register : raw_register; size : register_size }
 =======
     let color_map = [
@@ -131,6 +132,26 @@ module Register = struct
   }
 
 >>>>>>> 4dfa4e5 ([San]: fix compilation)
+=======
+  let color_map =
+    [
+      (X0, "aqua");
+      (X1, "red");
+      (X2, "fuchsia");
+      (X3, "green");
+      (X4, "navyblue");
+      (X5, "pink");
+      (X6, "orange");
+      (X7, "yellow");
+      (X8, "hotpink");
+      (X9, "indigo");
+      (X10, "magenta");
+      (X11, "purple");
+      (X12, "cyan");
+    ]
+
+  type register = { register : raw_register; size : register_size }
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
   type t = raw_register
 
   let word_regsize =
@@ -187,6 +208,7 @@ module Register = struct
   let compare = Stdlib.compare
 
   let caller_saved_register =
+<<<<<<< HEAD
     [
       X0;
       X1;
@@ -221,18 +243,32 @@ module Register = struct
   ]
 
   let non_float_argument_registers = 
+=======
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
     [
-    X0;
-    X1;
-    X2;
-    X3;
-    X4;
-    X5;
-    X6;
-    X7;
-  ]
+      X0;
+      X1;
+      X2;
+      X3;
+      X4;
+      X5;
+      X6;
+      X7;
+      X8;
+      (* XR *)
+      X9;
+      X10;
+      X11;
+      X12;
+      X13;
+      X14;
+      X15;
+    ]
 
+  let callee_saved_register = [ X16; X29; X30; SP ]
+  let non_float_argument_registers = [ X0; X1; X2; X3; X4; X5; X6; X7 ]
   let arguments_register _ = non_float_argument_registers
+<<<<<<< HEAD
 
   let syscall_register = [
     X0;
@@ -253,6 +289,11 @@ module Register = struct
 >>>>>>> 4dfa4e5 ([San]: fix compilation)
 
   let is_valid_register (_: variable) (_: t) = true
+=======
+  let syscall_register = [ X0; X1; X2; X3; X4; X5 ]
+  let available_register = [ X8; X9; X10; X11; X12 ]
+  let is_valid_register (_ : variable) (_ : t) = true
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
   let does_return_hold_in_register _ = true
   let indirect_return_register = X8
   let return_strategy _ = Simple_return X0
@@ -277,7 +318,8 @@ module Operande = struct
   type dst = Register.register
 end
 
-module GreedyColoration = SanCommon.SanRegisterAllocator.GreedyColoring(Register)
+module GreedyColoration =
+  SanCommon.SanRegisterAllocator.GreedyColoring (Register)
 
 module Location = struct
   type adress_offset = [ `ILitteral of int64 | `Register of Register.register ]
@@ -705,12 +747,20 @@ module LineInstruction = struct
         ]
 end
 
+<<<<<<< HEAD
 module AsmProgram = Common.AsmAst.Make (Line)
+=======
+module AsmProgram = SanCommon.AsmAst.Make (Line)
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
 
 module FrameManager = struct
   type description = {
     local_space : int;
+<<<<<<< HEAD
     variable_map : Location.location SanCfg.SanVariableMap.t;
+=======
+    variable_map : Location.location SanCommon.SanVariableMap.t;
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
   }
 
   let location_of variable fd =
@@ -719,18 +769,31 @@ module FrameManager = struct
     | Some loc -> loc
 
   let frame_descriptor (function_decl : SanTyped.SanTyAst.ty_san_function) =
+<<<<<<< HEAD
     let parameter_count = List.length Register.arguments_register in
+=======
+    let parameter_count = List.length (Register.arguments_register ()) in
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
     let register_parameters, stack_parameters =
       function_decl.parameters |> List.mapi Util.couple
       |> List.partition_map (fun (index, variable) ->
              if index < parameter_count then Either.left variable
              else Either.right variable)
     in
+<<<<<<< HEAD
     let cfg = SanCfg.SanCfgConv.liveness_of_san_tyfunction function_decl in
     let colored_graph =
       GreedyColoration.coloration
         ~parameters:
           (Util.combine_safe register_parameters Register.arguments_register)
+=======
+    let cfg = SanCommon.CfgConv.liveness_of_san_tyfunction function_decl in
+    let colored_graph =
+      GreedyColoration.coloration
+        ~parameters:
+          (Util.combine_safe register_parameters
+             (Register.arguments_register ()))
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
         ~available_color:Register.available_register cfg
     in
 
@@ -809,10 +872,19 @@ module FrameManager = struct
     in
 =======
     let parameter_count = List.length (Register.arguments_register ()) in
+<<<<<<< HEAD
     let register_parameters, _stack_parameters = function_decl.parameters |> List.mapi Util.couple |> List.partition_map (fun (index, variable) ->
       if index < parameter_count then Either.left variable else Either.right variable
     ) in
 >>>>>>> fd18d3e ([San]: Mov Sancfg to SanCommon)
+=======
+    let register_parameters, _stack_parameters =
+      function_decl.parameters |> List.mapi Util.couple
+      |> List.partition_map (fun (index, variable) ->
+             if index < parameter_count then Either.left variable
+             else Either.right variable)
+    in
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
 
     let store_parameters_value =
       register_parameters
@@ -829,6 +901,7 @@ module FrameManager = struct
                address)
 =======
       |> Util.combine_safe (Register.arguments_register ())
+<<<<<<< HEAD
       |> List.filter_map (fun (register, variable) -> 
         match location_of variable fd with
         | LocAddr address -> Some (variable, register, address)
@@ -841,6 +914,17 @@ module FrameManager = struct
           address
       )
 >>>>>>> fd18d3e ([San]: Mov Sancfg to SanCommon)
+=======
+      |> List.filter_map (fun (register, variable) ->
+             match location_of variable fd with
+             | LocAddr address -> Some (variable, register, address)
+             | LocReg _ -> None)
+      |> List.map (fun (variable, register, address) ->
+             str_instr
+               ~data_size:(Condition_Code.data_size_of_variable variable)
+               ~source:(Register.according_register_variable register variable)
+               address)
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
       |> List.flatten
     in
     (stack_sub_line :: base) @ (alignx29_line :: store_parameters_value)

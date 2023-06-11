@@ -853,14 +853,12 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
           in
 
           let sizeof_discard =
-            KosuIrTyped.Sizeof.sizeof rprogram
-              discard_typed_expression.rktype
+            KosuIrTyped.Sizeof.sizeof rprogram discard_typed_expression.rktype
           in
           let () =
             match tac_rvalue.tac_expression with
             | TEIdentifier id
-              when KosuIrTyped.Sizeof.discardable_size
-                     sizeof_discard ->
+              when KosuIrTyped.Sizeof.discardable_size sizeof_discard ->
                 let () = Hashtbl.remove map id in
                 let () =
                   Hashtbl.add discarded_value id tac_rvalue.expr_rktype
@@ -1143,8 +1141,9 @@ let tac_function_decl_of_rfunction current_module rprogram
        Printf.sprintf "%s : %s" (s) (KosuIrTyped.Asttypprint.string_of_rktype locale_ty)
      ) |> String.concat "\n" |> Printf.printf "%s\n" in *)
   let fn_call_infos =
-    KosuIrTyped.Asttyhelper.FnCallInfo.elements @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
-      rprogram rfunction_decl.rbody
+    KosuIrTyped.Asttyhelper.FnCallInfo.elements
+    @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
+         rprogram rfunction_decl.rbody
   in
   {
     rfn_name = rfunction_decl.rfn_name;
@@ -1177,8 +1176,9 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
       in
       let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
       let fn_call_infos =
-        KosuIrTyped.Asttyhelper.FnCallInfo.elements @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
-          rprogram kbody
+        KosuIrTyped.Asttyhelper.FnCallInfo.elements
+        @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body
+             current_module rprogram kbody
       in
       TacUnary
         {
@@ -1213,8 +1213,9 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
       in
       let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
       let fn_call_infos =
-        KosuIrTyped.Asttyhelper.FnCallInfo.elements @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
-          rprogram kbody
+        KosuIrTyped.Asttyhelper.FnCallInfo.elements
+        @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body
+             current_module rprogram kbody
       in
       TacBinary
         {

@@ -146,10 +146,10 @@ and rkbin_op =
 and rkunary_op = RUMinus of typed_expression | RUNot of typed_expression
 
 type function_call_info = {
-  varia_index: int option;
-  parameters: rktype list;
-  return_type: rktype;
-} 
+  varia_index : int option;
+  parameters : rktype list;
+  return_type : rktype;
+}
 
 type function_call_infos = function_call_info list
 

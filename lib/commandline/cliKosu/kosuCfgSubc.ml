@@ -16,8 +16,8 @@
 (**********************************************************************************************)
 
 open Cmdliner
-module KosuFront = CliCore.DefaultFront.KosuFront
-module Asttyconvert = CliCore.DefaultFront.Asttyconvert
+module KosuFront = CliCommon.DefaultFront.KosuFront
+module Asttyconvert = CliCommon.DefaultFront.Asttyconvert
 
 type cfg_type = Basic | Detail | Liveness
 

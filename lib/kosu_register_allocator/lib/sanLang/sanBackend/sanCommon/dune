@@ -19,5 +19,9 @@
  (name sanCommon)
  (enabled_if
   (= %{profile} san))
+<<<<<<< HEAD
   (modules sanCommon asmAst namingConvention cfgBase)
+=======
+ (modules sanCommon asmAst namingConvention cfgBase)
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
  (libraries util sanTyped kosuRegisterAllocator))

@@ -15,18 +15,15 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 module Immediat = struct
   module VmConst = struct
     let mv_immediat_size = 21
     let mva_immediat_size = 19
-
     let str_immediat_size = 13
-
     let binop_immediat_size = 16
-
     let ldr_immediat_size = str_immediat_size
   end
+
   let mask_6_8bytes = 0xFFFF_0000_0000_0000L
   let mask_4_6bytes = 0x0000_FFFF_0000_0000L
   let mask_2_4bytes = 0x0000_0000_FFFF_0000L
@@ -34,15 +31,15 @@ module Immediat = struct
   let max_16bits_immediat = 65535L
   let min_16bits_immediat = -65535L
 
-  let max_nbits_immediat n = 
+  let max_nbits_immediat n =
     let tmp = Int64.shift_left 1L (n - 1) in
     Int64.sub tmp 1L
 
-  let min_nbits_immediat n = 
+  let min_nbits_immediat n =
     let tmp = Int64.shift_left 1L (n - 1) in
     Int64.neg tmp
 
-  let is_encodable nbits value = 
+  let is_encodable nbits value =
     let max = max_nbits_immediat nbits in
     let min = min_nbits_immediat nbits in
     value >= min && value <= max
@@ -61,11 +58,8 @@ module Immediat = struct
       int16 )
 end
 
-
-module Condition_Code = struct 
-
+module Condition_Code = struct
   type data_size = B | SB | H | SH
-
   type shift = SH16 | SH32 | SH48
 
   type condition_code =
@@ -146,52 +140,35 @@ module Register = struct
     | XZR
     | SP
 
-    type raw_register = FloatReg of float_register | IntegerReg of int_register
+  type raw_register = FloatReg of float_register | IntegerReg of int_register
+  type register = raw_register
+  type t = register
+  type register_t = { register : raw_register; size : register_size }
 
-    type register = raw_register
+  type return_strategy =
+    | Indirect_return
+    | Simple_return of t
+    | Splitted_return of t * t
 
-    type t = register
+  let compare = Stdlib.compare
+  let caller_saved_register = []
+  let callee_saved_register = []
+  let raw_r0 = IntegerReg X0
+  let raw_r1 = IntegerReg X1
+  let raw_r2 = IntegerReg X2
+  let raw_r3 = IntegerReg X3
+  let raw_r4 = IntegerReg X4
+  let raw_r5 = IntegerReg X5
+  let raw_r6 = IntegerReg X6
+  let raw_r7 = IntegerReg X7
+  let raw_r8 = IntegerReg X8
+  let raw_r9 = IntegerReg X9
+  let raw_r10 = IntegerReg X10
+  let raw_r11 = IntegerReg X11
+  let raw_r12 = IntegerReg X12
 
-    type register_t = { register : raw_register; size : register_size }
-
-    type return_strategy =
-      | Indirect_return
-      | Simple_return of t
-      | Splitted_return of t * t
-
-    let compare = Stdlib.compare
-
-    let caller_saved_register = [] 
-
-    let callee_saved_register = []
-
-    let raw_r0 = IntegerReg X0
-    
-    let raw_r1 = IntegerReg X1
-
-    let raw_r2 = IntegerReg X2
-
-    let raw_r3 = IntegerReg X3
-
-    let raw_r4 = IntegerReg X4
-
-    let raw_r5 = IntegerReg X5
-
-    let raw_r6 = IntegerReg X6
-
-    let raw_r7 = IntegerReg X7
-
-    let raw_r8 = IntegerReg X8
-
-    let raw_r9 = IntegerReg X9
-
-    let raw_r10 = IntegerReg X10
-
-    let raw_r11 = IntegerReg X11
-
-    let raw_r12 = IntegerReg X12
-
-    let non_float_argument_registers = [
+  let non_float_argument_registers =
+    [
       IntegerReg X0;
       IntegerReg X1;
       IntegerReg X2;
@@ -202,7 +179,8 @@ module Register = struct
       IntegerReg X7;
     ]
 
-    let float_argument_registers = [
+  let float_argument_registers =
+    [
       FloatReg D0;
       FloatReg D1;
       FloatReg D2;
@@ -213,93 +191,72 @@ module Register = struct
       FloatReg D7;
     ]
 
-    let arguments_register variable = 
-      if KosuIrTyped.Asttyhelper.RType.is_float @@ snd variable then
-        float_argument_registers
-      else
-        non_float_argument_registers
+  let arguments_register variable =
+    if KosuIrTyped.Asttyhelper.RType.is_float @@ snd variable then
+      float_argument_registers
+    else non_float_argument_registers
 
-    let syscall_register = [
-      raw_r0;
-      raw_r1;
-      raw_r2;
-      raw_r3;
-      raw_r4;
-      raw_r5;
-    ]
+  let syscall_register = [ raw_r0; raw_r1; raw_r2; raw_r3; raw_r4; raw_r5 ]
+  let available_register = [ raw_r8; raw_r9; raw_r10; raw_r11 ]
+  let indirect_return_register = raw_r8
 
-    let available_register = [
-      raw_r8;
-      raw_r9;
-      raw_r10;
-      raw_r11
-    ]
+  let is_valid_register (variable : variable) (register : t) =
+    let _, rktype = variable in
+    let is_float = KosuIrTyped.Asttyhelper.RType.is_float rktype in
+    let is_float_register =
+      match register with FloatReg _ -> true | IntegerReg _ -> false
+    in
+    is_float = is_float_register
 
-    let indirect_return_register = raw_r8
+  let does_return_hold_in_register_kt kt =
+    match KosuIrTyped.Sizeof.sizeof_kt kt with
+    | 1L | 2L | 4L | 8L -> true
+    | _ -> false
 
-    let is_valid_register (variable: variable) (register: t) = 
-      let _, rktype = variable in
-      let is_float = KosuIrTyped.Asttyhelper.RType.is_float rktype in
-      let is_float_register = match register with FloatReg _ -> true | IntegerReg _ -> false in
-      is_float = is_float_register
-
-    let does_return_hold_in_register_kt kt = 
-      match KosuIrTyped.Sizeof.sizeof_kt kt with
-        | 1L | 2L | 4L | 8L -> true
-        | _ -> false
-  
-  let does_return_hold_in_register variable = 
+  let does_return_hold_in_register variable =
     does_return_hold_in_register_kt @@ snd variable
 
-  let return_strategy variable = 
+  let return_strategy variable =
     match does_return_hold_in_register variable with
     | true -> Simple_return raw_r0
     | false -> Indirect_return
 end
 
-module GreedyColoration = KosuIrCfg.Asttaccfg.KosuRegisterAllocator.GreedyColoring(Register)
+module GreedyColoration =
+  KosuIrCfg.Asttaccfg.KosuRegisterAllocator.GreedyColoring (Register)
 
 module Location = struct
-
   type address_mode =
-  | Immediat (* out = *intptr; *)
-  | Prefix (* out = *(++intptr);*)
-  | Postfix (* out = *(intptr++);*)
-  type address_offset = [ `ILitteral of int64 | `Register of Register.register_t ]
-  type address = { base : Register.register_t; offset : address_offset}
+    | Immediat (* out = *intptr; *)
+    | Prefix (* out = *(++intptr);*)
+    | Postfix (* out = *(intptr++);*)
 
-  type location = 
-  | LocReg of Register.register_t
-  | LocAddr of address
+  type address_offset =
+    [ `ILitteral of int64 | `Register of Register.register_t ]
+
+  type address = { base : Register.register_t; offset : address_offset }
+  type location = LocReg of Register.register_t | LocAddr of address
 
   let loc_reg r = LocReg r
   let loc_addr a = LocAddr a
-
   let create_address ?(offset = 0L) base = { base; offset = `ILitteral offset }
-
-  let address_register base offset = {base; offset = `Register offset}
+  let address_register base offset = { base; offset = `Register offset }
 
   let increment_adress off adress =
     match adress.offset with
     | `ILitteral offset ->
         { adress with offset = `ILitteral (Int64.add offset off) }
     | `Register _reg -> failwith "Increment register based address"
-  
 end
 
 module Operande = struct
   type src =
-  [ 
-    `ILitteral of int64
-    | `Register of Register.register_t
-    | `Label of string 
-  ]
+    [ `ILitteral of int64 | `Register of Register.register_t | `Label of string ]
 
   type dst = Register.register_t
 
   let ilitteral n = (`ILitteral n :> src)
   let iregister reg : src = `Register reg
-
   let ilabel label : src = `Label label
 
   let is_str_offset_range reg n =
@@ -490,7 +447,7 @@ module Instruction = struct
 end
 
 module Line = struct
-  type line = 
+  type line =
     | Instruction of Instruction.instruction
     | Comment of string
     | Label of string
@@ -498,17 +455,13 @@ module Line = struct
   type asmline = AsmLine of line * string option
 
   let instruction ?comment instr = AsmLine (Instruction instr, comment)
-
   let instructions instrs = instrs |> List.map instruction
-
-  let sinstruction instruction = instructions [instruction]
-
+  let sinstruction instruction = instructions [ instruction ]
   let comment message = AsmLine (Comment message, None)
-
   let label ?comment l = AsmLine (Label l, comment)
 end
 
-module AarchProgramType = KosuCommon.AsmProgram(Line)
+module AarchProgramType = KosuCommon.AsmProgram (Line)
 
 module LineInstruction = struct
   open Instruction

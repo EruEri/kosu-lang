@@ -42,10 +42,12 @@ let kosu_man =
     `P "Kosuc is distributed under the GNU GPL-3.0";
   ]
 
-let kosu =
-  let info =
-    Cmd.info ~doc:kosu_doc ~man:kosu_man ~version:CliCore.version name
-  in
-  Cmd.group info [ KosuRepl.repl; KosuCfgSubc.cfg ]
+module Cli = struct
+  let kosu =
+    let info =
+      Cmd.info ~doc:kosu_doc ~man:kosu_man ~version:CliCommon.version name
+    in
+    Cmd.group info [ KosuRepl.repl; KosuCfgSubc.cfg ]
 
-let eval () = Cmd.eval @@ kosu
+  let eval () = Cmd.eval @@ kosu
+end

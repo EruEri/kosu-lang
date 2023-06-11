@@ -283,7 +283,9 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
          (fun acc_graph node ->
            let around_color_set = surrounded_color node acc_graph in
            let available_color_set = ColorSet.diff colorset around_color_set in
-           match ColorSet.find_first_opt (select node.node) available_color_set with
+           match
+             ColorSet.find_first_opt (select node.node) available_color_set
+           with
            | None ->
                let node = remove_color node in
                replace_color_node node acc_graph

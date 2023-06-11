@@ -15,7 +15,10 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
+module SanRegisterAllocator =
+  KosuRegisterAllocator.MakePprint (SanCommon.Cfg_Sig) (SanCommon.CfgPprint)
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 module Cfg_Sig = struct
   type variable = string * san_type
@@ -85,3 +88,7 @@ module GreedyColoring = SanRegisterAllocator.GreedyColoring(SanCfgRegister)
 module SanRegisterAllocator = KosuRegisterAllocator.MakePprint(SanCommon.Cfg_Sig)(SanCommon.CfgPprint)
 module GreedyColoring = SanRegisterAllocator.GreedyColoring(SanBackend.Aarch64.Register)
 >>>>>>> 4dfa4e5 ([San]: fix compilation)
+=======
+module GreedyColoring =
+  SanRegisterAllocator.GreedyColoring (SanBackend.Aarch64.Register)
+>>>>>>> ce71891 ([Fmt + Folder cli struct])
