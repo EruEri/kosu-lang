@@ -17,4 +17,4 @@
 
 (library
  (name kosuBackend)
- (libraries aarch64 x86_64 unix))
+ (libraries aarch64 x86_64 unix bytecode))

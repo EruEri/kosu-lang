@@ -1,7 +1,7 @@
 (**********************************************************************************************)
 (*                                                                                            *)
 (* This file is part of Kosu                                                                  *)
-(* Copyright (C) 2022-2023 Yves Ndiaye                                                        *)
+(* Copyright (C) 2023 Yves Ndiaye                                                             *)
 (*                                                                                            *)
 (* Kosu is free software: you can redistribute it and/or modify it under the terms            *)
 (* of the GNU General Public License as published by the Free Software Foundation,            *)
@@ -15,13 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module X86_64 = X86_64
-
-
-module Aarch64 = Aarch64
-
-module Codegen = Codegen
-
-module Compil = Compil
-
-module Bytecode = Bytecode
+module Codegen = BytecodeCodegen
+module Register = BytecodeCore.Register
+module Instruction = BytecodeCore.Instruction

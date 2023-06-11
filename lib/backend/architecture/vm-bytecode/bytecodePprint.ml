@@ -185,9 +185,19 @@ let string_of_instruction = function
         (string_of_register destination)
         (string_of_address address)
 
-let string_of_asm_line (line, comment) =
+let string_of_asm_line (AsmLine (line, comment)) =
   let comment = Option.value ~default:"" comment in
   match line with
   | Instruction i -> sprintf "\t%s // %s" (string_of_instruction i) comment
   | Comment s -> sprintf "\t// %s %s" s comment
   | Label s -> sprintf "%s:" s
+
+let string_of_asm_function ({asm_name; asm_body}: BytecodeCore.BytecodeProgram.asm_function_decl) = 
+  sprintf "%s:\n%s"
+  asm_name
+  (asm_body |> List.map string_of_asm_line |> String.concat "\n")
+
+
+let string_of_asm_node = function
+| BytecodeCore.BytecodeProgram.Afunction f -> string_of_asm_function f
+| AConst c -> failwith "TODO: string_of_asm_node Const"

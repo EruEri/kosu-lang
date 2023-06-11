@@ -21,7 +21,7 @@ open Cmdliner
 module Cli = struct
   let name = "kosuc.bc"
 
-  let default_outfile = "a.out"
+  let default_outfile = "a.out.bc"
 
   type cmd = {
     f_allow_generic_in_variadic : bool;
@@ -99,7 +99,49 @@ module Cli = struct
   ]
 
   let compile cmd = 
-    let () = ignore cmd in
+    let {
+      f_allow_generic_in_variadic : bool;
+      no_std : bool;
+      is_target_asm : bool;
+      output : string;
+      files: string list
+    } = cmd in
+
+    let kosu_files, other_files = files |> List.partition is_kosu_file in
+
+    let std_file = fetch_std_file ~no_std () in
+
+    let kosu_files = kosu_files @ std_file in
+    let module ValidationRule : KosuFrontend.KosuValidationRule = struct end in
+    let module TypeCheckerRule : KosuFrontend.TypeCheckerRule = struct
+      let allow_generics_in_variadic = f_allow_generic_in_variadic
+    end in
+    let module Compilation_Files : KosuFrontend.Compilation_Files = struct
+      let std_global_variable = std_global_variable
+    end in
+    let module KosuFront =
+      KosuFrontend.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
+    in
+    let module Asttyconvert = KosuIrTyped.Asttyconvert.Make (TypeCheckerRule) in
+    let () = KosuFront.Registerexn.register_kosu_error () in
+    let ast_module = KosuFront.ast_modules kosu_files in
+    let typed_program =
+      match Asttyconvert.from_program ast_module with
+      | typed_program -> typed_program
+      | exception KosuFrontend.Ast.Error.Ast_error e ->
+          let () =
+            e |> KosuFront.Pprinterr.string_of_ast_error |> print_endline
+          in
+          failwith "Error while typing ast: Shouldn't append"
+    in
+    let tac_program =
+      KosuIrTAC.Asttacconv.tac_program_of_rprogram typed_program
+    in
+    let () = 
+      match is_target_asm with
+      | true -> KosuBackend.Bytecode.Codegen.compile_asm_readable ~outfile:output tac_program
+      | false -> failwith ""
+    in
     ()
 
     let kosuc_bc = 

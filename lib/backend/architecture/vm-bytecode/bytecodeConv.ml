@@ -454,3 +454,42 @@ let asm_module_of_tac_module ~litterals current_module rprogram =
       | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ ->
         None
   )
+
+let asm_module_path_of_tac_module_path ~litterals rprogram
+    { path; tac_module } =
+  {
+    apath = path;
+    asm_module =
+      AsmModule (asm_module_of_tac_module ~litterals path rprogram tac_module);
+  }
+
+let asm_program_of_tac_program ~(start : string option) tac_program =
+  ignore start;
+  tac_program
+  |> List.map (fun ({ filename; tac_module_path; rprogram } as named) ->
+          let str_lit_map =
+            map_string_litteral_of_named_rmodule_path named ()
+          in
+          let float_lit_map =
+            KosuIrTAC.Asttachelper.FloatLitteral
+            .map_float_litteral_of_named_rmodule_path named ()
+          in
+          let litterals = { str_lit_map; float_lit_map } in
+          {
+            filename =
+              filename |> Filename.chop_extension |> Printf.sprintf "%s.bc.s";
+            asm_module_path =
+              asm_module_path_of_tac_module_path ~litterals rprogram
+                tac_module_path;
+            rprogram;
+            litterals;
+          })
+
+let sort_asm_module (AsmModule anodes) =
+  AsmModule
+    (anodes
+    |> List.sort (fun lhs rhs ->
+            match (lhs, rhs) with
+            | Afunction _, AConst _ -> 1
+            | AConst _, Afunction _ -> -1
+            | _ -> 0))
