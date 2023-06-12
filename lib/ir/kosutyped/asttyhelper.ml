@@ -73,7 +73,6 @@ module RType = struct
   let extract_parametrics_rktype = function
     | RTParametric_identifier { parametrics_type; _ } -> parametrics_type
     | _ -> []
-
   (**
         
     *)

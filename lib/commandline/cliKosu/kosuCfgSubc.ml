@@ -16,6 +16,7 @@
 (**********************************************************************************************)
 
 open Cmdliner
+open CliCommon
 module KosuFront = CliCommon.DefaultFront.KosuFront
 module Asttyconvert = CliCommon.DefaultFront.Asttyconvert
 
@@ -24,6 +25,7 @@ type cfg_type = Basic | Detail | Liveness
 type cmd = {
   dot : string option;
   colored : bool;
+  arch: CliCommon.large_architecture;
   cfg_type : cfg_type;
   variable_infer : bool;
   fn_name : string option;
@@ -32,6 +34,11 @@ type cmd = {
 }
 
 let name = "cfg"
+
+let register_module = function
+| LKVM -> (module Bytecode.Register : KosuIrCfg.Asttaccfg.ABI_Large with type variable = KosuIrCfg.Asttaccfg.Cfg_Sig_Impl.variable)
+| LArm64 -> failwith "Not implemented yet"
+| LX86_64 -> failwith "Not implemented yet"
 
 let string_of_enum ?(splitter = "|") ?(quoted = false) enum =
   let f = if quoted then Cmdliner.Arg.doc_quote else Fun.id in
@@ -52,6 +59,21 @@ let dot_term =
           "invoke the $(b,dot) command and generate graph with $(docv) image \
            format"
         [ "d"; "dot" ])
+
+let target_arch_term =
+  Arg.(
+    required
+    & opt (some & enum large_architecture_enum) None
+    & info
+        ~docv:(string_of_enum large_architecture_enum)
+        ~env:
+          (Cmd.Env.info
+              ~doc:
+                "If this environment variable is present, the architecture \
+                register set doesn't need to be explicitly set. See \
+                option $(b, --arch)"
+              architecture_global_variable)
+        ~doc:"architecture register set" [ "arch" ])
 
 let colored_term =
   Arg.(
@@ -95,12 +117,12 @@ let file_term =
   Arg.(non_empty & pos_all Arg.non_dir_file [] & info [] ~docv:"FILES")
 
 let cmd_term run =
-  let combine dot colored cfg_type variable_infer fn_name module_name files =
+  let combine dot arch colored cfg_type variable_infer fn_name module_name files =
     run
-    @@ { dot; colored; cfg_type; variable_infer; fn_name; module_name; files }
+    @@ { dot; arch; colored; cfg_type; variable_infer; fn_name; module_name; files }
   in
   Term.(
-    const combine $ dot_term $ colored_term $ cfg_type_term $ infered_term
+    const combine $ dot_term $ target_arch_term $ colored_term $ cfg_type_term $ infered_term
     $ function_name_term $ module_term $ file_term)
 
 let cfg_doc = "Visualise control flow graphs and inference graphs"
@@ -165,7 +187,7 @@ let write_cfg cfg_type ~oc tac_function =
       converted |> KosuIrCfg.Astcfgpprint.dot_diagrah_of_cfg_liveness
       |> KosuIrCfg.Astcfgpprint.string_of_dot_graph ~out:oc
 
-let write_infered ~infered ~colored ~oc
+let write_infered ~arch ~infered ~colored ~oc
     (tac_function : KosuIrTAC.Asttac.tac_function_decl) =
   match infered with
   | false -> ()
@@ -174,7 +196,10 @@ let write_infered ~infered ~colored ~oc
         KosuIrCfg.Astcfgconv.cfg_liveness_of_tac_function tac_function
       in
       let transform =
-        if colored then failwith "Colored todo"
+        let module Register = (val register_module arch) in
+        let module ColorationCfg = KosuIrCfg.Astcfgpprint.Coloring(Register) in
+        if colored then 
+          ColorationCfg.export_colored_graph ~fregs:Register.float_argument_registers ~fpstyle:KosuCommon.Function.kosu_passing_style ~color_map:Register.color_map ~available_color:Register.available_register
         else KosuIrCfg.Astcfgpprint.export_infer_graph_of_cfg
       in
       transform ~outchan:oc livecfg ()
@@ -198,7 +223,7 @@ let export_from_san_function cmd
             target_file (`Infered cmd.colored) cmd.dot tac_function.rfn_name
           in
           Out_channel.with_open_bin infered_ouchan (fun oc ->
-              write_infered ~infered:cmd.variable_infer ~colored:cmd.colored ~oc
+              write_infered ~arch:cmd.arch ~infered:cmd.variable_infer ~colored:cmd.colored ~oc
                 tac_function))
   | Some export_format -> (
       let cfg_outname =
@@ -221,7 +246,7 @@ let export_from_san_function cmd
             Filename.open_temp_file "infered" ".dot"
           in
           let () =
-            write_infered ~infered:cmd.variable_infer ~colored:cmd.colored
+            write_infered ~arch:cmd.arch ~infered:cmd.variable_infer ~colored:cmd.colored
               ~oc:tmp_infered_out tac_function
           in
           let () = close_out tmp_infered_out in

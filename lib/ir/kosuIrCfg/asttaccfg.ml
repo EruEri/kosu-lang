@@ -2,6 +2,14 @@ open KosuIrTAC.Asttac
 open KosuIrTyped.Asttyped
 module StringSet = Set.Make (String)
 
+module type ABI_Large = sig
+  include KosuRegisterAllocator.ABI 
+
+  val float_argument_registers : t list
+  val available_register : t list
+  val color_map : (t * string) list
+end
+
 module Cfg_Sig_Impl = struct
   type variable = string * KosuIrTyped.Asttyped.rktype
   type t = variable
@@ -100,5 +108,5 @@ module CfgPprint = struct
   let string_of_rvalue = KosuIrTAC.Asttacpprint.string_of_typed_tac_rvalue
 end
 
-module KosuRegisterAllocator =
+module KosuRegisterAllocatorImpl =
   KosuRegisterAllocator.MakePprint (Cfg_Sig_Impl) (CfgPprint)

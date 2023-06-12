@@ -21,6 +21,8 @@ module IdVar = struct
   let compare = compare
 end
 
+module Function = Function
+
 module IdVarMap = Map.Make (IdVar)
 
 module OffsetHelper = struct

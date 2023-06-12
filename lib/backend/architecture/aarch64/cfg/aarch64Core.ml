@@ -223,7 +223,7 @@ module Register = struct
 end
 
 module GreedyColoration =
-  KosuIrCfg.Asttaccfg.KosuRegisterAllocator.GreedyColoring (Register)
+  KosuIrCfg.Asttaccfg.KosuRegisterAllocatorImpl.GreedyColoring (Register)
 
 module Location = struct
   type address_mode =

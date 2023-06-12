@@ -17,4 +17,4 @@
 
 (library
  (name kosuCommon)
- (libraries kosuIrTyped kosuIrTAC))
+ (libraries kosuIrTyped kosuIrTAC util))

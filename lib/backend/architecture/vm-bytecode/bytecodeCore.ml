@@ -189,8 +189,25 @@ module Register = struct
     else non_float_argument_registers
 
   let syscall_register = [ R0; R1; R2; R3; R4; R5 ]
-  let available_register = [ R8; R9; R10; R11 ]
+  let available_register = [ R8; R9; R10; R11; FR0; FR1; FR2 ]
   let indirect_return_register = IR
+
+  let color_map = 
+    [
+      (R0, "aqua");
+      (R1, "red");
+      (R2, "fuchsia");
+      (R3, "green");
+      (R4, "navyblue");
+      (R5, "pink");
+      (R6, "orange");
+      (R7, "yellow");
+      (R8, "hotpink");
+      (R9, "indigo");
+      (R10, "magenta");
+      (R11, "purple");
+      (R12, "cyan");
+    ]
 
   let is_valid_register (variable : variable) (register : t) =
     let _, rktype = variable in
@@ -224,7 +241,7 @@ module Register = struct
 end
 
 module GreedyColoration =
-  KosuIrCfg.Asttaccfg.KosuRegisterAllocator.GreedyColoring (Register)
+  KosuIrCfg.Asttaccfg.KosuRegisterAllocatorImpl.GreedyColoring (Register)
 
 module Location = struct
   type address_offset = [ `ILitteral of int64 | `Register of Register.register ]
@@ -423,16 +440,16 @@ module LineInstruction = struct
 
   let sadd destination source (operande : Operande.src) =
     match operande with
-    | `Register _ -> sinstruction @@ sub destination source operande
+    | `Register _ -> sinstruction @@ add destination source operande
     | `ILitteral n when is_encodable VmConst.binop_immediat_size n ->
-        sinstruction @@ sub destination source operande
+        sinstruction @@ add destination source operande
     | `ILitteral n ->
         let large_mov = mv_integer Register.r14 n in
-        let sub_i =
-          instruction @@ sub destination source
+        let add_i =
+          instruction @@ add destination source
           @@ Operande.iregister Register.r14
         in
-        large_mov @ [ sub_i ]
+        large_mov @ [ add_i ]
 
   let sstr data_size destination address =
     match address.offset with

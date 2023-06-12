@@ -58,8 +58,6 @@ module Cli = struct
   }
 
   let default_outfile = "a.out"
-  let architecture_enum = [ ("arm64", Arm64); ("x86_64", X86_64) ]
-  let os_enum = [ ("freebsd", FreeBSD); ("linux", Linux); ("macos", Macos) ]
 
   (* let target_archi_term =
      Arg.(

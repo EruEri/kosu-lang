@@ -58,7 +58,7 @@ let string_of_register = function
   | SP -> "sp"
 
 let string_of_data_size (data_size : data_size) =
-  data_size |> Obj.repr |> Obj.obj |> ( + ) 1 |> ( * ) 8 |> Printf.sprintf ".%u"
+  data_size |> Obj.repr |> Obj.obj |> ( + ) 1 |> ( * ) 16 |> Printf.sprintf ".%u"
 
 let string_of_src : src -> string = function
   | `ILitteral lit -> Printf.sprintf "%Ld" lit
@@ -186,10 +186,10 @@ let string_of_instruction = function
         (string_of_address address)
 
 let string_of_asm_line (AsmLine (line, comment)) =
-  let comment = Option.value ~default:"" comment in
+  let comment = comment |> Option.map ( ( ^ ) "//" ) |> Option.value ~default:"" in
   match line with
-  | Instruction i -> sprintf "\t%s // %s" (string_of_instruction i) comment
-  | Comment s -> sprintf "\t// %s %s" s comment
+  | Instruction i -> sprintf "\t%s %s" (string_of_instruction i) comment
+  | Comment s -> sprintf "\t// %s" s 
   | Label s -> sprintf "%s:" s
 
 let string_of_asm_function ({asm_name; asm_body}: BytecodeCore.BytecodeProgram.asm_function_decl) = 
