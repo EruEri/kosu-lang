@@ -590,7 +590,7 @@ module FrameManager = struct
 
     let need_ir =
       not
-      @@ Register.does_return_hold_in_register ((), function_decl.return_type)
+      @@ Register.does_return_hold_in_register_kt function_decl.return_type
     in
 
     let colored_graph =
@@ -610,9 +610,10 @@ module FrameManager = struct
              let lsize = KosuIrTyped.Sizeof.sizeof_kt lhs.locale_ty in
              let rsize = KosuIrTyped.Sizeof.sizeof_kt rhs.locale_ty in
              compare rsize lsize)
+      |> List.map variable_of_tac_locale_variable
+      |> List.append function_decl.rparameters
       |> List.fold_left
            (fun (acc_map, acc_stack_variable) variable ->
-             let variable = variable_of_tac_locale_variable variable in
              let open GreedyColoration.ColoredGraph in
              let node =
                GreedyColoration.ColoredGraph.find variable colored_graph
