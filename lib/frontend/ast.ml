@@ -586,6 +586,13 @@ module Error = struct
 end
 
 module Type = struct
+
+  (** Create a hashmap with each generic in [generics] associate with it index and the ktype set as [TUnknown]*)
+  let default_generic_map generics = 
+    generics |> List.mapi (fun i generic_name -> generic_name.v, (i, TUnknow))
+    |> List.to_seq
+    |> Hashtbl.of_seq
+  
   (**
   returns the module_name and the name as a tuple is as a declaration    
   *)

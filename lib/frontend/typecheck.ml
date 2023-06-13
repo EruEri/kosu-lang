@@ -563,12 +563,15 @@ Return the type of an expression
                     found = parameters_length;
                   }))
         in
-        let initialisation_types = fields |> List.map (fun (_, expr) -> 
-          expr |> Position.map_use (typeof ~generics_resolver env
-          current_mod_name prog)   
+        let init_types, initialisation_types = fields |> List.map (fun (s, expr) -> 
+          let loc_type = expr |> Position.map_use (typeof ~generics_resolver env
+          current_mod_name prog)
+         in
+          (s, loc_type), loc_type
         ) 
+        |> List.split
         in 
-        let generic_table = struct_decl.generics |> List.mapi (fun i g -> g.v, (i, TUnknow)) |> List.to_seq |> Hashtbl.of_seq
+        let generic_table = Ast.Type.default_generic_map struct_decl.generics 
         in
         let () =
         List.iter2
@@ -577,15 +580,6 @@ Return the type of an expression
             Ast.Type.update_generics generic_table kt param_kt ())
             initialisation_types struct_decl.fields
       in
-        let init_types =
-          fields
-          |> List.map (fun (s, expr) ->
-                 ( s,
-                   expr
-                   |> Position.map_use (fun expr_loc ->
-                          typeof ~generics_resolver env current_mod_name prog
-                            expr_loc) ))
-        in
         let () = struct_decl.fields
         |> List.combine init_types 
         |> List.iter
@@ -627,20 +621,13 @@ Return the type of an expression
           | Ok e -> e
         in
 
-        let hashtbl = Hashtbl.create (enum_decl.generics |> List.length) in
-        enum_decl.generics
-        |> List.iteri (fun i generic_name ->
-               Hashtbl.add hashtbl generic_name.v (i, TUnknow));
+        let infered_map = Ast.Type.default_generic_map enum_decl.generics
+        in
         let init_types =
           assoc_exprs
           |> List.map
                (Position.map_use
                   (typeof ~generics_resolver env current_mod_name prog))
-        in
-        let infered_map =
-          enum_decl.generics
-          |> List.mapi (fun index s -> (s.v, (index, TUnknow)))
-          |> List.to_seq |> Hashtbl.of_seq
         in
         let () =
           enum_decl.variants
@@ -831,10 +818,7 @@ Return the type of an expression
                         (typeof ~generics_resolver:new_map_generics env
                            current_mod_name prog))
               in
-              let infered_map =
-                e.generics
-                |> List.mapi (fun index s -> (s.v, (index, TUnknow)))
-                |> List.to_seq |> Hashtbl.of_seq
+              let infered_map = Ast.Type.default_generic_map e.generics
               in
               let () =
                 List.iter2
