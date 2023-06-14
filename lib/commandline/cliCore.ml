@@ -34,7 +34,7 @@ let version =
   Printf.sprintf "%s %s" v commit_hash
 
 let std_global_variable = "KOSU_STD_PATH"
-let architecture_global_variable = "KOSU_TARGET_ARCHI"
+let architecture_global_variable = "KOSU_TARGET_ARCH"
 let os_global_variable = "KOSU_TARGET_OS"
 let std_path = Sys.getenv_opt std_global_variable
 let is_kosu_file file = file |> Filename.extension |> ( = ) ".kosu"
