@@ -64,27 +64,12 @@ module Sizeof = struct
              let aligned = align acc_size comming_align in
              let new_align = max acc_align comming_align in
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> ce71891 ([Fmt + Folder cli struct])
              if found then acc
              else if index = tindex then (aligned, new_align, true)
              else (aligned + comming_size, new_align, found))
            (0, 1, false)
       |> function
       | a, _, _ -> a
-<<<<<<< HEAD
-end
-=======
-          if found then acc
-          else if index = tindex then (aligned, new_align, true)
-          else (aligned + comming_size, new_align, found))
-        (0, 1, false)
-    |> function
-    | a, _, _ -> a
-=======
->>>>>>> ce71891 ([Fmt + Folder cli struct])
 end
 
 module Args = struct
@@ -155,7 +140,3 @@ module Args = struct
 
   let consume_args = consume_args ~fargs:[] ~iargs:[] ~stacks_args:[]
 end
-<<<<<<< HEAD
->>>>>>> 4dfa4e5 ([San]: fix compilation)
-=======
->>>>>>> ce71891 ([Fmt + Folder cli struct])

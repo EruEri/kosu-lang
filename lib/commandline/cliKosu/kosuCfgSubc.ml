@@ -25,7 +25,7 @@ type cfg_type = Basic | Detail | Liveness
 type cmd = {
   dot : string option;
   colored : bool;
-  arch: CliCommon.large_architecture;
+  arch : CliCommon.large_architecture;
   cfg_type : cfg_type;
   variable_infer : bool;
   fn_name : string option;
@@ -36,9 +36,11 @@ type cmd = {
 let name = "cfg"
 
 let register_module = function
-| LKVM -> (module Bytecode.Register : KosuIrCfg.Asttaccfg.ABI_Large with type variable = KosuIrCfg.Asttaccfg.Cfg_Sig_Impl.variable)
-| LArm64 -> failwith "Not implemented yet"
-| LX86_64 -> failwith "Not implemented yet"
+  | LKVM ->
+      (module Bytecode.Register : KosuIrCfg.Asttaccfg.ABI_Large
+        with type variable = KosuIrCfg.Asttaccfg.Cfg_Sig_Impl.variable)
+  | LArm64 -> failwith "Not implemented yet"
+  | LX86_64 -> failwith "Not implemented yet"
 
 let string_of_enum ?(splitter = "|") ?(quoted = false) enum =
   let f = if quoted then Cmdliner.Arg.doc_quote else Fun.id in
@@ -68,11 +70,11 @@ let target_arch_term =
         ~docv:(string_of_enum large_architecture_enum)
         ~env:
           (Cmd.Env.info
-              ~doc:
-                "If this environment variable is present, the architecture \
-                register set doesn't need to be explicitly set. See \
-                option $(b, --arch)"
-              architecture_global_variable)
+             ~doc:
+               "If this environment variable is present, the architecture \
+                register set doesn't need to be explicitly set. See option \
+                $(b, --arch)"
+             architecture_global_variable)
         ~doc:"architecture register set" [ "arch" ])
 
 let colored_term =
@@ -117,13 +119,23 @@ let file_term =
   Arg.(non_empty & pos_all Arg.non_dir_file [] & info [] ~docv:"FILES")
 
 let cmd_term run =
-  let combine dot arch colored cfg_type variable_infer fn_name module_name files =
+  let combine dot arch colored cfg_type variable_infer fn_name module_name files
+      =
     run
-    @@ { dot; arch; colored; cfg_type; variable_infer; fn_name; module_name; files }
+    @@ {
+         dot;
+         arch;
+         colored;
+         cfg_type;
+         variable_infer;
+         fn_name;
+         module_name;
+         files;
+       }
   in
   Term.(
-    const combine $ dot_term $ target_arch_term $ colored_term $ cfg_type_term $ infered_term
-    $ function_name_term $ module_term $ file_term)
+    const combine $ dot_term $ target_arch_term $ colored_term $ cfg_type_term
+    $ infered_term $ function_name_term $ module_term $ file_term)
 
 let cfg_doc = "Visualise control flow graphs and inference graphs"
 
@@ -197,9 +209,13 @@ let write_infered ~arch ~infered ~colored ~oc
       in
       let transform =
         let module Register = (val register_module arch) in
-        let module ColorationCfg = KosuIrCfg.Astcfgpprint.Coloring(Register) in
-        if colored then 
-          ColorationCfg.export_colored_graph ~fregs:Register.float_argument_registers ~fpstyle:KosuCommon.Function.kosu_passing_style ~color_map:Register.color_map ~available_color:Register.available_register
+        let module ColorationCfg = KosuIrCfg.Astcfgpprint.Coloring (Register) in
+        if colored then
+          ColorationCfg.export_colored_graph
+            ~fregs:Register.float_argument_registers
+            ~fpstyle:KosuCommon.Function.kosu_passing_style
+            ~color_map:Register.color_map
+            ~available_color:Register.available_register
         else KosuIrCfg.Astcfgpprint.export_infer_graph_of_cfg
       in
       transform ~outchan:oc livecfg ()
@@ -223,8 +239,8 @@ let export_from_san_function cmd
             target_file (`Infered cmd.colored) cmd.dot tac_function.rfn_name
           in
           Out_channel.with_open_bin infered_ouchan (fun oc ->
-              write_infered ~arch:cmd.arch ~infered:cmd.variable_infer ~colored:cmd.colored ~oc
-                tac_function))
+              write_infered ~arch:cmd.arch ~infered:cmd.variable_infer
+                ~colored:cmd.colored ~oc tac_function))
   | Some export_format -> (
       let cfg_outname =
         target_file (`Cfg cmd.cfg_type) cmd.dot tac_function.rfn_name
@@ -246,8 +262,8 @@ let export_from_san_function cmd
             Filename.open_temp_file "infered" ".dot"
           in
           let () =
-            write_infered ~arch:cmd.arch ~infered:cmd.variable_infer ~colored:cmd.colored
-              ~oc:tmp_infered_out tac_function
+            write_infered ~arch:cmd.arch ~infered:cmd.variable_infer
+              ~colored:cmd.colored ~oc:tmp_infered_out tac_function
           in
           let () = close_out tmp_infered_out in
           let _ =

@@ -236,11 +236,7 @@ module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
         translate_san_binop ~rvalue ~litterals ~where fd ty_binary
     | TyRVFunctionCall ty_fncall ->
         let return_type = rvalue.san_type in
-<<<<<<< HEAD
-        let params_reg_count = List.length Register.arguments_register in
-=======
         let params_reg_count = List.length (Register.arguments_register ()) in
->>>>>>> ce71891 ([Fmt + Folder cli struct])
         let register_parameters, stack_parameters =
           ty_fncall.parameters |> List.mapi Util.couple
           |> List.partition_map (fun (i, value) ->
@@ -249,11 +245,7 @@ module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
         in
 
         let register_parameters_instructions =
-<<<<<<< HEAD
-          Register.arguments_register
-=======
           () |> Register.arguments_register
->>>>>>> ce71891 ([Fmt + Folder cli struct])
           |> Util.combine_safe register_parameters
           |> List.map (fun (atom, raw_register) ->
                  let target_reg =

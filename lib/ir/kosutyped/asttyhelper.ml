@@ -73,9 +73,7 @@ module RType = struct
   let extract_parametrics_rktype = function
     | RTParametric_identifier { parametrics_type; _ } -> parametrics_type
     | _ -> []
-  (**
-        
-    *)
+
   let rec update_generics map init_type param_type () =
     match (init_type, param_type) with
     | kt, RTType_Identifier { module_path = ""; name } -> (

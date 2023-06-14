@@ -58,7 +58,8 @@ let string_of_register = function
   | SP -> "sp"
 
 let string_of_data_size (data_size : data_size) =
-  data_size |> Obj.repr |> Obj.obj |> ( + ) 1 |> ( * ) 16 |> Printf.sprintf ".%u"
+  data_size |> Obj.repr |> Obj.obj |> ( + ) 1 |> ( * ) 16
+  |> Printf.sprintf ".%u"
 
 let string_of_src : src -> string = function
   | `ILitteral lit -> Printf.sprintf "%Ld" lit
@@ -186,18 +187,19 @@ let string_of_instruction = function
         (string_of_address address)
 
 let string_of_asm_line (AsmLine (line, comment)) =
-  let comment = comment |> Option.map ( ( ^ ) "//" ) |> Option.value ~default:"" in
+  let comment =
+    comment |> Option.map (( ^ ) "//") |> Option.value ~default:""
+  in
   match line with
   | Instruction i -> sprintf "\t%s %s" (string_of_instruction i) comment
-  | Comment s -> sprintf "\t// %s" s 
+  | Comment s -> sprintf "\t// %s" s
   | Label s -> sprintf "%s:" s
 
-let string_of_asm_function ({asm_name; asm_body}: BytecodeCore.BytecodeProgram.asm_function_decl) = 
-  sprintf "%s:\n%s"
-  asm_name
-  (asm_body |> List.map string_of_asm_line |> String.concat "\n")
-
+let string_of_asm_function
+    ({ asm_name; asm_body } : BytecodeCore.BytecodeProgram.asm_function_decl) =
+  sprintf "%s:\n%s" asm_name
+    (asm_body |> List.map string_of_asm_line |> String.concat "\n")
 
 let string_of_asm_node = function
-| BytecodeCore.BytecodeProgram.Afunction f -> string_of_asm_function f
-| AConst c -> failwith "TODO: string_of_asm_node Const"
+  | BytecodeCore.BytecodeProgram.Afunction f -> string_of_asm_function f
+  | AConst c -> failwith "TODO: string_of_asm_node Const"

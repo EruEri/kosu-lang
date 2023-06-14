@@ -19,9 +19,6 @@
  (name sanAarch64)
  (enabled_if
   (= %{profile} san))
-<<<<<<< HEAD
-  (modules sanAarch64 sanAarchCore sanAarchConv sanAarchPprint sanAarchSpecification sanAarchSpecImpl sanAarchCodegen)
-=======
  (modules
   sanAarch64
   sanAarchCore
@@ -30,5 +27,4 @@
   sanAarchSpecification
   sanAarchSpecImpl
   sanAarchCodegen)
->>>>>>> ce71891 ([Fmt + Folder cli struct])
  (libraries kosuRegisterAllocator sanTyped sanCommon))

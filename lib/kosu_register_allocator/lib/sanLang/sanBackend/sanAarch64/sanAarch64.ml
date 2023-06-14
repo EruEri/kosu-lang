@@ -18,11 +18,4 @@
 module Codegen = SanAarchCodegen
 module Specification = SanAarchSpecification
 module Implementation = SanAarchSpecImpl
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 module Register = SanAarchCore.Register
->>>>>>> 4dfa4e5 ([San]: fix compilation)
-=======
-module Register = SanAarchCore.Register
->>>>>>> ce71891 ([Fmt + Folder cli struct])

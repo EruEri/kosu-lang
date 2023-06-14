@@ -192,7 +192,7 @@ module Register = struct
   let available_register = [ R8; R9; R10; R11; FR0; FR1; FR2 ]
   let indirect_return_register = IR
 
-  let color_map = 
+  let color_map =
     [
       (R0, "aqua");
       (R1, "red");
@@ -264,8 +264,8 @@ module Location = struct
     | loc -> loc
 
   let get_address = function
-  | LocAddr address -> address
-  | LocReg _ -> failwith "Location is register"
+    | LocAddr address -> address
+    | LocReg _ -> failwith "Location is register"
 end
 
 module Operande = struct
@@ -518,7 +518,6 @@ module LineInstruction = struct
 
   let scall_label label = instruction @@ br @@ `Label label
   let scall_reg reg = instruction @@ br @@ `Register reg
-
   let sjump_label label = instruction @@ jump @@ `Label label
 
   let slea_address target address =
@@ -589,8 +588,7 @@ module FrameManager = struct
     in
 
     let need_ir =
-      not
-      @@ Register.does_return_hold_in_register_kt function_decl.return_type
+      not @@ Register.does_return_hold_in_register_kt function_decl.return_type
     in
 
     let colored_graph =

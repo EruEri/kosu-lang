@@ -16,11 +16,7 @@
 (**********************************************************************************************)
 
 module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
-<<<<<<< HEAD
-  module AsmProgram = Common.AsmAst.Make (SanAarchCore.Line)
-=======
   module AsmProgram = SanCommon.AsmAst.Make (SanAarchCore.Line)
->>>>>>> ce71891 ([Fmt + Folder cli struct])
   module Pprint = SanAarchPprint.Make (AsmSpec)
   module Conv = SanAarchConv.Make (AsmSpec)
 

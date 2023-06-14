@@ -3,7 +3,6 @@ open Asttaccfg.KosuRegisterAllocatorImpl.Basic
 open Asttaccfg.KosuRegisterAllocatorImpl.Detail
 open Asttaccfg.KosuRegisterAllocatorImpl.Pprint
 
-
 type dot_digraph_node = {
   name : string;
   elements : string list;
@@ -79,46 +78,59 @@ let rec combine_safe lhs rhs =
   | [], _ | _, [] -> []
   | t1 :: q1, t2 :: q2 -> (t1, t2) :: combine_safe q1 q2
 
-module Coloring(ABI : KosuRegisterAllocator.ABI with type variable = Asttaccfg.Cfg_Sig_Impl.variable) = struct
-  let export_colored_graph ~fregs ~outchan ~fpstyle ~color_map ~available_color (cfg: Liveness.cfg_liveness_detail) () =
+module Coloring
+    (ABI : KosuRegisterAllocator.ABI
+             with type variable = Asttaccfg.Cfg_Sig_Impl.variable) =
+struct
+  let export_colored_graph ~fregs ~outchan ~fpstyle ~color_map ~available_color
+      (cfg : Liveness.cfg_liveness_detail) () =
     let open Asttaccfg in
     let open Util.Args in
-    let module GreedyColoring = KosuRegisterAllocatorImpl.GreedyColoring(ABI) in
+    let module GreedyColoring = KosuRegisterAllocatorImpl.GreedyColoring (ABI) in
     let open GreedyColoring.ColoredGraph in
-    let other_parameters, float_parameters, stack_parameters =
-    consume_args ~fregs
-      ~iregs:ABI.non_float_argument_registers
-      ~fpstyle
-      cfg.parameters
-  in
-  let parameters =
-    other_parameters |> ( @ ) float_parameters
-    |> List.map (fun (variable, return_kind) ->
-           match return_kind with
-           | Simple_return reg -> (variable, reg)
-           | Double_return _ -> failwith "Unreachable")
-  in
+    let other_parameters, float_parameters, _stack_parameters =
+      consume_args ~fregs ~iregs:ABI.non_float_argument_registers ~fpstyle
+        cfg.parameters
+    in
+    let parameters =
+      other_parameters |> ( @ ) float_parameters
+      |> List.map (fun (variable, return_kind) ->
+             match return_kind with
+             | Simple_return reg -> (variable, reg)
+             | Double_return _ -> failwith "Unreachable")
+    in
     let graph = GreedyColoring.coloration ~parameters ~available_color cfg in
     let bindings = GreedyColoring.ColoredGraph.bindings graph in
-    let () = Printf.fprintf outchan "strict graph %s {\n" (Printf.sprintf "infered_%s" cfg.entry_block) in
-    let () = bindings |> List.iter (fun (node, _) ->
-      Printf.fprintf outchan "\t%s [color=%s]\n"
-      (node.node |> Asttaccfg.Cfg_Sig_Impl.repr |> quoted)
-      ( match node.color with
-        | None -> "black"
-        | Some c -> color_map |> List.assoc_opt c |> Option.value ~default:"white" |> quoted)
-    ) in
-    let () = bindings |> List.iter (fun (node, edges) ->
-      Printf.fprintf outchan "\t%s -- {%s}\n"
-      (node.node |> Asttaccfg.Cfg_Sig_Impl.repr |> quoted)
-      (edges |> List.map (fun node -> node.node |> Asttaccfg.Cfg_Sig_Impl.repr |> quoted) |> String.concat " ")
-    ) in
+    let () =
+      Printf.fprintf outchan "strict graph %s {\n"
+        (Printf.sprintf "infered_%s" cfg.entry_block)
+    in
+    let () =
+      bindings
+      |> List.iter (fun (node, _) ->
+             Printf.fprintf outchan "\t%s [color=%s]\n"
+               (node.node |> Asttaccfg.Cfg_Sig_Impl.repr |> quoted)
+               (match node.color with
+               | None -> "black"
+               | Some c ->
+                   color_map |> List.assoc_opt c
+                   |> Option.value ~default:"white"
+                   |> quoted))
+    in
+    let () =
+      bindings
+      |> List.iter (fun (node, edges) ->
+             Printf.fprintf outchan "\t%s -- {%s}\n"
+               (node.node |> Asttaccfg.Cfg_Sig_Impl.repr |> quoted)
+               (edges
+               |> List.map (fun node ->
+                      node.node |> Asttaccfg.Cfg_Sig_Impl.repr |> quoted)
+               |> String.concat " "))
+    in
 
     let () = Printf.fprintf outchan "}" in
     ()
 end
-
-
 
 let export_infer_graph_of_cfg ~outchan (cfg : Liveness.cfg_liveness_detail) () =
   let graph = Interference_Graph.interfere cfg in

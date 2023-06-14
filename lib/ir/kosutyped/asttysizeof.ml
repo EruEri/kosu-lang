@@ -193,7 +193,7 @@ let rec compute_all_size_typed_expr rprogram typed_expression =
       let () = compute_all_size_kbody rprogram else_case in
       ()
   | RESizeof rktype -> compute_ktype rprogram rktype
-  | REFieldAcces { first_expr; _ } ->
+  | REFieldAcces { first_expr; _ } | RETupleAccess { first_expr; _ } ->
       compute_all_size_typed_expr rprogram first_expr
   | RESwitch { rexpression; cases; wildcard_case : rkbody option } ->
       let () = compute_all_size_typed_expr rprogram rexpression in

@@ -3,7 +3,7 @@ open KosuIrTyped.Asttyped
 module StringSet = Set.Make (String)
 
 module type ABI_Large = sig
-  include KosuRegisterAllocator.ABI 
+  include KosuRegisterAllocator.ABI
 
   val float_argument_registers : t list
   val available_register : t list

@@ -17,14 +17,9 @@
 
 module SanCfgPprint = SanCfgPprint
 module SanCfgConv = SanCfgConv
-<<<<<<< HEAD
-module SanRegisterAllocator = KosuRegisterAllocator.MakePprint(SanCommon.Cfg_Sig)(SanCommon.CfgPprint)
-module GreedyColoring = SanRegisterAllocator.GreedyColoring(SanBackend.Aarch64.Register)
-=======
 
 module SanRegisterAllocator =
   KosuRegisterAllocator.MakePprint (SanCommon.Cfg_Sig) (SanCommon.CfgPprint)
 
 module GreedyColoring =
   SanRegisterAllocator.GreedyColoring (SanBackend.Aarch64.Register)
->>>>>>> ce71891 ([Fmt + Folder cli struct])

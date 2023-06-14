@@ -24,9 +24,5 @@
  (name sanBackend)
  (enabled_if
   (= %{profile} san))
-<<<<<<< HEAD
-  (modules sanBackend)
-=======
  (modules sanBackend)
->>>>>>> ce71891 ([Fmt + Folder cli struct])
  (libraries sanTyped sanAarch64))

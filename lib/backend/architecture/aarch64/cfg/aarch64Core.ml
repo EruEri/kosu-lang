@@ -464,8 +464,8 @@ end
 module AarchProgramType = KosuCommon.AsmProgram (Line)
 
 module LineInstruction = struct
-  open Instruction
-  open Location
-  open Line
-  open Immediat
+  (* open Instruction
+     open Location
+     open Line
+     open Immediat *)
 end

@@ -304,6 +304,5 @@ module Cli = struct
     ()
 
   let eval () = run |> kosuc |> Cmd.eval ~catch:true
-
   let eval' = Cmd.eval_result
 end

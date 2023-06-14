@@ -48,7 +48,8 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             | Some tte -> Some (Bbe_return tte));
         }
       in
-      Asttaccfg.KosuRegisterAllocatorImpl.BasicBlockMap.singleton block.label block
+      Asttaccfg.KosuRegisterAllocatorImpl.BasicBlockMap.singleton block.label
+        block
   | stmt :: q as _stmts -> (
       match stmt with
       | STacDeclaration { identifier; trvalue } ->
@@ -242,18 +243,31 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
           {
             statemenets_for_case;
             condition_switch;
+            sw_exit_label;
             sw_cases =
               {
                 variants_to_match;
                 assoc_bound;
                 sw_goto;
-                sw_exit_label;
+                sw_exit_label = _inner_exit_label;
                 switch_tac_body;
               }
               :: sw_cases;
             wildcard_label;
             wildcard_body;
           } ->
+          let () =
+            ignore
+              ( statemenets_for_case,
+                condition_switch,
+                variants_to_match,
+                assoc_bound,
+                sw_goto,
+                sw_exit_label,
+                switch_tac_body,
+                sw_cases )
+          in
+          let () = ignore (wildcard_label, wildcard_body) in
           (* let continuation =
                of_tac_statements  ~tag_map ~start_label ~end_labels:[ goto1; goto2 ]
                  ~ending:
@@ -289,7 +303,8 @@ let cfg_of_tac_function tacfun =
     ~locals_vars:(typed_set_of_locales_vars tacfun.locale_var)
 
 let cfg_detail_of_tac_function tacfun =
-  tacfun |> cfg_of_tac_function |> Asttaccfg.KosuRegisterAllocatorImpl.Detail.of_cfg
+  tacfun |> cfg_of_tac_function
+  |> Asttaccfg.KosuRegisterAllocatorImpl.Detail.of_cfg
 
 let cfg_liveness_of_tac_function tacfun =
   tacfun |> cfg_detail_of_tac_function
