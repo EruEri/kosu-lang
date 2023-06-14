@@ -36,6 +36,10 @@ module RType = struct
     | RTInteger (sign, size) -> Some (sign, size)
     | _ -> None
 
+  let float_info = function
+    | RTFloat size -> Some size
+    | _ -> None 
+
   let is_64bits_float = function RTFloat F64 -> true | _ -> false
   let is_32bits_float = function RTFloat F32 -> true | _ -> false
   let is_float = function RTFloat _ -> true | _ -> false

@@ -313,10 +313,11 @@ const_decl:
         }
     }
     | CONST located(Constant) EQUAL located(Float_lit) option(SEMICOLON) {
+        let fsize, _ = $4.v in
         {
             const_name = $2;
-            explicit_type = TFloat F64; (* For the time, waiting struct constant refacto *)
-            value =  $4 |> Position.map ( fun f -> EFloat f)
+            explicit_type = TFloat fsize; (* For the time, waiting struct constant refacto *)
+            value = $4 |> Position.map ( fun f -> EFloat f)
         }
     }
 either_color_equal:

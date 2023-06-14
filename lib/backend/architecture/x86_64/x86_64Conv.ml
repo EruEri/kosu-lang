@@ -245,6 +245,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    source = `ILitteral sizeof;
                  });
           ] )
+    | TEConst { name; module_path } when KosuIrTyped.Asttyhelper.RType.is_float expr_rktype ->
+      let fsize = Option.get @@ KosuIrTyped.Asttyhelper.RType.float_info expr_rktype in
+      let instructions = load_float_label fsize (Spec.label_of_constant ~module_path name) target_dst in
+      (target_dst, instructions)
     | TEConst { name; module_path } when expr_rktype = RTString_lit ->
         ( target_dst,
           load_label (Spec.label_of_constant ~module_path name) target_dst )

@@ -172,10 +172,17 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             Instruction
               (Mov { destination = r64; flexsec_operand = `ILitteral sizeof });
           ] )
+    | TEConst { name; module_path } when KosuIrTyped.Asttyhelper.RType.is_float expr_rktype ->
+      let destination = reg_of_ktype rprogram expr_rktype ~register:target_reg in
+        let instructions =
+          load_label (AsmSpec.label_of_constant ~module_path name) x11
+          @ ldr_instr ~data_size:None ~destination (create_adress x11)
+        in
+       (destination, instructions)
     | TEConst { name; module_path } when expr_rktype = RTString_lit ->
-        let reg64 = resize64 target_reg in
-        ( target_reg,
-          load_label (AsmSpec.label_of_constant ~module_path name) reg64 )
+        let reg = reg_of_ktype rprogram expr_rktype ~register:target_reg in
+        ( reg,
+          load_label (AsmSpec.label_of_constant ~module_path name) reg )
     | TEConst { name; module_path }
       when KosuIrTyped.Asttyhelper.RType.is_any_integer expr_rktype ->
         let _, size =
