@@ -336,6 +336,13 @@ module Generics = struct
               instanciate_generics_typed_expression generics first_expr;
             field;
           }
+    | RETupleAccess {first_expr; index} -> 
+      RETupleAccess 
+        {
+          first_expr = 
+            instanciate_generics_typed_expression generics first_expr;
+          index
+        }
     | REStruct { modules_path; struct_name; fields } ->
         REStruct
           {
@@ -1106,7 +1113,7 @@ module RProgram = struct
                   inner_specialise
                   |> FnSpec.add (function_module, true_decl)
                   |> FnSpec.union recall))
-    | REFieldAcces { first_expr; _ } ->
+    | REFieldAcces { first_expr; _ } | RETupleAccess {first_expr; _} ->
         specialise_generics_function_typed_expression ~ignored current_module
           rprogram first_expr
     | REStruct { fields; _ } ->

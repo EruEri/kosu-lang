@@ -766,6 +766,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                               rprogram)
                     [])
         |> Option.value ~default:[]
+    | RVTupleAccess _ -> failwith ""
     | RVFieldAcess
         {
           first_expr = { expr_rktype; tac_expression = TEIdentifier struct_id };

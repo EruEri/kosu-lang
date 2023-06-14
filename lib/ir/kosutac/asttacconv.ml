@@ -504,6 +504,30 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           (TEIdentifier new_tmp)
       in
       (needed_statement @ stmt @ (statement :: last_stmt), return)
+
+    | RETupleAccess { first_expr; index }, _ ->
+      let next_allocated, stmt =
+        create_forward_init ~map ~count_var first_expr
+      in
+      let needed_statement, tac_expr =
+        convert_from_typed_expression ~discarded_value ~allocated:next_allocated
+          ~switch_count ~cases_count ~map ~if_count ~count_var ~rprogram
+          first_expr
+      in
+      let new_tmp = make_inc_tmp trktype map count_var in
+      let field_acces = RVTupleAccess { first_expr = tac_expr; index } in
+      let statement =
+        STacDeclaration
+          {
+            identifier = new_tmp;
+            trvalue = make_typed_tac_rvalue trktype field_acces;
+          }
+      in
+      let last_stmt, return =
+        convert_if_allocated ~expr_rktype:trktype ~allocated
+          (TEIdentifier new_tmp)
+      in
+      (needed_statement @ stmt @ (statement :: last_stmt), return)
   | REAdress identifier, _ ->
       let new_tmp = make_inc_tmp trktype map count_var in
       let adress = RVAdress identifier in

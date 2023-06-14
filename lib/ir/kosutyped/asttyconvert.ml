@@ -280,6 +280,13 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | EIdentifier { modules_path; identifier } ->
         REIdentifier
           { modules_path = modules_path.v; identifier = identifier.v }
+    | ETupleAccess {first_expr; index} -> 
+      let typed_expression =
+        typed_expression_of_kexpression ~generics_resolver env current_module
+          program first_expr
+      in
+      RETupleAccess
+        { first_expr = typed_expression; index = index.v }
     | EFieldAcces { first_expr; field } ->
         let typed_expression =
           typed_expression_of_kexpression ~generics_resolver env current_module

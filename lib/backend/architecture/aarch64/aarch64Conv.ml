@@ -599,8 +599,6 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           ttes
           |> List.mapi (fun index _value ->
                  offset_of_tuple_index index ktlis rprogram)
-          |> List.tl
-          |> fun l -> l @ [ 0L ]
         in
         ttes
         |> List.mapi (fun index value -> (index, value))
@@ -619,6 +617,49 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                in
                acc @ instructions @ copy_instructions)
              []
+    | RVTupleAccess 
+      { 
+        first_expr = { expr_rktype; tac_expression = TEIdentifier tuple_id};
+        index
+      } ->
+        let kts_tuples = match expr_rktype with
+          | KosuIrTyped.Asttyped.RTTuple rkts -> rkts
+          | _ -> failwith "Weird: The typechecker for tuple"
+        in
+        let generics = Hashtbl.create 0 in
+        
+        let offset = offset_of_tuple_index ~generics (Int64.to_int index) kts_tuples rprogram in
+        let tuple_address =
+          FrameManager.address_of (tuple_id, expr_rktype) fd |> fun adr ->
+          match adr with
+          | Some a -> a
+          | None -> failwith "field access null address"
+        in
+        let field_address = increment_adress offset tuple_address in
+        let sizeof = sizeofn rprogram rval_rktype in
+        let size = compute_data_size rval_rktype sizeof in
+        let reg9 = reg9_of_ktype rprogram rval_rktype in
+        let copy_instructions =
+          copy_result
+            ~before_copy:(fun _ ->
+              if is_register_size sizeof then
+                ldr_instr ~data_size:size ~destination:reg9 field_address
+              else
+                [
+                  Instruction
+                    (ADD
+                       {
+                         destination = reg9;
+                         operand1 = field_address.base;
+                         operand2 = src_of_adress_offset field_address.offset;
+                         offset = false;
+                       });
+                ])
+            ~where ~register:reg9 ~rval_rktype rprogram
+        in
+        Line_Com (Comment ("Tuple access of " ^ (Int64.to_string index))) :: copy_instructions
+    | RVTupleAccess _ ->
+      failwith "Wierd : tuple access force tuple as an identifier"
     | RVFieldAcess
         {
           first_expr = { expr_rktype; tac_expression = TEIdentifier struct_id };

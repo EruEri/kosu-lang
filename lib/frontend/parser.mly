@@ -378,6 +378,13 @@ expr:
     | located(expr) INFEQ located(expr) { EBin_op (BInfEq ($1, $3)) }
     | located(expr) DOUBLEQUAL located(expr) { EBin_op (BEqual ($1, $3)) }
     | located(expr) DIF located(expr) { EBin_op (BDif ($1, $3)) }
+    | located(expr) DOT located(Integer_lit) {
+        let value = $3 |> Position.map (fun (_, _, value) -> value) in
+        ETupleAccess {
+            first_expr = $1;
+            index = value
+        } 
+    }
     | located(expr) DOT located(IDENT) {
         EFieldAcces {
             first_expr = $1;

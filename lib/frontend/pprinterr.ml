@@ -378,6 +378,12 @@ struct
     | Operator_Error e -> string_of_operator_error e
     | Switch_error e -> string_of_switch_error e
     | Builtin_Func_Error e -> string_of_built_in_func_error e
+    | Tuple_access_for_non_tuple_type { location; ktype } ->
+      string_of_located_error location
+        (sprintf
+           "this expression has the type \"%s\" which is not a tuple. It \
+            content can't be accessed by index"
+           (string_of_ktype ktype))
     | Field_access_for_non_struct_type { location; ktype } ->
         string_of_located_error location
           (sprintf
@@ -412,6 +418,14 @@ struct
           (sprintf
              "While loop body must have the unit type, but has the \"%s\" type"
              (string_of_ktype e.wrong_type))
+    | Impossible_tuple_access { index; ktypes } ->
+    string_of_located_error index
+      (sprintf "Index \"%Lu\" is outside the arity of \"%s\" (%Lu >= %u)"
+          (index.v)
+          (string_of_ktype (TTuple ktypes))
+          (index.v)
+          (List.length ktypes)
+        )
     | Impossible_field_Access { field; struct_decl } ->
         string_of_located_error field
           (sprintf "Struct \"%s\" doesn't contain a field named \"%s\""

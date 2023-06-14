@@ -107,6 +107,10 @@ and kexpression =
       first_expr : kexpression location;
       field : string location;
     }
+  | ETupleAccess of {
+    first_expr : kexpression location;
+    index : int64 location
+  }
   | EConst_Identifier of {
       modules_path : string location;
       identifier : string location;
@@ -548,11 +552,19 @@ module Error = struct
       }
     | Not_unit_type_while of { position : unit location; wrong_type : ktype }
     | Not_Boolean_Type_Condition of { found : ktype location }
+    | Impossible_tuple_access of {
+      index : int64 location;
+      ktypes : ktype location list;
+    }
     | Impossible_field_Access of {
         field : string location;
         struct_decl : struct_decl;
       }
     | Enum_Access_field of { field : string location; enum_decl : enum_decl }
+    | Tuple_access_for_non_tuple_type of {
+      location : unit location;
+      ktype : ktype
+    }
     | Field_access_for_non_struct_type of {
         location : unit location;
         ktype : ktype;

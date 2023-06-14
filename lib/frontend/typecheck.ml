@@ -541,6 +541,23 @@ Return the type of an expression
               ktype
         in
         ktype
+    | ETupleAccess {first_expr; index} ->
+      let first_type =
+        typeof ~generics_resolver env current_mod_name prog first_expr
+      in
+      let kts = match first_type with
+        | TTuple kts -> kts
+        | _ -> failwith ""
+      in
+      let length = Int64.of_int @@ List.length kts in
+      let ucmp =  Int64.unsigned_compare length index.v in
+      let () = if ucmp <= 0 then failwith ""
+      in
+      let kt = match List.nth_opt kts @@ Int64.to_int index.v with
+        | None -> failwith "Shouldn't append: except with index > max(int)"
+        | Some kt -> kt
+      in
+      kt.v
     | EStruct { modules_path; struct_name; fields } ->
         let struct_decl =
           match

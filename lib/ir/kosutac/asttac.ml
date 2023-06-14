@@ -120,6 +120,7 @@ and tac_rvalue =
     }
   | RVTuple of tac_typed_expression list
   | RVFieldAcess of { first_expr : tac_typed_expression; field : string }
+  | RVTupleAccess of { first_expr : tac_typed_expression; index : int64 }
   | RVAdress of string
   | RVDefer of string
   | RVCustomBinop of binary
