@@ -1,0 +1,2 @@
+external puts(_: stringl) s32 = "puts"
+external printf(format: stringl; ...) s32 = "printf" 

@@ -1,0 +1,39 @@
+external exit(code: s32) s32 = "exit"
+
+enum option(wrapper) {
+	none,
+	some(wrapper)
+}
+
+fn is_some<t>(o : option(t) ) bool {
+	$ switch (o) {
+		.none => { $ false }
+		.some(_) => { $ true }
+	}
+}
+
+fn is_none<t>(o : option(t) ) bool {
+	$ switch (o) {
+		.some(_) => { $ false }
+		.none => { $ true }
+	}
+}
+
+fn value<t>(o : option(t), default : t) t {
+	$ switch (o) {
+		.none => { $ default }
+		.some(x) => { $ x }
+	}
+}
+
+fn get<t>(o : option(t) ) t {
+	$ switch (o) {
+		.none => {
+			discard Cio.puts("Option is none");
+			discard exit(1);
+			const s : *t = nullptr;
+			$ *s
+		}
+		.some(x) => { $ x }
+	}
+}

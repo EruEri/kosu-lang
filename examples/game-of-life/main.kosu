@@ -1,0 +1,117 @@
+// can be compiled with
+// kosuc -no-std --arch <arch> --os <os> -o main main.kosu vector.kosu cio.kosu option.kosu
+
+struct conway {
+    x: u32,
+    y: u32,
+    board: Vector.vector(bool)
+}
+
+fn new(x: u32, y: u32) conway {
+    var current = 0u32;
+    var vec = Vector.new_with_capacity::<bool>( @tou64(x * y) );
+    discard while (current  < x * y) {
+        const res = current % 5u32 == 0u32;
+        discard Vector.push(&vec, res);
+        current = current + 1u32;
+    };
+    var c = conway { 
+        x = x,
+        y = y,
+        board = vec
+    };
+    $ c
+} 
+
+fn set(conway: conway, x: u32, y: u32, alive: bool) {
+    const offset = y * conway.y;
+    discard Vector.set(conway.board, alive, @tou64(offset + x));
+}
+
+fn is_inbound(conway: conway, x: u32, y: u32) bool 
+    = x < conway.x && y < conway.y
+    
+fn get(conway: conway, x: u32, y: u32) bool 
+    = Vector.get(conway.board, @tou64(y * conway.x + x))
+
+fn get_opt(conway: conway, x: u32, y: u32) Option.option(bool)
+    = if (! is_inbound(conway,x, y) ) (Option..none)
+    else (Option..some(get(conway, x, y)) )
+
+fn incr_if_alive(conway: conway, x: u32, y: u32, nb: *u32) =
+    if ( conway |> get_opt(x, y) |> Option.value(false) ) {
+        *nb = *nb + 1u32;
+    }
+
+fn nb_neighboord_alive(conway: conway, x: u32, y: u32) u32 {
+    var nb = 0u32;
+    discard incr_if_alive(conway, x - 1u32, y, &nb);
+    discard incr_if_alive(conway, x - 1u32, y + 1u32, &nb);
+    discard incr_if_alive(conway, x, y + 1u32, &nb);
+    discard incr_if_alive(conway, x + 1u32, y + 1u32, &nb);
+    discard incr_if_alive(conway, x + 1u32, y, &nb);
+    discard incr_if_alive(conway, x + 1u32, y - 1u32, &nb);
+    discard incr_if_alive(conway, x, y - 1u32, &nb);
+    discard incr_if_alive(conway, x - 1u32, y - 1u32, &nb);
+    $ nb
+}
+
+fn next_generation(conway: *conway) {
+    const cx = *conway.x;
+    const cy = *conway.y;
+    var current = 0u32;
+    const next_gen = new(cx, cy);
+    discard while (current < cx * cy) {
+        const x = current % cx;
+        const y = current / cx;
+        const is_alive = get(*conway, x, y);
+        const nei = nb_neighboord_alive(*conway, x, y);
+        const set_value =
+            (is_alive && nei == 2u32 || nei == 3u32) || (!is_alive && nei == 3u32);
+        discard next_gen |> set(x, y, set_value);
+        current = current + 1u32;
+    };
+
+    discard delete(conway);
+    *conway = next_gen;
+}
+
+fn show(conway: conway) {
+    var current = 0u32;
+    const cx = conway.x;
+    const cy = conway.y;
+    const max = conway.x * conway.y;
+    discard while (current < max) {
+        const x = current % cx;
+        const y = current / cx;
+        const alive = conway |> get(x, y);
+        discard if (x == 0u32) { discard Cio.puts(""); };
+        const repr = if (alive) ("* ") else ("  ");
+        discard Cio.printf("%s", repr);
+        current = current + 1u32;
+    };
+    discard Cio.puts("");
+}
+
+fn delete(conway: *conway) {
+    const vec = *conway.board;
+    discard Vector.delete(&vec);
+    *conway.board = vec;
+}
+
+fn generation_n(conway: *conway, n: u32) {
+    var i = 0u32;
+    discard while (i < n) {
+        discard *conway |> show();
+        discard next_generation(conway);
+        i = i + 1u32;
+    };
+    discard *conway |> show();
+}
+
+fn main() s32 {
+    const conway = new(10u32, 10u32);
+    discard generation_n(&conway, 10u32);
+    discard delete(&conway);
+    $ 0
+}
