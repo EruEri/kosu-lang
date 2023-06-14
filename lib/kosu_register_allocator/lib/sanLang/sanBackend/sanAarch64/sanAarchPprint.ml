@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open SanAarchCore
 open SanAarchCore.Condition_Code
 open SanAarchCore.Instruction
@@ -25,29 +24,27 @@ open SanAarchCore.Register
 open SanAarchCore.Location
 open Printf
 
-module Make(AsmSpec: SanAarchSpecification.Aarch64AsmSpecification) = struct
-  let string_of_data_size = function
-    | SB -> "sb"
-    | B -> "b"
+module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
+  let string_of_data_size = function SB -> "sb" | B -> "b"
 
-let string_of_condition_code =
-  let open Condition_Code in
-  function
-  | EQ -> "eq"
-  | NE -> "ne"
-  | CS -> "cs"
-  | CC -> "cc"
-  | MI -> "mi"
-  | PL -> "pl"
-  | VS -> "vs"
-  | VC -> "vc"
-  | HI -> "hi"
-  | LS -> "ls"
-  | GE -> "ge"
-  | LT -> "lt"
-  | GT -> "gt"
-  | LE -> "le"
-  | AL -> "al"
+  let string_of_condition_code =
+    let open Condition_Code in
+    function
+    | EQ -> "eq"
+    | NE -> "ne"
+    | CS -> "cs"
+    | CC -> "cc"
+    | MI -> "mi"
+    | PL -> "pl"
+    | VS -> "vs"
+    | VC -> "vc"
+    | HI -> "hi"
+    | LS -> "ls"
+    | GE -> "ge"
+    | LT -> "lt"
+    | GT -> "gt"
+    | LE -> "le"
+    | AL -> "al"
 
   let string_of_register register =
     let prefix = match register.size with SReg32 -> 'w' | SReg64 -> 'x' in
@@ -80,28 +77,29 @@ let string_of_condition_code =
     | _ -> sprintf "%c%s" prefix extension
 
   let string_of_src : Operande.src -> string = function
-  | `ILitteral int64 -> Printf.sprintf "#%Ld" int64
-  | `Register reg -> string_of_register reg
-  | `Label label -> label
+    | `ILitteral int64 -> Printf.sprintf "#%Ld" int64
+    | `Register reg -> string_of_register reg
+    | `Label label -> label
 
   let string_of_address_offset = function
-  | `Register reg -> Printf.sprintf ", %s" (string_of_register reg)
-  | `ILitteral f -> if f = 0L then "" else Printf.sprintf ", #%Ld" f
-let string_of_adressage adress_mode { base; offset } =
-  match adress_mode with
-  | Immediat ->
-      sprintf "[%s%s]" (string_of_register base)
-        (string_of_address_offset offset)
-  | Prefix ->
-      sprintf "[%s%s]!" (string_of_register base)
-        (string_of_address_offset offset)
-  | Postfix ->
-      sprintf "[%s]%s" (string_of_register base)
-        (string_of_address_offset offset)
+    | `Register reg -> Printf.sprintf ", %s" (string_of_register reg)
+    | `ILitteral f -> if f = 0L then "" else Printf.sprintf ", #%Ld" f
 
-let value_of_shift = function SH16 -> 16 | SH32 -> 32 | SH48 -> 48
+  let string_of_adressage adress_mode { base; offset } =
+    match adress_mode with
+    | Immediat ->
+        sprintf "[%s%s]" (string_of_register base)
+          (string_of_address_offset offset)
+    | Prefix ->
+        sprintf "[%s%s]!" (string_of_register base)
+          (string_of_address_offset offset)
+    | Postfix ->
+        sprintf "[%s]%s" (string_of_register base)
+          (string_of_address_offset offset)
 
-let string_of_instruction = function
+  let value_of_shift = function SH16 -> 16 | SH32 -> 32 | SH48 -> 48
+
+  let string_of_instruction = function
     | Mov { destination; source } ->
         sprintf "mov %s, %s"
           (string_of_register destination)
@@ -126,19 +124,19 @@ let string_of_instruction = function
           (string_of_register destination)
           (string_of_register source)
     | Add { destination; operand1; operand2; offset } -> (
-      match AsmSpec.adrp_style with
-      | AsmSpec.MacOS ->
-          sprintf "add %s, %s, %s%s"
-            (string_of_register destination)
-            (string_of_register operand1)
-            (string_of_src operand2)
-            (if offset then "@PAGEOFF" else "")
-      | AsmSpec.Other ->
-          sprintf "add %s, %s, %s"
-            (string_of_register destination)
-            (string_of_register operand1)
-            (if not offset then string_of_src operand2
-            else sprintf ":lo12:%s" (string_of_src operand2)))
+        match AsmSpec.adrp_style with
+        | AsmSpec.MacOS ->
+            sprintf "add %s, %s, %s%s"
+              (string_of_register destination)
+              (string_of_register operand1)
+              (string_of_src operand2)
+              (if offset then "@PAGEOFF" else "")
+        | AsmSpec.Other ->
+            sprintf "add %s, %s, %s"
+              (string_of_register destination)
+              (string_of_register operand1)
+              (if not offset then string_of_src operand2
+               else sprintf ":lo12:%s" (string_of_src operand2)))
     | Sub { destination; operand1; operand2 } ->
         sprintf "sub %s, %s, %s"
           (string_of_register destination)
@@ -218,12 +216,11 @@ let string_of_instruction = function
     | Ldp { x1; x2; address; address_mode } ->
         sprintf "ldp %s, %s, %s" (string_of_register x1) (string_of_register x2)
           (string_of_adressage address_mode address)
-    | Adrp { dst; label } -> (        
-      match AsmSpec.adrp_style with
+    | Adrp { dst; label } -> (
+        match AsmSpec.adrp_style with
         | AsmSpec.MacOS ->
             sprintf "adrp %s, %s@PAGE" (string_of_register dst) label
-        | AsmSpec.Other -> sprintf "adrp %s, %s" (string_of_register dst) label
-      )
+        | AsmSpec.Other -> sprintf "adrp %s, %s" (string_of_register dst) label)
     | B { cc; label } ->
         sprintf "b%s %s"
           (cc
@@ -238,27 +235,32 @@ let string_of_instruction = function
           label
     | RET -> "ret"
 
-let string_of_asm_line line = 
-  let open SanAarchCore.Line in
-  let AsmLine (line, comment) = line in
-  let comment_content = Option.value ~default:"" @@ comment in
-  let comment_style_content = comment |> Option.map (Printf.sprintf "%s %s" AsmSpec.comment_prefix) |> Option.value ~default:"" in
+  let string_of_asm_line line =
+    let open SanAarchCore.Line in
+    let (AsmLine (line, comment)) = line in
+    let comment_content = Option.value ~default:"" @@ comment in
+    let comment_style_content =
+      comment
+      |> Option.map (Printf.sprintf "%s %s" AsmSpec.comment_prefix)
+      |> Option.value ~default:""
+    in
 
-  let line = match line with
-  | Comment s -> sprintf "\t%s %s %s" AsmSpec.comment_prefix s comment_content
-  | Instruction i -> sprintf "\t%s %s" (string_of_instruction i) comment_style_content
-  | Label l -> sprintf "%s: %s" (l) comment_style_content
-  | Directive d -> sprintf "\t.%s %s" d comment_style_content
-  in
-  sprintf "%s" line
+    let line =
+      match line with
+      | Comment s ->
+          sprintf "\t%s %s %s" AsmSpec.comment_prefix s comment_content
+      | Instruction i ->
+          sprintf "\t%s %s" (string_of_instruction i) comment_style_content
+      | Label l -> sprintf "%s: %s" l comment_style_content
+      | Directive d -> sprintf "\t.%s %s" d comment_style_content
+    in
+    sprintf "%s" line
 
-let string_of_asm_function { asm_name; asm_body } =
-  sprintf "\t%s\n%s:\n%s"
-    (AsmSpec.function_directives asm_name |> String.concat "\n\t")
-    asm_name
-    (asm_body |> List.map string_of_asm_line |> String.concat "\n")
+  let string_of_asm_function { asm_name; asm_body } =
+    sprintf "\t%s\n%s:\n%s"
+      (AsmSpec.function_directives asm_name |> String.concat "\n\t")
+      asm_name
+      (asm_body |> List.map string_of_asm_line |> String.concat "\n")
 
-let string_of_asm_node = function
-  | Afunction f -> string_of_asm_function f
-  
+  let string_of_asm_node = function Afunction f -> string_of_asm_function f
 end

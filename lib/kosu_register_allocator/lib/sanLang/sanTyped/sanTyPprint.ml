@@ -21,28 +21,40 @@ open SanTyAst
 open Printf
 
 let string_of_atom = function
-| Variable v -> v
-| Int i -> sprintf "%nd" i
-| Boolean b -> string_of_bool b
-| String s -> sprintf "\"%s\"" s
+  | Variable v -> v
+  | Int i -> sprintf "%nd" i
+  | Boolean b -> string_of_bool b
+  | String s -> sprintf "\"%s\"" s
 
-let string_of_typed_atom tyatom = 
-  sprintf "%s : %s" (string_of_atom tyatom.atom) (string_of_san_type tyatom.atom_type)
+let string_of_typed_atom tyatom =
+  sprintf "%s : %s"
+    (string_of_atom tyatom.atom)
+    (string_of_san_type tyatom.atom_type)
 
 let string_of_ty_san_rvlue = function
-| TyRVExpr typed_atom -> string_of_typed_atom typed_atom
-| TYRVUnary {unop; ty_atom} -> 
-  sprintf "%s %s" (symbole_of_unary unop) (string_of_atom ty_atom.atom)
-| TYRVBinary {binop; tylhs; tyrhs} -> 
-  sprintf "%s %s %s" (string_of_atom tylhs.atom) (symbole_of_binary binop) (string_of_atom tyrhs.atom)
-| TyRVFunctionCall {fn_name; parameters} ->
-  sprintf "%s(%s)" fn_name (parameters |> List.map (fun tyatom -> string_of_atom tyatom.atom) |> String.concat ", ")
-| TyRVDiscard ty -> sprintf "discard : %s" (string_of_san_type ty)
-| TYRVLater ty -> sprintf "lateinit : %s" (string_of_san_type ty)
+  | TyRVExpr typed_atom -> string_of_typed_atom typed_atom
+  | TYRVUnary { unop; ty_atom } ->
+      sprintf "%s %s" (symbole_of_unary unop) (string_of_atom ty_atom.atom)
+  | TYRVBinary { binop; tylhs; tyrhs } ->
+      sprintf "%s %s %s"
+        (string_of_atom tylhs.atom)
+        (symbole_of_binary binop)
+        (string_of_atom tyrhs.atom)
+  | TyRVFunctionCall { fn_name; parameters } ->
+      sprintf "%s(%s)" fn_name
+        (parameters
+        |> List.map (fun tyatom -> string_of_atom tyatom.atom)
+        |> String.concat ", ")
+  | TyRVDiscard ty -> sprintf "discard : %s" (string_of_san_type ty)
+  | TYRVLater ty -> sprintf "lateinit : %s" (string_of_san_type ty)
 
 let string_of_typed_san_rvalue rvalue =
-  sprintf "%s : %s" (string_of_san_type rvalue.san_type)  (string_of_ty_san_rvlue rvalue.san_rvalue) 
+  sprintf "%s : %s"
+    (string_of_san_type rvalue.san_type)
+    (string_of_ty_san_rvlue rvalue.san_rvalue)
 
 let string_of_statememnt = function
-| TySSDeclaration (s, rvalue) ->
-  sprintf "%s : %s = %s" s (string_of_san_type rvalue.san_type) (string_of_ty_san_rvlue rvalue.san_rvalue)
+  | TySSDeclaration (s, rvalue) ->
+      sprintf "%s : %s = %s" s
+        (string_of_san_type rvalue.san_type)
+        (string_of_ty_san_rvlue rvalue.san_rvalue)

@@ -541,23 +541,22 @@ Return the type of an expression
               ktype
         in
         ktype
-    | ETupleAccess {first_expr; index} ->
-      let first_type =
-        typeof ~generics_resolver env current_mod_name prog first_expr
-      in
-      let kts = match first_type with
-        | TTuple kts -> kts
-        | _ -> failwith ""
-      in
-      let length = Int64.of_int @@ List.length kts in
-      let ucmp =  Int64.unsigned_compare length index.v in
-      let () = if ucmp <= 0 then failwith ""
-      in
-      let kt = match List.nth_opt kts @@ Int64.to_int index.v with
-        | None -> failwith "Shouldn't append: except with index > max(int)"
-        | Some kt -> kt
-      in
-      kt.v
+    | ETupleAccess { first_expr; index } ->
+        let first_type =
+          typeof ~generics_resolver env current_mod_name prog first_expr
+        in
+        let kts =
+          match first_type with TTuple kts -> kts | _ -> failwith ""
+        in
+        let length = Int64.of_int @@ List.length kts in
+        let ucmp = Int64.unsigned_compare length index.v in
+        let () = if ucmp <= 0 then failwith "" in
+        let kt =
+          match List.nth_opt kts @@ Int64.to_int index.v with
+          | None -> failwith "Shouldn't append: except with index > max(int)"
+          | Some kt -> kt
+        in
+        kt.v
     | EStruct { modules_path; struct_name; fields } ->
         let struct_decl =
           match
@@ -570,56 +569,61 @@ Return the type of an expression
 
         let parameters_length = List.length fields in
         let expected_length = List.length struct_decl.fields in
-        let () = if parameters_length <> expected_length then
-          raise
-            (Ast.Error.struct_error
-               (Wrong_field_count
-                  {
-                    struct_name;
-                    expected = expected_length;
-                    found = parameters_length;
-                  }))
+        let () =
+          if parameters_length <> expected_length then
+            raise
+              (Ast.Error.struct_error
+                 (Wrong_field_count
+                    {
+                      struct_name;
+                      expected = expected_length;
+                      found = parameters_length;
+                    }))
         in
-        let init_types, initialisation_types = fields |> List.map (fun (s, expr) -> 
-          let loc_type = expr |> Position.map_use (typeof ~generics_resolver env
-          current_mod_name prog)
-         in
-          (s, loc_type), loc_type
-        ) 
-        |> List.split
-        in 
-        let generic_table = Ast.Type.default_generic_map struct_decl.generics 
+        let init_types, initialisation_types =
+          fields
+          |> List.map (fun (s, expr) ->
+                 let loc_type =
+                   expr
+                   |> Position.map_use
+                        (typeof ~generics_resolver env current_mod_name prog)
+                 in
+                 ((s, loc_type), loc_type))
+          |> List.split
+        in
+        let generic_table = Ast.Type.default_generic_map struct_decl.generics in
+        let () =
+          List.iter2
+            (fun kt (_, param_kt) ->
+              (* let () = Printf.printf "init_ktype = %s, param type = %s\n" (Pprint.string_of_ktype kt.v) (Pprint.string_of_ktype param_kt.v) in *)
+              Ast.Type.update_generics generic_table kt param_kt ())
+            initialisation_types struct_decl.fields
         in
         let () =
-        List.iter2
-          (fun kt (_, param_kt) ->
-            (* let () = Printf.printf "init_ktype = %s, param type = %s\n" (Pprint.string_of_ktype kt.v) (Pprint.string_of_ktype param_kt.v) in *)
-            Ast.Type.update_generics generic_table kt param_kt ())
-            initialisation_types struct_decl.fields
-      in
-        let () = struct_decl.fields
-        |> List.combine init_types 
-        |> List.iter
-             (fun
-               ( (init_field_name, init_type),
-                 (struct_field_name, expected_typed) )
-             ->
-               let () = if init_field_name.v <> struct_field_name.v then
-                 raise
-                   (struct_error
-                      (Unexpected_field
-                         {
-                           expected = struct_field_name;
-                           found = init_field_name;
-                         }))
-                in
-               if
-                 not @@ Asthelper.Struct.is_type_compatible_hashgen generic_table
-                   init_type.v expected_typed.v struct_decl
-               then
-                 Ast.Error.Uncompatible_type
-                   { expected = expected_typed.v; found = init_type }
-                 |> Ast.Error.ast_error |> raise)
+          struct_decl.fields |> List.combine init_types
+          |> List.iter
+               (fun
+                 ( (init_field_name, init_type),
+                   (struct_field_name, expected_typed) )
+               ->
+                 let () =
+                   if init_field_name.v <> struct_field_name.v then
+                     raise
+                       (struct_error
+                          (Unexpected_field
+                             {
+                               expected = struct_field_name;
+                               found = init_field_name;
+                             }))
+                 in
+                 if
+                   not
+                   @@ Asthelper.Struct.is_type_compatible_hashgen generic_table
+                        init_type.v expected_typed.v struct_decl
+                 then
+                   Ast.Error.Uncompatible_type
+                     { expected = expected_typed.v; found = init_type }
+                   |> Ast.Error.ast_error |> raise)
         in
         let modules_path =
           modules_path
@@ -638,8 +642,7 @@ Return the type of an expression
           | Ok e -> e
         in
 
-        let infered_map = Ast.Type.default_generic_map enum_decl.generics
-        in
+        let infered_map = Ast.Type.default_generic_map enum_decl.generics in
         let init_types =
           assoc_exprs
           |> List.map
@@ -835,8 +838,7 @@ Return the type of an expression
                         (typeof ~generics_resolver:new_map_generics env
                            current_mod_name prog))
               in
-              let infered_map = Ast.Type.default_generic_map e.generics
-              in
+              let infered_map = Ast.Type.default_generic_map e.generics in
               let () =
                 List.iter2
                   (fun kt (_, param_kt) ->

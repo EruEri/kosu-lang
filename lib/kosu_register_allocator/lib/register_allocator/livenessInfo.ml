@@ -30,10 +30,10 @@ end
 
 module type LivenessInfoS = sig
   type elt
-
   type liveness_info
+
   val init : (elt -> bool) -> elt list -> liveness_info
-  val is_alive : elt -> liveness_info-> bool
+  val is_alive : elt -> liveness_info -> bool
   val is_dead : elt -> liveness_info -> bool
   val set_alive : elt -> liveness_info -> liveness_info
   val of_list : (elt * bool) list -> liveness_info
@@ -45,9 +45,7 @@ module type LivenessInfoS = sig
 end
 
 module Make (OrderedType : OrderedType) = struct
-
   type elt = OrderedType.t
-
   type liveness_info = (elt * bool) list
 
   let init map variables : liveness_info =

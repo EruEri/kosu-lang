@@ -18,10 +18,10 @@
 open SanAst
 
 let string_of_san_type = function
-| Ssize -> "ssize"
-| Boolean -> "bool"
-| Unit -> "unit"
-| Stringl -> "stringl"
+  | Ssize -> "ssize"
+  | Boolean -> "bool"
+  | Unit -> "unit"
+  | Stringl -> "stringl"
 
 let symbole_of_unary unary =
   match unary with TacNot -> "not" | TacUminus -> "(-.)"

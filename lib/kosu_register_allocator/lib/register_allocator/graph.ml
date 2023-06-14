@@ -29,7 +29,8 @@ module type OrderedType = sig
 end
 
 module type ColoredType = sig
-  type t 
+  type t
+
   val compare : t -> t -> int
 end
 
@@ -160,9 +161,14 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
   let union_edges edges graph =
     { graph with edges = EdgeSet.union edges graph.edges }
 
-  let remove_node_color node cg = 
+  let remove_node_color node cg =
     {
-      cg with nodes = NodeSet.map (fun cn -> if S.compare cn.node node = 0 then { cn with color = None} else cn ) cg.nodes
+      cg with
+      nodes =
+        NodeSet.map
+          (fun cn ->
+            if S.compare cn.node node = 0 then { cn with color = None } else cn)
+          cg.nodes;
     }
 
   let add_uncolored_node ?color node graph =
@@ -224,8 +230,7 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
         | Some color -> ColorSet.add color acc)
       edges ColorSet.empty
 
-  let of_graph ?(precolored = ([] : (S.t * Color.t) list)) (graph : G.graph)
-      =
+  let of_graph ?(precolored = ([] : (S.t * Color.t) list)) (graph : G.graph) =
     let color_links ~precolored linked =
       linked
       |> List.map (fun node ->
@@ -284,12 +289,15 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
                replace_color_node node acc_graph
            | Some color -> (
                match node.color with
-               | None -> 
-                if List.exists (fun reg -> S.compare reg node.node = 0) immuable
-                  then acc_graph 
-              else
-                   let node = { node with color = Some color } in
-                   replace_color_node node acc_graph
+               | None ->
+                   if
+                     List.exists
+                       (fun reg -> S.compare reg node.node = 0)
+                       immuable
+                   then acc_graph
+                   else
+                     let node = { node with color = Some color } in
+                     replace_color_node node acc_graph
                | Some c ->
                    if ColorSet.mem c available_color_set then acc_graph
                    else

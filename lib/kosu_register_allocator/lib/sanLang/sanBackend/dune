@@ -19,5 +19,5 @@
  (name sanBackend)
  (enabled_if
   (= %{profile} san))
-  (modules sanBackend)
+ (modules sanBackend)
  (libraries sanTyped sanCfg sanAarch64))

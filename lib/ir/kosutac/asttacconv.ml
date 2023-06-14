@@ -504,8 +504,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           (TEIdentifier new_tmp)
       in
       (needed_statement @ stmt @ (statement :: last_stmt), return)
-
-    | RETupleAccess { first_expr; index }, _ ->
+  | RETupleAccess { first_expr; index }, _ ->
       let next_allocated, stmt =
         create_forward_init ~map ~count_var first_expr
       in

@@ -36,10 +36,7 @@ module RType = struct
     | RTInteger (sign, size) -> Some (sign, size)
     | _ -> None
 
-  let float_info = function
-    | RTFloat size -> Some size
-    | _ -> None 
-
+  let float_info = function RTFloat size -> Some size | _ -> None
   let is_64bits_float = function RTFloat F64 -> true | _ -> false
   let is_32bits_float = function RTFloat F32 -> true | _ -> false
   let is_float = function RTFloat _ -> true | _ -> false
@@ -336,13 +333,13 @@ module Generics = struct
               instanciate_generics_typed_expression generics first_expr;
             field;
           }
-    | RETupleAccess {first_expr; index} -> 
-      RETupleAccess 
-        {
-          first_expr = 
-            instanciate_generics_typed_expression generics first_expr;
-          index
-        }
+    | RETupleAccess { first_expr; index } ->
+        RETupleAccess
+          {
+            first_expr =
+              instanciate_generics_typed_expression generics first_expr;
+            index;
+          }
     | REStruct { modules_path; struct_name; fields } ->
         REStruct
           {
@@ -1113,7 +1110,7 @@ module RProgram = struct
                   inner_specialise
                   |> FnSpec.add (function_module, true_decl)
                   |> FnSpec.union recall))
-    | REFieldAcces { first_expr; _ } | RETupleAccess {first_expr; _} ->
+    | REFieldAcces { first_expr; _ } | RETupleAccess { first_expr; _ } ->
         specialise_generics_function_typed_expression ~ignored current_module
           rprogram first_expr
     | REStruct { fields; _ } ->

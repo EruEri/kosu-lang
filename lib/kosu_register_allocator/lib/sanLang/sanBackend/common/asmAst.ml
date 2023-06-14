@@ -19,22 +19,16 @@ module type InstructionLine = sig
   type asmline
 end
 
+module Make (InstructionLine : InstructionLine) = struct
+  type litterals = { str_lit_map : (string, Util.stringlit_label) Hashtbl.t }
+  type asmline = InstructionLine.asmline
+  type asm_function_decl = { asm_name : string; asm_body : asmline list }
 
-module Make(InstructionLine: InstructionLine) = struct
-  type litterals = {
-    str_lit_map : (string, Util.stringlit_label) Hashtbl.t;
+  type asm_const_decl = {
+    asm_const_name : string;
+    value : [ `IntVal of int64 | `StrVal of string ];
   }
 
-type asmline = InstructionLine.asmline
-type asm_function_decl = { asm_name : string; asm_body : asmline list }
-
-type asm_const_decl = {
-  asm_const_name : string;
-  value : [ `IntVal of int64 | `StrVal of string ];
-}
-
-type asm_module_node =
-  | Afunction of asm_function_decl
-
-type asm_module = AsmModule of asm_module_node list
+  type asm_module_node = Afunction of asm_function_decl
+  type asm_module = AsmModule of asm_module_node list
 end

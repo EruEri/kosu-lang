@@ -15,13 +15,11 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 module SanTyAst = SanTyAst
 module SanTyPprint = SanTyPprint
 
-let collect_string_litteral_module = SanTyUtil.Module.collect_string_litteral_module
+let collect_string_litteral_module =
+  SanTyUtil.Module.collect_string_litteral_module
 
 let of_san_module = SanTyConv.of_san_module
-
-let of_file file =
-  file |> SanFrontend.san_module_parse |> of_san_module
+let of_file file = file |> SanFrontend.san_module_parse |> of_san_module

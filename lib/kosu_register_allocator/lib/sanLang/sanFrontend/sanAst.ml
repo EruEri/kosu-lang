@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open SanPosition
 
 type san_type = Ssize | Stringl | Boolean | Unit
@@ -51,7 +50,7 @@ type tac_binop_self =
 type tac_binop = TacSelf of tac_binop_self | TacBool of tac_binop_bool
 type tac_unop = TacNot | TacUminus
 type binary = { binop : tac_binop; blhs : atom loc; brhs : atom loc }
-type unary = { unop : tac_unop; atom : atom loc}
+type unary = { unop : tac_unop; atom : atom loc }
 type fn_call = { fn_name : string loc; parameters : atom loc list }
 
 type san_rvalue =

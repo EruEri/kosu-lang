@@ -164,7 +164,7 @@ and string_of_kexpression = function
       sprintf "%s%s" (Util.string_of_module_path modules_path.v) identifier.v
   | EFieldAcces { first_expr; field } ->
       sprintf "%s.%s" (string_of_kexpression first_expr.v) field.v
-  | ETupleAccess {first_expr; index} -> 
+  | ETupleAccess { first_expr; index } ->
       sprintf "%s.%Lu" (string_of_kexpression first_expr.v) index.v
   | EStruct { modules_path; struct_name; fields } ->
       sprintf "%s%s { %s }"

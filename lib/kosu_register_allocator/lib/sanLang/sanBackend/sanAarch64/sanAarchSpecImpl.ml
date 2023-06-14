@@ -15,7 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module MacOSAarch64AsmSpec : SanAarchSpecification.Aarch64AsmSpecification = struct
+module MacOSAarch64AsmSpec : SanAarchSpecification.Aarch64AsmSpecification =
+struct
   open Printf
 
   module MacosNamingSig = struct
@@ -23,7 +24,7 @@ module MacOSAarch64AsmSpec : SanAarchSpecification.Aarch64AsmSpecification = str
     let label_prefix = "_"
   end
 
-  module MacosNamingConvention = Common.NamingConvention.Make(MacosNamingSig)
+  module MacosNamingConvention = Common.NamingConvention.Make (MacosNamingSig)
   include MacosNamingConvention
 
   type address_load_style = MacOS | Other
@@ -34,7 +35,7 @@ module MacOSAarch64AsmSpec : SanAarchSpecification.Aarch64AsmSpecification = str
     [ sprintf ".globl %s" fn_name; ".p2align 4" ]
 
   let constant_directives const_name = function
-    | `IntVal (_) ->
+    | `IntVal _ ->
         let _align_size = (Nativeint.size / 8) - 1 in
         [ Printf.sprintf ".globl %s" const_name; sprintf ".p2align %u" 2 ]
     | `StrVal _ ->
@@ -50,6 +51,6 @@ module MacOSAarch64AsmSpec : SanAarchSpecification.Aarch64AsmSpecification = str
   let string_litteral_section_end = ".subsections_via_symbols"
   let string_litteral_directive = ".asciz"
 
-  let label_of_function fn_name = 
+  let label_of_function fn_name =
     MacosNamingConvention.label_of_function ~fn_name
 end

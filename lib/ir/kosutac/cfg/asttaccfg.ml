@@ -32,7 +32,7 @@ module Cfg_Sig_Impl = struct
    fun ttrv ->
     match ttrv.rvalue with
     | RVExpression tte
-    | RVTupleAccess {first_expr = tte; _}
+    | RVTupleAccess { first_expr = tte; _ }
     | RVFieldAcess { first_expr = tte; _ }
     | RVCustomUnop { expr = tte; _ }
     | RVBuiltinUnop { expr = tte; _ } ->

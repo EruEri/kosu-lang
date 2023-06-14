@@ -15,67 +15,64 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 open SanAst
 open SanPosition
 
-type lexer_error = 
-| Unexpected_escaped_char of san_position * string
-| Unclosed_string of san_position
-| Syntax_Error of {
-  position: san_position;
-  current_lexeme: string;
-  message: string;
-  state: int option
-}
+type lexer_error =
+  | Unexpected_escaped_char of san_position * string
+  | Unclosed_string of san_position
+  | Syntax_Error of {
+      position : san_position;
+      current_lexeme : string;
+      message : string;
+      state : int option;
+    }
 
-type san_error = 
-| Undefinded_Variable of string loc
-| Undefined_Function of string loc
-| Already_define_variable of string loc
-| If_Not_boolean_type of {
-  error_location: unit loc;
-  expected: san_type;
-  found: san_type;
-}
-| Wrong_return_type of {
-  error_location: unit loc;
-  expected: san_type;
-  found: san_type;
-}
-| Incompatible_type of {
-  expected: san_type;
-  found: san_type loc;
-}
-| BinOp_diff_type of {
-  error_location: unit loc;
-  lhs: san_type;
-  rhs: san_type
-}
-| UnaryOperator_not_suppored of {
-  error_location: unit loc;
-  unop: tac_unop;
-  for_type: san_type;
-}
-| BinaryOperator_not_suppored of {
-  error_location: unit loc;
-  binop: tac_binop;
-  for_type: san_type;
-}
-| Function_Wrong_args_number of {
-  error_location: unit loc;
-  fn_name: string;
-  expected: int;
-  found: int;
-}
+type san_error =
+  | Undefinded_Variable of string loc
+  | Undefined_Function of string loc
+  | Already_define_variable of string loc
+  | If_Not_boolean_type of {
+      error_location : unit loc;
+      expected : san_type;
+      found : san_type;
+    }
+  | Wrong_return_type of {
+      error_location : unit loc;
+      expected : san_type;
+      found : san_type;
+    }
+  | Incompatible_type of { expected : san_type; found : san_type loc }
+  | BinOp_diff_type of {
+      error_location : unit loc;
+      lhs : san_type;
+      rhs : san_type;
+    }
+  | UnaryOperator_not_suppored of {
+      error_location : unit loc;
+      unop : tac_unop;
+      for_type : san_type;
+    }
+  | BinaryOperator_not_suppored of {
+      error_location : unit loc;
+      binop : tac_binop;
+      for_type : san_type;
+    }
+  | Function_Wrong_args_number of {
+      error_location : unit loc;
+      fn_name : string;
+      expected : int;
+      found : int;
+    }
 
 type san_validation_error =
-| Duplicated_label of string loc * string * string loc list (* fnname, label , labelist*)
-| Duplicated_paramters of string loc * string * string loc list
-| Duplicated_function of string loc * string loc list
-| Sve_error of san_error
+  | Duplicated_label of
+      string loc * string * string loc list (* fnname, label , labelist*)
+  | Duplicated_paramters of string loc * string * string loc list
+  | Duplicated_function of string loc * string loc list
+  | Sve_error of san_error
 
-exception Raw_Lexer_Error of (lexer_error)
+exception Raw_Lexer_Error of lexer_error
 exception File_Lexer_Error of string * lexer_error
 exception San_error of san_error
 exception San_Validation_Error of string * san_validation_error

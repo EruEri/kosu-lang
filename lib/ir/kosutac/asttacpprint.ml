@@ -289,7 +289,7 @@ and string_of_tac_rvalue = function
       sprintf "(%s)"
         (exprs |> List.map string_of_typed_tac_expression |> String.concat ", ")
   | RVTupleAccess { first_expr; index } ->
-    sprintf "%s.%Lu" (string_of_typed_tac_expression first_expr) index
+      sprintf "%s.%Lu" (string_of_typed_tac_expression first_expr) index
   | RVFieldAcess { first_expr; field } ->
       sprintf "%s.%s" (string_of_typed_tac_expression first_expr) field
   | RVAdress id -> sprintf "&%s" id
