@@ -15,15 +15,11 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
-
 type stringlit_label = StrLab of string
-
 
 let rec combine_safe lhs rhs =
   match (lhs, rhs) with
   | [], _ | _, [] -> []
   | t1 :: q1, t2 :: q2 -> (t1, t2) :: combine_safe q1 q2
 
-
-let couple i v = i, v 
+let couple i v = (i, v)

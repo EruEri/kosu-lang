@@ -15,8 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
-
 type register =
   | R0
   | R1
@@ -34,10 +32,8 @@ type register =
   | R13
 
 type t = register
-
 type any = unit
-
-type variable = (string * SanTyped.SanTyAst.san_type)
+type variable = string * SanTyped.SanTyAst.san_type
 
 type return_strategy =
   | Indirect_return
@@ -45,50 +41,18 @@ type return_strategy =
   | Splitted_return of register * register
 
 let compare = compare
-
 let any = ()
-
 let syscall_register = []
-
 let callee_saved_register = []
 
-let caller_saved_register = [
-  R0;
-  R1;
-  R2;
-  R3;
-  R4;
-  R5;
-  R6;
-  R7;
-  R8;
-  R9;
-  R10;
-  R11;
-  R12;
-  R13
-]
+let caller_saved_register =
+  [ R0; R1; R2; R3; R4; R5; R6; R7; R8; R9; R10; R11; R12; R13 ]
 
-let arguments_register = [
-    R0;
-    R1;
-    R2;
-    R3;
-    R4;
-    R5;
-    R6;
-    R7
-  ]
+let arguments_register = [ R0; R1; R2; R3; R4; R5; R6; R7 ]
+let available_register = [ R8; R9; R10; R11; R12 ]
 
-let available_register = [
-  R8;
-  R9;
-  R10;
-  R11;
-  R12
-]
-
-let color_map = [
+let color_map =
+  [
     (R0, "aqua");
     (R1, "red");
     (R2, "fuchsia");
@@ -101,11 +65,9 @@ let color_map = [
     (R9, "indigo");
     (R10, "magenta");
     (R11, "purple");
-    (R12, "cyan")
+    (R12, "cyan");
   ]
 
 let does_return_hold_in_register _ = true
-
 let indirect_return_register = R8
-
-let return_strategy _ = Simple_return R0 
+let return_strategy _ = Simple_return R0

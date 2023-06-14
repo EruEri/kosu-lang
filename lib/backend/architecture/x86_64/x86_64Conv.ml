@@ -245,6 +245,17 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    source = `ILitteral sizeof;
                  });
           ] )
+    | TEConst { name; module_path }
+      when KosuIrTyped.Asttyhelper.RType.is_float expr_rktype ->
+        let fsize =
+          Option.get @@ KosuIrTyped.Asttyhelper.RType.float_info expr_rktype
+        in
+        let instructions =
+          load_float_label fsize
+            (Spec.label_of_constant ~module_path name)
+            target_dst
+        in
+        (target_dst, instructions)
     | TEConst { name; module_path } when expr_rktype = RTString_lit ->
         ( target_dst,
           load_label (Spec.label_of_constant ~module_path name) target_dst )
@@ -735,8 +746,6 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           ttes
           |> List.mapi (fun index _value ->
                  offset_of_tuple_index index ktlis rprogram)
-          |> List.tl
-          |> fun l -> l @ [ 0L ]
         in
         where
         |> Option.map (fun waddress ->
@@ -762,6 +771,73 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                               rprogram)
                     [])
         |> Option.value ~default:[]
+    | RVTupleAccess
+        {
+          first_expr = { expr_rktype; tac_expression = TEIdentifier tuple_id };
+          index;
+        } ->
+        let kts_tuples =
+          match expr_rktype with
+          | KosuIrTyped.Asttyped.RTTuple rkts -> rkts
+          | _ -> failwith "Weird: The typechecker for tuple"
+        in
+        let generics = Hashtbl.create 0 in
+        let int_index = Int64.to_int index in
+        let offset =
+          offset_of_tuple_index ~generics int_index kts_tuples rprogram
+        in
+        let tuple_address =
+          FrameManager.address_of (tuple_id, expr_rktype) fd |> fun adr ->
+          match adr with
+          | Some a -> a
+          | None -> failwith "field access null address"
+        in
+        let field_address = increment_adress offset tuple_address in
+        let sizeof = sizeofn rprogram rval_rktype in
+        let size = data_size_of_ktype rprogram rval_rktype in
+        let locale_r10 = tmp_r10_ktype rval_rktype in
+        let copy_instructions =
+          where
+          |> Option.map (fun waddress ->
+                 let debug =
+                   Printf.sprintf
+                     "%s.%Lu : size = %Lu, register = %s : target address = %s"
+                     tuple_id index sizeof
+                     (X86_64Pprint.string_of_register size locale_r10)
+                     (X86_64Pprint.string_of_address waddress)
+                 in
+                 let preinstructions =
+                   Line_Com (Comment debug)
+                   ::
+                   (if is_register_size sizeof then
+                      [
+                        Instruction
+                          (Mov
+                             {
+                               size;
+                               destination = `Register locale_r10;
+                               source = `Address field_address;
+                             });
+                      ]
+                    else
+                      [
+                        Instruction
+                          (Lea
+                             {
+                               size = iq;
+                               source = field_address;
+                               destination = locale_r10;
+                             });
+                      ])
+                 in
+                 let cp_instrucion =
+                   copy_from_reg locale_r10 waddress rval_rktype rprogram
+                 in
+                 preinstructions @ cp_instrucion)
+          |> Option.value ~default:[]
+        in
+        Line_Com (Comment ("Field access of " ^ Int.to_string int_index))
+        :: copy_instructions
     | RVFieldAcess
         {
           first_expr = { expr_rktype; tac_expression = TEIdentifier struct_id };
@@ -796,7 +872,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let sizeof = sizeofn rprogram rval_rktype in
 
         let size = data_size_of_ktype rprogram rval_rktype in
-        let tmpreg = tmp_r10_ktype rval_rktype in
+        let locale_r10 = tmp_r10_ktype rval_rktype in
         let copy_instructions =
           where
           |> Option.map (fun waddress ->
@@ -804,7 +880,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    Printf.sprintf
                      "%s.%s : size = %Lu, register = %s : target address = %s"
                      struct_id field sizeof
-                     (X86_64Pprint.string_of_register size tmpreg)
+                     (X86_64Pprint.string_of_register size locale_r10)
                      (X86_64Pprint.string_of_address waddress)
                  in
                  let preinstructions =
@@ -816,7 +892,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                           (Mov
                              {
                                size;
-                               destination = `Register tmpreg;
+                               destination = `Register locale_r10;
                                source = `Address field_address;
                              });
                       ]
@@ -827,17 +903,19 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                              {
                                size = iq;
                                source = field_address;
-                               destination = tmpreg;
+                               destination = locale_r10;
                              });
                       ])
                  in
                  let cp_instrucion =
-                   copy_from_reg tmpreg waddress rval_rktype rprogram
+                   copy_from_reg locale_r10 waddress rval_rktype rprogram
                  in
                  preinstructions @ cp_instrucion)
           |> Option.value ~default:[]
         in
         Line_Com (Comment ("Field access of " ^ field)) :: copy_instructions
+    | RVTupleAccess _ ->
+        failwith "Weird: Tuple access force tuple as an idnentifier"
     | RVFieldAcess _ ->
         failwith "Wierd : Fields access force struct as an identifier"
     | RVAdress id ->

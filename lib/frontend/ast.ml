@@ -107,6 +107,10 @@ and kexpression =
       first_expr : kexpression location;
       field : string location;
     }
+  | ETupleAccess of {
+      first_expr : kexpression location;
+      index : int64 location;
+    }
   | EConst_Identifier of {
       modules_path : string location;
       identifier : string location;
@@ -548,15 +552,17 @@ module Error = struct
       }
     | Not_unit_type_while of { position : unit location; wrong_type : ktype }
     | Not_Boolean_Type_Condition of { found : ktype location }
+    | Impossible_tuple_access of {
+        index : int64 location;
+        ktypes : ktype location list;
+      }
     | Impossible_field_Access of {
         field : string location;
         struct_decl : struct_decl;
       }
     | Enum_Access_field of { field : string location; enum_decl : enum_decl }
-    | Field_access_for_non_struct_type of {
-        location : unit location;
-        ktype : ktype;
-      }
+    | Tuple_access_for_non_tuple_type of { location : position; ktype : ktype }
+    | Field_access_for_non_struct_type of { location : position; ktype : ktype }
     | Unvalid_Deference of string location
     | Conflicting_type_declaration of {
         path : string;
@@ -586,6 +592,12 @@ module Error = struct
 end
 
 module Type = struct
+  (** Create a hashmap with each generic in [generics] associate with it index and the ktype set as [TUnknown]*)
+  let default_generic_map generics =
+    generics
+    |> List.mapi (fun i generic_name -> (generic_name.v, (i, TUnknow)))
+    |> List.to_seq |> Hashtbl.of_seq
+
   (**
   returns the module_name and the name as a tuple is as a declaration    
   *)

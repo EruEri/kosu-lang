@@ -15,10 +15,9 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
-
 (library
  (name common)
  (enabled_if
   (= %{profile} san))
-  (modules common asmAst namingConvention)
+ (modules common asmAst namingConvention)
  (libraries util sanTyped))

@@ -23,14 +23,12 @@ module type Aarch64AsmSpecification = sig
   val adrp_style : address_load_style
 
   val constant_directives :
-    string ->
-    [ `IntVal of int64 | `StrVal of string ] ->
-    string list
+    string -> [ `IntVal of int64 | `StrVal of string ] -> string list
 
   val comment_prefix : string
   val string_litteral_section_start : string
   val string_litteral_section_end : string
   val string_litteral_directive : string
   val label_prefix : string
-  val label_of_function: string -> string
+  val label_of_function : string -> string
 end

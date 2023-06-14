@@ -17,31 +17,38 @@
 
 open SanAst
 
-let does_support_unop unop san_type = match unop, san_type with
-| TacNot, (Ssize | Boolean) -> true 
-| TacNot, (Stringl| Unit) -> false
-| TacUminus, (Ssize) -> true
-| TacUminus, (Stringl | Unit | Boolean) -> false
+let does_support_unop unop san_type =
+  match (unop, san_type) with
+  | TacNot, (Ssize | Boolean) -> true
+  | TacNot, (Stringl | Unit) -> false
+  | TacUminus, Ssize -> true
+  | TacUminus, (Stringl | Unit | Boolean) -> false
 
-let does_support_arithmetic_operator tacself san_type = match (tacself: tac_binop_self), san_type with
-| _ , Ssize -> true
-| _ , _ -> false
+let does_support_arithmetic_operator tacself san_type =
+  match ((tacself : tac_binop_self), san_type) with
+  | _, Ssize -> true
+  | _, _ -> false
 
-let does_support_logicial_operator tac_bool san_type = match tac_bool, (san_type: san_type) with
-| (TacOr | TacAnd), Boolean -> true
-| (TacOr | TacAnd), (Ssize | Unit | Stringl) -> false
-| (TacSup | TacSupEq | TacInf | TacInfEq), (Ssize) -> true
-| (TacSup | TacSupEq | TacInf | TacInfEq), (Boolean | Stringl | Unit) -> false
-| (TacDiff | TacEqual), (Boolean | Ssize) -> true
-| (TacDiff | TacEqual), (Unit | Stringl) -> false
+let does_support_logicial_operator tac_bool san_type =
+  match (tac_bool, (san_type : san_type)) with
+  | (TacOr | TacAnd), Boolean -> true
+  | (TacOr | TacAnd), (Ssize | Unit | Stringl) -> false
+  | (TacSup | TacSupEq | TacInf | TacInfEq), Ssize -> true
+  | (TacSup | TacSupEq | TacInf | TacInfEq), (Boolean | Stringl | Unit) -> false
+  | (TacDiff | TacEqual), (Boolean | Ssize) -> true
+  | (TacDiff | TacEqual), (Unit | Stringl) -> false
 
-let find_sig_opt (san_module: SanAst.san_module) name = 
-  san_module |> List.find_map (fun node -> match node with
-    | Declaration {fn_name; parameters; return_type; _} when fn_name.value = name -> Option.some @@ (parameters |> List.map snd, return_type)
-    | External {fn_name; signature; _} when fn_name.value = name -> Option.some @@ signature
-    | External _ -> None
-    | Declaration _ -> None
-)
+let find_sig_opt (san_module : SanAst.san_module) name =
+  san_module
+  |> List.find_map (fun node ->
+         match node with
+         | Declaration { fn_name; parameters; return_type; _ }
+           when fn_name.value = name ->
+             Option.some @@ (parameters |> List.map snd, return_type)
+         | External { fn_name; signature; _ } when fn_name.value = name ->
+             Option.some @@ signature
+         | External _ -> None
+         | Declaration _ -> None)
 
 let calling_name = function
-| Declaration {fn_name; } | External {fn_name; _} -> fn_name
+  | Declaration { fn_name } | External { fn_name; _ } -> fn_name

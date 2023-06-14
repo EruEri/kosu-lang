@@ -19,48 +19,30 @@ open SanFrontend.SanAst
 
 type san_type = SanFrontend.SanAst.san_type
 type atom = SanFrontend.SanAst.atom
+type typed_atom = { atom_type : san_type; atom : atom }
+type ty_unary = { unop : tac_unop; ty_atom : typed_atom }
+type ty_binary = { binop : tac_binop; tylhs : typed_atom; tyrhs : typed_atom }
+type ty_fncall = { fn_name : string; parameters : typed_atom list }
 
-type typed_atom = { atom_type : san_type; atom : atom } 
-
-type ty_unary = {
-  unop: tac_unop;
-  ty_atom: typed_atom;
-}
-
-type ty_binary = {
-  binop: tac_binop;
-  tylhs: typed_atom;
-  tyrhs: typed_atom;
-}
-
-type ty_fncall = {
-  fn_name: string;
-  parameters: typed_atom list
-}
-
-type ty_san_rvalue = 
+type ty_san_rvalue =
   | TyRVExpr of typed_atom
   | TYRVUnary of ty_unary
   | TYRVBinary of ty_binary
   | TyRVFunctionCall of ty_fncall
-  | TyRVDiscard of san_type 
+  | TyRVDiscard of san_type
   | TYRVLater of san_type
 
-type typed_san_rvalue = {
-  san_rvalue: ty_san_rvalue;
-  san_type: san_type
-}
-
+type typed_san_rvalue = { san_rvalue : ty_san_rvalue; san_type : san_type }
 type ty_san_statement = TySSDeclaration of string * typed_san_rvalue
 
 type ty_san_ending =
   | TySE_return of typed_atom
-  | TYSE_If of { expr : typed_atom; if_label : string ; else_label : string }
+  | TYSE_If of { expr : typed_atom; if_label : string; else_label : string }
 
 type ty_san_basic_block = {
-    label : string;
-    statements : ty_san_statement list;
-    ending : ty_san_ending option;
+  label : string;
+  statements : ty_san_statement list;
+  ending : ty_san_ending option;
 }
 
 type ty_san_function = {
@@ -68,13 +50,13 @@ type ty_san_function = {
   parameters : (string * san_type) list;
   return_type : san_type;
   san_basic_blocks : ty_san_basic_block list;
-  locals: (string * san_type) list
+  locals : (string * san_type) list;
 }
 
 type tysan_node =
   | TyExternal of {
       fn_name : string;
-      signature : (san_type list * san_type);
+      signature : san_type list * san_type;
       cname : string option;
     }
   | TyDeclaration of ty_san_function

@@ -19,5 +19,5 @@
  (name sanCli)
  (enabled_if
   (= %{profile} san))
-  (modules sanCli)
+ (modules sanCli)
  (libraries cmdliner sanFrontend sanTyped sanCfg sanBackend))

@@ -172,10 +172,19 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             Instruction
               (Mov { destination = r64; flexsec_operand = `ILitteral sizeof });
           ] )
+    | TEConst { name; module_path }
+      when KosuIrTyped.Asttyhelper.RType.is_float expr_rktype ->
+        let destination =
+          reg_of_ktype rprogram expr_rktype ~register:target_reg
+        in
+        let instructions =
+          load_label (AsmSpec.label_of_constant ~module_path name) x11
+          @ ldr_instr ~data_size:None ~destination (create_adress x11)
+        in
+        (destination, instructions)
     | TEConst { name; module_path } when expr_rktype = RTString_lit ->
-        let reg64 = resize64 target_reg in
-        ( target_reg,
-          load_label (AsmSpec.label_of_constant ~module_path name) reg64 )
+        let reg = reg_of_ktype rprogram expr_rktype ~register:target_reg in
+        (reg, load_label (AsmSpec.label_of_constant ~module_path name) reg)
     | TEConst { name; module_path }
       when KosuIrTyped.Asttyhelper.RType.is_any_integer expr_rktype ->
         let _, size =
@@ -592,8 +601,6 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           ttes
           |> List.mapi (fun index _value ->
                  offset_of_tuple_index index ktlis rprogram)
-          |> List.tl
-          |> fun l -> l @ [ 0L ]
         in
         ttes
         |> List.mapi (fun index value -> (index, value))
@@ -612,6 +619,54 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                in
                acc @ instructions @ copy_instructions)
              []
+    | RVTupleAccess
+        {
+          first_expr = { expr_rktype; tac_expression = TEIdentifier tuple_id };
+          index;
+        } ->
+        let kts_tuples =
+          match expr_rktype with
+          | KosuIrTyped.Asttyped.RTTuple rkts -> rkts
+          | _ -> failwith "Weird: The typechecker for tuple"
+        in
+        let generics = Hashtbl.create 0 in
+
+        let offset =
+          offset_of_tuple_index ~generics (Int64.to_int index) kts_tuples
+            rprogram
+        in
+        let tuple_address =
+          FrameManager.address_of (tuple_id, expr_rktype) fd |> fun adr ->
+          match adr with
+          | Some a -> a
+          | None -> failwith "field access null address"
+        in
+        let field_address = increment_adress offset tuple_address in
+        let sizeof = sizeofn rprogram rval_rktype in
+        let size = compute_data_size rval_rktype sizeof in
+        let reg9 = reg9_of_ktype rprogram rval_rktype in
+        let copy_instructions =
+          copy_result
+            ~before_copy:(fun _ ->
+              if is_register_size sizeof then
+                ldr_instr ~data_size:size ~destination:reg9 field_address
+              else
+                [
+                  Instruction
+                    (ADD
+                       {
+                         destination = reg9;
+                         operand1 = field_address.base;
+                         operand2 = src_of_adress_offset field_address.offset;
+                         offset = false;
+                       });
+                ])
+            ~where ~register:reg9 ~rval_rktype rprogram
+        in
+        Line_Com (Comment ("Tuple access of " ^ Int64.to_string index))
+        :: copy_instructions
+    | RVTupleAccess _ ->
+        failwith "Wierd : tuple access force tuple as an identifier"
     | RVFieldAcess
         {
           first_expr = { expr_rktype; tac_expression = TEIdentifier struct_id };

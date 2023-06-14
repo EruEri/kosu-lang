@@ -47,7 +47,8 @@ let rec parse lexbuf (checkpoint : SanAst.san_module I.checkpoint) =
       let current_lexeme = Lexing.lexeme lexbuf in
       let err, state = get_parse_error env in
       Result.error
-        (SanError.Syntax_Error { position; current_lexeme; message = err; state })
+        (SanError.Syntax_Error
+           { position; current_lexeme; message = err; state })
   | I.Accepted v -> Ok v
   | I.Rejected ->
       let position = Lexer.current_position lexbuf in

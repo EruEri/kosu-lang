@@ -628,6 +628,14 @@ module Kbody = struct
                 first_expr;
             field;
           }
+    | ETupleAccess { first_expr; index } ->
+        ETupleAccess
+          {
+            first_expr =
+              remap_located_expr_explicit_type generics current_module
+                first_expr;
+            index;
+          }
     | EConst_Identifier { modules_path; identifier } ->
         EConst_Identifier
           { modules_path = abs_module current_module modules_path; identifier }

@@ -15,9 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
 let () = SanLang.Frontend.register_san_error ()
 
-let () = 
+let () =
   let code = SanLang.Cli.eval () in
   exit code

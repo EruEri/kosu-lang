@@ -142,7 +142,7 @@ module StringLitteral = struct
         map_fill_string_lit_of_tac_expression map bin.brhs.tac_expression ()
     | RVCustomUnop un | RVBuiltinUnop un ->
         map_fill_string_lit_of_tac_expression map un.expr.tac_expression ()
-    | RVFieldAcess { first_expr; _ } ->
+    | RVFieldAcess { first_expr; _ } | RVTupleAccess { first_expr; _ } ->
         map_fill_string_lit_of_tac_expression map first_expr.tac_expression ()
     | RVAdress _ | RVDefer _ | RVDiscard | RVLater -> ()
 
@@ -329,7 +329,7 @@ module FloatLitteral = struct
         map_fill_float_lit_of_tac_expression map bin.brhs.tac_expression ()
     | RVCustomUnop un | RVBuiltinUnop un ->
         map_fill_float_lit_of_tac_expression map un.expr.tac_expression ()
-    | RVFieldAcess { first_expr; _ } ->
+    | RVFieldAcess { first_expr; _ } | RVTupleAccess { first_expr; _ } ->
         map_fill_float_lit_of_tac_expression map first_expr.tac_expression ()
     | RVAdress _ | RVDefer _ | RVDiscard | RVLater -> ()
 

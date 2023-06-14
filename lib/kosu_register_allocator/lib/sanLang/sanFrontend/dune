@@ -48,8 +48,8 @@
 
 (rule
  (target updated.messages)
-  (enabled_if
-   (= %{profile} san))
+ (enabled_if
+  (= %{profile} san))
  (deps
   (:parser parser.mly)
   (:msg sanParser.messages))
@@ -93,5 +93,19 @@
  (name sanFrontend)
  (enabled_if
   (= %{profile} san))
- (modules lexer parser sanAst sanParser sanError sanPosition sanTypechecker sanValidation sanHelper sanEnv sanPprintErr sanPprint sanParserMessages sanFrontend)
+ (modules
+  lexer
+  parser
+  sanAst
+  sanParser
+  sanError
+  sanPosition
+  sanTypechecker
+  sanValidation
+  sanHelper
+  sanEnv
+  sanPprintErr
+  sanPprint
+  sanParserMessages
+  sanFrontend)
  (libraries menhirLib))
