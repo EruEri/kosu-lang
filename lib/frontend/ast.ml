@@ -561,14 +561,8 @@ module Error = struct
         struct_decl : struct_decl;
       }
     | Enum_Access_field of { field : string location; enum_decl : enum_decl }
-    | Tuple_access_for_non_tuple_type of {
-        location : unit location;
-        ktype : ktype;
-      }
-    | Field_access_for_non_struct_type of {
-        location : unit location;
-        ktype : ktype;
-      }
+    | Tuple_access_for_non_tuple_type of { location : position; ktype : ktype }
+    | Field_access_for_non_struct_type of { location : position; ktype : ktype }
     | Unvalid_Deference of string location
     | Conflicting_type_declaration of {
         path : string;

@@ -379,13 +379,15 @@ struct
     | Switch_error e -> string_of_switch_error e
     | Builtin_Func_Error e -> string_of_built_in_func_error e
     | Tuple_access_for_non_tuple_type { location; ktype } ->
-        string_of_located_error location
+        string_of_located_error
+          { v = (); position = location }
           (sprintf
              "this expression has the type \"%s\" which is not a tuple. It \
               content can't be accessed by index"
              (string_of_ktype ktype))
     | Field_access_for_non_struct_type { location; ktype } ->
-        string_of_located_error location
+        string_of_located_error
+          { v = (); position = location }
           (sprintf
              "this expression has the type \"%s\" which is not a struct. It \
               doesn't contain any field"

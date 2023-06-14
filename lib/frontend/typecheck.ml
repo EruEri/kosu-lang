@@ -519,10 +519,7 @@ Return the type of an expression
           | None ->
               raise @@ ast_error
               @@ Field_access_for_non_struct_type
-                   {
-                     location = expression |> Position.map (fun _ -> ());
-                     ktype = first_type;
-                   }
+                   { location = first_expr.position; ktype = first_type }
           | Some (ktype_def_path, ktype_name) ->
               let type_decl =
                 match
@@ -546,11 +543,20 @@ Return the type of an expression
           typeof ~generics_resolver env current_mod_name prog first_expr
         in
         let kts =
-          match first_type with TTuple kts -> kts | _ -> failwith ""
+          match first_type with
+          | TTuple kts -> kts
+          | _ ->
+              raise @@ ast_error
+              @@ Tuple_access_for_non_tuple_type
+                   { location = first_expr.position; ktype = first_type }
         in
         let length = Int64.of_int @@ List.length kts in
         let ucmp = Int64.unsigned_compare length index.v in
-        let () = if ucmp <= 0 then failwith "" in
+        let () =
+          if ucmp <= 0 then
+            raise @@ ast_error
+            @@ Impossible_tuple_access { index; ktypes = kts }
+        in
         let kt =
           match List.nth_opt kts @@ Int64.to_int index.v with
           | None -> failwith "Shouldn't append: except with index > max(int)"
