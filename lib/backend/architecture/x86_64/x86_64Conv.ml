@@ -746,8 +746,6 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           ttes
           |> List.mapi (fun index _value ->
                  offset_of_tuple_index index ktlis rprogram)
-          |> List.tl
-          |> fun l -> l @ [ 0L ]
         in
         where
         |> Option.map (fun waddress ->
