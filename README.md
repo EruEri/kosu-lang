@@ -107,4 +107,8 @@ $ kosuc --arch x86_64 --os linux -o example example.kosu
 $ ./example
 ```
 
+## Other
+- You can see more detail about:
+  - in [Readme.md](/doc/Readme.md)
+  - in [test](test/files/)
 
