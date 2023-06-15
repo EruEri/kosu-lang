@@ -1416,7 +1416,7 @@ module Builtin_Function = struct
     let open Ast.Builtin_Function in
     function
     | ( Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64 | Tof32
-      | Tof64 ) as fn -> begin
+      | Tof64 ) as fn -> (
         match parameters with
         | [ t ] ->
             let param_type = Position.value t in
@@ -1434,9 +1434,8 @@ module Builtin_Function = struct
                 expected = 1;
                 found = list |> List.length;
               }
-            |> Result.error
-        end
-    | Stringl_ptr -> begin
+            |> Result.error)
+    | Stringl_ptr -> (
         match parameters with
         | [ t ] ->
             if t |> Position.value |> Type.is_string_litteral then
@@ -1452,30 +1451,47 @@ module Builtin_Function = struct
                 expected = 1;
                 found = list |> List.length;
               }
-            |> Result.error 
-    end
-    | Tagof as fn -> begin 
-      match parameters with
-      | t::[] ->
-        let generics = t |> Position.value |> Type.extract_parametrics_ktype |> List.map (Position.map Pprint.string_of_ktype) in
-        let type_decl = Program.find_type_decl_from_true_ktype ~generics t.v current_module rprogram in
-        let () = match type_decl with
-          | Some Decl_Enum _ -> () 
-          | Some Decl_Struct _ -> failwith "struct has no tag"
-          | None -> failwith "Builtint type"
-         
-        in
-        Result.ok fn
-      | list ->
-        Result.error @@
-        Ast.Error.Mismatched_Parameters_Length
-          {
-            fn_name = fn_location;
-            expected = 1;
-            found = list |> List.length;
-          }
-        
-    end
+            |> Result.error)
+    | Tagof as fn -> (
+        match parameters with
+        | t :: [] ->
+            let generics =
+              t |> Position.value |> Type.extract_parametrics_ktype
+              |> List.map (Position.map Pprint.string_of_ktype)
+            in
+            let type_decl =
+              Program.find_type_decl_from_true_ktype ~generics t.v
+                current_module rprogram
+            in
+            let res =
+              match type_decl with
+              | Some (Decl_Enum _) -> Result.ok fn
+              | Some (Decl_Struct _) ->
+                  Result.error
+                  @@ Struct_type_tag
+                       {
+                         fn_name = fn_location.v;
+                         position = t.position;
+                         ktype = t.v;
+                       }
+              | None ->
+                  Result.error
+                  @@ Builin_type_tag
+                       {
+                         fn_name = fn_location.v;
+                         position = t.position;
+                         ktype = t.v;
+                       }
+            in
+            res
+        | list ->
+            Result.error
+            @@ Ast.Error.Mismatched_Parameters_Length
+                 {
+                   fn_name = fn_location;
+                   expected = 1;
+                   found = list |> List.length;
+                 })
 
   let builtin_return_type =
     let open Ast.Builtin_Function in

@@ -324,7 +324,7 @@ struct
     | Wrong_parameters { fn_name; expected; found } ->
         string_of_located_error found
           (sprintf
-             "Builtin function \"%s\", this expression has the type \"%s but \
+             "Builtin function \"%s\", this expression has the type \"%s\" but \
               an expression of type \"%s\" was expected"
              fn_name (string_of_ktype found.v) (string_of_ktype expected))
     | Mismatched_Parameters_Length { fn_name; expected; found } ->
@@ -341,6 +341,18 @@ struct
              "Builtin function \"%s\" expects an integer but an expression of \
               type \"%s\" was provided"
              fn_name (string_of_ktype found.v))
+    | Builin_type_tag { fn_name; position; ktype } ->
+        string_of_positioned_error position
+        @@ sprintf
+             "Builtin function \"%s\", this expression has the type \"%s\" \
+              which is a built-in type and not an enum"
+             fn_name (string_of_ktype ktype)
+    | Struct_type_tag { fn_name; position; ktype } ->
+        string_of_positioned_error position
+        @@ sprintf
+             "Builtin function \"%s\", this expression has the type \"%s\" \
+              which is a struct type and not an enum"
+             fn_name (string_of_ktype ktype)
 
   let quoted = sprintf "\"%s\""
 

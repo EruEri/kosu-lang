@@ -1365,16 +1365,31 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     | RVBuiltinCall { fn_name; parameters } -> (
         let open KosuFrontend.Ast.Builtin_Function in
         match fn_name with
-        | Tagof -> 
-          let tte = List.hd parameters in
-          let address = match tte.tac_expression with
-            | TEIdentifier i -> Option.get @@ FrameManager.address_of (i, tte.expr_rktype) fd
-            | _ -> failwith "Enum are rvalue, therethore they are converted as identifier"
-          in
-          let rr9 = Register.r9 in 
-          let load_tag_instructions = Instruction (Instruction.Mov { size = il; destination = `Register rr9; source = `Address address  })  in
-          let copy_instructions = copy_result ~where ~register:rr9 ~rval_rktype rprogram in
-          load_tag_instructions::copy_instructions
+        | Tagof ->
+            let tte = List.hd parameters in
+            let address =
+              match tte.tac_expression with
+              | TEIdentifier i ->
+                  Option.get @@ FrameManager.address_of (i, tte.expr_rktype) fd
+              | _ ->
+                  failwith
+                    "Enum are rvalue, therethore they are converted as \
+                     identifier"
+            in
+            let rr9 = Register.r9 in
+            let load_tag_instructions =
+              Instruction
+                (Instruction.Mov
+                   {
+                     size = il;
+                     destination = `Register rr9;
+                     source = `Address address;
+                   })
+            in
+            let copy_instructions =
+              copy_result ~where ~register:rr9 ~rval_rktype rprogram
+            in
+            load_tag_instructions :: copy_instructions
         | Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64
         | Stringl_ptr ->
             let parameter = List.hd parameters in

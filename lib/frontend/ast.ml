@@ -472,6 +472,16 @@ module Error = struct
 
   type builtin_func_error =
     | Unknow_built_function of string location
+    | Builin_type_tag of {
+        fn_name : string;
+        position : position;
+        ktype : ktype;
+      }
+    | Struct_type_tag of {
+        fn_name : string;
+        position : position;
+        ktype : ktype;
+      }
     | Wrong_parameters of {
         fn_name : string;
         expected : ktype;
