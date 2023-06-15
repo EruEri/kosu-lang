@@ -1,0 +1,20 @@
+external printf(format: stringl; ...) s32 = "printf"
+
+struct large {
+    x: s64,
+    y: s64,
+    z: s64
+}
+
+enum e {
+    none,
+    some(large)  
+}
+
+fn main(argc: s32, argv: **s8) s32 {
+    const tag1 = @tagof(.none);
+    const tag2 = @tagof(.some(large { x = 0s64, y = 1s64, z = 2s64}));
+    discard printf("%u\n", tag1);
+    discard printf("%u\n", tag2);
+    $ 0
+}

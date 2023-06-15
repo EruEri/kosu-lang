@@ -69,6 +69,9 @@ let string_of_position_error { start_position; end_position } =
 let string_of_located_error a b =
   Printf.sprintf "%s : %s" (string_of_position_error a.position) b
 
+let string_of_positioned_error a b =
+  Printf.sprintf "%s : %s" (string_of_position_error a) b
+
 let rec string_of_ktype = function
   | TParametric_identifier { module_path; parametrics_type; name } ->
       sprintf "%s %s(%s)" module_path.v name.v

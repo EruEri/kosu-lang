@@ -1392,6 +1392,7 @@ module Builtin_Function = struct
     | Tos64 -> "tos64"
     | Tou64 -> "tou64"
     | Tof64 -> "tof64"
+    | Tagof -> "tagof"
     | Stringl_ptr -> "stringlptr"
 
   let builtin_fn_of_fn_name =
@@ -1407,10 +1408,11 @@ module Builtin_Function = struct
     | { v = "tou64"; _ } -> Tou64 |> Result.ok
     | { v = "tof64"; _ } -> Tof64 |> Result.ok
     | { v = "tof32"; _ } -> Tof32 |> Result.ok
+    | { v = "tagof"; _ } -> Tagof |> Result.ok
     | { v = "stringlptr"; _ } -> Stringl_ptr |> Result.ok
     | _ as fn_name -> Ast.Error.Unknow_built_function fn_name |> Result.error
 
-  let is_valide_parameters_type fn_location parameters =
+  let is_valide_parameters_type fn_location parameters current_module rprogram =
     let open Ast.Builtin_Function in
     function
     | ( Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64 | Tof32
@@ -1450,6 +1452,46 @@ module Builtin_Function = struct
                 found = list |> List.length;
               }
             |> Result.error)
+    | Tagof as fn -> (
+        match parameters with
+        | t :: [] ->
+            let generics =
+              t |> Position.value |> Type.extract_parametrics_ktype
+              |> List.map (Position.map Pprint.string_of_ktype)
+            in
+            let type_decl =
+              Program.find_type_decl_from_true_ktype ~generics t.v
+                current_module rprogram
+            in
+            let res =
+              match type_decl with
+              | Some (Decl_Enum _) -> Result.ok fn
+              | Some (Decl_Struct _) ->
+                  Result.error
+                  @@ Struct_type_tag
+                       {
+                         fn_name = fn_location.v;
+                         position = t.position;
+                         ktype = t.v;
+                       }
+              | None ->
+                  Result.error
+                  @@ Builin_type_tag
+                       {
+                         fn_name = fn_location.v;
+                         position = t.position;
+                         ktype = t.v;
+                       }
+            in
+            res
+        | list ->
+            Result.error
+            @@ Ast.Error.Mismatched_Parameters_Length
+                 {
+                   fn_name = fn_location;
+                   expected = 1;
+                   found = list |> List.length;
+                 })
 
   let builtin_return_type =
     let open Ast.Builtin_Function in
@@ -1466,6 +1508,7 @@ module Builtin_Function = struct
     | Tou64 -> TInteger (Unsigned, I64)
     | Tof32 -> TFloat F32
     | Tof64 -> TFloat F64
+    | Tagof -> TInteger (Unsigned, I32)
 end
 
 module Function = struct

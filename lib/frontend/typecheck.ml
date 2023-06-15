@@ -807,7 +807,7 @@ Return the type of an expression
         fn_name |> Asthelper.Builtin_Function.builtin_fn_of_fn_name
         >>= (fun builtin ->
               Asthelper.Builtin_Function.is_valide_parameters_type fn_name
-                parameters_type builtin)
+                parameters_type current_mod_name prog builtin)
         |> Result.map Asthelper.Builtin_Function.builtin_return_type
         |> function
         | Ok kt -> kt

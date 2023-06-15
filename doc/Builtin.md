@@ -21,7 +21,7 @@
 - **f32**: ieee 754 stantard single precision floating-point number (32 bits)
 - **f64**: ieee 754 stantard double precision floating-point number (64 bits) (default float type)
 - **\*t**: pointer to a variable of type **t**
-- **(t1,..., tn )**: a tuple constituated of expression of type **(t1, ... , tn )**
+- **(t1,..., tn)**: a tuple constituated of expression of type **(t1, ... , tn)**
 - **anyptr**: 
     - Only available in the context of declaring a syscall or an external function:
     - Represent a pointer toward any type
@@ -42,6 +42,7 @@
     - @tof32(anynumber) -> f32
     - @tof64(anynumber) -> f64
     - @stringlptr(stringl) -> *s8
+    - @tagof(enum_type) -> u32
 
 ## Keywords
 
@@ -71,7 +72,7 @@
     // stringl
     const x = "Hello world";
 
-    // an explicit type can be added optionally, or something required with the compiler can not fully infered the type
+    // an explicit type can be added optionally, or sometime required when the compiler can not fully infer the type
     // for example, the keyword expression nullptr need an explicit type
     const b : *s32 = nullptr;
 

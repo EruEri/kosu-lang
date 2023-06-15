@@ -472,6 +472,16 @@ module Error = struct
 
   type builtin_func_error =
     | Unknow_built_function of string location
+    | Builin_type_tag of {
+        fn_name : string;
+        position : position;
+        ktype : ktype;
+      }
+    | Struct_type_tag of {
+        fn_name : string;
+        position : position;
+        ktype : ktype;
+      }
     | Wrong_parameters of {
         fn_name : string;
         expected : ktype;
@@ -997,11 +1007,12 @@ module Builtin_Function = struct
     | Tou64
     | Tof64
     | Stringl_ptr
+    | Tagof
 
   let isize_of_functions = function
     | Tos8 | Tou8 -> I8
     | Tos16 | Tou16 -> I16
-    | Tos32 | Tou32 | Tof32 -> I32
+    | Tos32 | Tou32 | Tof32 | Tagof -> I32
     | Tos64 | Tou64 | Tof64 | Stringl_ptr -> I64
 end
 
