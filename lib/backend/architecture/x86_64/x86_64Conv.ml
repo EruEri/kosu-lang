@@ -1997,6 +1997,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         @ (copy_tag :: cmp_instrution_list)
         @ wildcard_case_jmp @ fn_block @ wildcard_body_block
         @ [ exit_label_instruction ]
+    | STSwitchTmp _ -> failwith ""
 
   and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
       (fd : FrameManager.frame_desc) { label; body } =

@@ -105,7 +105,7 @@ module Cli = struct
       cmd
     in
 
-    let kosu_files, other_files = files |> List.partition is_kosu_file in
+    let kosu_files, _ = files |> List.partition is_kosu_file in
 
     let std_file = fetch_std_file ~no_std () in
 

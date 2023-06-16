@@ -404,6 +404,16 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
           end 
 
         end 
+      | STSwitchTmp {    
+          tmp_statemenets_for_case;
+          tag_atom;
+          tmp_switch_list;
+          tmp_wildcard_label;
+          tmp_wildcard_body;
+          tmp_sw_exit_label
+        } -> 
+          let () = ignore (tmp_statemenets_for_case, tag_atom, tmp_switch_list, tmp_wildcard_label, tmp_wildcard_body, tmp_sw_exit_label) in
+          failwith ""
       | SCases { cases = []; else_tac_body = _; exit_label = _ } ->
           failwith "Unreachable code: Syntax force at least a branch"
       )

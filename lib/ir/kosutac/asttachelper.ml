@@ -271,6 +271,29 @@ module StringLitteral = struct
           |> Option.iter (fun tb -> map_fill_string_lit_of_tac_body map tb ())
         in
         ()
+    | STSwitchTmp {tmp_statemenets_for_case; tag_atom;tmp_switch_list; tmp_wildcard_body; _} ->
+          let () =
+          tmp_statemenets_for_case
+          |> List.iter (fun smt ->
+                map_fill_string_lit_of_tac_statement map smt ())
+        in
+        let () =
+          map_fill_string_lit_of_tac_expression map
+          tag_atom.tac_expression ()
+        in
+
+        let () = tmp_switch_list |> List.iter (fun sw -> 
+          let () = sw.variants |> List.iter (fun {cmp_statement; _} -> 
+            map_fill_string_lit_of_tac_statement map cmp_statement ()
+          ) in 
+          let () = map_fill_string_lit_of_tac_body map sw.tmp_switch_tac_body () in
+          ()
+        ) in
+        let () =
+        tmp_wildcard_body
+         |> Option.iter (fun tb -> map_fill_string_lit_of_tac_body map tb ())
+      in
+      ()
     | SCases { cases; else_tac_body; _ } ->
         let () =
           cases
@@ -463,6 +486,29 @@ module FloatLitteral = struct
           |> List.iter (fun case -> map_fill_float_lit_of_tac_case map case ())
         in
         map_fill_float_lit_of_tac_body map else_tac_body ()
+    | STSwitchTmp {tmp_statemenets_for_case; tag_atom;tmp_switch_list; tmp_wildcard_body; _} ->
+      let () =
+      tmp_statemenets_for_case
+      |> List.iter (fun smt ->
+            map_fill_float_lit_of_tac_statement map smt ())
+    in
+    let () =
+      map_fill_float_lit_of_tac_expression map
+      tag_atom.tac_expression ()
+    in
+
+    let () = tmp_switch_list |> List.iter (fun sw -> 
+      let () = sw.variants |> List.iter (fun {cmp_statement; _} -> 
+        map_fill_float_lit_of_tac_statement map cmp_statement ()
+      ) in 
+      let () = map_fill_float_lit_of_tac_body map sw.tmp_switch_tac_body () in
+      ()
+    ) in
+    let () =
+    tmp_wildcard_body
+      |> Option.iter (fun tb -> map_fill_float_lit_of_tac_body map tb ())
+  in
+  ()
 
   and map_fill_float_lit_of_tac_body map { label = _; body = statements, last }
       () =

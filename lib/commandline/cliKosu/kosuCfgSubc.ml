@@ -278,6 +278,7 @@ let cfg_main cmd =
   let open KosuIrTAC.Asttac in
   let {
     dot = _;
+    arch = _;
     colored = _;
     cfg_type = _;
     variable_infer = _;

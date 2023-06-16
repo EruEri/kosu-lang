@@ -140,6 +140,20 @@ and tac_case = {
   tac_body : tac_body;
 }
 
+and tac_switch_variant = {
+  variant_label: string;
+  variant_index: int;
+  cmp_statement: tac_statement
+}
+
+and tac_switch_tmp = {
+  variants: tac_switch_variant list;
+  tmp_assoc_bound : (int * string * rktype) list;
+  tmp_sw_goto : string;
+  tmp_sw_exit_label : string;
+  tmp_switch_tac_body : tac_body;
+}
+
 and tac_switch = {
   variants_to_match : string list;
   assoc_bound : (int * string * rktype) list;
@@ -192,6 +206,15 @@ and tac_statement =
       wildcard_body : tac_body option;
       sw_exit_label : string;
     }
+  | STSwitchTmp of {
+    tmp_statemenets_for_case : tac_statement list;
+    tag_atom: tac_typed_expression;
+    tmp_switch_list: tac_switch_tmp list;
+    tmp_wildcard_label : string option;
+    tmp_wildcard_body : tac_body option;
+    tmp_sw_exit_label : string;
+  }
+  
 
 and tac_body = {
   label : string;

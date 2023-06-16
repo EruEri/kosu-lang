@@ -149,6 +149,7 @@ and string_of_tac_statement = function
         (cases |> List.map string_of_tac_case |> String.concat "\n")
         (else_tac_body |> string_of_label_tac_body)
         exit_label
+  | STSwitchTmp _ -> ""
   | STSwitch
       {
         statemenets_for_case;
@@ -217,6 +218,7 @@ and string_of_tac_statement = function
 
       let () = Buffer.add_string buffer (sprintf "%s" sw_exit_label) in
       Buffer.contents buffer
+
 
 and string_of_tac_body ?(end_jmp = None) (statemements, expression) =
   sprintf "%s\n\t%s%s"

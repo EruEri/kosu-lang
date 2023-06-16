@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-open BytecodeCore
 open BytecodeCore.Operande
 open BytecodeCore.ConditionCode
 open BytecodeCore.Instruction
@@ -92,7 +91,7 @@ let string_of_single_operande { destination; source } =
 let string_of_double_operande { destination; operande1; operande2 } =
   sprintf "%s, %s, %s"
     (string_of_register destination)
-    (string_of_register destination)
+    (string_of_register operande1)
     (string_of_src operande2)
 
 let string_of_jump_src = function
@@ -202,4 +201,4 @@ let string_of_asm_function
 
 let string_of_asm_node = function
   | BytecodeCore.BytecodeProgram.Afunction f -> string_of_asm_function f
-  | AConst c -> failwith "TODO: string_of_asm_node Const"
+  | AConst _c -> failwith "TODO: string_of_asm_node Const"

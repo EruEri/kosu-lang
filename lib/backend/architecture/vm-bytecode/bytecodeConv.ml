@@ -49,7 +49,7 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
       let int_repr = Int64.of_int @@ Char.code c in
       mv_integer target_reg int_repr
   | TEFloat float ->
-      let (FLit float_label) = Hashtbl.find litterals.float_lit_map float in
+      let (FLit _float_label) = Hashtbl.find litterals.float_lit_map float in
       let bits_repr = Int64.bits_of_float @@ snd float in
       mv_integer target_reg bits_repr
   | TEIdentifier id -> (
@@ -75,6 +75,7 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
   | TEConst _ -> failwith "Other constant todo"
 
 let translate_and_store ~where ~litterals ~target_reg fd tte =
+  let () = ignore target_reg in
   match where with
   | Some (LocReg reg) ->
       translate_tac_expression ~litterals ~target_reg:reg fd tte
@@ -90,6 +91,7 @@ let translate_and_store ~where ~litterals ~target_reg fd tte =
 
 let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
     current_module rprogram (fd : FrameManager.description) rvalue =
+  let () = ignore is_deref in
   match rvalue.rvalue with
   | RVExpression tte ->
       translate_and_store ~where ~litterals ~target_reg:Register.r13 fd tte
@@ -178,7 +180,7 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
           in
           args_instructions @ mov_syscall_code_instruction
           @ (syscall_instruction :: store_res_instructions)
-      | RKosufn_Decl kosu_function_decl -> (
+      | RKosufn_Decl _kosu_function_decl -> (
           let typed_parameters =
             tac_parameters |> List.map (fun { expr_rktype; _ } -> expr_rktype)
           in
@@ -191,7 +193,7 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
           let fn_label =
             NamingConvention.label_of_kosu_function ~module_path function_decl
           in
-          let iparams, fparams, stack_params =
+          let iparams, fparams, _stack_params =
             Args.consume_args ~fregs:Register.float_argument_registers
               ~iregs:Register.non_float_argument_registers
               ~fpstyle:(fun { expr_rktype; _ } ->
@@ -255,7 +257,7 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
               args_instructions @ float_args_instructions
               @ set_on_stack_instructions @ mv_address_instruction
               @ [ call_instruction ])
-      | RExternal_Decl external_func_decl ->
+      | RExternal_Decl _external_func_decl ->
           failwith "External function: Find a way for the vm to call them"
       (* let fn_label =
              NamingConvention.label_of_external_function external_func_decl
@@ -368,7 +370,9 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
       in
       translate_tac_rvalue ~litterals ~where:location rprogram current_module fd
         trvalue
-  | STDerefAffectation { identifier; trvalue } -> failwith ""
+  | STDerefAffectation { identifier; trvalue } -> 
+    let () = ignore (identifier, trvalue) in
+    failwith ""
   | _ -> failwith ""
 
 and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
@@ -411,7 +415,6 @@ and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
   (label :: stmt_instrs) @ return_instructions @ end_label_insts
 
 let asm_module_of_tac_module ~litterals current_module rprogram =
-  let open KosuIrTyped.Asttyped in
   function
   | TacModule tac_nodes ->
       tac_nodes

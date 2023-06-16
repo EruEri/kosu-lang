@@ -1616,6 +1616,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
 
         cases_condition @ cases_body @ else_body_instruction
         @ [ end_label_instruction ]
+    | STSwitchTmp _ -> failwith ""
 
   and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
       (fd : FrameManager.frame_desc) { label; body } =
