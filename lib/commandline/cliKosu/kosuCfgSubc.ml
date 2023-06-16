@@ -180,32 +180,32 @@ let target_file file_type format fn_name =
       | `Infered colored -> infered_name ~colored fn_name ~extension
       | `Cfg cfg_type -> cfg_name ~ctype:cfg_type fn_name ~extension)
 
-let write_cfg cfg_type ~oc tac_function =
+let write_cfg cfg_type ~oc rprogram tac_function =
   match cfg_type with
   | Basic ->
-      let converted = KosuIrCfg.Astcfgconv.cfg_of_tac_function tac_function in
+      let converted = KosuIrCfg.Astcfgconv.cfg_of_tac_function rprogram tac_function in
       converted |> KosuIrCfg.Astcfgpprint.dot_diagrah_of_cfg_basic
       |> KosuIrCfg.Astcfgpprint.string_of_dot_graph ~out:oc
   | Detail ->
       let converted =
-        KosuIrCfg.Astcfgconv.cfg_detail_of_tac_function tac_function
+        KosuIrCfg.Astcfgconv.cfg_detail_of_tac_function rprogram tac_function
       in
       converted |> KosuIrCfg.Astcfgpprint.dot_diagrah_of_cfg_detail
       |> KosuIrCfg.Astcfgpprint.string_of_dot_graph ~out:oc
   | Liveness ->
       let converted =
-        KosuIrCfg.Astcfgconv.cfg_liveness_of_tac_function tac_function
+        KosuIrCfg.Astcfgconv.cfg_liveness_of_tac_function rprogram tac_function
       in
       converted |> KosuIrCfg.Astcfgpprint.dot_diagrah_of_cfg_liveness
       |> KosuIrCfg.Astcfgpprint.string_of_dot_graph ~out:oc
 
-let write_infered ~arch ~infered ~colored ~oc
+let write_infered ~arch ~infered ~colored ~oc rprogram
     (tac_function : KosuIrTAC.Asttac.tac_function_decl) =
   match infered with
   | false -> ()
   | true ->
       let livecfg =
-        KosuIrCfg.Astcfgconv.cfg_liveness_of_tac_function tac_function
+        KosuIrCfg.Astcfgconv.cfg_liveness_of_tac_function rprogram tac_function
       in
       let transform =
         let module Register = (val register_module arch) in
@@ -220,7 +220,7 @@ let write_infered ~arch ~infered ~colored ~oc
       in
       transform ~outchan:oc livecfg ()
 
-let export_from_san_function cmd
+let export_from_san_function cmd rprogram
     (tac_function : KosuIrTAC.Asttac.tac_function_decl) =
   match cmd.dot with
   | None -> (
@@ -229,7 +229,7 @@ let export_from_san_function cmd
       in
       let () =
         Out_channel.with_open_bin outchan_name (fun oc ->
-            write_cfg cmd.cfg_type ~oc tac_function)
+            write_cfg cmd.cfg_type ~oc rprogram tac_function)
       in
 
       match cmd.variable_infer with
@@ -240,13 +240,13 @@ let export_from_san_function cmd
           in
           Out_channel.with_open_bin infered_ouchan (fun oc ->
               write_infered ~arch:cmd.arch ~infered:cmd.variable_infer
-                ~colored:cmd.colored ~oc tac_function))
-  | Some export_format -> (
+                ~colored:cmd.colored ~oc rprogram tac_function))
+  | Some export_format -> begin
       let cfg_outname =
         target_file (`Cfg cmd.cfg_type) cmd.dot tac_function.rfn_name
       in
       let filename, tmp_cfg_out = Filename.open_temp_file "cfg" ".dot" in
-      let () = write_cfg cmd.cfg_type ~oc:tmp_cfg_out tac_function in
+      let () = write_cfg cmd.cfg_type ~oc:tmp_cfg_out rprogram tac_function in
       let () = close_out tmp_cfg_out in
       let _ =
         Sys.command
@@ -263,7 +263,7 @@ let export_from_san_function cmd
           in
           let () =
             write_infered ~arch:cmd.arch ~infered:cmd.variable_infer
-              ~colored:cmd.colored ~oc:tmp_infered_out tac_function
+              ~colored:cmd.colored ~oc:tmp_infered_out rprogram tac_function
           in
           let () = close_out tmp_infered_out in
           let _ =
@@ -271,7 +271,8 @@ let export_from_san_function cmd
               (Printf.sprintf "dot -T%s -o %s %s" export_format infered_ouchan
                  tmp_infered_filename)
           in
-          ())
+          ()
+    end
 
 let cfg_main cmd =
   let open KosuIrTAC.Asttac in
@@ -330,7 +331,7 @@ let cfg_main cmd =
   let () =
     function_decl_list
     |> List.iter (fun (tac_function : tac_function_decl) ->
-           export_from_san_function cmd tac_function)
+           export_from_san_function cmd typed_program tac_function)
   in
   ()
 

@@ -581,7 +581,7 @@ module FrameManager = struct
              | Double_return _ -> failwith "Unreachable")
     in
 
-    let cfg = KosuIrCfg.Astcfgconv.cfg_liveness_of_tac_function function_decl in
+    let cfg = KosuIrCfg.Astcfgconv.cfg_liveness_of_tac_function rprogram function_decl in
     let colored_graph =
       GreedyColoration.coloration ~parameters
         ~available_color:Register.available_register cfg
