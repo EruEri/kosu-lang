@@ -142,14 +142,17 @@ and tac_case = {
 
 and tac_switch_variant = {
   variant_label: string;
+  variant_next_label: string option;
   variant_index: int;
-  cmp_statement: tac_statement
+  cmp_statement: tac_statement;
+  cmp_atom: tac_typed_expression
 }
 
 and tac_switch_tmp = {
   variants: tac_switch_variant list;
   tmp_assoc_bound : (int * string * rktype) list;
   tmp_sw_goto : string;
+  tmp_sw_false: string option;
   tmp_sw_exit_label : string;
   tmp_switch_tac_body : tac_body;
 }

@@ -355,7 +355,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             let branch_count = List.length sw_cases in
             let basic_blocks, next_block_label = sw_case_without_first_match::sw_switch_remains |> List.mapi Util.couple |> List.fold_left (fun (acc, block_next_label) (index, sw_switch) -> 
               let is_last = branch_count - 1 = index in
-              let blocks, next_label = of_switch_case 
+              let blocks, next_label = _of_switch_case 
               ~wildcard_label
               ~enum_decl 
               ~tag_atom 
@@ -406,19 +406,109 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
         end 
       | STSwitchTmp {    
           tmp_statemenets_for_case;
-          tag_atom;
+          tag_atom = _;
           tmp_switch_list;
           tmp_wildcard_label;
           tmp_wildcard_body;
           tmp_sw_exit_label
         } -> 
-          let () = ignore (tmp_statemenets_for_case, tag_atom, tmp_switch_list, tmp_wildcard_label, tmp_wildcard_body, tmp_sw_exit_label) in
-          failwith ""
+          let first_goto, first_goto_false, first_cmp_stmt, first_cmp_atom, switch_remains = match tmp_switch_list with
+          | [] -> failwith ""
+          | sw::remains -> 
+            let first_variant, remains_variant = match sw.variants with
+              | [] -> failwith "Empty ?"
+              | t::q -> t, q
+            in
+            let new_sw = { sw with variants = remains_variant} in
+            let remains = new_sw::remains in
+            sw.tmp_sw_goto, sw.tmp_sw_false, first_variant.cmp_statement, first_variant.cmp_atom, remains
+          in
+          let local_endlabel = 
+            match first_goto_false with
+            | Some s -> [first_goto; s]
+            | None -> [first_goto]
+          in
+          let local_ending = first_goto_false 
+          |> Option.map (fun label -> 
+              {
+                condition = first_cmp_atom; 
+                if_label = first_goto; 
+                else_label = label
+              }
+            )
+          in
+          let basic_blocks, final_label = switch_remains |> List.fold_left (fun (acc, _) sw -> 
+            let block, label = of_switch_case ~tag_map rprogram sw in
+            (merge_basic_block_map acc block), label
+          ) (BasicBlockMap.empty, "") in
+          let wildcard_basic_block = tmp_wildcard_body |> Option.map (fun body -> 
+            let block_setup = 
+              of_tac_statements 
+              ~tag_map 
+              ~start_label:final_label
+              ~end_labels:[Option.get tmp_wildcard_label]
+              ~ending:None
+              ~cfg_statements:[]
+              rprogram
+              ([], None)
+            in
+            let block_body = 
+              of_tac_body 
+              ~tag_map
+              ~end_labels:[tmp_sw_exit_label]
+              rprogram
+              body
+            in
+            merge_basic_block_map block_setup block_body
+          ) 
+          |> Option.value ~default:BasicBlockMap.empty
+          in
+
+          let continuation = of_tac_statements
+          ~tag_map
+          ~start_label
+          ~end_labels:local_endlabel
+          ~ending:local_ending
+          ~cfg_statements rprogram (tmp_statemenets_for_case @ [first_cmp_stmt], None)
+          in
+
+
+          
+          let blocks_continuation =
+            of_tac_statements ~tag_map ~start_label:tmp_sw_exit_label ~end_labels
+              ~ending ~cfg_statements:[] rprogram (q, return)
+          in
+
+          continuation
+          |> merge_basic_block_map basic_blocks
+          |> merge_basic_block_map wildcard_basic_block
+          |> merge_basic_block_map blocks_continuation
       | SCases { cases = []; else_tac_body = _; exit_label = _ } ->
           failwith "Unreachable code: Syntax force at least a branch"
       )
 
-and of_switch_case ~is_last ~wildcard_label ~enum_decl ~tag_atom ~start_label ~tag_map rprogram (sw_switch : tac_switch) = 
+and of_switch_case ~tag_map rprogram (tac_switch: tac_switch_tmp) = 
+  let blocks, final_label =  tac_switch.variants |> List.fold_left (fun (acc, _) variant ->
+    let ending = variant.variant_next_label |> Option.map (fun label -> {condition = variant.cmp_atom; if_label = tac_switch.tmp_sw_goto; else_label = label}) in
+    let end_labels = match variant.variant_next_label with 
+      | Some label -> tac_switch.tmp_sw_goto::label::[] 
+      | None -> tac_switch.tmp_sw_goto::[]
+    in
+    let block = of_tac_statements ~tag_map 
+      ~start_label:variant.variant_label 
+      ~end_labels:end_labels
+      ~ending
+      ~cfg_statements:[]
+      rprogram
+      ([ variant.cmp_statement], None)
+    in
+      merge_basic_block_map acc block, variant.variant_label
+  ) (BasicBlockMap.empty, "")
+  in
+  let body_block = of_tac_body ~tag_map ~end_labels:[tac_switch.tmp_sw_exit_label] rprogram tac_switch.tmp_switch_tac_body in
+  merge_basic_block_map blocks body_block, final_label
+        
+and _of_switch_case ~is_last ~wildcard_label ~enum_decl ~tag_atom ~start_label ~tag_map rprogram (sw_switch : tac_switch) = 
   match sw_switch.variants_to_match with
   | [] -> failwith "Masaka"
   | variants -> 

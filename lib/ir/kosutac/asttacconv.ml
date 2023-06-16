@@ -45,9 +45,9 @@ let cmp_variable () =
   let () = incr cmp_variable_counter in
   Printf.sprintf "@cmp.%u" n
 
-let fake_label () =
+let fake_label ?(inc = true) () =
   let n = !fake_label_counter in
-  let () = fake_label_counter := n + 1 in
+  let () = if inc then fake_label_counter := n + 1 in
   Printf.sprintf "Lfake_label.%u" n
 
 
@@ -304,7 +304,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       in
       ( SCases { cases; exit_label = end_label; else_tac_body } :: [],
         make_typed_tac_expression id_rktype (TEIdentifier identifier) )
-  | RESwitch { rexpression; cases; wildcard_case }, Some (identifier, id_rktype) when false -> 
+  | RESwitch { rexpression; cases; wildcard_case }, Some (identifier, id_rktype) when true -> 
     let enum_decl =
       match
         KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
@@ -339,21 +339,55 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
     in
     let tag_atom, tag_set_statement = tag_statements enum_tte_expr in
 
+    let tmp_wildcard_label =
+      wildcard_case
+      |> Option.map (fun _ ->
+             make_switch_wild_label ~switch_count:incremented)
+    in
+    let tmp_wildcard_body =
+      wildcard_case
+      |> Option.map (fun wild_body ->
+             let label_name =
+               make_switch_wild_label ~switch_count:incremented
+             in
+             convert_from_rkbody ~discarded_value ~previous_alloc:allocated
+               ~cases_count ~switch_count ~label_name ~map ~count_var
+               ~if_count ~rprogram wild_body)
+    in
+
+    let cases_length = List.length cases in
     let tmp_switch_list = cases |> List.mapi (fun i (variants, bounds, kbody) -> 
+      let variants_count = List.length variants in
+      let is_last_switch_branch = cases_length - 1 = i in
+
       let sw_goto = fn_local_switch_label i in
       let variants_to_match =
         variants 
         |> List.map RSwitch_Case.variant
-        |> List.map (fun variant -> 
-          let variant_label = fake_label () in
+        |> List.mapi (fun index variant -> 
+          let variant_label = fake_label ~inc:false () in
+          let next_variant_label = fake_label () in
+          let is_last_or_variant = variants_count - 1 = index in
+          let is_absolute_last = is_last_or_variant && is_last_switch_branch in
+          let variant_next_label = 
+            if not is_absolute_last then Some next_variant_label
+            else tmp_wildcard_label 
+          in
+          
           let variant_index = tag_of_variant variant enum_decl in
-          let _, cmp_stmt = cmp_statement tag_atom variant_index in
+          let cmp_atom, cmp_stmt = cmp_statement tag_atom variant_index in
           {
             variant_label;
             variant_index;
+            variant_next_label;
             cmp_statement = cmp_stmt;
+            cmp_atom
           }
         )
+      in
+      let tmp_sw_false = 
+        if is_last_switch_branch then tmp_wildcard_label 
+        else Option.some @@ fake_label ~inc:false () 
       in
       let () =
       bounds
@@ -377,25 +411,11 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
         variants = variants_to_match;
         tmp_assoc_bound = assoc_bound;
         tmp_sw_goto = sw_goto;
+        tmp_sw_false;
         tmp_sw_exit_label = sw_exit_label;
         tmp_switch_tac_body = switch_tac_body
       }
     ) in
-    let tmp_wildcard_label =
-      wildcard_case
-      |> Option.map (fun _ ->
-             make_switch_wild_label ~switch_count:incremented)
-    in
-    let tmp_wildcard_body =
-      wildcard_case
-      |> Option.map (fun wild_body ->
-             let label_name =
-               make_switch_wild_label ~switch_count:incremented
-             in
-             convert_from_rkbody ~discarded_value ~previous_alloc:allocated
-               ~cases_count ~switch_count ~label_name ~map ~count_var
-               ~if_count ~rprogram wild_body)
-    in
     let expr =  make_typed_tac_expression id_rktype (TEIdentifier identifier) in
     let switch = STSwitchTmp {
       tmp_statemenets_for_case = forward_push @ tmp_statemenets_for_case @ [tag_set_statement];
