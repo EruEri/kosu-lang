@@ -326,7 +326,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
           let tag_atom, tag_stmt = tag_statements condition_switch in
           begin match sw_cases with
           | [] -> failwith ""
-          | sw_case::q -> begin 
+          | sw_case::sw_switch_remains -> begin 
             match sw_case.variants_to_match with
             | [] -> failwith "Impossible"
             | variant::else_variants -> 
@@ -352,12 +352,16 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
               sw_case with variants_to_match = else_variants
             }
             in
-            let basic_blocks, next_block_label = sw_case_without_first_match::q |> List.fold_left (fun (acc, block_next_label) sw_switch -> 
+            let branch_count = List.length sw_cases in
+            let basic_blocks, next_block_label = sw_case_without_first_match::sw_switch_remains |> List.mapi Util.couple |> List.fold_left (fun (acc, block_next_label) (index, sw_switch) -> 
+              let is_last = branch_count - 1 = index in
               let blocks, next_label = of_switch_case 
+              ~wildcard_label
               ~enum_decl 
               ~tag_atom 
               ~start_label:block_next_label 
               ~tag_map  
+              ~is_last
               rprogram
               sw_switch 
             in
@@ -387,9 +391,15 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             |> Option.value ~default:BasicBlockMap.empty
             in
 
+            let blocks_continuation =
+              of_tac_statements ~tag_map ~start_label:sw_exit_label ~end_labels
+                ~ending ~cfg_statements:[] rprogram (q, return)
+            in
+
             continuation
             |> merge_basic_block_map basic_blocks
             |> merge_basic_block_map wildcard_basic_block
+            |> merge_basic_block_map blocks_continuation
           
           end 
 
@@ -398,24 +408,35 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
           failwith "Unreachable code: Syntax force at least a branch"
       )
 
-and of_switch_case ~enum_decl ~tag_atom ~start_label ~tag_map rprogram (sw_switch : tac_switch) = 
+and of_switch_case ~is_last ~wildcard_label ~enum_decl ~tag_atom ~start_label ~tag_map rprogram (sw_switch : tac_switch) = 
   match sw_switch.variants_to_match with
   | [] -> failwith "Masaka"
-  | variants ->             
-    let other_variants, next_block_label = variants |> List.fold_left (fun (acc, block_start_label) variant -> 
+  | variants -> 
+    let variants_count = List.length variants in            
+    let other_variants, next_block_label = variants |> List.mapi Util.couple |> List.fold_left (fun (acc, block_start_label) (index, variant) -> 
       let block_next_label = fake_label () in
       let variant_tag = tag_of_variant variant enum_decl in
       let cmp_atom, cmp_stmt = cmp_statement tag_atom variant_tag in
+      let is_local_last = index = variants_count - 1 in
+
+      let else_label = 
+        let is_full_last = is_last && is_local_last in
+        (* let () = Printf.printf "is last = %b\n%!" is_full_last in *)
+        if is_full_last then 
+          match wildcard_label with
+          | Some label -> Some label
+          | None -> None
+      else Some block_next_label
+      in
+      let ending = else_label |> Option.map (fun label -> {condition = cmp_atom; if_label = sw_switch.sw_goto; else_label = label}) in
+      let end_labels = match else_label with 
+        | Some label -> sw_switch.sw_goto::label::[] 
+        | None -> sw_switch.sw_goto::[]
+      in
       let block = of_tac_statements ~tag_map 
         ~start_label:block_start_label 
-        ~end_labels:[sw_switch.sw_goto; block_next_label] 
-        ~ending:(
-          Some {
-            condition = cmp_atom;
-            if_label = sw_switch.sw_goto;
-            else_label = block_next_label
-          }
-        )
+        ~end_labels:end_labels
+        ~ending
         ~cfg_statements:[]
         rprogram
         ([cmp_stmt], None)
