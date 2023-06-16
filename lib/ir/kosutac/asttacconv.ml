@@ -46,8 +46,14 @@ let cmp_variable () =
   Printf.sprintf "@cmp.%u" n
 
 let fake_label ?(inc = true) () =
-  let n = !fake_label_counter in
-  let () = if inc then fake_label_counter := n + 1 in
+  let n = if inc 
+    then 
+      let n = !fake_label_counter in
+      let () = if inc then fake_label_counter := n + 1 in
+      !fake_label_counter
+    else 
+      !fake_label_counter
+  in
   Printf.sprintf "Lfake_label.%u" n
 
 
@@ -366,12 +372,13 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
         |> List.map RSwitch_Case.variant
         |> List.mapi (fun index variant -> 
           let variant_label = fake_label ~inc:false () in
+          (* let () = Printf.printf "fl = %s\n%!" variant_label in *)
           let next_variant_label = fake_label () in
           let is_last_or_variant = variants_count - 1 = index in
           let is_absolute_last = is_last_or_variant && is_last_switch_branch in
           let variant_next_label = 
             if not is_absolute_last then Some next_variant_label
-            else tmp_wildcard_label 
+            else tmp_wildcard_label |> Option.map (fun _ -> next_variant_label) 
           in
           
           let variant_index = tag_of_variant variant enum_decl in
@@ -385,9 +392,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           }
         )
       in
-      let tmp_sw_false = 
-        if is_last_switch_branch then tmp_wildcard_label 
-        else Option.some @@ fake_label ~inc:false () 
+      let tmp_sw_false = Option.some @@ fake_label ~inc:false () 
       in
       let () =
       bounds

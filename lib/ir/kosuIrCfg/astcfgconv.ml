@@ -421,7 +421,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             in
             let new_sw = { sw with variants = remains_variant} in
             let remains = new_sw::remains in
-            sw.tmp_sw_goto, sw.tmp_sw_false, first_variant.cmp_statement, first_variant.cmp_atom, remains
+            sw.tmp_sw_goto, (List.hd sw.variants).variant_next_label, first_variant.cmp_statement, first_variant.cmp_atom, remains
           in
           let local_endlabel = 
             match first_goto_false with

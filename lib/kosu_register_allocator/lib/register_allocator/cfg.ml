@@ -291,6 +291,7 @@ module Make (CfgS : CfgS) :
       }
 
     let fetch_basic_block_from_label label_name bbset =
+      (* let () = print_endline label_name in *)
       bbset |> BasicBlockMap.find label_name
 
     let identifier_of_stmt = function
