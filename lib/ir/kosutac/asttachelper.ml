@@ -348,6 +348,14 @@ module StringLitteral = struct
     |> List.of_seq |> String.concat "\n\t"
 end
 
+module LocaleVariable = struct
+  let variable_of_tac_locale_variable =
+    fun { locale_ty; locale } ->
+      match locale with
+      | Locale s -> (s, locale_ty)
+      | Enum_Assoc_id { name; _ } -> (name, locale_ty)
+end
+
 module FloatLitteral = struct
   let make_float_litteral_label count =
     let lab =

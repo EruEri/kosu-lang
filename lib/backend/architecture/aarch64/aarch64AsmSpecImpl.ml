@@ -28,9 +28,9 @@ module MacOSAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
 
   include MacosNamingConvention
 
-  type address_load_style = MacOS | Other
+  let adrp_style = Aarch64AsmSpec.MacOS
 
-  let adrp_style : address_load_style = MacOS
+  let variadic_style =  Aarch64AsmSpec.AbiDarwin
 
   let function_directives fn_name =
     [ sprintf ".globl %s" fn_name; ".p2align 4" ]
@@ -74,9 +74,9 @@ module FreeBSDAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
 
   include FreeBSDNamingConvention
 
-  type address_load_style = MacOS | Other
+  let adrp_style = Aarch64AsmSpec.Other
 
-  let adrp_style : address_load_style = Other
+  let variadic_style = Aarch64AsmSpec.AbiDarwin
 
   let function_directives fn_name =
     [ sprintf ".globl %s" fn_name; ".p2align 4" ]

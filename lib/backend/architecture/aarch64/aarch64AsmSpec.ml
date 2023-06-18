@@ -15,12 +15,16 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module type Aarch64AsmSpecification = sig
-  type address_load_style = MacOS | Other
+type variadic_args_stye = AbiDarwin | AbiSysV
+type address_load_style = MacOS | Other
 
+module type Aarch64AsmSpecification = sig
+  
   val main : string
   val function_directives : string -> string list
   val adrp_style : address_load_style
+
+  val variadic_style : variadic_args_stye
 
   val constant_directives :
     string ->
