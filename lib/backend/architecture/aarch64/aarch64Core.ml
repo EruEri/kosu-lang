@@ -1029,7 +1029,7 @@ module FrameManager = struct
     in
     let stack_concat =
       if need_xr then
-        (indirect_return_var, indirect_return_type) :: stack_concat
+        (indirect_return_vt) :: stack_concat
       else stack_concat
     in
     let fake_tuple = List.map snd stack_concat in
@@ -1052,7 +1052,7 @@ module FrameManager = struct
              let x29_relative_address =
                locals_space |> Int64.neg |> Int64.add offset
              in
-             let adress =
+             let address =
                if x29_relative_address > -256L then
                  create_adress
                    ~offset:
@@ -1063,7 +1063,7 @@ module FrameManager = struct
                  create_adress ~offset:(Int64.add stack_future_call offset) sp
              in
              (* let () = Printf.printf "-> %s : %s == [x29, %Ld] \n" (fst st) (KosuIrTyped.Asttypprint.string_of_rktype @@ snd @@ st) (offset) in *)
-             IdVarMap.add st adress acc)
+             IdVarMap.add st address acc)
            IdVarMap.empty
     in
     let stack_args_rktype = List.map snd stack_parameters in

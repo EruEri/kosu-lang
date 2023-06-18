@@ -76,7 +76,7 @@ module FreeBSDAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
 
   let adrp_style = Aarch64AsmSpec.Other
 
-  let variadic_style = Aarch64AsmSpec.AbiDarwin
+  let variadic_style = Aarch64AsmSpec.AbiSysV
 
   let function_directives fn_name =
     [ sprintf ".globl %s" fn_name; ".p2align 4" ]

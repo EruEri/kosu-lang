@@ -86,15 +86,17 @@ match ttes with
                 end
     end 
 
-let rec consume_args ?novariadic_args ~fregs ~iregs ~fargs ~iargs ~stacks_args ~variadic_args
+let rec consume_args ~novariadic_args ~fregs ~iregs ~fargs ~iargs ~stacks_args ~variadic_args
     ~fpstyle ~i ttes =
   match ttes with
   | [] -> (List.rev iargs, List.rev fargs, List.rev stacks_args, List.rev variadic_args)
   | t :: q -> (
       let next_i = i + 1 in
       match novariadic_args with
-      | Some nvags when i > nvags ->
-          consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle
+      | Some nvags when i >= nvags ->
+          consume_args 
+          ~novariadic_args
+          ~fregs ~iregs ~fargs ~iargs ~fpstyle
             ~stacks_args ~variadic_args:(t :: variadic_args) ~i:next_i q
       | None | Some _ -> (
           match fpstyle t with
@@ -104,11 +106,15 @@ let rec consume_args ?novariadic_args ~fregs ~iregs ~fargs ~iargs ~stacks_args ~
                   let head_reg, remain_reg = pop_opt iregs in
                   match head_reg with
                   | None ->
-                      consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle
+                      consume_args 
+                      ~novariadic_args
+                      ~fregs ~iregs ~fargs ~iargs ~fpstyle
                         ~variadic_args
                         ~stacks_args:(t :: stacks_args) ~i:next_i q
                   | Some reg ->
-                      consume_args ~fregs ~iregs:remain_reg ~fargs
+                      consume_args 
+                      ~novariadic_args
+                      ~fregs ~iregs:remain_reg ~fargs
                         ~iargs:((t, simple_return reg) :: iargs)
                         ~variadic_args
                         ~stacks_args ~fpstyle ~i:next_i q)
@@ -116,11 +122,15 @@ let rec consume_args ?novariadic_args ~fregs ~iregs ~fargs ~iargs ~stacks_args ~
                   let head_reg, freg_remain = pop_opt fregs in
                   match head_reg with
                   | None ->
-                      consume_args ~fregs ~iregs ~fargs ~iargs
+                      consume_args 
+                      ~novariadic_args
+                      ~fregs ~iregs ~fargs ~iargs
                       ~variadic_args
                         ~stacks_args:(t :: stacks_args) ~fpstyle ~i:next_i q
                   | Some reg ->
-                      consume_args ~fregs:freg_remain ~iregs
+                      consume_args 
+                      ~novariadic_args
+                      ~fregs:freg_remain ~iregs
                         ~fargs:((t, simple_return reg) :: fargs)
                         ~variadic_args
                         ~iargs ~stacks_args ~fpstyle ~i:next_i q))
@@ -129,28 +139,36 @@ let rec consume_args ?novariadic_args ~fregs ~iregs ~fargs ~iargs ~stacks_args ~
               | Float, Float -> (
                   match fregs with
                   | [] | _ :: [] ->
-                      consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle
+                      consume_args 
+                      ~novariadic_args
+                      ~fregs ~iregs ~fargs ~iargs ~fpstyle
                       ~variadic_args
                         ~stacks_args:(t :: stacks_args) ~i:next_i q
                   | fr1 :: fr2 :: remains ->
                       let arg = (t, double_return fr1 fr2) in
-                      consume_args ~fregs:remains ~iregs ~fargs:(arg :: fargs)
+                      consume_args 
+                      ~novariadic_args
+                      ~fregs:remains ~iregs ~fargs:(arg :: fargs)
                       ~variadic_args
                         ~iargs ~fpstyle ~stacks_args:(t :: stacks_args)
                         ~i:next_i q)
               | _ -> (
                   match fregs with
                   | [] | _ :: [] ->
-                      consume_args ~fregs ~iregs ~fargs ~iargs ~fpstyle
+                      consume_args 
+                      ~novariadic_args
+                      ~fregs ~iregs ~fargs ~iargs ~fpstyle
                       ~variadic_args
                         ~stacks_args:(t :: stacks_args) ~i:next_i q
                   | ir1 :: ir2 :: remains ->
                       let arg = (t, double_return ir1 ir2) in
-                      consume_args ~fregs ~iregs:remains ~fargs
+                      consume_args 
+                      ~novariadic_args
+                      ~fregs ~iregs:remains ~fargs
                         ~iargs:(arg :: iargs) ~fpstyle
                         ~variadic_args
                         ~stacks_args:(t :: stacks_args) ~i:next_i q))))
 
-let consume_args = consume_args ~fargs:[] ~iargs:[] ~stacks_args:[] ~variadic_args:[] ~i:0
+let consume_args ?novariadic_args = consume_args ~novariadic_args ~fargs:[] ~iargs:[] ~stacks_args:[] ~variadic_args:[] ~i:0
 
 let consume_args_sysv ~reversed_stack = consume_args_sysv ~reversed_stack ~fargs:[] ~iargs:[] ~stacks_args:[] 

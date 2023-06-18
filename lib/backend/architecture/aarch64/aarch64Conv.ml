@@ -376,7 +376,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                 | false -> None
                 | true -> Option.some @@ List.length external_func_decl.fn_parameters
               in 
-              consume_args 
+              consume_args
               ?novariadic_args
               ~fregs:Register.float_arguments_register
               ~iregs:Register.argument_registers
@@ -413,12 +413,12 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             let total_size = stack_args_ktype_list |> KosuIrTyped.Asttyhelper.RType.rtuple |> KosuIrTyped.Sizeof.sizeof rprogram in
             let set_on_stack_instructions =
               stack_args
-              |> List.mapi (fun index  tte ->
+              |> List.mapi (fun index tte ->
                      let last_reg, instructions =
                        translate_tac_expression ~litterals rprogram fd tte
                      in
                      let offset = KosuIrTyped.Sizeof.offset_of_tuple_index index stack_args_ktype_list rprogram in
-                     let () = Printf.printf "offset %Lu\n%!" offset in
+                     (* let () = Printf.printf "offset %Lu\n%!" offset in *)
                      let address =
                        create_adress ~offset:offset sp
                      in
@@ -429,21 +429,22 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             in
 
             let variadic_sp_offset = KosuIrTyped.Sizeof.align_16 total_size in
-            let _variadic_args_ktype_list = List.map (fun tte -> tte.expr_rktype) stack_args in 
+            let _ = List.map (fun tte -> tte.expr_rktype) variadic_args in 
             let set_on_variadic_instructions =
               variadic_args
-              |> List.mapi (fun index tte ->
-                     let last_reg_r9, instructions =
+              |> List.mapi Util.couple
+              |> List.fold_left (fun (instructions, acc_offset) (_, tte) ->
+                     let last_reg_r9, ldr_instructions =
                        translate_tac_expression ~litterals ~target_reg:(Register.w9) rprogram
                          fd tte
                      in
-                     let offset = KosuIrTyped.Sizeof.align_8 @@ Int64.add variadic_sp_offset @@ KosuIrTyped.Sizeof.offset_of_tuple_index index stack_args_ktype_list rprogram in
-                     let promote_instruction = promote_float last_reg_r9 in
-                     let address = create_adress ~offset sp in
-                    let set_instructions = copy_from_reg last_reg_r9 address tte.expr_rktype rprogram in
-                     instructions @ promote_instruction @ set_instructions
-                     )
-              |> List.flatten
+                     (* let () = Printf.printf "offset %u\n%!" @@ List.length tindex in *)
+                      let promote_instruction = promote_float last_reg_r9 in
+                      let address = create_adress ~offset:acc_offset sp in
+                      let set_instructions = copy_from_reg (last_reg_r9) address tte.expr_rktype rprogram in
+                      let next_offset = KosuIrTyped.Sizeof.(align_8 @@ Int64.add acc_offset @@ sizeof rprogram tte.expr_rktype) in
+                      (instructions @ ldr_instructions @ promote_instruction @ set_instructions), next_offset
+                     ) ([], variadic_sp_offset) |> fst 
             in
             let call_instructions =
               FrameManager.call_instruction ~origin:fn_label
@@ -1848,7 +1849,14 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                        function_decl.tac_body
                    in
                    let epilogue = FrameManager.function_epilogue fd in
-
+                   (* let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
+                      let () = fd.stack_map |> IdVarMap.to_seq |> Seq.iter (fun ((s, kt), adr) ->
+                        Printf.printf "%s : %s == [%s, %s]\n%!"
+                        (s)
+                        (KosuIrTyped.Asttypprint.string_of_rktype kt)
+                        (Pp.string_of_register adr.base)
+                        (Pp.string_of_address_offset adr.offset)
+                        ) in *)
                    Some
                      (Afunction
                         {
