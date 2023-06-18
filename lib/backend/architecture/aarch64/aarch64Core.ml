@@ -909,6 +909,7 @@ module FrameManager = struct
     locals_space : int64;
     need_xr : bool;
     stack_map : address IdVarMap.t;
+    variadic_style: Aarch64AsmSpec.variadic_args_stye;
     discarded_values : (string * KosuIrTyped.Asttyped.rktype) list;
   }
 
@@ -943,30 +944,50 @@ module FrameManager = struct
          |> is_register_size |> not
        in
        failwith "" *)
-
   let stack_args_passed_in_function ~variadic_style rprogram (fn_info_calls: KosuIrTyped.Asttyped.function_call_infos) = 
     let open KosuIrTyped.Asttyped in
-    fn_info_calls |> List.fold_left (fun acc {varia_index; parameters; return_type = _} -> 
-      let novariadic_args = 
-        match variadic_style with
-        | Aarch64AsmSpec.AbiDarwin -> varia_index
-        | AbiSysV -> None
+    let open Util.Args in
+     fn_info_calls |> List.fold_left (fun acc {varia_index; parameters; return_type = _} -> 
+      let fpstyle = fun kt -> 
+        if KosuIrTyped.Asttyhelper.RType.is_float kt then Simple_Reg Float
+        else Simple_Reg Other
+      
       in
-      let _, _, stack_parameters = 
-        Util.Args.consume_args 
-        ?novariadic_args
-        ~fregs:Register.float_arguments_register
-        ~iregs:Register.argument_registers
-        ~fpstyle:(fun kt -> 
-          if KosuIrTyped.Asttyhelper.RType.is_float kt then Simple_Reg Float
-          else Simple_Reg Other
-        )
-        parameters
+      let _, _, stack_args, variadic_args = 
+        match variadic_style with
+        | Aarch64AsmSpec.AbiDarwin ->         
+          consume_args 
+          ?novariadic_args:varia_index
+          ~fregs:Register.float_arguments_register
+          ~iregs:Register.argument_registers
+          ~fpstyle
+          parameters
+        | AbiSysV -> 
+          let a, b, stack_args = Util.Args.consume_args_sysv 
+          ~reversed_stack:true 
+          ~fregs:Register.float_arguments_register
+          ~iregs:Register.argument_registers
+          ~fpstyle
+          parameters
         in
-        stack_parameters 
+        a, b, stack_args, []
+
+      in
+        let stack_args_size =
+          stack_args
         |> KosuIrTyped.Asttyhelper.RType.rtuple
         |> KosuIrTyped.Sizeof.sizeof rprogram
-        |> max acc
+        in
+
+        let variadic_size = 
+          variadic_args
+          |> List.map (fun kt -> 
+            KosuIrTyped.(Sizeof.align_8 @@ KosuIrTyped.Sizeof.sizeof rprogram kt)
+          )
+          |> List.fold_left Int64.add 0L
+        in
+
+        max (Int64.add stack_args_size variadic_size) acc
     ) 0L
 
 
@@ -974,8 +995,9 @@ module FrameManager = struct
   let frame_descriptor ~variadic_style (function_decl : KosuIrTAC.Asttac.tac_function_decl) rprogram =
     let open KosuIrTAC.Asttac in
     let open Util.Args in
+    (* Since kosu function arent variadic, we can use sysV abi *)
     let iparas, fparams, stack_parameters =
-    Util.Args.consume_args ~fregs:Register.float_arguments_register
+    Util.Args.consume_args_sysv ~reversed_stack:(match variadic_style with Aarch64AsmSpec.AbiSysV -> true | AbiDarwin -> false) ~fregs:Register.float_arguments_register
       ~iregs:Register.argument_registers
       ~fpstyle:KosuCommon.Function.kosu_passing_style
       function_decl.rparameters
@@ -1017,6 +1039,8 @@ module FrameManager = struct
       |> KosuIrTyped.Sizeof.sizeof rprogram
     in
     let stack_future_call = stack_args_passed_in_function ~variadic_style rprogram function_decl.fn_call_infos in
+
+    (* let () = Printf.printf "fn_name = %s, stack call = %Lu%!" function_decl.rfn_name stack_future_call in *)
     let locals_space = Int64.add locals_space stack_future_call in
     (* let () = Printf.printf "Locale space = %Lu\n" locals_space in *)
     let map =
@@ -1045,7 +1069,7 @@ module FrameManager = struct
     let stack_args_rktype = List.map snd stack_parameters in
     let stack_x29_offset = 16L in
     let map = 
-      stack_concat 
+      stack_parameters 
       |> List.mapi Util.couple
       |> List.fold_left ( fun acc (index, st) -> 
         let offset = offset_of_tuple_index index stack_args_rktype rprogram in
@@ -1059,6 +1083,7 @@ module FrameManager = struct
       locals_space;
       stack_map = map;
       discarded_values = function_decl.discarded_values;
+      variadic_style;
       need_xr;
     }
 
@@ -1187,7 +1212,8 @@ module FrameManager = struct
       else []
     in
     let iparas, fparams, _ =
-    Util.Args.consume_args ~fregs:Register.float_arguments_register
+    Util.Args.consume_args_sysv ~reversed_stack:(match fd.variadic_style with Aarch64AsmSpec.AbiSysV -> true | AbiDarwin -> false) 
+       ~fregs:Register.float_arguments_register
       ~iregs:Register.argument_registers
       ~fpstyle:KosuCommon.Function.kosu_passing_style
       tac_function.rparameters
@@ -1258,7 +1284,7 @@ module FrameManager = struct
 
     base @ [ stack_add; return ]
 
-  let call_instruction ~origin _stack_param (_fd : frame_desc) =
+  let call_instruction ~origin =
     let call = Instruction (BL { cc = None; label = origin }) in
     [ call ]
 end

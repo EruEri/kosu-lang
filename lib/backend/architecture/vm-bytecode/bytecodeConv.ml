@@ -150,7 +150,7 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
 
       match fn_decl with
       | RSyscall_Decl syscall_decl ->
-          let iparams, _, _ =
+          let iparams, _, _, _ =
             Args.consume_args ~fregs:Register.float_argument_registers
               ~iregs:Register.syscall_register
               ~fpstyle:(fun { expr_rktype; _ } ->
@@ -193,7 +193,7 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
           let fn_label =
             NamingConvention.label_of_kosu_function ~module_path function_decl
           in
-          let iparams, fparams, _stack_params =
+          let iparams, fparams, _stack_params, _ =
             Args.consume_args ~fregs:Register.float_argument_registers
               ~iregs:Register.non_float_argument_registers
               ~fpstyle:(fun { expr_rktype; _ } ->

@@ -564,8 +564,9 @@ module FrameManager = struct
       (function_decl : KosuIrTAC.Asttac.tac_function_decl) =
     let open KosuIrTAC.Asttac in
     let open Util.Args in
-    let iparas, fparams, _stack_parameters =
-      Util.Args.consume_args ~fregs:Register.float_argument_registers
+    let iparas, fparams, _stack_parameters, _ =
+      Util.Args.consume_args
+        ~fregs:Register.float_argument_registers
         ~iregs:Register.non_float_argument_registers
         ~fpstyle:(fun (_, kt) ->
           if KosuIrTyped.Asttyhelper.RType.is_float kt then Simple_Reg Float
@@ -681,7 +682,7 @@ module FrameManager = struct
       @@ Operande.ilitteral variable_frame
     in
 
-    let iparas, fparams, _stack_parameters =
+    let iparas, fparams, _stack_parameters, _ =
       Util.Args.consume_args ~fregs:Register.float_argument_registers
         ~iregs:Register.non_float_argument_registers
         ~fpstyle:(fun (_, kt) ->
