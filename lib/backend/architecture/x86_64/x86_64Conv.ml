@@ -481,76 +481,67 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           @@ KosuIrTyped.Asttyhelper.RProgram.find_function_decl_of_name
                fn_module fn_name rprogram
         in
-        let need_pass_rdi =
-          rval_rktype |> sizeofn rprogram |> is_register_size |> not
-        in
-        let available_register_params =
-          if need_pass_rdi then List.tl Register.argument_registers
-          else Register.argument_registers
-        in
-        let available_register_count = List.length available_register_params in
         match fn_decl with
         | RExternal_Decl external_func_decl ->
             let fn_label = Spec.label_of_external_function external_func_decl in
 
-            let float_parameters, other_parametrs =
+            let arguments_registers = passing_register_kt rval_rktype in
+            let iparas, fparams, stack_parameters =
+            Util.Args.consume_args_sysv ~reversed_stack:true ~fregs:Register.float_arguments_register
+              ~iregs:arguments_registers
+              ~fpstyle:KosuCommon.Function.kosu_passing_style_tte
               tac_parameters
-              |> List.partition (fun tte ->
-                     KosuIrTyped.Asttyhelper.RType.is_float tte.expr_rktype)
-            in
+          in
 
-            let args_in_reg, _args_on_stack =
-              other_parametrs
-              |> List.mapi (fun index value -> (index, value))
-              |> List.partition_map (fun (index, value) ->
-                     if index < available_register_count then Either.left value
-                     else Either.right value)
-            in
-            let set_in_reg_instructions =
-              args_in_reg
-              |> Util.ListHelper.combine_safe available_register_params
-              |> List.fold_left
-                   (fun acc (reg, tte) ->
-                     let reg = iregister reg in
-                     let _last_reg, instructions =
-                       translate_tac_expression ~litterals
-                         ~target_dst:(`Register reg) rprogram fd tte
-                     in
-                     acc @ instructions)
-                   []
-            in
 
-            let float_instructions =
-              float_parameters
-              |> Util.ListHelper.combine_safe float_arguments_register
-              |> List.fold_left
-                   (fun acc (reg, tte) ->
-                     let _, instructions =
-                       translate_tac_expression ~litterals
-                         ~target_dst:(`Register reg) rprogram fd tte
-                     in
-                     let promote_float_instrcution =
-                       if
-                         external_func_decl.is_variadic
-                         && KosuIrTyped.Asttyhelper.RType.is_32bits_float
-                              tte.expr_rktype
-                       then
-                         Instruction
-                           (Cvts2s
-                              {
-                                source_size = fss;
-                                dst_size = fsd;
-                                source = `Register reg;
-                                destination = `Register reg;
-                              })
-                         :: []
-                       else []
-                     in
-                     acc @ instructions @ promote_float_instrcution)
-                   []
-            in
+          let reg_instructions = 
+            iparas @ fparams
+            |> List.map (fun (variable, return_kind) ->
+              let (tte, reg) = match return_kind with
+              | Util.Args.Simple_return reg -> (variable, reg)
+              | Double_return _ -> failwith "Unreachable" in
+              let tte_instructions = snd @@ translate_tac_expression ~litterals ~target_dst:(`Register reg) rprogram fd tte in
+              let promote_float_instruction =
+                if
+                  external_func_decl.is_variadic
+                  && KosuIrTyped.Asttyhelper.RType.is_32bits_float
+                       tte.expr_rktype
+                then
+                  Instruction
+                    (Cvts2s
+                       {
+                         source_size = fss;
+                         dst_size = fsd;
+                         source = `Register reg;
+                         destination = `Register reg;
+                       })
+                  :: []
+                else [] in
+                tte_instructions @ promote_float_instruction
+            )
+            |> List.flatten
+          in
 
-            let set_on_stack_instructions = [] (* TODO *) in
+          let stack_args_ktype_list = List.map (fun tte -> tte.expr_rktype) stack_parameters in 
+          (* let total_size = stack_args_ktype_list |> KosuIrTyped.Asttyhelper.RType.rtuple |> KosuIrTyped.Sizeof.sizeof rprogram in *)
+          let set_on_stack_instructions =
+            stack_parameters
+            |> List.mapi (fun index tte ->
+                   let last_reg, instructions =
+                     translate_tac_expression ~litterals ~target_dst:(`Register Register.r10) rprogram fd tte
+                   in
+                   let offset = KosuIrTyped.Sizeof.offset_of_tuple_index index stack_args_ktype_list rprogram in
+                   (* let () = Printf.printf "offset %Lu\n%!" offset in *)
+                   let address =
+                     create_address_offset ~offset:offset rsp
+                   in
+                   (* Maybe promote float if is call in variadic function *)
+                   let set_instructions = copy_from_reg (register_of_dst last_reg) address tte.expr_rktype rprogram in
+                   instructions @ set_instructions
+              )
+            |> List.flatten
+          in
+
             let count_float_parameters =
               tac_parameters
               |> List.fold_left
@@ -591,15 +582,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                       ~return_reg ~return_type:external_func_decl.return_type
                       rprogram
                   in
-                  set_in_reg_instructions @ float_instructions
+                  reg_instructions
                   @ set_on_stack_instructions @ variadic_float_use_instruction
                   @ call_instructions @ copy_instruction
               | None ->
                   let set_indirect_return_instruction =
                     return_function_instruction_none_reg_size ~where ~is_deref
                   in
-                  set_in_reg_instructions @ set_on_stack_instructions
-                  @ set_indirect_return_instruction @ float_instructions
+                  reg_instructions @ set_on_stack_instructions
+                  @ set_indirect_return_instruction
                   @ call_instructions
             in
             extern_instructions
@@ -668,50 +659,45 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
               Spec.label_of_kosu_function ~module_path function_decl
             in
 
-            let float_parameters, other_parametrs =
+            let arguments_registers = passing_register_kt rval_rktype in
+            let iparas, fparams, stack_parameters =
+            Util.Args.consume_args_sysv ~reversed_stack:true ~fregs:Register.float_arguments_register
+              ~iregs:arguments_registers
+              ~fpstyle:KosuCommon.Function.kosu_passing_style_tte
               tac_parameters
-              |> List.partition (fun tte ->
-                     KosuIrTyped.Asttyhelper.RType.is_float tte.expr_rktype)
-            in
-            (* let is_reg_size = rval_rktype |> sizeofn rprogram |> is_register_size in *)
-            let int_args_in_reg, _int_args_on_stack =
-              other_parametrs
-              |> List.mapi (fun index value -> (index, value))
-              |> List.partition_map (fun (index, value) ->
-                     if index < available_register_count then Either.left value
-                     else Either.right value)
-            in
-            let set_in_reg_instructions =
-              int_args_in_reg
-              |> Util.ListHelper.combine_safe available_register_params
-              |> List.fold_left
-                   (fun acc (reg, tte) ->
-                     let reg = iregister reg in
-                     let _last_reg, instructions =
-                       translate_tac_expression ~litterals
-                         ~target_dst:(`Register reg) rprogram fd tte
-                     in
-                     acc @ instructions)
-                   []
-            in
+          in
 
-            let float_instruction =
-              float_parameters
-              |> Util.ListHelper.combine_safe float_arguments_register
-              |> List.fold_left
-                   (fun acc (reg, tte) ->
-                     let _, instructions =
-                       translate_tac_expression ~litterals
-                         ~target_dst:(`Register reg) rprogram fd tte
-                     in
-                     acc @ instructions)
-                   []
-            in
-            (* let set_in_reg_instructions = if need_pass_rdi then
-                   (Instruction (Lea {size = Q; source = Option.get where; destination = rdiq}))::set_in_reg_instructions
-                 else set_in_reg_instructions
-               in *)
-            let set_on_stack_instructions = [] (* TODO *) in
+
+          let reg_instructions = 
+            iparas @ fparams
+            |> List.map (fun (variable, return_kind) ->
+              let (tte, reg) = match return_kind with
+              | Util.Args.Simple_return reg -> (variable, reg)
+              | Double_return _ -> failwith "Unreachable" in
+              snd @@ translate_tac_expression ~litterals ~target_dst:(`Register reg) rprogram fd tte
+            )
+            |> List.flatten
+          in
+
+          let stack_args_ktype_list = List.map (fun tte -> tte.expr_rktype) stack_parameters in 
+          (* let total_size = stack_args_ktype_list |> KosuIrTyped.Asttyhelper.RType.rtuple |> KosuIrTyped.Sizeof.sizeof rprogram in *)
+          let set_on_stack_instructions =
+            stack_parameters
+            |> List.mapi (fun index tte ->
+                   let last_reg, instructions =
+                     translate_tac_expression ~litterals ~target_dst:(`Register Register.r10) rprogram fd tte
+                   in
+                   let offset = KosuIrTyped.Sizeof.offset_of_tuple_index index stack_args_ktype_list rprogram in
+                   (* let () = Printf.printf "offset %Lu\n%!" offset in *)
+                   let address =
+                     create_address_offset ~offset:offset rsp
+                   in
+                   (* Maybe promote float if is call in variadic function *)
+                   let set_instructions = copy_from_reg (register_of_dst last_reg) address tte.expr_rktype rprogram in
+                   instructions @ set_instructions
+              )
+            |> List.flatten
+          in
             let call_instructions =
               FrameManager.call_instruction ~origin:(`Label fn_label) [] fd
             in
@@ -728,15 +714,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                       ~return_reg ~return_type:function_decl.return_type
                       rprogram
                   in
-                  set_in_reg_instructions @ set_on_stack_instructions
-                  @ float_instruction @ call_instructions @ copy_instruction
+                  reg_instructions @ set_on_stack_instructions
+                   @ call_instructions @ copy_instruction
               | None ->
                   let set_indirect_return_instructions =
                     return_function_instruction_none_reg_size ~where ~is_deref
                   in
 
-                  set_in_reg_instructions @ set_on_stack_instructions
-                  @ float_instruction @ set_indirect_return_instructions
+                  reg_instructions @ set_on_stack_instructions
+                  @ set_indirect_return_instructions
                   @ call_instructions
             in
             kosu_fn_instructions @ [ fn_call_comm ])
