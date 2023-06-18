@@ -1,6 +1,8 @@
 # Changelog
 
 ## **[Unreleased]**
+- Generate man page
+
 - Creation of changelog
 - Add built-in function ```tagof```
 
