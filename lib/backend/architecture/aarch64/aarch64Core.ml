@@ -877,15 +877,16 @@ module Instruction = struct
            else H)
     | _ -> None
 
-  let copy_from_reg register (adress : address) ktype rprogram =
+  let copy_from_reg ?(variadic = false) register (address : address) ktype rprogram =
     let size = KosuIrTyped.Sizeof.sizeof rprogram ktype in
     let is_reg_size = is_register_size size in
     match is_reg_size with
-    | false -> copy_large adress register size
+    | false -> copy_large address register size
     | true ->
+        let size = if variadic then  max size 8L else size in 
         let data_size = compute_data_size ktype size in
         let reg = resize_register (regsize_of_ktype size) register in
-        let strs = str_instr ~data_size ~source:reg adress in
+        let strs = str_instr ~data_size ~source:reg address in
         strs
 
   let load_register register (address : address) ktype ktype_size =

@@ -441,7 +441,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                      (* let () = Printf.printf "offset %u\n%!" @@ List.length tindex in *)
                       let promote_instruction = promote_float last_reg_r9 in
                       let address = create_adress ~offset:acc_offset sp in
-                      let set_instructions = copy_from_reg (last_reg_r9) address tte.expr_rktype rprogram in
+                      let set_instructions = copy_from_reg ~variadic:true last_reg_r9 address tte.expr_rktype rprogram in
                       let next_offset = KosuIrTyped.Sizeof.(align_8 @@ Int64.add acc_offset @@ sizeof rprogram tte.expr_rktype) in
                       (instructions @ ldr_instructions @ promote_instruction @ set_instructions), next_offset
                      ) ([], variadic_sp_offset) |> fst 
