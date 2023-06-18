@@ -1616,7 +1616,162 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
 
         cases_condition @ cases_body @ else_body_instruction
         @ [ end_label_instruction ]
-    | STSwitchTmp _ -> failwith ""
+    | STSwitchTmp 
+      {
+        tmp_statemenets_for_case;
+        enum_ktype;
+        tag_atom;
+        tmp_switch_list;
+        tmp_wildcard_label;
+        tmp_wildcard_body;
+        tmp_sw_exit_label
+      } -> 
+        let enum_decl =
+          match
+            KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
+              enum_ktype rprogram
+          with
+          | Some (RDecl_Struct _) ->
+              failwith "Expected to find an enum get an struct"
+          | Some (RDecl_Enum e) -> e
+          | None -> failwith "Non type decl ??? my validation is very weak"
+        in
+        let enum_decl =
+          let generics = enum_ktype
+            |> KosuIrTyped.Asttyhelper.RType.extract_parametrics_rktype
+            |> List.combine enum_decl.generics
+          in
+          KosuIrTyped.Asttyhelper.Renum.instanciate_enum_decl generics enum_decl
+        in
+        let exit_label_instruction = Label tmp_sw_exit_label in
+        let setup_instructions =
+          tmp_statemenets_for_case
+          |> List.fold_left
+               (fun acc_stmts value ->
+                 let insts =
+                   translate_tac_statement ~litterals current_module rprogram fd
+                     value
+                 in
+                 acc_stmts @ insts)
+               []
+        in
+        let reg_tag_11, mov_tag_register_instructions = 
+          translate_tac_expression ~litterals ~target_reg:(Register.w11) rprogram fd tag_atom
+        in
+        let tag_name =
+          match tag_atom.tac_expression with
+          | TEIdentifier id -> id
+          | _ -> failwith "I need to get the id"
+        in
+        let cmp_instrution_list, fn_block  = 
+          tmp_switch_list
+          |> List.map (fun switch -> 
+              let jump_condition = 
+                switch.variants |> List.map (fun variant -> 
+                  let compare_instruction = 
+                  instruction @@ CMP 
+                    {
+                      operand1 = reg_tag_11;
+                      operand2 = `ILitteral (Int64.of_int variant.variant_index)
+                    }
+                  in
+                  let assoc_type_for_variants =
+                    KosuIrTyped.Asttyhelper.Renum.assoc_types_of_variant_tag
+                      ~tagged:true variant.variant_index enum_decl
+                  in
+                  let fetch_offset_instructions = 
+                    switch.tmp_assoc_bound 
+                    |> List.map (fun (index, id, ktype) -> 
+                      let offset_a =
+                        offset_of_tuple_index (index + 1)
+                          assoc_type_for_variants rprogram
+                      in
+                      let switch_variable_address =
+                        Option.get @@ FrameManager.address_of
+                          ( tag_name, tag_atom.expr_rktype )
+                          fd
+                      in
+                      let destination_address =
+                        Option.get @@ FrameManager.address_of (id, ktype) fd
+                      in
+                      let size_of_ktype = sizeofn rprogram ktype in
+                      let data_size =
+                        compute_data_size ktype size_of_ktype
+                      in
+                      let copy_instructions =
+                        if is_register_size size_of_ktype then
+                          let resized_reg =
+                            resize_register
+                              (size_of_ktype_size size_of_ktype)
+                              x8
+                          in
+                          let ldr =
+                            ldr_instr ~data_size
+                              ~destination:resized_reg
+                              (increment_adress offset_a
+                                 switch_variable_address)
+                          in
+                          let str =
+                            str_instr ~data_size
+                              ~source:resized_reg
+                              destination_address
+                          in
+                          ldr @ str
+                        else
+                          let i =
+                            increment_adress offset_a
+                              switch_variable_address
+                          in
+                          Instruction
+                            (ADD
+                               {
+                                 destination = tmp64reg;
+                                 operand1 =
+                                   switch_variable_address.base;
+                                 operand2 = (i.offset :> src);
+                                 offset = false;
+                               })
+                          :: copy_from_reg tmp64reg
+                               destination_address ktype rprogram
+                      in
+                      copy_instructions
+                    )
+                    |> List.flatten
+                  in 
+                  let jump_true =
+                    Instruction
+                      (B { cc = Some EQ; label = switch.tmp_sw_goto })
+                  in
+                  fetch_offset_instructions @ [ compare_instruction; jump_true ]
+                )
+            |> List.flatten
+                in
+                let genete_block =
+                  translate_tac_body ~litterals
+                    ~end_label:(Some switch.tmp_sw_exit_label) current_module
+                    rprogram fd switch.tmp_switch_tac_body
+                in
+                (jump_condition, genete_block)
+          )
+          |> List.split
+          |> fun (lhs, rhs) -> (List.flatten lhs, List.flatten rhs)
+        in
+        let wildcard_case_jmp =
+          tmp_wildcard_label
+          |> Option.map (fun lab -> Instruction (B { cc = None; label = lab }))
+          |> Option.to_list
+        in
+        let wildcard_body_block =
+          tmp_wildcard_body
+          |> Option.map (fun body ->
+                 translate_tac_body ~litterals ~end_label:(Some tmp_sw_exit_label)
+                   current_module rprogram fd body)
+          |> Option.value ~default:[]
+        in
+
+        setup_instructions @ mov_tag_register_instructions
+        @ cmp_instrution_list @ wildcard_case_jmp
+        @ fn_block @ wildcard_body_block @ [ exit_label_instruction ]
 
   and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
       (fd : FrameManager.frame_desc) { label; body } =
@@ -1728,19 +1883,20 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                        ~fn_float_register_params ~stack_params:stack_param
                        rprogram fd
                    in
+                   (* let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
+                   let () = fd.stack_map |> IdVarMap.to_seq |> Seq.iter (fun ((s, kt), adr) ->
+                     Printf.printf "%s : %s == [%s, %s]\n%!"
+                     (s)
+                     (KosuIrTyped.Asttypprint.string_of_rktype kt)
+                     (Pp.string_of_register adr.base)
+                     (Pp.string_of_address_offset adr.offset)
+                     ) in *)
                    let conversion =
                      translate_tac_body ~litterals current_module rprogram fd
                        function_decl.tac_body
                    in
                    let epilogue = FrameManager.function_epilogue fd in
-                   (* let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
-                      let () = fd.stack_map |> IdVarMap.to_seq |> Seq.iter (fun ((s, kt), adr) ->
-                        Printf.printf "%s : %s == [%s, %Ld]\n"
-                        (s)
-                        (KosuIrTyped.Asttypprint.string_of_rktype kt)
-                        (Pp.string_of_register adr.base)
-                        (adr.offset)
-                        ) in *)
+
                    Some
                      (Afunction
                         {

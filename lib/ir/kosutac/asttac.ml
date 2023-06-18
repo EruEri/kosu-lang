@@ -211,6 +211,7 @@ and tac_statement =
     }
   | STSwitchTmp of {
     tmp_statemenets_for_case : tac_statement list;
+    enum_ktype: rktype;
     tag_atom: tac_typed_expression;
     tmp_switch_list: tac_switch_tmp list;
     tmp_wildcard_label : string option;

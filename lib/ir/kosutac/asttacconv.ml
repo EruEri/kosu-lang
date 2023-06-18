@@ -94,9 +94,21 @@ let enum_tag_type = KosuIrTyped.Asttyped.(RTInteger (Unsigned, I32))
 
 let tag_of_variant variant enum_decl = Int32.to_int @@ KosuIrTyped.Asttyhelper.Renum.tag_of_variant variant enum_decl
 
-let tag_statements enum_tac_expr = 
+let typed_locale_assoc ~name ~from ~assoc_index_bound ~rktype =
+  {
+    locale_ty = rktype;
+    locale = Enum_Assoc_id { name; from; assoc_index_bound };
+  }
+
+let typed_locale_locale id ~rktype = { locale_ty = rktype; locale = Locale id }
+
+let tag_statements ~map enum_tac_expr = 
   let tag = tag_variable () in
   let tag_atom = {expr_rktype = enum_tag_type; tac_expression = TEIdentifier tag} in
+  let () =
+    Hashtbl.add map tag
+      (typed_locale_locale tag ~rktype:enum_tag_type)
+  in
   tag_atom, STacDeclaration {
   identifier = tag;
   trvalue = {
@@ -110,12 +122,18 @@ let tag_statements enum_tac_expr =
 
 
 
-let cmp_statement atom tag_to_match = 
+let cmp_statement ~map atom tag_to_match = 
+  let () = ignore map in
   let cmp = cmp_variable () in
+  let expr_rktype = KosuIrTyped.Asttyped.RTBool in 
   let cmp_atom = {
-    expr_rktype = KosuIrTyped.Asttyped.RTBool; 
+    expr_rktype = expr_rktype; 
     tac_expression = TEIdentifier cmp
   } in
+  (* let () =
+    Hashtbl.add map cmp
+      (typed_locale_locale cmp ~rktype:expr_rktype)
+  in *)
   cmp_atom, STacDeclaration {
     identifier = cmp;
     trvalue = {
@@ -134,14 +152,6 @@ let cmp_statement atom tag_to_match =
       }
     }
   }
-
-let typed_locale_assoc ~name ~from ~assoc_index_bound ~rktype =
-  {
-    locale_ty = rktype;
-    locale = Enum_Assoc_id { name; from; assoc_index_bound };
-  }
-
-let typed_locale_locale id ~rktype = { locale_ty = rktype; locale = Locale id }
 
 let add_statements_to_tac_body stmts tac_body =
   let { label; body = future_stmts, future_result } = tac_body in
@@ -343,7 +353,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
         ~switch_count ~cases_count ~if_count ~count_var ~map ~rprogram
         rexpression
     in
-    let tag_atom, tag_set_statement = tag_statements enum_tte_expr in
+    let tag_atom, tag_set_statement = tag_statements ~map enum_tte_expr in
 
     let tmp_wildcard_label =
       wildcard_case
@@ -382,7 +392,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           in
           
           let variant_index = tag_of_variant variant enum_decl in
-          let cmp_atom, cmp_stmt = cmp_statement tag_atom variant_index in
+          let cmp_atom, cmp_stmt = cmp_statement ~map tag_atom variant_index in
           {
             variant_label;
             variant_index;
@@ -395,18 +405,13 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       let tmp_sw_false = Option.some @@ fake_label ~inc:false () 
       in
       let () =
-      bounds
-      |> List.iteri (fun _ (index, name, rktype) ->
-             Hashtbl.add map name
-               (typed_locale_assoc ~name ~from:tag_atom
-                  ~assoc_index_bound:index ~rktype))
-    in
-    let assoc_bound =
-      bounds
-      |> List.map (fun (index, id, rtype) ->
-             (id, (index, id, rtype)))
-      |> List.split |> snd
-    in
+        bounds
+        |> List.iteri (fun _ (index, name, rktype) ->
+              Hashtbl.add map name
+                (typed_locale_assoc ~name ~from:enum_tte_expr
+                    ~assoc_index_bound:index ~rktype))
+      in
+    let assoc_bound = bounds in
     let switch_tac_body =
       convert_from_rkbody ~discarded_value ~previous_alloc:allocated
         ~label_name:sw_goto ~rprogram ~map ~count_var ~if_count
@@ -421,9 +426,10 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
         tmp_switch_tac_body = switch_tac_body
       }
     ) in
-    let expr =  make_typed_tac_expression id_rktype (TEIdentifier identifier) in
+    let expr = make_typed_tac_expression id_rktype (TEIdentifier identifier) in
     let switch = STSwitchTmp {
       tmp_statemenets_for_case = forward_push @ tmp_statemenets_for_case @ [tag_set_statement];
+      enum_ktype = rexpression.rktype;
       tag_atom;
       tmp_switch_list = tmp_switch_list;
       tmp_wildcard_body;
@@ -921,7 +927,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
         "Compiler code Error: Cannot create branch without previous allocation"
 
 (**
-    convert a rkbofy to a tac body
+    convert a rkbody to a tac body
     This function mostly unfold most the nested expression (.ie if) to a more flat representation 
 *)
 and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
@@ -1157,7 +1163,10 @@ and is_in_declaration id = function
       |> Option.map (is_in_body id)
       |> Option.value ~default:false
     || tmp_switch_list |> List.exists (fun sw -> 
-      sw.variants |> List.exists (fun v -> is_in_declaration id v.cmp_statement)  
+        sw.tmp_assoc_bound |> List.exists (fun (_, n, _) -> n = id)
+        || sw.variants |> List.exists (fun v -> is_in_declaration id v.cmp_statement
+        || is_in_body id sw.tmp_switch_tac_body
+        )  
     )
 
   | SCases { cases; else_tac_body; _ } ->
@@ -1331,11 +1340,11 @@ let tac_function_decl_of_rfunction current_module rprogram
       ~function_return:true ~if_count rfunction_decl.rbody
   in
   let tac_body = reduce_variable_used_body tac_body in
-  let () =
+  (* let () =
     map
     |> Hashtbl.filter_map_inplace (fun key value ->
            if is_in_body key tac_body then Some value else None)
-  in
+  in *)
   let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
 
   (* let () = locale_var |> List.map ( fun {locale_ty; locale} ->
@@ -1440,10 +1449,11 @@ let rec tac_module_node_from_rmodule_node current_module ?(dump_ast = false)
   | RNConst s -> TNConst s
   | RNFunction f ->
       let tmp = tac_function_decl_of_rfunction current_module rprogram f in
-
+      (* let dump_ast = true || dump_ast in *)
       let () =
         if dump_ast then
-          Printf.eprintf "Locales = %s\nBody:\n%s\n"
+          Printf.eprintf "fname = %s\nLocales = %s\nBody:\n%s\n%!"
+            f.rfn_name
             (tmp.locale_var
             |> List.map Asttacpprint.string_of_typed_locale
             |> String.concat ", ")
