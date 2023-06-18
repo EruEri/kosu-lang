@@ -82,7 +82,7 @@ let typed_set_of_locales_vars locals_vars =
          | Enum_Assoc_id { name; _ } -> (name, locale_ty))
   |> Asttaccfg.KosuRegisterAllocatorImpl.TypedIdentifierSet.of_list
 
-let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
+let rec of_tac_statements ~start_label ~end_labels ~ending
     ~cfg_statements rprogram (stmts, return) =
   match stmts with
   | [] ->
@@ -109,7 +109,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             Asttaccfg.KosuRegisterAllocatorImpl.CFG_STacDeclaration
               { identifier; trvalue }
           in
-          of_tac_statements ~tag_map ~start_label ~end_labels ~ending
+          of_tac_statements ~start_label ~end_labels ~ending
             ~cfg_statements:(declaration :: cfg_statements)
             rprogram
             (q, return)
@@ -118,7 +118,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             Asttaccfg.KosuRegisterAllocatorImpl.CFG_STacModification
               { identifier; trvalue }
           in
-          of_tac_statements ~tag_map ~start_label ~end_labels ~ending rprogram
+          of_tac_statements ~start_label ~end_labels ~ending rprogram
             ~cfg_statements:(modification :: cfg_statements)
             (q, return)
       | STDerefAffectation { identifier; trvalue } ->
@@ -126,7 +126,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             Asttaccfg.KosuRegisterAllocatorImpl.CFG_STDerefAffectation
               { identifier; trvalue }
           in
-          of_tac_statements ~tag_map ~start_label ~end_labels ~ending rprogram
+          of_tac_statements ~start_label ~end_labels ~ending rprogram
             ~cfg_statements:(derefaffect :: cfg_statements)
             (q, return)
       | STDerefAffectationField _ -> failwith "STDerefAffectationField"
@@ -141,7 +141,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             exit_label;
           } ->
           let pre_jump =
-            of_tac_statements ~tag_map ~start_label:self_label
+            of_tac_statements ~start_label:self_label
               ~end_labels:[ exit_label; inner_body_label ]
               ~ending:
                 (Some
@@ -155,10 +155,10 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
               (statements_condition, None)
           in
           let loop_blocks =
-            of_tac_body ~tag_map ~end_labels:[ self_label ] rprogram loop_body
+            of_tac_body ~end_labels:[ self_label ] rprogram loop_body
           in
           let blocks_continuation =
-            of_tac_statements ~tag_map ~start_label:exit_label ~end_labels
+            of_tac_statements ~start_label:exit_label ~end_labels
               ~ending ~cfg_statements:[] rprogram (q, return)
           in
 
@@ -176,7 +176,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             exit_label;
           } ->
           let continuation =
-            of_tac_statements ~tag_map ~start_label ~end_labels:[ goto1; goto2 ]
+            of_tac_statements ~start_label ~end_labels:[ goto1; goto2 ]
               ~ending:
                 (Some
                    {
@@ -187,14 +187,14 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
               ~cfg_statements rprogram (statement_for_bool, None)
           in
           let if_blocks =
-            of_tac_body ~tag_map ~end_labels:[ exit_label ] rprogram if_tac_body
+            of_tac_body ~end_labels:[ exit_label ] rprogram if_tac_body
           in
           let else_blocks =
-            of_tac_body ~tag_map ~end_labels:[ exit_label ] rprogram else_tac_body
+            of_tac_body ~end_labels:[ exit_label ] rprogram else_tac_body
           in
 
           let blocks_continuation =
-            of_tac_statements ~tag_map ~start_label:exit_label ~end_labels
+            of_tac_statements ~start_label:exit_label ~end_labels
               ~ending ~cfg_statements:[] rprogram (q, return)
           in
 
@@ -226,7 +226,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
                 @@ Printf.sprintf "First cases with a label name ? : %s" s
           in
           let continuation =
-            of_tac_statements ~tag_map ~start_label
+            of_tac_statements ~start_label
               ~end_labels:[ goto; jmp_false ]
               ~ending:
                 (Some { condition; if_label = goto; else_label = jmp_false })
@@ -235,11 +235,11 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
               (statement_for_condition, None)
           in
           let first_block_body =
-            of_tac_body ~tag_map ~end_labels:[ end_label ] rprogram tac_body
+            of_tac_body ~end_labels:[ end_label ] rprogram tac_body
           in
 
           let blocks_continuation =
-            of_tac_statements ~tag_map ~start_label:exit_label ~end_labels
+            of_tac_statements ~start_label:exit_label ~end_labels
               ~ending ~cfg_statements:[] rprogram (q, return)
           in
 
@@ -264,7 +264,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
                            "Very wierd start label for cases should be None"
                    in
                    let block_condition =
-                     of_tac_statements ~tag_map ~start_label
+                     of_tac_statements ~start_label
                        ~end_labels:[ goto; jmp_false ]
                        ~ending:
                          (Some
@@ -278,7 +278,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
                        (statement_for_condition, None)
                    in
                    let block =
-                     of_tac_body ~tag_map ~end_labels:[ end_label ] rprogram tac_body
+                     of_tac_body ~end_labels:[ end_label ] rprogram tac_body
                    in
                    acc
                    |> merge_basic_block_map block_condition
@@ -287,7 +287,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
           in
 
           let else_basic_block =
-            of_tac_body ~tag_map ~end_labels:[ exit_label ] rprogram else_tac_body
+            of_tac_body ~end_labels:[ exit_label ] rprogram else_tac_body
           in
 
           continuation
@@ -335,7 +335,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
 
               let next_label = fake_label () in
               let continuation = of_tac_statements 
-                ~tag_map 
+               
                 ~start_label 
                 ~end_labels:[sw_case.sw_goto; next_label]
                 ~ending:(
@@ -360,7 +360,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
               ~enum_decl 
               ~tag_atom 
               ~start_label:block_next_label 
-              ~tag_map  
+              
               ~is_last
               rprogram
               sw_switch 
@@ -371,7 +371,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             let wildcard_basic_block = wildcard_body |> Option.map (fun body -> 
               let block_setup = 
                 of_tac_statements 
-                ~tag_map 
+               
                 ~start_label:next_block_label
                 ~end_labels:[Option.get wildcard_label]
                 ~ending:None
@@ -381,7 +381,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
               in
               let block_body = 
                 of_tac_body 
-                ~tag_map
+              
                 ~end_labels:[sw_exit_label]
                 rprogram
                 body
@@ -392,7 +392,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             in
 
             let blocks_continuation =
-              of_tac_statements ~tag_map ~start_label:sw_exit_label ~end_labels
+              of_tac_statements ~start_label:sw_exit_label ~end_labels
                 ~ending ~cfg_statements:[] rprogram (q, return)
             in
 
@@ -439,13 +439,13 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             )
           in
           let basic_blocks, final_label = switch_remains |> List.fold_left (fun (acc, _) sw -> 
-            let block, label = of_switch_case ~tag_map rprogram sw in
+            let block, label = of_switch_case rprogram sw in
             (merge_basic_block_map acc block), label
           ) (BasicBlockMap.empty, "") in
           let wildcard_basic_block = tmp_wildcard_body |> Option.map (fun body -> 
             let block_setup = 
               of_tac_statements 
-              ~tag_map 
+             
               ~start_label:final_label
               ~end_labels:[Option.get tmp_wildcard_label]
               ~ending:None
@@ -455,7 +455,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
             in
             let block_body = 
               of_tac_body 
-              ~tag_map
+            
               ~end_labels:[tmp_sw_exit_label]
               rprogram
               body
@@ -466,7 +466,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
           in
 
           let continuation = of_tac_statements
-          ~tag_map
+        
           ~start_label
           ~end_labels:local_endlabel
           ~ending:local_ending
@@ -476,7 +476,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
 
           
           let blocks_continuation =
-            of_tac_statements ~tag_map ~start_label:tmp_sw_exit_label ~end_labels
+            of_tac_statements ~start_label:tmp_sw_exit_label ~end_labels
               ~ending ~cfg_statements:[] rprogram (q, return)
           in
 
@@ -488,14 +488,14 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
           failwith "Unreachable code: Syntax force at least a branch"
       )
 
-and of_switch_case ~tag_map rprogram (tac_switch: tac_switch_tmp) = 
+and of_switch_case rprogram (tac_switch: tac_switch_tmp) = 
   let blocks, final_label =  tac_switch.variants |> List.fold_left (fun (acc, _) variant ->
     let ending = variant.variant_next_label |> Option.map (fun label -> {condition = variant.cmp_atom; if_label = tac_switch.tmp_sw_goto; else_label = label}) in
     let end_labels = match variant.variant_next_label with 
       | Some label -> tac_switch.tmp_sw_goto::label::[] 
       | None -> tac_switch.tmp_sw_goto::[]
     in
-    let block = of_tac_statements ~tag_map 
+    let block = of_tac_statements 
       ~start_label:variant.variant_label 
       ~end_labels:end_labels
       ~ending
@@ -506,10 +506,10 @@ and of_switch_case ~tag_map rprogram (tac_switch: tac_switch_tmp) =
       merge_basic_block_map acc block, variant.variant_label
   ) (BasicBlockMap.empty, "")
   in
-  let body_block = of_tac_body ~tag_map ~end_labels:[tac_switch.tmp_sw_exit_label] rprogram tac_switch.tmp_switch_tac_body in
+  let body_block = of_tac_body ~end_labels:[tac_switch.tmp_sw_exit_label] rprogram tac_switch.tmp_switch_tac_body in
   merge_basic_block_map blocks body_block, final_label
         
-and _of_switch_case ~is_last ~wildcard_label ~enum_decl ~tag_atom ~start_label ~tag_map rprogram (sw_switch : tac_switch) = 
+and _of_switch_case ~is_last ~wildcard_label ~enum_decl ~tag_atom ~start_label rprogram (sw_switch : tac_switch) = 
   match sw_switch.variants_to_match with
   | [] -> failwith "Masaka"
   | variants -> 
@@ -534,7 +534,7 @@ and _of_switch_case ~is_last ~wildcard_label ~enum_decl ~tag_atom ~start_label ~
         | Some label -> sw_switch.sw_goto::label::[] 
         | None -> sw_switch.sw_goto::[]
       in
-      let block = of_tac_statements ~tag_map 
+      let block = of_tac_statements 
         ~start_label:block_start_label 
         ~end_labels:end_labels
         ~ending
@@ -546,17 +546,17 @@ and _of_switch_case ~is_last ~wildcard_label ~enum_decl ~tag_atom ~start_label ~
     acc, block_next_label
     ) (BasicBlockMap.empty, start_label)
   in
-  let body_block = of_tac_body ~tag_map ~end_labels:[sw_switch.sw_exit_label] rprogram sw_switch.switch_tac_body in
+  let body_block = of_tac_body ~end_labels:[sw_switch.sw_exit_label] rprogram sw_switch.switch_tac_body in
   let blocks = merge_basic_block_map other_variants body_block in
   blocks, next_block_label 
 
 
-and of_tac_body ~tag_map ~end_labels rprogram ({ label; body } : tac_body) =
-  of_tac_statements ~tag_map ~ending:None ~start_label:label ~end_labels
+and of_tac_body ~end_labels rprogram ({ label; body } : tac_body) =
+  of_tac_statements ~ending:None ~start_label:label ~end_labels
     ~cfg_statements:[] rprogram body
 
-let of_tac_body ~tag_map ~parameters ~locals_vars rprogram tac_body =
-  let basic_blocks = of_tac_body ~tag_map ~end_labels:[] rprogram tac_body in
+let of_tac_body ~parameters ~locals_vars rprogram tac_body =
+  let basic_blocks = of_tac_body ~end_labels:[] rprogram tac_body in
   {
     entry_block = tac_body.label;
     blocks = basic_blocks;
@@ -565,8 +565,7 @@ let of_tac_body ~tag_map ~parameters ~locals_vars rprogram tac_body =
   }
 
 let cfg_of_tac_function rprogram tacfun =
-  let map = Hashtbl.create 7 in
-  of_tac_body ~tag_map:map ~parameters:tacfun.rparameters rprogram tacfun.tac_body
+  of_tac_body ~parameters:tacfun.rparameters rprogram tacfun.tac_body
     ~locals_vars:(typed_set_of_locales_vars tacfun.locale_var)
 
 let cfg_detail_of_tac_function rprogram tacfun =
