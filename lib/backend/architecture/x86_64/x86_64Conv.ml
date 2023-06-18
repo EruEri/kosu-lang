@@ -1997,7 +1997,171 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         @ (copy_tag :: cmp_instrution_list)
         @ wildcard_case_jmp @ fn_block @ wildcard_body_block
         @ [ exit_label_instruction ]
-    | STSwitchTmp _ -> failwith ""
+        | STSwitchTmp 
+        {
+          tmp_statemenets_for_case;
+          enum_tte;
+          tag_atom;
+          tmp_switch_list;
+          tmp_wildcard_label;
+          tmp_wildcard_body;
+          tmp_sw_exit_label
+        } -> 
+          let open LineInstruction in
+          let enum_decl =
+            match
+              KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
+                enum_tte.expr_rktype rprogram
+            with
+            | Some (RDecl_Struct _) ->
+                failwith "Expected to find an enum get an struct"
+            | Some (RDecl_Enum e) -> e
+            | None -> failwith "Non type decl ??? my validation is very weak"
+          in
+          let enum_decl =
+            let generics = enum_tte.expr_rktype
+              |> KosuIrTyped.Asttyhelper.RType.extract_parametrics_rktype
+              |> List.combine enum_decl.generics
+            in
+            KosuIrTyped.Asttyhelper.Renum.instanciate_enum_decl generics enum_decl
+          in
+          let exit_label_instruction = Label tmp_sw_exit_label in
+          let setup_instructions =
+            tmp_statemenets_for_case
+            |> List.fold_left
+                 (fun acc_stmts value ->
+                   let insts =
+                     translate_tac_statement ~litterals current_module rprogram fd
+                       value
+                   in
+                   acc_stmts @ insts)
+                 []
+          in
+          let reg_tag_11, mov_tag_register_instructions = 
+            translate_tac_expression ~litterals ~target_dst:(`Register Register.r11) rprogram fd tag_atom
+          in
+          (* let tag_variable =
+            match tag_atom.tac_expression with
+            | TEIdentifier id -> (id, tag_atom.expr_rktype)
+            | _ -> failwith "I need to get the id"
+          in *)
+          let enum_variabe = 
+            match enum_tte.tac_expression with
+            | TEIdentifier id -> (id, enum_tte.expr_rktype)
+            | _ -> failwith "I need to get the id of the enum"
+          in
+          let cmp_instrution_list, fn_block  = 
+            tmp_switch_list
+            |> List.map (fun switch -> 
+                let jump_condition = 
+                  switch.variants |> List.map (fun variant -> 
+                    let compare_instruction = 
+                    instruction @@ Cmp 
+                      {
+                        size = il;
+                        rhs = (reg_tag_11 :> src);
+                        lhs = `ILitteral (Int64.of_int variant.variant_index)
+                      }
+                    in
+                    let assoc_type_for_variants =
+                      KosuIrTyped.Asttyhelper.Renum.assoc_types_of_variant_tag
+                        ~tagged:true variant.variant_index enum_decl
+                    in
+                    let fetch_offset_instructions = 
+                      switch.tmp_assoc_bound 
+                      |> List.map (fun (index, id, ktype) -> 
+                        let offset_a =
+                          offset_of_tuple_index (index + 1)
+                            assoc_type_for_variants rprogram
+                        in
+                        let switch_variable_address =
+                          Option.get @@ FrameManager.address_of enum_variabe
+                            fd
+                        in
+                        let destination_address =
+                          Option.get @@ FrameManager.address_of (id, ktype) fd
+                        in
+                        let size_of_ktype = sizeofn rprogram ktype in
+                        let data_size =
+                          int_data_size_of_int64_def size_of_ktype
+                        in
+                        let copy_instructions =
+                          if is_register_size size_of_ktype then
+                            [
+                              Instruction
+                                (Mov
+                                   {
+                                     size = IntSize data_size;
+                                     destination = `Register r11;
+                                     source =
+                                       `Address
+                                         (increment_adress offset_a
+                                            switch_variable_address);
+                                   });
+                              Instruction
+                                (Mov
+                                   {
+                                     size = IntSize data_size;
+                                     source = `Register r11;
+                                     destination =
+                                       `Address destination_address;
+                                   });
+                            ]
+                          else
+                            let leaq =
+                              Instruction
+                                (Lea
+                                   {
+                                     size = iq;
+                                     destination = r11;
+                                     source =
+                                       increment_adress offset_a
+                                         switch_variable_address;
+                                   })
+                            in
+                            leaq
+                            :: copy_from_reg r11 destination_address
+                                 ktype rprogram
+                        in
+                        copy_instructions
+                      )
+                      |> List.flatten
+                    in 
+                    let jump_true =
+                      Instruction
+                        (Jmp
+                           { cc = Some E; where = `Label switch.tmp_sw_goto })
+                    in
+                    fetch_offset_instructions @ [ compare_instruction; jump_true ]
+                  )
+              |> List.flatten
+                  in
+                  let genete_block =
+                    translate_tac_body ~litterals
+                      ~end_label:(Some switch.tmp_sw_exit_label) current_module
+                      rprogram fd switch.tmp_switch_tac_body
+                  in
+                  (jump_condition, genete_block)
+            )
+            |> List.split
+            |> fun (lhs, rhs) -> (List.flatten lhs, List.flatten rhs)
+          in
+          let wildcard_case_jmp =
+            tmp_wildcard_label
+            |> Option.map (fun lab -> Instruction (Jmp { cc = None; where = `Label lab }))
+            |> Option.to_list
+          in
+          let wildcard_body_block =
+            tmp_wildcard_body
+            |> Option.map (fun body ->
+                   translate_tac_body ~litterals ~end_label:(Some tmp_sw_exit_label)
+                     current_module rprogram fd body)
+            |> Option.value ~default:[]
+          in
+  
+          setup_instructions @ mov_tag_register_instructions
+          @ cmp_instrution_list @ wildcard_case_jmp
+          @ fn_block @ wildcard_body_block @ [ exit_label_instruction ]
 
   and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
       (fd : FrameManager.frame_desc) { label; body } =

@@ -474,6 +474,10 @@ module Instruction = struct
         :: []
 end
 
+module LineInstruction = struct
+  let instruction i = Instruction.Instruction i
+end
+
 let rec copy_large ~address_str ~base_address_reg size =
   let open Instruction in
   if size < 0L then failwith "X86_64 : Negative size to copy"
