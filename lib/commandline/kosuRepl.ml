@@ -27,7 +27,7 @@ let interpreted_file_term =
     & opt (some file) None
     & info [ "e"; "eval" ] ~docv:"FILE"
         ~doc:
-          "If $(docv,b) is given, phrases are read instead of reading from the \
+          "If $(b,docv) is given, phrases are read instead of reading from the \
            stdin")
 
 let modules_files_term =
