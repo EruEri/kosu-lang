@@ -1619,7 +1619,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     | STSwitchTmp 
       {
         tmp_statemenets_for_case;
-        enum_ktype;
+        enum_tte;
         tag_atom;
         tmp_switch_list;
         tmp_wildcard_label;
@@ -1629,7 +1629,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let enum_decl =
           match
             KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
-              enum_ktype rprogram
+              enum_tte.expr_rktype rprogram
           with
           | Some (RDecl_Struct _) ->
               failwith "Expected to find an enum get an struct"
@@ -1637,7 +1637,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           | None -> failwith "Non type decl ??? my validation is very weak"
         in
         let enum_decl =
-          let generics = enum_ktype
+          let generics = enum_tte.expr_rktype
             |> KosuIrTyped.Asttyhelper.RType.extract_parametrics_rktype
             |> List.combine enum_decl.generics
           in
@@ -1658,10 +1658,15 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         let reg_tag_11, mov_tag_register_instructions = 
           translate_tac_expression ~litterals ~target_reg:(Register.w11) rprogram fd tag_atom
         in
-        let tag_name =
+        (* let tag_variable =
           match tag_atom.tac_expression with
-          | TEIdentifier id -> id
+          | TEIdentifier id -> (id, tag_atom.expr_rktype)
           | _ -> failwith "I need to get the id"
+        in *)
+        let enum_variabe = 
+          match enum_tte.tac_expression with
+          | TEIdentifier id -> (id, enum_tte.expr_rktype)
+          | _ -> failwith "I need to get the id of the enum"
         in
         let cmp_instrution_list, fn_block  = 
           tmp_switch_list
@@ -1687,8 +1692,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                           assoc_type_for_variants rprogram
                       in
                       let switch_variable_address =
-                        Option.get @@ FrameManager.address_of
-                          ( tag_name, tag_atom.expr_rktype )
+                        Option.get @@ FrameManager.address_of enum_variabe
                           fd
                       in
                       let destination_address =

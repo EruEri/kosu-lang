@@ -320,7 +320,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       in
       ( SCases { cases; exit_label = end_label; else_tac_body } :: [],
         make_typed_tac_expression id_rktype (TEIdentifier identifier) )
-  | RESwitch { rexpression; cases; wildcard_case }, Some (identifier, id_rktype) when true -> 
+  | RESwitch { rexpression; cases; wildcard_case }, Some (identifier, id_rktype) when false -> 
     let enum_decl =
       match
         KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
@@ -429,7 +429,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
     let expr = make_typed_tac_expression id_rktype (TEIdentifier identifier) in
     let switch = STSwitchTmp {
       tmp_statemenets_for_case = forward_push @ tmp_statemenets_for_case @ [tag_set_statement];
-      enum_ktype = rexpression.rktype;
+      enum_tte = enum_tte_expr;
       tag_atom;
       tmp_switch_list = tmp_switch_list;
       tmp_wildcard_body;

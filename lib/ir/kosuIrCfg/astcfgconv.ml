@@ -406,7 +406,7 @@ let rec of_tac_statements ~tag_map ~start_label ~end_labels ~ending
         end 
       | STSwitchTmp {    
           tmp_statemenets_for_case;
-          enum_ktype = _;
+          enum_tte = _;
           tag_atom = _;
           tmp_switch_list;
           tmp_wildcard_label;
