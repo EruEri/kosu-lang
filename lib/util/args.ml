@@ -35,7 +35,7 @@ let double_pop_opt = function
 let rec consume_args_sysv ~reversed_stack ~fregs ~iregs ~fargs ~iargs ~stacks_args
   ~fpstyle ttes =
 match ttes with
-| [] -> (List.rev iargs, List.rev fargs, if reversed_stack then List.rev stacks_args else stacks_args)
+| [] -> (List.rev iargs, List.rev fargs, if reversed_stack then stacks_args else List.rev stacks_args) (* Since args are stacked in the reversed order og ttes *)
 | t :: q -> begin
         match fpstyle t with
         | Simple_Reg kind -> (

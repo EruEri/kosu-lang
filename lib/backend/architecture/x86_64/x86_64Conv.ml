@@ -2271,47 +2271,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         |> List.filter_map (fun node ->
                match node with
                | TNFunction function_decl ->
-                   let register_param_count = List.length argument_registers in
-                   let float_reg_count = List.length float_arguments_register in
-                   let float_parameter, other_parameters =
-                     function_decl.rparameters
-                     |> List.partition (fun (_, kt) ->
-                            KosuIrTyped.Asttyhelper.RType.is_float kt)
-                   in
-                   let int_params =
-                     if
-                       is_register_size
-                         (sizeofn rprogram function_decl.return_type)
-                     then other_parameters
-                     else
-                       X86_64Core.FrameManager.indirect_return_vt
-                       :: other_parameters
-                   in
-                   let fn_register_params, stack_param =
-                     int_params
-                     |> List.mapi (fun index value -> (index, value))
-                     |> List.partition_map (fun (index, value) ->
-                            if index < register_param_count then
-                              Either.left value
-                            else Either.right value)
-                   in
 
-                   let fn_float_register_params, float_stack =
-                     float_parameter
-                     |> List.mapi (fun index value -> (index, value))
-                     |> List.partition_map (fun (index, value) ->
-                            if index < float_reg_count then Either.left value
-                            else Either.right value)
-                   in
-                   let tmp_dummy_value = 4 in
-                   let stack_param_count = Int64.of_int (tmp_dummy_value * 8) in
-                   let locals_var =
-                     function_decl.locale_var
-                     |> List.map (fun { locale_ty; locale } ->
-                            match locale with
-                            | Locale s -> (s, locale_ty)
-                            | Enum_Assoc_id { name; _ } -> (name, locale_ty))
-                   in
                    (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
                    let asm_name =
                      Spec.label_of_tac_function ~module_path:current_module
@@ -2319,16 +2279,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    in
                    (* let () = Printf.printf "%s::%s\n" current_module function_decl.rfn_name in *)
                    let fd =
-                     FrameManager.frame_descriptor
-                       ~stack_future_call:stack_param_count ~fn_register_params
-                       ~fn_float_register_params
-                       ~stack_param:(stack_param @ float_stack)
-                       ~return_type:function_decl.return_type ~locals_var
-                       ~discarded_values:function_decl.discarded_values rprogram
+                     FrameManager.frame_descriptor function_decl rprogram
                    in
                    let prologue =
-                     FrameManager.function_prologue ~fn_register_params
-                       ~fn_float_register_params ~stack_params:stack_param
+                     FrameManager.function_prologue function_decl
                        rprogram fd
                    in
                    let conversion =
@@ -2350,106 +2304,45 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                           asm_name;
                           asm_body =
                             [ Directive "cfi_startproc" ]
-                            @ prologue @ (conversion |> List.tl) @ epilogue
+                            @ prologue @ ( List.tl conversion) @ epilogue
                             @ [ Directive "cfi_endproc" ];
                         })
-               | TNOperator (TacUnary unary_decl as self) ->
-                   let tmp_dummy_value = 4 in
-                   let stack_param_count = Int64.of_int (tmp_dummy_value * 8) in
-                   let locals_var =
-                     unary_decl.locale_var
-                     |> List.map (fun { locale_ty; locale } ->
-                            match locale with
-                            | Locale s -> (s, locale_ty)
-                            | Enum_Assoc_id { name; _ } -> (name, locale_ty))
-                   in
-                   (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
-                   let asm_name =
-                     Spec.label_of_tac_operator ~module_path:current_module self
-                   in
-                   let fn_register_params = [ unary_decl.rfield ] in
-                   let fn_register_params =
-                     if
-                       is_register_size
-                         (sizeofn rprogram unary_decl.return_type)
-                     then fn_register_params
-                     else
-                       X86_64Core.FrameManager.indirect_return_vt
-                       :: fn_register_params
-                   in
-                   let fd =
-                     FrameManager.frame_descriptor
-                       ~stack_future_call:stack_param_count ~fn_register_params
-                       ~fn_float_register_params:[] ~stack_param:[]
-                       ~return_type:unary_decl.return_type ~locals_var
-                       ~discarded_values:unary_decl.discarded_values rprogram
-                   in
-                   let prologue =
-                     FrameManager.function_prologue ~fn_register_params
-                       ~fn_float_register_params:[] ~stack_params:[] rprogram fd
-                   in
-                   let conversion =
-                     translate_tac_body ~litterals current_module rprogram fd
-                       (KosuIrTAC.Asttachelper.OperatorDeclaration.tac_body self)
-                   in
-                   let epilogue = FrameManager.function_epilogue fd in
-                   Some
-                     (Afunction
-                        {
-                          asm_name;
-                          asm_body =
-                            [ Directive "cfi_startproc" ]
-                            @ prologue @ (conversion |> List.tl) @ epilogue
-                            @ [ Directive "cfi_endproc" ];
-                        })
-               | TNOperator (TacBinary binary as self) ->
-                   let tmp_dummy_value = 4 in
-                   let stack_param_count = Int64.of_int (tmp_dummy_value * 8) in
-                   let locals_var =
-                     binary.locale_var
-                     |> List.map (fun { locale_ty; locale } ->
-                            match locale with
-                            | Locale s -> (s, locale_ty)
-                            | Enum_Assoc_id { name; _ } -> (name, locale_ty))
-                   in
-                   (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
-                   let asm_name =
-                     Spec.label_of_tac_operator ~module_path:current_module self
-                   in
-                   let lhs_param, rhs_param = binary.rfields in
-                   let fn_register_params = [ lhs_param; rhs_param ] in
-                   let fn_register_params =
-                     if is_register_size (sizeofn rprogram binary.return_type)
-                     then fn_register_params
-                     else
-                       X86_64Core.FrameManager.indirect_return_vt
-                       :: fn_register_params
-                   in
-                   let fd =
-                     FrameManager.frame_descriptor
-                       ~stack_future_call:stack_param_count ~fn_register_params
-                       ~fn_float_register_params:[] ~stack_param:[]
-                       ~return_type:binary.return_type ~locals_var
-                       ~discarded_values:binary.discarded_values rprogram
-                   in
-                   let prologue =
-                     FrameManager.function_prologue ~fn_register_params
-                       ~fn_float_register_params:[] ~stack_params:[] rprogram fd
-                   in
-                   let conversion =
-                     translate_tac_body ~litterals current_module rprogram fd
-                       (KosuIrTAC.Asttachelper.OperatorDeclaration.tac_body self)
-                   in
-                   let epilogue = FrameManager.function_epilogue fd in
-                   Some
-                     (Afunction
-                        {
-                          asm_name;
-                          asm_body =
-                            [ Directive "cfi_startproc" ]
-                            @ prologue @ (conversion |> List.tl) @ epilogue
-                            @ [ Directive "cfi_endproc" ];
-                        })
+               | TNOperator operator ->
+                let function_decl = KosuIrTAC.Asttachelper.OperatorDeclaration.tac_function_of_operator operator in
+                let asm_name =
+                  Spec.label_of_tac_operator ~module_path:current_module
+                    operator
+                in
+                (* let () = Printf.printf "%s::%s\n" current_module function_decl.rfn_name in *)
+                let fd =
+                  FrameManager.frame_descriptor function_decl rprogram
+                in
+                let prologue =
+                  FrameManager.function_prologue function_decl
+                    rprogram fd
+                in
+                let conversion =
+                  translate_tac_body ~litterals current_module rprogram fd
+                    function_decl.tac_body
+                in
+                let epilogue = FrameManager.function_epilogue fd in
+                (* let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
+                   let () = fd.stack_map |> IdVarMap.to_seq |> Seq.iter (fun ((s, kt), adr) ->
+                     Printf.printf "%s : %s == [%s, %s]\n"
+                     (s)
+                     (KosuIrTyped.Asttypprint.string_of_rktype kt)
+                     (X86_64Pprint.string_of_register adr.base)
+                     (X86_64Pprint.string_of_address_offset adr.offset)
+                     ) in *)
+                Some
+                  (Afunction
+                     {
+                       asm_name;
+                       asm_body =
+                         [ Directive "cfi_startproc" ]
+                         @ prologue @ ( List.tl conversion) @ epilogue
+                         @ [ Directive "cfi_endproc" ];
+                     })
                | TNConst
                    {
                      rconst_name;
