@@ -19,7 +19,7 @@ open Aarch64Core
 open Aarch64Core.Register
 open Aarch64Core.Instruction
 open Printf
-module AsmProgram = Common.AsmProgram (Aarch64Core.Instruction)
+module AsmProgram = KosuCommon.AsmProgram (Aarch64Core.Instruction)
 open AsmProgram
 
 module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
@@ -167,14 +167,14 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           (string_of_register source)
     | ADD { destination; operand1; operand2; offset } -> (
         match AsmSpec.adrp_style with
-        | AsmSpec.MacOS ->
+        | Aarch64AsmSpec.MacOS ->
             sprintf "%sadd %s, %s, %s%s"
               (prefix_of_float destination)
               (string_of_register destination)
               (string_of_register operand1)
               (string_of_src operand2)
               (if offset then "@PAGEOFF" else "")
-        | AsmSpec.Other ->
+        | Aarch64AsmSpec.Other ->
             sprintf "%sadd %s, %s, %s"
               (prefix_of_float destination)
               (string_of_register destination)
@@ -321,9 +321,10 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           (string_of_adressage adress_mode address)
     | ADRP { dst; label } -> (
         match AsmSpec.adrp_style with
-        | AsmSpec.MacOS ->
+        | Aarch64AsmSpec.MacOS ->
             sprintf "adrp %s, %s@PAGE" (string_of_register dst) label
-        | AsmSpec.Other -> sprintf "adrp %s, %s" (string_of_register dst) label)
+        | Aarch64AsmSpec.Other ->
+            sprintf "adrp %s, %s" (string_of_register dst) label)
     | B { cc; label } ->
         sprintf "b%s %s"
           (cc

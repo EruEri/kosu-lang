@@ -17,7 +17,7 @@
 
 module Codegen (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
   module Pprint = Aarch64Pprint.Make (AsmSpec)
-  module AsmProgram = Common.AsmProgram (Aarch64Core.Instruction)
+  module AsmProgram = KosuCommon.AsmProgram (Aarch64Core.Instruction)
   module Aarch64Conv = Aarch64Conv.Make (AsmSpec)
   include AsmProgram
   open AsmProgram

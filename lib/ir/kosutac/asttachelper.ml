@@ -77,6 +77,51 @@ module OperatorDeclaration = struct
 
   let tac_body = function
     | TacUnary { tac_body; _ } | TacBinary { tac_body; _ } -> tac_body
+
+  let tac_function_of_operator : tac_operator_decl -> tac_function_decl =
+    function
+    | TacUnary
+        {
+          op = _;
+          asm_name;
+          rfield;
+          return_type;
+          tac_body;
+          fn_call_infos;
+          locale_var;
+          discarded_values;
+        } ->
+        {
+          rfn_name = asm_name;
+          generics = [];
+          rparameters = [ rfield ];
+          return_type;
+          tac_body;
+          fn_call_infos;
+          locale_var;
+          discarded_values;
+        }
+    | TacBinary
+        {
+          op = _;
+          asm_name;
+          rfields = lhs, rhs;
+          return_type;
+          tac_body;
+          fn_call_infos;
+          locale_var;
+          discarded_values;
+        } ->
+        {
+          rfn_name = asm_name;
+          generics = [];
+          rparameters = [ lhs; rhs ];
+          return_type;
+          tac_body;
+          fn_call_infos;
+          locale_var;
+          discarded_values;
+        }
 end
 
 module Function = struct
@@ -226,6 +271,42 @@ module StringLitteral = struct
           |> Option.iter (fun tb -> map_fill_string_lit_of_tac_body map tb ())
         in
         ()
+    | STSwitchTmp
+        {
+          tmp_statemenets_for_case;
+          tag_atom;
+          tmp_switch_list;
+          tmp_wildcard_body;
+          _;
+        } ->
+        let () =
+          tmp_statemenets_for_case
+          |> List.iter (fun smt ->
+                 map_fill_string_lit_of_tac_statement map smt ())
+        in
+        let () =
+          map_fill_string_lit_of_tac_expression map tag_atom.tac_expression ()
+        in
+
+        let () =
+          tmp_switch_list
+          |> List.iter (fun sw ->
+                 let () =
+                   sw.variants
+                   |> List.iter (fun { cmp_statement; _ } ->
+                          map_fill_string_lit_of_tac_statement map cmp_statement
+                            ())
+                 in
+                 let () =
+                   map_fill_string_lit_of_tac_body map sw.tmp_switch_tac_body ()
+                 in
+                 ())
+        in
+        let () =
+          tmp_wildcard_body
+          |> Option.iter (fun tb -> map_fill_string_lit_of_tac_body map tb ())
+        in
+        ()
     | SCases { cases; else_tac_body; _ } ->
         let () =
           cases
@@ -278,6 +359,13 @@ module StringLitteral = struct
     hashmap |> Hashtbl.to_seq
     |> Seq.map (fun (s, SLit label) -> Printf.sprintf "%s : \"%s\"" label s)
     |> List.of_seq |> String.concat "\n\t"
+end
+
+module LocaleVariable = struct
+  let variable_of_tac_locale_variable { locale_ty; locale } =
+    match locale with
+    | Locale s -> (s, locale_ty)
+    | Enum_Assoc_id { name; _ } -> (name, locale_ty)
 end
 
 module FloatLitteral = struct
@@ -418,6 +506,42 @@ module FloatLitteral = struct
           |> List.iter (fun case -> map_fill_float_lit_of_tac_case map case ())
         in
         map_fill_float_lit_of_tac_body map else_tac_body ()
+    | STSwitchTmp
+        {
+          tmp_statemenets_for_case;
+          tag_atom;
+          tmp_switch_list;
+          tmp_wildcard_body;
+          _;
+        } ->
+        let () =
+          tmp_statemenets_for_case
+          |> List.iter (fun smt ->
+                 map_fill_float_lit_of_tac_statement map smt ())
+        in
+        let () =
+          map_fill_float_lit_of_tac_expression map tag_atom.tac_expression ()
+        in
+
+        let () =
+          tmp_switch_list
+          |> List.iter (fun sw ->
+                 let () =
+                   sw.variants
+                   |> List.iter (fun { cmp_statement; _ } ->
+                          map_fill_float_lit_of_tac_statement map cmp_statement
+                            ())
+                 in
+                 let () =
+                   map_fill_float_lit_of_tac_body map sw.tmp_switch_tac_body ()
+                 in
+                 ())
+        in
+        let () =
+          tmp_wildcard_body
+          |> Option.iter (fun tb -> map_fill_float_lit_of_tac_body map tb ())
+        in
+        ()
 
   and map_fill_float_lit_of_tac_body map { label = _; body = statements, last }
       () =

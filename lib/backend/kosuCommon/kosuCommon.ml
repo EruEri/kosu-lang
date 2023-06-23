@@ -21,6 +21,7 @@ module IdVar = struct
   let compare = compare
 end
 
+module Function = Function
 module IdVarMap = Map.Make (IdVar)
 
 module OffsetHelper = struct
@@ -57,8 +58,8 @@ module OffsetHelper = struct
              RStruct.instanciate_struct_decl mapped_generics struct_decl
            in
            let offset =
-             KosuIrTyped.Asttyconvert.Sizeof.offset_of_field
-               ~generics:hashmap_generis field struct_decl rprogram
+             KosuIrTyped.Sizeof.offset_of_field ~generics:hashmap_generis field
+               struct_decl rprogram
            in
            let acc_offset = Int64.add acc_offset offset in
            let field_type =
@@ -70,7 +71,7 @@ module OffsetHelper = struct
 end
 
 module type InstructionLine = sig
-  type raw_line
+  type line
 end
 
 module AsmProgram (InstructionLine : InstructionLine) = struct
@@ -80,7 +81,7 @@ module AsmProgram (InstructionLine : InstructionLine) = struct
       (KosuFrontend.Ast.fsize * float, Util.floatlit_label) Hashtbl.t;
   }
 
-  type raw_line = InstructionLine.raw_line
+  type raw_line = InstructionLine.line
   type asm_function_decl = { asm_name : string; asm_body : raw_line list }
 
   type asm_const_decl = {

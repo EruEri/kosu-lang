@@ -15,7 +15,7 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-(* let () = Printexc.record_backtrace true
-   let () = Printexc.print_backtrace stderr *)
-let code = KosuClis.KosucCli.Cli.eval ()
+let () = Printexc.record_backtrace true
+let () = Printexc.print_backtrace stderr
+let code = KosuClis.Kosuc.Cli.eval ()
 let () = exit code

@@ -17,7 +17,13 @@
 
 type architecture = Arm64 | X86_64
 type os = Macos | Linux | FreeBSD
+type large_architecture = LArm64 | LX86_64 | LKVM
 
+let large_architecture_enum =
+  [ ("arm64", LArm64); ("x86_64", LX86_64); ("kvm", LKVM) ]
+
+let architecture_enum = [ ("arm64", Arm64); ("x86_64", X86_64) ]
+let os_enum = [ ("freebsd", FreeBSD); ("linux", Linux); ("macos", Macos) ]
 let commit_hash () = KosuHash.commit_hash
 
 let version =
@@ -42,6 +48,27 @@ let is_kosu_file file = file |> Filename.extension |> ( = ) ".kosu"
 let string_of_enum ?(splitter = "|") ?(quoted = false) enum =
   let f = if quoted then Cmdliner.Arg.doc_quote else Fun.id in
   enum |> List.map (fun (elt, _) -> f elt) |> String.concat splitter
+
+let rec fetch_kosu_file direname () =
+  let file_in_dir = Sys.readdir direname in
+  let kosu_files =
+    file_in_dir
+    |> Array.fold_left
+         (fun acc_kosu_files file ->
+           let file = Printf.sprintf "%s%s%s" direname Filename.dir_sep file in
+           if Sys.is_directory file then
+             acc_kosu_files @ fetch_kosu_file file ()
+           else if is_kosu_file file then file :: acc_kosu_files
+           else acc_kosu_files)
+         []
+  in
+  kosu_files
+
+let fetch_std_file ~no_std () =
+  if no_std || Option.is_none std_path then []
+  else
+    let std_path = Option.get std_path in
+    fetch_kosu_file std_path ()
 
 module DefaultFront = struct
   module ValidationRule : KosuFrontend.KosuValidationRule = struct end

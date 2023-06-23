@@ -1,6 +1,14 @@
 # Changelog
 
 ## **[Unreleased]**
+
+- feature/base_vm
+    - Improve function call abi (stack parameters implemented)
+    - Kosu virtual machine base code
+    - Fix convert asttac -> cfg for switch
+    - Kosu bytecode compiler kosuc.bc base code
+    
+
 - Generate man page
 
 - Creation of changelog

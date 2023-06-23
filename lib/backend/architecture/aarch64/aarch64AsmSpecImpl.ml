@@ -23,12 +23,13 @@ module MacOSAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
     let label_prefix = "_"
   end
 
-  module MacosNamingConvention = Common.NamingConvention.Make (MacosNamingSig)
+  module MacosNamingConvention =
+    KosuCommon.NamingConvention.Make (MacosNamingSig)
+
   include MacosNamingConvention
 
-  type address_load_style = MacOS | Other
-
-  let adrp_style : address_load_style = MacOS
+  let adrp_style = Aarch64AsmSpec.MacOS
+  let variadic_style = Aarch64AsmSpec.AbiDarwin
 
   let function_directives fn_name =
     [ sprintf ".globl %s" fn_name; ".p2align 4" ]
@@ -68,13 +69,12 @@ module FreeBSDAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
   end
 
   module FreeBSDNamingConvention =
-    Common.NamingConvention.Make (FreeBSDNamingSig)
+    KosuCommon.NamingConvention.Make (FreeBSDNamingSig)
 
   include FreeBSDNamingConvention
 
-  type address_load_style = MacOS | Other
-
-  let adrp_style : address_load_style = Other
+  let adrp_style = Aarch64AsmSpec.Other
+  let variadic_style = Aarch64AsmSpec.AbiSysV
 
   let function_directives fn_name =
     [ sprintf ".globl %s" fn_name; ".p2align 4" ]

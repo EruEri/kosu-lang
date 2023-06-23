@@ -41,12 +41,13 @@ let cmd_term run =
   in
   Term.(const combine $ modules_files_term $ interpreted_file_term)
 
-let repl_doc = "Interpret through a read-eval-print-loop (REPL)"
+let repl_doc = "WIP: Interpret through a read-eval-print-loop (REPL)"
 
 let repl_man =
   [
     `S Manpage.s_description;
     `P "kosu-repl allows you to evaluate phrases in a REPL";
+    `P "currently, the repl can only type expression";
     `S Manpage.s_see_also;
     `Noblank;
   ]
@@ -55,8 +56,8 @@ let repl_main cmd =
   (* let () = Printf.printf "nb file : %u\n" (List.length cmd.modules_files) in
      let () = Printf.printf "Is some : %b\n" (Option.is_some cmd.interpreted_file) in *)
   let () = ignore cmd in
-  CliCore.DefaultFront.KosuFrontInterpret.repl
-    ~welcome:(Printf.sprintf "Kosu version %s" CliCore.version)
+  CliCommon.DefaultFront.KosuFrontInterpret.repl
+    ~welcome:(Printf.sprintf "Kosu version %s" CliCommon.version)
     ()
 
 let repl =

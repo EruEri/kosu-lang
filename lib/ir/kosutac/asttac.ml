@@ -140,6 +140,23 @@ and tac_case = {
   tac_body : tac_body;
 }
 
+and tac_switch_variant = {
+  variant_label : string;
+  variant_next_label : string option;
+  variant_index : int;
+  cmp_statement : tac_statement;
+  cmp_atom : tac_typed_expression;
+}
+
+and tac_switch_tmp = {
+  variants : tac_switch_variant list;
+  tmp_assoc_bound : (int * string * rktype) list;
+  tmp_sw_goto : string;
+  tmp_sw_false : string option;
+  tmp_sw_exit_label : string;
+  tmp_switch_tac_body : tac_body;
+}
+
 and tac_switch = {
   variants_to_match : string list;
   assoc_bound : (int * string * rktype) list;
@@ -192,6 +209,15 @@ and tac_statement =
       wildcard_body : tac_body option;
       sw_exit_label : string;
     }
+  | STSwitchTmp of {
+      tmp_statemenets_for_case : tac_statement list;
+      enum_tte : tac_typed_expression;
+      tag_atom : tac_typed_expression;
+      tmp_switch_list : tac_switch_tmp list;
+      tmp_wildcard_label : string option;
+      tmp_wildcard_body : tac_body option;
+      tmp_sw_exit_label : string;
+    }
 
 and tac_body = {
   label : string;
@@ -204,7 +230,7 @@ type tac_function_decl = {
   rparameters : (string * rktype) list;
   return_type : rktype;
   tac_body : tac_body;
-  stack_params_count : int;
+  fn_call_infos : function_call_info list;
   locale_var : tac_typed_locale_variable list;
   discarded_values : (string * rktype) list;
 }
@@ -216,7 +242,7 @@ type tac_operator_decl =
       rfield : string * rktype;
       return_type : rktype;
       tac_body : tac_body;
-      stack_params_count : int;
+      fn_call_infos : function_call_info list;
       locale_var : tac_typed_locale_variable list;
       discarded_values : (string * rktype) list;
     }
@@ -226,7 +252,7 @@ type tac_operator_decl =
       rfields : (string * rktype) * (string * rktype);
       return_type : rktype;
       tac_body : tac_body;
-      stack_params_count : int;
+      fn_call_infos : function_call_info list;
       locale_var : tac_typed_locale_variable list;
       discarded_values : (string * rktype) list;
     }

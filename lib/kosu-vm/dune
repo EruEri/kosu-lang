@@ -1,7 +1,7 @@
 ;**********************************************************************************************;
 ;*                                                                                            *;
 ;* This file is part of Kosu                                                                  *;
-;* Copyright (C) 2022-2023 Yves Ndiaye                                                        *;
+;* Copyright (C) 2023 Yves Ndiaye                                                             *;
 ;*                                                                                            *;
 ;* Kosu is free software: you can redistribute it and/or modify it under the terms            *;
 ;* of the GNU General Public License as published by the Free Software Foundation,            *;
@@ -15,6 +15,12 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
+(include_subdirs unqualified)
+
 (library
- (name common)
- (libraries kosuIrTyped kosuIrTAC))
+ (name kosuVirtualMachine)
+ (install_c_headers stack util vm)
+ (foreign_stubs
+  (language c)
+  (names stack util vm)
+  (flags (-Wall) (-fPIC))))

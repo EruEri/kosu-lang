@@ -15,8 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module IdVar = Common.IdVar
-module IdVarMap = Common.IdVarMap
+module IdVar = KosuCommon.IdVar
+module IdVarMap = KosuCommon.IdVarMap
 
 type int_data_size = B | W | L | Q
 type float_data_size = SS | SD
@@ -58,7 +58,7 @@ let data_size_of_ktype ?(default = Q) rprogram ktype =
   | KosuIrTyped.Asttyped.RTFloat KosuFrontend.Ast.F32 -> FloatSize SS
   | RTFloat F64 -> FloatSize SD
   | kt ->
-      let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt in
+      let size = KosuIrTyped.Sizeof.sizeof rprogram kt in
       IntSize (int_data_size_of_int64_def ~default size)
 
 let data_size_of_ktype_opt rprogram ktype =
@@ -66,7 +66,7 @@ let data_size_of_ktype_opt rprogram ktype =
   | KosuIrTyped.Asttyped.RTFloat KosuFrontend.Ast.F32 -> Some (FloatSize SS)
   | RTFloat F64 -> Some (FloatSize SD)
   | kt ->
-      let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt in
+      let size = KosuIrTyped.Sizeof.sizeof rprogram kt in
       size |> data_size_of_int64 |> Option.map (fun size -> IntSize size)
 
 let data_size_min_l = function
@@ -86,7 +86,7 @@ let fdate_size_of_fsize =
 let is_register_size = function 1L | 2L | 4L | 8L -> true | _ -> false
 
 let is_register_size_ktype rprogram ktype =
-  let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+  let size = KosuIrTyped.Sizeof.sizeof rprogram ktype in
   is_register_size size
 
 module Register = struct
@@ -189,6 +189,17 @@ module Register = struct
     if KosuIrTyped.Asttyhelper.RType.is_float ktype then Option.some xmm0
     else if is_register_size_ktype rprogram ktype then Some rax
     else None
+
+  let passing_register_kt kt =
+    let regs =
+      List.map
+        (fun reg -> { register = IntegerReg reg; register_size = None })
+        argument_registers
+    in
+    let hold_in_register =
+      is_register_size @@ KosuIrTyped.Sizeof.sizeof_kt kt
+    in
+    if hold_in_register then regs else List.tl regs
 
   (** RAX *)
   let tmp_rax_ktype ktype =
@@ -294,7 +305,7 @@ module Instruction = struct
 
   type comment = Comment of string
 
-  and raw_line =
+  and line =
     | Instruction of instruction
     | Directive of string
     | Label of string
@@ -474,6 +485,10 @@ module Instruction = struct
         :: []
 end
 
+module LineInstruction = struct
+  let instruction i = Instruction.Instruction i
+end
+
 let rec copy_large ~address_str ~base_address_reg size =
   let open Instruction in
   if size < 0L then failwith "X86_64 : Negative size to copy"
@@ -512,7 +527,7 @@ let rec copy_large ~address_str ~base_address_reg size =
   *)
 let copy_from_reg (register : Register.register) address ktype rprogram =
   let open Instruction in
-  let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+  let size = KosuIrTyped.Sizeof.sizeof rprogram ktype in
   match size with
   | s when is_register_size s ->
       let data_size = data_size_of_ktype rprogram ktype in
@@ -614,7 +629,7 @@ module FrameManager = struct
   (* open Instruction *)
   open Register
   open Operande
-  open KosuIrTyped.Asttyconvert.Sizeof
+  open KosuIrTyped.Sizeof
 
   type frame_desc = {
     stack_param_count : int;
@@ -624,21 +639,65 @@ module FrameManager = struct
     discarded_values : (string * KosuIrTyped.Asttyped.rktype) list;
   }
 
+  let stack_args_passed_in_function rprogram
+      (fn_info_calls : KosuIrTyped.Asttyped.function_call_infos) =
+    let open KosuIrTyped.Asttyped in
+    let open Util.Args in
+    fn_info_calls
+    |> List.fold_left
+         (fun acc { varia_index = _; parameters; return_type } ->
+           let arguments_registers = passing_register_kt return_type in
+           let _, _, stack_args =
+             consume_args_sysv ~reversed_stack:true
+               ~fregs:Register.float_arguments_register
+               ~iregs:arguments_registers
+               ~fpstyle:KosuCommon.Function.kosu_passing_style_kt parameters
+           in
+
+           stack_args |> KosuIrTyped.Asttyhelper.RType.rtuple
+           |> KosuIrTyped.Sizeof.sizeof rprogram
+           |> max acc)
+         0L
+
   let indirect_return_var = "@xreturn"
   let indirect_return_type = KosuIrTyped.Asttyped.(RTPointer RTUnknow)
   let indirect_return_vt = (indirect_return_var, indirect_return_type)
 
-  let frame_descriptor ?(stack_future_call = 0L)
-      ~(fn_register_params : (string * KosuIrTyped.Asttyped.rktype) list)
-      ~(fn_float_register_params : (string * KosuIrTyped.Asttyped.rktype) list)
-      ~(stack_param : (string * KosuIrTyped.Asttyped.rktype) list) ~return_type
-      ~locals_var ~discarded_values rprogram =
+  let frame_descriptor (function_decl : KosuIrTAC.Asttac.tac_function_decl)
+      rprogram =
+    let open KosuIrTAC.Asttac in
+    let open Util.Args in
     let open Operande in
-    let stack_param_count = stack_param |> List.length in
+    let arguments_registers = passing_register_kt function_decl.return_type in
+    let iparas, fparams, stack_parameters =
+      Util.Args.consume_args_sysv ~reversed_stack:true
+        ~fregs:Register.float_arguments_register ~iregs:arguments_registers
+        ~fpstyle:KosuCommon.Function.kosu_passing_style
+        function_decl.rparameters
+    in
     let need_result_ptr =
-      return_type
-      |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+      function_decl.return_type
+      |> KosuIrTyped.Sizeof.sizeof rprogram
       |> is_register_size |> not
+    in
+
+    let reg_parameters, _ =
+      iparas |> ( @ ) fparams
+      |> List.map (fun (variable, return_kind) ->
+             match return_kind with
+             | Simple_return reg -> (variable, (variable, reg))
+             | Double_return _ -> failwith "Unreachable")
+      |> List.split
+    in
+
+    let locale_variables =
+      function_decl.locale_var
+      |> List.sort (fun lhs rhs ->
+             let lsize = KosuIrTyped.Sizeof.sizeof_kt lhs.locale_ty in
+             let rsize = KosuIrTyped.Sizeof.sizeof_kt rhs.locale_ty in
+             compare rsize lsize)
+      |> List.map
+           KosuIrTAC.Asttachelper.LocaleVariable.variable_of_tac_locale_variable
     in
 
     (* let () = Printf.printf "ktype : %s size = %Lu = need = %b\n"
@@ -646,14 +705,20 @@ module FrameManager = struct
          (sizeof rprogram return_type)
          (need_result_ptr)
        in *)
+    let stack_concat = reg_parameters @ locale_variables in
+
     let stack_concat =
-      fn_register_params @ fn_float_register_params @ stack_param @ locals_var
+      if need_result_ptr then indirect_return_vt :: stack_concat
+      else stack_concat
     in
 
     let fake_tuple = stack_concat |> List.map snd in
     let locals_space =
       fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
-      |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+      |> KosuIrTyped.Sizeof.sizeof rprogram
+    in
+    let stack_future_call =
+      stack_args_passed_in_function rprogram function_decl.fn_call_infos
     in
     let locals_space = Int64.add locals_space stack_future_call in
 
@@ -662,10 +727,7 @@ module FrameManager = struct
       |> List.mapi (fun index value -> (index, value))
       |> List.fold_left
            (fun acc (index, st) ->
-             let offset =
-               offset_of_tuple_index ~generics:(Hashtbl.create 0) index
-                 fake_tuple rprogram
-             in
+             let offset = offset_of_tuple_index index fake_tuple rprogram in
              let rbp_relative_address =
                locals_space |> Int64.neg |> Int64.add offset
              in
@@ -675,11 +737,25 @@ module FrameManager = struct
              IdVarMap.add st address acc)
            IdVarMap.empty
     in
+    let stack_args_rktype = List.map snd stack_parameters in
+    let stack_rbp_offset = 16L in
+    let map =
+      stack_parameters |> List.mapi Util.couple
+      |> List.fold_left
+           (fun acc (index, st) ->
+             let offset =
+               offset_of_tuple_index index stack_args_rktype rprogram
+             in
+             let offset = Int64.add stack_rbp_offset offset in
+             let address = create_address_offset ~offset rbp in
+             IdVarMap.add st address acc)
+           map
+    in
     {
-      stack_param_count;
+      stack_param_count = Int64.to_int stack_future_call;
       locals_space;
       stack_map = map;
-      discarded_values;
+      discarded_values = function_decl.discarded_values;
       need_result_ptr;
     }
 
@@ -702,11 +778,13 @@ module FrameManager = struct
         Assumption on [fn_register_params] 
           already containing [rdi] if return type cannot be contain in [rax] 
     *)
-  let function_prologue ~fn_register_params ~fn_float_register_params
-      ~stack_params rprogram fd =
+  let function_prologue (tac_function : KosuIrTAC.Asttac.tac_function_decl)
+      rprogram fd =
     let open Instruction in
+    let open KosuIrTAC.Asttac in
+    let open Util.Args in
     let base = Instruction (Push { size = Q; source = `Register rbp }) in
-    let sub_align = Common.OffsetHelper.align_16 fd.locals_space in
+    let sub_align = KosuCommon.OffsetHelper.align_16 fd.locals_space in
     let sp_sub =
       [
         Instruction
@@ -721,69 +799,45 @@ module FrameManager = struct
              });
       ]
     in
-    let _is_indirect_return =
-      match List.nth_opt fn_register_params 0 with
-      | Some t when t = indirect_return_vt -> true
-      | _ -> false
-    in
-    let copy_reg_instruction =
-      fn_register_params
-      |> Util.ListHelper.combine_safe argument_registers
-      |> List.mapi Util.couple
-      |> List.fold_left
-           (fun acc (_, (register, (name, kt))) ->
-             let whereis =
-               match address_of (name, kt) fd with
-               | Some a -> a
-               | None -> failwith "X86_64: No stack allocated for this variable"
-             in
-             acc @ copy_from_reg (iregister register) whereis kt rprogram)
-           []
-    in
-    let stack_params_offset =
-      stack_params
-      |> List.map (fun (_, kt) ->
-             if KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt > 8L then
-               KosuIrTyped.Asttyhelper.RType.rpointer kt
-             else kt)
-    in
-    let sp_address =
-      Operande.create_address_offset ~offset:(Int64.add 16L sub_align) rsp
-    in
-    let copy_stack_params_instruction =
-      stack_params
-      |> List.mapi (fun index value -> (index, value))
-      |> List.fold_left
-           (fun acc (index, (name, kt)) ->
-             let sizeofkt =
-               KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt
-             in
-             let offset =
-               offset_of_tuple_index index stack_params_offset rprogram
-             in
-             let future_address_location =
-               address_of (name, kt) fd |> fun adr ->
-               match adr with
-               | Some a -> a
-               | None -> failwith "On stack setup null address"
-             in
-
-             let param_stack_address = increment_adress offset sp_address in
-             let load_instruction =
-               load_register Register.rax param_stack_address sizeofkt
-             in
-             let str_instruction =
-               copy_from_reg Register.rax future_address_location kt rprogram
-             in
-             acc @ str_instruction @ load_instruction)
-           []
+    let arguments_registers = passing_register_kt tac_function.return_type in
+    let iparas, fparams, _ =
+      Util.Args.consume_args_sysv ~reversed_stack:true
+        ~fregs:Register.float_arguments_register ~iregs:arguments_registers
+        ~fpstyle:KosuCommon.Function.kosu_passing_style tac_function.rparameters
     in
 
-    let float_copy_instructions =
-      fn_float_register_params
-      |> Util.ListHelper.combine_safe float_arguments_register
+    let indirect_return =
+      if fd.need_result_ptr then Some (indirect_return_vt, rdi) else None
+    in
+
+    let indirect_return_instructions =
+      indirect_return
+      |> Option.map (fun (indirect_return, reg) ->
+             let whereis = Option.get @@ address_of indirect_return fd in
+             copy_from_reg reg whereis (snd indirect_return) rprogram)
+      |> Option.value ~default:[]
+    in
+
+    let iparas =
+      iparas
+      |> List.map (fun (variable, return_kind) ->
+             match return_kind with
+             | Simple_return reg -> (variable, reg)
+             | Double_return _ -> failwith "Unreachable")
+    in
+
+    let fparams =
+      fparams
+      |> List.map (fun (variable, return_kind) ->
+             match return_kind with
+             | Simple_return reg -> (variable, reg)
+             | Double_return _ -> failwith "Unreachable")
+    in
+
+    let copy_reg_instructions =
+      iparas @ fparams
       |> List.fold_left
-           (fun acc (register, (name, kt)) ->
+           (fun acc ((name, kt), register) ->
              let whereis =
                address_of (name, kt) fd |> fun adr ->
                match adr with
@@ -794,8 +848,7 @@ module FrameManager = struct
            []
     in
 
-    (base :: sp_sub) @ copy_reg_instruction @ float_copy_instructions
-    @ copy_stack_params_instruction
+    (base :: sp_sub) @ indirect_return_instructions @ copy_reg_instructions
 
   let function_epilogue _fd =
     let open Instruction in

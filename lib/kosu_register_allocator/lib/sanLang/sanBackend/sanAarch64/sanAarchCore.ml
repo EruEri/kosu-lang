@@ -15,8 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module SanVariableMap = SanCfg.SanVariableMap
-open Common
+module SanVariableMap = SanCommon.SanVariableMap
+open SanCommon
 
 module Immediat = struct
   let mask_6_8bytes = 0xFFFF_0000_0000_0000L
@@ -106,6 +106,23 @@ module Register = struct
     | XZR
     | SP
 
+  let color_map =
+    [
+      (X0, "aqua");
+      (X1, "red");
+      (X2, "fuchsia");
+      (X3, "green");
+      (X4, "navyblue");
+      (X5, "pink");
+      (X6, "orange");
+      (X7, "yellow");
+      (X8, "hotpink");
+      (X9, "indigo");
+      (X10, "magenta");
+      (X11, "purple");
+      (X12, "cyan");
+    ]
+
   type register = { register : raw_register; size : register_size }
   type t = raw_register
 
@@ -184,9 +201,11 @@ module Register = struct
     ]
 
   let callee_saved_register = [ X16; X29; X30; SP ]
-  let arguments_register = [ X0; X1; X2; X3; X4; X5; X6; X7 ]
+  let non_float_argument_registers = [ X0; X1; X2; X3; X4; X5; X6; X7 ]
+  let arguments_register _ = non_float_argument_registers
   let syscall_register = [ X0; X1; X2; X3; X4; X5 ]
   let available_register = [ X8; X9; X10; X11; X12 ]
+  let is_valid_register (_ : variable) (_ : t) = true
   let does_return_hold_in_register _ = true
   let indirect_return_register = X8
   let return_strategy _ = Simple_return X0
@@ -211,7 +230,8 @@ module Operande = struct
   type dst = Register.register
 end
 
-module GreedyColoration = SanCfg.SanRegisterAllocator.GreedyColoring (Register)
+module GreedyColoration =
+  SanCommon.SanRegisterAllocator.GreedyColoring (Register)
 
 module Location = struct
   type adress_offset = [ `ILitteral of int64 | `Register of Register.register ]
@@ -639,12 +659,12 @@ module LineInstruction = struct
         ]
 end
 
-module AsmProgram = Common.AsmAst.Make (Line)
+module AsmProgram = SanCommon.AsmAst.Make (Line)
 
 module FrameManager = struct
   type description = {
     local_space : int;
-    variable_map : Location.location SanCfg.SanVariableMap.t;
+    variable_map : Location.location SanCommon.SanVariableMap.t;
   }
 
   let location_of variable fd =
@@ -653,18 +673,19 @@ module FrameManager = struct
     | Some loc -> loc
 
   let frame_descriptor (function_decl : SanTyped.SanTyAst.ty_san_function) =
-    let parameter_count = List.length Register.arguments_register in
+    let parameter_count = List.length (Register.arguments_register ()) in
     let register_parameters, stack_parameters =
       function_decl.parameters |> List.mapi Util.couple
       |> List.partition_map (fun (index, variable) ->
              if index < parameter_count then Either.left variable
              else Either.right variable)
     in
-    let cfg = SanCfg.SanCfgConv.liveness_of_san_tyfunction function_decl in
+    let cfg = SanCommon.CfgConv.liveness_of_san_tyfunction function_decl in
     let colored_graph =
       GreedyColoration.coloration
         ~parameters:
-          (Util.combine_safe register_parameters Register.arguments_register)
+          (Util.combine_safe register_parameters
+             (Register.arguments_register ()))
         ~available_color:Register.available_register cfg
     in
 
@@ -733,7 +754,7 @@ module FrameManager = struct
            (`ILitteral (Int64.of_int variable_frame_size))
     in
 
-    let parameter_count = List.length Register.arguments_register in
+    let parameter_count = List.length (Register.arguments_register ()) in
     let register_parameters, _stack_parameters =
       function_decl.parameters |> List.mapi Util.couple
       |> List.partition_map (fun (index, variable) ->
@@ -743,7 +764,7 @@ module FrameManager = struct
 
     let store_parameters_value =
       register_parameters
-      |> Util.combine_safe Register.arguments_register
+      |> Util.combine_safe (Register.arguments_register ())
       |> List.filter_map (fun (register, variable) ->
              match location_of variable fd with
              | LocAddr address -> Some (variable, register, address)

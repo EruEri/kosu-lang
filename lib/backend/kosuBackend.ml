@@ -15,18 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module X86_64 = struct
-  include X86_64
-end
-
-module Aarch64 = struct
-  include Aarch64
-end
-
-module Codegen = struct
-  include Codegen
-end
-
-module Compil = struct
-  include Compil
-end
+module X86_64 = X86_64
+module Aarch64 = Aarch64
+module Codegen = Codegen
+module Compil = Compil
+module Bytecode = Bytecode

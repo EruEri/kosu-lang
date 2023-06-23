@@ -29,6 +29,29 @@ let make_goto_label ~count_if = Printf.sprintf "Lif.%u.%u" count_if
 let make_end_label ~count_if = Printf.sprintf "Lif.%u.end" count_if
 let make_case_goto_label ~cases_count = Printf.sprintf "Lcase.%u.%u" cases_count
 let is_tmp_var = String.starts_with ~prefix:tmp_var_prefix
+let fake_label_counter = ref 0
+let tag_variable_conter = ref 0
+let cmp_variable_counter = ref 0
+
+let tag_variable () =
+  let n = !tag_variable_conter in
+  let () = incr tag_variable_conter in
+  Printf.sprintf "@tag.%u" n
+
+let cmp_variable () =
+  let n = !cmp_variable_counter in
+  let () = incr cmp_variable_counter in
+  Printf.sprintf "@cmp.%u" n
+
+let fake_label ?(inc = true) () =
+  let n =
+    if inc then
+      let n = !fake_label_counter in
+      let () = if inc then fake_label_counter := n + 1 in
+      !fake_label_counter
+    else !fake_label_counter
+  in
+  Printf.sprintf "Lfake_label.%u" n
 
 let make_case_goto_cond_label ~cases_count =
   Printf.sprintf "Lcase.%u.%u.cond" cases_count
@@ -62,6 +85,10 @@ let post_inc n =
   x
 
 let make_inc_tmp n = make_tmp (post_inc n)
+let enum_tag_type = KosuIrTyped.Asttyped.(RTInteger (Unsigned, I32))
+
+let tag_of_variant variant enum_decl =
+  Int32.to_int @@ KosuIrTyped.Asttyhelper.Renum.tag_of_variant variant enum_decl
 
 let typed_locale_assoc ~name ~from ~assoc_index_bound ~rktype =
   {
@@ -70,6 +97,61 @@ let typed_locale_assoc ~name ~from ~assoc_index_bound ~rktype =
   }
 
 let typed_locale_locale id ~rktype = { locale_ty = rktype; locale = Locale id }
+
+let tag_statements ~map enum_tac_expr =
+  let tag = tag_variable () in
+  let tag_atom =
+    { expr_rktype = enum_tag_type; tac_expression = TEIdentifier tag }
+  in
+  let () =
+    Hashtbl.add map tag (typed_locale_locale tag ~rktype:enum_tag_type)
+  in
+  ( tag_atom,
+    STacDeclaration
+      {
+        identifier = tag;
+        trvalue =
+          {
+            rval_rktype = enum_tag_type;
+            rvalue =
+              RVBuiltinCall
+                {
+                  fn_name = KosuFrontend.Ast.Builtin_Function.Tagof;
+                  parameters = [ enum_tac_expr ];
+                };
+          };
+      } )
+
+let cmp_statement ~map atom tag_to_match =
+  let () = ignore map in
+  let cmp = cmp_variable () in
+  let expr_rktype = KosuIrTyped.Asttyped.RTBool in
+  let cmp_atom = { expr_rktype; tac_expression = TEIdentifier cmp } in
+  (* let () =
+       Hashtbl.add map cmp
+         (typed_locale_locale cmp ~rktype:expr_rktype)
+     in *)
+  ( cmp_atom,
+    STacDeclaration
+      {
+        identifier = cmp;
+        trvalue =
+          {
+            rval_rktype = KosuIrTyped.Asttyped.RTBool;
+            rvalue =
+              RVBuiltinBinop
+                {
+                  binop = TacBool TacEqual;
+                  blhs = atom;
+                  brhs =
+                    {
+                      expr_rktype = enum_tag_type;
+                      tac_expression =
+                        TEInt (Unsigned, I32, Int64.of_int tag_to_match);
+                    };
+                };
+          };
+      } )
 
 let add_statements_to_tac_body stmts tac_body =
   let { label; body = future_stmts, future_result } = tac_body in
@@ -238,6 +320,137 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       in
       ( SCases { cases; exit_label = end_label; else_tac_body } :: [],
         make_typed_tac_expression id_rktype (TEIdentifier identifier) )
+  | RESwitch { rexpression; cases; wildcard_case }, Some (identifier, id_rktype)
+    when false ->
+      let enum_decl =
+        match
+          KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
+            rexpression.rktype rprogram
+        with
+        | Some (RDecl_Struct _) ->
+            failwith "Expected to find an enum get an struct"
+        | Some (RDecl_Enum e) -> e
+        | None -> failwith "Non type decl ??? my validation is very weak"
+      in
+      let enum_decl =
+        let generics =
+          rexpression.rktype
+          |> KosuIrTyped.Asttyhelper.RType.extract_parametrics_rktype
+          |> List.combine enum_decl.generics
+        in
+        KosuIrTyped.Asttyhelper.Renum.instanciate_enum_decl generics enum_decl
+      in
+
+      let incremented = post_inc switch_count in
+      let fn_local_switch_label =
+        make_switch_goto_label ~switch_count:incremented
+      in
+      let sw_exit_label = make_switch_end_label ~switch_count:incremented in
+      let next_allocated, forward_push =
+        create_forward_init ~map ~count_var rexpression
+      in
+      let tmp_statemenets_for_case, enum_tte_expr =
+        convert_from_typed_expression ~discarded_value ~allocated:next_allocated
+          ~switch_count ~cases_count ~if_count ~count_var ~map ~rprogram
+          rexpression
+      in
+      let tag_atom, tag_set_statement = tag_statements ~map enum_tte_expr in
+
+      let tmp_wildcard_label =
+        wildcard_case
+        |> Option.map (fun _ ->
+               make_switch_wild_label ~switch_count:incremented)
+      in
+      let tmp_wildcard_body =
+        wildcard_case
+        |> Option.map (fun wild_body ->
+               let label_name =
+                 make_switch_wild_label ~switch_count:incremented
+               in
+               convert_from_rkbody ~discarded_value ~previous_alloc:allocated
+                 ~cases_count ~switch_count ~label_name ~map ~count_var
+                 ~if_count ~rprogram wild_body)
+      in
+
+      let cases_length = List.length cases in
+      let tmp_switch_list =
+        cases
+        |> List.mapi (fun i (variants, bounds, kbody) ->
+               let variants_count = List.length variants in
+               let is_last_switch_branch = cases_length - 1 = i in
+
+               let sw_goto = fn_local_switch_label i in
+               let variants_to_match =
+                 variants
+                 |> List.map RSwitch_Case.variant
+                 |> List.mapi (fun index variant ->
+                        let variant_label = fake_label ~inc:false () in
+                        (* let () = Printf.printf "fl = %s\n%!" variant_label in *)
+                        let next_variant_label = fake_label () in
+                        let is_last_or_variant = variants_count - 1 = index in
+                        let is_absolute_last =
+                          is_last_or_variant && is_last_switch_branch
+                        in
+                        let variant_next_label =
+                          if not is_absolute_last then Some next_variant_label
+                          else
+                            tmp_wildcard_label
+                            |> Option.map (fun _ -> next_variant_label)
+                        in
+
+                        let variant_index = tag_of_variant variant enum_decl in
+                        let cmp_atom, cmp_stmt =
+                          cmp_statement ~map tag_atom variant_index
+                        in
+                        {
+                          variant_label;
+                          variant_index;
+                          variant_next_label;
+                          cmp_statement = cmp_stmt;
+                          cmp_atom;
+                        })
+               in
+               let tmp_sw_false = Option.some @@ fake_label ~inc:false () in
+               let () =
+                 bounds
+                 |> List.iteri (fun _ (index, name, rktype) ->
+                        Hashtbl.add map name
+                          (typed_locale_assoc ~name ~from:enum_tte_expr
+                             ~assoc_index_bound:index ~rktype))
+               in
+               let assoc_bound = bounds in
+               let switch_tac_body =
+                 convert_from_rkbody ~discarded_value ~previous_alloc:allocated
+                   ~label_name:sw_goto ~rprogram ~map ~count_var ~if_count
+                   ~cases_count ~switch_count kbody
+               in
+               {
+                 variants = variants_to_match;
+                 tmp_assoc_bound = assoc_bound;
+                 tmp_sw_goto = sw_goto;
+                 tmp_sw_false;
+                 tmp_sw_exit_label = sw_exit_label;
+                 tmp_switch_tac_body = switch_tac_body;
+               })
+      in
+      let expr =
+        make_typed_tac_expression id_rktype (TEIdentifier identifier)
+      in
+      let switch =
+        STSwitchTmp
+          {
+            tmp_statemenets_for_case =
+              forward_push @ tmp_statemenets_for_case @ [ tag_set_statement ];
+            enum_tte = enum_tte_expr;
+            tag_atom;
+            tmp_switch_list;
+            tmp_wildcard_body;
+            tmp_wildcard_label;
+            tmp_sw_exit_label = sw_exit_label;
+          }
+        :: []
+      in
+      (switch, expr)
   | RESwitch { rexpression; cases; wildcard_case }, Some (identifier, id_rktype)
     ->
       let incremented = post_inc switch_count in
@@ -728,7 +941,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
         "Compiler code Error: Cannot create branch without previous allocation"
 
 (**
-    convert a rkbofy to a tac body
+    convert a rkbody to a tac body
     This function mostly unfold most the nested expression (.ie if) to a more flat representation 
 *)
 and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
@@ -853,14 +1066,12 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
           in
 
           let sizeof_discard =
-            KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
-              discard_typed_expression.rktype
+            KosuIrTyped.Sizeof.sizeof rprogram discard_typed_expression.rktype
           in
           let () =
             match tac_rvalue.tac_expression with
             | TEIdentifier id
-              when KosuIrTyped.Asttyconvert.Sizeof.discardable_size
-                     sizeof_discard ->
+              when KosuIrTyped.Sizeof.discardable_size sizeof_discard ->
                 let () = Hashtbl.remove map id in
                 let () =
                   Hashtbl.add discarded_value id tac_rvalue.expr_rktype
@@ -960,6 +1171,19 @@ and is_in_declaration id = function
          |> List.exists (fun { switch_tac_body; assoc_bound; _ } ->
                 is_in_body id switch_tac_body
                 || assoc_bound |> List.exists (fun (_, n, _) -> n = id))
+  | STSwitchTmp
+      { tmp_statemenets_for_case; tmp_wildcard_body; tmp_switch_list; _ } ->
+      tmp_statemenets_for_case |> List.exists (is_in_declaration id)
+      || tmp_wildcard_body
+         |> Option.map (is_in_body id)
+         |> Option.value ~default:false
+      || tmp_switch_list
+         |> List.exists (fun sw ->
+                sw.tmp_assoc_bound |> List.exists (fun (_, n, _) -> n = id)
+                || sw.variants
+                   |> List.exists (fun v ->
+                          is_in_declaration id v.cmp_statement
+                          || is_in_body id sw.tmp_switch_tac_body))
   | SCases { cases; else_tac_body; _ } ->
       is_in_body id else_tac_body
       || cases
@@ -1131,20 +1355,21 @@ let tac_function_decl_of_rfunction current_module rprogram
       ~function_return:true ~if_count rfunction_decl.rbody
   in
   let tac_body = reduce_variable_used_body tac_body in
-  let () =
-    map
-    |> Hashtbl.filter_map_inplace (fun key value ->
-           if is_in_body key tac_body then Some value else None)
-  in
+  (* let () =
+       map
+       |> Hashtbl.filter_map_inplace (fun key value ->
+              if is_in_body key tac_body then Some value else None)
+     in *)
   let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
 
   (* let () = locale_var |> List.map ( fun {locale_ty; locale} ->
        let s = (function Locale s -> s | Enum_Assoc_id {name; _} -> name) locale in
        Printf.sprintf "%s : %s" (s) (KosuIrTyped.Asttypprint.string_of_rktype locale_ty)
      ) |> String.concat "\n" |> Printf.printf "%s\n" in *)
-  let stack_params_count =
-    KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
-      rprogram rfunction_decl.rbody
+  let fn_call_infos =
+    KosuIrTyped.Asttyhelper.FnCallInfo.elements
+    @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
+         rprogram rfunction_decl.rbody
   in
   {
     rfn_name = rfunction_decl.rfn_name;
@@ -1152,7 +1377,7 @@ let tac_function_decl_of_rfunction current_module rprogram
     rparameters = rfunction_decl.rparameters;
     return_type = rfunction_decl.return_type;
     tac_body;
-    stack_params_count;
+    fn_call_infos;
     locale_var;
     discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
   }
@@ -1176,9 +1401,10 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
                if is_in_body key tac_body then Some value else None)
       in
       let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
-      let stack_params_count =
-        KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
-          rprogram kbody
+      let fn_call_infos =
+        KosuIrTyped.Asttyhelper.FnCallInfo.elements
+        @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body
+             current_module rprogram kbody
       in
       TacUnary
         {
@@ -1187,7 +1413,7 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
           rfield;
           return_type;
           tac_body;
-          stack_params_count;
+          fn_call_infos;
           locale_var;
           discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
         }
@@ -1212,9 +1438,10 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
                if is_in_body key tac_body then Some value else None)
       in
       let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
-      let stack_params_count =
-        KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
-          rprogram kbody
+      let fn_call_infos =
+        KosuIrTyped.Asttyhelper.FnCallInfo.elements
+        @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body
+             current_module rprogram kbody
       in
       TacBinary
         {
@@ -1223,7 +1450,7 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
           rfields;
           return_type;
           tac_body;
-          stack_params_count;
+          fn_call_infos;
           locale_var;
           discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
         }
@@ -1237,10 +1464,10 @@ let rec tac_module_node_from_rmodule_node current_module ?(dump_ast = false)
   | RNConst s -> TNConst s
   | RNFunction f ->
       let tmp = tac_function_decl_of_rfunction current_module rprogram f in
-
+      (* let dump_ast = true || dump_ast in *)
       let () =
         if dump_ast then
-          Printf.eprintf "Locales = %s\nBody:\n%s\n"
+          Printf.eprintf "fname = %s\nLocales = %s\nBody:\n%s\n%!" f.rfn_name
             (tmp.locale_var
             |> List.map Asttacpprint.string_of_typed_locale
             |> String.concat ", ")

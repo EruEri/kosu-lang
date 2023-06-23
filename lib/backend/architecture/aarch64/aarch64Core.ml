@@ -15,8 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module IdVar = Common.IdVar
-module IdVarMap = Common.IdVarMap
+module IdVar = KosuCommon.IdVar
+module IdVarMap = KosuCommon.IdVarMap
 
 module Immediat = struct
   let mask_6_8bytes = 0xFFFF_0000_0000_0000L
@@ -337,7 +337,7 @@ module Register = struct
         to_float32reg register
     | RTFloat F64 -> to_float64reg register
     | _ ->
-        let sizeof = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+        let sizeof = KosuIrTyped.Sizeof.sizeof rprogram ktype in
         let size = size_of_ktype_size sizeof in
         resize_register size register
 
@@ -350,25 +350,25 @@ module Register = struct
   (* let tmpreg_of_ktype rprogram ktype =
      if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg
      else
-       let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+       let size = KosuIrTyped.Sizeof.sizeof rprogram ktype in
        tmpreg_of_size size *)
 
   (* let tmpreg_of_ktype_2 rprogram ktype =
      if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_2
      else
-       let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+       let size = KosuIrTyped.Sizeof.sizeof rprogram ktype in
        tmpreg_of_size_2 size *)
   (*
      let tmpreg_of_ktype_3 rprogram ktype =
        if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_3
        else
-         let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+         let size = KosuIrTyped.Sizeof.sizeof rprogram ktype in
          tmpreg_of_size_3 size *)
 
   (* let tmpreg_of_ktype_4 rprogram ktype =
      if KosuIrTyped.Asttyhelper.RType.is_64bits_float ktype then ftmp64reg_4
      else
-       let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+       let size = KosuIrTyped.Sizeof.sizeof rprogram ktype in
        tmpreg_of_size_4 size *)
 end
 
@@ -587,13 +587,13 @@ module Instruction = struct
 
   type comment = Comment of string
 
-  type raw_line =
+  type line =
     | Instruction of instruction
     | Directive of string
     | Label of string
     | Line_Com of comment
 
-  type line = raw_line * comment option
+  (* type line = raw_line * comment option *)
 
   let instruction i = Instruction i
 
@@ -877,15 +877,17 @@ module Instruction = struct
            else H)
     | _ -> None
 
-  let copy_from_reg register (adress : address) ktype rprogram =
-    let size = KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram ktype in
+  let copy_from_reg ?(variadic = false) register (address : address) ktype
+      rprogram =
+    let size = KosuIrTyped.Sizeof.sizeof rprogram ktype in
     let is_reg_size = is_register_size size in
     match is_reg_size with
-    | false -> copy_large adress register size
+    | false -> copy_large address register size
     | true ->
+        let size = if variadic then max size 8L else size in
         let data_size = compute_data_size ktype size in
         let reg = resize_register (regsize_of_ktype size) register in
-        let strs = str_instr ~data_size ~source:reg adress in
+        let strs = str_instr ~data_size ~source:reg address in
         strs
 
   let load_register register (address : address) ktype ktype_size =
@@ -902,13 +904,14 @@ let unsigned_data_size = function SH -> H | SB -> B | t -> t
 module FrameManager = struct
   open Instruction
   open Register
-  open KosuIrTyped.Asttyconvert.Sizeof
+  open KosuIrTyped.Sizeof
 
   type frame_desc = {
     stack_param_count : int;
     locals_space : int64;
     need_xr : bool;
     stack_map : address IdVarMap.t;
+    variadic_style : Aarch64AsmSpec.variadic_args_stye;
     discarded_values : (string * KosuIrTyped.Asttyped.rktype) list;
   }
 
@@ -923,30 +926,122 @@ module FrameManager = struct
     let modulo = if Int64.unsigned_rem size 16L = 0L then 0L else 1L in
     16L ** (div ++ modulo)
 
-  let frame_descriptor ?(stack_future_call = 0L)
-      ~(fn_register_params : (string * KosuIrTyped.Asttyped.rktype) list)
-      ~(fn_float_register_params : (string * KosuIrTyped.Asttyped.rktype) list)
-      ~(stack_param : (string * KosuIrTyped.Asttyped.rktype) list) ~return_type
-      ~locals_var ~discarded_values rprogram =
-    let stack_param_count = stack_param |> List.length in
+  (* let frame_descriptor rprogram (tac_function: KosuIrTAC.Asttac.tac_function_decl) =
+       let open KosuIrTAC.Asttac in
+       let open Util.Args in
+       let iparas, fparams, stack_parameters =
+       Util.Args.consume_args
+       ~fregs:Register.float_arguments_register
+       ~iregs:Register.argument_registers
+       ~fpstyle:(fun (_, kt) ->
+         if KosuIrTyped.Asttyhelper.RType.is_float kt then
+           Simple_Reg Float
+         else
+           Simple_Reg Other
+       ) tac_function.rparameters
+     in
+       let need_xr =
+         tac_function.return_type
+         |> KosuIrTyped.Sizeof.sizeof rprogram
+         |> is_register_size |> not
+       in
+       failwith "" *)
+  let stack_args_passed_in_function ~variadic_style rprogram
+      (fn_info_calls : KosuIrTyped.Asttyped.function_call_infos) =
+    let open KosuIrTyped.Asttyped in
+    let open Util.Args in
+    fn_info_calls
+    |> List.fold_left
+         (fun acc { varia_index; parameters; return_type = _ } ->
+           let fpstyle kt =
+             if KosuIrTyped.Asttyhelper.RType.is_float kt then Simple_Reg Float
+             else Simple_Reg Other
+           in
+
+           let _, _, stack_args, variadic_args =
+             match variadic_style with
+             | Aarch64AsmSpec.AbiDarwin ->
+                 consume_args ?novariadic_args:varia_index
+                   ~fregs:Register.float_arguments_register
+                   ~iregs:Register.argument_registers ~fpstyle parameters
+             | AbiSysV ->
+                 let a, b, stack_args =
+                   Util.Args.consume_args_sysv ~reversed_stack:true
+                     ~fregs:Register.float_arguments_register
+                     ~iregs:Register.argument_registers ~fpstyle parameters
+                 in
+                 (a, b, stack_args, [])
+           in
+
+           let stack_args_size =
+             stack_args |> KosuIrTyped.Asttyhelper.RType.rtuple
+             |> KosuIrTyped.Sizeof.sizeof rprogram
+           in
+
+           let variadic_size =
+             variadic_args
+             |> List.map (fun kt ->
+                    KosuIrTyped.(
+                      Sizeof.align_8 @@ KosuIrTyped.Sizeof.sizeof rprogram kt))
+             |> List.fold_left Int64.add 0L
+           in
+
+           max (Int64.add stack_args_size variadic_size) acc)
+         0L
+
+  let frame_descriptor ~variadic_style
+      (function_decl : KosuIrTAC.Asttac.tac_function_decl) rprogram =
+    let open KosuIrTAC.Asttac in
+    let open Util.Args in
+    (* Since kosu function arent variadic, we can use sysV abi *)
+    let iparas, fparams, stack_parameters =
+      Util.Args.consume_args_sysv
+        ~reversed_stack:
+          (match variadic_style with
+          | Aarch64AsmSpec.AbiSysV -> true
+          | AbiDarwin -> false)
+        ~fregs:Register.float_arguments_register
+        ~iregs:Register.argument_registers
+        ~fpstyle:KosuCommon.Function.kosu_passing_style
+        function_decl.rparameters
+    in
+    let locale_variables =
+      function_decl.locale_var
+      |> List.sort (fun lhs rhs ->
+             let lsize = KosuIrTyped.Sizeof.sizeof_kt lhs.locale_ty in
+             let rsize = KosuIrTyped.Sizeof.sizeof_kt rhs.locale_ty in
+             compare rsize lsize)
+      |> List.map
+           KosuIrTAC.Asttachelper.LocaleVariable.variable_of_tac_locale_variable
+    in
     let need_xr =
-      return_type
-      |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+      function_decl.return_type
+      |> KosuIrTyped.Sizeof.sizeof rprogram
       |> is_register_size |> not
     in
-    let stack_concat =
-      fn_register_params @ fn_float_register_params @ stack_param @ locals_var
+    let reg_parameters, _ =
+      iparas |> ( @ ) fparams
+      |> List.map (fun (variable, return_kind) ->
+             match return_kind with
+             | Simple_return reg -> (variable, (variable, reg))
+             | Double_return _ -> failwith "Unreachable")
+      |> List.split
     in
+    let stack_concat = reg_parameters @ locale_variables in
     let stack_concat =
-      if need_xr then
-        (indirect_return_var, indirect_return_type) :: stack_concat
-      else stack_concat
+      if need_xr then indirect_return_vt :: stack_concat else stack_concat
     in
-    let fake_tuple = stack_concat |> List.map snd in
+    let fake_tuple = List.map snd stack_concat in
     let locals_space =
       fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
-      |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+      |> KosuIrTyped.Sizeof.sizeof rprogram
     in
+    let stack_future_call =
+      stack_args_passed_in_function ~variadic_style rprogram
+        function_decl.fn_call_infos
+    in
+
+    (* let () = Printf.printf "fn_name = %s, stack call = %Lu%!" function_decl.rfn_name stack_future_call in *)
     let locals_space = Int64.add locals_space stack_future_call in
     (* let () = Printf.printf "Locale space = %Lu\n" locals_space in *)
     let map =
@@ -958,7 +1053,7 @@ module FrameManager = struct
              let x29_relative_address =
                locals_space |> Int64.neg |> Int64.add offset
              in
-             let adress =
+             let address =
                if x29_relative_address > -256L then
                  create_adress
                    ~offset:
@@ -969,14 +1064,29 @@ module FrameManager = struct
                  create_adress ~offset:(Int64.add stack_future_call offset) sp
              in
              (* let () = Printf.printf "-> %s : %s == [x29, %Ld] \n" (fst st) (KosuIrTyped.Asttypprint.string_of_rktype @@ snd @@ st) (offset) in *)
-             IdVarMap.add st adress acc)
+             IdVarMap.add st address acc)
            IdVarMap.empty
     in
+    let stack_args_rktype = List.map snd stack_parameters in
+    let stack_x29_offset = 16L in
+    let map =
+      stack_parameters |> List.mapi Util.couple
+      |> List.fold_left
+           (fun acc (index, st) ->
+             let offset =
+               offset_of_tuple_index index stack_args_rktype rprogram
+             in
+             let offset = Int64.add stack_x29_offset offset in
+             let address = create_adress ~offset x29 in
+             IdVarMap.add st address acc)
+           map
+    in
     {
-      stack_param_count;
+      stack_param_count = Int64.to_int stack_future_call;
       locals_space;
       stack_map = map;
-      discarded_values;
+      discarded_values = function_decl.discarded_values;
+      variadic_style;
       need_xr;
     }
 
@@ -1064,8 +1174,10 @@ module FrameManager = struct
              };
       ]
 
-  let function_prologue ~fn_register_params ~fn_float_register_params
-      ~stack_params rprogram fd =
+  let function_prologue (tac_function : KosuIrTAC.Asttac.tac_function_decl)
+      rprogram fd =
+    let open KosuIrTAC.Asttac in
+    let open Util.Args in
     let stack_sub_size = align_16 (Int64.add 16L fd.locals_space) in
     let variable_frame_size = Int64.sub stack_sub_size 16L in
     (* let stp_instructions, address = prologue_epilogue_stack_size frame_register_offset in *)
@@ -1103,48 +1215,36 @@ module FrameManager = struct
         ]
       else []
     in
-    let stack_params_offset =
-      stack_params
-      |> List.map (fun (_, kt) ->
-             if KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt > 8L then
-               KosuIrTyped.Asttyhelper.RType.rpointer kt
-             else kt)
+    let iparas, fparams, _ =
+      Util.Args.consume_args_sysv
+        ~reversed_stack:
+          (match fd.variadic_style with
+          | Aarch64AsmSpec.AbiSysV -> true
+          | AbiDarwin -> false)
+        ~fregs:Register.float_arguments_register
+        ~iregs:Register.argument_registers
+        ~fpstyle:KosuCommon.Function.kosu_passing_style tac_function.rparameters
     in
-    let sp_address = create_adress ~offset:stack_sub_size sp in
-    let copy_stack_params_instruction =
-      stack_params
-      |> List.mapi (fun index value -> (index, value))
-      |> List.fold_left
-           (fun acc (index, (name, kt)) ->
-             let sizeofkt =
-               KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram kt
-             in
-             let offset =
-               offset_of_tuple_index index stack_params_offset rprogram
-             in
-             let future_address_location =
-               address_of (name, kt) fd |> fun adr ->
-               match adr with
-               | Some a -> a
-               | None -> failwith "On stack setup null address"
-             in
-             let tmprreg = reg8_of_ktype rprogram kt in
-             let param_stack_address = increment_adress offset sp_address in
-             let load_instruction =
-               load_register tmprreg param_stack_address kt sizeofkt
-             in
-             let str_instruction =
-               copy_from_reg tmprreg future_address_location kt rprogram
-             in
-             acc @ str_instruction @ load_instruction)
-           []
+    let iparas =
+      iparas
+      |> List.map (fun (variable, return_kind) ->
+             match return_kind with
+             | Simple_return reg -> (variable, reg)
+             | Double_return _ -> failwith "Unreachable")
+    in
+
+    let fparams =
+      fparams
+      |> List.map (fun (variable, return_kind) ->
+             match return_kind with
+             | Simple_return reg -> (variable, reg)
+             | Double_return _ -> failwith "Unreachable")
     in
 
     let copy_instructions =
-      fn_register_params
-      |> Util.ListHelper.combine_safe argument_registers
+      iparas
       |> List.fold_left
-           (fun acc (register, (name, kt)) ->
+           (fun acc ((name, kt), register) ->
              let whereis =
                address_of (name, kt) fd |> fun adr ->
                match adr with
@@ -1156,10 +1256,9 @@ module FrameManager = struct
     in
 
     let float_copy_instructions =
-      fn_float_register_params
-      |> Util.ListHelper.combine_safe float_arguments_register
+      fparams
       |> List.fold_left
-           (fun acc (register, (name, kt)) ->
+           (fun acc ((name, kt), register) ->
              let whereis =
                address_of (name, kt) fd |> fun adr ->
                match adr with
@@ -1170,8 +1269,7 @@ module FrameManager = struct
            []
     in
 
-    (stack_sub :: base) @ [ alignx29 ] @ store_x8
-    @ copy_stack_params_instruction @ copy_instructions
+    (stack_sub :: base) @ [ alignx29 ] @ store_x8 @ copy_instructions
     @ float_copy_instructions
 
   let function_epilogue fd =
@@ -1192,7 +1290,7 @@ module FrameManager = struct
 
     base @ [ stack_add; return ]
 
-  let call_instruction ~origin _stack_param (_fd : frame_desc) =
+  let call_instruction ~origin =
     let call = Instruction (BL { cc = None; label = origin }) in
     [ call ]
 end

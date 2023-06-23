@@ -15,5 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module KosucCli = KosucCli
-module KosuCli = KosuCli
+module Kosu = CliKosu
+module Kosuc = CliKosuc
+module Kosubc = CliKosubc

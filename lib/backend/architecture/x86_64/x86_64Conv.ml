@@ -19,13 +19,13 @@ open X86_64Core
 open X86_64Core.Register
 open X86_64Core.Operande
 open X86_64Core.Instruction
-open KosuIrTyped.Asttyconvert.Sizeof
+open KosuIrTyped.Sizeof
 open KosuIrTAC.Asttac
 open Util
 
-let sizeofn = KosuIrTyped.Asttyconvert.Sizeof.sizeof
+let sizeofn = KosuIrTyped.Sizeof.sizeof
 
-module X86Program = Common.AsmProgram (X86_64Core.Instruction)
+module X86Program = KosuCommon.AsmProgram (X86_64Core.Instruction)
 open X86Program
 
 module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
@@ -481,55 +481,33 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           @@ KosuIrTyped.Asttyhelper.RProgram.find_function_decl_of_name
                fn_module fn_name rprogram
         in
-        let need_pass_rdi =
-          rval_rktype |> sizeofn rprogram |> is_register_size |> not
-        in
-        let available_register_params =
-          if need_pass_rdi then List.tl Register.argument_registers
-          else Register.argument_registers
-        in
-        let available_register_count = List.length available_register_params in
         match fn_decl with
         | RExternal_Decl external_func_decl ->
             let fn_label = Spec.label_of_external_function external_func_decl in
 
-            let float_parameters, other_parametrs =
-              tac_parameters
-              |> List.partition (fun tte ->
-                     KosuIrTyped.Asttyhelper.RType.is_float tte.expr_rktype)
+            let arguments_registers = passing_register_kt rval_rktype in
+            let iparas, fparams, stack_parameters =
+              Util.Args.consume_args_sysv ~reversed_stack:true
+                ~fregs:Register.float_arguments_register
+                ~iregs:arguments_registers
+                ~fpstyle:KosuCommon.Function.kosu_passing_style_tte
+                tac_parameters
             in
 
-            let args_in_reg, _args_on_stack =
-              other_parametrs
-              |> List.mapi (fun index value -> (index, value))
-              |> List.partition_map (fun (index, value) ->
-                     if index < available_register_count then Either.left value
-                     else Either.right value)
-            in
-            let set_in_reg_instructions =
-              args_in_reg
-              |> Util.ListHelper.combine_safe available_register_params
-              |> List.fold_left
-                   (fun acc (reg, tte) ->
-                     let reg = iregister reg in
-                     let _last_reg, instructions =
-                       translate_tac_expression ~litterals
-                         ~target_dst:(`Register reg) rprogram fd tte
+            let reg_instructions =
+              iparas @ fparams
+              |> List.map (fun (variable, return_kind) ->
+                     let tte, reg =
+                       match return_kind with
+                       | Util.Args.Simple_return reg -> (variable, reg)
+                       | Double_return _ -> failwith "Unreachable"
                      in
-                     acc @ instructions)
-                   []
-            in
-
-            let float_instructions =
-              float_parameters
-              |> Util.ListHelper.combine_safe float_arguments_register
-              |> List.fold_left
-                   (fun acc (reg, tte) ->
-                     let _, instructions =
-                       translate_tac_expression ~litterals
-                         ~target_dst:(`Register reg) rprogram fd tte
+                     let tte_instructions =
+                       snd
+                       @@ translate_tac_expression ~litterals
+                            ~target_dst:(`Register reg) rprogram fd tte
                      in
-                     let promote_float_instrcution =
+                     let promote_float_instruction =
                        if
                          external_func_decl.is_variadic
                          && KosuIrTyped.Asttyhelper.RType.is_32bits_float
@@ -546,11 +524,36 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                          :: []
                        else []
                      in
-                     acc @ instructions @ promote_float_instrcution)
-                   []
+                     tte_instructions @ promote_float_instruction)
+              |> List.flatten
             in
 
-            let set_on_stack_instructions = [] (* TODO *) in
+            let stack_args_ktype_list =
+              List.map (fun tte -> tte.expr_rktype) stack_parameters
+            in
+            (* let total_size = stack_args_ktype_list |> KosuIrTyped.Asttyhelper.RType.rtuple |> KosuIrTyped.Sizeof.sizeof rprogram in *)
+            let set_on_stack_instructions =
+              stack_parameters
+              |> List.mapi (fun index tte ->
+                     let last_reg, instructions =
+                       translate_tac_expression ~litterals
+                         ~target_dst:(`Register Register.r10) rprogram fd tte
+                     in
+                     let offset =
+                       KosuIrTyped.Sizeof.offset_of_tuple_index index
+                         stack_args_ktype_list rprogram
+                     in
+                     (* let () = Printf.printf "offset %Lu\n%!" offset in *)
+                     let address = create_address_offset ~offset rsp in
+                     (* Maybe promote float if is call in variadic function *)
+                     let set_instructions =
+                       copy_from_reg (register_of_dst last_reg) address
+                         tte.expr_rktype rprogram
+                     in
+                     instructions @ set_instructions)
+              |> List.flatten
+            in
+
             let count_float_parameters =
               tac_parameters
               |> List.fold_left
@@ -591,16 +594,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                       ~return_reg ~return_type:external_func_decl.return_type
                       rprogram
                   in
-                  set_in_reg_instructions @ float_instructions
-                  @ set_on_stack_instructions @ variadic_float_use_instruction
-                  @ call_instructions @ copy_instruction
+                  reg_instructions @ set_on_stack_instructions
+                  @ variadic_float_use_instruction @ call_instructions
+                  @ copy_instruction
               | None ->
                   let set_indirect_return_instruction =
                     return_function_instruction_none_reg_size ~where ~is_deref
                   in
-                  set_in_reg_instructions @ set_on_stack_instructions
-                  @ set_indirect_return_instruction @ float_instructions
-                  @ call_instructions
+                  reg_instructions @ set_on_stack_instructions
+                  @ set_indirect_return_instruction @ call_instructions
             in
             extern_instructions
         | RSyscall_Decl syscall_decl ->
@@ -668,50 +670,54 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
               Spec.label_of_kosu_function ~module_path function_decl
             in
 
-            let float_parameters, other_parametrs =
-              tac_parameters
-              |> List.partition (fun tte ->
-                     KosuIrTyped.Asttyhelper.RType.is_float tte.expr_rktype)
-            in
-            (* let is_reg_size = rval_rktype |> sizeofn rprogram |> is_register_size in *)
-            let int_args_in_reg, _int_args_on_stack =
-              other_parametrs
-              |> List.mapi (fun index value -> (index, value))
-              |> List.partition_map (fun (index, value) ->
-                     if index < available_register_count then Either.left value
-                     else Either.right value)
-            in
-            let set_in_reg_instructions =
-              int_args_in_reg
-              |> Util.ListHelper.combine_safe available_register_params
-              |> List.fold_left
-                   (fun acc (reg, tte) ->
-                     let reg = iregister reg in
-                     let _last_reg, instructions =
-                       translate_tac_expression ~litterals
-                         ~target_dst:(`Register reg) rprogram fd tte
-                     in
-                     acc @ instructions)
-                   []
+            let arguments_registers = passing_register_kt rval_rktype in
+            let iparas, fparams, stack_parameters =
+              Util.Args.consume_args_sysv ~reversed_stack:true
+                ~fregs:Register.float_arguments_register
+                ~iregs:arguments_registers
+                ~fpstyle:KosuCommon.Function.kosu_passing_style_tte
+                tac_parameters
             in
 
-            let float_instruction =
-              float_parameters
-              |> Util.ListHelper.combine_safe float_arguments_register
-              |> List.fold_left
-                   (fun acc (reg, tte) ->
-                     let _, instructions =
-                       translate_tac_expression ~litterals
-                         ~target_dst:(`Register reg) rprogram fd tte
+            let reg_instructions =
+              iparas @ fparams
+              |> List.map (fun (variable, return_kind) ->
+                     let tte, reg =
+                       match return_kind with
+                       | Util.Args.Simple_return reg -> (variable, reg)
+                       | Double_return _ -> failwith "Unreachable"
                      in
-                     acc @ instructions)
-                   []
+                     snd
+                     @@ translate_tac_expression ~litterals
+                          ~target_dst:(`Register reg) rprogram fd tte)
+              |> List.flatten
             in
-            (* let set_in_reg_instructions = if need_pass_rdi then
-                   (Instruction (Lea {size = Q; source = Option.get where; destination = rdiq}))::set_in_reg_instructions
-                 else set_in_reg_instructions
-               in *)
-            let set_on_stack_instructions = [] (* TODO *) in
+
+            let stack_args_ktype_list =
+              List.map (fun tte -> tte.expr_rktype) stack_parameters
+            in
+            (* let total_size = stack_args_ktype_list |> KosuIrTyped.Asttyhelper.RType.rtuple |> KosuIrTyped.Sizeof.sizeof rprogram in *)
+            let set_on_stack_instructions =
+              stack_parameters
+              |> List.mapi (fun index tte ->
+                     let last_reg, instructions =
+                       translate_tac_expression ~litterals
+                         ~target_dst:(`Register Register.r10) rprogram fd tte
+                     in
+                     let offset =
+                       KosuIrTyped.Sizeof.offset_of_tuple_index index
+                         stack_args_ktype_list rprogram
+                     in
+                     (* let () = Printf.printf "offset %Lu\n%!" offset in *)
+                     let address = create_address_offset ~offset rsp in
+                     (* Maybe promote float if is call in variadic function *)
+                     let set_instructions =
+                       copy_from_reg (register_of_dst last_reg) address
+                         tte.expr_rktype rprogram
+                     in
+                     instructions @ set_instructions)
+              |> List.flatten
+            in
             let call_instructions =
               FrameManager.call_instruction ~origin:(`Label fn_label) [] fd
             in
@@ -728,16 +734,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                       ~return_reg ~return_type:function_decl.return_type
                       rprogram
                   in
-                  set_in_reg_instructions @ set_on_stack_instructions
-                  @ float_instruction @ call_instructions @ copy_instruction
+                  reg_instructions @ set_on_stack_instructions
+                  @ call_instructions @ copy_instruction
               | None ->
                   let set_indirect_return_instructions =
                     return_function_instruction_none_reg_size ~where ~is_deref
                   in
 
-                  set_in_reg_instructions @ set_on_stack_instructions
-                  @ float_instruction @ set_indirect_return_instructions
-                  @ call_instructions
+                  reg_instructions @ set_on_stack_instructions
+                  @ set_indirect_return_instructions @ call_instructions
             in
             kosu_fn_instructions @ [ fn_call_comm ])
     | RVTuple ttes ->
@@ -962,9 +967,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           ]
         in
         let last_reg, load_indirect =
-          if
-            is_register_size
-            @@ KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram rval_rktype
+          if is_register_size @@ KosuIrTyped.Sizeof.sizeof rprogram rval_rktype
           then
             ( rax,
               [
@@ -1180,7 +1183,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         | true ->
             let pointee_size =
               rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee
-              |> KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
+              |> KosuIrTyped.Sizeof.sizeof rprogram
             in
             let ptr_reg, linstructions =
               translate_tac_expression ~litterals ~target_dst:(`Register rax)
@@ -1609,7 +1612,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           Option.get @@ FrameManager.address_of identifier_root fd
         in
         let field_offset =
-          Common.OffsetHelper.offset_of_field_access (snd identifier_root)
+          KosuCommon.OffsetHelper.offset_of_field_access (snd identifier_root)
             ~fields rprogram
         in
         let target_adress = increment_adress field_offset root_address in
@@ -1629,7 +1632,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             identifier_root
         in
         let field_offset =
-          Common.OffsetHelper.offset_of_field_access pointee_type ~fields
+          KosuCommon.OffsetHelper.offset_of_field_access pointee_type ~fields
             rprogram
         in
         let _target_adress =
@@ -1999,6 +2002,182 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         @ (copy_tag :: cmp_instrution_list)
         @ wildcard_case_jmp @ fn_block @ wildcard_body_block
         @ [ exit_label_instruction ]
+    | STSwitchTmp
+        {
+          tmp_statemenets_for_case;
+          enum_tte;
+          tag_atom;
+          tmp_switch_list;
+          tmp_wildcard_label;
+          tmp_wildcard_body;
+          tmp_sw_exit_label;
+        } ->
+        let open LineInstruction in
+        let enum_decl =
+          match
+            KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
+              enum_tte.expr_rktype rprogram
+          with
+          | Some (RDecl_Struct _) ->
+              failwith "Expected to find an enum get an struct"
+          | Some (RDecl_Enum e) -> e
+          | None -> failwith "Non type decl ??? my validation is very weak"
+        in
+        let enum_decl =
+          let generics =
+            enum_tte.expr_rktype
+            |> KosuIrTyped.Asttyhelper.RType.extract_parametrics_rktype
+            |> List.combine enum_decl.generics
+          in
+          KosuIrTyped.Asttyhelper.Renum.instanciate_enum_decl generics enum_decl
+        in
+        let exit_label_instruction = Label tmp_sw_exit_label in
+        let setup_instructions =
+          tmp_statemenets_for_case
+          |> List.fold_left
+               (fun acc_stmts value ->
+                 let insts =
+                   translate_tac_statement ~litterals current_module rprogram fd
+                     value
+                 in
+                 acc_stmts @ insts)
+               []
+        in
+        let reg_tag_11, mov_tag_register_instructions =
+          translate_tac_expression ~litterals
+            ~target_dst:(`Register Register.r11) rprogram fd tag_atom
+        in
+        (* let tag_variable =
+             match tag_atom.tac_expression with
+             | TEIdentifier id -> (id, tag_atom.expr_rktype)
+             | _ -> failwith "I need to get the id"
+           in *)
+        let enum_variabe =
+          match enum_tte.tac_expression with
+          | TEIdentifier id -> (id, enum_tte.expr_rktype)
+          | _ -> failwith "I need to get the id of the enum"
+        in
+        let cmp_instrution_list, fn_block =
+          tmp_switch_list
+          |> List.map (fun switch ->
+                 let jump_condition =
+                   switch.variants
+                   |> List.map (fun variant ->
+                          let compare_instruction =
+                            instruction
+                            @@ Cmp
+                                 {
+                                   size = il;
+                                   rhs = (reg_tag_11 :> src);
+                                   lhs =
+                                     `ILitteral
+                                       (Int64.of_int variant.variant_index);
+                                 }
+                          in
+                          let assoc_type_for_variants =
+                            KosuIrTyped.Asttyhelper.Renum
+                            .assoc_types_of_variant_tag ~tagged:true
+                              variant.variant_index enum_decl
+                          in
+                          let fetch_offset_instructions =
+                            switch.tmp_assoc_bound
+                            |> List.map (fun (index, id, ktype) ->
+                                   let offset_a =
+                                     offset_of_tuple_index (index + 1)
+                                       assoc_type_for_variants rprogram
+                                   in
+                                   let switch_variable_address =
+                                     Option.get
+                                     @@ FrameManager.address_of enum_variabe fd
+                                   in
+                                   let destination_address =
+                                     Option.get
+                                     @@ FrameManager.address_of (id, ktype) fd
+                                   in
+                                   let size_of_ktype = sizeofn rprogram ktype in
+                                   let data_size =
+                                     int_data_size_of_int64_def size_of_ktype
+                                   in
+                                   let copy_instructions =
+                                     if is_register_size size_of_ktype then
+                                       [
+                                         Instruction
+                                           (Mov
+                                              {
+                                                size = IntSize data_size;
+                                                destination = `Register r11;
+                                                source =
+                                                  `Address
+                                                    (increment_adress offset_a
+                                                       switch_variable_address);
+                                              });
+                                         Instruction
+                                           (Mov
+                                              {
+                                                size = IntSize data_size;
+                                                source = `Register r11;
+                                                destination =
+                                                  `Address destination_address;
+                                              });
+                                       ]
+                                     else
+                                       let leaq =
+                                         Instruction
+                                           (Lea
+                                              {
+                                                size = iq;
+                                                destination = r11;
+                                                source =
+                                                  increment_adress offset_a
+                                                    switch_variable_address;
+                                              })
+                                       in
+                                       leaq
+                                       :: copy_from_reg r11 destination_address
+                                            ktype rprogram
+                                   in
+                                   copy_instructions)
+                            |> List.flatten
+                          in
+                          let jump_true =
+                            Instruction
+                              (Jmp
+                                 {
+                                   cc = Some E;
+                                   where = `Label switch.tmp_sw_goto;
+                                 })
+                          in
+                          fetch_offset_instructions
+                          @ [ compare_instruction; jump_true ])
+                   |> List.flatten
+                 in
+                 let genete_block =
+                   translate_tac_body ~litterals
+                     ~end_label:(Some switch.tmp_sw_exit_label) current_module
+                     rprogram fd switch.tmp_switch_tac_body
+                 in
+                 (jump_condition, genete_block))
+          |> List.split
+          |> fun (lhs, rhs) -> (List.flatten lhs, List.flatten rhs)
+        in
+        let wildcard_case_jmp =
+          tmp_wildcard_label
+          |> Option.map (fun lab ->
+                 Instruction (Jmp { cc = None; where = `Label lab }))
+          |> Option.to_list
+        in
+        let wildcard_body_block =
+          tmp_wildcard_body
+          |> Option.map (fun body ->
+                 translate_tac_body ~litterals
+                   ~end_label:(Some tmp_sw_exit_label) current_module rprogram
+                   fd body)
+          |> Option.value ~default:[]
+        in
+
+        setup_instructions @ mov_tag_register_instructions @ cmp_instrution_list
+        @ wildcard_case_jmp @ fn_block @ wildcard_body_block
+        @ [ exit_label_instruction ]
 
   and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
       (fd : FrameManager.frame_desc) { label; body } =
@@ -2108,49 +2287,6 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         |> List.filter_map (fun node ->
                match node with
                | TNFunction function_decl ->
-                   let register_param_count = List.length argument_registers in
-                   let float_reg_count = List.length float_arguments_register in
-                   let float_parameter, other_parameters =
-                     function_decl.rparameters
-                     |> List.partition (fun (_, kt) ->
-                            KosuIrTyped.Asttyhelper.RType.is_float kt)
-                   in
-                   let int_params =
-                     if
-                       is_register_size
-                         (sizeofn rprogram function_decl.return_type)
-                     then other_parameters
-                     else
-                       X86_64Core.FrameManager.indirect_return_vt
-                       :: other_parameters
-                   in
-                   let fn_register_params, stack_param =
-                     int_params
-                     |> List.mapi (fun index value -> (index, value))
-                     |> List.partition_map (fun (index, value) ->
-                            if index < register_param_count then
-                              Either.left value
-                            else Either.right value)
-                   in
-
-                   let fn_float_register_params, float_stack =
-                     float_parameter
-                     |> List.mapi (fun index value -> (index, value))
-                     |> List.partition_map (fun (index, value) ->
-                            if index < float_reg_count then Either.left value
-                            else Either.right value)
-                   in
-
-                   let stack_param_count =
-                     Int64.of_int (function_decl.stack_params_count * 8)
-                   in
-                   let locals_var =
-                     function_decl.locale_var
-                     |> List.map (fun { locale_ty; locale } ->
-                            match locale with
-                            | Locale s -> (s, locale_ty)
-                            | Enum_Assoc_id { name; _ } -> (name, locale_ty))
-                   in
                    (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
                    let asm_name =
                      Spec.label_of_tac_function ~module_path:current_module
@@ -2158,17 +2294,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    in
                    (* let () = Printf.printf "%s::%s\n" current_module function_decl.rfn_name in *)
                    let fd =
-                     FrameManager.frame_descriptor
-                       ~stack_future_call:stack_param_count ~fn_register_params
-                       ~fn_float_register_params
-                       ~stack_param:(stack_param @ float_stack)
-                       ~return_type:function_decl.return_type ~locals_var
-                       ~discarded_values:function_decl.discarded_values rprogram
+                     FrameManager.frame_descriptor function_decl rprogram
                    in
                    let prologue =
-                     FrameManager.function_prologue ~fn_register_params
-                       ~fn_float_register_params ~stack_params:stack_param
-                       rprogram fd
+                     FrameManager.function_prologue function_decl rprogram fd
                    in
                    let conversion =
                      translate_tac_body ~litterals current_module rprogram fd
@@ -2189,106 +2318,45 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                           asm_name;
                           asm_body =
                             [ Directive "cfi_startproc" ]
-                            @ prologue @ (conversion |> List.tl) @ epilogue
+                            @ prologue @ List.tl conversion @ epilogue
                             @ [ Directive "cfi_endproc" ];
                         })
-               | TNOperator (TacUnary unary_decl as self) ->
-                   let stack_param_count =
-                     Int64.of_int (unary_decl.stack_params_count * 8)
+               | TNOperator operator ->
+                   let function_decl =
+                     KosuIrTAC.Asttachelper.OperatorDeclaration
+                     .tac_function_of_operator operator
                    in
-                   let locals_var =
-                     unary_decl.locale_var
-                     |> List.map (fun { locale_ty; locale } ->
-                            match locale with
-                            | Locale s -> (s, locale_ty)
-                            | Enum_Assoc_id { name; _ } -> (name, locale_ty))
-                   in
-                   (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
                    let asm_name =
-                     Spec.label_of_tac_operator ~module_path:current_module self
+                     Spec.label_of_tac_operator ~module_path:current_module
+                       operator
                    in
-                   let fn_register_params = [ unary_decl.rfield ] in
-                   let fn_register_params =
-                     if
-                       is_register_size
-                         (sizeofn rprogram unary_decl.return_type)
-                     then fn_register_params
-                     else
-                       X86_64Core.FrameManager.indirect_return_vt
-                       :: fn_register_params
-                   in
+                   (* let () = Printf.printf "%s::%s\n" current_module function_decl.rfn_name in *)
                    let fd =
-                     FrameManager.frame_descriptor
-                       ~stack_future_call:stack_param_count ~fn_register_params
-                       ~fn_float_register_params:[] ~stack_param:[]
-                       ~return_type:unary_decl.return_type ~locals_var
-                       ~discarded_values:unary_decl.discarded_values rprogram
+                     FrameManager.frame_descriptor function_decl rprogram
                    in
                    let prologue =
-                     FrameManager.function_prologue ~fn_register_params
-                       ~fn_float_register_params:[] ~stack_params:[] rprogram fd
+                     FrameManager.function_prologue function_decl rprogram fd
                    in
                    let conversion =
                      translate_tac_body ~litterals current_module rprogram fd
-                       (KosuIrTAC.Asttachelper.OperatorDeclaration.tac_body self)
+                       function_decl.tac_body
                    in
                    let epilogue = FrameManager.function_epilogue fd in
+                   (* let () = Printf.printf "\n\n%s:\n" function_decl.rfn_name in
+                      let () = fd.stack_map |> IdVarMap.to_seq |> Seq.iter (fun ((s, kt), adr) ->
+                        Printf.printf "%s : %s == [%s, %s]\n"
+                        (s)
+                        (KosuIrTyped.Asttypprint.string_of_rktype kt)
+                        (X86_64Pprint.string_of_register adr.base)
+                        (X86_64Pprint.string_of_address_offset adr.offset)
+                        ) in *)
                    Some
                      (Afunction
                         {
                           asm_name;
                           asm_body =
                             [ Directive "cfi_startproc" ]
-                            @ prologue @ (conversion |> List.tl) @ epilogue
-                            @ [ Directive "cfi_endproc" ];
-                        })
-               | TNOperator (TacBinary binary as self) ->
-                   let stack_param_count =
-                     Int64.of_int (binary.stack_params_count * 8)
-                   in
-                   let locals_var =
-                     binary.locale_var
-                     |> List.map (fun { locale_ty; locale } ->
-                            match locale with
-                            | Locale s -> (s, locale_ty)
-                            | Enum_Assoc_id { name; _ } -> (name, locale_ty))
-                   in
-                   (* let () = locals_var |> List.map (fun (s, kt) -> Printf.sprintf "%s : %s " (s) (KosuIrTyped.Asttypprint.string_of_rktype kt)) |> String.concat ", " |> Printf.printf "%s : locale variables = [%s]\n" function_decl.rfn_name in *)
-                   let asm_name =
-                     Spec.label_of_tac_operator ~module_path:current_module self
-                   in
-                   let lhs_param, rhs_param = binary.rfields in
-                   let fn_register_params = [ lhs_param; rhs_param ] in
-                   let fn_register_params =
-                     if is_register_size (sizeofn rprogram binary.return_type)
-                     then fn_register_params
-                     else
-                       X86_64Core.FrameManager.indirect_return_vt
-                       :: fn_register_params
-                   in
-                   let fd =
-                     FrameManager.frame_descriptor
-                       ~stack_future_call:stack_param_count ~fn_register_params
-                       ~fn_float_register_params:[] ~stack_param:[]
-                       ~return_type:binary.return_type ~locals_var
-                       ~discarded_values:binary.discarded_values rprogram
-                   in
-                   let prologue =
-                     FrameManager.function_prologue ~fn_register_params
-                       ~fn_float_register_params:[] ~stack_params:[] rprogram fd
-                   in
-                   let conversion =
-                     translate_tac_body ~litterals current_module rprogram fd
-                       (KosuIrTAC.Asttachelper.OperatorDeclaration.tac_body self)
-                   in
-                   let epilogue = FrameManager.function_epilogue fd in
-                   Some
-                     (Afunction
-                        {
-                          asm_name;
-                          asm_body =
-                            [ Directive "cfi_startproc" ]
-                            @ prologue @ (conversion |> List.tl) @ epilogue
+                            @ prologue @ List.tl conversion @ epilogue
                             @ [ Directive "cfi_endproc" ];
                         })
                | TNConst

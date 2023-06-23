@@ -61,7 +61,9 @@ module type ABI = sig
   val callee_saved_register : t list
   val caller_saved_register : t list
   val syscall_register : t list
-  val arguments_register : t list
+  val arguments_register : variable -> t list
+  val non_float_argument_registers : t list
+  val is_valid_register : variable -> t -> bool
   val does_return_hold_in_register : variable -> bool
   val indirect_return_register : t
   val return_strategy : variable -> return_strategy
@@ -289,6 +291,7 @@ module Make (CfgS : CfgS) :
       }
 
     let fetch_basic_block_from_label label_name bbset =
+      (* let () = print_endline label_name in *)
       bbset |> BasicBlockMap.find label_name
 
     let identifier_of_stmt = function
@@ -984,12 +987,14 @@ module Make (CfgS : CfgS) :
                match VariableAbiMap.find_opt variable acc_map with
                (* check if the parameter function variable has already been colored *)
                | None -> (
-                   match List.nth_opt ABI.arguments_register index with
+                   match
+                     List.nth_opt (ABI.arguments_register variable) index
+                   with
                    | None -> acc_map
                    | Some color -> try_color base_graph variable color acc_map)
                | Some color ->
                    let index_color =
-                     ABI.arguments_register |> List.mapi Util.couple
+                     variable |> ABI.arguments_register |> List.mapi Util.couple
                      |> List.find_map (fun (index, reg) ->
                             if ABI.compare reg color = 0 then Some index
                             else None)
@@ -1086,7 +1091,10 @@ module Make (CfgS : CfgS) :
 
     let coloration ~(parameters : (TypedIdentifierSet.elt * ABI.t) list)
         ~available_color (cfg : Liveness.cfg_liveness_detail) =
-      let cg = base_coloration ~parameters ~available_color cfg in
+      let cg =
+        base_coloration ~parameters ~available_color
+          ~select:ABI.is_valid_register cfg
+      in
       let cg = decolaration ~parameters cfg cg in
       cg
   end

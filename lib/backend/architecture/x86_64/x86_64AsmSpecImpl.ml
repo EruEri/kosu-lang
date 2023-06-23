@@ -37,7 +37,7 @@ end
 module Make (X86_Spec : X86_64_Spec) : X86_64AsmSpec.X86_64AsmSpecification =
 struct
   include X86_Spec
-  module NamingConvention = Common.NamingConvention.Make (X86_Spec)
+  module NamingConvention = KosuCommon.NamingConvention.Make (X86_Spec)
   include NamingConvention
 end
 

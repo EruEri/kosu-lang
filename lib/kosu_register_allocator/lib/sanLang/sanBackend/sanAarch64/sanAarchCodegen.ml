@@ -16,7 +16,7 @@
 (**********************************************************************************************)
 
 module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
-  module AsmProgram = Common.AsmAst.Make (SanAarchCore.Line)
+  module AsmProgram = SanCommon.AsmAst.Make (SanAarchCore.Line)
   module Pprint = SanAarchPprint.Make (AsmSpec)
   module Conv = SanAarchConv.Make (AsmSpec)
 
