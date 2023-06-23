@@ -41,12 +41,13 @@ let cmd_term run =
   in
   Term.(const combine $ modules_files_term $ interpreted_file_term)
 
-let repl_doc = "Interpret through a read-eval-print-loop (REPL)"
+let repl_doc = "WIP: Interpret through a read-eval-print-loop (REPL)"
 
 let repl_man =
   [
     `S Manpage.s_description;
     `P "kosu-repl allows you to evaluate phrases in a REPL";
+    `P "currently, the repl can only type expression";
     `S Manpage.s_see_also;
     `Noblank;
   ]

@@ -877,13 +877,14 @@ module Instruction = struct
            else H)
     | _ -> None
 
-  let copy_from_reg ?(variadic = false) register (address : address) ktype rprogram =
+  let copy_from_reg ?(variadic = false) register (address : address) ktype
+      rprogram =
     let size = KosuIrTyped.Sizeof.sizeof rprogram ktype in
     let is_reg_size = is_register_size size in
     match is_reg_size with
     | false -> copy_large address register size
     | true ->
-        let size = if variadic then  max size 8L else size in 
+        let size = if variadic then max size 8L else size in
         let data_size = compute_data_size ktype size in
         let reg = resize_register (regsize_of_ktype size) register in
         let strs = str_instr ~data_size ~source:reg address in
@@ -910,7 +911,7 @@ module FrameManager = struct
     locals_space : int64;
     need_xr : bool;
     stack_map : address IdVarMap.t;
-    variadic_style: Aarch64AsmSpec.variadic_args_stye;
+    variadic_style : Aarch64AsmSpec.variadic_args_stye;
     discarded_values : (string * KosuIrTyped.Asttyped.rktype) list;
   }
 
@@ -945,101 +946,100 @@ module FrameManager = struct
          |> is_register_size |> not
        in
        failwith "" *)
-  let stack_args_passed_in_function ~variadic_style rprogram (fn_info_calls: KosuIrTyped.Asttyped.function_call_infos) = 
+  let stack_args_passed_in_function ~variadic_style rprogram
+      (fn_info_calls : KosuIrTyped.Asttyped.function_call_infos) =
     let open KosuIrTyped.Asttyped in
     let open Util.Args in
-     fn_info_calls |> List.fold_left (fun acc {varia_index; parameters; return_type = _} -> 
-      let fpstyle = fun kt -> 
-        if KosuIrTyped.Asttyhelper.RType.is_float kt then Simple_Reg Float
-        else Simple_Reg Other
-      
-      in
-      let _, _, stack_args, variadic_args = 
-        match variadic_style with
-        | Aarch64AsmSpec.AbiDarwin ->         
-          consume_args 
-          ?novariadic_args:varia_index
-          ~fregs:Register.float_arguments_register
-          ~iregs:Register.argument_registers
-          ~fpstyle
-          parameters
-        | AbiSysV -> 
-          let a, b, stack_args = Util.Args.consume_args_sysv 
-          ~reversed_stack:true 
-          ~fregs:Register.float_arguments_register
-          ~iregs:Register.argument_registers
-          ~fpstyle
-          parameters
-        in
-        a, b, stack_args, []
+    fn_info_calls
+    |> List.fold_left
+         (fun acc { varia_index; parameters; return_type = _ } ->
+           let fpstyle kt =
+             if KosuIrTyped.Asttyhelper.RType.is_float kt then Simple_Reg Float
+             else Simple_Reg Other
+           in
 
-      in
-        let stack_args_size =
-          stack_args
-        |> KosuIrTyped.Asttyhelper.RType.rtuple
-        |> KosuIrTyped.Sizeof.sizeof rprogram
-        in
+           let _, _, stack_args, variadic_args =
+             match variadic_style with
+             | Aarch64AsmSpec.AbiDarwin ->
+                 consume_args ?novariadic_args:varia_index
+                   ~fregs:Register.float_arguments_register
+                   ~iregs:Register.argument_registers ~fpstyle parameters
+             | AbiSysV ->
+                 let a, b, stack_args =
+                   Util.Args.consume_args_sysv ~reversed_stack:true
+                     ~fregs:Register.float_arguments_register
+                     ~iregs:Register.argument_registers ~fpstyle parameters
+                 in
+                 (a, b, stack_args, [])
+           in
 
-        let variadic_size = 
-          variadic_args
-          |> List.map (fun kt -> 
-            KosuIrTyped.(Sizeof.align_8 @@ KosuIrTyped.Sizeof.sizeof rprogram kt)
-          )
-          |> List.fold_left Int64.add 0L
-        in
+           let stack_args_size =
+             stack_args |> KosuIrTyped.Asttyhelper.RType.rtuple
+             |> KosuIrTyped.Sizeof.sizeof rprogram
+           in
 
-        max (Int64.add stack_args_size variadic_size) acc
-    ) 0L
+           let variadic_size =
+             variadic_args
+             |> List.map (fun kt ->
+                    KosuIrTyped.(
+                      Sizeof.align_8 @@ KosuIrTyped.Sizeof.sizeof rprogram kt))
+             |> List.fold_left Int64.add 0L
+           in
 
+           max (Int64.add stack_args_size variadic_size) acc)
+         0L
 
-
-  let frame_descriptor ~variadic_style (function_decl : KosuIrTAC.Asttac.tac_function_decl) rprogram =
+  let frame_descriptor ~variadic_style
+      (function_decl : KosuIrTAC.Asttac.tac_function_decl) rprogram =
     let open KosuIrTAC.Asttac in
     let open Util.Args in
     (* Since kosu function arent variadic, we can use sysV abi *)
     let iparas, fparams, stack_parameters =
-    Util.Args.consume_args_sysv ~reversed_stack:(match variadic_style with Aarch64AsmSpec.AbiSysV -> true | AbiDarwin -> false) ~fregs:Register.float_arguments_register
-      ~iregs:Register.argument_registers
-      ~fpstyle:KosuCommon.Function.kosu_passing_style
-      function_decl.rparameters
-  in
-  let locale_variables =
+      Util.Args.consume_args_sysv
+        ~reversed_stack:
+          (match variadic_style with
+          | Aarch64AsmSpec.AbiSysV -> true
+          | AbiDarwin -> false)
+        ~fregs:Register.float_arguments_register
+        ~iregs:Register.argument_registers
+        ~fpstyle:KosuCommon.Function.kosu_passing_style
+        function_decl.rparameters
+    in
+    let locale_variables =
       function_decl.locale_var
       |> List.sort (fun lhs rhs ->
              let lsize = KosuIrTyped.Sizeof.sizeof_kt lhs.locale_ty in
              let rsize = KosuIrTyped.Sizeof.sizeof_kt rhs.locale_ty in
              compare rsize lsize)
-      |> List.map KosuIrTAC.Asttachelper.LocaleVariable.variable_of_tac_locale_variable
+      |> List.map
+           KosuIrTAC.Asttachelper.LocaleVariable.variable_of_tac_locale_variable
     in
     let need_xr =
       function_decl.return_type
       |> KosuIrTyped.Sizeof.sizeof rprogram
-      |> is_register_size 
-      |> not
+      |> is_register_size |> not
     in
     let reg_parameters, _ =
       iparas |> ( @ ) fparams
       |> List.map (fun (variable, return_kind) ->
              match return_kind with
-             | Simple_return reg -> variable, (variable, reg)
+             | Simple_return reg -> (variable, (variable, reg))
              | Double_return _ -> failwith "Unreachable")
       |> List.split
     in
+    let stack_concat = reg_parameters @ locale_variables in
     let stack_concat =
-      reg_parameters @ locale_variables
-    in
-    let stack_concat =
-      if need_xr then
-        (indirect_return_vt) :: stack_concat
-      else stack_concat
+      if need_xr then indirect_return_vt :: stack_concat else stack_concat
     in
     let fake_tuple = List.map snd stack_concat in
     let locals_space =
-      fake_tuple
-      |> KosuIrTyped.Asttyhelper.RType.rtuple
+      fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
       |> KosuIrTyped.Sizeof.sizeof rprogram
     in
-    let stack_future_call = stack_args_passed_in_function ~variadic_style rprogram function_decl.fn_call_infos in
+    let stack_future_call =
+      stack_args_passed_in_function ~variadic_style rprogram
+        function_decl.fn_call_infos
+    in
 
     (* let () = Printf.printf "fn_name = %s, stack call = %Lu%!" function_decl.rfn_name stack_future_call in *)
     let locals_space = Int64.add locals_space stack_future_call in
@@ -1069,15 +1069,17 @@ module FrameManager = struct
     in
     let stack_args_rktype = List.map snd stack_parameters in
     let stack_x29_offset = 16L in
-    let map = 
-      stack_parameters 
-      |> List.mapi Util.couple
-      |> List.fold_left ( fun acc (index, st) -> 
-        let offset = offset_of_tuple_index index stack_args_rktype rprogram in
-        let offset = Int64.add stack_x29_offset offset in
-        let address = create_adress ~offset x29 in
-        IdVarMap.add st address acc
-      ) map
+    let map =
+      stack_parameters |> List.mapi Util.couple
+      |> List.fold_left
+           (fun acc (index, st) ->
+             let offset =
+               offset_of_tuple_index index stack_args_rktype rprogram
+             in
+             let offset = Int64.add stack_x29_offset offset in
+             let address = create_adress ~offset x29 in
+             IdVarMap.add st address acc)
+           map
     in
     {
       stack_param_count = Int64.to_int stack_future_call;
@@ -1172,7 +1174,8 @@ module FrameManager = struct
              };
       ]
 
-  let function_prologue (tac_function: KosuIrTAC.Asttac.tac_function_decl) rprogram fd =
+  let function_prologue (tac_function : KosuIrTAC.Asttac.tac_function_decl)
+      rprogram fd =
     let open KosuIrTAC.Asttac in
     let open Util.Args in
     let stack_sub_size = align_16 (Int64.add 16L fd.locals_space) in
@@ -1213,26 +1216,29 @@ module FrameManager = struct
       else []
     in
     let iparas, fparams, _ =
-    Util.Args.consume_args_sysv ~reversed_stack:(match fd.variadic_style with Aarch64AsmSpec.AbiSysV -> true | AbiDarwin -> false) 
-       ~fregs:Register.float_arguments_register
-      ~iregs:Register.argument_registers
-      ~fpstyle:KosuCommon.Function.kosu_passing_style
-      tac_function.rparameters
-  in
+      Util.Args.consume_args_sysv
+        ~reversed_stack:
+          (match fd.variadic_style with
+          | Aarch64AsmSpec.AbiSysV -> true
+          | AbiDarwin -> false)
+        ~fregs:Register.float_arguments_register
+        ~iregs:Register.argument_registers
+        ~fpstyle:KosuCommon.Function.kosu_passing_style tac_function.rparameters
+    in
     let iparas =
       iparas
       |> List.map (fun (variable, return_kind) ->
-            match return_kind with
-            | Simple_return reg -> (variable, reg)
-            | Double_return _ -> failwith "Unreachable")
+             match return_kind with
+             | Simple_return reg -> (variable, reg)
+             | Double_return _ -> failwith "Unreachable")
     in
 
     let fparams =
       fparams
       |> List.map (fun (variable, return_kind) ->
-            match return_kind with
-            | Simple_return reg -> (variable, reg)
-            | Double_return _ -> failwith "Unreachable")
+             match return_kind with
+             | Simple_return reg -> (variable, reg)
+             | Double_return _ -> failwith "Unreachable")
     in
 
     let copy_instructions =
@@ -1263,8 +1269,7 @@ module FrameManager = struct
            []
     in
 
-    (stack_sub :: base) @ [ alignx29 ] @ store_x8
-    @ copy_instructions
+    (stack_sub :: base) @ [ alignx29 ] @ store_x8 @ copy_instructions
     @ float_copy_instructions
 
   let function_epilogue fd =

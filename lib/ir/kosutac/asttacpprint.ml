@@ -219,7 +219,6 @@ and string_of_tac_statement = function
       let () = Buffer.add_string buffer (sprintf "%s" sw_exit_label) in
       Buffer.contents buffer
 
-
 and string_of_tac_body ?(end_jmp = None) (statemements, expression) =
   sprintf "%s\n\t%s%s"
     (statemements |> List.map string_of_tac_statement |> String.concat "\n\t")

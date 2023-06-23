@@ -17,10 +17,12 @@
 
 open Util.Args
 
-let kosu_passing_style_kt = fun kt -> 
+let kosu_passing_style_kt kt =
   if KosuIrTyped.Asttyhelper.RType.is_float kt then Simple_Reg Float
   else Simple_Reg Other
 
 let kosu_passing_style (_, kt) = kosu_passing_style_kt kt
 
-let kosu_passing_style_tte : KosuIrTAC.Asttac.tac_typed_expression -> passing_style = fun {expr_rktype; _} -> kosu_passing_style_kt expr_rktype
+let kosu_passing_style_tte :
+    KosuIrTAC.Asttac.tac_typed_expression -> passing_style =
+ fun { expr_rktype; _ } -> kosu_passing_style_kt expr_rktype

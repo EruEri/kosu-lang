@@ -660,15 +660,14 @@ module Renum = struct
              if evariant = variant then Some assoc_type else None)
       |> Option.get)
 
-    let assoc_types_of_variant_tag ?(tagged = false) index (enum_decl : renum_decl)
-      =
+  let assoc_types_of_variant_tag ?(tagged = false) index
+      (enum_decl : renum_decl) =
     let tagtype =
       if tagged then
         RTInteger (KosuFrontend.Ast.Signed, KosuFrontend.Ast.I32) :: []
       else []
     in
-    tagtype
-    @ (index |> List.nth enum_decl.rvariants |> snd)
+    tagtype @ (index |> List.nth enum_decl.rvariants |> snd)
 end
 
 module RStruct = struct

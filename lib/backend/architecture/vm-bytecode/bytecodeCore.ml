@@ -565,8 +565,7 @@ module FrameManager = struct
     let open KosuIrTAC.Asttac in
     let open Util.Args in
     let iparas, fparams, _stack_parameters, _ =
-      Util.Args.consume_args
-        ~fregs:Register.float_argument_registers
+      Util.Args.consume_args ~fregs:Register.float_argument_registers
         ~iregs:Register.non_float_argument_registers
         ~fpstyle:(fun (_, kt) ->
           if KosuIrTyped.Asttyhelper.RType.is_float kt then Simple_Reg Float
@@ -582,7 +581,9 @@ module FrameManager = struct
              | Double_return _ -> failwith "Unreachable")
     in
 
-    let cfg = KosuIrCfg.Astcfgconv.cfg_liveness_of_tac_function rprogram function_decl in
+    let cfg =
+      KosuIrCfg.Astcfgconv.cfg_liveness_of_tac_function rprogram function_decl
+    in
     let colored_graph =
       GreedyColoration.coloration ~parameters
         ~available_color:Register.available_register cfg

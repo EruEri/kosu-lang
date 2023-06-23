@@ -89,8 +89,8 @@ struct
     let module GreedyColoring = KosuRegisterAllocatorImpl.GreedyColoring (ABI) in
     let open GreedyColoring.ColoredGraph in
     let other_parameters, float_parameters, _stack_parameters =
-      consume_args_sysv ~reversed_stack:true ~fregs ~iregs:ABI.non_float_argument_registers ~fpstyle
-        cfg.parameters
+      consume_args_sysv ~reversed_stack:true ~fregs
+        ~iregs:ABI.non_float_argument_registers ~fpstyle cfg.parameters
     in
     let parameters =
       other_parameters |> ( @ ) float_parameters

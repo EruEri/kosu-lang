@@ -51,11 +51,10 @@
  (section man)
  (files kosu-repl.1))
 
-(rule 
-  (with-stdout-to 
-    kosuc.bc.1
-   (run %{bin:kosuc.bc} --help=groff)
-  ))
+(rule
+ (with-stdout-to
+  kosuc.bc.1
+  (run %{bin:kosuc.bc} --help=groff)))
 
 (install
  (section man)

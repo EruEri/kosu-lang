@@ -300,8 +300,6 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
         ttes
         |> List.mapi (fun index _value ->
                KosuIrTyped.Sizeof.offset_of_tuple_index index ktlis rprogram)
-        |> List.tl
-        |> fun l -> l @ [ 0L ]
       in
       ttes
       |> List.mapi (fun index tte ->
@@ -316,6 +314,41 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
              translate_and_store ~where ~litterals ~target_reg:Register.r13 fd
                tte)
       |> List.flatten
+  | RVTupleAccess
+      {
+        first_expr = { expr_rktype; tac_expression = TEIdentifier tuple_id };
+        index;
+      } ->
+      let kts_tuples =
+        match expr_rktype with
+        | KosuIrTyped.Asttyped.RTTuple rkts -> rkts
+        | _ -> failwith "Weird: The typechecker for tuple"
+      in
+      let data_size = ConditionCode.data_size_of_kt rvalue.rval_rktype in
+
+      let generics = Hashtbl.create 0 in
+
+      let offset =
+        KosuIrTyped.Sizeof.offset_of_tuple_index ~generics (Int64.to_int index)
+          kts_tuples rprogram
+      in
+      let tuple_address =
+        FrameManager.location_of (tuple_id, expr_rktype) fd |> fun adr ->
+        match adr with
+        | Some a -> a
+        | None -> failwith "field access null address"
+      in
+      let field_address = increment_location offset tuple_address in
+      let is_lea = not @@ does_return_hold_in_register_kt rvalue.rval_rktype in
+      let mov_field_adrress_instruction =
+        LineInstruction.smv_location ~lea:is_lea ~data_size Register.r13
+          field_address
+      in
+      let sis =
+        store_instruction ~rval_rktype:rvalue.rval_rktype ~large_cp:true
+          ~reg:Register.r13 ~where
+      in
+      mov_field_adrress_instruction @ sis
   | RVFieldAcess
       {
         first_expr = { expr_rktype; tac_expression = TEIdentifier struct_id };
@@ -359,7 +392,65 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
           ~reg:Register.r13 ~where
       in
       mov_field_adrress_instruction @ sis
-  | RVFieldAcess _ -> failwith ""
+  | RVFieldAcess _ ->
+      failwith "KosuTac force RVFieldAcess to be an tmp variable"
+  | RVTupleAccess _ ->
+      failwith "KosuTac force RVTupleAccess to be an tmp variable"
+  | RVAdress id ->
+      let pointee_type =
+        KosuIrTyped.Asttyhelper.RType.rtpointee rvalue.rval_rktype
+      in
+      let address =
+        FrameManager.location_of (id, pointee_type) fd |> fun adr ->
+        match adr with
+        | Some (LocAddr address) -> address
+        | Some (LocReg r) ->
+            failwith
+            @@ Printf.sprintf
+                 "RVAdress : variable %s must be in stack and in %s register" id
+                 (BytecodePprint.string_of_register r)
+        | None -> failwith "address of null address"
+      in
+      let r13 = Register.r13 in
+      let compute_instructions = LineInstruction.slea_address r13 address in
+      let sis =
+        store_instruction ~rval_rktype:rvalue.rval_rktype ~large_cp:false
+          ~reg:r13 ~where
+      in
+      compute_instructions @ sis
+  | RVEnum { variant; assoc_tac_exprs; _ } ->
+      let enum_decl =
+        match
+          KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
+            rvalue.rval_rktype rprogram
+        with
+        | Some (RDecl_Struct _) ->
+            failwith "Expected to find an enum get an struct"
+        | Some (RDecl_Enum e) -> e
+        | None -> failwith "Non type decl ??? my validation is very weak"
+      in
+      let tag =
+        KosuIrTyped.Asttyhelper.Renum.tag_of_variant variant enum_decl
+      in
+      let enum_tte_list =
+        assoc_tac_exprs
+        |> List.cons
+             {
+               expr_rktype = RTInteger (Unsigned, I32);
+               tac_expression = TEInt (Unsigned, I32, Int64.of_int32 tag);
+             }
+      in
+      let enum_type_list =
+        enum_tte_list |> List.map (fun { expr_rktype; _ } -> expr_rktype)
+      in
+      let offset_list =
+        enum_tte_list
+        |> List.mapi (fun index { expr_rktype = _; _ } ->
+               KosuIrTyped.Sizeof.offset_of_tuple_index index enum_type_list
+                 rprogram)
+      in
+      let _ = offset_list in
+      failwith ""
   | _ -> failwith "TODO"
 
 let rec translate_tac_statement ~litterals current_module rprogram fd = function
@@ -370,9 +461,9 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
       in
       translate_tac_rvalue ~litterals ~where:location rprogram current_module fd
         trvalue
-  | STDerefAffectation { identifier; trvalue } -> 
-    let () = ignore (identifier, trvalue) in
-    failwith ""
+  | STDerefAffectation { identifier; trvalue } ->
+      let () = ignore (identifier, trvalue) in
+      failwith ""
   | _ -> failwith ""
 
 and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
@@ -414,8 +505,7 @@ and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
   in
   (label :: stmt_instrs) @ return_instructions @ end_label_insts
 
-let asm_module_of_tac_module ~litterals current_module rprogram =
-  function
+let asm_module_of_tac_module ~litterals current_module rprogram = function
   | TacModule tac_nodes ->
       tac_nodes
       |> List.filter_map (function

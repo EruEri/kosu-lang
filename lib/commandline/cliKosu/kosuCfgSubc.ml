@@ -183,7 +183,9 @@ let target_file file_type format fn_name =
 let write_cfg cfg_type ~oc rprogram tac_function =
   match cfg_type with
   | Basic ->
-      let converted = KosuIrCfg.Astcfgconv.cfg_of_tac_function rprogram tac_function in
+      let converted =
+        KosuIrCfg.Astcfgconv.cfg_of_tac_function rprogram tac_function
+      in
       converted |> KosuIrCfg.Astcfgpprint.dot_diagrah_of_cfg_basic
       |> KosuIrCfg.Astcfgpprint.string_of_dot_graph ~out:oc
   | Detail ->
@@ -241,7 +243,7 @@ let export_from_san_function cmd rprogram
           Out_channel.with_open_bin infered_ouchan (fun oc ->
               write_infered ~arch:cmd.arch ~infered:cmd.variable_infer
                 ~colored:cmd.colored ~oc rprogram tac_function))
-  | Some export_format -> begin
+  | Some export_format -> (
       let cfg_outname =
         target_file (`Cfg cmd.cfg_type) cmd.dot tac_function.rfn_name
       in
@@ -271,8 +273,7 @@ let export_from_san_function cmd rprogram
               (Printf.sprintf "dot -T%s -o %s %s" export_format infered_ouchan
                  tmp_infered_filename)
           in
-          ()
-    end
+          ())
 
 let cfg_main cmd =
   let open KosuIrTAC.Asttac in

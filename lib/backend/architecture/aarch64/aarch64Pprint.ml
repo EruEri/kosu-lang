@@ -323,7 +323,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         match AsmSpec.adrp_style with
         | Aarch64AsmSpec.MacOS ->
             sprintf "adrp %s, %s@PAGE" (string_of_register dst) label
-        | Aarch64AsmSpec.Other -> sprintf "adrp %s, %s" (string_of_register dst) label)
+        | Aarch64AsmSpec.Other ->
+            sprintf "adrp %s, %s" (string_of_register dst) label)
     | B { cc; label } ->
         sprintf "b%s %s"
           (cc

@@ -190,11 +190,16 @@ module Register = struct
     else if is_register_size_ktype rprogram ktype then Some rax
     else None
 
-  let passing_register_kt kt = 
-    let regs = List.map (fun reg -> {register = IntegerReg reg; register_size = None}) argument_registers in
-    let hold_in_register = is_register_size @@ KosuIrTyped.Sizeof.sizeof_kt kt in
-    if hold_in_register then regs
-    else List.tl regs
+  let passing_register_kt kt =
+    let regs =
+      List.map
+        (fun reg -> { register = IntegerReg reg; register_size = None })
+        argument_registers
+    in
+    let hold_in_register =
+      is_register_size @@ KosuIrTyped.Sizeof.sizeof_kt kt
+    in
+    if hold_in_register then regs else List.tl regs
 
   (** RAX *)
   let tmp_rax_ktype ktype =
@@ -634,43 +639,42 @@ module FrameManager = struct
     discarded_values : (string * KosuIrTyped.Asttyped.rktype) list;
   }
 
-  let stack_args_passed_in_function rprogram (fn_info_calls: KosuIrTyped.Asttyped.function_call_infos) = 
+  let stack_args_passed_in_function rprogram
+      (fn_info_calls : KosuIrTyped.Asttyped.function_call_infos) =
     let open KosuIrTyped.Asttyped in
     let open Util.Args in
-     fn_info_calls |> List.fold_left (fun acc {varia_index = _; parameters; return_type} -> 
-      let arguments_registers = passing_register_kt return_type in
-      let _, _, stack_args = 
-      consume_args_sysv 
-      ~reversed_stack:true 
-      ~fregs:Register.float_arguments_register
-      ~iregs:arguments_registers
-      ~fpstyle:KosuCommon.Function.kosu_passing_style_kt
-      parameters
-      in
+    fn_info_calls
+    |> List.fold_left
+         (fun acc { varia_index = _; parameters; return_type } ->
+           let arguments_registers = passing_register_kt return_type in
+           let _, _, stack_args =
+             consume_args_sysv ~reversed_stack:true
+               ~fregs:Register.float_arguments_register
+               ~iregs:arguments_registers
+               ~fpstyle:KosuCommon.Function.kosu_passing_style_kt parameters
+           in
 
-        stack_args
-        |> KosuIrTyped.Asttyhelper.RType.rtuple
-        |> KosuIrTyped.Sizeof.sizeof rprogram
-        |> max acc
-
-    ) 0L
+           stack_args |> KosuIrTyped.Asttyhelper.RType.rtuple
+           |> KosuIrTyped.Sizeof.sizeof rprogram
+           |> max acc)
+         0L
 
   let indirect_return_var = "@xreturn"
   let indirect_return_type = KosuIrTyped.Asttyped.(RTPointer RTUnknow)
   let indirect_return_vt = (indirect_return_var, indirect_return_type)
 
-  let frame_descriptor (function_decl : KosuIrTAC.Asttac.tac_function_decl) rprogram =
+  let frame_descriptor (function_decl : KosuIrTAC.Asttac.tac_function_decl)
+      rprogram =
     let open KosuIrTAC.Asttac in
     let open Util.Args in
     let open Operande in
-
     let arguments_registers = passing_register_kt function_decl.return_type in
     let iparas, fparams, stack_parameters =
-    Util.Args.consume_args_sysv ~reversed_stack:true ~fregs:Register.float_arguments_register
-      ~iregs:arguments_registers
-      ~fpstyle:KosuCommon.Function.kosu_passing_style
-      function_decl.rparameters
-  in
+      Util.Args.consume_args_sysv ~reversed_stack:true
+        ~fregs:Register.float_arguments_register ~iregs:arguments_registers
+        ~fpstyle:KosuCommon.Function.kosu_passing_style
+        function_decl.rparameters
+    in
     let need_result_ptr =
       function_decl.return_type
       |> KosuIrTyped.Sizeof.sizeof rprogram
@@ -678,13 +682,13 @@ module FrameManager = struct
     in
 
     let reg_parameters, _ =
-    iparas |> ( @ ) fparams
-    |> List.map (fun (variable, return_kind) ->
-           match return_kind with
-           | Simple_return reg -> variable, (variable, reg)
-           | Double_return _ -> failwith "Unreachable")
-    |> List.split
-  in
+      iparas |> ( @ ) fparams
+      |> List.map (fun (variable, return_kind) ->
+             match return_kind with
+             | Simple_return reg -> (variable, (variable, reg))
+             | Double_return _ -> failwith "Unreachable")
+      |> List.split
+    in
 
     let locale_variables =
       function_decl.locale_var
@@ -692,7 +696,8 @@ module FrameManager = struct
              let lsize = KosuIrTyped.Sizeof.sizeof_kt lhs.locale_ty in
              let rsize = KosuIrTyped.Sizeof.sizeof_kt rhs.locale_ty in
              compare rsize lsize)
-      |> List.map KosuIrTAC.Asttachelper.LocaleVariable.variable_of_tac_locale_variable
+      |> List.map
+           KosuIrTAC.Asttachelper.LocaleVariable.variable_of_tac_locale_variable
     in
 
     (* let () = Printf.printf "ktype : %s size = %Lu = need = %b\n"
@@ -700,13 +705,10 @@ module FrameManager = struct
          (sizeof rprogram return_type)
          (need_result_ptr)
        in *)
-    let stack_concat =
-      reg_parameters @ locale_variables
-    in
+    let stack_concat = reg_parameters @ locale_variables in
 
     let stack_concat =
-      if need_result_ptr then
-        (indirect_return_vt) :: stack_concat
+      if need_result_ptr then indirect_return_vt :: stack_concat
       else stack_concat
     in
 
@@ -715,7 +717,9 @@ module FrameManager = struct
       fake_tuple |> KosuIrTyped.Asttyhelper.RType.rtuple
       |> KosuIrTyped.Sizeof.sizeof rprogram
     in
-    let stack_future_call = stack_args_passed_in_function rprogram function_decl.fn_call_infos in
+    let stack_future_call =
+      stack_args_passed_in_function rprogram function_decl.fn_call_infos
+    in
     let locals_space = Int64.add locals_space stack_future_call in
 
     let map =
@@ -723,10 +727,7 @@ module FrameManager = struct
       |> List.mapi (fun index value -> (index, value))
       |> List.fold_left
            (fun acc (index, st) ->
-             let offset =
-               offset_of_tuple_index index
-                 fake_tuple rprogram
-             in
+             let offset = offset_of_tuple_index index fake_tuple rprogram in
              let rbp_relative_address =
                locals_space |> Int64.neg |> Int64.add offset
              in
@@ -738,15 +739,17 @@ module FrameManager = struct
     in
     let stack_args_rktype = List.map snd stack_parameters in
     let stack_rbp_offset = 16L in
-    let map = 
-      stack_parameters 
-      |> List.mapi Util.couple
-      |> List.fold_left ( fun acc (index, st) -> 
-        let offset = offset_of_tuple_index index stack_args_rktype rprogram in
-        let offset = Int64.add stack_rbp_offset offset in
-        let address = create_address_offset ~offset rbp in
-        IdVarMap.add st address acc
-      ) map
+    let map =
+      stack_parameters |> List.mapi Util.couple
+      |> List.fold_left
+           (fun acc (index, st) ->
+             let offset =
+               offset_of_tuple_index index stack_args_rktype rprogram
+             in
+             let offset = Int64.add stack_rbp_offset offset in
+             let address = create_address_offset ~offset rbp in
+             IdVarMap.add st address acc)
+           map
     in
     {
       stack_param_count = Int64.to_int stack_future_call;
@@ -775,7 +778,8 @@ module FrameManager = struct
         Assumption on [fn_register_params] 
           already containing [rdi] if return type cannot be contain in [rax] 
     *)
-  let function_prologue (tac_function: KosuIrTAC.Asttac.tac_function_decl) rprogram fd  =
+  let function_prologue (tac_function : KosuIrTAC.Asttac.tac_function_decl)
+      rprogram fd =
     let open Instruction in
     let open KosuIrTAC.Asttac in
     let open Util.Args in
@@ -796,37 +800,41 @@ module FrameManager = struct
       ]
     in
     let arguments_registers = passing_register_kt tac_function.return_type in
-      let iparas, fparams, _ =
-      Util.Args.consume_args_sysv ~reversed_stack:true ~fregs:Register.float_arguments_register
-        ~iregs:arguments_registers
-        ~fpstyle:KosuCommon.Function.kosu_passing_style
-        tac_function.rparameters
+    let iparas, fparams, _ =
+      Util.Args.consume_args_sysv ~reversed_stack:true
+        ~fregs:Register.float_arguments_register ~iregs:arguments_registers
+        ~fpstyle:KosuCommon.Function.kosu_passing_style tac_function.rparameters
     in
 
-    let indirect_return = if fd.need_result_ptr then Some (indirect_return_vt, rdi) else None in
+    let indirect_return =
+      if fd.need_result_ptr then Some (indirect_return_vt, rdi) else None
+    in
 
-    let indirect_return_instructions = indirect_return |> Option.map (fun (indirect_return, reg) -> 
-      let whereis = Option.get @@ address_of indirect_return fd in
-      copy_from_reg reg whereis (snd indirect_return ) rprogram
-    ) |> Option.value ~default:[] in
+    let indirect_return_instructions =
+      indirect_return
+      |> Option.map (fun (indirect_return, reg) ->
+             let whereis = Option.get @@ address_of indirect_return fd in
+             copy_from_reg reg whereis (snd indirect_return) rprogram)
+      |> Option.value ~default:[]
+    in
 
     let iparas =
       iparas
       |> List.map (fun (variable, return_kind) ->
-            match return_kind with
-            | Simple_return reg -> (variable, reg)
-            | Double_return _ -> failwith "Unreachable")
+             match return_kind with
+             | Simple_return reg -> (variable, reg)
+             | Double_return _ -> failwith "Unreachable")
     in
 
     let fparams =
       fparams
       |> List.map (fun (variable, return_kind) ->
-            match return_kind with
-            | Simple_return reg -> (variable, reg)
-            | Double_return _ -> failwith "Unreachable")
+             match return_kind with
+             | Simple_return reg -> (variable, reg)
+             | Double_return _ -> failwith "Unreachable")
     in
 
-    let copy_reg_instructions = 
+    let copy_reg_instructions =
       iparas @ fparams
       |> List.fold_left
            (fun acc ((name, kt), register) ->
@@ -840,7 +848,7 @@ module FrameManager = struct
            []
     in
 
-    (base :: sp_sub) @ indirect_return_instructions @ copy_reg_instructions 
+    (base :: sp_sub) @ indirect_return_instructions @ copy_reg_instructions
 
   let function_epilogue _fd =
     let open Instruction in

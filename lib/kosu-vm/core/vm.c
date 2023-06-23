@@ -612,7 +612,7 @@ int vm_run_single(vm_t* vm, instruction_t instruction) {
         switch (ist) { 
             case HALT: {
                 bool_t b;
-                int status = halt_opcode(vm, instruction, &b);
+                halt_opcode(vm, instruction, &b);
                 if (b) {
                     return VM_HALT_EXIT_CODE;
                 } 

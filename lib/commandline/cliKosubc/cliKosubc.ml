@@ -79,9 +79,10 @@ module Cli = struct
     [
       `S Manpage.s_description;
       `P
-        "The Kosu bytecode compiler $(b,kosu.bc) compiles kosu files into \
+        "WIP: The Kosu bytecode compiler $(b,kosu.bc) compiles kosu files into \
          bytecodes which  \n\
         \      is interpreted by the kosu virtual machine";
+      `P "the bytecode is not fully implemented, so it's unusable";
       `S Manpage.s_see_also;
       `P "$(b,kosuc)(1), $(b,kosu)(1)";
       `Noblank;
