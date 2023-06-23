@@ -51,6 +51,7 @@ let assocs_value ({ v = v1; _ }, { v = v2; _ }) = (v1, v2)
 let assoc_value_left ({ v = v1; _ }, v) = (v1, v)
 let assoc_value_right (v, { v = v1; _ }) = (v, v1)
 let dummy = { start_position = dummy_pos; end_position = dummy_pos }
+let val_dummy v = { v = v; position = dummy}
 
 let print_position f { v; position } =
   let line, column = line_column_of_position position.start_position in

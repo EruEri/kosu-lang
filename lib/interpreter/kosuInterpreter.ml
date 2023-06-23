@@ -102,7 +102,7 @@ struct
           match inode with
           | IExpression kexpression ->
               let typeof =
-                FrontEnd.Typecheck.typeof ~generics_resolver:(Hashtbl.create 0)
+                FrontEnd.Typecheck.typeof ~constraint_type:None ~generics_resolver:(Hashtbl.create 0)
                   ienv.env "" (module_path_of_ienv ienv) kexpression
               in
               let () = expression_prompt ~variable:None typeof () in
