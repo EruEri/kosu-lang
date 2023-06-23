@@ -58,7 +58,10 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | TUnit -> RTUnit
     | TChar -> RTChar
     | TUnknow -> RTUnknow
-    | TArray _ -> failwith "Tarray to implement in kosutyped"
+    | TArray info -> RTArray {
+      size = info.size.v;
+      rktype = from_ktype info.ktype.v
+    }
 
   let rec to_ktype = let open Position in function
   | RTUnknow -> TUnknow

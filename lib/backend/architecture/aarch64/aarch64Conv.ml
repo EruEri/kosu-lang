@@ -641,6 +641,30 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                in
                acc @ instructions @ copy_instructions)
              []
+    | RVArray ttes ->
+      let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in
+      let offset_list =
+        ttes
+        |> List.mapi (fun index _value ->
+                offset_of_tuple_index index ktlis rprogram)
+      in
+      ttes
+      |> List.mapi (fun index value -> (index, value))
+      |> List.fold_left
+            (fun acc (index, tte) ->
+              let reg_texp, instructions =
+                translate_tac_expression rprogram ~litterals fd tte
+              in
+              let copy_instructions =
+                copy_result
+                  ~where:
+                    (where
+                    |> Option.map
+                        (increment_adress (List.nth offset_list index)))
+                  ~register:reg_texp ~rval_rktype:tte.expr_rktype rprogram
+              in
+              acc @ instructions @ copy_instructions)
+            []
     | RVTupleAccess
         {
           first_expr = { expr_rktype; tac_expression = TEIdentifier tuple_id };
