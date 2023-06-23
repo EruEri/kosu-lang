@@ -289,6 +289,9 @@ and string_of_tac_rvalue = function
   | RVTuple exprs ->
       sprintf "(%s)"
         (exprs |> List.map string_of_typed_tac_expression |> String.concat ", ")
+  | RVArray exprs ->
+    sprintf "[%s]"
+      (exprs |> List.map string_of_typed_tac_expression |> String.concat ", ")
   | RVTupleAccess { first_expr; index } ->
       sprintf "%s.%Lu" (string_of_typed_tac_expression first_expr) index
   | RVFieldAcess { first_expr; field } ->

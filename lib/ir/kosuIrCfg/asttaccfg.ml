@@ -46,6 +46,7 @@ module Cfg_Sig_Impl = struct
     | RVBuiltinUnop { expr = tte; _ } ->
         tte |> tte_idenfier_used
     | RVFunction { tac_parameters = ttes; _ }
+    | RVArray ttes
     | RVTuple ttes
     | RVBuiltinCall { parameters = ttes; _ }
     | RVEnum { assoc_tac_exprs = ttes; _ } ->

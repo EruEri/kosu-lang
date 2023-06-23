@@ -119,6 +119,7 @@ and tac_rvalue =
       parameters : tac_typed_expression list;
     }
   | RVTuple of tac_typed_expression list
+  | RVArray of tac_typed_expression list
   | RVFieldAcess of { first_expr : tac_typed_expression; field : string }
   | RVTupleAccess of { first_expr : tac_typed_expression; index : int64 }
   | RVAdress of string
