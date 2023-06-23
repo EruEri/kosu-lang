@@ -177,9 +177,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               |> Option.get |> Env.vi_ktype
             in
             let field_rktype =
-              Asthelper.Affected_Value.field_type ~variable first_expr_type
+              from_ktype @@ Asthelper.Affected_Value.field_type ~variable first_expr_type
                 current_module program fields
-              |> from_ktype
             in
             let typed_expression =
               typed_expression_of_kexpression ~generics_resolver env
@@ -226,15 +225,9 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               env |> Env.find_identifier_opt variable.v |> Option.get
             in
             let pointee = Type.pointee_fail ktype in
-            let pointee_type =
-              Type.restrict_type pointee
-                (expression
-                |> typeof ~constraint_type:(Some pointee) ~generics_resolver env current_module program)
-            in
             let field_rktype =
-              Asthelper.Affected_Value.field_type ~variable pointee_type
+              from_ktype @@ Asthelper.Affected_Value.field_type ~variable pointee
                 current_module program fields
-              |> from_ktype
             in
             let stmts_remains, future_expr =
               rkbody_of_kbody ~generics_resolver env current_module program
@@ -242,7 +235,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
             in
             let typed_expression =
               typed_expression_of_kexpression ~generics_resolver env
-                current_module program ~hint_type:field_rktype expression
+                current_module program ~hint_type:(field_rktype) expression
             in
             ( RSDerefAffectation
                 ( RAFField
