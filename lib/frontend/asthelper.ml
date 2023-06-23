@@ -975,6 +975,8 @@ module Enum = struct
            |> List.for_all (fun (lhs_type, rhs_type) ->
                   is_type_compatible_hashgen generic_table lhs_type.v rhs_type.v
                     enum_decl)
+    | TArray lhs, TArray rhs ->
+      lhs.size.v = rhs.size.v && is_type_compatible_hashgen generic_table lhs.ktype.v  rhs.ktype.v enum_decl
     | lhs, rhs -> Ast.Type.(lhs === rhs)
 
   let to_ktype_hash generics module_def_path (enum_decl : t) =
@@ -1063,6 +1065,8 @@ module Enum = struct
     | TPointer kt -> is_type_generic kt.v enum_decl
     | TTuple kts ->
         kts |> List.exists (fun kt -> is_type_generic kt.v enum_decl)
+    | TArray {ktype; size = _} ->
+      is_type_generic ktype.v enum_decl
     | _ -> false
 
   let associate_type variant enum_decl =
@@ -1176,6 +1180,8 @@ module Struct = struct
     | TPointer kt -> is_type_generic kt.v struct_decl
     | TTuple kts ->
         kts |> List.exists (fun kt -> is_type_generic kt.v struct_decl)
+    | TArray {ktype; size = _} ->
+      is_type_generic ktype.v struct_decl
     | _ -> false
 
   let is_ktype_generic_field string (struct_decl : t) =
@@ -1292,6 +1298,8 @@ module Struct = struct
                  is_type_compatible_hashgen generic_table i e struct_decl)
     | TPointer lhs, TPointer rhs ->
         is_type_compatible_hashgen generic_table lhs.v rhs.v struct_decl
+    | TArray lhs, TArray rhs ->
+          lhs.size.v = rhs.size.v && is_type_compatible_hashgen generic_table lhs.ktype.v  rhs.ktype.v struct_decl
     | TTuple lhs, TTuple rhs ->
         Util.are_same_lenght lhs rhs
         && List.for_all2
@@ -1561,6 +1569,8 @@ module Function = struct
     | TPointer ktl -> is_ktype_generic ktl.v fn_decl
     | TTuple ktls ->
         ktls |> List.exists (fun ktl -> is_ktype_generic ktl.v fn_decl)
+    | TArray {ktype; size = _} ->
+      is_ktype_generic ktype.v fn_decl
     | _ -> false
 
   (**
@@ -1639,6 +1649,8 @@ module Function = struct
                  is_type_compatible_hashgen generic_table i.v e.v function_decl)
     | TUnknow, _ -> true
     | TPointer _, TPointer { v = TUnknow; _ } -> true
+    | TArray lhs, TArray rhs ->
+      lhs.size.v = rhs.size.v && is_type_compatible_hashgen generic_table lhs.ktype.v rhs.ktype.v function_decl
     | TPointer lhs, TPointer rhs ->
         is_type_compatible_hashgen generic_table lhs.v rhs.v function_decl
     | TTuple lhs, TTuple rhs ->

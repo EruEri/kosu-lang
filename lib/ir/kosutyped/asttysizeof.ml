@@ -42,8 +42,9 @@ let rec size calcul program rktype =
       let min = match calcul with `align -> 1L | `size -> 0L in
       if nb_elt = 0L then min else sizeof
   | (RTParametric_identifier _ | RTType_Identifier _) as kt -> (
+      (* let () = Printf.printf "%s\n%!" (Asttypprint.string_of_rktype kt) in *)
       let type_decl =
-        RProgram.find_type_decl_from_rktye kt program |> Option.get
+        Option.get @@ RProgram.find_type_decl_from_rktye kt program 
       in
 
       match type_decl with
