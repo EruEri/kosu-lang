@@ -59,6 +59,10 @@ type ktype =
   | TPointer of ktype location
   | TTuple of ktype location list
   | TFunction of ktype location list * ktype location
+  | TArray of {
+    ktype: ktype location;
+    size: int64 location;
+  }
   | TOredered
   | TString_lit
   | TUnknow
@@ -127,6 +131,7 @@ and kexpression =
       assoc_exprs : kexpression location list;
     }
   | ETuple of kexpression location list
+  | EArray of kexpression location list
   | EBuiltin_Function_call of {
       fn_name : string location;
       parameters : kexpression location list;

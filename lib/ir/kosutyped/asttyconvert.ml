@@ -58,6 +58,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | TUnit -> RTUnit
     | TChar -> RTChar
     | TUnknow -> RTUnknow
+    | TArray _ -> failwith "Tarray to implement in kosutyped"
 
   and from_switch_case = function
     | SC_Enum_Identifier { variant } ->
@@ -326,6 +327,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
           |> List.map
                (typed_expression_of_kexpression ~generics_resolver env
                   current_module program))
+    | EArray expr -> failwith ""
     | EBuiltin_Function_call { fn_name; parameters } ->
         REBuiltin_Function_call
           {

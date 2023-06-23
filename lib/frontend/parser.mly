@@ -34,7 +34,7 @@
 %token <string> Module_IDENT 
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
-%token ENUM EXTERNAL FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE
+%token ENUM ARRAY EXTERNAL FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE
 %token CMP_LESS CMP_EQUAL CMP_GREATER  
 %token TRIPLEDOT
 %token COMMA
@@ -479,6 +479,15 @@ expr:
             wildcard_case
         }
     }
+    | delimited(LSQBRACE, separated_nonempty_list(COMMA, located(expr)), RSQBRACE) {
+       EArray $1
+    }
+    | delimited(LSQBRACE, size=located(Integer_lit) COLON init_expr=located(expr) { size, init_expr }, RSQBRACE) {
+        let size, expr = $1 in
+        let _, _, size = size.v in
+        let exprs = List.init (Int64.to_int size) (fun _ -> expr) in
+        EArray exprs
+    }
     | d=delimited(LPARENT, separated_list(COMMA, located(expr)), RPARENT) {
         match d with
         | [] -> Empty
@@ -517,6 +526,14 @@ ctype:
             name = id
         }
      }
+    | ARRAY delimited(LPARENT, ktype=located(ktype) COLON size=located(Integer_lit) {ktype, size}, RPARENT) {
+        let ktype, size = $2 in
+        let size = Position.map (fun (_, _, value) -> value) size in
+        TArray {
+            size;
+            ktype
+        }
+    }
     | MULT located(ktype) { TPointer $2 } 
 
 ktype:
@@ -542,6 +559,14 @@ ktype:
             name = id
         } 
      }
+    | ARRAY delimited(LPARENT, ktype=located(ktype) COLON size=located(Integer_lit) {ktype, size}, RPARENT) {
+        let ktype, size = $2 in
+        let size = Position.map (fun (_, _, value) -> value) size in
+        TArray {
+            size;
+            ktype
+        }
+    }
     | MULT located(ktype) { TPointer $2 }
     | modules_path=module_path id=located(IDENT) l=delimited(LPARENT, separated_nonempty_list(COMMA, located(ktype)), RPARENT )  {
         TParametric_identifier {

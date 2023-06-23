@@ -667,6 +667,11 @@ module Kbody = struct
           (lexprs
           |> List.map (remap_located_expr_explicit_type generics current_module)
           )
+    | EArray lexprs ->
+      EArray
+        (lexprs
+        |> List.map (remap_located_expr_explicit_type generics current_module)
+        )
     | EBuiltin_Function_call { fn_name; parameters } ->
         EBuiltin_Function_call
           {

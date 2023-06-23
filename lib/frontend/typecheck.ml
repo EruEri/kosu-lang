@@ -707,6 +707,7 @@ Return the type of an expression
                    v = typeof ~generics_resolver env current_mod_name prog expr;
                    position = expr.position;
                  }))
+    | EArray _exprs -> failwith ""
     | EWhile (condition, body) ->
         let if_condition =
           typeof ~generics_resolver env current_mod_name prog condition

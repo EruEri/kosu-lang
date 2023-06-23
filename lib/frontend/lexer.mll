@@ -52,7 +52,7 @@
     f lexbuf
 
     let keywords = Hashtbl.create 20
-    let _ = [("and", FULLAND); ("cases", CASES); ("const", CONST); ("discard", DISCARD); 
+    let _ = [("and", FULLAND); ("array", ARRAY); ("cases", CASES); ("const", CONST); ("discard", DISCARD); 
     ("enum", ENUM); ("external", EXTERNAL); ("empty", EMPTY); ("else", ELSE); ("eq", CMP_EQUAL);
     ("fn", FUNCTION); ("false", FALSE); ("gt", CMP_GREATER); ("lt", CMP_LESS); ("nullptr", NULLPTR); 
     ("struct", STRUCT); ("syscall", SYSCALL); ("of", OF); ("or", FULLOR); ("operator", OPERATOR); ("true", TRUE); 
