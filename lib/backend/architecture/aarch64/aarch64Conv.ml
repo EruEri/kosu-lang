@@ -149,6 +149,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               ~data_size:(compute_data_size expr_rktype sizeof)
               ~mode:Immediat ~destination:rreg adress )
         else
+          let rreg = resize64 rreg in
           ( rreg,
             [
               Instruction

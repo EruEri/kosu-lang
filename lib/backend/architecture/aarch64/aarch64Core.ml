@@ -845,12 +845,13 @@ module Instruction = struct
         else if 4L <= size && size < 8L then (None, 4L)
         else (None, 8L)
       in
+      let r10 = if offset >= 8L then x10 else w10 in
       let ldr_instructions =
-        ldr_instr ~data_size ~mode:Postfix ~destination:x10
+        ldr_instr ~data_size ~mode:Postfix ~destination:r10
           (create_adress ~offset base_src_reg)
       in
       let str_instructions =
-        str_instr ~data_size ~mode:Immediat ~source:x10 adress_str
+        str_instr ~data_size ~mode:Immediat ~source:r10 adress_str
       in
       let next_adresss_store = increment_adress offset adress_str in
 
