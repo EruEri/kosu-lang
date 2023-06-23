@@ -138,40 +138,41 @@ module Make (Rule : TypeCheckerRuleS) = struct
                   (env |> Env.restrict_variable_type variable.v new_type)
                   current_mod_name program ~return_type (q, final_expr))
             | AFField { variable; fields } -> (
-                match env |> Env.find_identifier_opt variable.v with
+                let is_const, ktype = match env |> Env.find_identifier_opt variable.v with
                 | None ->
                     raise
                       (stmt_error
                          (Ast.Error.Undefine_Identifier { name = variable }))
-                | Some { is_const; ktype } ->
-                    if is_const then
-                      raise
-                        (stmt_error
-                           (Ast.Error.Reassign_Constante_Struct_field
-                              { name = variable }))
-                    else
-                      let field_type =
-                        Asthelper.Affected_Value.field_type ~variable ktype
-                          current_mod_name program fields
-                      in
-                      let new_type =
-                        typeof ~constraint_type:(Some field_type) ~generics_resolver env current_mod_name program
-                          expr
-                      in
-                      if not (Ast.Type.are_compatible_type new_type field_type)
-                      then
-                        raise
-                          (stmt_error
-                             (Ast.Error.Uncompatible_type_Assign
-                                {
-                                  expected = field_type;
-                                  found =
-                                    expr |> Position.map (fun _ -> new_type);
-                                }))
-                      else
-                        typeof_kbody ~generics_resolver
-                          (env |> Env.restrict_variable_type variable.v new_type)
-                          current_mod_name program ~return_type (q, final_expr))
+                | Some { is_const; ktype } -> is_const, ktype 
+                in
+                let () = if is_const then
+                      raise @@ 
+                        stmt_error
+                           @@ Ast.Error.Reassign_Constante_Struct_field
+                              { name = variable }
+                in
+                let field_type =
+                  Asthelper.Affected_Value.field_type ~variable ktype
+                    current_mod_name program fields
+                in
+                let new_type =
+                  typeof ~constraint_type:(Some field_type) ~generics_resolver env current_mod_name program
+                    expr
+                in
+                let () = if not @@ Ast.Type.are_compatible_type new_type field_type
+                  then
+                    raise
+                      @@ stmt_error
+                          @@ Ast.Error.Uncompatible_type_Assign
+                            {
+                              expected = field_type;
+                              found =
+                                expr |> Position.map (fun _ -> new_type);
+                            }
+                    in
+                  typeof_kbody ~generics_resolver
+                    (env |> Env.restrict_variable_type variable.v new_type)
+                    current_mod_name program ~return_type (q, final_expr))
             )
         | SDerefAffectation (affected_value, expression) -> (
             match affected_value with
@@ -185,8 +186,7 @@ module Make (Rule : TypeCheckerRuleS) = struct
                       match ktype with
                       | TPointer ktl -> ktl.v
                       | _ ->
-                          Ast.Error.Dereference_No_pointer { name = id; ktype }
-                          |> stmt_error |> raise
+                          raise @@ stmt_error @@ Ast.Error.Dereference_No_pointer { name = id; ktype }
                     in
                     let expr_ktype =
                       expression
@@ -194,7 +194,7 @@ module Make (Rule : TypeCheckerRuleS) = struct
                            (typeof ~constraint_type:(Some in_pointer_ktype) ~generics_resolver env current_mod_name
                               program)
                     in
-                    if
+                    let () = if
                       not
                       @@ Ast.Type.are_compatible_type in_pointer_ktype
                       @@ expr_ktype.v
@@ -206,7 +206,7 @@ module Make (Rule : TypeCheckerRuleS) = struct
                           found = expr_ktype;
                         }
                       |> stmt_error |> raise
-                    else
+                      in
                       typeof_kbody ~generics_resolver
                         (env |> Env.restrict_variable_type id.v expr_ktype.v)
                         current_mod_name program ~return_type (q, final_expr))
@@ -234,7 +234,7 @@ module Make (Rule : TypeCheckerRuleS) = struct
                         (typeof ~constraint_type:(Some field_type) ~generics_resolver env current_mod_name
                           program)
                 in
-                if
+                let () = if
                   not
                   @@ Ast.Type.are_compatible_type field_type
                   @@ expr_ktype.v
@@ -242,10 +242,10 @@ module Make (Rule : TypeCheckerRuleS) = struct
                   Uncompatible_type_Assign
                     { expected = field_type; found = expr_ktype }
                   |> stmt_error |> raise
-                else
+                  in
                   typeof_kbody ~generics_resolver env current_mod_name
                     program ~return_type (q, final_expr))))
-    | [] -> (
+    | [] -> begin
         (* Printf.printf "Final expr\n"; *)
         let final_expr_type =
           typeof ~constraint_type:return_type ~generics_resolver env current_mod_name program final_expr
@@ -265,7 +265,8 @@ module Make (Rule : TypeCheckerRuleS) = struct
                             position = final_expr.position;
                           };
                       }))
-            else kt)
+            else kt
+          end
 
   and typeof_statement ~generics_resolver (env : Env.t)
       (current_mod_name : string) (program : module_path list) stamement =
@@ -279,64 +280,66 @@ module Make (Rule : TypeCheckerRuleS) = struct
                (typeof ~constraint_type:(Option.map Position.value explicit_type) ~generics_resolver env current_mod_name program)
         in
         (* let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Pprint.string_of_ktype type_init.v) (Asthelper.Sizeof.sizeof current_mod_name program type_init.v) (Asthelper.Sizeof.alignmentof current_mod_name program type_init.v) in *)
-        if env |> Env.is_identifier_exists variable_name.v then
-          raise
-            (stmt_error
-               (Ast.Error.Already_Define_Identifier { name = variable_name }))
-        else
-          let kt =
-            match explicit_type with
-            | None ->
-                if Ast.Type.is_type_full_known type_init.v |> not then
-                  Need_explicit_type_declaration
-                    { variable_name; infer_type = type_init.v }
-                  |> stmt_error |> raise
-                else type_init
-            | Some explicit_type_sure ->
-                if
-                  not
-                    (Type.are_compatible_type explicit_type_sure.v type_init.v)
-                then
-                  raise
-                    (Ast.Error.Uncompatible_type_Assign
-                       { expected = explicit_type_sure.v; found = type_init }
-                    |> stmt_error |> raise)
-                else explicit_type_sure
+        let () = if env |> Env.is_identifier_exists variable_name.v then
+          raise @@
+            stmt_error
+                @@ Ast.Error.Already_Define_Identifier { name = variable_name }
+        in
+        let kt =
+          match explicit_type with
+          | None ->
+              let () = if not @@ Ast.Type.is_type_full_known type_init.v then
+                raise @@ stmt_error @@ Need_explicit_type_declaration
+                  { variable_name; infer_type = type_init.v }
+              in 
+              type_init
+          | Some explicit_type_sure ->
+              let () = if
+                not
+                    @@ Type.are_compatible_type explicit_type_sure.v type_init.v
+              then
+                raise
+                  (Ast.Error.Uncompatible_type_Assign
+                      { expected = explicit_type_sure.v; found = type_init }
+                  |> stmt_error |> raise)
+              in 
+              explicit_type_sure
           in
           ( Env.add_variable (variable_name.v, { is_const; ktype = kt.v }) env,
             kt.v )
     | SAffection (affected_value, expr) -> (
         match affected_value with
         | AFVariable variable -> (
-            match env |> Env.find_identifier_opt variable.v with
+            let is_const, ktype = match env |> Env.find_identifier_opt variable.v with
             | None ->
                 raise
                   (stmt_error
                      (Ast.Error.Undefine_Identifier { name = variable }))
-            | Some { is_const; ktype } ->
-                if is_const then
+            | Some { is_const; ktype } -> is_const, ktype
+            in
+            let () = if is_const then
                   raise
-                    (stmt_error
-                       (Ast.Error.Reassign_Constante { name = variable }))
-                else
-                  let new_type =
-                    typeof ~constraint_type:(Some ktype) ~generics_resolver env current_mod_name program expr
-                  in
-                  if not (Ast.Type.are_compatible_type new_type ktype) then
-                    raise
-                      (stmt_error
-                         (Ast.Error.Uncompatible_type_Assign
-                            {
-                              expected = ktype;
-                              found = expr |> Position.map (fun _ -> new_type);
-                            }))
-                  else
-                    let extended_env =
-                      Env.restrict_variable_type variable.v new_type env
-                    in
-                    ( extended_env,
-                      Env.vi_ktype @@ Option.get
-                      @@ Env.find_identifier_opt variable.v extended_env ))
+                    @@ stmt_error
+                       @@ Ast.Error.Reassign_Constante { name = variable }
+            in
+            let new_type =
+              typeof ~constraint_type:(Some ktype) ~generics_resolver env current_mod_name program expr
+            in
+            let () = if not @@ Ast.Type.are_compatible_type new_type ktype then
+              raise
+                (stmt_error
+                    (Ast.Error.Uncompatible_type_Assign
+                      {
+                        expected = ktype;
+                        found = expr |> Position.map (fun _ -> new_type);
+                      }))
+            in
+            let extended_env =
+              Env.restrict_variable_type variable.v new_type env
+            in
+            ( extended_env,
+              Env.vi_ktype @@ Option.get
+              @@ Env.find_identifier_opt variable.v extended_env ))
         | AFField { variable; fields } -> (
             match env |> Env.find_identifier_opt variable.v with
             | None ->
@@ -344,34 +347,34 @@ module Make (Rule : TypeCheckerRuleS) = struct
                   (stmt_error
                      (Ast.Error.Undefine_Identifier { name = variable }))
             | Some { is_const; ktype } ->
-                if is_const then
+                let () = if is_const then
                   raise
-                    (stmt_error
-                       (Ast.Error.Reassign_Constante_Struct_field
-                          { name = variable }))
-                else
-                  let field_type =
-                    Asthelper.Affected_Value.field_type ~variable ktype
-                      current_mod_name program fields
-                  in
-                  let new_type =
-                    typeof ~constraint_type:(Some ktype) ~generics_resolver env current_mod_name program expr
-                  in
-                  if not (Ast.Type.are_compatible_type new_type field_type) then
+                    @@ stmt_error
+                       @@ Ast.Error.Reassign_Constante_Struct_field
+                          { name = variable }
+                in
+                let field_type =
+                  Asthelper.Affected_Value.field_type ~variable ktype
+                    current_mod_name program fields
+                in
+                let new_type =
+                  typeof ~constraint_type:(Some ktype) ~generics_resolver env current_mod_name program expr
+                in
+                let () = if not (Ast.Type.are_compatible_type new_type field_type) then
                     raise
-                      (stmt_error
-                         (Ast.Error.Uncompatible_type_Assign
+                      @@ stmt_error
+                         @@ Ast.Error.Uncompatible_type_Assign
                             {
                               expected = field_type;
                               found = expr |> Position.map (fun _ -> new_type);
-                            }))
-                  else
-                    let extended_env =
-                      Env.restrict_variable_type variable.v new_type env
-                    in
-                    ( extended_env,
-                      Env.vi_ktype @@ Option.get
-                      @@ Env.find_identifier_opt variable.v extended_env )))
+                            }
+                in
+                let extended_env =
+                  Env.restrict_variable_type variable.v new_type env
+                in
+                ( extended_env,
+                  Env.vi_ktype @@ Option.get
+                  @@ Env.find_identifier_opt variable.v extended_env )))
     | SDerefAffectation (affected_value, expression) -> (
         match affected_value with
         | AFVariable id -> (
@@ -741,7 +744,27 @@ Return the type of an expression
           |> List.map @@ Position.map_use @@ typeof ~constraint_type:None ~generics_resolver env current_mod_name prog)
           in
           validate_location_type expression ~constraint_type tuple_kt
-    | EArray _exprs -> failwith ""
+    | EArray (expr::xesprs as exprs) -> 
+      let _, hint_type = match constraint_type with
+        | None -> None, None
+        | Some TArray {size; ktype} -> Some size, Some ktype
+        | Some _ -> failwith "Wrong type"
+      in
+      let size = expression |> Position.map (fun _ -> Int64.of_int @@ List.length exprs) in
+      let expr_type = expr |> Position.map_use @@ typeof ~constraint_type:(Option.map Position.value hint_type) ~generics_resolver env current_mod_name prog in
+      let ktype = xesprs |> List.fold_left (fun type_acc elt -> 
+        let t = elt |> Position.map_use @@ typeof ~constraint_type:(Option.map Position.value hint_type) ~generics_resolver env current_mod_name prog in
+        let restrict_rktype = validate_location_type t ~constraint_type:(Some type_acc) t.v in
+        restrict_rktype
+      ) expr_type.v in
+      let ktype_loc = {
+        v = ktype;
+        position = expression.position
+      }
+      in
+      let array_type = TArray {size; ktype = ktype_loc} in
+      validate_location_type expression ~constraint_type array_type
+    | EArray [] -> failwith "Here"
     | EWhile (condition, body) ->
         let if_condition =
           typeof ~constraint_type:None ~generics_resolver env current_mod_name prog condition

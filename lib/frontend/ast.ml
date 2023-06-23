@@ -767,6 +767,8 @@ module Type = struct
         && List.combine t1 t2
            |> List.map Position.assocs_value
            |> List.for_all (fun (k1, k2) -> are_compatible_type k1 k2)
+    | TArray {size = lsize; ktype = lktype}, TArray {size = rsize; ktype = rktype} -> 
+      lsize.v = rsize.v && are_compatible_type lktype.v rktype.v
     | _, _ -> lhs === rhs
 
   let rec update_generics map init_type param_type () =
