@@ -36,6 +36,10 @@ type rktype =
   | RTPointer of rktype
   | RTTuple of rktype list
   | RTFunction of rktype list * rktype
+  | RTArray of {
+    size: int64;
+    rktype: rktype
+  }
   | RTOrdered
   | RTString_lit
   | RTUnknow
@@ -98,6 +102,7 @@ and rkexpression =
       variant : string;
       assoc_exprs : typed_expression list;
     }
+  | REArray of typed_expression list
   | RETuple of typed_expression list
   | REBuiltin_Function_call of {
       fn_name : Builtin_Function.functions;

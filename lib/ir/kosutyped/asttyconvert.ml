@@ -68,6 +68,11 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
   | RTOrdered -> TOredered
   | RTChar -> TChar
   | RTString_lit -> TString_lit
+  | RTArray {size; rktype} ->
+    TArray {
+      size = val_dummy size;
+      ktype = val_dummy @@ to_ktype rktype
+    }
   | RTInteger (sign, size) -> TInteger(sign, size)
   | RTPointer rkt -> TPointer ( { v = to_ktype rkt; position = dummy})
   | RTTuple rkts -> TTuple (rkts |> List.map (fun rkt -> { v = to_ktype rkt; position = dummy} ))
@@ -340,7 +345,12 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
           |> List.map
                (typed_expression_of_kexpression ~generics_resolver env
                   current_module program))
-    | EArray _expr -> failwith ""
+    | EArray exprs -> 
+      let hint = match hint_type with
+        | RTArray info -> info.rktype 
+        | _ -> RTUnknow
+      in
+      REArray (exprs |> List.map @@ typed_expression_of_kexpression ~hint_type:hint ~generics_resolver env current_module program)
     | EBuiltin_Function_call { fn_name; parameters } ->
         REBuiltin_Function_call
           {
@@ -361,7 +371,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
         in
         let rkbody =
           rkbody_of_kbody ~generics_resolver ~return_type:hint_type
-            (Env.push_context [] env) current_module program body
+            (Env.push_empty_context env) current_module program body
         in
         REWhile (typed_condition, rkbody)
     | EIf (condition, if_block, else_block) ->

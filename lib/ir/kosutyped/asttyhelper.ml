@@ -357,6 +357,10 @@ module Generics = struct
               assoc_exprs
               |> List.map (instanciate_generics_typed_expression generics);
           }
+    | REArray ttes -> 
+      REArray (
+        ttes |> List.map (instanciate_generics_typed_expression generics)
+      )
     | RETuple tes ->
         RETuple
           (tes |> List.map (instanciate_generics_typed_expression generics))
@@ -1148,6 +1152,7 @@ module RProgram = struct
                  current_module rprogram te)
         |> List.fold_left FnSpec.union FnSpec.empty
     | REEnum { assoc_exprs = tes; _ }
+    | REArray tes
     | RETuple tes
     | REBuiltin_Function_call { parameters = tes; _ } ->
         tes
