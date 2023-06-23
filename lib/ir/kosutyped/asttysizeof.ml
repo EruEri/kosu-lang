@@ -37,14 +37,10 @@ let rec size calcul program rktype =
   | RTFloat fsize -> Fsize.size_of_fsize fsize / 8 |> Int64.of_int
   | RTPointer _ | RTString_lit | RTFunction _ -> 8L
   | RTTuple kts -> size_tuple calcul program kts
-  | RTArray {size = nb_elt; rktype} ->
-    let sizeof = Int64.mul nb_elt @@ size calcul program rktype in
-    let min = match calcul with
-    | `align -> 1L
-    | `size -> 0L
-  in
-  if nb_elt = 0L then min 
-  else sizeof
+  | RTArray { size = nb_elt; rktype } ->
+      let sizeof = Int64.mul nb_elt @@ size calcul program rktype in
+      let min = match calcul with `align -> 1L | `size -> 0L in
+      if nb_elt = 0L then min else sizeof
   | (RTParametric_identifier _ | RTType_Identifier _) as kt -> (
       let type_decl =
         RProgram.find_type_decl_from_rktye kt program |> Option.get

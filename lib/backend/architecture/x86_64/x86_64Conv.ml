@@ -776,37 +776,37 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                               rprogram)
                     [])
         |> Option.value ~default:[]
-  | RVArray ttes ->
-      let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in
-      let offset_list =
-        ttes
-        |> List.mapi (fun index _ ->
-                offset_of_tuple_index index ktlis rprogram)
-      in
-      where
-      |> Option.map (fun waddress ->
-              ttes
-              |> List.mapi (fun index value -> (index, value))
-              |> List.fold_left
-                  (fun acc (index, tte) ->
-                    let offset = List.nth offset_list index in
-                    let incremented_adress =
-                      increment_adress offset waddress
-                    in
-                    let reg_texp, instructions =
-                      translate_tac_expression rprogram ~litterals
-                        ~target_dst:(`Address incremented_adress) fd tte
-                    in
+    | RVArray ttes ->
+        let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in
+        let offset_list =
+          ttes
+          |> List.mapi (fun index _ ->
+                 offset_of_tuple_index index ktlis rprogram)
+        in
+        where
+        |> Option.map (fun waddress ->
+               ttes
+               |> List.mapi (fun index value -> (index, value))
+               |> List.fold_left
+                    (fun acc (index, tte) ->
+                      let offset = List.nth offset_list index in
+                      let incremented_adress =
+                        increment_adress offset waddress
+                      in
+                      let reg_texp, instructions =
+                        translate_tac_expression rprogram ~litterals
+                          ~target_dst:(`Address incremented_adress) fd tte
+                      in
 
-                    let acc_plus = acc @ instructions in
-                    match reg_texp with
-                    | `Address _ -> acc_plus
-                    | `Register reg ->
-                        acc_plus
-                        @ copy_from_reg reg incremented_adress tte.expr_rktype
-                            rprogram)
-                  [])
-      |> Option.value ~default:[]
+                      let acc_plus = acc @ instructions in
+                      match reg_texp with
+                      | `Address _ -> acc_plus
+                      | `Register reg ->
+                          acc_plus
+                          @ copy_from_reg reg incremented_adress tte.expr_rktype
+                              rprogram)
+                    [])
+        |> Option.value ~default:[]
     | RVTupleAccess
         {
           first_expr = { expr_rktype; tac_expression = TEIdentifier tuple_id };

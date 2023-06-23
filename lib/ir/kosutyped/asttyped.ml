@@ -36,10 +36,7 @@ type rktype =
   | RTPointer of rktype
   | RTTuple of rktype list
   | RTFunction of rktype list * rktype
-  | RTArray of {
-    size: int64;
-    rktype: rktype
-  }
+  | RTArray of { size : int64; rktype : rktype }
   | RTOrdered
   | RTString_lit
   | RTUnknow

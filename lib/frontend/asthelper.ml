@@ -668,10 +668,10 @@ module Kbody = struct
           |> List.map (remap_located_expr_explicit_type generics current_module)
           )
     | EArray lexprs ->
-      EArray
-        (lexprs
-        |> List.map (remap_located_expr_explicit_type generics current_module)
-        )
+        EArray
+          (lexprs
+          |> List.map (remap_located_expr_explicit_type generics current_module)
+          )
     | EBuiltin_Function_call { fn_name; parameters } ->
         EBuiltin_Function_call
           {
@@ -1065,9 +1065,10 @@ module Enum = struct
         kts |> List.exists (fun kt -> is_type_generic kt.v enum_decl)
     | _ -> false
 
-  let associate_type variant enum_decl = 
-    enum_decl.variants |> List.find_map (fun (case, assoc_type) ->
-      if case.v = variant.v then Some assoc_type else None)
+  let associate_type variant enum_decl =
+    enum_decl.variants
+    |> List.find_map (fun (case, assoc_type) ->
+           if case.v = variant.v then Some assoc_type else None)
 
   let extract_assoc_type_variant generics variant (enum_decl : t) =
     let open Ast.Type in
@@ -1177,13 +1178,12 @@ module Struct = struct
         kts |> List.exists (fun kt -> is_type_generic kt.v struct_decl)
     | _ -> false
 
-  let is_ktype_generic_field string (struct_decl : t) = 
-    struct_decl.fields |> List.find_map (fun (field, kt) -> 
-      if field.v = string.v then Some kt else None
-    )
-    |> Option.map (fun kt -> 
-      if is_type_generic kt.v struct_decl then None else Some kt
-    )
+  let is_ktype_generic_field string (struct_decl : t) =
+    struct_decl.fields
+    |> List.find_map (fun (field, kt) ->
+           if field.v = string.v then Some kt else None)
+    |> Option.map (fun kt ->
+           if is_type_generic kt.v struct_decl then None else Some kt)
 
   let to_ktype ?(position = Position.dummy) (module_def_path : string)
       (struct_decl : t) =

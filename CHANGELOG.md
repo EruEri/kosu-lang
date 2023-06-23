@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+- Create Array litteral
+
 - feature/base_vm
     - Improve function call abi (stack parameters implemented)
     - Kosu virtual machine base code

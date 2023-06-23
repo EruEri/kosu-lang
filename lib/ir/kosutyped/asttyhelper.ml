@@ -357,10 +357,9 @@ module Generics = struct
               assoc_exprs
               |> List.map (instanciate_generics_typed_expression generics);
           }
-    | REArray ttes -> 
-      REArray (
-        ttes |> List.map (instanciate_generics_typed_expression generics)
-      )
+    | REArray ttes ->
+        REArray
+          (ttes |> List.map (instanciate_generics_typed_expression generics))
     | RETuple tes ->
         RETuple
           (tes |> List.map (instanciate_generics_typed_expression generics))

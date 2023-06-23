@@ -587,36 +587,36 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       in
       (stmts_needed @ (last_stmt |> List.cons stt), return)
   | REArray typed_expressions, _ ->
-        let stmts_needed, tac_expression =
-          typed_expressions
-          |> List.map (fun ty_ex ->
-                 let next_allocated, stmt =
-                   create_forward_init ~map ~count_var ty_ex
-                 in
-                 let stmt_needed, tac_expression =
-                   convert_from_typed_expression ~discarded_value
-                     ~allocated:next_allocated ~switch_count ~cases_count ~map
-                     ~count_var ~if_count ~rprogram ty_ex
-                 in
-                 (stmt @ stmt_needed, tac_expression))
-          |> List.fold_left_map
-               (fun acc (stmts, value) -> (acc @ stmts, value))
-               []
-        in
-        let new_tmp = make_inc_tmp trktype map count_var in
-        let tuple = RVArray tac_expression in
-        let stt =
-          STacDeclaration
-            {
-              identifier = new_tmp;
-              trvalue = make_typed_tac_rvalue trktype tuple;
-            }
-        in
-        let last_stmt, return =
-          convert_if_allocated ~expr_rktype:trktype ~allocated
-            (TEIdentifier new_tmp)
-        in
-        (stmts_needed @ (last_stmt |> List.cons stt), return)
+      let stmts_needed, tac_expression =
+        typed_expressions
+        |> List.map (fun ty_ex ->
+               let next_allocated, stmt =
+                 create_forward_init ~map ~count_var ty_ex
+               in
+               let stmt_needed, tac_expression =
+                 convert_from_typed_expression ~discarded_value
+                   ~allocated:next_allocated ~switch_count ~cases_count ~map
+                   ~count_var ~if_count ~rprogram ty_ex
+               in
+               (stmt @ stmt_needed, tac_expression))
+        |> List.fold_left_map
+             (fun acc (stmts, value) -> (acc @ stmts, value))
+             []
+      in
+      let new_tmp = make_inc_tmp trktype map count_var in
+      let tuple = RVArray tac_expression in
+      let stt =
+        STacDeclaration
+          {
+            identifier = new_tmp;
+            trvalue = make_typed_tac_rvalue trktype tuple;
+          }
+      in
+      let last_stmt, return =
+        convert_if_allocated ~expr_rktype:trktype ~allocated
+          (TEIdentifier new_tmp)
+      in
+      (stmts_needed @ (last_stmt |> List.cons stt), return)
   | REFunction_call { modules_path; generics_resolver; fn_name; parameters }, _
     ->
       let stmts_needed, tac_parameters =

@@ -96,10 +96,8 @@ let rec string_of_rktype = function
       sprintf "(%s) -> %s"
         (parameters |> List.map string_of_rktype |> String.concat ", ")
         (string_of_rktype r_type)
-  | RTArray {size; rktype} ->
-    sprintf "array(%Lu, %s)"
-      size
-      @@ string_of_rktype rktype
+  | RTArray { size; rktype } ->
+      sprintf "array(%Lu, %s)" size @@ string_of_rktype rktype
   | RTString_lit -> "stringl"
   | RTOrdered -> "order"
   | RTBool -> "bool"
@@ -126,10 +124,8 @@ let rec string_of_label_rktype = function
   | RTTuple ktypes ->
       sprintf "(%s)"
         (ktypes |> List.map string_of_label_rktype |> String.concat "_")
-  | RTArray {size; rktype} ->
-      sprintf "array_%Lu_%s_"
-        size
-        @@ string_of_rktype rktype
+  | RTArray { size; rktype } ->
+      sprintf "array_%Lu_%s_" size @@ string_of_rktype rktype
   | RTFunction (parameters, r_type) ->
       sprintf "(%s) -> %s"
         (parameters |> List.map string_of_label_rktype |> String.concat "_")
@@ -221,8 +217,8 @@ and string_of_rkexpression = function
              |> List.map string_of_typed_expression
              |> String.concat ", "))
   | REArray exprs ->
-    sprintf "[%s]"
-    (exprs |> List.map string_of_typed_expression |> String.concat ", ")
+      sprintf "[%s]"
+        (exprs |> List.map string_of_typed_expression |> String.concat ", ")
   | RETuple exprs ->
       sprintf "(%s)"
         (exprs |> List.map string_of_typed_expression |> String.concat ", ")

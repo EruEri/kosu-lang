@@ -59,10 +59,7 @@ type ktype =
   | TPointer of ktype location
   | TTuple of ktype location list
   | TFunction of ktype location list * ktype location
-  | TArray of {
-    ktype: ktype location;
-    size: int64 location;
-  }
+  | TArray of { ktype : ktype location; size : int64 location }
   | TOredered
   | TString_lit
   | TUnknow
@@ -672,8 +669,13 @@ module Type = struct
                    v = set_module_path generics new_module_name kt.v;
                    position = kt.position;
                  }))
-    | TArray {size; ktype} -> 
-      TArray {size; ktype = ktype |> Position.map @@ set_module_path generics new_module_name }
+    | TArray { size; ktype } ->
+        TArray
+          {
+            size;
+            ktype =
+              ktype |> Position.map @@ set_module_path generics new_module_name;
+          }
     | _ as kt -> kt
 
   let rec is_type_full_known ktype =
@@ -683,7 +685,7 @@ module Type = struct
         { module_path = _; parametrics_type = kts; name = _ }
     | TTuple kts ->
         kts |> List.for_all (fun kt -> is_type_full_known kt.v)
-    | TPointer kt | TArray {ktype = kt; size = _} -> is_type_full_known kt.v
+    | TPointer kt | TArray { ktype = kt; size = _ } -> is_type_full_known kt.v
     | _ -> true
 
   let extract_parametrics_ktype ktype =
@@ -769,8 +771,9 @@ module Type = struct
         && List.combine t1 t2
            |> List.map Position.assocs_value
            |> List.for_all (fun (k1, k2) -> are_compatible_type k1 k2)
-    | TArray {size = lsize; ktype = lktype}, TArray {size = rsize; ktype = rktype} -> 
-      lsize.v = rsize.v && are_compatible_type lktype.v rktype.v
+    | ( TArray { size = lsize; ktype = lktype },
+        TArray { size = rsize; ktype = rktype } ) ->
+        lsize.v = rsize.v && are_compatible_type lktype.v rktype.v
     | _, _ -> lhs === rhs
 
   let rec update_generics map init_type param_type () =
@@ -794,8 +797,7 @@ module Type = struct
     | TPointer lhs, TPointer rhs -> update_generics map lhs rhs ()
     | TTuple lhs, TTuple rhs ->
         List.iter2 (fun l r -> update_generics map l r ()) lhs rhs
-    | TArray lhs, TArray rhs ->
-      update_generics map lhs.ktype rhs.ktype ()
+    | TArray lhs, TArray rhs -> update_generics map lhs.ktype rhs.ktype ()
     | _ -> ()
 
   let equal_fields =
@@ -862,10 +864,14 @@ module Type = struct
              (module_path_return_type ~current_module ~module_type_path)
         |> pointer
     | TArray array ->
-      TArray {
-        size = array.size;
-        ktype = array.ktype |> Position.map @@ module_path_return_type ~current_module ~module_type_path
-      }
+        TArray
+          {
+            size = array.size;
+            ktype =
+              array.ktype
+              |> Position.map
+                 @@ module_path_return_type ~current_module ~module_type_path;
+          }
     | _ as kt -> kt
 
   let rec remap_naif_generic_ktype generics_table ktype =
@@ -898,10 +904,13 @@ module Type = struct
     | TPointer kt ->
         kt |> Position.map (remap_naif_generic_ktype generics_table) |> pointer
     | TArray array ->
-        TArray {
+        TArray
+          {
             size = array.size;
-            ktype = array.ktype |> Position.map @@ remap_naif_generic_ktype generics_table
-        }
+            ktype =
+              array.ktype
+              |> Position.map @@ remap_naif_generic_ktype generics_table;
+          }
     | _ as kt -> kt
 
   let rec remap_generic_ktype ~current_module generics_table ktype =
@@ -948,10 +957,14 @@ module Type = struct
         |> Position.map (remap_generic_ktype ~current_module generics_table)
         |> pointer
     | TArray array ->
-      TArray {
-          size = array.size;
-          ktype = array.ktype |> Position.map @@ remap_generic_ktype ~current_module generics_table
-      }
+        TArray
+          {
+            size = array.size;
+            ktype =
+              array.ktype
+              |> Position.map
+                 @@ remap_generic_ktype ~current_module generics_table;
+          }
     | _ as kt -> kt
 
   let rec map_generics_type (generics_combined : (string location * ktype) list)
@@ -985,10 +998,14 @@ module Type = struct
         |> Position.map (map_generics_type generics_combined primitive_generics)
         |> pointer
     | TArray array ->
-      TArray {
-          size = array.size;
-          ktype = array.ktype |> Position.map @@ map_generics_type generics_combined primitive_generics
-      }
+        TArray
+          {
+            size = array.size;
+            ktype =
+              array.ktype
+              |> Position.map
+                 @@ map_generics_type generics_combined primitive_generics;
+          }
     | _ -> ktype
 
   (**

@@ -90,9 +90,7 @@ let rec string_of_ktype = function
       sprintf "(%s)"
         (ktypes |> List.map (fun s -> string_of_ktype s.v) |> String.concat ", ")
   | TArray ktypes ->
-    sprintf "array(%Ld, %s)"
-    (ktypes.size.v)
-    (string_of_ktype ktypes.ktype.v)
+      sprintf "array(%Ld, %s)" ktypes.size.v (string_of_ktype ktypes.ktype.v)
   | TFunction (parameters, r_type) ->
       sprintf "(%s) -> %s"
         (parameters
@@ -197,10 +195,10 @@ and string_of_kexpression = function
         (string_of_kexpression condition.v)
         (string_of_kbody body)
   | EArray exprs ->
-    sprintf "[%s]"
-      (exprs |> List.map Position.value
-      |> List.map string_of_kexpression
-      |> String.concat ", ")
+      sprintf "[%s]"
+        (exprs |> List.map Position.value
+        |> List.map string_of_kexpression
+        |> String.concat ", ")
   | ETuple exprs ->
       sprintf "(%s)"
         (exprs |> List.map Position.value
