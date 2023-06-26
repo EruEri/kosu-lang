@@ -1,0 +1,1 @@
+  $ kosuc --arch arm64 --os freebsd --no-std -o main test_array.kosu && ./main
