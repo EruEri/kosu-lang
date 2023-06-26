@@ -55,7 +55,8 @@ module Immediat = struct
     ( Int64.shift_right_logical int64 48,
       Int64.shift_right_logical int48 32,
       Int64.shift_right_logical int32 16,
-      int16 )
+      int16
+    )
 end
 
 module Condition_Code = struct
@@ -82,13 +83,40 @@ module Condition_Code = struct
   let cc_of_tac_bin ?(is_unsigned = false) =
     let open KosuIrTAC.Asttac in
     function
-    | TacOr | TacAnd -> None
-    | TacEqual -> Some EQ
-    | TacDiff -> Some NE
-    | TacSup -> Some (if is_unsigned then HI else GT)
-    | TacSupEq -> Some (if is_unsigned then CS else GE)
-    | TacInfEq -> Some (if is_unsigned then LS else LE)
-    | TacInf -> Some (if is_unsigned then CC else LT)
+    | TacOr | TacAnd ->
+        None
+    | TacEqual ->
+        Some EQ
+    | TacDiff ->
+        Some NE
+    | TacSup ->
+        Some
+          ( if is_unsigned then
+              HI
+            else
+              GT
+          )
+    | TacSupEq ->
+        Some
+          ( if is_unsigned then
+              CS
+            else
+              GE
+          )
+    | TacInfEq ->
+        Some
+          ( if is_unsigned then
+              LS
+            else
+              LE
+          )
+    | TacInf ->
+        Some
+          ( if is_unsigned then
+              CC
+            else
+              LT
+          )
 end
 
 module Register = struct
@@ -194,7 +222,8 @@ module Register = struct
   let arguments_register variable =
     if KosuIrTyped.Asttyhelper.RType.is_float @@ snd variable then
       float_argument_registers
-    else non_float_argument_registers
+    else
+      non_float_argument_registers
 
   let syscall_register = [ raw_r0; raw_r1; raw_r2; raw_r3; raw_r4; raw_r5 ]
   let available_register = [ raw_r8; raw_r9; raw_r10; raw_r11 ]
@@ -210,16 +239,20 @@ module Register = struct
 
   let does_return_hold_in_register_kt kt =
     match KosuIrTyped.Sizeof.sizeof_kt kt with
-    | 1L | 2L | 4L | 8L -> true
-    | _ -> false
+    | 1L | 2L | 4L | 8L ->
+        true
+    | _ ->
+        false
 
   let does_return_hold_in_register variable =
     does_return_hold_in_register_kt @@ snd variable
 
   let return_strategy variable =
     match does_return_hold_in_register variable with
-    | true -> Simple_return raw_r0
-    | false -> Indirect_return
+    | true ->
+        Simple_return raw_r0
+    | false ->
+        Indirect_return
 end
 
 module GreedyColoration =
@@ -246,7 +279,8 @@ module Location = struct
     match adress.offset with
     | `ILitteral offset ->
         { adress with offset = `ILitteral (Int64.add offset off) }
-    | `Register _reg -> failwith "Increment register based address"
+    | `Register _reg ->
+        failwith "Increment register based address"
 end
 
 module Operande = struct
@@ -261,18 +295,23 @@ module Operande = struct
 
   let is_str_offset_range reg n =
     let open Register in
-    if n < 0L then -256L < n
+    if n < 0L then
+      -256L < n
     else
       match reg.size with
-      | SReg32 -> n < 255L || (Int64.unsigned_rem n 4L = 0L && n < 16380L)
-      | SReg64 -> n < 255L || (Int64.unsigned_rem n 8L = 0L && n < 32760L)
+      | SReg32 ->
+          n < 255L || (Int64.unsigned_rem n 4L = 0L && n < 16380L)
+      | SReg64 ->
+          n < 255L || (Int64.unsigned_rem n 8L = 0L && n < 32760L)
 
   let is_ldr_offset_range = is_str_offset_range
 
   let is_str_offset_too_far reg address =
     match address with
-    | `ILitteral i when not @@ is_ldr_offset_range reg i -> true
-    | `ILitteral _ | `Register _ -> false
+    | `ILitteral i when not @@ is_ldr_offset_range reg i ->
+        true
+    | `ILitteral _ | `Register _ ->
+        false
 end
 
 module Instruction = struct

@@ -66,8 +66,10 @@ module X86_64LinuxAsmSpec = Make (struct
     function I8 -> "byte" | I16 -> "value" | I32 -> "long" | I64 -> "quad"
 
   let directive_of_fsize = function
-    | KosuFrontend.Ast.F32 -> "long"
-    | F64 -> "quad"
+    | KosuFrontend.Ast.F32 ->
+        "long"
+    | F64 ->
+        "quad"
 
   let should_create_entry_point = Some "_start"
 end)
@@ -101,8 +103,10 @@ module X86MacOsAsmSpec = Make (struct
     function I8 -> "byte" | I16 -> "value" | I32 -> "long" | I64 -> "quad"
 
   let directive_of_fsize = function
-    | KosuFrontend.Ast.F32 -> "long"
-    | F64 -> "quad"
+    | KosuFrontend.Ast.F32 ->
+        "long"
+    | F64 ->
+        "quad"
 
   let should_create_entry_point = None
 end)

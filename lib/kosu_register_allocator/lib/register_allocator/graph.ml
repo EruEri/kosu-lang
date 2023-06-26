@@ -42,7 +42,10 @@ module Make (S : OrderedType) = struct
 
     let compare lhs rhs =
       let tmp = S.compare lhs.root rhs.root in
-      if tmp <> 0 then tmp else S.compare lhs.along rhs.along
+      if tmp <> 0 then
+        tmp
+      else
+        S.compare lhs.along rhs.along
   end
 
   module EdgeSet = Set.Make (EgdesSig)
@@ -67,7 +70,8 @@ module Make (S : OrderedType) = struct
     @raise Not_found if [node] is not in [graph]    
   *)
   let check_contains node graph =
-    if not @@ contains node graph then raise Not_found
+    if not @@ contains node graph then
+      raise Not_found
 
   (**
       Return all nodes where [node] is the root of the edge
@@ -78,7 +82,11 @@ module Make (S : OrderedType) = struct
     let open EgdesSig in
     EdgeSet.fold
       (fun egde acc ->
-        if S.compare egde.root node = 0 then NodeSet.add egde.along acc else acc)
+        if S.compare egde.root node = 0 then
+          NodeSet.add egde.along acc
+        else
+          acc
+      )
       graph.edges NodeSet.empty
 
   (** 
@@ -106,7 +114,8 @@ module Make (S : OrderedType) = struct
     NodeSet.fold
       (fun node acc ->
         let egdes = egde_of node graph in
-        (node, NodeSet.elements egdes) :: acc)
+        (node, NodeSet.elements egdes) :: acc
+      )
       graph.nodes []
 end
 
@@ -116,8 +125,10 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
 
   let compare_opt lhs rhs =
     match (lhs, rhs) with
-    | Some lcolor, Some rcolor -> Color.compare lcolor rcolor
-    | _ -> compare lhs rhs
+    | Some lcolor, Some rcolor ->
+        Color.compare lcolor rcolor
+    | _ ->
+        compare lhs rhs
 
   exception Unexisting_node of S.t
   exception Link_same_color of colored_node * colored_node
@@ -136,7 +147,10 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
 
     let compare lhs rhs =
       let f_comp = S.compare lhs.root rhs.root in
-      if f_comp <> 0 then f_comp else S.compare lhs.along rhs.along
+      if f_comp <> 0 then
+        f_comp
+      else
+        S.compare lhs.along rhs.along
   end)
 
   module G = Make (S)
@@ -154,7 +168,12 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
       graph with
       nodes =
         NodeSet.map
-          (fun cnode -> if NodeSig.compare cnode node = 0 then node else cnode)
+          (fun cnode ->
+            if NodeSig.compare cnode node = 0 then
+              node
+            else
+              cnode
+          )
           graph.nodes;
     }
 
@@ -167,7 +186,11 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
       nodes =
         NodeSet.map
           (fun cn ->
-            if S.compare cn.node node = 0 then { cn with color = None } else cn)
+            if S.compare cn.node node = 0 then
+              { cn with color = None }
+            else
+              cn
+          )
           cg.nodes;
     }
 
@@ -203,7 +226,9 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
       (fun edge acc ->
         if S.compare edge.root node.node = 0 then
           NodeSet.add (find edge.along graph) acc
-        else acc)
+        else
+          acc
+      )
       graph.edges NodeSet.empty
 
   let remove node graph =
@@ -226,8 +251,11 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
       (fun egde acc ->
         let colored_node = find egde.along graph in
         match colored_node.color with
-        | None -> acc
-        | Some color -> ColorSet.add color acc)
+        | None ->
+            acc
+        | Some color ->
+            ColorSet.add color acc
+      )
       edges ColorSet.empty
 
   let of_graph ?(precolored = ([] : (S.t * Color.t) list)) (graph : G.graph) =
@@ -237,9 +265,14 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
              let color =
                precolored
                |> List.find_map (fun (elt, color) ->
-                      if S.compare node elt = 0 then Some color else None)
+                      if S.compare node elt = 0 then
+                        Some color
+                      else
+                        None
+                  )
              in
-             create_colored color node)
+             create_colored color node
+         )
     in
     graph |> G.bindings
     |> List.fold_left
@@ -247,7 +280,11 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
            let colored_opt =
              precolored
              |> List.find_map (fun (elt, color) ->
-                    if S.compare node elt = 0 then Some color else None)
+                    if S.compare node elt = 0 then
+                      Some color
+                    else
+                      None
+                )
            in
            let cnode = create_colored colored_opt node in
            let clinked = color_links ~precolored linked in
@@ -259,10 +296,12 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
                     let new_graph =
                       inner_graph |> add_node cl |> link cnode ~along:cl
                     in
-                    new_graph)
+                    new_graph
+                  )
                   graph_acc
            in
-           graph_acc)
+           graph_acc
+         )
          empty
 
   (**
@@ -275,7 +314,8 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
       |> List.sort (fun lhs rhs ->
              let lcardinal = node_degre lhs graph in
              let rcardinal = node_degre rhs graph in
-             Int.compare rcardinal lcardinal)
+             Int.compare rcardinal lcardinal
+         )
     in
 
     ordered_nodes
@@ -296,21 +336,26 @@ module ColoredMake (S : OrderedType) (Color : ColoredType) = struct
                      List.exists
                        (fun reg -> S.compare reg node.node = 0)
                        immuable
-                   then acc_graph
+                   then
+                     acc_graph
                    else
                      let node = { node with color = Some color } in
                      replace_color_node node acc_graph
                | Some c ->
-                   if ColorSet.mem c available_color_set then acc_graph
+                   if ColorSet.mem c available_color_set then
+                     acc_graph
                    else
                      (* let node = remove_color node in replace_color_node node  *)
-                     acc_graph))
+                     acc_graph
+             )
+         )
          graph
 
   let bindings (graph : colored_graph) =
     NodeSet.fold
       (fun node acc ->
         let egdes = egde_of node graph in
-        (node, NodeSet.elements egdes) :: acc)
+        (node, NodeSet.elements egdes) :: acc
+      )
       graph.nodes []
 end

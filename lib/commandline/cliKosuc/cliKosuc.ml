@@ -79,8 +79,10 @@ module Cli = struct
                  "If this environment variable is present, the architecture \
                   compilation target doesn't need to be explicitly set. See \
                   option $(b, --arch)"
-               architecture_global_variable)
-          ~doc:"architecture compilation target" [ "arch" ])
+               architecture_global_variable
+            )
+          ~doc:"architecture compilation target" [ "arch" ]
+    )
 
   let os_target_term =
     Arg.(
@@ -93,8 +95,10 @@ module Cli = struct
                  "If this environment variable is present, the os compilation \
                   target doesn't need to be explicitly set. See option $(b, \
                   --os)"
-               os_global_variable)
-          ~doc:"Os compilation target" [ "os" ])
+               os_global_variable
+            )
+          ~doc:"Os compilation target" [ "os" ]
+    )
 
   let f_allow_generic_in_variadic_term =
     Arg.(
@@ -104,21 +108,25 @@ module Cli = struct
           ~docs:"COMPILATION OPTION"
           ~doc:
             "Allow the use variable with a generic type in variadic function \
-             parameters such as $(b,printf(3))")
+             parameters such as $(b,printf(3))"
+    )
 
   let no_std_term =
     Arg.(
-      value & flag & info [ "no-std" ] ~doc:"Don't include the standard library")
+      value & flag & info [ "no-std" ] ~doc:"Don't include the standard library"
+    )
 
   let verbose_term =
     Arg.(
       value & flag
-      & info [ "v"; "verbose" ] ~doc:"Print each command before it execution")
+      & info [ "v"; "verbose" ] ~doc:"Print each command before it execution"
+    )
 
   let cc_term =
     Arg.(
       value & flag
-      & info [ "cc" ] ~doc:"Generate executable by using a C compiler")
+      & info [ "cc" ] ~doc:"Generate executable by using a C compiler"
+    )
 
   let target_asm_term =
     Arg.(value & flag & info [ "S" ] ~doc:"Produce assembly files")
@@ -128,12 +136,14 @@ module Cli = struct
       value & opt_all string []
       & info [ "pkg-config"; "pc" ] ~docv:"libname"
           ~doc:
-            "Invoke $(b,pkg-config)(1) to retreive compilation flags and libs")
+            "Invoke $(b,pkg-config)(1) to retreive compilation flags and libs"
+    )
 
   let cclib_term =
     Arg.(
       value & opt_all string []
-      & info [ "l" ] ~docv:"libname" ~doc:"Pass $(i,libname) to the linker")
+      & info [ "l" ] ~docv:"libname" ~doc:"Pass $(i,libname) to the linker"
+    )
 
   let output_term =
     Arg.(
@@ -141,7 +151,9 @@ module Cli = struct
       & info [ "o" ] ~docv:"FILENAME"
           ~doc:
             (Printf.sprintf "write output to <%s>"
-               (String.lowercase_ascii "$(docv)")))
+               (String.lowercase_ascii "$(docv)")
+            )
+    )
 
   let ccol_term =
     Arg.(
@@ -150,7 +162,8 @@ module Cli = struct
       & info [ "ccol" ] ~docv:"C FILES"
           ~doc:
             "Invoke the default C compiler to generate object file and link \
-             those files")
+             those files"
+    )
 
   let files_term =
     Arg.(
@@ -163,7 +176,8 @@ module Cli = struct
             \  with .o are treated as object files to be passed to the linker. \
              If --cc flag is set, any files recognized by the $(b,cc(1)) can \
              be passed. \n\
-            \  ")
+            \  "
+    )
 
   let cmd_term run =
     let combine architecture os f_allow_generic_in_variadic no_std verbose cc
@@ -188,7 +202,8 @@ module Cli = struct
       const combine $ target_archi_term $ os_target_term
       $ f_allow_generic_in_variadic_term $ no_std_term $ verbose_term $ cc_term
       $ target_asm_term $ output_term $ pkg_config_term $ ccol_term $ cclib_term
-      $ files_term)
+      $ files_term
+    )
 
   let kosuc_doc = "The Kosu compiler"
 
@@ -207,7 +222,8 @@ module Cli = struct
         ( Printf.sprintf "$(b,%s)" std_global_variable,
           "If this environment variable is present, kosu files inside the \
            folder are recessively included in the compilation except if \
-           --no-std is present" );
+           --no-std is present"
+        );
       `S Manpage.s_see_also;
       `P "$(b,cc)(1), $(b,as)(1), $(b,ld)(1)";
       `Noblank;
@@ -262,19 +278,28 @@ module Cli = struct
     in
     let module Asttyconvert = KosuIrTyped.Asttyconvert.Make (TypeCheckerRule) in
     let module Codegen =
-      (val match (architecture, os) with
-           | X86_64, (FreeBSD | Linux) -> (module LinuxX86)
-           | X86_64, Macos -> (module Mac0SX86)
-           | Arm64, Macos -> (module MacOSAarch64)
-           | Arm64, (FreeBSD | Linux) -> (module FreebBSDAarch64)
-          : KosuBackend.Codegen.S)
+      ( val match (architecture, os) with
+            | X86_64, (FreeBSD | Linux) ->
+                (module LinuxX86)
+            | X86_64, Macos ->
+                (module Mac0SX86)
+            | Arm64, Macos ->
+                (module MacOSAarch64)
+            | Arm64, (FreeBSD | Linux) ->
+                (module FreebBSDAarch64)
+          : KosuBackend.Codegen.S
+        )
     in
     let module LinkerOption =
-      (val match os with
-           | FreeBSD -> (module LdSpec.FreeBSDLdSpec)
-           | Linux -> (module LdSpec.LinuxLdSpec)
-           | Macos -> (module LdSpec.MacOSLdSpec)
-          : KosuBackend.Compil.LinkerOption)
+      ( val match os with
+            | FreeBSD ->
+                (module LdSpec.FreeBSDLdSpec)
+            | Linux ->
+                (module LdSpec.LinuxLdSpec)
+            | Macos ->
+                (module LdSpec.MacOSLdSpec)
+          : KosuBackend.Compil.LinkerOption
+        )
     in
     let module Compiler = KosuBackend.Compil.Make (Codegen) (LinkerOption) in
     let () = KosuFront.Registerexn.register_kosu_error () in
@@ -282,7 +307,8 @@ module Cli = struct
     let ast_module = KosuFront.ast_modules kosu_files in
     let typed_program =
       match Asttyconvert.from_program ast_module with
-      | typed_program -> typed_program
+      | typed_program ->
+          typed_program
       | exception KosuFrontend.Ast.Error.Ast_error e ->
           let () =
             e |> KosuFront.Pprinterr.string_of_ast_error |> print_endline
@@ -295,7 +321,8 @@ module Cli = struct
     in
     let _code =
       match is_target_asm with
-      | true -> Compiler.generate_asm_only tac_program ()
+      | true ->
+          Compiler.generate_asm_only tac_program ()
       | false ->
           let compilation = Compiler.compilation ~cc in
           compilation ~outfile:output ~debug:true ~ccol ~other:other_files

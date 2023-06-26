@@ -34,8 +34,10 @@ let version =
   in
   let v =
     match Build_info.V1.version () with
-    | None -> "n/a"
-    | Some v -> Build_info.V1.Version.to_string v
+    | None ->
+        "n/a"
+    | Some v ->
+        Build_info.V1.Version.to_string v
   in
   Printf.sprintf "%s %s" v commit_hash
 
@@ -46,7 +48,12 @@ let std_path = Sys.getenv_opt std_global_variable
 let is_kosu_file file = file |> Filename.extension |> ( = ) ".kosu"
 
 let string_of_enum ?(splitter = "|") ?(quoted = false) enum =
-  let f = if quoted then Cmdliner.Arg.doc_quote else Fun.id in
+  let f =
+    if quoted then
+      Cmdliner.Arg.doc_quote
+    else
+      Fun.id
+  in
   enum |> List.map (fun (elt, _) -> f elt) |> String.concat splitter
 
 let rec fetch_kosu_file direname () =
@@ -58,14 +65,18 @@ let rec fetch_kosu_file direname () =
            let file = Printf.sprintf "%s%s%s" direname Filename.dir_sep file in
            if Sys.is_directory file then
              acc_kosu_files @ fetch_kosu_file file ()
-           else if is_kosu_file file then file :: acc_kosu_files
-           else acc_kosu_files)
+           else if is_kosu_file file then
+             file :: acc_kosu_files
+           else
+             acc_kosu_files
+         )
          []
   in
   kosu_files
 
 let fetch_std_file ~no_std () =
-  if no_std || Option.is_none std_path then []
+  if no_std || Option.is_none std_path then
+    []
   else
     let std_path = Option.get std_path in
     fetch_kosu_file std_path ()

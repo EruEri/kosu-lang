@@ -29,7 +29,12 @@ module OffsetHelper = struct
     let ( ** ) = Int64.mul in
     let ( ++ ) = Int64.add in
     let div = Int64.unsigned_div size 16L in
-    let modulo = if Int64.unsigned_rem size 16L = 0L then 0L else 1L in
+    let modulo =
+      if Int64.unsigned_rem size 16L = 0L then
+        0L
+      else
+        1L
+    in
     16L ** (div ++ modulo)
 
   let offset_of_field_access first_ktype ~fields rprogram =
@@ -43,10 +48,12 @@ module OffsetHelper = struct
                KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
                  acc_type rprogram
              with
-             | Some (RDecl_Struct s) -> s
+             | Some (RDecl_Struct s) ->
+                 s
              | Some (RDecl_Enum _) ->
                  failwith "Expected to find a struct get an enum"
-             | None -> failwith "Non type decl ??? my validation is very weak"
+             | None ->
+                 failwith "Non type decl ??? my validation is very weak"
            in
 
            let extracted = RType.extract_parametrics_rktype acc_type in
@@ -65,7 +72,8 @@ module OffsetHelper = struct
            let field_type =
              Option.get @@ RStruct.rktype_of_field_opt field struct_decl
            in
-           (acc_offset, field_type))
+           (acc_offset, field_type)
+         )
          (0L, first_ktype)
     |> fst
 end

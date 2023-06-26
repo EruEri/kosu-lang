@@ -19,7 +19,10 @@ module Cfg_Sig_Impl = struct
 
   let compare lhs rhs =
     let string_compare = String.compare (fst lhs) (fst rhs) in
-    if string_compare = 0 then compare (snd lhs) (snd rhs) else string_compare
+    if string_compare = 0 then
+      compare (snd lhs) (snd rhs)
+    else
+      string_compare
 
   let repr (variable, ktype) =
     Printf.sprintf "%s : %s" variable
@@ -34,7 +37,8 @@ module Cfg_Sig_Impl = struct
   let tte_idenfier_used : atom -> (string * rktype) list = function
     | { tac_expression = TEIdentifier id; expr_rktype } ->
         (id, expr_rktype) :: []
-    | _ -> []
+    | _ ->
+        []
 
   let ttrv_identifiers_used : rvalue -> (string * rktype) list =
    fun ttrv ->
@@ -54,9 +58,13 @@ module Cfg_Sig_Impl = struct
         |> List.fold_left
              (fun acc tte ->
                match tte_idenfier_used tte with
-               | [] -> acc
-               | t :: [] -> t :: acc
-               | _ :: _ -> failwith "UNreachable only one zero element")
+               | [] ->
+                   acc
+               | t :: [] ->
+                   t :: acc
+               | _ :: _ ->
+                   failwith "UNreachable only one zero element"
+             )
              []
     | RVAdress id ->
         (id, KosuIrTyped.Asttyhelper.RType.rtpointee ttrv.rval_rktype) :: []
@@ -73,11 +81,16 @@ module Cfg_Sig_Impl = struct
         |> List.fold_left
              (fun acc (_, tte) ->
                match tte_idenfier_used tte with
-               | [] -> acc
-               | t :: [] -> t :: acc
-               | _ :: _ -> failwith "Unreachable only one zero element")
+               | [] ->
+                   acc
+               | t :: [] ->
+                   t :: acc
+               | _ :: _ ->
+                   failwith "Unreachable only one zero element"
+             )
              []
-    | RVDiscard | RVLater -> []
+    | RVDiscard | RVLater ->
+        []
 
   let variables_as_parameter : rvalue -> (variable * int) list option =
    fun ttrv ->
@@ -88,15 +101,21 @@ module Cfg_Sig_Impl = struct
              (fun (index, acc) tte ->
                let next_index = index + 1 in
                match tte_idenfier_used tte with
-               | t :: [] -> (next_index, (t, index) :: acc)
-               | [] | _ :: _ -> (next_index, acc))
+               | t :: [] ->
+                   (next_index, (t, index) :: acc)
+               | [] | _ :: _ ->
+                   (next_index, acc)
+             )
              (0, [])
         |> snd |> List.rev |> Option.some
-    | _ -> None
+    | _ ->
+        None
 
   let is_affectation = function
-    | { rvalue = RVDiscard | RVLater; _ } -> false
-    | _ -> true
+    | { rvalue = RVDiscard | RVLater; _ } ->
+        false
+    | _ ->
+        true
 end
 
 module CfgPprint = struct

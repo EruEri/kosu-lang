@@ -34,7 +34,10 @@ module Make (O : OrderedType) = struct
 
     let compare (lt, li) (rt, ri) =
       let elt_cmp = O.compare lt rt in
-      if elt_cmp <> 0 then elt_cmp else Int.compare li ri
+      if elt_cmp <> 0 then
+        elt_cmp
+      else
+        Int.compare li ri
   end
 
   module ReturnSet = Set.Make (O)
@@ -70,7 +73,8 @@ module Make (O : OrderedType) = struct
     { constr with return = ReturnSet.union constr.return returns_set }
 
   let add_function_constraint parameters constr =
-    if parameters = [] then constr
+    if parameters = [] then
+      constr
     else
       let parameters_set = parameters |> ParameterSet.of_list in
       {

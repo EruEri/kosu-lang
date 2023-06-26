@@ -27,7 +27,8 @@ let cfg_statement_of_san_statement ty_san_stmt =
 let cfg_ending_of_san_ending =
   let open Basic in
   function
-  | TySE_return atom -> Bbe_return atom
+  | TySE_return atom ->
+      Bbe_return atom
   | TYSE_If { expr; if_label; else_label } ->
       BBe_if { condition = expr; if_label; else_label }
 
@@ -41,18 +42,22 @@ let cfg_block_of_san_block ~(next_block : ty_san_basic_block option)
   in
   let followed_by =
     match ending with
-    | Some (TySE_return _) -> []
+    | Some (TySE_return _) ->
+        []
     | Some (TYSE_If { if_label; else_label; _ }) ->
         if_label :: else_label :: followed_by
-    | None -> followed_by
+    | None ->
+        followed_by
   in
   create_basic_block ~label ~cfg_statements ~followed_by ~ending:cfg_ending
 
 let basic_of_san_tyfunction san_tyfunction =
   let rec make_blocks blocks =
     match blocks with
-    | [] -> []
-    | t :: [] -> [ cfg_block_of_san_block ~next_block:None t ]
+    | [] ->
+        []
+    | t :: [] ->
+        [ cfg_block_of_san_block ~next_block:None t ]
     | h1 :: (h2 :: q as xs) ->
         cfg_block_of_san_block ~next_block:(Some h2) h1 :: make_blocks xs
   in

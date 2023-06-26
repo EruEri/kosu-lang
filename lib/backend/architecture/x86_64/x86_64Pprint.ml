@@ -27,96 +27,158 @@ open Util.Operator
 
 module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
   let string_of_int_data_size = function
-    | B -> "b"
-    | W -> "w"
-    | L -> "l"
-    | Q -> "q"
+    | B ->
+        "b"
+    | W ->
+        "w"
+    | L ->
+        "l"
+    | Q ->
+        "q"
 
   let string_of_float_data_size = function SS -> "ss" | SD -> "sd"
 
   let string_of_data_size = function
-    | IntSize i -> string_of_int_data_size i
-    | FloatSize f -> string_of_float_data_size f
+    | IntSize i ->
+        string_of_int_data_size i
+    | FloatSize f ->
+        string_of_float_data_size f
 
   let string_of_raw_register = function
-    | RAX -> "rax"
-    | RBX -> "rbx"
-    | RCX -> "rcx"
-    | RDX -> "rdx"
-    | RSI -> "rsi"
-    | RDI -> "rdi"
-    | RBP -> "rbp"
-    | RSP -> "rsp"
-    | R8 -> "r8"
-    | R9 -> "r9"
-    | R10 -> "r10"
-    | R11 -> "r11"
-    | R12 -> "r12"
-    | R13 -> "r13"
-    | R14 -> "r14"
-    | R15 -> "r15"
-    | RIP -> "rip"
+    | RAX ->
+        "rax"
+    | RBX ->
+        "rbx"
+    | RCX ->
+        "rcx"
+    | RDX ->
+        "rdx"
+    | RSI ->
+        "rsi"
+    | RDI ->
+        "rdi"
+    | RBP ->
+        "rbp"
+    | RSP ->
+        "rsp"
+    | R8 ->
+        "r8"
+    | R9 ->
+        "r9"
+    | R10 ->
+        "r10"
+    | R11 ->
+        "r11"
+    | R12 ->
+        "r12"
+    | R13 ->
+        "r13"
+    | R14 ->
+        "r14"
+    | R15 ->
+        "r15"
+    | RIP ->
+        "rip"
 
   let string_of_register_int_reg size register =
     let str_raw_reg = string_of_raw_register register in
     match size with
-    | Q -> str_raw_reg
+    | Q ->
+        str_raw_reg
     | L ->
         if Register.is_numerical_register register then
           Printf.sprintf "%sd" str_raw_reg
-        else str_raw_reg |> String.map (fun c -> if c = 'r' then 'e' else c)
+        else
+          str_raw_reg
+          |> String.map (fun c ->
+                 if c = 'r' then
+                   'e'
+                 else
+                   c
+             )
     | W ->
         if Register.is_numerical_register register then
           Printf.sprintf "%sw" str_raw_reg
-        else String.sub str_raw_reg 1 2
+        else
+          String.sub str_raw_reg 1 2
     | B -> (
         if Register.is_numerical_register register then
           Printf.sprintf "%sb" str_raw_reg
         else
           match str_raw_reg with
-          | "rax" -> "al"
-          | "rbx" -> "bl"
-          | "rcx" -> "cl"
-          | "rdx" -> "dl"
-          | other -> Printf.sprintf "%sl" (String.sub other 1 2))
+          | "rax" ->
+              "al"
+          | "rbx" ->
+              "bl"
+          | "rcx" ->
+              "cl"
+          | "rdx" ->
+              "dl"
+          | other ->
+              Printf.sprintf "%sl" (String.sub other 1 2)
+      )
 
   let string_of_register_int_reg size register =
     Printf.sprintf "%%%s" (string_of_register_int_reg size register)
 
   let string_of_float_register = function
-    | XMM0 -> "%xmm0"
-    | XMM1 -> "%xmm1"
-    | XMM2 -> "%xmm2"
-    | XMM3 -> "%xmm3"
-    | XMM4 -> "%xmm4"
-    | XMM5 -> "%xmm5"
-    | XMM6 -> "%xmm6"
-    | XMM7 -> "%xmm7"
-    | XMM8 -> "%xmm8"
-    | XMM9 -> "%xmm9"
-    | XMM10 -> "%xmm10"
-    | XMM11 -> "%xmm11"
-    | XMM12 -> "%xmm12"
-    | XMM13 -> "%xmm13"
-    | XMM14 -> "%xmm14"
-    | XMM15 -> "%xmm15"
+    | XMM0 ->
+        "%xmm0"
+    | XMM1 ->
+        "%xmm1"
+    | XMM2 ->
+        "%xmm2"
+    | XMM3 ->
+        "%xmm3"
+    | XMM4 ->
+        "%xmm4"
+    | XMM5 ->
+        "%xmm5"
+    | XMM6 ->
+        "%xmm6"
+    | XMM7 ->
+        "%xmm7"
+    | XMM8 ->
+        "%xmm8"
+    | XMM9 ->
+        "%xmm9"
+    | XMM10 ->
+        "%xmm10"
+    | XMM11 ->
+        "%xmm11"
+    | XMM12 ->
+        "%xmm12"
+    | XMM13 ->
+        "%xmm13"
+    | XMM14 ->
+        "%xmm14"
+    | XMM15 ->
+        "%xmm15"
 
   let int_data_size_of_datasize = function
-    | IntSize s -> s
-    | FloatSize _ -> Q (* word size *)
+    | IntSize s ->
+        s
+    | FloatSize _ ->
+        Q (* word size *)
 
   let string_of_register size reg =
     let defaultsize = int_data_size_of_datasize size in
     match reg.register with
     | IntegerReg register ->
         string_of_register_int_reg (reg.register_size >? defaultsize) register
-    | FloatReg register -> string_of_float_register register
+    | FloatReg register ->
+        string_of_float_register register
 
   let string_of_address_offset = function
     | Addr_label (label, offset) ->
         Printf.sprintf "%s%s" label
-          (if offset = 0L then "" else Printf.sprintf "+%Lu" offset)
-    | Offset offset -> Printf.sprintf "%Ld" offset
+          ( if offset = 0L then
+              ""
+            else
+              Printf.sprintf "+%Lu" offset
+          )
+    | Offset offset ->
+        Printf.sprintf "%Ld" offset
 
   let string_of_address { offset; base; index; scale } =
     Printf.sprintf "%s(%s%s%s)"
@@ -124,52 +186,83 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
       (string_of_register iq base)
       (index
       |> Option.map (fun reg -> sprintf ", %s" (string_of_register iq reg))
-      |> Option.value ~default:"")
-      (if scale = 1 then "" else sprintf "%u" scale)
+      |> Option.value ~default:""
+      )
+      ( if scale = 1 then
+          ""
+        else
+          sprintf "%u" scale
+      )
 
   let string_of_dst : data_size -> dst -> string =
    fun size dst ->
     match dst with
-    | `Register reg -> string_of_register size reg
-    | `Address addr -> string_of_address addr
+    | `Register reg ->
+        string_of_register size reg
+    | `Address addr ->
+        string_of_address addr
 
   let string_of_src : data_size -> src -> string =
    fun size src ->
     match src with
-    | #dst as dst -> string_of_dst size dst
-    | `ILitteral n -> sprintf "$%Ld" n
-    | `ULitteral n -> sprintf "$%Lu" n
-    | `Label l -> l
+    | #dst as dst ->
+        string_of_dst size dst
+    | `ILitteral n ->
+        sprintf "$%Ld" n
+    | `ULitteral n ->
+        sprintf "$%Lu" n
+    | `Label l ->
+        l
 
   let string_of_condition_code = function
-    | E -> "e"
-    | NE -> "ne"
-    | S -> "s"
-    | NS -> "ns"
-    | G -> "g"
-    | GE -> "ge"
-    | L -> "l"
-    | LE -> "le"
-    | A -> "a"
-    | AE -> "ae"
-    | B -> "b"
-    | BE -> "be"
+    | E ->
+        "e"
+    | NE ->
+        "ne"
+    | S ->
+        "s"
+    | NS ->
+        "ns"
+    | G ->
+        "g"
+    | GE ->
+        "ge"
+    | L ->
+        "l"
+    | LE ->
+        "le"
+    | A ->
+        "a"
+    | AE ->
+        "ae"
+    | B ->
+        "b"
+    | BE ->
+        "be"
 
   let string_of_condition_code_opt = function
-    | None -> "mp"
-    | Some s -> string_of_condition_code s
+    | None ->
+        "mp"
+    | Some s ->
+        string_of_condition_code s
 
   let string_of_jmp_operande = function
-    | `Register reg -> sprintf "*%s" (string_of_register iq reg)
-    | `Label l -> l
+    | `Register reg ->
+        sprintf "*%s" (string_of_register iq reg)
+    | `Label l ->
+        l
 
   let string_of_ctv_data_size = function
-    | IntSize _ as _is -> "si"
-    | FloatSize _ as fs -> string_of_data_size fs
+    | IntSize _ as _is ->
+        "si"
+    | FloatSize _ as fs ->
+        string_of_data_size fs
 
   let string_of_cttv_data_size = function
-    | IntSize _ as is -> Printf.sprintf "si%s" (string_of_data_size is)
-    | FloatSize _ as fs -> string_of_data_size fs
+    | IntSize _ as is ->
+        Printf.sprintf "si%s" (string_of_data_size is)
+    | FloatSize _ as fs ->
+        string_of_data_size fs
 
   let string_of_instruction = function
     | Mov { size; source; destination } ->
@@ -307,31 +400,42 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         sprintf "j%s %s"
           (string_of_condition_code_opt cc)
           (string_of_jmp_operande where)
-    | Call { what } -> sprintf "call %s" (string_of_jmp_operande what)
-    | Syscall -> "syscall"
-    | Ret -> "ret"
-    | Cltd -> "cltd"
-    | Cqto -> "cqto"
+    | Call { what } ->
+        sprintf "call %s" (string_of_jmp_operande what)
+    | Syscall ->
+        "syscall"
+    | Ret ->
+        "ret"
+    | Cltd ->
+        "cltd"
+    | Cqto ->
+        "cqto"
 
   let string_of_raw_line = function
-    | Label s -> s ^ ":"
-    | Instruction s -> "\t" ^ string_of_instruction s
-    | Line_Com (Comment s) -> "\t" ^ AsmSpec.comment_prefix ^ " " ^ s
-    | Directive d -> "\t." ^ d
+    | Label s ->
+        s ^ ":"
+    | Instruction s ->
+        "\t" ^ string_of_instruction s
+    | Line_Com (Comment s) ->
+        "\t" ^ AsmSpec.comment_prefix ^ " " ^ s
+    | Directive d ->
+        "\t." ^ d
 
   let string_asm_const_decl { asm_const_name; value } =
     match value with
     | `IntVal (size, int_value) ->
         sprintf "\n\t%s\n%s:\n\t.%s %s"
           (AsmSpec.constant_directives asm_const_name value
-          |> String.concat "\n\t")
+          |> String.concat "\n\t"
+          )
           asm_const_name
           (AsmSpec.size_directive_of_size size)
           (sprintf "%Ld" int_value)
     | `StrVal s ->
         sprintf "\n\t%s\n%s:\n\t%s \"%s\""
           (AsmSpec.constant_directives asm_const_name value
-          |> String.concat "\n\t")
+          |> String.concat "\n\t"
+          )
           asm_const_name AsmSpec.string_litteral_directive s
 
   let string_of_asm_function { asm_name; asm_body } =
@@ -341,6 +445,8 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
       (asm_body |> List.map string_of_raw_line |> String.concat "\n")
 
   let string_of_asm_node = function
-    | Afunction f -> string_of_asm_function f
-    | AConst c -> string_asm_const_decl c
+    | Afunction f ->
+        string_of_asm_function f
+    | AConst c ->
+        string_asm_const_decl c
 end

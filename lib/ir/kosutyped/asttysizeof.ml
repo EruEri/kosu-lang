@@ -25,22 +25,33 @@ let ( -- ) = Int64.sub
 
 let align n b =
   let m = Int64.unsigned_rem n b in
-  if m = 0L then n else n ++ b -- m
+  if m = 0L then
+    n
+  else
+    n ++ b -- m
 
 let align_16 b = align b 16L
 let align_8 b = align b 8L
 
 let rec size calcul program rktype =
   match rktype with
-  | RTUnit | RTBool | RTUnknow | RTChar | RTOrdered -> 1L
-  | RTInteger (_, isize) -> Isize.size_of_isize isize / 8 |> Int64.of_int
-  | RTFloat fsize -> Fsize.size_of_fsize fsize / 8 |> Int64.of_int
-  | RTPointer _ | RTString_lit | RTFunction _ -> 8L
-  | RTTuple kts -> size_tuple calcul program kts
+  | RTUnit | RTBool | RTUnknow | RTChar | RTOrdered ->
+      1L
+  | RTInteger (_, isize) ->
+      Isize.size_of_isize isize / 8 |> Int64.of_int
+  | RTFloat fsize ->
+      Fsize.size_of_fsize fsize / 8 |> Int64.of_int
+  | RTPointer _ | RTString_lit | RTFunction _ ->
+      8L
+  | RTTuple kts ->
+      size_tuple calcul program kts
   | RTArray { size = nb_elt; rktype } ->
       let sizeof = Int64.mul nb_elt @@ size calcul program rktype in
       let min = match calcul with `align -> 1L | `size -> 0L in
-      if nb_elt = 0L then min else sizeof
+      if nb_elt = 0L then
+        min
+      else
+        sizeof
   | (RTParametric_identifier _ | RTType_Identifier _) as kt -> (
       (* let () = Printf.printf "%s\n%!" (Asttypprint.string_of_rktype kt) in *)
       let type_decl =
@@ -52,14 +63,17 @@ let rec size calcul program rktype =
           size_enum calcul program
             (kt |> RType.extract_parametrics_rktype
             |> List.combine enum_decl.generics
-            |> List.to_seq |> Hashtbl.of_seq)
+            |> List.to_seq |> Hashtbl.of_seq
+            )
             enum_decl
       | Rtype_Decl.RDecl_Struct struct_decl ->
           size_struct calcul program
             (kt |> RType.extract_parametrics_rktype
             |> List.combine struct_decl.generics
-            |> List.to_seq |> Hashtbl.of_seq)
-            struct_decl)
+            |> List.to_seq |> Hashtbl.of_seq
+            )
+            struct_decl
+    )
 
 and size_tuple calcul program = function
   | list -> (
@@ -74,12 +88,20 @@ and size_tuple calcul program = function
                let new_align = max acc_align comming_align in
                ( aligned ++ comming_size,
                  new_align,
-                 _acc_packed_size ++ comming_size ))
+                 _acc_packed_size ++ comming_size
+               )
+             )
              (0L, 0L, 0L)
       in
       match calcul with
-      | `size -> if alignment = 0L then 0L else align size alignment
-      | `align -> alignment)
+      | `size ->
+          if alignment = 0L then
+            0L
+          else
+            align size alignment
+      | `align ->
+          alignment
+    )
 
 and size_struct calcul program generics struct_decl =
   struct_decl.rfields
@@ -92,14 +114,16 @@ and size_enum calcul program generics enum_decl =
          kts
          |> List.map (RType.remap_generic_ktype generics)
          |> List.cons (RTInteger (Unsigned, I32))
-         |> RType.rtuple |> size calcul program)
+         |> RType.rtuple |> size calcul program
+     )
   |> List.fold_left max 0L
 
 let sizeof program ktype = size `size program ktype
 
 let sizeof_kt kt =
   match Hashtbl.find_opt mapsize kt with
-  | Some i -> i
+  | Some i ->
+      i
   | None ->
       kt |> Asttypprint.string_of_rktype
       |> Printf.sprintf "Size not found for : %s"
@@ -125,19 +149,26 @@ let offset_of_tuple_index ?(generics = Hashtbl.create 0) index rktypes rprogram
          let aligned = align acc_size comming_align in
          let new_align = max acc_align comming_align in
 
-         if found then acc
-         else if index = tindex then (aligned, new_align, true)
-         else (aligned ++ comming_size, new_align, found))
+         if found then
+           acc
+         else if index = tindex then
+           (aligned, new_align, true)
+         else
+           (aligned ++ comming_size, new_align, found)
+       )
        (0L, 0L, false)
-  |> function
-  | a, _, _ -> a
+  |> function a, _, _ -> a
 
 let offset_of_field ?(generics = Hashtbl.create 0) field rstruct_decl rprogram =
   let field_index =
     rstruct_decl.rfields
     |> List.mapi (fun index value -> (index, value))
     |> List.find_map (fun (index, (sfield, _)) ->
-           if field = sfield then Some index else None)
+           if field = sfield then
+             Some index
+           else
+             None
+       )
     |> Option.get
   in
 
@@ -149,12 +180,15 @@ let offset_of_field ?(generics = Hashtbl.create 0) field rstruct_decl rprogram =
 (* If so, there is no need to pass the address of the destination to the function*)
 (* Therefore : the retunred values dont need to be on the stack since there are discarded*)
 let discardable_size = function
-  | 1L | 2L | 4L | 8L | 9L | 10L | 12L | 16L -> true
-  | _ -> false
+  | 1L | 2L | 4L | 8L | 9L | 10L | 12L | 16L ->
+      true
+  | _ ->
+      false
 
 let compute_ktype rprogram ktype =
   match Hashtbl.find_opt mapsize ktype with
-  | Some _ -> ()
+  | Some _ ->
+      ()
   | None ->
       let size = sizeof rprogram ktype in
       Hashtbl.replace mapsize ktype size
@@ -162,17 +196,27 @@ let compute_ktype rprogram ktype =
 let rec compute_all_size_typed_expr rprogram typed_expression =
   let () = compute_ktype rprogram typed_expression.rktype in
   match typed_expression.rexpression with
-  | REmpty | RTrue | RFalse | RENullptr | RECmpLess | RECmpEqual | RECmpGreater
+  | REmpty
+  | RTrue
+  | RFalse
+  | RENullptr
+  | RECmpLess
+  | RECmpEqual
+  | RECmpGreater
   | REInteger (_, _, _)
   | REFloat (_, _)
-  | REChar _ | REstring _ | REAdress _
+  | REChar _
+  | REstring _
+  | REAdress _
   | REDeference (_, _)
-  | REIdentifier _ | REConst_Identifier _ ->
+  | REIdentifier _
+  | REConst_Identifier _ ->
       ()
   | REStruct struct_expr ->
       struct_expr.fields
       |> List.iter (fun (_, type_expr) ->
-             compute_all_size_typed_expr rprogram type_expr)
+             compute_all_size_typed_expr rprogram type_expr
+         )
   | REEnum { assoc_exprs = ty_exprs; _ }
   | REArray ty_exprs
   | RETuple ty_exprs
@@ -194,11 +238,13 @@ let rec compute_all_size_typed_expr rprogram typed_expression =
         |> List.iter (fun (condition, body) ->
                let () = compute_all_size_typed_expr rprogram condition in
                let () = compute_all_size_kbody rprogram body in
-               ())
+               ()
+           )
       in
       let () = compute_all_size_kbody rprogram else_case in
       ()
-  | RESizeof rktype -> compute_ktype rprogram rktype
+  | RESizeof rktype ->
+      compute_ktype rprogram rktype
   | REFieldAcces { first_expr; _ } | RETupleAccess { first_expr; _ } ->
       compute_all_size_typed_expr rprogram first_expr
   | RESwitch { rexpression; cases; wildcard_case : rkbody option } ->
@@ -210,7 +256,8 @@ let rec compute_all_size_typed_expr rprogram typed_expression =
                  uplets
                  |> List.iter (fun (_, _, kt) -> compute_ktype rprogram kt)
                in
-               compute_all_size_kbody rprogram kbody)
+               compute_all_size_kbody rprogram kbody
+           )
       in
       let () = wildcard_case |> Option.iter (compute_all_size_kbody rprogram) in
       ()
@@ -222,7 +269,8 @@ let rec compute_all_size_typed_expr rprogram typed_expression =
   | REUnOperator_Function_call unop | REUn_op unop -> (
       match unop with
       | RUMinus typed_expression | RUNot typed_expression ->
-          compute_all_size_typed_expr rprogram typed_expression)
+          compute_all_size_typed_expr rprogram typed_expression
+    )
 
 and compute_all_size_statement rprogram = function
   | RSDeclaration { typed_expression; _ }
@@ -237,7 +285,8 @@ and compute_all_size_kbody rprogram (stmts, final_expr) =
   ()
 
 let compute_all_size_module_node rprogram = function
-  | RNConst rconst_decl -> compute_ktype rprogram rconst_decl.value.rktype
+  | RNConst rconst_decl ->
+      compute_ktype rprogram rconst_decl.value.rktype
   | RNExternFunc { fn_parameters = parameters; return_type; _ }
   | RNSyscall { parameters; return_type; _ } ->
       let () = parameters |> List.iter (compute_ktype rprogram) in
@@ -253,13 +302,15 @@ let compute_all_size_module_node rprogram = function
       | RUnary { rfield = _, kt; return_type; kbody; _ } ->
           let () = compute_ktype rprogram kt in
           let () = compute_ktype rprogram return_type in
-          compute_all_size_kbody rprogram kbody)
+          compute_all_size_kbody rprogram kbody
+    )
   | RNEnum _ ->
       (* let () = renum_decl.rvariants |> List.iter ( fun (_, kts) ->
            kts |> List.iter (compute_ktype rprogram)
          ) in *)
       ()
-  | RNStruct { rfields = _; _ } -> ()
+  | RNStruct { rfields = _; _ } ->
+      ()
   | RNFunction rfunction_decl ->
       (* let () = Printf.printf "fn = %s\n%!" rfunction_decl.rfn_name in *)
       let () =
@@ -277,4 +328,5 @@ let compute_all_size_module_path rprogram { rmodule = RModule rmodules; _ } =
 let compute_all_size rprogram () =
   rprogram
   |> List.iter (fun { rmodule_path : rmodule_path; _ } ->
-         compute_all_size_module_path rprogram rmodule_path)
+         compute_all_size_module_path rprogram rmodule_path
+     )

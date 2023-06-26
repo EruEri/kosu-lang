@@ -26,12 +26,16 @@ open KosuIrTAC.Asttac
 
 let store_instruction ~large_cp ~rval_rktype ~reg ~where =
   match where with
-  | None -> []
+  | None ->
+      []
   | Some (LocReg rloc) ->
-      if rloc = reg then []
-      else LineInstruction.smv rloc @@ Operande.iregister reg
+      if rloc = reg then
+        []
+      else
+        LineInstruction.smv rloc @@ Operande.iregister reg
   | Some (LocAddr address) ->
-      if large_cp then LineInstruction.scopy reg address rval_rktype
+      if large_cp then
+        LineInstruction.scopy reg address rval_rktype
       else
         let data_size = ConditionCode.data_size_of_kt rval_rktype in
         LineInstruction.sstr data_size reg address
@@ -41,10 +45,14 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
   | TEString s ->
       let (SLit str_labl) = Hashtbl.find litterals.str_lit_map s in
       lea_label target_reg str_labl
-  | TEFalse | TECmpLesser | TEmpty | TENullptr -> mv_integer target_reg 0L
-  | TETrue | TECmpEqual -> mv_integer target_reg 1L
-  | TECmpGreater -> mv_integer target_reg 2L
-  | TEInt (_, _, int64) -> mv_integer target_reg int64
+  | TEFalse | TECmpLesser | TEmpty | TENullptr ->
+      mv_integer target_reg 0L
+  | TETrue | TECmpEqual ->
+      mv_integer target_reg 1L
+  | TECmpGreater ->
+      mv_integer target_reg 2L
+  | TEInt (_, _, int64) ->
+      mv_integer target_reg int64
   | TEChar c ->
       let int_repr = Int64.of_int @@ Char.code c in
       mv_integer target_reg int_repr
@@ -55,24 +63,31 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
   | TEIdentifier id -> (
       let loc =
         match FrameManager.location_of (id, tte.expr_rktype) fd with
-        | None -> failwith "tte identifier setup null address"
-        | Some loc -> loc
+        | None ->
+            failwith "tte identifier setup null address"
+        | Some loc ->
+            loc
       in
       match loc with
       | LocReg reg ->
-          if reg = target_reg then []
-          else smv target_reg @@ Operande.iregister reg
+          if reg = target_reg then
+            []
+          else
+            smv target_reg @@ Operande.iregister reg
       | LocAddr address ->
           if Register.does_return_hold_in_register_kt tte.expr_rktype then
             let ds = ConditionCode.data_size_of_kt tte.expr_rktype in
             sldr ds target_reg address
-          else sadd target_reg address.base address.offset)
+          else
+            sadd target_reg address.base address.offset
+    )
   | TESizeof kt ->
       let size = KosuIrTyped.Sizeof.sizeof_kt kt in
       mv_integer target_reg size
   | TEConst { module_path; name } when tte.expr_rktype = RTString_lit ->
       lea_label target_reg ~module_path name
-  | TEConst _ -> failwith "Other constant todo"
+  | TEConst _ ->
+      failwith "Other constant todo"
 
 let translate_and_store ~where ~litterals ~target_reg fd tte =
   let () = ignore target_reg in
@@ -101,10 +116,12 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
           KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
             rvalue.rval_rktype rprogram
         with
-        | Some (RDecl_Struct s) -> s
+        | Some (RDecl_Struct s) ->
+            s
         | Some (RDecl_Enum _) ->
             failwith "Expected to find a struct get an enum"
-        | None -> failwith "Non type decl ??? my validation is very weak"
+        | None ->
+            failwith "Non type decl ??? my validation is very weak"
       in
 
       let generics =
@@ -117,7 +134,8 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
         fields
         |> List.map (fun (field, _) ->
                KosuIrTyped.Sizeof.offset_of_field ~generics field struct_decl
-                 rprogram)
+                 rprogram
+           )
       in
 
       fields |> List.mapi Util.couple
@@ -128,19 +146,23 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
                |> Option.map (function
                     | LocAddr address ->
                         LocAddr
-                          (increment_adress
-                             (List.nth offset_list index)
-                             address)
-                    | LocReg _ as loc -> loc)
+                          (increment_adress (List.nth offset_list index) address)
+                    | LocReg _ as loc ->
+                        loc
+                    )
              in
              acc
              @ translate_and_store ~where ~litterals ~target_reg:Register.r13 fd
-                 tte)
+                 tte
+           )
            []
   | RVFunction { module_path; fn_name; generics_resolver = _; tac_parameters }
     -> (
       let fn_module =
-        if module_path = "" then current_module else module_path
+        if module_path = "" then
+          current_module
+        else
+          module_path
       in
       let fn_decl =
         Option.get
@@ -156,7 +178,9 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
               ~fpstyle:(fun { expr_rktype; _ } ->
                 if KosuIrTyped.Asttyhelper.RType.is_float expr_rktype then
                   Simple_Reg Float
-                else Simple_Reg Other)
+                else
+                  Simple_Reg Other
+              )
               tac_parameters
           in
           let args_instructions =
@@ -167,7 +191,8 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
                    | Double_return _ ->
                        failwith "Float are passed as a simple reg"
                    | Simple_return r ->
-                       translate_tac_expression ~litterals ~target_reg:r fd tte)
+                       translate_tac_expression ~litterals ~target_reg:r fd tte
+               )
             |> List.flatten
           in
           let mov_syscall_code_instruction =
@@ -199,7 +224,9 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
               ~fpstyle:(fun { expr_rktype; _ } ->
                 if KosuIrTyped.Asttyhelper.RType.is_float expr_rktype then
                   Simple_Reg Float
-                else Simple_Reg Other)
+                else
+                  Simple_Reg Other
+              )
               tac_parameters
           in
           let args_instructions =
@@ -210,7 +237,8 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
                    | Double_return _ ->
                        failwith "Float are passed as a simple reg"
                    | Simple_return r ->
-                       translate_tac_expression ~litterals ~target_reg:r fd tte)
+                       translate_tac_expression ~litterals ~target_reg:r fd tte
+               )
             |> List.flatten
           in
           let float_args_instructions =
@@ -221,7 +249,8 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
                    | Double_return _ ->
                        failwith "Float are passed as a simple reg"
                    | Simple_return r ->
-                       translate_tac_expression ~litterals ~target_reg:r fd tte)
+                       translate_tac_expression ~litterals ~target_reg:r fd tte
+               )
             |> List.flatten
           in
 
@@ -248,7 +277,8 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
                     failwith
                       "Function call: return indirect value need to be on \
                        stack not register"
-                | Some (LocAddr address) -> address
+                | Some (LocAddr address) ->
+                    address
               in
 
               let mv_address_instruction =
@@ -256,7 +286,8 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
               in
               args_instructions @ float_args_instructions
               @ set_on_stack_instructions @ mv_address_instruction
-              @ [ call_instruction ])
+              @ [ call_instruction ]
+        )
       | RExternal_Decl _external_func_decl ->
           failwith "External function: Find a way for the vm to call them"
       (* let fn_label =
@@ -293,13 +324,15 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
            LineInstruction.scall_label fn_label
          in
          match does_return_hold_in_register_kt external_func_decl.
-      *))
+      *)
+    )
   | RVTuple ttes ->
       let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in
       let offset_list =
         ttes
         |> List.mapi (fun index _value ->
-               KosuIrTyped.Sizeof.offset_of_tuple_index index ktlis rprogram)
+               KosuIrTyped.Sizeof.offset_of_tuple_index index ktlis rprogram
+           )
       in
       ttes
       |> List.mapi (fun index tte ->
@@ -309,10 +342,13 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
                     | LocAddr address ->
                         let offset = List.nth offset_list index in
                         Location.loc_addr @@ increment_adress offset address
-                    | loc -> loc)
+                    | loc ->
+                        loc
+                    )
              in
              translate_and_store ~where ~litterals ~target_reg:Register.r13 fd
-               tte)
+               tte
+         )
       |> List.flatten
   | RVTupleAccess
       {
@@ -321,8 +357,10 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
       } ->
       let kts_tuples =
         match expr_rktype with
-        | KosuIrTyped.Asttyped.RTTuple rkts -> rkts
-        | _ -> failwith "Weird: The typechecker for tuple"
+        | KosuIrTyped.Asttyped.RTTuple rkts ->
+            rkts
+        | _ ->
+            failwith "Weird: The typechecker for tuple"
       in
       let data_size = ConditionCode.data_size_of_kt rvalue.rval_rktype in
 
@@ -333,10 +371,13 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
           kts_tuples rprogram
       in
       let tuple_address =
-        FrameManager.location_of (tuple_id, expr_rktype) fd |> fun adr ->
+        FrameManager.location_of (tuple_id, expr_rktype) fd
+        |> fun adr ->
         match adr with
-        | Some a -> a
-        | None -> failwith "field access null address"
+        | Some a ->
+            a
+        | None ->
+            failwith "field access null address"
       in
       let field_address = increment_location offset tuple_address in
       let is_lea = not @@ does_return_hold_in_register_kt rvalue.rval_rktype in
@@ -359,10 +400,12 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
           KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye expr_rktype
             rprogram
         with
-        | Some (RDecl_Struct s) -> s
+        | Some (RDecl_Struct s) ->
+            s
         | Some (RDecl_Enum _) ->
             failwith "Expected to find a struct get an enum"
-        | None -> failwith "Non type decl ??? my validation is very weak"
+        | None ->
+            failwith "Non type decl ??? my validation is very weak"
       in
 
       let data_size = ConditionCode.data_size_of_kt rvalue.rval_rktype in
@@ -376,10 +419,13 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
         KosuIrTyped.Sizeof.offset_of_field ~generics field struct_decl rprogram
       in
       let struct_address =
-        FrameManager.location_of (struct_id, expr_rktype) fd |> fun adr ->
+        FrameManager.location_of (struct_id, expr_rktype) fd
+        |> fun adr ->
         match adr with
-        | Some a -> a
-        | None -> failwith "field access null address"
+        | Some a ->
+            a
+        | None ->
+            failwith "field access null address"
       in
       let field_address = increment_location offset struct_address in
       let is_lea = not @@ does_return_hold_in_register_kt rvalue.rval_rktype in
@@ -401,15 +447,18 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
         KosuIrTyped.Asttyhelper.RType.rtpointee rvalue.rval_rktype
       in
       let address =
-        FrameManager.location_of (id, pointee_type) fd |> fun adr ->
+        FrameManager.location_of (id, pointee_type) fd
+        |> fun adr ->
         match adr with
-        | Some (LocAddr address) -> address
+        | Some (LocAddr address) ->
+            address
         | Some (LocReg r) ->
             failwith
             @@ Printf.sprintf
                  "RVAdress : variable %s must be in stack and in %s register" id
                  (BytecodePprint.string_of_register r)
-        | None -> failwith "address of null address"
+        | None ->
+            failwith "address of null address"
       in
       let r13 = Register.r13 in
       let compute_instructions = LineInstruction.slea_address r13 address in
@@ -426,8 +475,10 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
         with
         | Some (RDecl_Struct _) ->
             failwith "Expected to find an enum get an struct"
-        | Some (RDecl_Enum e) -> e
-        | None -> failwith "Non type decl ??? my validation is very weak"
+        | Some (RDecl_Enum e) ->
+            e
+        | None ->
+            failwith "Non type decl ??? my validation is very weak"
       in
       let tag =
         KosuIrTyped.Asttyhelper.Renum.tag_of_variant variant enum_decl
@@ -447,11 +498,13 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
         enum_tte_list
         |> List.mapi (fun index { expr_rktype = _; _ } ->
                KosuIrTyped.Sizeof.offset_of_tuple_index index enum_type_list
-                 rprogram)
+                 rprogram
+           )
       in
       let _ = offset_list in
       failwith ""
-  | _ -> failwith "TODO"
+  | _ ->
+      failwith "TODO"
 
 let rec translate_tac_statement ~litterals current_module rprogram fd = function
   | STacDeclaration { identifier; trvalue }
@@ -464,7 +517,8 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
   | STDerefAffectation { identifier; trvalue } ->
       let () = ignore (identifier, trvalue) in
       failwith ""
-  | _ -> failwith ""
+  | _ ->
+      failwith ""
 
 and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
     (fd : FrameManager.description) { label; body } =
@@ -472,7 +526,8 @@ and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
   let stmt_instrs =
     body |> fst
     |> List.map (fun stmt ->
-           translate_tac_statement ~litterals current_module rprogram fd stmt)
+           translate_tac_statement ~litterals current_module rprogram fd stmt
+       )
     |> List.flatten
   in
   let end_label_insts = end_label |> Option.map sjump_label |> Option.to_list in
@@ -500,7 +555,8 @@ and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
                let store_res_instructions =
                  LineInstruction.scopy Register.r0 copy_address tte.expr_rktype
                in
-               tte_instructions @ ldr_indirect_address @ store_res_instructions)
+               tte_instructions @ ldr_indirect_address @ store_res_instructions
+       )
     |> Option.value ~default:[]
   in
   (label :: stmt_instrs) @ return_instructions @ end_label_insts
@@ -542,8 +598,11 @@ let asm_module_of_tac_module ~litterals current_module rprogram = function
                in
                let asm_body = prologue @ (conversion |> List.tl) @ epilogue in
                Option.some @@ Afunction { asm_name; asm_body }
-           | TNConst _ -> failwith ""
-           | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ -> None)
+           | TNConst _ ->
+               failwith ""
+           | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ ->
+               None
+           )
 
 let asm_module_path_of_tac_module_path ~litterals rprogram { path; tac_module }
     =
@@ -571,13 +630,19 @@ let asm_program_of_tac_program ~(start : string option) tac_program =
                tac_module_path;
            rprogram;
            litterals;
-         })
+         }
+     )
 
 let sort_asm_module (AsmModule anodes) =
   AsmModule
     (anodes
     |> List.sort (fun lhs rhs ->
            match (lhs, rhs) with
-           | Afunction _, AConst _ -> 1
-           | AConst _, Afunction _ -> -1
-           | _ -> 0))
+           | Afunction _, AConst _ ->
+               1
+           | AConst _, Afunction _ ->
+               -1
+           | _ ->
+               0
+       )
+    )

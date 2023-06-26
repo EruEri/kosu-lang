@@ -38,8 +38,15 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
 
   let run_command ?(flush = false) ~verbose cmd =
     let () =
-      if verbose then Printf.printf "%s\n%s" cmd (if flush then "%!" else "")
-      else ()
+      if verbose then
+        Printf.printf "%s\n%s" cmd
+          ( if flush then
+              "%!"
+            else
+              ""
+          )
+      else
+        ()
     in
     Sys.command cmd
 
@@ -50,7 +57,8 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
            let pkg =
              Util.PkgConfig.of_command ~verbose ~cflags ~clibs ~libname ()
            in
-           Util.PkgConfig.union acc_pkg pkg)
+           Util.PkgConfig.union acc_pkg pkg
+         )
          Util.PkgConfig.empty
 
   let pkg_append_lib libs pkg_config =
@@ -58,7 +66,8 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
     |> List.fold_left
          (fun acc_pkg clib ->
            let format_clib = Printf.sprintf "-l%s" clib in
-           Util.PkgConfig.add_linked_libs format_clib acc_pkg)
+           Util.PkgConfig.add_linked_libs format_clib acc_pkg
+         )
          pkg_config
 
   let cc_compilation ?(debug = false) ?(ccol = []) ?(cclib = [])
@@ -69,16 +78,24 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
              let tmp_name = Filename.temp_file s ".o" in
              let cc_cmd = Printf.sprintf "cc -c -o %s %s" tmp_name s in
              let code = run_command ~verbose cc_cmd in
-             if code = 0 then Ok tmp_name else Error code)
+             if code = 0 then
+               Ok tmp_name
+             else
+               Error code
+         )
     in
     let error_code =
       c_obj_files
       |> List.find_map (function
-           | Error code when code <> 0 -> Some code
-           | _ -> None)
+           | Error code when code <> 0 ->
+               Some code
+           | _ ->
+               None
+           )
     in
     match error_code with
-    | Some s -> s
+    | Some s ->
+        s
     | None ->
         let asm_files =
           Codegen.compile_asm_from_tac_tmp ~start:None tac_prgram
@@ -91,7 +108,11 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
         let pkg_configs = pkg_append_lib cclib pkg_configs in
         let cmd =
           Printf.sprintf "cc %s -o %s %s %s %s"
-            (if debug then "-g" else "")
+            ( if debug then
+                "-g"
+              else
+                ""
+            )
             outfile
             (asm_files |> String.concat " ")
             (obj_file @ other |> String.concat " ")
@@ -106,7 +127,8 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
       | Some message ->
           Printf.eprintf "%s\n" message;
           exit 1
-      | None -> ()
+      | None ->
+          ()
     in
     let _ = ignore debug in
     let out_file = outfile in
@@ -122,7 +144,11 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
                  (Util.PkgConfig.cc_flags_format pkg)
              in
              let code = run_command ~verbose cmd in
-             if code = 0 then tmp_name else exit code)
+             if code = 0 then
+               tmp_name
+             else
+               exit code
+         )
     in
 
     let kosu_asm_files =
@@ -134,10 +160,14 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
     let other_object_files, other_asm_files =
       other
       |> List.filter (fun file ->
-             Util.is_asm_file file || Util.is_object_file file)
+             Util.is_asm_file file || Util.is_object_file file
+         )
       |> List.partition_map (fun file ->
-             if Util.is_object_file file then Either.left file
-             else Either.right file)
+             if Util.is_object_file file then
+               Either.left file
+             else
+               Either.right file
+         )
     in
 
     let asm_files = kosu_asm_files @ other_asm_files in
@@ -148,7 +178,11 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
              let tmp_file = Filename.temp_file basename ".o" in
              let cmd = Printf.sprintf "as -o %s %s" tmp_file file in
              let code = run_command ~verbose cmd in
-             if code <> 0 then exit code else tmp_file)
+             if code <> 0 then
+               exit code
+             else
+               tmp_file
+         )
     in
 
     let objects_files =
@@ -176,5 +210,9 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
     let code = run_command ~verbose ld_cmd in
     code
 
-  let compilation ~cc = if cc then cc_compilation else native_compilation
+  let compilation ~cc =
+    if cc then
+      cc_compilation
+    else
+      native_compilation
 end

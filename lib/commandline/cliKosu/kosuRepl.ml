@@ -28,12 +28,14 @@ let interpreted_file_term =
     & info [ "e"; "eval" ] ~docv:"FILE"
         ~doc:
           "If $(b,docv) is given, phrases are read instead of reading from the \
-           stdin")
+           stdin"
+  )
 
 let modules_files_term =
   Arg.(
     value & pos_all file []
-    & info [] ~docv:"FILES" ~doc:"Compile the files to be loaded by the repl")
+    & info [] ~docv:"FILES" ~doc:"Compile the files to be loaded by the repl"
+  )
 
 let cmd_term run =
   let combine modules_files interpreted_file =

@@ -33,14 +33,17 @@ module Make (Rule : TypeCheckerRuleS) = struct
 *)
   let validate_type ~constraint_type ktype =
     match constraint_type with
-    | None -> ktype.v
+    | None ->
+        ktype.v
     | Some kt -> (
         match Ast.Type.are_compatible_type kt ktype.v with
-        | true -> Type.restrict_type kt ktype.v
+        | true ->
+            Type.restrict_type kt ktype.v
         | false ->
             raise @@ stmt_error
             @@ Ast.Error.Uncompatible_type_Assign
-                 { expected = kt; found = ktype })
+                 { expected = kt; found = ktype }
+      )
 
   let validate_position_type position ~constraint_type ktype =
     validate_type ~constraint_type { v = ktype; position }
@@ -59,7 +62,8 @@ module Make (Rule : TypeCheckerRuleS) = struct
         | SDiscard expr ->
             ignore
               (typeof ~constraint_type:None ~generics_resolver env
-                 current_mod_name program expr);
+                 current_mod_name program expr
+              );
             typeof_kbody ~generics_resolver env current_mod_name program
               ~return_type (q, final_expr)
         | SDeclaration { is_const; variable_name; explicit_type; expression } ->
@@ -68,13 +72,15 @@ module Make (Rule : TypeCheckerRuleS) = struct
               |> Position.map_use
                    (typeof
                       ~constraint_type:(Option.map Position.value explicit_type)
-                      ~generics_resolver env current_mod_name program)
+                      ~generics_resolver env current_mod_name program
+                   )
             in
             (* let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Pprint.string_of_ktype type_init.v) (Asthelper.Sizeof.sizeof current_mod_name program type_init.v) (Asthelper.Sizeof.alignmentof current_mod_name program type_init.v) in *)
             if env |> Env.is_identifier_exists variable_name.v then
               raise
                 (stmt_error
-                   (Ast.Error.Already_Define_Identifier { name = variable_name }))
+                   (Ast.Error.Already_Define_Identifier { name = variable_name })
+                )
             else
               let kt =
                 match explicit_type with
@@ -83,13 +89,15 @@ module Make (Rule : TypeCheckerRuleS) = struct
                       Need_explicit_type_declaration
                         { variable_name; infer_type = type_init.v }
                       |> stmt_error |> raise
-                    else type_init
+                    else
+                      type_init
                 | Some explicit_type_sure ->
                     let () =
                       if
                         not
                           (Type.are_compatible_type explicit_type_sure.v
-                             type_init.v)
+                             type_init.v
+                          )
                       then
                         raise @@ stmt_error
                         @@ Ast.Error.Uncompatible_type_Assign
@@ -113,8 +121,10 @@ module Make (Rule : TypeCheckerRuleS) = struct
                   | None ->
                       raise
                         (stmt_error
-                           (Ast.Error.Undefine_Identifier { name = variable }))
-                  | Some { is_const; ktype } -> (is_const, ktype)
+                           (Ast.Error.Undefine_Identifier { name = variable })
+                        )
+                  | Some { is_const; ktype } ->
+                      (is_const, ktype)
                 in
                 let () =
                   if is_const then
@@ -143,8 +153,10 @@ module Make (Rule : TypeCheckerRuleS) = struct
                   | None ->
                       raise
                         (stmt_error
-                           (Ast.Error.Undefine_Identifier { name = variable }))
-                  | Some { is_const; ktype } -> (is_const, ktype)
+                           (Ast.Error.Undefine_Identifier { name = variable })
+                        )
+                  | Some { is_const; ktype } ->
+                      (is_const, ktype)
                 in
                 let () =
                   if is_const then
@@ -172,7 +184,8 @@ module Make (Rule : TypeCheckerRuleS) = struct
                 in
                 typeof_kbody ~generics_resolver
                   (env |> Env.restrict_variable_type variable.v new_type)
-                  current_mod_name program ~return_type (q, final_expr))
+                  current_mod_name program ~return_type (q, final_expr)
+          )
         | SDerefAffectation (affected_value, expression) -> (
             match affected_value with
             | AFVariable id -> (
@@ -183,7 +196,8 @@ module Make (Rule : TypeCheckerRuleS) = struct
                 | Some { ktype; _ } ->
                     let in_pointer_ktype =
                       match ktype with
-                      | TPointer ktl -> ktl.v
+                      | TPointer ktl ->
+                          ktl.v
                       | _ ->
                           raise @@ stmt_error
                           @@ Ast.Error.Dereference_No_pointer
@@ -193,7 +207,8 @@ module Make (Rule : TypeCheckerRuleS) = struct
                       expression
                       |> Position.map_use
                            (typeof ~constraint_type:(Some in_pointer_ktype)
-                              ~generics_resolver env current_mod_name program)
+                              ~generics_resolver env current_mod_name program
+                           )
                     in
                     let () =
                       if
@@ -211,18 +226,21 @@ module Make (Rule : TypeCheckerRuleS) = struct
                     in
                     typeof_kbody ~generics_resolver
                       (env |> Env.restrict_variable_type id.v expr_ktype.v)
-                      current_mod_name program ~return_type (q, final_expr))
+                      current_mod_name program ~return_type (q, final_expr)
+              )
             | AFField { variable; fields } ->
                 let ktype =
                   match env |> Env.find_identifier_opt variable.v with
                   | None ->
                       raise @@ stmt_error
                       @@ Ast.Error.Undefine_Identifier { name = variable }
-                  | Some { ktype; _ } -> ktype
+                  | Some { ktype; _ } ->
+                      ktype
                 in
                 let in_pointer_ktype =
                   match ktype with
-                  | TPointer ktl -> ktl.v
+                  | TPointer ktl ->
+                      ktl.v
                   | _ ->
                       Ast.Error.Dereference_No_pointer
                         { name = variable; ktype }
@@ -236,7 +254,8 @@ module Make (Rule : TypeCheckerRuleS) = struct
                   expression
                   |> Position.map_use
                        (typeof ~constraint_type:(Some field_type)
-                          ~generics_resolver env current_mod_name program)
+                          ~generics_resolver env current_mod_name program
+                       )
                 in
                 let () =
                   if
@@ -249,7 +268,9 @@ module Make (Rule : TypeCheckerRuleS) = struct
                     |> stmt_error |> raise
                 in
                 typeof_kbody ~generics_resolver env current_mod_name program
-                  ~return_type (q, final_expr)))
+                  ~return_type (q, final_expr)
+          )
+      )
     | [] -> (
         (* Printf.printf "Final expr\n"; *)
         let final_expr_type =
@@ -257,7 +278,8 @@ module Make (Rule : TypeCheckerRuleS) = struct
             current_mod_name program final_expr
         in
         match return_type with
-        | None -> final_expr_type
+        | None ->
+            final_expr_type
         | Some kt ->
             if not (Type.are_compatible_type kt final_expr_type) then
               raise
@@ -270,8 +292,12 @@ module Make (Rule : TypeCheckerRuleS) = struct
                             v = final_expr_type;
                             position = final_expr.position;
                           };
-                      }))
-            else kt)
+                      }
+                   )
+                )
+            else
+              kt
+      )
 
   and typeof_statement ~generics_resolver (env : Env.t)
       (current_mod_name : string) (program : module_path list) stamement =
@@ -279,14 +305,16 @@ module Make (Rule : TypeCheckerRuleS) = struct
     | SDiscard expr ->
         ( env,
           typeof ~constraint_type:None ~generics_resolver env current_mod_name
-            program expr )
+            program expr
+        )
     | SDeclaration { is_const; variable_name; explicit_type; expression } ->
         let type_init =
           expression
           |> Position.map_use
                (typeof
                   ~constraint_type:(Option.map Position.value explicit_type)
-                  ~generics_resolver env current_mod_name program)
+                  ~generics_resolver env current_mod_name program
+               )
         in
         (* let () = Printf.printf "sizeof %s : %Lu\nalignement : %Lu\n" (Pprint.string_of_ktype type_init.v) (Asthelper.Sizeof.sizeof current_mod_name program type_init.v) (Asthelper.Sizeof.alignmentof current_mod_name program type_init.v) in *)
         let () =
@@ -313,12 +341,14 @@ module Make (Rule : TypeCheckerRuleS) = struct
                   raise
                     (Ast.Error.Uncompatible_type_Assign
                        { expected = explicit_type_sure.v; found = type_init }
-                    |> stmt_error |> raise)
+                    |> stmt_error |> raise
+                    )
               in
               explicit_type_sure
         in
         ( Env.add_variable (variable_name.v, { is_const; ktype = kt.v }) env,
-          kt.v )
+          kt.v
+        )
     | SAffection (affected_value, expr) -> (
         match affected_value with
         | AFVariable variable ->
@@ -327,8 +357,10 @@ module Make (Rule : TypeCheckerRuleS) = struct
               | None ->
                   raise
                     (stmt_error
-                       (Ast.Error.Undefine_Identifier { name = variable }))
-              | Some { is_const; ktype } -> (is_const, ktype)
+                       (Ast.Error.Undefine_Identifier { name = variable })
+                    )
+              | Some { is_const; ktype } ->
+                  (is_const, ktype)
             in
             let () =
               if is_const then
@@ -347,20 +379,24 @@ module Make (Rule : TypeCheckerRuleS) = struct
                         {
                           expected = ktype;
                           found = expr |> Position.map (fun _ -> new_type);
-                        }))
+                        }
+                     )
+                  )
             in
             let extended_env =
               Env.restrict_variable_type variable.v new_type env
             in
             ( extended_env,
               Env.vi_ktype @@ Option.get
-              @@ Env.find_identifier_opt variable.v extended_env )
+              @@ Env.find_identifier_opt variable.v extended_env
+            )
         | AFField { variable; fields } -> (
             match env |> Env.find_identifier_opt variable.v with
             | None ->
                 raise
                   (stmt_error
-                     (Ast.Error.Undefine_Identifier { name = variable }))
+                     (Ast.Error.Undefine_Identifier { name = variable })
+                  )
             | Some { is_const; ktype } ->
                 let () =
                   if is_const then
@@ -390,7 +426,10 @@ module Make (Rule : TypeCheckerRuleS) = struct
                 in
                 ( extended_env,
                   Env.vi_ktype @@ Option.get
-                  @@ Env.find_identifier_opt variable.v extended_env )))
+                  @@ Env.find_identifier_opt variable.v extended_env
+                )
+          )
+      )
     | SDerefAffectation (affected_value, expression) -> (
         match affected_value with
         | AFVariable id -> (
@@ -401,7 +440,8 @@ module Make (Rule : TypeCheckerRuleS) = struct
             | Some { ktype; _ } ->
                 let in_pointer_ktype =
                   match ktype with
-                  | TPointer ktl -> ktl.v
+                  | TPointer ktl ->
+                      ktl.v
                   | _ ->
                       Ast.Error.Dereference_No_pointer { name = id; ktype }
                       |> stmt_error |> raise
@@ -410,7 +450,8 @@ module Make (Rule : TypeCheckerRuleS) = struct
                   expression
                   |> Position.map_use
                        (typeof ~constraint_type:(Some in_pointer_ktype)
-                          ~generics_resolver env current_mod_name program)
+                          ~generics_resolver env current_mod_name program
+                       )
                 in
                 if
                   not
@@ -430,7 +471,9 @@ module Make (Rule : TypeCheckerRuleS) = struct
                   in
                   ( extended_env,
                     Env.vi_ktype @@ Option.get
-                    @@ Env.find_identifier_opt id.v extended_env ))
+                    @@ Env.find_identifier_opt id.v extended_env
+                  )
+          )
         | AFField { variable; fields } -> (
             match env |> Env.find_identifier_opt variable.v with
             | None ->
@@ -439,7 +482,8 @@ module Make (Rule : TypeCheckerRuleS) = struct
             | Some { ktype; _ } ->
                 let in_pointer_ktype =
                   match ktype with
-                  | TPointer ktl -> ktl.v
+                  | TPointer ktl ->
+                      ktl.v
                   | _ ->
                       Ast.Error.Dereference_No_pointer
                         { name = variable; ktype }
@@ -453,7 +497,8 @@ module Make (Rule : TypeCheckerRuleS) = struct
                   expression
                   |> Position.map_use
                        (typeof ~constraint_type:(Some in_pointer_ktype)
-                          ~generics_resolver env current_mod_name program)
+                          ~generics_resolver env current_mod_name program
+                       )
                 in
                 if
                   not @@ Ast.Type.are_compatible_type field_type @@ expr_ktype.v
@@ -461,7 +506,10 @@ module Make (Rule : TypeCheckerRuleS) = struct
                   Uncompatible_type_Assign
                     { expected = field_type; found = expr_ktype }
                   |> stmt_error |> raise
-                else (env, expr_ktype.v)))
+                else
+                  (env, expr_ktype.v)
+          )
+      )
 
   (**
 Return the type of an expression
@@ -473,8 +521,10 @@ Return the type of an expression
       (current_mod_name : string) (prog : module_path list)
       (expression : kexpression location) =
     match expression.v with
-    | Empty -> validate_location_type expression ~constraint_type TUnit
-    | True | False -> validate_location_type expression ~constraint_type TBool
+    | Empty ->
+        validate_location_type expression ~constraint_type TUnit
+    | True | False ->
+        validate_location_type expression ~constraint_type TBool
     | ECmpLess | ECmpEqual | ECmpGreater ->
         validate_location_type expression ~constraint_type TOredered
     | ENullptr ->
@@ -483,7 +533,8 @@ Return the type of an expression
     | EInteger (sign, size, _) ->
         validate_location_type expression ~constraint_type
         @@ TInteger (sign, size)
-    | EChar _ -> validate_location_type expression ~constraint_type TChar
+    | EChar _ ->
+        validate_location_type expression ~constraint_type TChar
     | EFloat (fsize, _) ->
         validate_location_type expression ~constraint_type @@ TFloat fsize
     | ESizeof either ->
@@ -491,7 +542,7 @@ Return the type of an expression
           match either with
           | Left ktype ->
               ignore
-                (match ktype.v with
+                ( match ktype.v with
                 | TParametric_identifier
                     { module_path; parametrics_type = _; name }
                 | TType_Identifier { module_path; name } -> (
@@ -500,20 +551,29 @@ Return the type of an expression
                         ~ktype_def_path:module_path ~ktype_name:name
                         ~current_module:current_mod_name prog
                     with
-                    | Ok _ -> ignore ()
+                    | Ok _ ->
+                        ignore ()
                     | Error (Undefine_Type _ as e) when module_path.v = "" -> (
                         match
                           generics_resolver |> Hashtbl.to_seq_keys
                           |> Seq.find (fun gen_loc -> gen_loc.v = name.v)
                         with
-                        | Some _ -> ignore ()
-                        | None -> e |> Ast.Error.ast_error |> raise)
-                    | Error e -> e |> Ast.Error.ast_error |> raise)
-                | _ -> ignore ())
+                        | Some _ ->
+                            ignore ()
+                        | None ->
+                            e |> Ast.Error.ast_error |> raise
+                      )
+                    | Error e ->
+                        e |> Ast.Error.ast_error |> raise
+                  )
+                | _ ->
+                    ignore ()
+                )
           | Right expr ->
               ignore
                 (typeof ~constraint_type:None ~generics_resolver env
-                   current_mod_name prog expr)
+                   current_mod_name prog expr
+                )
         in
         validate_location_type expression ~constraint_type
         @@ TInteger (Unsigned, I64)
@@ -522,53 +582,74 @@ Return the type of an expression
     | EAdress s ->
         validate_location_type expression ~constraint_type
           (env |> Env.flat_context |> List.assoc_opt s.v
-           |> Option.map (fun (t : Env.variable_info) ->
-                  TPointer { v = t.ktype; position = s.position })
-           |> function
-           | None -> raise (ast_error (Undefined_Identifier s))
-           | Some s -> s)
+          |> Option.map (fun (t : Env.variable_info) ->
+                 TPointer { v = t.ktype; position = s.position }
+             )
+          |> function
+          | None -> raise (ast_error (Undefined_Identifier s)) | Some s -> s
+          )
     | EDeference (indirection_count, id) -> (
         let rec loop count ktype =
           match count with
-          | 0 -> ktype
+          | 0 ->
+              ktype
           | s -> (
               match ktype with
-              | Ast.TPointer t -> loop (s - 1) t.v
-              | _ -> raise (ast_error (Unvalid_Deference id)))
+              | Ast.TPointer t ->
+                  loop (s - 1) t.v
+              | _ ->
+                  raise (ast_error (Unvalid_Deference id))
+            )
         in
         validate_location_type expression ~constraint_type
         @@
         match env |> Env.flat_context |> List.assoc_opt id.v with
-        | None -> raise @@ ast_error @@ Undefined_Identifier id
-        | Some t -> loop indirection_count t.ktype)
+        | None ->
+            raise @@ ast_error @@ Undefined_Identifier id
+        | Some t ->
+            loop indirection_count t.ktype
+      )
     | EIdentifier { modules_path = _; identifier } ->
         validate_location_type expression ~constraint_type
           (env |> Env.flat_context
-           |> List.assoc_opt identifier.v
-           |> Option.map (fun (var_info : Env.variable_info) -> var_info.ktype)
-           |> function
-           | None -> raise (ast_error (Undefined_Identifier identifier))
-           | Some s -> s)
+          |> List.assoc_opt identifier.v
+          |> Option.map (fun (var_info : Env.variable_info) -> var_info.ktype)
+          |> function
+          | None ->
+              raise (ast_error (Undefined_Identifier identifier))
+          | Some s ->
+              s
+          )
     | EConst_Identifier { modules_path; identifier } ->
         validate_location_type expression ~constraint_type
           (let consts_opt =
-             (if modules_path.v = "" then
-                Some
-                  (prog |> Asthelper.Program.module_of_string current_mod_name)
-              else prog |> Asthelper.Program.module_of_string_opt modules_path.v)
+             ( if modules_path.v = "" then
+                 Some
+                   (prog |> Asthelper.Program.module_of_string current_mod_name)
+               else
+                 prog |> Asthelper.Program.module_of_string_opt modules_path.v
+             )
              |> Option.map Asthelper.Module.retrieve_const_decl
            in
 
            match consts_opt with
-           | None -> raise (ast_error (Unbound_Module modules_path))
+           | None ->
+               raise (ast_error (Unbound_Module modules_path))
            | Some consts -> (
                consts
                |> List.find_map (fun c ->
-                      if c.const_name.v = identifier.v then Some c.explicit_type
-                      else None)
+                      if c.const_name.v = identifier.v then
+                        Some c.explicit_type
+                      else
+                        None
+                  )
                |> function
-               | None -> raise (ast_error (Undefined_Const identifier))
-               | Some s -> s))
+               | None ->
+                   raise (ast_error (Undefined_Const identifier))
+               | Some s ->
+                   s
+             )
+          )
     | EFieldAcces { first_expr; field } ->
         let first_type =
           typeof ~constraint_type:None ~generics_resolver env current_mod_name
@@ -588,8 +669,10 @@ Return the type of an expression
                   Asthelper.Program.find_type_decl_from_ktype ~ktype_def_path
                     ~ktype_name ~current_module:current_mod_name prog
                 with
-                | Error e -> e |> Ast.Error.ast_error |> raise
-                | Ok type_decl -> type_decl
+                | Error e ->
+                    e |> Ast.Error.ast_error |> raise
+                | Ok type_decl ->
+                    type_decl
               in
               let ktype =
                 Asthelper.Struct.resolve_fields_access_gen
@@ -607,7 +690,8 @@ Return the type of an expression
         in
         let kts =
           match first_type with
-          | TTuple kts -> kts
+          | TTuple kts ->
+              kts
           | _ ->
               raise @@ ast_error
               @@ Tuple_access_for_non_tuple_type
@@ -622,8 +706,10 @@ Return the type of an expression
         in
         let kt =
           match List.nth_opt kts @@ Int64.to_int index.v with
-          | None -> failwith "Shouldn't append: except with index > max(int)"
-          | Some kt -> kt
+          | None ->
+              failwith "Shouldn't append: except with index > max(int)"
+          | Some kt ->
+              kt
         in
         validate_location_type expression ~constraint_type kt.v
     | EStruct { modules_path; struct_name; fields } ->
@@ -632,8 +718,10 @@ Return the type of an expression
             Asthelper.Program.find_struct_decl_opt current_mod_name modules_path
               struct_name prog
           with
-          | Ok str -> str
-          | Error e -> e |> ast_error |> raise
+          | Ok str ->
+              str
+          | Error e ->
+              e |> ast_error |> raise
         in
 
         let parameters_length = List.length fields in
@@ -647,7 +735,9 @@ Return the type of an expression
                       struct_name;
                       expected = expected_length;
                       found = parameters_length;
-                    }))
+                    }
+                 )
+              )
         in
         let init_types, initialisation_types =
           fields
@@ -656,8 +746,10 @@ Return the type of an expression
                    match
                      Asthelper.Struct.is_ktype_generic_field s struct_decl
                    with
-                   | None -> failwith "Unknown field"
-                   | Some ktopt -> ktopt
+                   | None ->
+                       failwith "Unknown field"
+                   | Some ktopt ->
+                       ktopt
                  in
                  let loc_type =
                    expr
@@ -665,9 +757,11 @@ Return the type of an expression
                         (typeof
                            ~constraint_type:
                              (Option.map Position.value type_of_field)
-                           ~generics_resolver env current_mod_name prog)
+                           ~generics_resolver env current_mod_name prog
+                        )
                  in
-                 ((s, loc_type), loc_type))
+                 ((s, loc_type), loc_type)
+             )
           |> List.split
         in
         let generic_table = Ast.Type.default_generic_map struct_decl.generics in
@@ -675,7 +769,8 @@ Return the type of an expression
           List.iter2
             (fun kt (_, param_kt) ->
               (* let () = Printf.printf "init_ktype = %s, param type = %s\n" (Pprint.string_of_ktype kt.v) (Pprint.string_of_ktype param_kt.v) in *)
-              Ast.Type.update_generics generic_table kt param_kt ())
+              Ast.Type.update_generics generic_table kt param_kt ()
+            )
             initialisation_types struct_decl.fields
         in
         let () =
@@ -683,7 +778,8 @@ Return the type of an expression
           |> List.iter
                (fun
                  ( (init_field_name, init_type),
-                   (struct_field_name, expected_typed) )
+                   (struct_field_name, expected_typed)
+                 )
                ->
                  let () =
                    if init_field_name.v <> struct_field_name.v then
@@ -693,7 +789,9 @@ Return the type of an expression
                              {
                                expected = struct_field_name;
                                found = init_field_name;
-                             }))
+                             }
+                          )
+                       )
                  in
                  if
                    not
@@ -702,11 +800,17 @@ Return the type of an expression
                  then
                    raise @@ Ast.Error.ast_error
                    @@ Ast.Error.Uncompatible_type
-                        { expected = expected_typed.v; found = init_type })
+                        { expected = expected_typed.v; found = init_type }
+             )
         in
         let modules_path =
           modules_path
-          |> Position.map (fun mp -> if mp = "" then current_mod_name else mp)
+          |> Position.map (fun mp ->
+                 if mp = "" then
+                   current_mod_name
+                 else
+                   mp
+             )
         in
         let kt =
           Asthelper.Struct.to_ktype_hash generic_table modules_path struct_decl
@@ -720,15 +824,19 @@ Return the type of an expression
               (Option.map Position.value enum_name)
               variant assoc_exprs prog
           with
-          | Error e -> raise @@ Ast.Error.ast_error e
-          | Ok e -> e
+          | Error e ->
+              raise @@ Ast.Error.ast_error e
+          | Ok e ->
+              e
         in
 
         let infered_map = Ast.Type.default_generic_map enum_decl.generics in
         let raw_associated_types =
           match Asthelper.Enum.associate_type variant enum_decl with
-          | Some assoc -> assoc
-          | None -> failwith "Wierd to fall here"
+          | Some assoc ->
+              assoc
+          | None ->
+              failwith "Wierd to fall here"
         in
         let () =
           if Util.are_diff_lenght assoc_exprs raw_associated_types then
@@ -746,17 +854,23 @@ Return the type of an expression
                  let constraint_type =
                    if Asthelper.Enum.is_type_generic raw_kt.v enum_decl then
                      None
-                   else Some raw_kt.v
+                   else
+                     Some raw_kt.v
                  in
                  expr
                  |> Position.map_use
                     @@ typeof ~constraint_type ~generics_resolver env
-                         current_mod_name prog)
+                         current_mod_name prog
+             )
         in
         let () =
           enum_decl.variants
           |> List.find_map (fun (var, assoc_types) ->
-                 if var.v = variant.v then Some assoc_types else None)
+                 if var.v = variant.v then
+                   Some assoc_types
+                 else
+                   None
+             )
           (* |> Option.map (fun k -> print_endline (k |> List.map Asthelper.string_of_ktype |> String.concat ", "); k ) *)
           (* |> function Some s -> s | None -> (raise Not_found) *)
           |> Option.get
@@ -775,7 +889,8 @@ Return the type of an expression
             List.iter2
               (fun kt param_kt ->
                 (* let () = Printf.printf "init_ktype = %s, param type = %s\n" (Pprint.string_of_ktype kt.v) (Pprint.string_of_ktype param_kt.v) in *)
-                Ast.Type.update_generics infered_map kt param_kt ())
+                Ast.Type.update_generics infered_map kt param_kt ()
+              )
               init_types assoc_types
           in
           assoc_types |> List.combine init_types
@@ -788,11 +903,18 @@ Return the type of an expression
                      raise @@ ast_error
                      @@ Uncompatible_type
                           { expected = expected.v; found = init }
-                 | true -> ())
+                 | true ->
+                     ()
+             )
         in
         let modules_path =
           modules_path
-          |> Position.map (fun mp -> if mp = "" then current_mod_name else mp)
+          |> Position.map (fun mp ->
+                 if mp = "" then
+                   current_mod_name
+                 else
+                   mp
+             )
         in
         let kt =
           Asthelper.Enum.to_ktype_hash infered_map modules_path enum_decl
@@ -804,19 +926,22 @@ Return the type of an expression
             (expected_types
             |> List.map @@ Position.map_use
                @@ typeof ~constraint_type:None ~generics_resolver env
-                    current_mod_name prog)
+                    current_mod_name prog
+            )
         in
         validate_location_type expression ~constraint_type tuple_kt
     | EArray (expr :: xesprs as exprs) ->
         let _, hint_type =
           match constraint_type with
-          | None -> (None, None)
-          | Some (TArray { size; ktype }) -> (Some size, Some ktype)
-          | Some _ -> (None, None)
+          | None ->
+              (None, None)
+          | Some (TArray { size; ktype }) ->
+              (Some size, Some ktype)
+          | Some _ ->
+              (None, None)
         in
         let size =
-          expression
-          |> Position.map (fun _ -> Int64.of_int @@ List.length exprs)
+          expression |> Position.map (fun _ -> Int64.of_int @@ List.length exprs)
         in
         let expr_type =
           expr
@@ -833,20 +958,21 @@ Return the type of an expression
                    elt
                    |> Position.map_use
                       @@ typeof
-                           ~constraint_type:
-                             (Option.map Position.value hint_type)
+                           ~constraint_type:(Option.map Position.value hint_type)
                            ~generics_resolver env current_mod_name prog
                  in
                  let restrict_rktype =
                    validate_location_type t ~constraint_type:(Some type_acc) t.v
                  in
-                 restrict_rktype)
+                 restrict_rktype
+               )
                expr_type.v
         in
         let ktype_loc = { v = ktype; position = expression.position } in
         let array_type = TArray { size; ktype = ktype_loc } in
         validate_location_type expression ~constraint_type array_type
-    | EArray [] -> failwith "Unreachable: Array can not be empty"
+    | EArray [] ->
+        failwith "Unreachable: Array can not be empty"
     | EWhile (condition, body) ->
         let if_condition =
           typeof ~constraint_type:None ~generics_resolver env current_mod_name
@@ -920,7 +1046,8 @@ Return the type of an expression
                  expr
                  |> Position.map_use
                       (typeof ~constraint_type:None ~generics_resolver env
-                         current_mod_name prog)
+                         current_mod_name prog
+                      )
                in
                let () =
                  if Ast.Type.( !== ) expr_type.v TBool then
@@ -933,7 +1060,8 @@ Return the type of an expression
                    (Env.push_empty_context env)
                    current_mod_name prog kbody
                in
-               (type_kbody, position))
+               (type_kbody, position)
+           )
         |> List.fold_left
              (fun acc (new_type, position) ->
                let () =
@@ -942,7 +1070,8 @@ Return the type of an expression
                    @@ Uncompatible_type
                         { expected = acc; found = { v = new_type; position } }
                in
-               Type.restrict_type acc new_type)
+               Type.restrict_type acc new_type
+             )
              else_case_type
     | EBuiltin_Function_call { fn_name; parameters } ->
         let ( >>= ) = Result.bind in
@@ -951,18 +1080,19 @@ Return the type of an expression
           |> List.map
                (Position.map_use
                   (typeof ~constraint_type:None ~generics_resolver env
-                     current_mod_name prog))
+                     current_mod_name prog
+                  )
+               )
         in
 
         let kt =
           fn_name |> Asthelper.Builtin_Function.builtin_fn_of_fn_name
           >>= (fun builtin ->
                 Asthelper.Builtin_Function.is_valide_parameters_type fn_name
-                  parameters_type current_mod_name prog builtin)
+                  parameters_type current_mod_name prog builtin
+              )
           |> Result.map Asthelper.Builtin_Function.builtin_return_type
-          |> function
-          | Ok kt -> kt
-          | Error e -> raise @@ built_in_func_error e
+          |> function Ok kt -> kt | Error e -> raise @@ built_in_func_error e
         in
         validate_location_type expression ~constraint_type kt
     | EFunction_call
@@ -972,8 +1102,10 @@ Return the type of an expression
             Asthelper.Program.find_function_decl_from_fn_name modules_path
               fn_name current_mod_name prog
           with
-          | Error e -> raise @@ ast_error e
-          | Ok fn_decl -> fn_decl
+          | Error e ->
+              raise @@ ast_error e
+          | Ok fn_decl ->
+              fn_decl
         in
         match fn_decl with
         | Ast.Function_Decl.Decl_Kosu_Function kosu_function_decl ->
@@ -1001,14 +1133,17 @@ Return the type of an expression
                        if
                          Asthelper.Function.is_ktype_generic fn_para_kt_loc.v
                            kosu_function_decl
-                       then None
-                       else Some fn_para_kt_loc.v
+                       then
+                         None
+                       else
+                         Some fn_para_kt_loc.v
                      in
                      expr_loc
                      |> Position.map_use
                         @@ typeof ~constraint_type
                              ~generics_resolver:new_map_generics env
-                             current_mod_name prog)
+                             current_mod_name prog
+                 )
             in
             let infered_map =
               Ast.Type.default_generic_map kosu_function_decl.generics
@@ -1017,7 +1152,8 @@ Return the type of an expression
               List.iter2
                 (fun kt (_, param_kt) ->
                   (* let () = Printf.printf "init_ktype = %s, param type = %s\n" (Pprint.string_of_ktype kt.v) (Pprint.string_of_ktype param_kt.v) in *)
-                  Ast.Type.update_generics infered_map kt param_kt ())
+                  Ast.Type.update_generics infered_map kt param_kt ()
+                )
                 init_type_parameters kosu_function_decl.parameters
             in
 
@@ -1047,7 +1183,8 @@ Return the type of an expression
                            }
                   in
                   ()
-              | false -> ()
+              | false ->
+                  ()
             in
             let () =
               match grc with
@@ -1059,8 +1196,10 @@ Return the type of an expression
                              (index, field_ktype.v)
                          in
                          Hashtbl.add hashtal generic_name.v
-                           (index, field_ktype.v))
-              | None -> ()
+                           (index, field_ktype.v)
+                     )
+              | None ->
+                  ()
             in
             let () =
               init_type_parameters
@@ -1082,7 +1221,8 @@ Return the type of an expression
                                      (Ast.Type.extract_mapped_ktype hashtal)
                                 |> Position.value;
                               found = init_type;
-                            })
+                            }
+                 )
             in
 
             (* let () = Printf.printf "infered_map = %s \n\n" (infered_map |> Hashtbl.to_seq |> List.of_seq |> List.map (fun (gene, (_, kt)) -> Printf.sprintf "%s = %s" (gene) (Pprint.string_of_ktype kt)) |> String.concat "\n" ) in  *)
@@ -1099,7 +1239,10 @@ Return the type of an expression
               |> List.map Position.value
             in
             let generics =
-              if Rule.allow_generics_in_variadic then generics else []
+              if Rule.allow_generics_in_variadic then
+                generics
+              else
+                []
             in
             let () =
               match external_func_decl.is_variadic with
@@ -1141,7 +1284,8 @@ Return the type of an expression
               List.init (List.length parameters) (fun index ->
                   index
                   |> List.nth_opt external_func_decl.fn_parameters
-                  |> Option.map Position.value)
+                  |> Option.map Position.value
+              )
             in
             let init_exprs =
               external_constraint_types |> List.combine parameters
@@ -1149,7 +1293,8 @@ Return the type of an expression
                      expr
                      |> Position.map_use
                         @@ typeof ~constraint_type ~generics_resolver env
-                             current_mod_name prog)
+                             current_mod_name prog
+                 )
             in
             let () =
               init_exprs
@@ -1164,7 +1309,8 @@ Return the type of an expression
                          @@ Ast.Error.Uncompatible_type_for_C_Function
                               { fn_name; ktype = kt }
                      in
-                     ())
+                     ()
+                 )
             in
             (* Check if the return type is a C type should be done in Astvalidation. The typecher should just type*)
             validate_location_type expression ~constraint_type
@@ -1186,10 +1332,12 @@ Return the type of an expression
                      expr
                      |> Position.map_use
                         @@ typeof ~constraint_type:(Some constraint_type.v)
-                             ~generics_resolver env current_mod_name prog)
+                             ~generics_resolver env current_mod_name prog
+                 )
             in
             validate_location_type expression ~constraint_type
-              syscall_decl.return_type.v)
+              syscall_decl.return_type.v
+      )
     | EBin_op (BMult (lhs, rhs)) ->
         typecheck_binary ~constraint_type
           ~fvalid:Asthelper.Program.is_valid_mult_operation ~generics_resolver
@@ -1241,33 +1389,40 @@ Return the type of an expression
           lhs
           |> Position.map_use
                (typeof ~constraint_type:None ~generics_resolver env
-                  current_mod_name prog)
+                  current_mod_name prog
+               )
         in
         let r_type =
           rhs
           |> Position.map_use
                (typeof ~constraint_type:None ~generics_resolver env
-                  current_mod_name prog)
+                  current_mod_name prog
+               )
         in
         match (l_type.v, r_type.v) with
-        | TBool, TBool -> TBool
+        | TBool, TBool ->
+            TBool
         | TBool, _ ->
             Not_Boolean_operand_in_And r_type |> operator_error |> raise
         | _, TBool ->
             Not_Boolean_operand_in_And l_type |> operator_error |> raise
-        | _, _ -> Not_Boolean_operand_in_And l_type |> operator_error |> raise)
+        | _, _ ->
+            Not_Boolean_operand_in_And l_type |> operator_error |> raise
+      )
     | EBin_op (BOr (lhs, rhs)) -> (
         let l_type =
           lhs
           |> Position.map_use
                (typeof ~constraint_type:None ~generics_resolver env
-                  current_mod_name prog)
+                  current_mod_name prog
+               )
         in
         let r_type =
           rhs
           |> Position.map_use
                (typeof ~constraint_type:None ~generics_resolver env
-                  current_mod_name prog)
+                  current_mod_name prog
+               )
         in
         match (l_type.v, r_type.v) with
         | TBool, TBool ->
@@ -1276,7 +1431,9 @@ Return the type of an expression
             Not_Boolean_operand_in_Or r_type |> operator_error |> raise
         | _, TBool ->
             Not_Boolean_operand_in_Or l_type |> operator_error |> raise
-        | _, _ -> Not_Boolean_operand_in_Or l_type |> operator_error |> raise)
+        | _, _ ->
+            Not_Boolean_operand_in_Or l_type |> operator_error |> raise
+      )
     | EBin_op (BEqual (lhs, rhs) | BDif (lhs, rhs)) ->
         typecheck_binary ~constraint_type ~ktype:TBool ~freturn:TOredered
           ~fvalid:Asthelper.Program.is_valid_equal_operation ~generics_resolver
@@ -1307,14 +1464,16 @@ Return the type of an expression
           lhs
           |> Position.map_use
                (typeof ~constraint_type ~generics_resolver env current_mod_name
-                  prog)
+                  prog
+               )
         in
         match Asthelper.Program.is_valid_not_operation l_type.v prog with
         | `no_function_found ->
             Operator_not_found
               { bin_op = Ast.OperatorFunction.Not; ktype = l_type }
             |> operator_error |> raise
-        | `valid _ -> l_type.v
+        | `valid _ ->
+            l_type.v
         | `to_many_declaration operator_decls ->
             Too_many_operator_declaration
               {
@@ -1323,16 +1482,19 @@ Return the type of an expression
                 ktype = l_type;
               }
             |> operator_error |> raise
-        | `built_in_valid -> l_type.v
+        | `built_in_valid ->
+            l_type.v
         | `no_not_for_built_in ->
             No_built_in_op { bin_op = Ast.OperatorFunction.Not; ktype = l_type }
-            |> operator_error |> raise)
+            |> operator_error |> raise
+      )
     | EUn_op (UMinus lhs) ->
         let l_type =
           lhs
           |> Position.map_use
                (typeof ~constraint_type:None ~generics_resolver env
-                  current_mod_name prog)
+                  current_mod_name prog
+               )
         in
         let kt =
           match Asthelper.Program.is_valid_uminus_operation l_type.v prog with
@@ -1340,7 +1502,8 @@ Return the type of an expression
               Operator_not_found
                 { bin_op = Ast.OperatorFunction.UMinus; ktype = l_type }
               |> operator_error |> raise
-          | `valid _ -> l_type.v
+          | `valid _ ->
+              l_type.v
           | `to_many_declaration operator_decls ->
               Too_many_operator_declaration
                 {
@@ -1349,7 +1512,8 @@ Return the type of an expression
                   ktype = l_type;
                 }
               |> operator_error |> raise
-          | `built_in_valid -> l_type.v
+          | `built_in_valid ->
+              l_type.v
           | `invalid_unsigned_op size ->
               Invalid_Uminus_for_Unsigned_integer
                 { v = size; position = l_type.position }
@@ -1374,12 +1538,14 @@ Return the type of an expression
             @@ Not_fully_known_ktype (expr |> Position.map (fun _ -> expr_type))
         in
         let module_path, name =
-          expr_type |> Ast.Type.module_path_of_ktype_opt |> function
+          expr_type |> Ast.Type.module_path_of_ktype_opt
+          |> function
           | None ->
               raise @@ switch_error
               @@ Not_enum_type_in_switch_Expression
                    (expr |> Position.map (fun _ -> expr_type))
-          | Some s -> s
+          | Some s ->
+              s
         in
         let enum_decl =
           match
@@ -1387,12 +1553,14 @@ Return the type of an expression
               ~ktype_def_path:module_path ~ktype_name:name
               ~current_module:current_mod_name prog
           with
-          | Ok (Type_Decl.Decl_Enum e) -> e
+          | Ok (Type_Decl.Decl_Enum e) ->
+              e
           | Ok (Type_Decl.Decl_Struct _s) ->
               raise @@ switch_error
               @@ Not_enum_type_in_switch_Expression
                    (expr |> Position.map (fun _ -> expr_type))
-          | Error e -> raise @@ ast_error e
+          | Error e ->
+              raise @@ ast_error e
         in
         let params_type = Type.extract_parametrics_ktype expr_type in
         let mapped_generics = List.combine enum_decl.generics params_type in
@@ -1403,10 +1571,12 @@ Return the type of an expression
                    Asthelper.Switch_case.cases_duplicated variant_name.v
                      variant_cases
                  with
-                 | None -> ()
+                 | None ->
+                     ()
                  | Some duplicate ->
                      Ast.Error.Duplicated_case duplicate |> switch_error
-                     |> raise)
+                     |> raise
+             )
         in
         let bound_assoc_var_type_map =
           mapped_generics
@@ -1423,18 +1593,22 @@ Return the type of an expression
                         {
                           module_path = { v = ""; position = Position.dummy };
                           name;
-                        }))
+                        }
+                  )
+               )
         in
         let open Asthelper.Enum in
         let open Asthelper.Switch_case in
         let () =
           if wildcard_case |> Option.is_none then
             match is_all_cases_handled ~expression variant_cases enum_decl with
-            | Error e -> e |> switch_error |> raise
-            | Ok _ -> ()
+            | Error e ->
+                e |> switch_error |> raise
+            | Ok _ ->
+                ()
         in
 
-        ( cases
+        cases
         |> List.map (fun (sc_list, kb) ->
                let combine_binding_type =
                  sc_list
@@ -1448,7 +1622,9 @@ Return the type of an expression
                         let assoc_binding = assoc_binding sc in
                         ( variant_name,
                           assoc_types |> List.combine assoc_binding
-                          |> List.mapi (fun index (v, l) -> (index, v, l)) ))
+                          |> List.mapi (fun index (v, l) -> (index, v, l))
+                        )
+                    )
                in
                (* let () =  combine_binding_type |> List.iter (fun (var_name, list) ->
                     Printf.printf "\nvariant = %s(%s)\n"
@@ -1457,7 +1633,8 @@ Return the type of an expression
                     )
                   in *)
                match combine_binding_type with
-               | [] -> failwith "Unreachable case: empty case"
+               | [] ->
+                   failwith "Unreachable case: empty case"
                | (first_variant, ass_bin) :: q ->
                    let new_context =
                      q
@@ -1469,7 +1646,8 @@ Return the type of an expression
                             match
                               Ast.Type.find_field_error acc reduced_binding
                             with
-                            | None -> acc
+                            | None ->
+                                acc
                             | Some (`diff_binding_name (lhs, rhs)) ->
                                 Incompatible_Binding_Name
                                   {
@@ -1495,7 +1673,9 @@ Return the type of an expression
                             | Some
                                 (`diff_binding_index
                                   ( (base_index, base_bound_id),
-                                    (wrong_index, wrong_bound_id) )) ->
+                                    (wrong_index, wrong_bound_id)
+                                  )
+                                  ) ->
                                 Incompatible_Binding_Position
                                   {
                                     base_index;
@@ -1505,25 +1685,32 @@ Return the type of an expression
                                     wrong_variant = variant_name;
                                     wrong_bound_id;
                                   }
-                                |> switch_error |> raise)
+                                |> switch_error |> raise
+                          )
                           (reduce_binded_variable_combine ass_bin)
                      |> List.map (fun (_, variable_name, ktype) ->
                             let ktype =
                               ktype
                               |> Position.map
                                    (Type.remap_naif_generic_ktype
-                                      bound_assoc_var_type_map)
+                                      bound_assoc_var_type_map
+                                   )
                             in
                             (* let () = Printf.printf "bound %s : %s\n\n" (variable_name.v) (Pprint.string_of_ktype ktype.v) in *)
                             ( variable_name,
-                              ({ is_const = true; ktype = ktype.v }
-                                : Env.variable_info) ))
+                              ( { is_const = true; ktype = ktype.v }
+                                : Env.variable_info
+                                )
+                            )
+                        )
                      |> List.map (fun (binding_name, var_info) ->
                             if env |> Env.is_identifier_exists binding_name.v
                             then
                               Identifier_already_Bound binding_name
                               |> switch_error |> raise
-                            else (binding_name, var_info))
+                            else
+                              (binding_name, var_info)
+                        )
                    in
                    let _stmt, { v = _; position } = kb in
                    ( typeof_kbody ~generics_resolver
@@ -1532,18 +1719,24 @@ Return the type of an expression
                             (new_context |> List.map Position.assoc_value_left)
                        )
                        current_mod_name prog kb,
-                     position ))
-        |> fun l ->
-          match wildcard_case with
-          | None -> l
-          | Some wild ->
-              let _stmt, { v = _; position } = wild in
-              let wildcard_type =
-                typeof_kbody ~generics_resolver env current_mod_name prog wild
-              in
-              (wildcard_type, position) :: l )
+                     position
+                   )
+           )
+        |> (fun l ->
+             match wildcard_case with
+             | None ->
+                 l
+             | Some wild ->
+                 let _stmt, { v = _; position } = wild in
+                 let wildcard_type =
+                   typeof_kbody ~generics_resolver env current_mod_name prog
+                     wild
+                 in
+                 (wildcard_type, position) :: l
+           )
         |> function
-        | [] -> failwith "unreachable case: empty kbody"
+        | [] ->
+            failwith "unreachable case: empty kbody"
         | (t, _) :: q ->
             q
             |> List.fold_left
@@ -1557,8 +1750,11 @@ Return the type of an expression
                      Uncompatible_type
                        { expected = acc; found = { v = case_type; position } }
                      |> ast_error |> raise
-                   else Type.restrict_type acc case_type)
-                 t)
+                   else
+                     Type.restrict_type acc case_type
+                 )
+                 t
+      )
 
   and typecheck_binary ~constraint_type ~fvalid ?freturn ?ktype
       ~generics_resolver ~expression ~env ~current_mod_name op lhs rhs program =
@@ -1566,13 +1762,15 @@ Return the type of an expression
       lhs
       |> Position.map_use
            (typeof ~constraint_type:None ~generics_resolver env current_mod_name
-              program)
+              program
+           )
     in
     let r_type =
       rhs
       |> Position.map_use
            (typeof ~constraint_type:None ~generics_resolver env current_mod_name
-              program)
+              program
+           )
     in
     let rtype = Option.value ~default:l_type.v ktype in
     let freturn = Option.value ~default:rtype freturn in
