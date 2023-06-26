@@ -1074,7 +1074,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             Instruction (
               Mov {
                 size = iq;
-                destination = r10;
+                destination = `Register rax;
                 source = `ILitteral (Int64.mul 8L elt_type_size)
               }
             )
@@ -1083,7 +1083,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             Instruction (
               Mul {
                 size = iq;
-                destination = rax;
+                destination = None;
                 source = (src_of_dst r10)
               }
             )

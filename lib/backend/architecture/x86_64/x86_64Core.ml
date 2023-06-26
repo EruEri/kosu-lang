@@ -401,8 +401,8 @@ module Instruction = struct
     | Not of { size : data_size; source : register }
     | Add of { size : data_size; destination : dst; source : src }
     | Sub of { size : data_size; destination : dst; source : src }
-    | IMul of { size : data_size; destination : register; source : src }
-    | Mul of { size : data_size; destination : register; source : src }
+    | IMul of { size : data_size; destination : register option; source : src }
+    | Mul of { size : data_size; destination : register option; source : src }
     | Xor of { size : int_data_size; destination : dst; source : src }
     | Or of { size : int_data_size; destination : dst; source : src }
     | And of { size : int_data_size; destination : dst; source : src }
@@ -489,7 +489,7 @@ module Instruction = struct
               source = `Register rax;
               destination = `Register xmm1;
             };
-          Mul { size; source = `Register xmm1; destination = dst };
+          Mul { size; source = `Register xmm1; destination = Some dst };
         ]
 
   let cmp_instruction size ~lhs ~rhs =
@@ -549,7 +549,7 @@ module Instruction = struct
 
   let ins_mult ~size ~destination ~source =
     let reg = register_of_dst destination in
-    [ Instruction (IMul { size; destination = reg; source }) ]
+    [ Instruction (IMul { size; destination = Some reg; source }) ]
 
   let binop_instruction_of_tacself ?(unsigned = false) =
     let open KosuIrTAC.Asttac in
