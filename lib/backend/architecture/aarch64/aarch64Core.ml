@@ -720,6 +720,11 @@ module Instruction = struct
         operand1 : Register.register;
         operand2 : src;
       }
+    | ROR of {
+      destination : Register.register;
+      operand1 : Register.register;
+      operand2 : src;
+    }
     | LDR of {
         data_size : data_size option;
         destination : Register.register;
