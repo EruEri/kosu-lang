@@ -244,12 +244,16 @@ reg_t* register_of_int32(vm_t* vm, uint32_t bits, uint32_t shift) {
 
 int isyscall(vm_t* vm, instruction_t instruction) {
 
-    #ifndef __APPLE__
-        vm->r0 = syscall(vm->scp, vm->r0, vm->r1, vm->r2, vm->r3, vm->r4, vm->r5);
-    #else
+    #ifdef __APPLE__
         // Find a way since [syscall] is deprecated on macOS and __syscall doesnt exist
         // Maybe inline asm for x86_64 and arm64 
         vm->r0 = -1;
+    #else
+        #ifdef __FreeBSD__
+            vm->r0 = __syscall(vm->scp, vm->r0, vm->r1, vm->r2, vm->r3, vm->r4, vm->r5);
+        #else
+            vm->r0 = syscall(vm->scp, vm->r0, vm->r1, vm->r2, vm->r3, vm->r4, vm->r5);
+        #endif
     #endif
     return 0;
 }
