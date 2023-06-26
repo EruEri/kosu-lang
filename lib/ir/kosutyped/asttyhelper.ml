@@ -94,6 +94,7 @@ module RType = struct
     | RTPointer lhs, RTPointer rhs -> update_generics map lhs rhs ()
     | RTTuple lhs, RTTuple rhs ->
         List.iter2 (fun l r -> update_generics map l r ()) lhs rhs
+    | RTArray lhs, RTArray rhs -> update_generics map lhs.rktype rhs.rktype ()
     | _ -> ()
 
   let rec restrict_rktype to_restrict restrict =
@@ -139,6 +140,8 @@ module RType = struct
     | RTTuple kts ->
         RTTuple (kts |> List.map (remap_generic_ktype generics_table))
     | RTPointer kt -> kt |> remap_generic_ktype generics_table |> rpointer
+    | RTArray { size; rktype } ->
+        RTArray { size; rktype = remap_generic_ktype generics_table rktype }
     | _ as kt -> kt
 end
 
@@ -279,6 +282,12 @@ module Generics = struct
     | RTPointer ptr -> RTPointer (instanciate_generics_type generics ptr)
     | RTTuple rtks ->
         RTTuple (rtks |> List.map (instanciate_generics_type generics))
+    | RTArray info ->
+        RTArray
+          {
+            size = info.size;
+            rktype = instanciate_generics_type generics info.rktype;
+          }
     | _ as t -> t
 
   let rec instanciate_generics_kbody generics (rkstatements, return_te) =
@@ -357,6 +366,9 @@ module Generics = struct
               assoc_exprs
               |> List.map (instanciate_generics_typed_expression generics);
           }
+    | REArray ttes ->
+        REArray
+          (ttes |> List.map (instanciate_generics_typed_expression generics))
     | RETuple tes ->
         RETuple
           (tes |> List.map (instanciate_generics_typed_expression generics))
@@ -965,6 +977,7 @@ module RProgram = struct
                stack_parameters_in_typed_expression current_module rprogram te)
         |> List.fold_left FnCallInfo.union FnCallInfo.empty
     | REEnum { assoc_exprs = tes; _ }
+    | REArray tes
     | RETuple tes
     | REBuiltin_Function_call { parameters = tes; _ } ->
         tes
@@ -1148,6 +1161,7 @@ module RProgram = struct
                  current_module rprogram te)
         |> List.fold_left FnSpec.union FnSpec.empty
     | REEnum { assoc_exprs = tes; _ }
+    | REArray tes
     | RETuple tes
     | REBuiltin_Function_call { parameters = tes; _ } ->
         tes

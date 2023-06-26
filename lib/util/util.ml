@@ -41,7 +41,7 @@ let string_of_module_path path =
   if path = "" then "" else Printf.sprintf "%s::" path
 
 let are_same_lenght l1 l2 = 0 = List.compare_lengths l1 l2
-let are_diff_lenght l1 l2 = not (are_same_lenght l1 l2)
+let are_diff_lenght l1 l2 = not @@ are_same_lenght l1 l2
 
 let dummy_generic_map generic_names parametrics_types =
   let list_len = parametrics_types |> List.length in

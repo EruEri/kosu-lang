@@ -491,24 +491,28 @@ end
 
 let rec copy_large ~address_str ~base_address_reg size =
   let open Instruction in
+  (* let () = Printf.printf "size = %Ld\n%!" size in *)
   if size < 0L then failwith "X86_64 : Negative size to copy"
   else if size = 0L then []
   else
-    let dsize = size |> data_size_of_int64 |> Option.value ~default:Q in
-    let moved_size = int64_of_data_size dsize in
-
+    let (dsize, moved_size) : data_size * int64 =
+      if 1L <= size && size < 2L then (ib, 1L)
+      else if 2L <= size && size < 4L then (iw, 2L)
+      else if 4L <= size && size < 8L then (il, 4L)
+      else (iq, 8L)
+    in
     [
       Instruction
         (Mov
            {
-             size = IntSize dsize;
+             size = dsize;
              source = `Address base_address_reg;
              destination = `Register Register.rax;
            });
       Instruction
         (Mov
            {
-             size = IntSize dsize;
+             size = dsize;
              source = `Register Register.rax;
              destination = `Address address_str;
            });

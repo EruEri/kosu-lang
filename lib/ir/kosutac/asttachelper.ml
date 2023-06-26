@@ -175,7 +175,8 @@ module StringLitteral = struct
         |> List.iter (fun typed_expr ->
                map_fill_string_lit_of_tac_expression map
                  typed_expr.tac_expression ())
-    | RVBuiltinCall { parameters; _ } | RVTuple parameters ->
+    | RVBuiltinCall { parameters; _ } | RVTuple parameters | RVArray parameters
+      ->
         parameters
         |> List.iter (fun typed_expr ->
                map_fill_string_lit_of_tac_expression map
@@ -405,7 +406,8 @@ module FloatLitteral = struct
         |> List.iter (fun typed_expr ->
                map_fill_float_lit_of_tac_expression map
                  typed_expr.tac_expression ())
-    | RVBuiltinCall { parameters; _ } | RVTuple parameters ->
+    | RVBuiltinCall { parameters; _ } | RVTuple parameters | RVArray parameters
+      ->
         parameters
         |> List.iter (fun typed_expr ->
                map_fill_float_lit_of_tac_expression map
