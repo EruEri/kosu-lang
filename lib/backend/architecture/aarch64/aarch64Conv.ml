@@ -847,6 +847,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         Line_Com (Comment ("Field access of " ^ field)) :: copy_instructions
     | RVFieldAcess _ ->
         failwith "Wierd : Fields access force struct as an identifier"
+    | RVArrayAccess {array_expr; index_expr} -> ignore (array_expr, index_expr); failwith ""
     | RVAdress id ->
         let pointee_type =
           rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee

@@ -1060,6 +1060,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         failwith "Weird: Tuple access force tuple as an idnentifier"
     | RVFieldAcess _ ->
         failwith "Wierd : Fields access force struct as an identifier"
+    | RVArrayAccess {array_expr; index_expr} -> ignore (array_expr, index_expr); failwith ""
     | RVAdress id ->
         let pointee_type =
           rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee

@@ -122,6 +122,7 @@ and tac_rvalue =
   | RVArray of tac_typed_expression list
   | RVFieldAcess of { first_expr : tac_typed_expression; field : string }
   | RVTupleAccess of { first_expr : tac_typed_expression; index : int64 }
+  | RVArrayAccess of { array_expr: tac_typed_expression; index_expr: tac_typed_expression}
   | RVAdress of string
   | RVDefer of string
   | RVCustomBinop of binary
