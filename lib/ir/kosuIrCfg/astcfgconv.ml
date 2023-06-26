@@ -45,7 +45,8 @@ let tag_statements enum_tac_expr =
                   parameters = [ enum_tac_expr ];
                 };
           };
-      } )
+      }
+  )
 
 let cmp_statement atom tag_to_match =
   let cmp = cmp_variable () in
@@ -75,21 +76,29 @@ let cmp_statement atom tag_to_match =
                     };
                 };
           };
-      } )
+      }
+  )
 
 let merge_basic_block_map lmap rmap =
   Asttaccfg.KosuRegisterAllocatorImpl.BasicBlockMap.union
     (fun key m1 m2 ->
       let () = Printf.eprintf "Conficiting label = %s\n" key in
-      if m1 <> m2 then failwith "Diff for key" else Some m1)
+      if m1 <> m2 then
+        failwith "Diff for key"
+      else
+        Some m1
+    )
     lmap rmap
 
 let typed_set_of_locales_vars locals_vars =
   locals_vars
   |> List.map (fun { locale_ty; locale } ->
          match locale with
-         | Locale s -> (s, locale_ty)
-         | Enum_Assoc_id { name; _ } -> (name, locale_ty))
+         | Locale s ->
+             (s, locale_ty)
+         | Enum_Assoc_id { name; _ } ->
+             (name, locale_ty)
+     )
   |> Asttaccfg.KosuRegisterAllocatorImpl.TypedIdentifierSet.of_list
 
 let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
@@ -102,12 +111,17 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
           cfg_statements = List.rev cfg_statements;
           followed_by = Asttaccfg.StringSet.of_list end_labels;
           ending =
-            (match return with
+            ( match return with
             | None -> (
                 match ending with
-                | None -> None
-                | Some ending -> Some (BBe_if ending))
-            | Some tte -> Some (Bbe_return tte));
+                | None ->
+                    None
+                | Some ending ->
+                    Some (BBe_if ending)
+              )
+            | Some tte ->
+                Some (Bbe_return tte)
+            );
         }
       in
       Asttaccfg.KosuRegisterAllocatorImpl.BasicBlockMap.singleton block.label
@@ -138,8 +152,10 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
           of_tac_statements ~start_label ~end_labels ~ending rprogram
             ~cfg_statements:(derefaffect :: cfg_statements)
             (q, return)
-      | STDerefAffectationField _ -> failwith "STDerefAffectationField"
-      | STacModificationField _ -> failwith "STacModificationField"
+      | STDerefAffectationField _ ->
+          failwith "STDerefAffectationField"
+      | STacModificationField _ ->
+          failwith "STacModificationField"
       | STWhile
           {
             statements_condition;
@@ -158,7 +174,8 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
                      condition;
                      if_label = inner_body_label;
                      else_label = exit_label;
-                   })
+                   }
+                )
               ~cfg_statements rprogram
               (statements_condition, None)
           in
@@ -191,7 +208,8 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
                      condition = condition_rvalue;
                      if_label = goto1;
                      else_label = goto2;
-                   })
+                   }
+                )
               ~cfg_statements rprogram (statement_for_bool, None)
           in
           let if_blocks =
@@ -228,7 +246,8 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
           } ->
           let () =
             match condition_label with
-            | None -> ()
+            | None ->
+                ()
             | Some s ->
                 failwith
                 @@ Printf.sprintf "First cases with a label name ? : %s" s
@@ -264,7 +283,8 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
                       } ->
                    let start_label =
                      match condition_label with
-                     | Some s -> s
+                     | Some s ->
+                         s
                      | None ->
                          failwith
                            "Very wierd start label for cases should be None"
@@ -278,7 +298,8 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
                               condition;
                               if_label = goto;
                               else_label = jmp_false;
-                            })
+                            }
+                         )
                        ~cfg_statements:[] rprogram
                        (statement_for_condition, None)
                    in
@@ -287,7 +308,8 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
                    in
                    acc
                    |> merge_basic_block_map block_condition
-                   |> merge_basic_block_map block)
+                   |> merge_basic_block_map block
+                 )
                  Asttaccfg.KosuRegisterAllocatorImpl.BasicBlockMap.empty
           in
 
@@ -316,8 +338,10 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
             with
             | Some (RDecl_Struct _) ->
                 failwith "Expected to find an enum get an struct"
-            | Some (RDecl_Enum e) -> e
-            | None -> failwith "Non type decl ??? my validation is very weak"
+            | Some (RDecl_Enum e) ->
+                e
+            | None ->
+                failwith "Non type decl ??? my validation is very weak"
           in
           let enum_decl =
             let generics =
@@ -331,10 +355,12 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
 
           let tag_atom, tag_stmt = tag_statements condition_switch in
           match sw_cases with
-          | [] -> failwith ""
+          | [] ->
+              failwith ""
           | sw_case :: sw_switch_remains -> (
               match sw_case.variants_to_match with
-              | [] -> failwith "Impossible"
+              | [] ->
+                  failwith "Impossible"
               | variant :: else_variants ->
                   let ivmatch = tag_of_variant variant enum_decl in
                   let cmp_atom, cmp_stmt = cmp_statement tag_atom ivmatch in
@@ -349,7 +375,8 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
                              condition = cmp_atom;
                              if_label = sw_case.sw_goto;
                              else_label = next_label;
-                           })
+                           }
+                        )
                       ~cfg_statements rprogram
                       (statemenets_for_case @ [ tag_stmt; cmp_stmt ], None)
                   in
@@ -369,7 +396,8 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
                                rprogram sw_switch
                            in
                            let acc = merge_basic_block_map acc blocks in
-                           (acc, next_label))
+                           (acc, next_label)
+                         )
                          (BasicBlockMap.empty, next_label)
                   in
                   let wildcard_basic_block =
@@ -385,7 +413,8 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
                              of_tac_body ~end_labels:[ sw_exit_label ] rprogram
                                body
                            in
-                           merge_basic_block_map block_setup block_body)
+                           merge_basic_block_map block_setup block_body
+                       )
                     |> Option.value ~default:BasicBlockMap.empty
                   in
 
@@ -397,7 +426,9 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
                   continuation
                   |> merge_basic_block_map basic_blocks
                   |> merge_basic_block_map wildcard_basic_block
-                  |> merge_basic_block_map blocks_continuation))
+                  |> merge_basic_block_map blocks_continuation
+            )
+        )
       | STSwitchTmp
           {
             tmp_statemenets_for_case;
@@ -414,12 +445,15 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
                 first_cmp_atom,
                 switch_remains ) =
             match tmp_switch_list with
-            | [] -> failwith ""
+            | [] ->
+                failwith ""
             | sw :: remains ->
                 let first_variant, remains_variant =
                   match sw.variants with
-                  | [] -> failwith "Empty ?"
-                  | t :: q -> (t, q)
+                  | [] ->
+                      failwith "Empty ?"
+                  | t :: q ->
+                      (t, q)
                 in
                 let new_sw = { sw with variants = remains_variant } in
                 let remains = new_sw :: remains in
@@ -427,12 +461,15 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
                   (List.hd sw.variants).variant_next_label,
                   first_variant.cmp_statement,
                   first_variant.cmp_atom,
-                  remains )
+                  remains
+                )
           in
           let local_endlabel =
             match first_goto_false with
-            | Some s -> [ first_goto; s ]
-            | None -> [ first_goto ]
+            | Some s ->
+                [ first_goto; s ]
+            | None ->
+                [ first_goto ]
           in
           let local_ending =
             first_goto_false
@@ -441,14 +478,16 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
                      condition = first_cmp_atom;
                      if_label = first_goto;
                      else_label = label;
-                   })
+                   }
+               )
           in
           let basic_blocks, final_label =
             switch_remains
             |> List.fold_left
                  (fun (acc, _) sw ->
                    let block, label = of_switch_case rprogram sw in
-                   (merge_basic_block_map acc block, label))
+                   (merge_basic_block_map acc block, label)
+                 )
                  (BasicBlockMap.empty, "")
           in
           let wildcard_basic_block =
@@ -462,7 +501,8 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
                    let block_body =
                      of_tac_body ~end_labels:[ tmp_sw_exit_label ] rprogram body
                    in
-                   merge_basic_block_map block_setup block_body)
+                   merge_basic_block_map block_setup block_body
+               )
             |> Option.value ~default:BasicBlockMap.empty
           in
 
@@ -482,7 +522,8 @@ let rec of_tac_statements ~start_label ~end_labels ~ending ~cfg_statements
           |> merge_basic_block_map wildcard_basic_block
           |> merge_basic_block_map blocks_continuation
       | SCases { cases = []; else_tac_body = _; exit_label = _ } ->
-          failwith "Unreachable code: Syntax force at least a branch")
+          failwith "Unreachable code: Syntax force at least a branch"
+    )
 
 and of_switch_case rprogram (tac_switch : tac_switch_tmp) =
   let blocks, final_label =
@@ -496,19 +537,23 @@ and of_switch_case rprogram (tac_switch : tac_switch_tmp) =
                       condition = variant.cmp_atom;
                       if_label = tac_switch.tmp_sw_goto;
                       else_label = label;
-                    })
+                    }
+                )
            in
            let end_labels =
              match variant.variant_next_label with
-             | Some label -> [ tac_switch.tmp_sw_goto; label ]
-             | None -> tac_switch.tmp_sw_goto :: []
+             | Some label ->
+                 [ tac_switch.tmp_sw_goto; label ]
+             | None ->
+                 tac_switch.tmp_sw_goto :: []
            in
            let block =
              of_tac_statements ~start_label:variant.variant_label ~end_labels
                ~ending ~cfg_statements:[] rprogram
                ([ variant.cmp_statement ], None)
            in
-           (merge_basic_block_map acc block, variant.variant_label))
+           (merge_basic_block_map acc block, variant.variant_label)
+         )
          (BasicBlockMap.empty, "")
   in
   let body_block =
@@ -521,7 +566,8 @@ and of_switch_case rprogram (tac_switch : tac_switch_tmp) =
 and _of_switch_case ~is_last ~wildcard_label ~enum_decl ~tag_atom ~start_label
     rprogram (sw_switch : tac_switch) =
   match sw_switch.variants_to_match with
-  | [] -> failwith "Masaka"
+  | [] ->
+      failwith "Masaka"
   | variants ->
       let variants_count = List.length variants in
       let other_variants, next_block_label =
@@ -538,9 +584,12 @@ and _of_switch_case ~is_last ~wildcard_label ~enum_decl ~tag_atom ~start_label
                  (* let () = Printf.printf "is last = %b\n%!" is_full_last in *)
                  if is_full_last then
                    match wildcard_label with
-                   | Some label -> Some label
-                   | None -> None
-                 else Some block_next_label
+                   | Some label ->
+                       Some label
+                   | None ->
+                       None
+                 else
+                   Some block_next_label
                in
                let ending =
                  else_label
@@ -549,19 +598,23 @@ and _of_switch_case ~is_last ~wildcard_label ~enum_decl ~tag_atom ~start_label
                           condition = cmp_atom;
                           if_label = sw_switch.sw_goto;
                           else_label = label;
-                        })
+                        }
+                    )
                in
                let end_labels =
                  match else_label with
-                 | Some label -> [ sw_switch.sw_goto; label ]
-                 | None -> sw_switch.sw_goto :: []
+                 | Some label ->
+                     [ sw_switch.sw_goto; label ]
+                 | None ->
+                     sw_switch.sw_goto :: []
                in
                let block =
                  of_tac_statements ~start_label:block_start_label ~end_labels
                    ~ending ~cfg_statements:[] rprogram ([ cmp_stmt ], None)
                in
                let acc = merge_basic_block_map acc block in
-               (acc, block_next_label))
+               (acc, block_next_label)
+             )
              (BasicBlockMap.empty, start_label)
       in
       let body_block =
@@ -609,4 +662,8 @@ let cfgs_of_tac_program named_tacmodules =
            |> List.filter_map (function
                 | TNFunction tacfun ->
                     Some (cfg_of_tac_function rprogram tacfun)
-                | _ -> None) ))
+                | _ ->
+                    None
+                )
+         )
+     )

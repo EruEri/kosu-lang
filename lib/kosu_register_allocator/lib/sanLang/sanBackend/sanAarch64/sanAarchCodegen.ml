@@ -30,7 +30,8 @@ module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
       asm_nodes
       |> List.iter (fun node ->
              let repr = Pprint.string_of_asm_node node in
-             Printf.fprintf outfile "%s\n\n" repr)
+             Printf.fprintf outfile "%s\n\n" repr
+         )
     in
 
     let () =
@@ -42,7 +43,8 @@ module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
           litterals.str_lit_map
           |> Hashtbl.iter (fun content (StrLab label) ->
                  Printf.fprintf outfile "\t%s:\n\t%s \"%s\"\n" label
-                   AsmSpec.string_litteral_directive content)
+                   AsmSpec.string_litteral_directive content
+             )
         in
         let () =
           Printf.fprintf outfile "%s" AsmSpec.string_litteral_section_end

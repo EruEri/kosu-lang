@@ -26,13 +26,18 @@ module CfgConv = CfgBase.Conv
 module Sizeof = struct
   let align n b =
     let m = n mod b in
-    if m = 0 then n else n + b - m
+    if m = 0 then
+      n
+    else
+      n + b - m
 
   let align_16 b = align b 16
 
   let sizeof = function
-    | (Ssize : SanTyped.SanTyAst.san_type) | Stringl -> Nativeint.size / 8
-    | Unit | Boolean -> 1
+    | (Ssize : SanTyped.SanTyAst.san_type) | Stringl ->
+        Nativeint.size / 8
+    | Unit | Boolean ->
+        1
 
   let alignmentof = sizeof
 
@@ -46,13 +51,15 @@ module Sizeof = struct
 
              let aligned = align acc_size comming_align in
              let new_align = max acc_align comming_align in
-             (aligned + comming_size, new_align))
+             (aligned + comming_size, new_align)
+           )
            (0, 1)
     in
     align size alignment
 
   let offset_of_tuple_index index san_types =
-    if index = 0 then 0
+    if index = 0 then
+      0
     else
       san_types
       |> List.mapi (fun i v -> (i - 1, v))
@@ -64,12 +71,15 @@ module Sizeof = struct
              let aligned = align acc_size comming_align in
              let new_align = max acc_align comming_align in
 
-             if found then acc
-             else if index = tindex then (aligned, new_align, true)
-             else (aligned + comming_size, new_align, found))
+             if found then
+               acc
+             else if index = tindex then
+               (aligned, new_align, true)
+             else
+               (aligned + comming_size, new_align, found)
+           )
            (0, 1, false)
-      |> function
-      | a, _, _ -> a
+      |> function a, _, _ -> a
 end
 
 module Args = struct
@@ -86,12 +96,15 @@ module Args = struct
   let pop_opt = function [] -> (None, []) | t :: q -> (Some t, q)
 
   let double_pop_opt = function
-    | ([] | _ :: []) as l -> (None, l)
-    | t :: t2 :: q -> (Some (t, t2), q)
+    | ([] | _ :: []) as l ->
+        (None, l)
+    | t :: t2 :: q ->
+        (Some (t, t2), q)
 
   let rec consume_args ~fregs ~iregs ~fargs ~iargs ~stacks_args ~fpstyle ttes =
     match ttes with
-    | [] -> (List.rev iargs, List.rev fargs, List.rev stacks_args)
+    | [] ->
+        (List.rev iargs, List.rev fargs, List.rev stacks_args)
     | t :: q -> (
         match fpstyle t with
         | Simple_Reg kind -> (
@@ -105,7 +118,8 @@ module Args = struct
                 | Some reg ->
                     consume_args ~fregs ~iregs:remain_reg ~fargs
                       ~iargs:((t, simple_return reg) :: iargs)
-                      ~stacks_args ~fpstyle q)
+                      ~stacks_args ~fpstyle q
+              )
             | Float -> (
                 let head_reg, freg_remain = pop_opt fregs in
                 match head_reg with
@@ -115,7 +129,9 @@ module Args = struct
                 | Some reg ->
                     consume_args ~fregs:freg_remain ~iregs
                       ~fargs:((t, simple_return reg) :: fargs)
-                      ~iargs ~stacks_args ~fpstyle q))
+                      ~iargs ~stacks_args ~fpstyle q
+              )
+          )
         | Double_Reg (lhs, rhs) -> (
             match (lhs, rhs) with
             | Float, Float -> (
@@ -126,7 +142,8 @@ module Args = struct
                 | fr1 :: fr2 :: remains ->
                     let arg = (t, double_return fr1 fr2) in
                     consume_args ~fregs:remains ~iregs ~fargs:(arg :: fargs)
-                      ~iargs ~fpstyle ~stacks_args:(t :: stacks_args) q)
+                      ~iargs ~fpstyle ~stacks_args:(t :: stacks_args) q
+              )
             | _ -> (
                 match fregs with
                 | [] | _ :: [] ->
@@ -136,7 +153,10 @@ module Args = struct
                     let arg = (t, double_return ir1 ir2) in
                     consume_args ~fregs ~iregs:remains ~fargs
                       ~iargs:(arg :: iargs) ~fpstyle
-                      ~stacks_args:(t :: stacks_args) q)))
+                      ~stacks_args:(t :: stacks_args) q
+              )
+          )
+      )
 
   let consume_args = consume_args ~fargs:[] ~iargs:[] ~stacks_args:[]
 end

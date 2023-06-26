@@ -38,12 +38,20 @@ let name = "cfg"
 let register_module = function
   | LKVM ->
       (module Bytecode.Register : KosuIrCfg.Asttaccfg.ABI_Large
-        with type variable = KosuIrCfg.Asttaccfg.Cfg_Sig_Impl.variable)
-  | LArm64 -> failwith "Not implemented yet"
-  | LX86_64 -> failwith "Not implemented yet"
+        with type variable = KosuIrCfg.Asttaccfg.Cfg_Sig_Impl.variable
+      )
+  | LArm64 ->
+      failwith "Not implemented yet"
+  | LX86_64 ->
+      failwith "Not implemented yet"
 
 let string_of_enum ?(splitter = "|") ?(quoted = false) enum =
-  let f = if quoted then Cmdliner.Arg.doc_quote else Fun.id in
+  let f =
+    if quoted then
+      Cmdliner.Arg.doc_quote
+    else
+      Fun.id
+  in
   enum |> List.map (fun (elt, _) -> f elt) |> String.concat splitter
 
 let cfg_type_enum =
@@ -60,7 +68,8 @@ let dot_term =
         ~doc:
           "invoke the $(b,dot) command and generate graph with $(docv) image \
            format"
-        [ "d"; "dot" ])
+        [ "d"; "dot" ]
+  )
 
 let target_arch_term =
   Arg.(
@@ -74,13 +83,16 @@ let target_arch_term =
                "If this environment variable is present, the architecture \
                 register set doesn't need to be explicitly set. See option \
                 $(b, --arch)"
-             architecture_global_variable)
-        ~doc:"architecture register set" [ "arch" ])
+             architecture_global_variable
+          )
+        ~doc:"architecture register set" [ "arch" ]
+  )
 
 let colored_term =
   Arg.(
     value & flag
-    & info ~doc:"Color the variable inference graph" [ "c"; "colored" ])
+    & info ~doc:"Color the variable inference graph" [ "c"; "colored" ]
+  )
 
 let module_term =
   Arg.(
@@ -92,19 +104,22 @@ let module_term =
            uppercase letter the module name is matched, otherwise it's the \
            filename with or without the \".kosu\" extension\n\
           \      "
-        [ "m"; "module" ])
+        [ "m"; "module" ]
+  )
 
 let infered_term =
   Arg.(
     value & flag
-    & info ~doc:"Generate the variable inference graph" [ "i"; "infered" ])
+    & info ~doc:"Generate the variable inference graph" [ "i"; "infered" ]
+  )
 
 let function_name_term =
   Arg.(
     value
     & opt (some string) None
     & info ~doc:"Generate graph for a the $(opt) function" ~docv:"function_name"
-        [ "f"; "function" ])
+        [ "f"; "function" ]
+  )
 
 let cfg_type_term =
   Arg.(
@@ -113,7 +128,8 @@ let cfg_type_term =
     & info
         ~docv:(string_of_enum cfg_type_enum)
         ~doc:"Precise which iteration of the cfg should be printed"
-        [ "t"; "type" ])
+        [ "t"; "type" ]
+  )
 
 let file_term =
   Arg.(non_empty & pos_all Arg.non_dir_file [] & info [] ~docv:"FILES")
@@ -135,7 +151,8 @@ let cmd_term run =
   in
   Term.(
     const combine $ dot_term $ target_arch_term $ colored_term $ cfg_type_term
-    $ infered_term $ function_name_term $ module_term $ file_term)
+    $ infered_term $ function_name_term $ module_term $ file_term
+  )
 
 let cfg_doc = "Visualise control flow graphs and inference graphs"
 
@@ -158,7 +175,11 @@ let cfg_man =
 
 let infered_name ~extension ~colored fn_name =
   Printf.sprintf "%s.infered%s.%s" fn_name
-    (if colored then ".colored" else "")
+    ( if colored then
+        ".colored"
+      else
+        ""
+    )
     extension
 
 let cfg_name ~extension ~ctype fn_name =
@@ -173,12 +194,18 @@ let target_file file_type format fn_name =
   match format with
   | None -> (
       match file_type with
-      | `Infered colored -> dot_infered_name ~colored fn_name
-      | `Cfg cfg_type -> dot_cfg_name ~ctype:cfg_type fn_name)
+      | `Infered colored ->
+          dot_infered_name ~colored fn_name
+      | `Cfg cfg_type ->
+          dot_cfg_name ~ctype:cfg_type fn_name
+    )
   | Some extension -> (
       match file_type with
-      | `Infered colored -> infered_name ~colored fn_name ~extension
-      | `Cfg cfg_type -> cfg_name ~ctype:cfg_type fn_name ~extension)
+      | `Infered colored ->
+          infered_name ~colored fn_name ~extension
+      | `Cfg cfg_type ->
+          cfg_name ~ctype:cfg_type fn_name ~extension
+    )
 
 let write_cfg cfg_type ~oc rprogram tac_function =
   match cfg_type with
@@ -204,7 +231,8 @@ let write_cfg cfg_type ~oc rprogram tac_function =
 let write_infered ~arch ~infered ~colored ~oc rprogram
     (tac_function : KosuIrTAC.Asttac.tac_function_decl) =
   match infered with
-  | false -> ()
+  | false ->
+      ()
   | true ->
       let livecfg =
         KosuIrCfg.Astcfgconv.cfg_liveness_of_tac_function rprogram tac_function
@@ -218,7 +246,8 @@ let write_infered ~arch ~infered ~colored ~oc rprogram
             ~fpstyle:KosuCommon.Function.kosu_passing_style
             ~color_map:Register.color_map
             ~available_color:Register.available_register
-        else KosuIrCfg.Astcfgpprint.export_infer_graph_of_cfg
+        else
+          KosuIrCfg.Astcfgpprint.export_infer_graph_of_cfg
       in
       transform ~outchan:oc livecfg ()
 
@@ -231,18 +260,22 @@ let export_from_san_function cmd rprogram
       in
       let () =
         Out_channel.with_open_bin outchan_name (fun oc ->
-            write_cfg cmd.cfg_type ~oc rprogram tac_function)
+            write_cfg cmd.cfg_type ~oc rprogram tac_function
+        )
       in
 
       match cmd.variable_infer with
-      | false -> ()
+      | false ->
+          ()
       | true ->
           let infered_ouchan =
             target_file (`Infered cmd.colored) cmd.dot tac_function.rfn_name
           in
           Out_channel.with_open_bin infered_ouchan (fun oc ->
               write_infered ~arch:cmd.arch ~infered:cmd.variable_infer
-                ~colored:cmd.colored ~oc rprogram tac_function))
+                ~colored:cmd.colored ~oc rprogram tac_function
+          )
+    )
   | Some export_format -> (
       let cfg_outname =
         target_file (`Cfg cmd.cfg_type) cmd.dot tac_function.rfn_name
@@ -255,7 +288,8 @@ let export_from_san_function cmd rprogram
           (Printf.sprintf "dot -T%s -o %s %s" export_format cfg_outname filename)
       in
       match cmd.variable_infer with
-      | false -> ()
+      | false ->
+          ()
       | true ->
           let infered_ouchan =
             target_file (`Infered cmd.colored) cmd.dot tac_function.rfn_name
@@ -271,9 +305,11 @@ let export_from_san_function cmd rprogram
           let _ =
             Sys.command
               (Printf.sprintf "dot -T%s -o %s %s" export_format infered_ouchan
-                 tmp_infered_filename)
+                 tmp_infered_filename
+              )
           in
-          ())
+          ()
+    )
 
 let cfg_main cmd =
   let open KosuIrTAC.Asttac in
@@ -300,19 +336,24 @@ let cfg_main cmd =
     |> List.find_map (fun { filename; tac_module_path; rprogram = _ } ->
            let capitalized = String.capitalize_ascii module_name in
            if module_name = capitalized then
-             if module_name <> tac_module_path.path then None
+             if module_name <> tac_module_path.path then
+               None
              else
                let (TacModule nodes) = tac_module_path.tac_module in
                Some nodes
            else
              let query_module =
-               if String.ends_with ~suffix:".kosu" module_name then module_name
-               else module_name ^ ".kosu"
+               if String.ends_with ~suffix:".kosu" module_name then
+                 module_name
+               else
+                 module_name ^ ".kosu"
              in
-             if query_module <> filename then None
+             if query_module <> filename then
+               None
              else
                let (TacModule nodes) = tac_module_path.tac_module in
-               Some nodes)
+               Some nodes
+       )
     |> Option.value ~default:[]
   in
   let filtered_function_in_module =
@@ -321,8 +362,12 @@ let cfg_main cmd =
            tac_nodes
            |> List.filter (fun node ->
                   match node with
-                  | TNFunction { rfn_name; _ } -> rfn_name = s
-                  | _ -> false))
+                  | TNFunction { rfn_name; _ } ->
+                      rfn_name = s
+                  | _ ->
+                      false
+              )
+       )
     |> Option.value ~default:tac_nodes
   in
   let function_decl_list =
@@ -333,7 +378,8 @@ let cfg_main cmd =
   let () =
     function_decl_list
     |> List.iter (fun (tac_function : tac_function_decl) ->
-           export_from_san_function cmd typed_program tac_function)
+           export_from_san_function cmd typed_program tac_function
+       )
   in
   ()
 

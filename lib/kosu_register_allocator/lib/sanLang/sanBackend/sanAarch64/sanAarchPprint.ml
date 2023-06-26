@@ -30,60 +30,106 @@ module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
   let string_of_condition_code =
     let open Condition_Code in
     function
-    | EQ -> "eq"
-    | NE -> "ne"
-    | CS -> "cs"
-    | CC -> "cc"
-    | MI -> "mi"
-    | PL -> "pl"
-    | VS -> "vs"
-    | VC -> "vc"
-    | HI -> "hi"
-    | LS -> "ls"
-    | GE -> "ge"
-    | LT -> "lt"
-    | GT -> "gt"
-    | LE -> "le"
-    | AL -> "al"
+    | EQ ->
+        "eq"
+    | NE ->
+        "ne"
+    | CS ->
+        "cs"
+    | CC ->
+        "cc"
+    | MI ->
+        "mi"
+    | PL ->
+        "pl"
+    | VS ->
+        "vs"
+    | VC ->
+        "vc"
+    | HI ->
+        "hi"
+    | LS ->
+        "ls"
+    | GE ->
+        "ge"
+    | LT ->
+        "lt"
+    | GT ->
+        "gt"
+    | LE ->
+        "le"
+    | AL ->
+        "al"
 
   let string_of_register register =
     let prefix = match register.size with SReg32 -> 'w' | SReg64 -> 'x' in
     let extension =
       match register.register with
-      | X0 -> "0"
-      | X1 -> "1"
-      | X2 -> "2"
-      | X3 -> "3"
-      | X4 -> "4"
-      | X5 -> "5"
-      | X6 -> "6"
-      | X7 -> "7"
-      | X8 -> "8"
-      | X9 -> "9"
-      | X10 -> "10"
-      | X11 -> "11"
-      | X12 -> "12"
-      | X13 -> "13"
-      | X14 -> "14"
-      | X15 -> "15"
-      | X16 -> "16"
-      | X29 -> "29"
-      | X30 -> "30"
-      | XZR -> "zr"
-      | SP -> "sp"
+      | X0 ->
+          "0"
+      | X1 ->
+          "1"
+      | X2 ->
+          "2"
+      | X3 ->
+          "3"
+      | X4 ->
+          "4"
+      | X5 ->
+          "5"
+      | X6 ->
+          "6"
+      | X7 ->
+          "7"
+      | X8 ->
+          "8"
+      | X9 ->
+          "9"
+      | X10 ->
+          "10"
+      | X11 ->
+          "11"
+      | X12 ->
+          "12"
+      | X13 ->
+          "13"
+      | X14 ->
+          "14"
+      | X15 ->
+          "15"
+      | X16 ->
+          "16"
+      | X29 ->
+          "29"
+      | X30 ->
+          "30"
+      | XZR ->
+          "zr"
+      | SP ->
+          "sp"
     in
     match register.register with
-    | SP when register.size = SReg64 -> extension
-    | _ -> sprintf "%c%s" prefix extension
+    | SP when register.size = SReg64 ->
+        extension
+    | _ ->
+        sprintf "%c%s" prefix extension
 
   let string_of_src : Operande.src -> string = function
-    | `ILitteral int64 -> Printf.sprintf "#%Ld" int64
-    | `Register reg -> string_of_register reg
-    | `Label label -> label
+    | `ILitteral int64 ->
+        Printf.sprintf "#%Ld" int64
+    | `Register reg ->
+        string_of_register reg
+    | `Label label ->
+        label
 
   let string_of_address_offset = function
-    | `Register reg -> Printf.sprintf ", %s" (string_of_register reg)
-    | `ILitteral f -> if f = 0L then "" else Printf.sprintf ", #%Ld" f
+    | `Register reg ->
+        Printf.sprintf ", %s" (string_of_register reg)
+    | `ILitteral f ->
+        if f = 0L then
+          ""
+        else
+          Printf.sprintf ", #%Ld" f
 
   let string_of_adressage adress_mode { base; offset } =
     match adress_mode with
@@ -114,7 +160,8 @@ module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
           (string_of_src operand)
           (shift
           |> Option.map (fun sh -> sprintf ", lsl %d" (value_of_shift sh))
-          |> Option.value ~default:"")
+          |> Option.value ~default:""
+          )
     | Not { destination; source } ->
         sprintf "mvn %s, %s"
           (string_of_register destination)
@@ -130,13 +177,21 @@ module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
               (string_of_register destination)
               (string_of_register operand1)
               (string_of_src operand2)
-              (if offset then "@PAGEOFF" else "")
+              ( if offset then
+                  "@PAGEOFF"
+                else
+                  ""
+              )
         | AsmSpec.Other ->
             sprintf "add %s, %s, %s"
               (string_of_register destination)
               (string_of_register operand1)
-              (if not offset then string_of_src operand2
-               else sprintf ":lo12:%s" (string_of_src operand2)))
+              ( if not offset then
+                  string_of_src operand2
+                else
+                  sprintf ":lo12:%s" (string_of_src operand2)
+              )
+      )
     | Sub { destination; operand1; operand2 } ->
         sprintf "sub %s, %s, %s"
           (string_of_register destination)
@@ -200,14 +255,16 @@ module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
         sprintf "ldr%s %s , %s"
           (data_size
           |> Option.map string_of_data_size
-          |> Option.value ~default:"")
+          |> Option.value ~default:""
+          )
           (string_of_register destination)
           (string_of_adressage address_mode address_src)
     | Str { data_size; source; address; address_mode } ->
         sprintf "str%s %s , %s"
           (data_size
           |> Option.map (fun ds -> string_of_data_size ds)
-          |> Option.value ~default:"")
+          |> Option.value ~default:""
+          )
           (string_of_register source)
           (string_of_adressage address_mode address)
     | Stp { x1; x2; address; adress_mode } ->
@@ -220,20 +277,25 @@ module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
         match AsmSpec.adrp_style with
         | AsmSpec.MacOS ->
             sprintf "adrp %s, %s@PAGE" (string_of_register dst) label
-        | AsmSpec.Other -> sprintf "adrp %s, %s" (string_of_register dst) label)
+        | AsmSpec.Other ->
+            sprintf "adrp %s, %s" (string_of_register dst) label
+      )
     | B { cc; label } ->
         sprintf "b%s %s"
           (cc
           |> Option.map (fun cc -> sprintf ".%s" (string_of_condition_code cc))
-          |> Option.value ~default:"")
+          |> Option.value ~default:""
+          )
           label
     | Bl { cc; label } ->
         sprintf "bl%s %s"
           (cc
           |> Option.map (fun cc -> sprintf ".%s" (string_of_condition_code cc))
-          |> Option.value ~default:"")
+          |> Option.value ~default:""
+          )
           label
-    | RET -> "ret"
+    | RET ->
+        "ret"
 
   let string_of_asm_line line =
     let open SanAarchCore.Line in
@@ -251,8 +313,10 @@ module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
           sprintf "\t%s %s %s" AsmSpec.comment_prefix s comment_content
       | Instruction i ->
           sprintf "\t%s %s" (string_of_instruction i) comment_style_content
-      | Label l -> sprintf "%s: %s" l comment_style_content
-      | Directive d -> sprintf "\t.%s %s" d comment_style_content
+      | Label l ->
+          sprintf "%s: %s" l comment_style_content
+      | Directive d ->
+          sprintf "\t.%s %s" d comment_style_content
     in
     sprintf "%s" line
 

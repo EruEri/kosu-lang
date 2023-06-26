@@ -15,7 +15,13 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-let asm_module_path = String.map (fun c -> if c = ':' then '_' else c)
+let asm_module_path =
+  String.map (fun c ->
+      if c = ':' then
+        '_'
+      else
+        c
+  )
 
 module type NamingSig = sig
   val label_prefix : string
@@ -26,6 +32,8 @@ module Make (N : NamingSig) = struct
   include N
 
   let label_of_function ~fn_name =
-    if fn_name = "main" then main
-    else Printf.sprintf "%s%s" label_prefix fn_name
+    if fn_name = "main" then
+      main
+    else
+      Printf.sprintf "%s%s" label_prefix fn_name
 end

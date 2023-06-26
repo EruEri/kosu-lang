@@ -18,8 +18,10 @@
 open Util.Args
 
 let kosu_passing_style_kt kt =
-  if KosuIrTyped.Asttyhelper.RType.is_float kt then Simple_Reg Float
-  else Simple_Reg Other
+  if KosuIrTyped.Asttyhelper.RType.is_float kt then
+    Simple_Reg Float
+  else
+    Simple_Reg Other
 
 let kosu_passing_style (_, kt) = kosu_passing_style_kt kt
 

@@ -63,7 +63,8 @@ module Immediat = struct
     ( Int64.shift_right_logical int64 48,
       Int64.shift_right_logical int48 32,
       Int64.shift_right_logical int32 16,
-      int16 )
+      int16
+    )
 end
 
 module ConditionCode = struct
@@ -86,10 +87,14 @@ module ConditionCode = struct
   let data_size_of_kt kt =
     let size = KosuIrTyped.Sizeof.sizeof_kt kt in
     match size with
-    | 1L -> SIZE_8
-    | 2L -> SIZE_16
-    | 4L -> SIZE_32
-    | _ -> SIZE_64
+    | 1L ->
+        SIZE_8
+    | 2L ->
+        SIZE_16
+    | 4L ->
+        SIZE_32
+    | _ ->
+        SIZE_64
 end
 
 module Register = struct
@@ -144,8 +149,10 @@ module Register = struct
   let compare = Stdlib.compare
 
   let is_float_register = function
-    | FR0 | FR1 | FR2 | FR3 | FR4 | FR5 | FR6 | FR7 | FR8 | FR9 | FR10 -> true
-    | _ -> false
+    | FR0 | FR1 | FR2 | FR3 | FR4 | FR5 | FR6 | FR7 | FR8 | FR9 | FR10 ->
+        true
+    | _ ->
+        false
 
   let caller_saved_register =
     [
@@ -186,7 +193,8 @@ module Register = struct
   let arguments_register variable =
     if KosuIrTyped.Asttyhelper.RType.is_float @@ snd variable then
       float_argument_registers
-    else non_float_argument_registers
+    else
+      non_float_argument_registers
 
   let syscall_register = [ R0; R1; R2; R3; R4; R5 ]
   let available_register = [ R8; R9; R10; R11; FR0; FR1; FR2 ]
@@ -218,16 +226,20 @@ module Register = struct
 
   let does_return_hold_in_register_kt kt =
     match KosuIrTyped.Sizeof.sizeof_kt kt with
-    | 1L | 2L | 4L | 8L -> true
-    | _ -> false
+    | 1L | 2L | 4L | 8L ->
+        true
+    | _ ->
+        false
 
   let does_return_hold_in_register variable =
     does_return_hold_in_register_kt @@ snd variable
 
   let return_strategy variable =
     match does_return_hold_in_register variable with
-    | true -> Simple_return R0
-    | false -> Indirect_return
+    | true ->
+        Simple_return R0
+    | false ->
+        Indirect_return
 
   let r0 = R0
   let r1 = R1
@@ -257,15 +269,20 @@ module Location = struct
     match adress.offset with
     | `ILitteral offset ->
         { adress with offset = `ILitteral (Int64.add offset off) }
-    | `Register _reg -> failwith "Increment register based address"
+    | `Register _reg ->
+        failwith "Increment register based address"
 
   let increment_location off = function
-    | LocAddr address -> loc_addr @@ increment_adress off address
-    | loc -> loc
+    | LocAddr address ->
+        loc_addr @@ increment_adress off address
+    | loc ->
+        loc
 
   let get_address = function
-    | LocAddr address -> address
-    | LocReg _ -> failwith "Location is register"
+    | LocAddr address ->
+        address
+    | LocReg _ ->
+        failwith "Location is register"
 end
 
 module Operande = struct
@@ -399,23 +416,31 @@ module LineInstruction = struct
       let int64, int48, int32, int16 = split n in
       let mvs = [ mv register @@ Operande.ilitteral int16 ] in
       let mvs =
-        if int32 = 0L then mvs
-        else mva register (Operande.ilitteral int32) ConditionCode.SH16 :: mvs
+        if int32 = 0L then
+          mvs
+        else
+          mva register (Operande.ilitteral int32) ConditionCode.SH16 :: mvs
       in
       let mvs =
-        if int48 = 0L then mvs
-        else mva register (Operande.ilitteral int48) ConditionCode.SH32 :: mvs
+        if int48 = 0L then
+          mvs
+        else
+          mva register (Operande.ilitteral int48) ConditionCode.SH32 :: mvs
       in
       let mvs =
-        if int64 = 0L then mvs
-        else mva register (Operande.ilitteral int64) ConditionCode.SH48 :: mvs
+        if int64 = 0L then
+          mvs
+        else
+          mva register (Operande.ilitteral int64) ConditionCode.SH48 :: mvs
       in
       instructions mvs
 
   let smv register src =
     match src with
-    | `Register _ -> sinstruction @@ mv register src
-    | `ILitteral n -> mv_integer register n
+    | `Register _ ->
+        sinstruction @@ mv register src
+    | `ILitteral n ->
+        mv_integer register n
 
   let lea_label destination ?module_path label =
     let label =
@@ -427,7 +452,8 @@ module LineInstruction = struct
 
   let ssub destination source (operande : Operande.src) =
     match operande with
-    | `Register _ -> sinstruction @@ sub destination source operande
+    | `Register _ ->
+        sinstruction @@ sub destination source operande
     | `ILitteral n when is_encodable VmConst.binop_immediat_size n ->
         sinstruction @@ sub destination source operande
     | `ILitteral n ->
@@ -440,7 +466,8 @@ module LineInstruction = struct
 
   let sadd destination source (operande : Operande.src) =
     match operande with
-    | `Register _ -> sinstruction @@ add destination source operande
+    | `Register _ ->
+        sinstruction @@ add destination source operande
     | `ILitteral n when is_encodable VmConst.binop_immediat_size n ->
         sinstruction @@ add destination source operande
     | `ILitteral n ->
@@ -461,8 +488,10 @@ module LineInstruction = struct
             let mov_int = mv_integer Register.r14 n in
             let address = Location.address_register address.base Register.r14 in
             let str_i = instruction @@ str data_size destination address in
-            mov_int @ [ str_i ])
-    | `Register _ -> instructions [ str data_size destination address ]
+            mov_int @ [ str_i ]
+      )
+    | `Register _ ->
+        instructions [ str data_size destination address ]
 
   let sldr data_size destination address =
     match address.offset with
@@ -474,24 +503,33 @@ module LineInstruction = struct
             let mov_int = mv_integer Register.r14 n in
             let address = Location.address_register address.base Register.r14 in
             let ldr_i = instruction @@ ldr data_size destination address in
-            mov_int @ [ ldr_i ])
-    | `Register _ -> instructions [ ldr data_size destination address ]
+            mov_int @ [ ldr_i ]
+      )
+    | `Register _ ->
+        instructions [ ldr data_size destination address ]
 
   let simple_copy register (address : address) ktype =
     let data_size = ConditionCode.data_size_of_kt ktype in
     sstr data_size register address
 
   let rec large_copy_size ~increment register address size =
-    if size < 0L then failwith "negative size to copy"
-    else if size = 0L then []
+    if size < 0L then
+      failwith "negative size to copy"
+    else if size = 0L then
+      []
     else
       let (data_size, offset) : ConditionCode.data_size * int64 =
         let open ConditionCode in
-        if size = 0L then (SIZE_8, 0L)
-        else if 1L <= size && size < 2L then (SIZE_8, 1L)
-        else if 2L <= size && size < 4L then (SIZE_16, 2L)
-        else if 4L <= size && size < 8L then (SIZE_32, 4L)
-        else (SIZE_64, 8L)
+        if size = 0L then
+          (SIZE_8, 0L)
+        else if 1L <= size && size < 2L then
+          (SIZE_8, 1L)
+        else if 2L <= size && size < 4L then
+          (SIZE_16, 2L)
+        else if 4L <= size && size < 8L then
+          (SIZE_32, 4L)
+        else
+          (SIZE_64, 8L)
       in
       let register_address = create_address ?offset:increment register in
 
@@ -513,8 +551,10 @@ module LineInstruction = struct
 
   let scopy register (address : address) ktype =
     match Register.does_return_hold_in_register_kt ktype with
-    | true -> simple_copy register address ktype
-    | false -> large_copy register address ktype
+    | true ->
+        simple_copy register address ktype
+    | false ->
+        large_copy register address ktype
 
   let scall_label label = instruction @@ br @@ `Label label
   let scall_reg reg = instruction @@ br @@ `Register reg
@@ -525,11 +565,15 @@ module LineInstruction = struct
 
   let smv_location ~lea ~data_size destination = function
     | LocReg reg ->
-        if destination = reg then []
-        else sinstruction @@ mv destination @@ Operande.iregister reg
+        if destination = reg then
+          []
+        else
+          sinstruction @@ mv destination @@ Operande.iregister reg
     | LocAddr address ->
-        if lea then slea_address destination address
-        else sldr data_size destination address
+        if lea then
+          slea_address destination address
+        else
+          sldr data_size destination address
 end
 
 module FrameManager = struct
@@ -549,16 +593,20 @@ module FrameManager = struct
     let open KosuIrTAC.Asttac in
     fun { locale_ty; locale } ->
       match locale with
-      | Locale s -> (s, locale_ty)
-      | Enum_Assoc_id { name; _ } -> (name, locale_ty)
+      | Locale s ->
+          (s, locale_ty)
+      | Enum_Assoc_id { name; _ } ->
+          (name, locale_ty)
 
   let location_of variable fd =
-    if List.mem variable fd.discarded_values then None
+    if List.mem variable fd.discarded_values then
+      None
     else
       match IdVarMap.find_opt variable fd.variable_map with
       | None ->
           Printf.sprintf "location of: %s failed" (fst variable) |> failwith
-      | Some _ as loc -> loc
+      | Some _ as loc ->
+          loc
 
   let frame_descriptor rprogram
       (function_decl : KosuIrTAC.Asttac.tac_function_decl) =
@@ -568,8 +616,11 @@ module FrameManager = struct
       Util.Args.consume_args ~fregs:Register.float_argument_registers
         ~iregs:Register.non_float_argument_registers
         ~fpstyle:(fun (_, kt) ->
-          if KosuIrTyped.Asttyhelper.RType.is_float kt then Simple_Reg Float
-          else Simple_Reg Other)
+          if KosuIrTyped.Asttyhelper.RType.is_float kt then
+            Simple_Reg Float
+          else
+            Simple_Reg Other
+        )
         function_decl.rparameters
     in
 
@@ -577,8 +628,11 @@ module FrameManager = struct
       iparas |> ( @ ) fparams
       |> List.map (fun (variable, return_kind) ->
              match return_kind with
-             | Simple_return reg -> (variable, reg)
-             | Double_return _ -> failwith "Unreachable")
+             | Simple_return reg ->
+                 (variable, reg)
+             | Double_return _ ->
+                 failwith "Unreachable"
+         )
     in
 
     let cfg =
@@ -594,7 +648,8 @@ module FrameManager = struct
     in
 
     let colored_graph =
-      if not need_ir then colored_graph
+      if not need_ir then
+        colored_graph
       else
         let colored_node =
           GreedyColoration.ColoredGraph.create_colored None indirect_return_vt
@@ -609,7 +664,8 @@ module FrameManager = struct
       |> List.sort (fun lhs rhs ->
              let lsize = KosuIrTyped.Sizeof.sizeof_kt lhs.locale_ty in
              let rsize = KosuIrTyped.Sizeof.sizeof_kt rhs.locale_ty in
-             compare rsize lsize)
+             compare rsize lsize
+         )
       |> List.map variable_of_tac_locale_variable
       |> List.append function_decl.rparameters
       |> List.fold_left
@@ -623,7 +679,9 @@ module FrameManager = struct
                  (* let () = Printf.printf "%s : %d\n" (fst variable) (Obj.magic color) in *)
                  let reg = Location.loc_reg color in
                  (IdVarMap.add variable reg acc_map, acc_stack_variable)
-             | None -> (acc_map, variable :: acc_stack_variable))
+             | None ->
+                 (acc_map, variable :: acc_stack_variable)
+           )
            (IdVarMap.empty, [])
     in
 
@@ -639,7 +697,8 @@ module FrameManager = struct
              in
              let address = Location.increment_adress offset base_address in
              let loc_adrress = Location.loc_addr address in
-             (address, IdVarMap.add variable loc_adrress acc_map))
+             (address, IdVarMap.add variable loc_adrress acc_map)
+           )
            (base_address, variable_map)
       |> snd
     in
@@ -687,21 +746,30 @@ module FrameManager = struct
       Util.Args.consume_args ~fregs:Register.float_argument_registers
         ~iregs:Register.non_float_argument_registers
         ~fpstyle:(fun (_, kt) ->
-          if KosuIrTyped.Asttyhelper.RType.is_float kt then Simple_Reg Float
-          else Simple_Reg Other)
+          if KosuIrTyped.Asttyhelper.RType.is_float kt then
+            Simple_Reg Float
+          else
+            Simple_Reg Other
+        )
         function_decl.rparameters
     in
     let store_value_instructions =
       iparas |> ( @ ) fparams
       |> List.filter_map (fun (variable, return_kind) ->
              match return_kind with
-             | Double_return _ -> failwith "Unreachable"
+             | Double_return _ ->
+                 failwith "Unreachable"
              | Simple_return reg -> (
                  match location_of variable fd with
-                 | Some (LocReg _) | None -> None
-                 | Some (LocAddr address) -> Some (variable, reg, address)))
+                 | Some (LocReg _) | None ->
+                     None
+                 | Some (LocAddr address) ->
+                     Some (variable, reg, address)
+               )
+         )
       |> List.map (fun (variable, reg, address) ->
-             LineInstruction.scopy reg address @@ snd variable)
+             LineInstruction.scopy reg address @@ snd variable
+         )
       |> List.flatten
     in
     sub_sp_instructions @ str_rap @ str_fp @ align_fp_instructions

@@ -54,7 +54,8 @@ let dot_diagrah_of_cfg_basic (cfg : Basic.cfg) =
       |> List.map (fun (_, bbl) ->
              diagraph_node_of_basic_block ~in_vars:TypedIdentifierSet.empty
                ~out_vars:TypedIdentifierSet.empty ~func:string_of_cfg_statement
-               bbl);
+               bbl
+         );
   }
 
 let dot_diagrah_of_cfg_detail (cfg : Detail.cfg_detail) =
@@ -65,7 +66,8 @@ let dot_diagrah_of_cfg_detail (cfg : Detail.cfg_detail) =
       |> List.map (fun (_, bbl) ->
              diagraph_node_of_basic_block ~in_vars:bbl.in_vars
                ~out_vars:bbl.out_vars ~func:string_of_cfg_statement
-               bbl.basic_block);
+               bbl.basic_block
+         );
   }
 
 let dot_diagrah_of_cfg_liveness (cfg : Liveness.cfg_liveness_detail) =
@@ -76,7 +78,8 @@ let dot_diagrah_of_cfg_liveness (cfg : Liveness.cfg_liveness_detail) =
       |> List.map (fun (_, bbl) ->
              diagraph_node_of_basic_block ~in_vars:bbl.in_vars
                ~out_vars:bbl.out_vars ~func:string_of_cfg_liveness_statement
-               { bbl.basic_block with ending = fst bbl.basic_block.ending });
+               { bbl.basic_block with ending = fst bbl.basic_block.ending }
+         );
   }
 
 let quoted = Printf.sprintf "\"%s\""
@@ -88,8 +91,11 @@ let escape ~chars s =
     s
     |> String.iter (fun c ->
            match List.mem c chars with
-           | false -> Buffer.add_char buffer c
-           | true -> Printf.bprintf buffer "\\%c" c)
+           | false ->
+               Buffer.add_char buffer c
+           | true ->
+               Printf.bprintf buffer "\\%c" c
+       )
   in
   buffer |> Buffer.to_bytes |> Bytes.to_string
 
@@ -107,8 +113,11 @@ let export_colored_graph ~outchan ~color_map ~available_color
     other_parameters |> ( @ ) float_parameters
     |> List.map (fun (variable, return_kind) ->
            match return_kind with
-           | SanCommon.Args.Simple_return reg -> (variable, reg)
-           | SanCommon.Args.Double_return _ -> failwith "Unreachable")
+           | SanCommon.Args.Simple_return reg ->
+               (variable, reg)
+           | SanCommon.Args.Double_return _ ->
+               failwith "Unreachable"
+       )
   in
 
   let graph = GreedyColoring.coloration ~parameters ~available_color cfg in
@@ -122,12 +131,15 @@ let export_colored_graph ~outchan ~color_map ~available_color
     |> List.iter (fun (node, _) ->
            Printf.fprintf outchan "\t%s [color=%s]\n"
              (node.node |> SanCommon.Cfg_Sig.repr |> quoted)
-             (match node.color with
-             | None -> "black"
+             ( match node.color with
+             | None ->
+                 "black"
              | Some c ->
                  color_map |> List.assoc_opt c
                  |> Option.value ~default:"white"
-                 |> quoted))
+                 |> quoted
+             )
+       )
   in
   let () =
     bindings
@@ -136,8 +148,11 @@ let export_colored_graph ~outchan ~color_map ~available_color
              (node.node |> SanCommon.Cfg_Sig.repr |> quoted)
              (edges
              |> List.map (fun node ->
-                    node.node |> SanCommon.Cfg_Sig.repr |> quoted)
-             |> String.concat " "))
+                    node.node |> SanCommon.Cfg_Sig.repr |> quoted
+                )
+             |> String.concat " "
+             )
+       )
   in
 
   let () = Printf.fprintf outchan "}" in
@@ -157,8 +172,11 @@ let export_infer_graph_of_cfg ~outchan (cfg : Liveness.cfg_liveness_detail) () =
              (node |> SanCommon.CfgPprint.string_of_variable |> quoted)
              (edges
              |> List.map (fun node ->
-                    node |> SanCommon.CfgPprint.string_of_variable |> quoted)
-             |> String.concat " "))
+                    node |> SanCommon.CfgPprint.string_of_variable |> quoted
+                )
+             |> String.concat " "
+             )
+       )
   in
   let () = Printf.fprintf outchan "}" in
   ()
@@ -181,10 +199,13 @@ let string_of_dot_graph ~out graph =
                (string_of_typed_indentifier_set din_vars)
                name
                (elements |> String.concat "\n" |> String.escaped
-               |> escape ~chars:dot_chars_to_escape)
+               |> escape ~chars:dot_chars_to_escape
+               )
                (ending |> Option.map (( ^ ) "\\n") |> Option.value ~default:"")
-               (string_of_typed_indentifier_set dout_vars))
-      |> String.concat "\n")
+               (string_of_typed_indentifier_set dout_vars)
+         )
+      |> String.concat "\n"
+      )
   in
   let () = Printf.fprintf out "\n" in
   let () =
@@ -193,8 +214,10 @@ let string_of_dot_graph ~out graph =
       |> List.map (fun (name, link_to) ->
              link_to
              |> List.map (fun link -> sprintf "\"%s\" -- \"%s\";" name link)
-             |> String.concat "\n\t")
-      |> String.concat "\n\t")
+             |> String.concat "\n\t"
+         )
+      |> String.concat "\n\t"
+      )
   in
   let () = Printf.fprintf out "\n\n}" in
   ()

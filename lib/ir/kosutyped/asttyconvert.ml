@@ -43,45 +43,65 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
           }
     | TType_Identifier { module_path; name } ->
         RTType_Identifier { module_path = module_path.v; name = name.v }
-    | TInteger (sign, size) -> RTInteger (sign, size)
-    | TPointer kt -> RTPointer (kt.v |> from_ktype)
+    | TInteger (sign, size) ->
+        RTInteger (sign, size)
+    | TPointer kt ->
+        RTPointer (kt.v |> from_ktype)
     | TTuple kts ->
         RTTuple (kts |> List.map (fun kt -> kt |> Position.value |> from_ktype))
     | TFunction (parameters, return_type) ->
         RTFunction
           ( parameters |> List.map (fun kt -> kt |> Position.value |> from_ktype),
-            return_type |> Position.value |> from_ktype )
-    | TString_lit -> RTString_lit
-    | TFloat fsize -> RTFloat fsize
-    | TBool -> RTBool
-    | TOredered -> RTOrdered
-    | TUnit -> RTUnit
-    | TChar -> RTChar
-    | TUnknow -> RTUnknow
+            return_type |> Position.value |> from_ktype
+          )
+    | TString_lit ->
+        RTString_lit
+    | TFloat fsize ->
+        RTFloat fsize
+    | TBool ->
+        RTBool
+    | TOredered ->
+        RTOrdered
+    | TUnit ->
+        RTUnit
+    | TChar ->
+        RTChar
+    | TUnknow ->
+        RTUnknow
     | TArray info ->
         RTArray { size = info.size.v; rktype = from_ktype info.ktype.v }
 
   let rec to_ktype =
     let open Position in
     function
-    | RTUnknow -> TUnknow
-    | RTFloat fsize -> TFloat fsize
-    | RTBool -> TBool
-    | RTUnit -> TUnit
-    | RTOrdered -> TOredered
-    | RTChar -> TChar
-    | RTString_lit -> TString_lit
+    | RTUnknow ->
+        TUnknow
+    | RTFloat fsize ->
+        TFloat fsize
+    | RTBool ->
+        TBool
+    | RTUnit ->
+        TUnit
+    | RTOrdered ->
+        TOredered
+    | RTChar ->
+        TChar
+    | RTString_lit ->
+        TString_lit
     | RTArray { size; rktype } ->
         TArray { size = val_dummy size; ktype = val_dummy @@ to_ktype rktype }
-    | RTInteger (sign, size) -> TInteger (sign, size)
-    | RTPointer rkt -> TPointer { v = to_ktype rkt; position = dummy }
+    | RTInteger (sign, size) ->
+        TInteger (sign, size)
+    | RTPointer rkt ->
+        TPointer { v = to_ktype rkt; position = dummy }
     | RTTuple rkts ->
         TTuple
           (rkts |> List.map (fun rkt -> { v = to_ktype rkt; position = dummy }))
     | RTFunction (parameters, return_type) ->
         TFunction
           ( parameters |> List.map (fun kt -> val_dummy @@ to_ktype kt),
-            val_dummy @@ to_ktype return_type )
+            val_dummy @@ to_ktype return_type
+          )
     | RTType_Identifier { module_path; name } ->
         TType_Identifier
           { module_path = val_dummy module_path; name = val_dummy name }
@@ -114,7 +134,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
           |> typeof
                ~constraint_type:(Option.some @@ to_ktype hint_type)
                ~generics_resolver env current_mod_name prog
-          |> from_ktype)
+          |> from_ktype
+          )
           hint_type;
       rexpression =
         from_kexpression ~generics_resolver env current_mod_name prog ~hint_type
@@ -124,7 +145,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
   and rkbody_of_kbody ~generics_resolver (env : Env.t) current_module
       (program : module_path list) ~return_type
       ( (kstatements : Ast.kstatement Position.location list),
-        (kexpression : kexpression Position.location) ) =
+        (kexpression : kexpression Position.location)
+      ) =
     let open Position in
     match kstatements with
     | kstatement :: q -> (
@@ -152,8 +174,10 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
             in
             let variable_type =
               match explicit_type with
-              | None -> type_of_expression
-              | Some explicit_type -> explicit_type.v
+              | None ->
+                  type_of_expression
+              | Some explicit_type ->
+                  explicit_type.v
             in
             let typed_expression =
               typed_expression_of_kexpression ~generics_resolver env
@@ -172,7 +196,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
             ( RSDeclaration
                 { is_const; variable_name = variable_name.v; typed_expression }
               :: stmts_remains,
-              future_expr )
+              future_expr
+            )
         | SAffection (AFVariable variable, expression) ->
             let var_kt =
               env
@@ -189,7 +214,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
             in
             ( RSAffection (RAFVariable (variable.v, var_kt), typed_expression)
               :: stmts_remains,
-              future_expr )
+              future_expr
+            )
         | SAffection (AFField { variable; fields }, expression) ->
             let first_expr_type =
               env
@@ -215,9 +241,11 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                       variable = (variable.v, from_ktype first_expr_type);
                       fields = fields |> List.map Position.value;
                     },
-                  typed_expression )
+                  typed_expression
+                )
               :: stmts_remains,
-              future_expr )
+              future_expr
+            )
         | SDerefAffectation (AFVariable id, expression) ->
             let { is_const = _; ktype } =
               env |> Env.find_identifier_opt id.v |> Option.get
@@ -227,7 +255,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               Type.restrict_type pointee
                 (expression
                 |> typeof ~constraint_type:(Some pointee) ~generics_resolver env
-                     current_module program)
+                     current_module program
+                )
             in
             let rktype = from_ktype ktype in
             let stmts_remains, future_expr =
@@ -241,7 +270,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
             ( RSDerefAffectation
                 (RAFVariable (id.v, from_ktype ktype), typed_expression)
               :: stmts_remains,
-              future_expr )
+              future_expr
+            )
         | SDerefAffectation (AFField { variable; fields }, expression) ->
             let { is_const = _; ktype } =
               env |> Env.find_identifier_opt variable.v |> Option.get
@@ -266,9 +296,12 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                       variable = (variable.v, from_ktype ktype);
                       fields = fields |> List.map Position.value;
                     },
-                  typed_expression )
+                  typed_expression
+                )
               :: stmts_remains,
-              future_expr ))
+              future_expr
+            )
+      )
     | [] ->
         let rktype =
           match return_type with
@@ -277,7 +310,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               |> typeof ~constraint_type:None ~generics_resolver env
                    current_module program
               |> from_ktype
-          | kt -> kt
+          | kt ->
+              kt
         in
         let typed_ex =
           {
@@ -293,29 +327,43 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
       ?(hint_type = RTUnknow) =
     let open Position in
     function
-    | Empty -> REmpty
-    | True -> RTrue
-    | False -> RFalse
-    | ECmpEqual -> RECmpEqual
-    | ECmpGreater -> RECmpGreater
-    | ECmpLess -> RECmpLess
-    | ENullptr -> RENullptr
-    | EChar c -> REChar c
-    | EInteger (sign, size, value) -> REInteger (sign, size, value)
-    | EFloat float -> REFloat float
+    | Empty ->
+        REmpty
+    | True ->
+        RTrue
+    | False ->
+        RFalse
+    | ECmpEqual ->
+        RECmpEqual
+    | ECmpGreater ->
+        RECmpGreater
+    | ECmpLess ->
+        RECmpLess
+    | ENullptr ->
+        RENullptr
+    | EChar c ->
+        REChar c
+    | EInteger (sign, size, value) ->
+        REInteger (sign, size, value)
+    | EFloat float ->
+        REFloat float
     | ESizeof either ->
         let ktype =
           match either with
-          | Either.Left ktype -> ktype.v
+          | Either.Left ktype ->
+              ktype.v
           | Either.Right kexpression ->
               typeof ~constraint_type:None ~generics_resolver env current_module
                 program kexpression
         in
         let rktype = from_ktype ktype in
         RESizeof rktype
-    | EString s -> REstring s
-    | EAdress e -> REAdress e.v
-    | EDeference (c, id) -> REDeference (c, id.v)
+    | EString s ->
+        REstring s
+    | EAdress e ->
+        REAdress e.v
+    | EDeference (c, id) ->
+        REDeference (c, id.v)
     | EIdentifier { modules_path; identifier } ->
         REIdentifier
           { modules_path = modules_path.v; identifier = identifier.v }
@@ -345,7 +393,9 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               |> List.map (fun (field, expr) ->
                      ( field.v,
                        typed_expression_of_kexpression ~generics_resolver env
-                         current_module program expr ));
+                         current_module program expr
+                     )
+                 );
           }
     | EEnum { modules_path; enum_name; variant; assoc_exprs } ->
         REEnum
@@ -357,14 +407,17 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               assoc_exprs
               |> List.map
                    (typed_expression_of_kexpression ~generics_resolver env
-                      current_module program);
+                      current_module program
+                   );
           }
     | ETuple exprs ->
         RETuple
           (exprs
           |> List.map
                (typed_expression_of_kexpression ~generics_resolver env
-                  current_module program))
+                  current_module program
+               )
+          )
     | EArray exprs ->
         let hint =
           match hint_type with RTArray info -> info.rktype | _ -> RTUnknow
@@ -373,7 +426,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
           (exprs
           |> List.map
              @@ typed_expression_of_kexpression ~hint_type:hint
-                  ~generics_resolver env current_module program)
+                  ~generics_resolver env current_module program
+          )
     | EBuiltin_Function_call { fn_name; parameters } ->
         REBuiltin_Function_call
           {
@@ -385,7 +439,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               parameters
               |> List.map
                    (typed_expression_of_kexpression ~generics_resolver env
-                      current_module program);
+                      current_module program
+                   );
           }
     | EWhile (condition, body) ->
         let typed_condition =
@@ -408,7 +463,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               current_module program ~return_type:hint_type if_block,
             rkbody_of_kbody ~generics_resolver
               (env |> Env.push_context [])
-              current_module program ~return_type:hint_type else_block )
+              current_module program ~return_type:hint_type else_block
+          )
     | ECases { cases; else_case } ->
         RECases
           {
@@ -420,7 +476,9 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                        kbody
                        |> rkbody_of_kbody ~generics_resolver
                             (env |> Env.push_context [])
-                            current_module ~return_type:hint_type program ));
+                            current_module ~return_type:hint_type program
+                     )
+                 );
             else_case =
               else_case
               |> rkbody_of_kbody ~generics_resolver
@@ -443,9 +501,10 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                             {
                               variant = variant.v;
                               assoc_ids =
-                                assoc_ids
-                                |> List.map (Option.map Position.value);
-                            }))
+                                assoc_ids |> List.map (Option.map Position.value);
+                            }
+                      )
+             )
         in
         let expr_type =
           typeof ~constraint_type:None ~generics_resolver env current_module
@@ -461,8 +520,10 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               ~ktype_def_path:module_path ~ktype_name:name ~current_module
               program
           with
-          | Ok (Type_Decl.Decl_Enum e) -> e
-          | _ -> failwith "Wierd it supposed to be an enum"
+          | Ok (Type_Decl.Decl_Enum e) ->
+              e
+          | _ ->
+              failwith "Wierd it supposed to be an enum"
         in
         let generics_mapped =
           expr_type |> Ast.Type.extract_parametrics_ktype
@@ -487,10 +548,13 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                           let assoc_binding = assoc_binding sc in
                           ( variant_name,
                             assoc_types |> List.combine assoc_binding
-                            |> List.mapi (fun index (v, l) -> (index, v, l)) ))
+                            |> List.mapi (fun index (v, l) -> (index, v, l))
+                          )
+                      )
                  in
                  match combine_binding_type with
-                 | [] -> failwith "Unreachable case: empty case"
+                 | [] ->
+                     failwith "Unreachable case: empty case"
                  | (first_variant, ass_bin) :: q ->
                      let new_conext =
                        q
@@ -502,7 +566,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                               match
                                 Ast.Type.find_field_error acc reduced_binding
                               with
-                              | None -> acc
+                              | None ->
+                                  acc
                               | Some (`diff_binding_name (lhs, rhs)) ->
                                   Incompatible_Binding_Name
                                     {
@@ -528,7 +593,9 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                               | Some
                                   (`diff_binding_index
                                     ( (base_index, base_bound_id),
-                                      (wrong_index, wrong_bound_id) )) ->
+                                      (wrong_index, wrong_bound_id)
+                                    )
+                                    ) ->
                                   Incompatible_Binding_Position
                                     {
                                       base_index;
@@ -538,13 +605,18 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                                       wrong_variant = variant_name;
                                       wrong_bound_id;
                                     }
-                                  |> switch_error |> raise)
+                                  |> switch_error |> raise
+                            )
                             (reduce_binded_variable_combine ass_bin)
                        |> List.map (fun (i, variable_name, ktype) ->
                               ( i,
                                 ( variable_name,
-                                  ({ is_const = true; ktype = ktype.v }
-                                    : Env.variable_info) ) ))
+                                  ( { is_const = true; ktype = ktype.v }
+                                    : Env.variable_info
+                                    )
+                                )
+                              )
+                          )
                      in
                      let new_variable_info = new_conext |> List.split |> snd in
                      ( new_conext,
@@ -552,8 +624,12 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                          (env
                          |> Env.push_context
                               (new_variable_info
-                              |> List.map Position.assoc_value_left))
-                         current_module program ~return_type:hint_type kb ))
+                              |> List.map Position.assoc_value_left
+                              )
+                         )
+                         current_module program ~return_type:hint_type kb
+                     )
+             )
           |> List.split
         in
         let bound_variables =
@@ -562,7 +638,10 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                (List.map (fun (index, (bound_varn, variable_info)) ->
                     ( index,
                       bound_varn.v,
-                      variable_info |> Env.vi_ktype |> from_ktype )))
+                      variable_info |> Env.vi_ktype |> from_ktype
+                    )
+                )
+               )
         in
         let cases =
           rkbodys
@@ -581,7 +660,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               |> Option.map
                    (rkbody_of_kbody ~generics_resolver
                       (env |> Env.push_context [])
-                      current_module ~return_type:hint_type program);
+                      current_module ~return_type:hint_type program
+                   );
           }
     | EFunction_call
         { modules_path; generics_resolver = grc; fn_name; parameters } -> (
@@ -602,7 +682,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               parameters
               |> List.map
                    (typed_expression_of_kexpression ~generics_resolver env
-                      current_module program)
+                      current_module program
+                   )
             in
             let mapped =
               List.map2 restrict_typed_expression sys_rktype_parameters
@@ -628,13 +709,17 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                 |> List.mapi (fun i expr ->
                        ( i,
                          typed_expression_of_kexpression ~generics_resolver env
-                           current_module program expr ))
+                           current_module program expr
+                       )
+                   )
                 |> List.partition (fun (index, _) ->
-                       index < known_parameters_len)
+                       index < known_parameters_len
+                   )
                 |> fun (mappable, variadic) ->
                 List.map2
                   (fun rktype (i, typed_expr) ->
-                    (i, restrict_typed_expression rktype typed_expr))
+                    (i, restrict_typed_expression rktype typed_expr)
+                  )
                   external_rktype_parameters mappable
                 @ variadic
                 |> List.map snd
@@ -647,7 +732,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                   parameters
                   |> List.map
                        (typed_expression_of_kexpression ~generics_resolver env
-                          current_module program)
+                          current_module program
+                       )
                 in
                 List.map2 restrict_typed_expression external_rktype_parameters
                   typed_parameters
@@ -674,7 +760,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               |> List.map
                    (typed_expression_of_kexpression
                       ~generics_resolver:new_map_generics env current_module
-                      program)
+                      program
+                   )
             in
 
             let hashmap =
@@ -686,13 +773,15 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               List.iter2
                 (fun { rktype; _ } param ->
                   let _ = RType.update_generics hashmap rktype param () in
-                  ())
+                  ()
+                )
                 typed_parameters function_rktype_param
             in
             let typed_parameters =
               kosu_function.parameters
               |> List.map (fun (_, { v = kt; _ }) ->
-                     kt |> from_ktype |> RType.remap_generic_ktype hashmap)
+                     kt |> from_ktype |> RType.remap_generic_ktype hashmap
+                 )
               |> List.map2
                    (fun typed_exp kt -> restrict_typed_expression kt typed_exp)
                    typed_parameters
@@ -706,23 +795,28 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                        (List.map (fun kt -> from_ktype @@ Position.value kt));
                 fn_name = fn_name.v;
                 parameters = typed_parameters;
-              })
+              }
+      )
     | EUn_op (UMinus expression) ->
         let typed =
           typed_expression_of_kexpression ~generics_resolver env current_module
             program expression
         in
 
-        if typed.rktype |> RType.is_builtin_type then REUn_op (RUMinus typed)
-        else REUnOperator_Function_call (RUMinus typed)
+        if typed.rktype |> RType.is_builtin_type then
+          REUn_op (RUMinus typed)
+        else
+          REUnOperator_Function_call (RUMinus typed)
     | EUn_op (UNot expression) ->
         let typed =
           typed_expression_of_kexpression ~generics_resolver env current_module
             program expression
         in
         let runot = RUNot typed in
-        if typed.rktype |> RType.is_builtin_type then REUn_op runot
-        else REUnOperator_Function_call runot
+        if typed.rktype |> RType.is_builtin_type then
+          REUn_op runot
+        else
+          REUnOperator_Function_call runot
     | EBin_op binop ->
         let rkbin =
           match binop with
@@ -921,8 +1015,10 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
         if
           lhs.rktype |> RType.is_builtin_type |> not
           || rhs.rktype |> RType.is_builtin_type |> not
-        then REBinOperator_Function_call rkbin
-        else REBin_op rkbin
+        then
+          REBinOperator_Function_call rkbin
+        else
+          REBin_op rkbin
 
   and from_module_node current_module (prog : module_path list) =
     let open Position in
@@ -935,7 +1031,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
             rfields =
               fields
               |> List.map (fun (field, ktype) ->
-                     (field.v, ktype |> Position.value |> from_ktype));
+                     (field.v, ktype |> Position.value |> from_ktype)
+                 );
           }
     | NEnum { enum_name; generics; variants } ->
         RNEnum
@@ -948,7 +1045,10 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                      ( variant.v,
                        assoc_ktype
                        |> List.map (fun lkt ->
-                              lkt |> Position.value |> from_ktype) ));
+                              lkt |> Position.value |> from_ktype
+                          )
+                     )
+                 );
           }
     | NOperator (Unary { op; field = field, ktype; return_type; kbody }) ->
         let empty_env = Env.create_empty_env in
@@ -961,11 +1061,13 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                kbody =
                  rkbody_of_kbody ~generics_resolver:(Hashtbl.create 0)
                    (empty_env
-                   |> Env.add_fn_parameters ~const:true (field.v, ktype.v))
+                   |> Env.add_fn_parameters ~const:true (field.v, ktype.v)
+                   )
                    current_module prog
                    ~return_type:(return_type.v |> from_ktype)
                    kbody;
-             })
+             }
+          )
     | NOperator
         (Binary
           {
@@ -973,7 +1075,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
             fields = (field1, ktype1), (field2, ktype2);
             return_type;
             kbody;
-          }) ->
+          }
+          ) ->
         let env =
           Env.create_empty_env
           |> Env.add_fn_parameters ~const:true (field1.v, ktype1.v)
@@ -985,14 +1088,16 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                op = ParBinOp op.v;
                rbfields =
                  ( (field1.v, from_ktype ktype1.v),
-                   (field2.v, from_ktype ktype2.v) );
+                   (field2.v, from_ktype ktype2.v)
+                 );
                return_type = return_type |> Position.value |> from_ktype;
                kbody =
                  rkbody_of_kbody ~generics_resolver:(Hashtbl.create 0) env
                    current_module prog
                    ~return_type:(return_type.v |> from_ktype)
                    kbody;
-             })
+             }
+          )
     | NConst const_decl ->
         let generics_resolver = Hashtbl.create 0 in
         RNConst
@@ -1034,7 +1139,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
           parameters
           |> List.fold_left
                (fun acc (para_name, ktype) ->
-                 acc |> Env.add_fn_parameters ~const:false (para_name.v, ktype.v))
+                 acc |> Env.add_fn_parameters ~const:false (para_name.v, ktype.v)
+               )
                Env.create_empty_env
         in
         let rfuntion =
@@ -1045,7 +1151,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
             rparameters =
               parameters
               |> List.map (fun (lf, lkt) ->
-                     (lf.v, lkt |> Position.value |> from_ktype));
+                     (lf.v, lkt |> Position.value |> from_ktype)
+                 );
             return_type = from_ktype return_type.v;
             rbody =
               rkbody_of_kbody ~generics_resolver env current_module prog
@@ -1064,7 +1171,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
       rmodule =
         RModule
           (module_nodes
-          |> List.map (fun mn -> from_module_node path module_path_list mn));
+          |> List.map (fun mn -> from_module_node path module_path_list mn)
+          );
     }
 
   and from_program (program : Ast.program) : rprogram =
@@ -1077,7 +1185,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                  from_module_path
                    (program |> Asthelper.Program.to_module_path_list)
                    module_path;
-             })
+             }
+         )
     in
     let specialised_functions =
       rprogram |> Asttyhelper.RProgram.specialise

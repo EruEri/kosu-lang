@@ -36,12 +36,15 @@ let compile_asm_readable ?outfile tac_rpogram =
            let () =
              asm_nodes
              |> List.iter (fun node ->
-                    Printf.fprintf file "%s\n" (string_of_asm_node node))
+                    Printf.fprintf file "%s\n" (string_of_asm_node node)
+                )
            in
-           ())
+           ()
+       )
   in
   match outfile with
-  | Some file -> Out_channel.with_open_bin file on_file_function
+  | Some file ->
+      Out_channel.with_open_bin file on_file_function
   | None ->
       let _, outchan = Filename.open_temp_file "a.kosu.bc" ".s" in
       let () = on_file_function outchan in

@@ -34,19 +34,23 @@ module Cfg_Sig = struct
 
   let is_affectation tysr =
     match tysr.san_rvalue with
-    | TyRVDiscard _ | TYRVLater _ -> false
-    | _ -> true
+    | TyRVDiscard _ | TYRVLater _ ->
+        false
+    | _ ->
+        true
 
   let ttrv_identifiers_used tysr =
     match tysr.san_rvalue with
-    | TyRVExpr ty_atom | TYRVUnary { ty_atom; _ } -> tte_idenfier_used ty_atom
+    | TyRVExpr ty_atom | TYRVUnary { ty_atom; _ } ->
+        tte_idenfier_used ty_atom
     | TYRVBinary { tylhs; tyrhs; _ } ->
         let lgerenated = tte_idenfier_used tylhs in
         let rgenerated = tte_idenfier_used tyrhs in
         lgerenated @ rgenerated
     | TyRVFunctionCall { parameters; _ } ->
         parameters |> List.map tte_idenfier_used |> List.flatten
-    | TyRVDiscard _ | TYRVLater _ -> []
+    | TyRVDiscard _ | TYRVLater _ ->
+        []
 
   let variables_as_parameter tysr =
     match tysr.san_rvalue with
@@ -56,11 +60,15 @@ module Cfg_Sig = struct
              (fun (index, acc) tte ->
                let next_index = index + 1 in
                match tte_idenfier_used tte with
-               | t :: [] -> (next_index, (t, index) :: acc)
-               | [] | _ :: _ -> (next_index, acc))
+               | t :: [] ->
+                   (next_index, (t, index) :: acc)
+               | [] | _ :: _ ->
+                   (next_index, acc)
+             )
              (0, [])
         |> snd |> List.rev |> Option.some
-    | _ -> None
+    | _ ->
+        None
 end
 
 module CfgPprint = struct
@@ -91,7 +99,8 @@ module Conv = struct
   let cfg_ending_of_san_ending =
     let open Basic in
     function
-    | TySE_return atom -> Bbe_return atom
+    | TySE_return atom ->
+        Bbe_return atom
     | TYSE_If { expr; if_label; else_label } ->
         BBe_if { condition = expr; if_label; else_label }
 
@@ -104,23 +113,29 @@ module Conv = struct
     let cfg_ending = ending |> Option.map cfg_ending_of_san_ending in
     let followed_by =
       match next_block with
-      | None -> []
-      | Some san_block -> san_block.label :: []
+      | None ->
+          []
+      | Some san_block ->
+          san_block.label :: []
     in
     let followed_by =
       match ending with
-      | Some (TySE_return _) -> []
+      | Some (TySE_return _) ->
+          []
       | Some (TYSE_If { if_label; else_label; _ }) ->
           if_label :: else_label :: followed_by
-      | None -> followed_by
+      | None ->
+          followed_by
     in
     create_basic_block ~label ~cfg_statements ~followed_by ~ending:cfg_ending
 
   let basic_of_san_tyfunction san_tyfunction =
     let rec make_blocks blocks =
       match blocks with
-      | [] -> []
-      | t :: [] -> [ cfg_block_of_san_block ~next_block:None t ]
+      | [] ->
+          []
+      | t :: [] ->
+          [ cfg_block_of_san_block ~next_block:None t ]
       | h1 :: (h2 :: q as xs) ->
           cfg_block_of_san_block ~next_block:(Some h2) h1 :: make_blocks xs
     in

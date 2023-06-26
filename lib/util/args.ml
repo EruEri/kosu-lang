@@ -28,8 +28,10 @@ let double_return a b = Double_return (a, b)
 let pop_opt = function [] -> (None, []) | t :: q -> (Some t, q)
 
 let double_pop_opt = function
-  | ([] | _ :: []) as l -> (None, l)
-  | t :: t2 :: q -> (Some (t, t2), q)
+  | ([] | _ :: []) as l ->
+      (None, l)
+  | t :: t2 :: q ->
+      (Some (t, t2), q)
 
 let rec consume_args_sysv ~reversed_stack ~fregs ~iregs ~fargs ~iargs
     ~stacks_args ~fpstyle ttes =
@@ -37,7 +39,11 @@ let rec consume_args_sysv ~reversed_stack ~fregs ~iregs ~fargs ~iargs
   | [] ->
       ( List.rev iargs,
         List.rev fargs,
-        if reversed_stack then stacks_args else List.rev stacks_args )
+        if reversed_stack then
+          stacks_args
+        else
+          List.rev stacks_args
+      )
       (* Since args are stacked in the reversed order og ttes *)
   | t :: q -> (
       match fpstyle t with
@@ -53,7 +59,8 @@ let rec consume_args_sysv ~reversed_stack ~fregs ~iregs ~fargs ~iargs
                   consume_args_sysv ~reversed_stack ~fregs ~iregs:remain_reg
                     ~fargs
                     ~iargs:((t, simple_return reg) :: iargs)
-                    ~stacks_args ~fpstyle q)
+                    ~stacks_args ~fpstyle q
+            )
           | Float -> (
               let head_reg, freg_remain = pop_opt fregs in
               match head_reg with
@@ -63,7 +70,9 @@ let rec consume_args_sysv ~reversed_stack ~fregs ~iregs ~fargs ~iargs
               | Some reg ->
                   consume_args_sysv ~reversed_stack ~fregs:freg_remain ~iregs
                     ~fargs:((t, simple_return reg) :: fargs)
-                    ~iargs ~stacks_args ~fpstyle q))
+                    ~iargs ~stacks_args ~fpstyle q
+            )
+        )
       | Double_Reg (lhs, rhs) -> (
           match (lhs, rhs) with
           | Float, Float -> (
@@ -75,7 +84,8 @@ let rec consume_args_sysv ~reversed_stack ~fregs ~iregs ~fargs ~iargs
                   let arg = (t, double_return fr1 fr2) in
                   consume_args_sysv ~reversed_stack ~fregs:remains ~iregs
                     ~fargs:(arg :: fargs) ~iargs ~fpstyle
-                    ~stacks_args:(t :: stacks_args) q)
+                    ~stacks_args:(t :: stacks_args) q
+            )
           | _ -> (
               match fregs with
               | [] | _ :: [] ->
@@ -85,7 +95,10 @@ let rec consume_args_sysv ~reversed_stack ~fregs ~iregs ~fargs ~iargs
                   let arg = (t, double_return ir1 ir2) in
                   consume_args_sysv ~reversed_stack ~fregs ~iregs:remains ~fargs
                     ~iargs:(arg :: iargs) ~fpstyle
-                    ~stacks_args:(t :: stacks_args) q)))
+                    ~stacks_args:(t :: stacks_args) q
+            )
+        )
+    )
 
 let rec consume_args ~novariadic_args ~fregs ~iregs ~fargs ~iargs ~stacks_args
     ~variadic_args ~fpstyle ~i ttes =
@@ -94,7 +107,8 @@ let rec consume_args ~novariadic_args ~fregs ~iregs ~fargs ~iargs ~stacks_args
       ( List.rev iargs,
         List.rev fargs,
         List.rev stacks_args,
-        List.rev variadic_args )
+        List.rev variadic_args
+      )
   | t :: q -> (
       let next_i = i + 1 in
       match novariadic_args with
@@ -116,7 +130,8 @@ let rec consume_args ~novariadic_args ~fregs ~iregs ~fargs ~iargs ~stacks_args
                       consume_args ~novariadic_args ~fregs ~iregs:remain_reg
                         ~fargs
                         ~iargs:((t, simple_return reg) :: iargs)
-                        ~variadic_args ~stacks_args ~fpstyle ~i:next_i q)
+                        ~variadic_args ~stacks_args ~fpstyle ~i:next_i q
+                )
               | Float -> (
                   let head_reg, freg_remain = pop_opt fregs in
                   match head_reg with
@@ -127,8 +142,9 @@ let rec consume_args ~novariadic_args ~fregs ~iregs ~fargs ~iargs ~stacks_args
                   | Some reg ->
                       consume_args ~novariadic_args ~fregs:freg_remain ~iregs
                         ~fargs:((t, simple_return reg) :: fargs)
-                        ~variadic_args ~iargs ~stacks_args ~fpstyle ~i:next_i q)
-              )
+                        ~variadic_args ~iargs ~stacks_args ~fpstyle ~i:next_i q
+                )
+            )
           | Double_Reg (lhs, rhs) -> (
               match (lhs, rhs) with
               | Float, Float -> (
@@ -141,7 +157,8 @@ let rec consume_args ~novariadic_args ~fregs ~iregs ~fargs ~iargs ~stacks_args
                       let arg = (t, double_return fr1 fr2) in
                       consume_args ~novariadic_args ~fregs:remains ~iregs
                         ~fargs:(arg :: fargs) ~variadic_args ~iargs ~fpstyle
-                        ~stacks_args:(t :: stacks_args) ~i:next_i q)
+                        ~stacks_args:(t :: stacks_args) ~i:next_i q
+                )
               | _ -> (
                   match fregs with
                   | [] | _ :: [] ->
@@ -152,7 +169,11 @@ let rec consume_args ~novariadic_args ~fregs ~iregs ~fargs ~iargs ~stacks_args
                       let arg = (t, double_return ir1 ir2) in
                       consume_args ~novariadic_args ~fregs ~iregs:remains ~fargs
                         ~iargs:(arg :: iargs) ~fpstyle ~variadic_args
-                        ~stacks_args:(t :: stacks_args) ~i:next_i q))))
+                        ~stacks_args:(t :: stacks_args) ~i:next_i q
+                )
+            )
+        )
+    )
 
 let consume_args ?novariadic_args =
   consume_args ~novariadic_args ~fargs:[] ~iargs:[] ~stacks_args:[]

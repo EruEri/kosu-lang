@@ -34,7 +34,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
   let copy_result ~where ~register ~rval_rktype rprogram =
     where
     |> Option.map (fun waddress ->
-           copy_from_reg register waddress rval_rktype rprogram)
+           copy_from_reg register waddress rval_rktype rprogram
+       )
     |> Option.value ~default:[]
 
   let return_function_instruction_reg_size ~where ~is_deref ~return_reg
@@ -49,11 +50,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                       size = IntSize Q;
                       destination = `Register rdi;
                       source = `Address pointer;
-                    })
+                    }
+                 )
                :: copy_from_reg return_reg
                     (create_address_offset rdi)
                     return_type rprogram
-           | None -> copy_from_reg return_reg waddress return_type rprogram)
+           | None ->
+               copy_from_reg return_reg waddress return_type rprogram
+       )
     |> Option.value ~default:[]
 
   let return_function_instruction_none_reg_size ~where ~is_deref =
@@ -68,20 +72,23 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                         size = iq;
                         destination = `Register rdi;
                         source = `Address pointer;
-                      });
+                      }
+                   );
                  Instruction
                    (Mov
                       {
                         size = iq;
                         destination = `Register rdi;
                         source = `Address (create_address_offset rdi);
-                      });
+                      }
+                   );
                ]
            | None ->
                [
                  Instruction
                    (Lea { size = iq; destination = rdi; source = waddress });
-               ])
+               ]
+       )
     |> Option.value ~default:[]
 
   let translate_tac_expression ~litterals ~(target_dst : dst) rprogram
@@ -96,29 +103,33 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         | `Register _ as rreg ->
             ( target_dst,
               [
-                Instruction
-                  (Xor { size = L; source = rreg; destination = rreg });
-              ] )
+                Instruction (Xor { size = L; source = rreg; destination = rreg });
+              ]
+            )
         | `Address _ as addr ->
             ( target_dst,
               [
                 Instruction
                   (Mov { size = ib; destination = addr; source = `ILitteral 0L });
-              ] ))
+              ]
+            )
+      )
     | TENullptr -> (
         match target_dst with
         | `Register _ as rreg ->
             ( target_dst,
               [
-                Instruction
-                  (Xor { size = Q; source = rreg; destination = rreg });
-              ] )
+                Instruction (Xor { size = Q; source = rreg; destination = rreg });
+              ]
+            )
         | `Address _ as addr ->
             ( target_dst,
               [
                 Instruction
                   (Mov { size = iq; destination = addr; source = `ILitteral 0L });
-              ] ))
+              ]
+            )
+      )
     | TETrue ->
         ( target_dst,
           [
@@ -128,8 +139,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    size = IntSize L;
                    destination = target_dst;
                    source = `ILitteral 1L;
-                 });
-          ] )
+                 }
+              );
+          ]
+        )
     | TEChar c ->
         let code = Char.code c |> Int64.of_int in
 
@@ -141,8 +154,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    size = IntSize B;
                    destination = target_dst;
                    source = `ILitteral code;
-                 });
-          ] )
+                 }
+              );
+          ]
+        )
     | TEInt (_, isize, int64) ->
         let size = data_size_of_isize isize in
         let scaled_data_size = (function Q -> Q | _ -> L) size in
@@ -154,8 +169,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    size = IntSize scaled_data_size;
                    source = `ILitteral int64;
                    destination = target_dst;
-                 });
-          ] )
+                 }
+              );
+          ]
+        )
     | TEFloat float ->
         let (FLit float_label) = Hashtbl.find litterals.float_lit_map float in
         let fsize = fst float in
@@ -163,10 +180,13 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         (target_dst, instructions)
     | TEIdentifier id -> (
         let adress =
-          FrameManager.address_of (id, expr_rktype) fd |> fun adr ->
+          FrameManager.address_of (id, expr_rktype) fd
+          |> fun adr ->
           match adr with
-          | Some a -> a
-          | None -> failwith "X86_64: tte identifier setup null address"
+          | Some a ->
+              a
+          | None ->
+              failwith "X86_64: tte identifier setup null address"
         in
         let sizeof = sizeofn rprogram expr_rktype in
         let data_size = data_size_of_ktype rprogram expr_rktype in
@@ -194,8 +214,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                              size = data_size;
                              destination = reg;
                              source = `Address adress;
-                           });
-                    ] )
+                           }
+                        );
+                    ]
+                )
             | `Address _ ->
                 let rax = tmp_rax_ktype expr_rktype in
                 ( target_dst,
@@ -206,7 +228,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                            size = data_size;
                            destination = `Register rax;
                            source = `Address adress;
-                         });
+                         }
+                      );
                     (* Line_Com (Comment "Miiddle"); *)
                     Instruction
                       (Mov
@@ -214,8 +237,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                            size = data_size;
                            destination = target_dst;
                            source = `Register rax;
-                         });
-                  ] ))
+                         }
+                      );
+                  ]
+                )
+          )
         | false -> (
             match target_dst with
             | `Register reg as vreg ->
@@ -224,14 +250,18 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                     (* Line_Com (Comment "Here"); *)
                     Instruction
                       (Lea { size = iq; source = adress; destination = reg });
-                  ] )
+                  ]
+                )
             | `Address _ ->
                 ( `Register r11,
                   [
                     Line_Com (Comment "Mov identifier larger than reg");
                     Instruction
                       (Lea { size = iq; source = adress; destination = r11 });
-                  ] )))
+                  ]
+                )
+          )
+      )
     | TESizeof kt ->
         let sizeof = sizeofn rprogram kt in
         ( target_dst,
@@ -243,8 +273,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    size = iq;
                    destination = target_dst;
                    source = `ILitteral sizeof;
-                 });
-          ] )
+                 }
+              );
+          ]
+        )
     | TEConst { name; module_path }
       when KosuIrTyped.Asttyhelper.RType.is_float expr_rktype ->
         let fsize =
@@ -258,7 +290,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         (target_dst, instructions)
     | TEConst { name; module_path } when expr_rktype = RTString_lit ->
         ( target_dst,
-          load_label (Spec.label_of_constant ~module_path name) target_dst )
+          load_label (Spec.label_of_constant ~module_path name) target_dst
+        )
     | TEConst { name; module_path }
       when KosuIrTyped.Asttyhelper.RType.is_any_integer expr_rktype ->
         let _, size =
@@ -274,12 +307,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           | None ->
               failwith
                 (Printf.sprintf "No const decl for %s::%s" module_path name)
-          | Some s -> s
+          | Some s ->
+              s
         in
         let int_value =
           match const_decl.value.rexpression with
-          | REInteger (_, _, value) -> value
-          | _ -> failwith "Not an Integer"
+          | REInteger (_, _, value) ->
+              value
+          | _ ->
+              failwith "Not an Integer"
         in
 
         ( target_dst,
@@ -290,30 +326,39 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    size = IntSize data_size;
                    source = `ILitteral int_value;
                    destination = target_dst;
-                 });
-          ] )
-    | TEConst { name = _; module_path = _ } -> failwith "Other constant"
+                 }
+              );
+          ]
+        )
+    | TEConst { name = _; module_path = _ } ->
+        failwith "Other constant"
     | TECmpEqual ->
         ( target_dst,
           [
             Instruction
               (Mov
-                 { size = ib; destination = target_dst; source = `ILitteral 1L });
-          ] )
+                 { size = ib; destination = target_dst; source = `ILitteral 1L }
+              );
+          ]
+        )
     | TECmpLesser ->
         ( target_dst,
           [
             Instruction
               (Mov
-                 { size = ib; destination = target_dst; source = `ILitteral 0L });
-          ] )
+                 { size = ib; destination = target_dst; source = `ILitteral 0L }
+              );
+          ]
+        )
     | TECmpGreater ->
         ( target_dst,
           [
             Instruction
               (Mov
-                 { size = ib; destination = target_dst; source = `ILitteral 2L });
-          ] )
+                 { size = ib; destination = target_dst; source = `ILitteral 2L }
+              );
+          ]
+        )
 
   let move_tte ~litterals ~where ?(offset = 0L) rprogram fd tte =
     let where = increment_dst_address offset where in
@@ -327,13 +372,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         let last_reg =
           match last_dst with
-          | `Register reg -> reg
+          | `Register reg ->
+              reg
           | `Address _ ->
               failwith "Tte size doesnt hold in reg : need address in reg"
         in
         let copy_if_addre =
           match where with
-          | `Register _ -> []
+          | `Register _ ->
+              []
           | `Address addr ->
               copy_large ~address_str:addr
                 ~base_address_reg:(create_address_offset last_reg)
@@ -360,13 +407,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
              let cmp_instruction =
                Instruction
                  (cmp_instruction data_size ~lhs:(`Register trax)
-                    ~rhs:(`Register tr10))
+                    ~rhs:(`Register tr10)
+                 )
              in
              let equal_instruction =
                Instruction (Set { cc; size = B; register = Register.rax })
              in
              [ cmp_instruction; equal_instruction ]
-             @ copy_from_reg rax waddress rval_rktype rprogram)
+             @ copy_from_reg rax waddress rval_rktype rprogram
+         )
       |> Option.value ~default:[]
     in
     rinstructions @ linstructions @ copy_instructions
@@ -395,7 +444,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     let copy_instruction =
       where
       |> Option.map (fun waddress ->
-             copy_from_reg left_reg waddress rval_rktype rprogram)
+             copy_from_reg left_reg waddress rval_rktype rprogram
+         )
       |> Option.value ~default:[]
     in
 
@@ -416,13 +466,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                  in
                  let copy_instructions =
                    match last_dst with
-                   | `Address _ -> []
+                   | `Address _ ->
+                       []
                    | `Register reg ->
                        copy_large ~address_str:waddress
                          ~base_address_reg:(create_address_offset reg)
                          size_to_move
                  in
-                 (last_dst, tte_instructions @ copy_instructions))
+                 (last_dst, tte_instructions @ copy_instructions)
+             )
           |> Option.value ~default:(dummy_dst, [])
         in
         instructions
@@ -432,10 +484,12 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
               rval_rktype rprogram
           with
-          | Some (RDecl_Struct s) -> s
+          | Some (RDecl_Struct s) ->
+              s
           | Some (RDecl_Enum _) ->
               failwith "Expected to find a struct get an enum"
-          | None -> failwith "Non type decl ??? my validation is very weak"
+          | None ->
+              failwith "Non type decl ??? my validation is very weak"
         in
 
         let generics =
@@ -447,7 +501,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let offset_list =
           fields
           |> List.map (fun (field, _) ->
-                 offset_of_field ~generics field struct_decl rprogram)
+                 offset_of_field ~generics field struct_decl rprogram
+             )
         in
         let instructions =
           fields |> List.mapi couple
@@ -461,10 +516,12 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                             move_tte ~litterals ~where:(`Address waddress)
                               ~offset rprogram fd tte
                           in
-                          instructions)
+                          instructions
+                      )
                    |> Option.value ~default:[]
                  in
-                 acc @ instructions)
+                 acc @ instructions
+               )
                []
         in
         instructions
@@ -474,7 +531,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           tac_parameters |> List.map (fun { expr_rktype; _ } -> expr_rktype)
         in
         let fn_module =
-          if module_path = "" then current_module else module_path
+          if module_path = "" then
+            current_module
+          else
+            module_path
         in
         let fn_decl =
           Option.get
@@ -499,8 +559,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
               |> List.map (fun (variable, return_kind) ->
                      let tte, reg =
                        match return_kind with
-                       | Util.Args.Simple_return reg -> (variable, reg)
-                       | Double_return _ -> failwith "Unreachable"
+                       | Util.Args.Simple_return reg ->
+                           (variable, reg)
+                       | Double_return _ ->
+                           failwith "Unreachable"
                      in
                      let tte_instructions =
                        snd
@@ -520,11 +582,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                 dst_size = fsd;
                                 source = `Register reg;
                                 destination = `Register reg;
-                              })
+                              }
+                           )
                          :: []
-                       else []
+                       else
+                         []
                      in
-                     tte_instructions @ promote_float_instruction)
+                     tte_instructions @ promote_float_instruction
+                 )
               |> List.flatten
             in
 
@@ -550,7 +615,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                        copy_from_reg (register_of_dst last_reg) address
                          tte.expr_rktype rprogram
                      in
-                     instructions @ set_instructions)
+                     instructions @ set_instructions
+                 )
               |> List.flatten
             in
 
@@ -561,8 +627,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                      acc
                      +
                      if KosuIrTyped.Asttyhelper.RType.is_float tte.expr_rktype
-                     then 1
-                     else 0)
+                     then
+                       1
+                     else
+                       0
+                   )
                    0
               |> Int64.of_int
             in
@@ -576,9 +645,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                          size = ib;
                          destination = `Register rax;
                          source = `ILitteral count_float_parameters;
-                       });
+                       }
+                    );
                 ]
-              else []
+              else
+                []
             in
 
             let call_instructions =
@@ -617,7 +688,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                        translate_tac_expression ~litterals
                          ~target_dst:(`Register reg) rprogram fd tte
                      in
-                     acc @ instructions)
+                     acc @ instructions
+                   )
                    []
             in
             let move_code_syscall_instructions =
@@ -629,7 +701,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                        size = il;
                        source = `ILitteral syscall_decl.opcode;
                        destination = `Register rax;
-                     });
+                     }
+                  );
                 Instruction Syscall;
               ]
             in
@@ -645,12 +718,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                 size = iq;
                                 destination = `Register r9;
                                 source = `Address pointer;
-                              })
+                              }
+                           )
                          :: copy_from_reg rax (create_address_offset r9)
                               syscall_decl.return_type rprogram
                      | None ->
                          copy_from_reg rax waddress syscall_decl.return_type
-                           rprogram)
+                           rprogram
+                 )
               |> Option.value ~default:[]
             in
             set_on_reg_instructions @ move_code_syscall_instructions
@@ -684,12 +759,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
               |> List.map (fun (variable, return_kind) ->
                      let tte, reg =
                        match return_kind with
-                       | Util.Args.Simple_return reg -> (variable, reg)
-                       | Double_return _ -> failwith "Unreachable"
+                       | Util.Args.Simple_return reg ->
+                           (variable, reg)
+                       | Double_return _ ->
+                           failwith "Unreachable"
                      in
                      snd
                      @@ translate_tac_expression ~litterals
-                          ~target_dst:(`Register reg) rprogram fd tte)
+                          ~target_dst:(`Register reg) rprogram fd tte
+                 )
               |> List.flatten
             in
 
@@ -715,7 +793,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                        copy_from_reg (register_of_dst last_reg) address
                          tte.expr_rktype rprogram
                      in
-                     instructions @ set_instructions)
+                     instructions @ set_instructions
+                 )
               |> List.flatten
             in
             let call_instructions =
@@ -744,13 +823,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                   reg_instructions @ set_on_stack_instructions
                   @ set_indirect_return_instructions @ call_instructions
             in
-            kosu_fn_instructions @ [ fn_call_comm ])
+            kosu_fn_instructions @ [ fn_call_comm ]
+      )
     | RVTuple ttes ->
         let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in
         let offset_list =
           ttes
           |> List.mapi (fun index _value ->
-                 offset_of_tuple_index index ktlis rprogram)
+                 offset_of_tuple_index index ktlis rprogram
+             )
         in
         where
         |> Option.map (fun waddress ->
@@ -769,19 +850,23 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
 
                       let acc_plus = acc @ instructions in
                       match reg_texp with
-                      | `Address _ -> acc_plus
+                      | `Address _ ->
+                          acc_plus
                       | `Register reg ->
                           acc_plus
                           @ copy_from_reg reg incremented_adress tte.expr_rktype
-                              rprogram)
-                    [])
+                              rprogram
+                    )
+                    []
+           )
         |> Option.value ~default:[]
     | RVArray ttes ->
         let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in
         let offset_list =
           ttes
           |> List.mapi (fun index _ ->
-                 offset_of_tuple_index index ktlis rprogram)
+                 offset_of_tuple_index index ktlis rprogram
+             )
         in
         where
         |> Option.map (fun waddress ->
@@ -800,12 +885,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
 
                       let acc_plus = acc @ instructions in
                       match reg_texp with
-                      | `Address _ -> acc_plus
+                      | `Address _ ->
+                          acc_plus
                       | `Register reg ->
                           acc_plus
                           @ copy_from_reg reg incremented_adress tte.expr_rktype
-                              rprogram)
-                    [])
+                              rprogram
+                    )
+                    []
+           )
         |> Option.value ~default:[]
     | RVTupleAccess
         {
@@ -814,8 +902,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         } ->
         let kts_tuples =
           match expr_rktype with
-          | KosuIrTyped.Asttyped.RTTuple rkts -> rkts
-          | _ -> failwith "Weird: The typechecker for tuple"
+          | KosuIrTyped.Asttyped.RTTuple rkts ->
+              rkts
+          | _ ->
+              failwith "Weird: The typechecker for tuple"
         in
         let generics = Hashtbl.create 0 in
         let int_index = Int64.to_int index in
@@ -823,10 +913,13 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           offset_of_tuple_index ~generics int_index kts_tuples rprogram
         in
         let tuple_address =
-          FrameManager.address_of (tuple_id, expr_rktype) fd |> fun adr ->
+          FrameManager.address_of (tuple_id, expr_rktype) fd
+          |> fun adr ->
           match adr with
-          | Some a -> a
-          | None -> failwith "field access null address"
+          | Some a ->
+              a
+          | None ->
+              failwith "field access null address"
         in
         let field_address = increment_adress offset tuple_address in
         let sizeof = sizeofn rprogram rval_rktype in
@@ -845,31 +938,35 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                  let preinstructions =
                    Line_Com (Comment debug)
                    ::
-                   (if is_register_size sizeof then
-                      [
-                        Instruction
-                          (Mov
-                             {
-                               size;
-                               destination = `Register locale_r10;
-                               source = `Address field_address;
-                             });
-                      ]
-                    else
-                      [
-                        Instruction
-                          (Lea
-                             {
-                               size = iq;
-                               source = field_address;
-                               destination = locale_r10;
-                             });
-                      ])
+                   ( if is_register_size sizeof then
+                       [
+                         Instruction
+                           (Mov
+                              {
+                                size;
+                                destination = `Register locale_r10;
+                                source = `Address field_address;
+                              }
+                           );
+                       ]
+                     else
+                       [
+                         Instruction
+                           (Lea
+                              {
+                                size = iq;
+                                source = field_address;
+                                destination = locale_r10;
+                              }
+                           );
+                       ]
+                   )
                  in
                  let cp_instrucion =
                    copy_from_reg locale_r10 waddress rval_rktype rprogram
                  in
-                 preinstructions @ cp_instrucion)
+                 preinstructions @ cp_instrucion
+             )
           |> Option.value ~default:[]
         in
         Line_Com (Comment ("Field access of " ^ Int.to_string int_index))
@@ -884,10 +981,12 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
               expr_rktype rprogram
           with
-          | Some (RDecl_Struct s) -> s
+          | Some (RDecl_Struct s) ->
+              s
           | Some (RDecl_Enum _) ->
               failwith "Expected to find a struct get an enum"
-          | None -> failwith "Non type decl ??? my validation is very weak"
+          | None ->
+              failwith "Non type decl ??? my validation is very weak"
         in
 
         let generics =
@@ -899,10 +998,13 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
 
         let offset = offset_of_field ~generics field struct_decl rprogram in
         let struct_address =
-          FrameManager.address_of (struct_id, expr_rktype) fd |> fun adr ->
+          FrameManager.address_of (struct_id, expr_rktype) fd
+          |> fun adr ->
           match adr with
-          | Some a -> a
-          | None -> failwith "field access null address"
+          | Some a ->
+              a
+          | None ->
+              failwith "field access null address"
         in
         let field_address = increment_adress offset struct_address in
         let sizeof = sizeofn rprogram rval_rktype in
@@ -922,31 +1024,35 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                  let preinstructions =
                    Line_Com (Comment debug)
                    ::
-                   (if is_register_size sizeof then
-                      [
-                        Instruction
-                          (Mov
-                             {
-                               size;
-                               destination = `Register locale_r10;
-                               source = `Address field_address;
-                             });
-                      ]
-                    else
-                      [
-                        Instruction
-                          (Lea
-                             {
-                               size = iq;
-                               source = field_address;
-                               destination = locale_r10;
-                             });
-                      ])
+                   ( if is_register_size sizeof then
+                       [
+                         Instruction
+                           (Mov
+                              {
+                                size;
+                                destination = `Register locale_r10;
+                                source = `Address field_address;
+                              }
+                           );
+                       ]
+                     else
+                       [
+                         Instruction
+                           (Lea
+                              {
+                                size = iq;
+                                source = field_address;
+                                destination = locale_r10;
+                              }
+                           );
+                       ]
+                   )
                  in
                  let cp_instrucion =
                    copy_from_reg locale_r10 waddress rval_rktype rprogram
                  in
-                 preinstructions @ cp_instrucion)
+                 preinstructions @ cp_instrucion
+             )
           |> Option.value ~default:[]
         in
         Line_Com (Comment ("Field access of " ^ field)) :: copy_instructions
@@ -959,10 +1065,13 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee
         in
         let adress =
-          FrameManager.address_of (id, pointee_type) fd |> fun adr ->
+          FrameManager.address_of (id, pointee_type) fd
+          |> fun adr ->
           match adr with
-          | Some a -> a
-          | None -> failwith "address of null address"
+          | Some a ->
+              a
+          | None ->
+              failwith "address of null address"
         in
         let copy_instruction =
           where
@@ -971,7 +1080,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    Instruction
                      (Lea { size = iq; destination = rax; source = adress });
                  ]
-                 @ copy_from_reg rax waddress rval_rktype rprogram)
+                 @ copy_from_reg rax waddress rval_rktype rprogram
+             )
           |> Option.value ~default:[]
         in
         copy_instruction
@@ -982,8 +1092,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             fd
           |> fun adr ->
           match adr with
-          | Some a -> a
-          | None -> failwith "defer of null address"
+          | Some a ->
+              a
+          | None ->
+              failwith "defer of null address"
         in
         let r10q = r10 in
         let load_instruction =
@@ -994,7 +1106,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    size = iq;
                    destination = `Register r10q;
                    source = `Address adress;
-                 });
+                 }
+              );
           ]
         in
         let last_reg, load_indirect =
@@ -1008,16 +1121,20 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                        size = iq;
                        destination = `Register rax;
                        source = `Address (create_address_offset r10q);
-                     });
-              ] )
-          else (r10q, [])
+                     }
+                  );
+              ]
+            )
+          else
+            (r10q, [])
         in
 
         let copy_instructions =
           where
           |> Option.map (fun waddress ->
                  load_instruction @ load_indirect
-                 @ copy_from_reg last_reg waddress rval_rktype rprogram)
+                 @ copy_from_reg last_reg waddress rval_rktype rprogram
+             )
           |> Option.value ~default:[]
         in
 
@@ -1030,8 +1147,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           with
           | Some (RDecl_Struct _) ->
               failwith "Expected to find an enum get an struct"
-          | Some (RDecl_Enum e) -> e
-          | None -> failwith "Non type decl ??? my validation is very weak"
+          | Some (RDecl_Enum e) ->
+              e
+          | None ->
+              failwith "Non type decl ??? my validation is very weak"
         in
         let tag =
           KosuIrTyped.Asttyhelper.Renum.tag_of_variant variant enum_decl
@@ -1050,7 +1169,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let offset_list =
           enum_tte_list
           |> List.mapi (fun index { expr_rktype = _; _ } ->
-                 offset_of_tuple_index index enum_type_list rprogram)
+                 offset_of_tuple_index index enum_type_list rprogram
+             )
         in
         (* let () = offset_list |> List.map (Printf.sprintf "%Lu") |> String.concat ", " |> Printf.printf "%s::%s off = [%s]\n" enum_decl.renum_name variant in *)
         where
@@ -1070,14 +1190,18 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
 
                       let acc_plus = acc @ instructions in
                       match reg_texp with
-                      | `Address _ -> acc_plus
+                      | `Address _ ->
+                          acc_plus
                       | `Register reg ->
                           acc_plus
                           @ copy_from_reg reg incremented_adress tte.expr_rktype
-                              rprogram)
-                    [])
+                              rprogram
+                    )
+                    []
+           )
         |> Option.value ~default:[]
-    | RVDiscard | RVLater -> []
+    | RVDiscard | RVLater ->
+        []
     | RVBuiltinBinop { binop = TacBool TacOr; blhs; brhs } ->
         let r9 = tmp_r9_ktype brhs.expr_rktype in
         let rax = tmp_rax_ktype blhs.expr_rktype in
@@ -1100,11 +1224,13 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                             size = B;
                             destination = left_reg;
                             source = `Register r9;
-                          });
+                          }
+                       );
                    ]
                  in
                  or_instruction
-                 @ copy_from_reg rax waddress rval_rktype rprogram)
+                 @ copy_from_reg rax waddress rval_rktype rprogram
+             )
           |> Option.value ~default:[]
         in
         rinstructions @ linstructions @ copy_instructions
@@ -1130,11 +1256,13 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                             size = B;
                             destination = left_reg;
                             source = `Register r9;
-                          });
+                          }
+                       );
                    ]
                  in
                  or_instruction
-                 @ copy_from_reg rax waddress rval_rktype rprogram)
+                 @ copy_from_reg rax waddress rval_rktype rprogram
+             )
           |> Option.value ~default:[]
         in
         rinstructions @ linstructions @ copy_instructions
@@ -1166,11 +1294,13 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           [
             Instruction
               (cmp_instruction data_size ~lhs:(src_of_dst rr10)
-                 ~rhs:(src_of_dst rr9));
+                 ~rhs:(src_of_dst rr9)
+              );
             Instruction (Set { size = B; cc = GE; register = rrax });
             Instruction
               (cmp_instruction data_size ~lhs:(src_of_dst rr10)
-                 ~rhs:(src_of_dst rr9));
+                 ~rhs:(src_of_dst rr9)
+              );
             Instruction (Set { size = B; cc = G; register = r9 });
             Instruction
               (Add
@@ -1178,7 +1308,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    size = ib;
                    destination = `Register rrax;
                    source = `Register Register.r9;
-                 });
+                 }
+              );
           ]
         in
 
@@ -1190,8 +1321,13 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         {
           binop =
             TacSelf
-              (( TacMult | TacBitwiseAnd | TacBitwiseOr | TacBitwiseXor
-               | TacShiftLeft | TacShiftRight ) as self_binop);
+              ( ( TacMult
+                | TacBitwiseAnd
+                | TacBitwiseOr
+                | TacBitwiseXor
+                | TacShiftLeft
+                | TacShiftRight ) as self_binop
+              );
           blhs;
           brhs;
         } ->
@@ -1233,7 +1369,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                      size = iq;
                      source = `ILitteral 0L;
                      destination = `Register r10;
-                   })
+                   }
+                )
             in
 
             let size_reg = register_of_dst @@ nb_reg in
@@ -1245,7 +1382,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             in
 
             let scale_instruction =
-              if pointee_size = 1L then []
+              if pointee_size = 1L then
+                []
               else
                 ins_mult ~size:iq ~destination:(`Register size_reg)
                   ~source:(`ILitteral pointee_size)
@@ -1260,7 +1398,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             @ scale_instruction
             @ operator_function_instruction ~size:data_size ~destination:ptr_reg
                 ~source:(`Register size_reg)
-            @ copy_instructions)
+            @ copy_instructions
+      )
     | RVBuiltinBinop
         { binop = TacSelf TacDiv; blhs = dividende; brhs = divisor } ->
         if KosuIrTyped.Asttyhelper.RType.is_float rval_rktype then
@@ -1275,8 +1414,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           let lsource = Operande.src_of_dst lsource in
           let fsize =
             if KosuIrTyped.Asttyhelper.RType.is_64bits_float divisor.expr_rktype
-            then SD
-            else SS
+            then
+              SD
+            else
+              SS
           in
           let fdiv =
             Instruction
@@ -1378,7 +1519,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           if KosuIrTyped.Asttyhelper.RType.is_bool rval_rktype then
             let idata_size =
               match size with
-              | IntSize i -> i
+              | IntSize i ->
+                  i
               | FloatSize _ ->
                   failwith
                     "Proabily unreachable exist if bool are encoded as float"
@@ -1389,8 +1531,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    size = idata_size;
                    source = `ILitteral 1L;
                    destination = dlast_reg;
-                 })
-          else Instruction (Not { size; source = last_reg })
+                 }
+              )
+          else
+            Instruction (Not { size; source = last_reg })
         in
         let copy_instructions =
           copy_result ~where ~register:last_reg ~rval_rktype rprogram
@@ -1418,13 +1562,21 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                      size = il;
                      destination = `Register rr9;
                      source = `Address address;
-                   })
+                   }
+                )
             in
             let copy_instructions =
               copy_result ~where ~register:rr9 ~rval_rktype rprogram
             in
             load_tag_instructions :: copy_instructions
-        | Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64
+        | Tos8
+        | Tou8
+        | Tos16
+        | Tou16
+        | Tos32
+        | Tou32
+        | Tos64
+        | Tou64
         | Stringl_ptr ->
             let parameter = List.hd parameters in
             let source_data_size =
@@ -1448,9 +1600,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                          dst_size = data_size_min_l output_data_size;
                          source = `Register r0;
                          destination = `Register rax;
-                       });
+                       }
+                    );
                 ]
-              else []
+              else
+                []
             in
             let copy_instructions =
               copy_result ~where ~register:rax ~rval_rktype rprogram
@@ -1469,7 +1623,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                 rprogram fd parameter
             in
             let conv_instrc =
-              if source_data_size = output_data_size then []
+              if source_data_size = output_data_size then
+                []
               else
                 Instruction
                   (Cvts2s
@@ -1478,13 +1633,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                        dst_size = output_data_size;
                        source = `Register r0;
                        destination = `Register xmm0;
-                     })
+                     }
+                  )
                 :: []
             in
             let copy_instructions =
               copy_result ~where ~register:xmm0 ~rval_rktype rprogram
             in
-            mov_instructtion @ conv_instrc @ copy_instructions)
+            mov_instructtion @ conv_instrc @ copy_instructions
+      )
     | RVCustomUnop unary ->
         let open KosuIrTAC.Asttachelper.Operator in
         let op_decls =
@@ -1495,7 +1652,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
 
         let op_decl =
           match op_decls with
-          | t :: [] -> t
+          | t :: [] ->
+              t
           | _ ->
               failwith "What the type checker has done: No unary op declaration"
         in
@@ -1508,7 +1666,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let return_size = sizeofn rprogram return_type in
         let return_reg = return_register rprogram rval_rktype in
         let object_params_regs =
-          if is_register_size return_size then rdi else rsi
+          if is_register_size return_size then
+            rdi
+          else
+            rsi
         in
         let _, instructions =
           translate_tac_expression ~litterals
@@ -1540,13 +1701,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let op_decls =
           KosuIrTyped.Asttyhelper.RProgram.find_binary_operator_decl
             (KosuIrTAC.Asttachelper.Operator.parser_binary_op_of_tac_binary_op
-               self.binop)
+               self.binop
+            )
             (self.blhs.expr_rktype, self.brhs.expr_rktype)
             ~r_type:rval_rktype rprogram
         in
         let op_decl =
           match op_decls with
-          | t :: [] -> t
+          | t :: [] ->
+              t
           | _ ->
               failwith
                 "What the type checker has done: No binary op declaration | \
@@ -1563,9 +1726,13 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
 
         let r0, r1 =
           match KosuIrTyped.Asttyhelper.RType.is_float rval_rktype with
-          | true -> (xmm0, xmm1)
+          | true ->
+              (xmm0, xmm1)
           | false ->
-              if is_register_size return_size then (rdi, rsi) else (rsi, rdx)
+              if is_register_size return_size then
+                (rdi, rsi)
+              else
+                (rsi, rdx)
         in
         let _, lhs_instructions =
           translate_tac_expression ~litterals ~target_dst:(`Register r0)
@@ -1619,7 +1786,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let intermediary_adress =
           FrameManager.address_of
             ( identifier,
-              KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype )
+              KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype
+            )
             fd
         in
         let instructions =
@@ -1629,7 +1797,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                  size = iq;
                  destination = `Register tmpreg;
                  source = `Address (Option.get intermediary_adress);
-               })
+               }
+            )
         in
         let true_adress = create_address_offset tmpreg in
         let true_instructions =
@@ -1677,14 +1846,16 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    size = iq;
                    source = `Address intermediary_adress;
                    destination = `Register r9;
-                 });
+                 }
+              );
             Instruction
               (Add
                  {
                    size = iq;
                    destination = `Register r9;
                    source = `ILitteral field_offset;
-                 });
+                 }
+              );
           ]
         in
         let true_adress = create_address_offset r9 in
@@ -1697,7 +1868,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
 
         (Line_Com (Comment "Field Defered Start")
          :: fetch_address_offset_instruction
-        @ true_instructions)
+        @ true_instructions
+        )
         @ [ Line_Com (Comment "Field Defered end") ]
     | STWhile
         {
@@ -1715,7 +1887,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                (fun acc stmt ->
                  acc
                  @ translate_tac_statement ~litterals current_module rprogram fd
-                     stmt)
+                     stmt
+               )
                []
         in
         let last_reg, condition_rvalue_inst =
@@ -1724,8 +1897,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         let data_size =
           match last_reg with
-          | `Address _ -> iq
-          | `Register _ -> data_size_of_ktype rprogram condition.expr_rktype
+          | `Address _ ->
+              iq
+          | `Register _ ->
+              data_size_of_ktype rprogram condition.expr_rktype
         in
         let rhs = src_of_dst last_reg in
         let cmp =
@@ -1759,7 +1934,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                (fun acc stmt ->
                  acc
                  @ translate_tac_statement ~litterals current_module rprogram fd
-                     stmt)
+                     stmt
+               )
                []
         in
         let last_reg, condition_rvalue_inst =
@@ -1768,7 +1944,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         in
         let data_size =
           match last_reg with
-          | `Address _ -> iq
+          | `Address _ ->
+              iq
           | `Register _ ->
               data_size_of_ktype rprogram condition_rvalue.expr_rktype
         in
@@ -1804,7 +1981,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    scases.statement_for_condition
                    |> List.map (fun stmt ->
                           translate_tac_statement ~litterals current_module
-                            rprogram fd stmt)
+                            rprogram fd stmt
+                      )
                    |> List.flatten
                  in
                  let last_reg, condition =
@@ -1831,7 +2009,9 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                  in
                  ( body_instruction,
                    setup_next_label_instr @ setup_condition_insts @ condition
-                   @ [ cmp; if_true_instruction; if_false_instruction ] ))
+                   @ [ cmp; if_true_instruction; if_false_instruction ]
+                 )
+             )
           |> List.split
           |> fun (lhs, rhs) -> (List.flatten lhs, List.flatten rhs)
         in
@@ -1863,8 +2043,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           with
           | Some (RDecl_Struct _) ->
               failwith "Expected to find an enum get an struct"
-          | Some (RDecl_Enum e) -> e
-          | None -> failwith "Non type decl ??? my validation is very weak"
+          | Some (RDecl_Enum e) ->
+              e
+          | None ->
+              failwith "Non type decl ??? my validation is very weak"
         in
         let enum_decl =
           let generics =
@@ -1883,7 +2065,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    translate_tac_statement ~litterals current_module rprogram fd
                      value
                  in
-                 acc_stmts @ insts)
+                 acc_stmts @ insts
+               )
                []
         in
         let last_dst, condition_switch_instruction =
@@ -1899,7 +2082,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    size = il;
                    destination = `Register r10;
                    source = src_of_dst last_dst;
-                 })
+                 }
+              )
           else
             Instruction
               (Mov
@@ -1907,12 +2091,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    size = il;
                    destination = `Register r10;
                    source = `Address (address_of_dst last_dst);
-                 })
+                 }
+              )
         in
         let switch_variable_name =
           match condition_switch.tac_expression with
-          | TEIdentifier id -> id
-          | _ -> failwith "I need to get the id"
+          | TEIdentifier id ->
+              id
+          | _ ->
+              failwith "I need to get the id"
         in
         (* Tag fetch proper doing*)
         let cmp_instrution_list, fn_block =
@@ -1929,7 +2116,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                    size = il;
                                    rhs = `Register r10;
                                    lhs = `ILitteral (Int64.of_int32 tag);
-                                 })
+                                 }
+                              )
                           in
                           let assoc_type_for_variants =
                             KosuIrTyped.Asttyhelper.Renum.assoc_types_of_variant
@@ -1945,7 +2133,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                    let switch_variable_address =
                                      FrameManager.address_of
                                        ( switch_variable_name,
-                                         condition_switch.expr_rktype )
+                                         condition_switch.expr_rktype
+                                       )
                                        fd
                                      |> Option.get
                                    in
@@ -1968,8 +2157,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                                 source =
                                                   `Address
                                                     (increment_adress offset_a
-                                                       switch_variable_address);
-                                              });
+                                                       switch_variable_address
+                                                    );
+                                              }
+                                           );
                                          Instruction
                                            (Mov
                                               {
@@ -1977,7 +2168,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                                 source = `Register r11;
                                                 destination =
                                                   `Address destination_address;
-                                              });
+                                              }
+                                           );
                                        ]
                                      else
                                        let leaq =
@@ -1989,22 +2181,26 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                                 source =
                                                   increment_adress offset_a
                                                     switch_variable_address;
-                                              })
+                                              }
+                                           )
                                        in
                                        leaq
                                        :: copy_from_reg r11 destination_address
                                             ktyte rprogram
                                    in
 
-                                   copy_instructions)
+                                   copy_instructions
+                               )
                             |> List.flatten
                           in
                           let jump_true =
                             Instruction
                               (Jmp
-                                 { cc = Some E; where = `Label sw_case.sw_goto })
+                                 { cc = Some E; where = `Label sw_case.sw_goto }
+                              )
                           in
-                          fetch_offset_instruction @ [ compare; jump_true ])
+                          fetch_offset_instruction @ [ compare; jump_true ]
+                      )
                    |> List.flatten
                  in
                  let genete_block =
@@ -2012,21 +2208,24 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                      ~end_label:(Some sw_case.sw_exit_label) current_module
                      rprogram fd sw_case.switch_tac_body
                  in
-                 (jump_condition, genete_block))
+                 (jump_condition, genete_block)
+             )
           |> List.split
           |> fun (lhs, rhs) -> (List.flatten lhs, List.flatten rhs)
         in
         let wildcard_case_jmp =
           wildcard_label
           |> Option.map (fun lab ->
-                 Instruction (Jmp { cc = None; where = `Label lab }))
+                 Instruction (Jmp { cc = None; where = `Label lab })
+             )
           |> Option.to_list
         in
         let wildcard_body_block =
           wildcard_body
           |> Option.map (fun body ->
                  translate_tac_body ~litterals ~end_label:(Some sw_exit_label)
-                   current_module rprogram fd body)
+                   current_module rprogram fd body
+             )
           |> Option.value ~default:[]
         in
         setup_instructions @ condition_switch_instruction
@@ -2051,8 +2250,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           with
           | Some (RDecl_Struct _) ->
               failwith "Expected to find an enum get an struct"
-          | Some (RDecl_Enum e) -> e
-          | None -> failwith "Non type decl ??? my validation is very weak"
+          | Some (RDecl_Enum e) ->
+              e
+          | None ->
+              failwith "Non type decl ??? my validation is very weak"
         in
         let enum_decl =
           let generics =
@@ -2071,7 +2272,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    translate_tac_statement ~litterals current_module rprogram fd
                      value
                  in
-                 acc_stmts @ insts)
+                 acc_stmts @ insts
+               )
                []
         in
         let reg_tag_11, mov_tag_register_instructions =
@@ -2085,8 +2287,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
            in *)
         let enum_variabe =
           match enum_tte.tac_expression with
-          | TEIdentifier id -> (id, enum_tte.expr_rktype)
-          | _ -> failwith "I need to get the id of the enum"
+          | TEIdentifier id ->
+              (id, enum_tte.expr_rktype)
+          | _ ->
+              failwith "I need to get the id of the enum"
         in
         let cmp_instrution_list, fn_block =
           tmp_switch_list
@@ -2140,8 +2344,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                                 source =
                                                   `Address
                                                     (increment_adress offset_a
-                                                       switch_variable_address);
-                                              });
+                                                       switch_variable_address
+                                                    );
+                                              }
+                                           );
                                          Instruction
                                            (Mov
                                               {
@@ -2149,7 +2355,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                                 source = `Register r11;
                                                 destination =
                                                   `Address destination_address;
-                                              });
+                                              }
+                                           );
                                        ]
                                      else
                                        let leaq =
@@ -2161,13 +2368,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                                 source =
                                                   increment_adress offset_a
                                                     switch_variable_address;
-                                              })
+                                              }
+                                           )
                                        in
                                        leaq
                                        :: copy_from_reg r11 destination_address
                                             ktype rprogram
                                    in
-                                   copy_instructions)
+                                   copy_instructions
+                               )
                             |> List.flatten
                           in
                           let jump_true =
@@ -2176,10 +2385,12 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                                  {
                                    cc = Some E;
                                    where = `Label switch.tmp_sw_goto;
-                                 })
+                                 }
+                              )
                           in
                           fetch_offset_instructions
-                          @ [ compare_instruction; jump_true ])
+                          @ [ compare_instruction; jump_true ]
+                      )
                    |> List.flatten
                  in
                  let genete_block =
@@ -2187,14 +2398,16 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                      ~end_label:(Some switch.tmp_sw_exit_label) current_module
                      rprogram fd switch.tmp_switch_tac_body
                  in
-                 (jump_condition, genete_block))
+                 (jump_condition, genete_block)
+             )
           |> List.split
           |> fun (lhs, rhs) -> (List.flatten lhs, List.flatten rhs)
         in
         let wildcard_case_jmp =
           tmp_wildcard_label
           |> Option.map (fun lab ->
-                 Instruction (Jmp { cc = None; where = `Label lab }))
+                 Instruction (Jmp { cc = None; where = `Label lab })
+             )
           |> Option.to_list
         in
         let wildcard_body_block =
@@ -2202,7 +2415,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           |> Option.map (fun body ->
                  translate_tac_body ~litterals
                    ~end_label:(Some tmp_sw_exit_label) current_module rprogram
-                   fd body)
+                   fd body
+             )
           |> Option.value ~default:[]
         in
 
@@ -2216,13 +2430,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     let stmt_instr =
       body |> fst
       |> List.map (fun stmt ->
-             translate_tac_statement ~litterals current_module rprogram fd stmt)
+             translate_tac_statement ~litterals current_module rprogram fd stmt
+         )
       |> List.flatten
     in
     let end_label_inst =
       end_label
       |> Option.map (fun lab ->
-             Instruction (Jmp { cc = None; where = `Label lab }))
+             Instruction (Jmp { cc = None; where = `Label lab })
+         )
       |> Option.to_list
     in
     let return_instr =
@@ -2246,7 +2462,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                         size = data_size;
                         destination = `Register return_reg;
                         source = src_of_dst last_reg;
-                      })
+                      }
+                   )
                  :: []
              | None ->
                  let x8_address =
@@ -2259,13 +2476,15 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                           size = iq;
                           destination = `Register rdi;
                           source = `Address x8_address;
-                        })
+                        }
+                     )
                  in
 
                  str
                  :: copy_large
                       ~address_str:(create_address_offset rdi)
-                      ~base_address_reg:(address_of_dst last_reg) sizeof)
+                      ~base_address_reg:(address_of_dst last_reg) sizeof
+         )
       |> Option.value ~default:[]
     in
     (label_instr :: stmt_instr) @ return_instr @ end_label_inst
@@ -2281,18 +2500,21 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                size = il;
                source = `Address (create_address_offset rsp);
                destination = `Register rdi;
-             });
+             }
+          );
         Instruction
           (Lea
              {
                size = iq;
                source = create_address_offset ~offset:8L rsp;
                destination = rsi;
-             });
+             }
+          );
         Instruction (Call { what = `Label Spec.main });
         Instruction
           (Mov
-             { size = il; source = `Register rax; destination = `Register rdi });
+             { size = il; source = `Register rax; destination = `Register rdi }
+          );
         Instruction (Call { what = `Label "_exit" });
       ]
     in
@@ -2351,7 +2573,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                             [ Directive "cfi_startproc" ]
                             @ prologue @ List.tl conversion @ epilogue
                             @ [ Directive "cfi_endproc" ];
-                        })
+                        }
+                     )
                | TNOperator operator ->
                    let function_decl =
                      KosuIrTAC.Asttachelper.OperatorDeclaration
@@ -2389,7 +2612,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                             [ Directive "cfi_startproc" ]
                             @ prologue @ List.tl conversion @ epilogue
                             @ [ Directive "cfi_endproc" ];
-                        })
+                        }
+                     )
                | TNConst
                    {
                      rconst_name;
@@ -2406,7 +2630,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                             Spec.label_of_constant ~module_path:current_module
                               rconst_name;
                           value = `IntVal (size, value);
-                        })
+                        }
+                     )
                | TNConst
                    {
                      rconst_name;
@@ -2417,8 +2642,10 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                      match fsize with
                      | F32 ->
                          ( KosuFrontend.Ast.I32,
-                           f |> Int32.bits_of_float |> Int64.of_int32 )
-                     | F64 -> (KosuFrontend.Ast.I64, Int64.bits_of_float f)
+                           f |> Int32.bits_of_float |> Int64.of_int32
+                         )
+                     | F64 ->
+                         (KosuFrontend.Ast.I64, Int64.bits_of_float f)
                    in
                    Some
                      (AConst
@@ -2427,7 +2654,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                             Spec.label_of_constant ~module_path:current_module
                               rconst_name;
                           value = `IntVal (size, bit_float);
-                        })
+                        }
+                     )
                | TNConst
                    {
                      rconst_name;
@@ -2440,9 +2668,11 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                             Spec.label_of_constant ~module_path:current_module
                               rconst_name;
                           value = `StrVal s;
-                        })
+                        }
+                     )
                | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ | _ ->
-                   None)
+                   None
+           )
 
   let asm_module_path_of_tac_module_path ~litterals rprogram
       { path; tac_module } =
@@ -2474,18 +2704,26 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
                    tac_module_path;
                rprogram;
                litterals;
-             })
+             }
+         )
     in
     match start with
-    | None -> modules
-    | Some entry_name -> kosu_crt0_asm entry_name :: modules
+    | None ->
+        modules
+    | Some entry_name ->
+        kosu_crt0_asm entry_name :: modules
 
   let sort_asm_module (AsmModule anodes) =
     AsmModule
       (anodes
       |> List.sort (fun lhs rhs ->
              match (lhs, rhs) with
-             | Afunction _, AConst _ -> -1
-             | AConst _, Afunction _ -> 1
-             | _ -> 0))
+             | Afunction _, AConst _ ->
+                 -1
+             | AConst _, Afunction _ ->
+                 1
+             | _ ->
+                 0
+         )
+      )
 end

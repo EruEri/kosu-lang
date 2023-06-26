@@ -22,19 +22,25 @@ module RType = struct
      @returns If the type represents an unsigned value (.ie pointer or unsigned integer) 
   *)
   let is_raw_unsigned = function
-    | RTInteger _ | RTPointer _ -> true
-    | _ -> false
+    | RTInteger _ | RTPointer _ ->
+        true
+    | _ ->
+        false
 
   let is_any_integer = function RTInteger _ -> true | _ -> false
   let is_bool = function RTBool -> true | _ -> false
 
   let is_unsigned_integer = function
-    | RTInteger (sign, _) -> sign = Unsigned
-    | _ -> false
+    | RTInteger (sign, _) ->
+        sign = Unsigned
+    | _ ->
+        false
 
   let integer_info = function
-    | RTInteger (sign, size) -> Some (sign, size)
-    | _ -> None
+    | RTInteger (sign, size) ->
+        Some (sign, size)
+    | _ ->
+        None
 
   let float_info = function RTFloat size -> Some size | _ -> None
   let is_64bits_float = function RTFloat F64 -> true | _ -> false
@@ -42,37 +48,51 @@ module RType = struct
   let is_float = function RTFloat _ -> true | _ -> false
 
   let is_builtin_type = function
-    | RTParametric_identifier _ | RTType_Identifier _ -> false
-    | _ -> true
+    | RTParametric_identifier _ | RTType_Identifier _ ->
+        false
+    | _ ->
+        true
 
-  let rec npointer n kt = if n <= 0 then kt else RTPointer (npointer (n - 1) kt)
+  let rec npointer n kt =
+    if n <= 0 then
+      kt
+    else
+      RTPointer (npointer (n - 1) kt)
 
   let rtpointee = function
-    | RTPointer kt -> kt
-    | _ -> failwith "Cannot access pointee type of a none pointer type"
+    | RTPointer kt ->
+        kt
+    | _ ->
+        failwith "Cannot access pointee type of a none pointer type"
 
   let module_path_opt = function
     | RTParametric_identifier { module_path; _ }
     | RTType_Identifier { module_path; _ } ->
         Some module_path
-    | _ -> None
+    | _ ->
+        None
 
   let rtype_name_opt = function
     | RTParametric_identifier { name; _ } | RTType_Identifier { name; _ } ->
         Some name
-    | _ -> None
+    | _ ->
+        None
 
   let is_builtin_rtype = function
-    | RTParametric_identifier _ | RTType_Identifier _ -> false
-    | _ -> true
+    | RTParametric_identifier _ | RTType_Identifier _ ->
+        false
+    | _ ->
+        true
 
   let rpointer p = RTPointer p
   let rtuple tuples = RTTuple tuples
   let is_pointer = function RTPointer _ -> true | _ -> false
 
   let extract_parametrics_rktype = function
-    | RTParametric_identifier { parametrics_type; _ } -> parametrics_type
-    | _ -> []
+    | RTParametric_identifier { parametrics_type; _ } ->
+        parametrics_type
+    | _ ->
+        []
 
   let rec update_generics map init_type param_type () =
     match (init_type, param_type) with
@@ -83,27 +103,38 @@ module RType = struct
             | RTUnknow ->
                 let () = Hashtbl.replace map name kt in
                 ()
-            | _ as _t -> ())
-        | None -> ())
+            | _ as _t ->
+                ()
+          )
+        | None ->
+            ()
+      )
     | ( RTParametric_identifier
           { module_path = lmp; parametrics_type = lpt; name = lname },
         RTParametric_identifier
           { module_path = rmp; parametrics_type = rpt; name = rname } ) ->
-        if lmp <> rmp || lname <> rname || Util.are_diff_lenght lpt rpt then ()
-        else List.iter2 (fun l r -> update_generics map l r ()) lpt rpt
-    | RTPointer lhs, RTPointer rhs -> update_generics map lhs rhs ()
+        if lmp <> rmp || lname <> rname || Util.are_diff_lenght lpt rpt then
+          ()
+        else
+          List.iter2 (fun l r -> update_generics map l r ()) lpt rpt
+    | RTPointer lhs, RTPointer rhs ->
+        update_generics map lhs rhs ()
     | RTTuple lhs, RTTuple rhs ->
         List.iter2 (fun l r -> update_generics map l r ()) lhs rhs
-    | RTArray lhs, RTArray rhs -> update_generics map lhs.rktype rhs.rktype ()
-    | _ -> ()
+    | RTArray lhs, RTArray rhs ->
+        update_generics map lhs.rktype rhs.rktype ()
+    | _ ->
+        ()
 
   let rec restrict_rktype to_restrict restrict =
     match (to_restrict, restrict) with
-    | ( (RTParametric_identifier
-           { module_path = lmp; parametrics_type = lpt; name = lname } as lhs),
+    | ( ( RTParametric_identifier
+            { module_path = lmp; parametrics_type = lpt; name = lname } as lhs
+        ),
         RTParametric_identifier
           { module_path = rmp; parametrics_type = rpt; name = rname } ) ->
-        if lmp <> rmp || lname <> rname || Util.are_diff_lenght lpt rpt then lhs
+        if lmp <> rmp || lname <> rname || Util.are_diff_lenght lpt rpt then
+          lhs
         else
           RTParametric_identifier
             {
@@ -117,18 +148,25 @@ module RType = struct
            Dont remove the [| RTUnknow, rtk] branch otherwise it breaks the type inference,
            if [rtk] is generics, we restrict [RTUnknow] by [rtw] and we will instanciate [rtw] with [RType.update_generics] function
         *)
-    | RTUnknow, rtk | rtk, RTUnknow -> rtk
+    | RTUnknow, rtk | rtk, RTUnknow ->
+        rtk
     | (RTTuple rkts as rkt), RTTuple lkts ->
-        if Util.are_diff_lenght rkts lkts then rkt
-        else RTTuple (List.map2 restrict_rktype rkts lkts)
-    | _ -> to_restrict
+        if Util.are_diff_lenght rkts lkts then
+          rkt
+        else
+          RTTuple (List.map2 restrict_rktype rkts lkts)
+    | _ ->
+        to_restrict
 
   let rec remap_generic_ktype generics_table rktype =
     match rktype with
     | RTType_Identifier { module_path = ""; name } -> (
         match Hashtbl.find_opt generics_table name with
-        | None -> RTType_Identifier { module_path = ""; name }
-        | Some rtyp -> rtyp)
+        | None ->
+            RTType_Identifier { module_path = ""; name }
+        | Some rtyp ->
+            rtyp
+      )
     | RTParametric_identifier { module_path; parametrics_type; name } ->
         RTParametric_identifier
           {
@@ -139,10 +177,12 @@ module RType = struct
           }
     | RTTuple kts ->
         RTTuple (kts |> List.map (remap_generic_ktype generics_table))
-    | RTPointer kt -> kt |> remap_generic_ktype generics_table |> rpointer
+    | RTPointer kt ->
+        kt |> remap_generic_ktype generics_table |> rpointer
     | RTArray { size; rktype } ->
         RTArray { size; rktype = remap_generic_ktype generics_table rktype }
-    | _ as kt -> kt
+    | _ as kt ->
+        kt
 end
 
 module RSwitch_Case = struct
@@ -154,8 +194,10 @@ end
 
 module Expression = struct
   let is_expresion_branch = function
-    | RECases _ | RESwitch _ | REIf _ -> true
-    | _ -> false
+    | RECases _ | RESwitch _ | REIf _ ->
+        true
+    | _ ->
+        false
 
   let is_typed_expresion_branch { rexpression; _ } =
     is_expresion_branch rexpression
@@ -163,7 +205,8 @@ end
 
 module OperatorDeclaration = struct
   let op_return_type = function
-    | RUnary { return_type; _ } | RBinary { return_type; _ } -> return_type
+    | RUnary { return_type; _ } | RBinary { return_type; _ } ->
+        return_type
 
   let label_of_operator = function
     | RUnary { op; rfield = _, rktype; return_type; _ } ->
@@ -270,7 +313,8 @@ module Generics = struct
     (* let () = List.iter (fun (s, kt) -> Printf.printf " %s => %s \n\n" s (Asttypprint.string_of_rktype kt)) generics in *)
     function
     | RTType_Identifier { module_path = ""; name } as t -> (
-        match generics |> List.assoc_opt name with None -> t | Some kt -> kt)
+        match generics |> List.assoc_opt name with None -> t | Some kt -> kt
+      )
     | RTParametric_identifier { module_path; parametrics_type; name } ->
         RTParametric_identifier
           {
@@ -279,7 +323,8 @@ module Generics = struct
               parametrics_type |> List.map (instanciate_generics_type generics);
             name;
           }
-    | RTPointer ptr -> RTPointer (instanciate_generics_type generics ptr)
+    | RTPointer ptr ->
+        RTPointer (instanciate_generics_type generics ptr)
     | RTTuple rtks ->
         RTTuple (rtks |> List.map (instanciate_generics_type generics))
     | RTArray info ->
@@ -288,11 +333,13 @@ module Generics = struct
             size = info.size;
             rktype = instanciate_generics_type generics info.rktype;
           }
-    | _ as t -> t
+    | _ as t ->
+        t
 
   let rec instanciate_generics_kbody generics (rkstatements, return_te) =
     ( rkstatements |> List.map (instanciate_generics_statement generics),
-      instanciate_generics_typed_expression generics return_te )
+      instanciate_generics_typed_expression generics return_te
+    )
 
   and instanciate_generics_statement generics = function
     | RSDeclaration { is_const; variable_name; typed_expression } ->
@@ -308,7 +355,8 @@ module Generics = struct
     | RSAffection (RAFVariable (name, kt), te) ->
         RSAffection
           ( RAFVariable (name, instanciate_generics_type generics kt),
-            instanciate_generics_typed_expression generics te )
+            instanciate_generics_typed_expression generics te
+          )
     | RSAffection (RAFField { variable = name, kt; fields }, te) ->
         RSAffection
           ( RAFField
@@ -316,11 +364,13 @@ module Generics = struct
                 fields;
                 variable = (name, instanciate_generics_type generics kt);
               },
-            instanciate_generics_typed_expression generics te )
+            instanciate_generics_typed_expression generics te
+          )
     | RSDerefAffectation (RAFVariable (name, kt), te) ->
         RSDerefAffectation
           ( RAFVariable (name, instanciate_generics_type generics kt),
-            instanciate_generics_typed_expression generics te )
+            instanciate_generics_typed_expression generics te
+          )
     | RSDerefAffectation (RAFField { variable = name, kt; fields }, te) ->
         RSDerefAffectation
           ( RAFField
@@ -328,10 +378,12 @@ module Generics = struct
                 fields;
                 variable = (name, instanciate_generics_type generics kt);
               },
-            instanciate_generics_typed_expression generics te )
+            instanciate_generics_typed_expression generics te
+          )
 
   and instanciate_generics_rexpression generics = function
-    | RESizeof ktype -> RESizeof (instanciate_generics_type generics ktype)
+    | RESizeof ktype ->
+        RESizeof (instanciate_generics_type generics ktype)
     | REFieldAcces { first_expr; field } ->
         REFieldAcces
           {
@@ -354,7 +406,8 @@ module Generics = struct
             fields =
               fields
               |> List.map (fun (s, te) ->
-                     (s, instanciate_generics_typed_expression generics te));
+                     (s, instanciate_generics_typed_expression generics te)
+                 );
           }
     | REEnum { modules_path; enum_name; variant; assoc_exprs } ->
         REEnum
@@ -397,13 +450,16 @@ module Generics = struct
         REBinOperator_Function_call (instanciate_generics_binary_op generics bo)
     | REUnOperator_Function_call up ->
         REUnOperator_Function_call (instanciate_generics_unary_op generics up)
-    | REBin_op bo -> REBin_op (instanciate_generics_binary_op generics bo)
-    | REUn_op up -> REUn_op (instanciate_generics_unary_op generics up)
+    | REBin_op bo ->
+        REBin_op (instanciate_generics_binary_op generics bo)
+    | REUn_op up ->
+        REUn_op (instanciate_generics_unary_op generics up)
     | REIf (te, ifbody, elsebody) ->
         REIf
           ( instanciate_generics_typed_expression generics te,
             instanciate_generics_kbody generics ifbody,
-            instanciate_generics_kbody generics elsebody )
+            instanciate_generics_kbody generics elsebody
+          )
     | RESwitch { rexpression; cases; wildcard_case } ->
         RESwitch
           {
@@ -415,8 +471,11 @@ module Generics = struct
                      ( rswichs_list,
                        info_list
                        |> List.map (fun (i, s, ktype) ->
-                              (i, s, instanciate_generics_type generics ktype)),
-                       instanciate_generics_kbody generics rbody ));
+                              (i, s, instanciate_generics_type generics ktype)
+                          ),
+                       instanciate_generics_kbody generics rbody
+                     )
+                 );
             wildcard_case =
               wildcard_case |> Option.map (instanciate_generics_kbody generics);
           }
@@ -427,18 +486,31 @@ module Generics = struct
               cases
               |> List.map (fun (condition, body) ->
                      ( instanciate_generics_typed_expression generics condition,
-                       instanciate_generics_kbody generics body ));
+                       instanciate_generics_kbody generics body
+                     )
+                 );
             else_case = else_case |> instanciate_generics_kbody generics;
           }
     | REWhile (te, body) ->
         REWhile
           ( instanciate_generics_typed_expression generics te,
-            instanciate_generics_kbody generics body )
-    | ( REmpty | RTrue | RFalse | RENullptr | RECmpLess | RECmpEqual
-      | RECmpGreater | REInteger _ | REFloat _ | REChar _ | REstring _
+            instanciate_generics_kbody generics body
+          )
+    | ( REmpty
+      | RTrue
+      | RFalse
+      | RENullptr
+      | RECmpLess
+      | RECmpEqual
+      | RECmpGreater
+      | REInteger _
+      | REFloat _
+      | REChar _
+      | REstring _
       | REAdress _
       | REDeference (_, _)
-      | REIdentifier _ | REConst_Identifier _ ) as t ->
+      | REIdentifier _
+      | REConst_Identifier _ ) as t ->
         t
 
   and instanciate_generics_typed_expression generics typed_expr =
@@ -451,87 +523,106 @@ module Generics = struct
 
   and instanciate_generics_unary_op generics = function
     | RUMinus typed_expression ->
-        RUMinus
-          (instanciate_generics_typed_expression generics typed_expression)
-    | RUNot te -> RUNot (instanciate_generics_typed_expression generics te)
+        RUMinus (instanciate_generics_typed_expression generics typed_expression)
+    | RUNot te ->
+        RUNot (instanciate_generics_typed_expression generics te)
 
   and instanciate_generics_binary_op generics = function
     | RBAdd (lhs, rhs) ->
         RBAdd
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBMinus (lhs, rhs) ->
         RBMinus
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBMult (lhs, rhs) ->
         RBMult
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBDiv (lhs, rhs) ->
         RBDiv
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBMod (lhs, rhs) ->
         RBMod
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBBitwiseOr (lhs, rhs) ->
         RBBitwiseOr
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBBitwiseAnd (lhs, rhs) ->
         RBBitwiseAnd
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBBitwiseXor (lhs, rhs) ->
         RBBitwiseXor
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBShiftLeft (lhs, rhs) ->
         RBShiftLeft
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBShiftRight (lhs, rhs) ->
         RBShiftRight
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBAnd (lhs, rhs) ->
         RBAdd
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBOr (lhs, rhs) ->
         RBOr
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBSup (lhs, rhs) ->
         RBSup
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBSupEq (lhs, rhs) ->
         RBSupEq
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBInf (lhs, rhs) ->
         RBInf
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBInfEq (lhs, rhs) ->
         RBInfEq
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBEqual (lhs, rhs) ->
         RBEqual
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBDif (lhs, rhs) ->
         RBDif
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
     | RBCmp (lhs, rhs) ->
         RBCmp
           ( instanciate_generics_typed_expression generics lhs,
-            instanciate_generics_typed_expression generics rhs )
+            instanciate_generics_typed_expression generics rhs
+          )
 end
 
 module Function = struct
@@ -539,7 +630,8 @@ module Function = struct
     Printf.sprintf "_%s.%s_%s" current_module name
       (typed_list
       |> List.map Asttypprint.string_of_label_rktype
-      |> String.concat "_")
+      |> String.concat "_"
+      )
 
   let label_of_fn_name fn_module (rfunction_decl : rfunction_decl) =
     label_of_fn_name fn_module rfunction_decl.rfn_name
@@ -563,7 +655,8 @@ module Function = struct
         let rparameters =
           rfunction_decl.rparameters
           |> List.map (fun (field, rtype) ->
-                 (field, instanciate_generics_type assoc_generics rtype))
+                 (field, instanciate_generics_type assoc_generics rtype)
+             )
         in
         let return_type =
           instanciate_generics_type assoc_generics rfunction_decl.return_type
@@ -602,11 +695,14 @@ module Function = struct
                    Hashtbl.replace generic_table name
                      ( function_decl.generics
                        |> Util.ListHelper.index_of (( = ) name),
-                       kt )
+                       kt
+                     )
                  in
                  true
-               else false
-           | Some (_, find_kt) -> find_kt = kt ->
+               else
+                 false
+           | Some (_, find_kt) ->
+               find_kt = kt ->
         true
     | ( RTType_Identifier { module_path = init_path; name = init_name },
         RTType_Identifier { module_path = exp_path; name = exp_name } ) ->
@@ -624,22 +720,28 @@ module Function = struct
         if
           init_path <> exp_path || init_name <> exp_name
           || List.compare_lengths init_pt exp_pt <> 0
-        then false
+        then
+          false
         else
           List.combine init_pt exp_pt
           |> List.for_all (fun (i, e) ->
-                 is_type_compatible_hashgen generic_table i e function_decl)
-    | RTUnknow, _ -> true
-    | RTPointer _, RTPointer RTUnknow -> true
+                 is_type_compatible_hashgen generic_table i e function_decl
+             )
+    | RTUnknow, _ ->
+        true
+    | RTPointer _, RTPointer RTUnknow ->
+        true
     | RTPointer lhs, RTPointer rhs ->
         is_type_compatible_hashgen generic_table lhs rhs function_decl
     | RTTuple lhs, RTTuple rhs ->
         Util.are_same_lenght lhs rhs
         && List.for_all2
              (fun lkt rkt ->
-               is_type_compatible_hashgen generic_table lkt rkt function_decl)
+               is_type_compatible_hashgen generic_table lkt rkt function_decl
+             )
              lhs rhs
-    | lhs, rhs -> lhs = rhs
+    | lhs, rhs ->
+        lhs = rhs
 end
 
 module Renum = struct
@@ -650,13 +752,19 @@ module Renum = struct
       rvariants =
         enum_decl.rvariants
         |> List.map (fun (v, kts) ->
-               (v, kts |> List.map (RType.remap_generic_ktype generics)));
+               (v, kts |> List.map (RType.remap_generic_ktype generics))
+           );
     }
 
   let tag_of_variant variant (enum_decl : renum_decl) =
     enum_decl.rvariants
     |> List.mapi (fun i v -> (Int32.of_int i, v))
-    |> List.find_map (fun (i, v) -> if fst v = variant then Some i else None)
+    |> List.find_map (fun (i, v) ->
+           if fst v = variant then
+             Some i
+           else
+             None
+       )
     |> Option.get
 
   let assoc_types_of_variant ?(tagged = false) variant (enum_decl : renum_decl)
@@ -664,20 +772,27 @@ module Renum = struct
     let tagtype =
       if tagged then
         RTInteger (KosuFrontend.Ast.Signed, KosuFrontend.Ast.I32) :: []
-      else []
+      else
+        []
     in
     tagtype
     @ (enum_decl.rvariants
       |> List.find_map (fun (evariant, assoc_type) ->
-             if evariant = variant then Some assoc_type else None)
-      |> Option.get)
+             if evariant = variant then
+               Some assoc_type
+             else
+               None
+         )
+      |> Option.get
+      )
 
-  let assoc_types_of_variant_tag ?(tagged = false) index
-      (enum_decl : renum_decl) =
+  let assoc_types_of_variant_tag ?(tagged = false) index (enum_decl : renum_decl)
+      =
     let tagtype =
       if tagged then
         RTInteger (KosuFrontend.Ast.Signed, KosuFrontend.Ast.I32) :: []
-      else []
+      else
+        []
     in
     tagtype @ (index |> List.nth enum_decl.rvariants |> snd)
 end
@@ -700,8 +815,10 @@ module Rtype_Decl = struct
   type type_decl = RDecl_Struct of rstruct_decl | RDecl_Enum of renum_decl
 
   let type_name = function
-    | RDecl_Struct e -> e.rstruct_name
-    | RDecl_Enum s -> s.renum_name
+    | RDecl_Struct e ->
+        e.rstruct_name
+    | RDecl_Enum s ->
+        s.renum_name
 end
 
 module RFunction_Decl = struct
@@ -714,7 +831,8 @@ module RFunction_Decl = struct
     | RSyscall_Decl { rsyscall_name = n; _ } | RKosufn_Decl { rfn_name = n; _ }
       ->
         n
-    | RExternal_Decl { rsig_name; c_name = _; _ } -> rsig_name
+    | RExternal_Decl { rsig_name; c_name = _; _ } ->
+        rsig_name
   (* c_name |> Option.value ~default:rsig_name *)
 end
 
@@ -730,8 +848,12 @@ module Rmodule = struct
           (rnodes
           |> List.filter (fun rnode ->
                  match rnode with
-                 | RNFunction { true_generics; _ } -> not true_generics
-                 | _ -> true))
+                 | RNFunction { true_generics; _ } ->
+                     not true_generics
+                 | _ ->
+                     true
+             )
+          )
 
   let retrieve_non_generics_function = function
     | RModule rnodes ->
@@ -747,25 +869,37 @@ module Rmodule = struct
                           rparameters = rfunction_decl.rparameters;
                           return_type = rfunction_decl.return_type;
                           rbody = rfunction_decl.rbody;
-                        })
-               | RNOperator roperator_decl -> Some (RFOperator roperator_decl)
-               | _ -> None)
+                        }
+                     )
+               | RNOperator roperator_decl ->
+                   Some (RFOperator roperator_decl)
+               | _ ->
+                   None
+           )
 
   let retrieve_binary_function_decl op = function
     | RModule rnodes ->
         rnodes
         |> List.filter_map (function
-             | RNOperator (RBinary bod) when bod.op = op -> Some bod
-             | _ -> None)
+             | RNOperator (RBinary bod) when bod.op = op ->
+                 Some bod
+             | _ ->
+                 None
+             )
 
   let retrive_functions_decl = function
     | RModule rnodes ->
         rnodes
         |> List.filter_map (function
-             | RNFunction fn -> Some (RKosufn_Decl fn)
-             | RNExternFunc ef -> Some (RExternal_Decl ef)
-             | RNSyscall scf -> Some (RSyscall_Decl scf)
-             | _ -> None)
+             | RNFunction fn ->
+                 Some (RKosufn_Decl fn)
+             | RNExternFunc ef ->
+                 Some (RExternal_Decl ef)
+             | RNSyscall scf ->
+                 Some (RSyscall_Decl scf)
+             | _ ->
+                 None
+             )
 
   let retrieve_const_decl = function
     | RModule rnodes ->
@@ -773,8 +907,7 @@ module Rmodule = struct
 
   let retrive_operator_decl = function
     | RModule rnodes ->
-        rnodes
-        |> List.filter_map (function RNOperator e -> Some e | _ -> None)
+        rnodes |> List.filter_map (function RNOperator e -> Some e | _ -> None)
 
   let find_function_decl fn_name = function
     | RModule rnodes ->
@@ -784,7 +917,9 @@ module Rmodule = struct
                | RNFunction rfunction_decl
                  when rfunction_decl.rfn_name = fn_name ->
                    Some rfunction_decl
-               | _ -> None)
+               | _ ->
+                   None
+           )
 
   let find_function_decl_param_ktype fn_name ktypes = function
     | RModule rnodes ->
@@ -796,16 +931,22 @@ module Rmodule = struct
                       && rfunction_decl.rparameters |> List.map snd
                          |> ( = ) ktypes ->
                    Some rfunction_decl
-               | _ -> None)
+               | _ ->
+                   None
+           )
 
   let retrieve_type_decl = function
     | RModule rmodule_nodes ->
         rmodule_nodes
         |> List.filter_map (fun node ->
                match node with
-               | RNStruct struct_decl -> Some (RDecl_Struct struct_decl)
-               | RNEnum enum_decl -> Some (RDecl_Enum enum_decl)
-               | _ -> None)
+               | RNStruct struct_decl ->
+                   Some (RDecl_Struct struct_decl)
+               | RNEnum enum_decl ->
+                   Some (RDecl_Enum enum_decl)
+               | _ ->
+                   None
+           )
 end
 
 module FnCallInfo = Set.Make (struct
@@ -849,14 +990,18 @@ module RProgram = struct
         compare
           (signature_of_rtrue_function_decl lhs)
           (signature_of_rtrue_function_decl rhs)
-      else module_cmp
+      else
+        module_cmp
   end)
 
   let find_module_of_name module_name (rprogram : rprogram) =
     rprogram
     |> List.find_map (fun { filename = _; rmodule_path } ->
-           if rmodule_path.path = module_name then Some rmodule_path.rmodule
-           else None)
+           if rmodule_path.path = module_name then
+             Some rmodule_path.rmodule
+           else
+             None
+       )
 
   let find_function_decls_in_module module_name rprogram =
     rprogram
@@ -868,7 +1013,8 @@ module RProgram = struct
     rprogram
     |> find_function_decls_in_module module_name
     >>= List.find_opt (fun fn_decl ->
-            fn_decl |> RFunction_Decl.fn_name |> ( = ) fn_name)
+            fn_decl |> RFunction_Decl.fn_name |> ( = ) fn_name
+        )
 
   let find_function_decl_exact_param_types ~module_name ~ktypes ~fn_name
       rprogram =
@@ -878,7 +1024,8 @@ module RProgram = struct
     >>= Rmodule.find_function_decl_param_ktype fn_name ktypes
 
   let find_type_decl_from_rktye ktype rprogram =
-    if RType.is_builtin_rtype ktype then None
+    if RType.is_builtin_rtype ktype then
+      None
     else
       let type_name = ktype |> RType.rtype_name_opt |> Option.get in
       let type_module_name = ktype |> RType.module_path_opt |> Option.get in
@@ -887,7 +1034,8 @@ module RProgram = struct
       in
       rmodule |> Rmodule.retrieve_type_decl
       |> List.find (fun rtype_decl ->
-             type_name = (rtype_decl |> Rtype_Decl.type_name))
+             type_name = (rtype_decl |> Rtype_Decl.type_name)
+         )
       |> Option.some
 
   let find_const_decl ~name ~module_path rprogram =
@@ -905,12 +1053,15 @@ module RProgram = struct
     |> List.map (fun { filename = _; rmodule_path } ->
            rmodule_path.rmodule |> Rmodule.retrive_operator_decl
            |> List.filter (function
-                | RUnary _ -> false
+                | RUnary _ ->
+                    false
                 | RBinary record ->
                     let (_, kt1), (_, kt2) = record.rbfields in
                     op = record.op
                     && record.return_type = r_type
-                    && lhs = kt1 && rhs = kt2))
+                    && lhs = kt1 && rhs = kt2
+                )
+       )
     |> List.flatten
 
   let find_unary_operator_decl (op : KosuFrontend.Ast.parser_unary_op) lhs
@@ -919,22 +1070,28 @@ module RProgram = struct
     |> List.map (fun { filename = _; rmodule_path } ->
            rmodule_path.rmodule |> Rmodule.retrive_operator_decl
            |> List.filter (function
-                | RBinary _ -> false
+                | RBinary _ ->
+                    false
                 | RUnary record ->
                     let _, kt1 = record.rfield in
-                    op = record.op && record.return_type = r_type && lhs = kt1))
+                    op = record.op && record.return_type = r_type && lhs = kt1
+                )
+       )
     |> List.flatten
 
   let rec stack_parameters_in_expression current_module rprogram = function
     | REFunction_call
         { modules_path; fn_name; parameters; generics_resolver = _ } -> (
         let cmodule =
-          if modules_path = "" then current_module else modules_path
+          if modules_path = "" then
+            current_module
+          else
+            modules_path
         in
         let fn_decl =
-          rprogram |> find_function_decl_of_name cmodule fn_name |> function
-          | Some s -> s
-          | None -> failwith "814"
+          rprogram
+          |> find_function_decl_of_name cmodule fn_name
+          |> function Some s -> s | None -> failwith "814"
         in
         match fn_decl with
         | RSyscall_Decl rsyscall_decl ->
@@ -968,13 +1125,15 @@ module RProgram = struct
                 varia_index = None;
                 parameters;
                 return_type = fn_decl.return_type;
-              })
+              }
+      )
     | REFieldAcces { first_expr; _ } ->
         stack_parameters_in_typed_expression current_module rprogram first_expr
     | REStruct { fields; _ } ->
         fields
         |> List.map (fun (_, te) ->
-               stack_parameters_in_typed_expression current_module rprogram te)
+               stack_parameters_in_typed_expression current_module rprogram te
+           )
         |> List.fold_left FnCallInfo.union FnCallInfo.empty
     | REEnum { assoc_exprs = tes; _ }
     | REArray tes
@@ -987,7 +1146,8 @@ module RProgram = struct
     | REUnOperator_Function_call un | REUn_op un -> (
         match un with
         | RUMinus te | RUNot te ->
-            stack_parameters_in_typed_expression current_module rprogram te)
+            stack_parameters_in_typed_expression current_module rprogram te
+      )
     | REBinOperator_Function_call rkbin | REBin_op rkbin ->
         let lhs, rhs = Binop.operands rkbin in
         max
@@ -1016,7 +1176,8 @@ module RProgram = struct
                  let kb_count =
                    stack_parameters_in_body current_module rprogram kbody
                  in
-                 max te_count kb_count)
+                 max te_count kb_count
+             )
           |> List.fold_left FnCallInfo.union FnCallInfo.empty
         in
         let else_count =
@@ -1031,7 +1192,8 @@ module RProgram = struct
         let cases_count =
           cases
           |> List.map (fun (_, _, kb) ->
-                 stack_parameters_in_body current_module rprogram kb)
+                 stack_parameters_in_body current_module rprogram kb
+             )
           |> List.fold_left FnCallInfo.union FnCallInfo.empty
         in
         let wildcard_count =
@@ -1042,7 +1204,8 @@ module RProgram = struct
         te_count
         |> FnCallInfo.union cases_count
         |> FnCallInfo.union wildcard_count
-    | _ -> FnCallInfo.empty
+    | _ ->
+        FnCallInfo.empty
 
   and stack_parameters_in_typed_expression current_module rprogram
       { rexpression; _ } =
@@ -1075,11 +1238,15 @@ module RProgram = struct
           |> List.map (fun ({ rktype = _; rexpression = _ } as te) ->
                  (* let () = Printf.printf "te: %s\n\n" (Asttypprint.string_of_typed_expression te) in *)
                  specialise_generics_function_typed_expression ~ignored
-                   current_module rprogram te)
+                   current_module rprogram te
+             )
           |> List.fold_left FnSpec.union FnSpec.empty
         in
         let function_module =
-          if modules_path = "" then current_module else modules_path
+          if modules_path = "" then
+            current_module
+          else
+            modules_path
         in
         rprogram
         |> find_module_of_name function_module
@@ -1091,7 +1258,8 @@ module RProgram = struct
             (* let () = Printf.printf "No decl for %s::%s\n" modules_path fn_name in *)
             default_set
         | Some function_decl -> (
-            if function_decl.generics = [] then default_set
+            if function_decl.generics = [] then
+              default_set
             else
               let maped_type = Hashtbl.create (parameters |> List.length) in
               let inner_specialise =
@@ -1106,7 +1274,8 @@ module RProgram = struct
                            type_decl function_decl
                        in
                        specialise_generics_function_typed_expression ~ignored
-                         current_module rprogram te)
+                         current_module rprogram te
+                   )
                 |> List.fold_left FnSpec.union FnSpec.empty
               in
               match generics_resolver with
@@ -1115,7 +1284,8 @@ module RProgram = struct
                     maped_type |> Hashtbl.to_seq |> List.of_seq
                     |> List.sort
                          (fun (_ls, (lindex, _ltype)) (_rs, (rindex, _rtype)) ->
-                           compare lindex rindex)
+                           compare lindex rindex
+                       )
                     |> List.map (fun (_, (_, kt)) -> kt)
                   in
                   (* let () = List.iter (fun (s, kt) -> Printf.printf "In %s => %s \n\n" s (Asttypprint.string_of_rktype kt)) (List.combine function_decl.generics type_list) in *)
@@ -1125,7 +1295,8 @@ module RProgram = struct
                   in
                   let to_add = (function_module, true_decl) in
                   let recall =
-                    if FnSpec.mem to_add ignored then FnSpec.empty
+                    if FnSpec.mem to_add ignored then
+                      FnSpec.empty
                     else
                       specialise_generics_function_kbody
                         ~ignored:(FnSpec.add to_add ignored)
@@ -1142,7 +1313,8 @@ module RProgram = struct
                   in
                   let to_add = (function_module, true_decl) in
                   let recall =
-                    if FnSpec.mem to_add ignored then FnSpec.empty
+                    if FnSpec.mem to_add ignored then
+                      FnSpec.empty
                     else
                       specialise_generics_function_kbody
                         ~ignored:(FnSpec.add to_add ignored)
@@ -1150,7 +1322,9 @@ module RProgram = struct
                   in
                   inner_specialise
                   |> FnSpec.add (function_module, true_decl)
-                  |> FnSpec.union recall))
+                  |> FnSpec.union recall
+          )
+      )
     | REFieldAcces { first_expr; _ } | RETupleAccess { first_expr; _ } ->
         specialise_generics_function_typed_expression ~ignored current_module
           rprogram first_expr
@@ -1158,7 +1332,8 @@ module RProgram = struct
         fields
         |> List.map (fun (_, te) ->
                specialise_generics_function_typed_expression ~ignored
-                 current_module rprogram te)
+                 current_module rprogram te
+           )
         |> List.fold_left FnSpec.union FnSpec.empty
     | REEnum { assoc_exprs = tes; _ }
     | REArray tes
@@ -1167,7 +1342,8 @@ module RProgram = struct
         tes
         |> List.map
              (specialise_generics_function_typed_expression ~ignored
-                current_module rprogram)
+                current_module rprogram
+             )
         |> List.fold_left FnSpec.union FnSpec.empty
     | REIf (te_cond, if_body, else_body) ->
         te_cond
@@ -1176,11 +1352,13 @@ module RProgram = struct
         |> FnSpec.union
              (if_body
              |> specialise_generics_function_kbody ~ignored current_module
-                  rprogram)
+                  rprogram
+             )
         |> FnSpec.union
              (else_body
              |> specialise_generics_function_kbody ~ignored current_module
-                  rprogram)
+                  rprogram
+             )
     | RECases { cases; else_case } ->
         cases
         |> List.map (fun (te, body) ->
@@ -1190,12 +1368,15 @@ module RProgram = struct
                |> FnSpec.union
                     (body
                     |> specialise_generics_function_kbody ~ignored
-                         current_module rprogram))
+                         current_module rprogram
+                    )
+           )
         |> List.fold_left FnSpec.union FnSpec.empty
         |> FnSpec.union
              (else_case
              |> specialise_generics_function_kbody ~ignored current_module
-                  rprogram)
+                  rprogram
+             )
     | RESwitch { rexpression; cases; wildcard_case } ->
         rexpression
         |> specialise_generics_function_typed_expression ~ignored current_module
@@ -1205,14 +1386,18 @@ module RProgram = struct
              |> List.map (fun (_, _, body) ->
                     body
                     |> specialise_generics_function_kbody ~ignored
-                         current_module rprogram)
-             |> List.fold_left FnSpec.union FnSpec.empty)
+                         current_module rprogram
+                )
+             |> List.fold_left FnSpec.union FnSpec.empty
+             )
         |> FnSpec.union
              (wildcard_case
              |> Option.map
                   (specialise_generics_function_kbody ~ignored current_module
-                     rprogram)
-             |> Option.value ~default:FnSpec.empty)
+                     rprogram
+                  )
+             |> Option.value ~default:FnSpec.empty
+             )
     | REBinOperator_Function_call bin | REBin_op bin ->
         let lhs, rhs = Binop.operands bin in
         lhs
@@ -1221,12 +1406,14 @@ module RProgram = struct
         |> FnSpec.union
              (rhs
              |> specialise_generics_function_typed_expression ~ignored
-                  current_module rprogram)
+                  current_module rprogram
+             )
     | REUnOperator_Function_call un | REUn_op un -> (
         match un with
         | RUMinus te | RUNot te ->
             specialise_generics_function_typed_expression ~ignored
-              current_module rprogram te)
+              current_module rprogram te
+      )
     | REWhile (te, body) ->
         let fn_expr =
           specialise_generics_function_typed_expression ~ignored current_module
@@ -1235,11 +1422,22 @@ module RProgram = struct
         body
         |> specialise_generics_function_kbody ~ignored current_module rprogram
         |> FnSpec.union fn_expr
-    | REmpty | RTrue | RFalse | RECmpEqual | RECmpLess | RECmpGreater
-    | RENullptr | REInteger _ | REFloat _ | REChar _ | RESizeof _ | REstring _
+    | REmpty
+    | RTrue
+    | RFalse
+    | RECmpEqual
+    | RECmpLess
+    | RECmpGreater
+    | RENullptr
+    | REInteger _
+    | REFloat _
+    | REChar _
+    | RESizeof _
+    | REstring _
     | REAdress _
     | REDeference (_, _)
-    | REIdentifier _ | REConst_Identifier _ ->
+    | REIdentifier _
+    | REConst_Identifier _ ->
         FnSpec.empty
 
   and specialise_generics_function_typed_expression ~ignored current_module
@@ -1267,12 +1465,14 @@ module RProgram = struct
     rkstatements
     |> List.map
          (specialise_generics_function_statement ~ignored current_module
-            rprogram)
+            rprogram
+         )
     |> List.fold_left FnSpec.union FnSpec.empty
     |> FnSpec.union
          (return_exprs
          |> specialise_generics_function_typed_expression ~ignored
-              current_module rprogram)
+              current_module rprogram
+         )
 
   let specialise rprogram =
     rprogram
@@ -1287,8 +1487,10 @@ module RProgram = struct
                     specialise_generics_function_kbody path rprogram
                       rtrue_function_decl.rbody
                 | RFOperator (RUnary { kbody; _ } | RBinary { kbody; _ }) ->
-                    specialise_generics_function_kbody path rprogram kbody)
-           |> List.fold_left FnSpec.union FnSpec.empty)
+                    specialise_generics_function_kbody path rprogram kbody
+                )
+           |> List.fold_left FnSpec.union FnSpec.empty
+       )
     |> List.fold_left FnSpec.union FnSpec.empty
 
   let generate_function_from_spaceship_decl ~generate_equal
@@ -1380,7 +1582,8 @@ module RProgram = struct
       [ supnode; supeqnode; infnode; infeqnode; diffnode ]
     in
     match generate_equal with
-    | false -> always_generated
+    | false ->
+        always_generated
     | true ->
         let equal_body : rkbody = (spaceshift_call_stmt, equal_expr) in
         let eq_node = create_node pbequal rtbool rfields equal_body in
@@ -1405,7 +1608,8 @@ module RProgram = struct
                         ~r_type:RTBool rprogram
                     in
                     generate_function_from_spaceship_decl
-                      ~generate_equal:(find_eq_decl = []) decl)
+                      ~generate_equal:(find_eq_decl = []) decl
+                )
              |> List.flatten
            in
 
@@ -1415,7 +1619,8 @@ module RProgram = struct
                   (fun acc_module node -> Rmodule.add_node node acc_module)
                   rmodule
            in
-           { filename; rmodule_path = { path; rmodule } })
+           { filename; rmodule_path = { path; rmodule } }
+       )
 
   let remove_generics rprogram =
     rprogram
@@ -1424,7 +1629,8 @@ module RProgram = struct
              filename;
              rmodule_path =
                { path; rmodule = Rmodule.remove_generics_node rmodule };
-           })
+           }
+       )
 
   let append_function_decl (module_path, rtrue_function_decl) rprogram =
     rprogram
@@ -1435,13 +1641,18 @@ module RProgram = struct
                {
                  path;
                  rmodule =
-                   (if path = module_path then
-                      Rmodule.add_node
-                        (RNFunction
-                           (Function.function_decl_of_rtrue_function_decl
-                              rtrue_function_decl))
-                        rmodule
-                    else rmodule);
+                   ( if path = module_path then
+                       Rmodule.add_node
+                         (RNFunction
+                            (Function.function_decl_of_rtrue_function_decl
+                               rtrue_function_decl
+                            )
+                         )
+                         rmodule
+                     else
+                       rmodule
+                   );
                };
-           })
+           }
+       )
 end

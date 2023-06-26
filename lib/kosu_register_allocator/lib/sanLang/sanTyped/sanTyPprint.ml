@@ -21,10 +21,14 @@ open SanTyAst
 open Printf
 
 let string_of_atom = function
-  | Variable v -> v
-  | Int i -> sprintf "%nd" i
-  | Boolean b -> string_of_bool b
-  | String s -> sprintf "\"%s\"" s
+  | Variable v ->
+      v
+  | Int i ->
+      sprintf "%nd" i
+  | Boolean b ->
+      string_of_bool b
+  | String s ->
+      sprintf "\"%s\"" s
 
 let string_of_typed_atom tyatom =
   sprintf "%s : %s"
@@ -32,7 +36,8 @@ let string_of_typed_atom tyatom =
     (string_of_san_type tyatom.atom_type)
 
 let string_of_ty_san_rvlue = function
-  | TyRVExpr typed_atom -> string_of_typed_atom typed_atom
+  | TyRVExpr typed_atom ->
+      string_of_typed_atom typed_atom
   | TYRVUnary { unop; ty_atom } ->
       sprintf "%s %s" (symbole_of_unary unop) (string_of_atom ty_atom.atom)
   | TYRVBinary { binop; tylhs; tyrhs } ->
@@ -44,9 +49,12 @@ let string_of_ty_san_rvlue = function
       sprintf "%s(%s)" fn_name
         (parameters
         |> List.map (fun tyatom -> string_of_atom tyatom.atom)
-        |> String.concat ", ")
-  | TyRVDiscard ty -> sprintf "discard : %s" (string_of_san_type ty)
-  | TYRVLater ty -> sprintf "lateinit : %s" (string_of_san_type ty)
+        |> String.concat ", "
+        )
+  | TyRVDiscard ty ->
+      sprintf "discard : %s" (string_of_san_type ty)
+  | TYRVLater ty ->
+      sprintf "lateinit : %s" (string_of_san_type ty)
 
 let string_of_typed_san_rvalue rvalue =
   sprintf "%s : %s"

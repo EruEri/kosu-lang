@@ -37,7 +37,8 @@ module Immediat = struct
     ( Int64.shift_right_logical int64 48,
       Int64.shift_right_logical int48 32,
       Int64.shift_right_logical int32 16,
-      int16 )
+      int16
+    )
 end
 
 type adress_mode =
@@ -69,24 +70,78 @@ module Condition_Code = struct
   let cc_of_tac_bin_reversed ?(is_unsigned = false) =
     let open KosuIrTAC.Asttac in
     function
-    | TacOr | TacAnd -> None
-    | TacEqual -> Some NE
-    | TacDiff -> Some EQ
-    | TacSup -> Some (if is_unsigned then LS else LE)
-    | TacSupEq -> Some (if is_unsigned then CC else LT)
-    | TacInfEq -> Some (if is_unsigned then HI else GT)
-    | TacInf -> Some (if is_unsigned then CS else GE)
+    | TacOr | TacAnd ->
+        None
+    | TacEqual ->
+        Some NE
+    | TacDiff ->
+        Some EQ
+    | TacSup ->
+        Some
+          ( if is_unsigned then
+              LS
+            else
+              LE
+          )
+    | TacSupEq ->
+        Some
+          ( if is_unsigned then
+              CC
+            else
+              LT
+          )
+    | TacInfEq ->
+        Some
+          ( if is_unsigned then
+              HI
+            else
+              GT
+          )
+    | TacInf ->
+        Some
+          ( if is_unsigned then
+              CS
+            else
+              GE
+          )
 
   let cc_of_tac_bin ?(is_unsigned = false) =
     let open KosuIrTAC.Asttac in
     function
-    | TacOr | TacAnd -> None
-    | TacEqual -> Some EQ
-    | TacDiff -> Some NE
-    | TacSup -> Some (if is_unsigned then HI else GT)
-    | TacSupEq -> Some (if is_unsigned then CS else GE)
-    | TacInfEq -> Some (if is_unsigned then LS else LE)
-    | TacInf -> Some (if is_unsigned then CC else LT)
+    | TacOr | TacAnd ->
+        None
+    | TacEqual ->
+        Some EQ
+    | TacDiff ->
+        Some NE
+    | TacSup ->
+        Some
+          ( if is_unsigned then
+              HI
+            else
+              GT
+          )
+    | TacSupEq ->
+        Some
+          ( if is_unsigned then
+              CS
+            else
+              GE
+          )
+    | TacInfEq ->
+        Some
+          ( if is_unsigned then
+              LS
+            else
+              LE
+          )
+    | TacInf ->
+        Some
+          ( if is_unsigned then
+              CC
+            else
+              LT
+          )
 end
 
 module Register = struct
@@ -138,49 +193,90 @@ module Register = struct
     | SP
 
   let floatreg_of_intreg = function
-    | X0 -> D0
-    | X1 -> D1
-    | X2 -> D2
-    | X3 -> D3
-    | X4 -> D4
-    | X5 -> D5
-    | X6 -> D6
-    | X7 -> D7
-    | X8 -> D8
-    | X9 -> D9
-    | X10 -> D10
-    | X11 -> D11
-    | X12 -> D12
-    | X13 -> D13
-    | X14 -> D14
-    | X15 -> D15
-    | X16 -> D16
-    | X29 -> D29
-    | X30 -> D30
-    | XZR -> DZR
-    | SP -> failwith "SP has not float equivalent"
+    | X0 ->
+        D0
+    | X1 ->
+        D1
+    | X2 ->
+        D2
+    | X3 ->
+        D3
+    | X4 ->
+        D4
+    | X5 ->
+        D5
+    | X6 ->
+        D6
+    | X7 ->
+        D7
+    | X8 ->
+        D8
+    | X9 ->
+        D9
+    | X10 ->
+        D10
+    | X11 ->
+        D11
+    | X12 ->
+        D12
+    | X13 ->
+        D13
+    | X14 ->
+        D14
+    | X15 ->
+        D15
+    | X16 ->
+        D16
+    | X29 ->
+        D29
+    | X30 ->
+        D30
+    | XZR ->
+        DZR
+    | SP ->
+        failwith "SP has not float equivalent"
 
   let intreg_of_floatreg = function
-    | D0 -> X0
-    | D1 -> X1
-    | D2 -> X2
-    | D3 -> X3
-    | D4 -> X4
-    | D5 -> X5
-    | D6 -> X6
-    | D7 -> X7
-    | D8 -> X8
-    | D9 -> X9
-    | D10 -> X10
-    | D11 -> X11
-    | D12 -> X12
-    | D13 -> X13
-    | D14 -> X14
-    | D15 -> X15
-    | D16 -> X16
-    | D29 -> X29
-    | D30 -> X30
-    | DZR -> XZR
+    | D0 ->
+        X0
+    | D1 ->
+        X1
+    | D2 ->
+        X2
+    | D3 ->
+        X3
+    | D4 ->
+        X4
+    | D5 ->
+        X5
+    | D6 ->
+        X6
+    | D7 ->
+        X7
+    | D8 ->
+        X8
+    | D9 ->
+        X9
+    | D10 ->
+        X10
+    | D11 ->
+        X11
+    | D12 ->
+        X12
+    | D13 ->
+        X13
+    | D14 ->
+        X14
+    | D15 ->
+        X15
+    | D16 ->
+        X16
+    | D29 ->
+        X29
+    | D30 ->
+        X30
+    | DZR ->
+        XZR
 
   type raw_register = FloatReg of float_register | IntegerReg of int_register
   type register = { register : raw_register; size : register_size }
@@ -191,31 +287,37 @@ module Register = struct
 
   let to_float64reg reg =
     match reg.register with
-    | FloatReg _ -> resize64 reg
+    | FloatReg _ ->
+        resize64 reg
     | IntegerReg reg ->
         { register = FloatReg (floatreg_of_intreg reg); size = SReg64 }
 
   let to_int64reg reg =
     match reg.register with
-    | IntegerReg _ -> resize64 reg
+    | IntegerReg _ ->
+        resize64 reg
     | FloatReg reg ->
         { register = IntegerReg (intreg_of_floatreg reg); size = SReg64 }
 
   let to_int32reg reg =
     match reg.register with
-    | IntegerReg _ -> resize64 reg
+    | IntegerReg _ ->
+        resize64 reg
     | FloatReg reg ->
         { register = IntegerReg (intreg_of_floatreg reg); size = SReg32 }
 
   let to_float32reg reg =
     match reg.register with
-    | FloatReg _ -> resize32 reg
+    | FloatReg _ ->
+        resize32 reg
     | IntegerReg reg ->
         { register = FloatReg (floatreg_of_intreg reg); size = SReg32 }
 
   let regsize_of_fsize = function
-    | KosuFrontend.Ast.F32 -> SReg32
-    | KosuFrontend.Ast.F64 -> SReg64
+    | KosuFrontend.Ast.F32 ->
+        SReg32
+    | KosuFrontend.Ast.F64 ->
+        SReg64
 
   let x0 = { register = IntegerReg X0; size = SReg64 }
   let x1 = { register = IntegerReg X1; size = SReg64 }
@@ -255,27 +357,48 @@ module Register = struct
   let x16 = { register = IntegerReg X16; size = SReg64 }
 
   let float64reg_of_64bitsreg = function
-    | X0 -> D0
-    | X1 -> D1
-    | X2 -> D2
-    | X3 -> D3
-    | X4 -> D4
-    | X5 -> D5
-    | X6 -> D6
-    | X7 -> D7
-    | X8 -> D8
-    | X9 -> D9
-    | X10 -> D10
-    | X11 -> D11
-    | X12 -> D12
-    | X13 -> D13
-    | X14 -> D14
-    | X15 -> D15
-    | X16 -> D16
-    | X29 -> D29
-    | X30 -> D30
-    | XZR -> DZR
-    | SP -> failwith "SP has not float equivalent"
+    | X0 ->
+        D0
+    | X1 ->
+        D1
+    | X2 ->
+        D2
+    | X3 ->
+        D3
+    | X4 ->
+        D4
+    | X5 ->
+        D5
+    | X6 ->
+        D6
+    | X7 ->
+        D7
+    | X8 ->
+        D8
+    | X9 ->
+        D9
+    | X10 ->
+        D10
+    | X11 ->
+        D11
+    | X12 ->
+        D12
+    | X13 ->
+        D13
+    | X14 ->
+        D14
+    | X15 ->
+        D15
+    | X16 ->
+        D16
+    | X29 ->
+        D29
+    | X30 ->
+        D30
+    | XZR ->
+        DZR
+    | SP ->
+        failwith "SP has not float equivalent"
 
   let argument_registers = [ x0; x1; x2; x3; x4; x5; x6; x7 ]
   let float_arguments_register = [ d0; d1; d2; d3; d4; d5; d6; d7 ]
@@ -285,26 +408,43 @@ module Register = struct
   let return_register_ktype ~ktype =
     let is_float = KosuIrTyped.Asttyhelper.RType.is_float ktype in
     function
-    | 4L when is_float -> resize32 d0
-    | 8L when is_float -> d0
-    | _ when is_float -> failwith "Float impossible return type"
-    | 1L | 2L | 4L -> resize32 x0
-    | 8L -> x0
-    | _ -> x8
+    | 4L when is_float ->
+        resize32 d0
+    | 8L when is_float ->
+        d0
+    | _ when is_float ->
+        failwith "Float impossible return type"
+    | 1L | 2L | 4L ->
+        resize32 x0
+    | 8L ->
+        x0
+    | _ ->
+        x8
 
   let is_f64_reg = function
-    | { register = FloatReg _; size = SReg64 } -> true
-    | _ -> false
+    | { register = FloatReg _; size = SReg64 } ->
+        true
+    | _ ->
+        false
 
   let is_f32_reg = function
-    | { register = FloatReg _; size = SReg32 } -> true
-    | _ -> false
+    | { register = FloatReg _; size = SReg32 } ->
+        true
+    | _ ->
+        false
 
   let is_float_reg = function
-    | { register = FloatReg _; _ } -> true
-    | _ -> false
+    | { register = FloatReg _; _ } ->
+        true
+    | _ ->
+        false
 
-  let size_of_ktype_size s = if s <= 4L then SReg32 else SReg64
+  let size_of_ktype_size s =
+    if s <= 4L then
+      SReg32
+    else
+      SReg64
+
   let size_of_reg register = register.size
 
   (* let reg_of_size size reg =
@@ -323,10 +463,30 @@ module Register = struct
   let ftmp64reg_4 = d11
   let tmp32reg_4 = w11
   let tmp64reg_4 = x11
-  let tmpreg_of_size size = if size <= 4L then tmp32reg else tmp64reg
-  let tmpreg_of_size_2 size = if size <= 4L then tmp32reg_2 else tmp64reg_2
-  let tmpreg_of_size_3 size = if size <= 4L then tmp32reg_3 else tmp64reg_3
-  let tmpreg_of_size_4 size = if size <= 4L then tmp32reg_4 else tmp64reg_4
+
+  let tmpreg_of_size size =
+    if size <= 4L then
+      tmp32reg
+    else
+      tmp64reg
+
+  let tmpreg_of_size_2 size =
+    if size <= 4L then
+      tmp32reg_2
+    else
+      tmp64reg_2
+
+  let tmpreg_of_size_3 size =
+    if size <= 4L then
+      tmp32reg_3
+    else
+      tmp64reg_3
+
+  let tmpreg_of_size_4 size =
+    if size <= 4L then
+      tmp32reg_4
+    else
+      tmp64reg_4
 
   let regsize_of_ktype size =
     match size with 1L | 2L | 4L -> SReg32 | _ -> SReg64
@@ -335,7 +495,8 @@ module Register = struct
     match ktype with
     | KosuIrTyped.Asttyped.RTFloat KosuFrontend.Ast.F32 ->
         to_float32reg register
-    | RTFloat F64 -> to_float64reg register
+    | RTFloat F64 ->
+        to_float64reg register
     | _ ->
         let sizeof = KosuIrTyped.Sizeof.sizeof rprogram ktype in
         let size = size_of_ktype_size sizeof in
@@ -382,8 +543,7 @@ type src =
 
 type adress_offset = [ `ILitteral of int64 | `Register of register ]
 
-let src_of_adress_offset (adress_offset : adress_offset) =
-  (adress_offset :> src)
+let src_of_adress_offset (adress_offset : adress_offset) = (adress_offset :> src)
 
 type address = { base : register; offset : adress_offset }
 
@@ -393,26 +553,39 @@ let is_register_based_address address =
   match address with `ILitteral _ -> false | `Register _ -> true
 
 let str_ldr_offset_range reg n =
-  if n < 0L then -256L < n
+  if n < 0L then
+    -256L < n
   else
     match reg.size with
-    | SReg32 -> n < 255L || (Int64.unsigned_rem n 4L = 0L && n < 16380L)
-    | SReg64 -> n < 255L || (Int64.unsigned_rem n 8L = 0L && n < 32760L)
+    | SReg32 ->
+        n < 255L || (Int64.unsigned_rem n 4L = 0L && n < 16380L)
+    | SReg64 ->
+        n < 255L || (Int64.unsigned_rem n 8L = 0L && n < 32760L)
 
 let is_offset_too_far reg address =
   match address with
-  | `ILitteral i when not @@ str_ldr_offset_range reg i -> true
-  | `ILitteral _ | `Register _ -> false
+  | `ILitteral i when not @@ str_ldr_offset_range reg i ->
+      true
+  | `ILitteral _ | `Register _ ->
+      false
 
 let increment_adress off adress =
   match adress.offset with
   | `ILitteral offset ->
       { adress with offset = `ILitteral (Int64.add offset off) }
-  | `Register _reg -> failwith "Increment register based address"
+  | `Register _reg ->
+      failwith "Increment register based address"
 
 let asm_const_name current_module const_name =
   Printf.sprintf "_%s_%s"
-    (current_module |> String.map (fun c -> if c = ':' then '_' else c))
+    (current_module
+    |> String.map (fun c ->
+           if c = ':' then
+             '_'
+           else
+             c
+       )
+    )
     const_name
 
 module Instruction = struct
@@ -611,34 +784,42 @@ module Instruction = struct
             (Mov { destination = register; flexsec_operand = `ILitteral int16 });
         ]
       in
-      ( ( base |> fun l ->
-          if int32 = 0L then l
-          else
-            l
-            @ [
-                Instruction
-                  (Movk
-                     {
-                       destination = register;
-                       operand = `ILitteral int32;
-                       shift = Some SH16;
-                     });
-              ] )
+      base
+      |> (fun l ->
+           if int32 = 0L then
+             l
+           else
+             l
+             @ [
+                 Instruction
+                   (Movk
+                      {
+                        destination = register;
+                        operand = `ILitteral int32;
+                        shift = Some SH16;
+                      }
+                   );
+               ]
+         )
+      |> (fun l ->
+           if int48 = 0L then
+             l
+           else
+             l
+             @ [
+                 Instruction
+                   (Movk
+                      {
+                        destination = register;
+                        operand = `ILitteral int48;
+                        shift = Some SH32;
+                      }
+                   );
+               ]
+         )
       |> fun l ->
-        if int48 = 0L then l
-        else
-          l
-          @ [
-              Instruction
-                (Movk
-                   {
-                     destination = register;
-                     operand = `ILitteral int48;
-                     shift = Some SH32;
-                   });
-            ] )
-      |> fun l ->
-      if int64 = 0L then l
+      if int64 = 0L then
+        l
       else
         l
         @ [
@@ -648,7 +829,8 @@ module Instruction = struct
                    destination = register;
                    operand = `ILitteral int32;
                    shift = Some SH48;
-                 });
+                 }
+              );
           ]
 
   let str_instr ?(mode = Immediat) ~data_size ~source address =
@@ -770,23 +952,38 @@ module Instruction = struct
   let promote_float register =
     if is_f32_reg register then
       [ Instruction (FCVT { turn = register; into = resize64 register }) ]
-    else []
+    else
+      []
 
   let is_stp_range n = -512L <= n && n <= 504L
 
   let binop_instruction_of_tacself ?(unsigned = false) =
     let open KosuIrTAC.Asttac in
     function
-    | TacAdd -> ins_add
-    | TacMinus -> ins_sub
-    | TacBitwiseAnd -> ins_bitwiseand
-    | TacBitwiseOr -> ins_bitwiseor
-    | TacBitwiseXor -> ins_bitwisexor
-    | TacShiftLeft -> ins_shift_left
+    | TacAdd ->
+        ins_add
+    | TacMinus ->
+        ins_sub
+    | TacBitwiseAnd ->
+        ins_bitwiseand
+    | TacBitwiseOr ->
+        ins_bitwiseor
+    | TacBitwiseXor ->
+        ins_bitwisexor
+    | TacShiftLeft ->
+        ins_shift_left
     | TacShiftRight ->
-        if unsigned then ins_logical_shift_right else ins_arith_shift_right
-    | TacMult -> ins_mult
-    | TacDiv -> if unsigned then ins_unsigned_div else ins_signed_div
+        if unsigned then
+          ins_logical_shift_right
+        else
+          ins_arith_shift_right
+    | TacMult ->
+        ins_mult
+    | TacDiv ->
+        if unsigned then
+          ins_unsigned_div
+        else
+          ins_signed_div
     | _ ->
         failwith
           "Other binor cannot be facorised either instruction (Modulo) or type \
@@ -795,16 +992,22 @@ module Instruction = struct
   let mult_add_or_sub =
     let open KosuIrTAC.Asttac in
     function
-    | TacAdd -> ins_madd
-    | TacMinus -> ins_msub
-    | _ -> failwith "Expected Add or Minus"
+    | TacAdd ->
+        ins_madd
+    | TacMinus ->
+        ins_msub
+    | _ ->
+        failwith "Expected Add or Minus"
 
   let and_or_or_instruction =
     let open KosuIrTAC.Asttac in
     function
-    | TacAnd -> ins_bitwiseand
-    | TacOr -> ins_bitwiseor
-    | _ -> failwith "Expected And or Or"
+    | TacAnd ->
+        ins_bitwiseand
+    | TacOr ->
+        ins_bitwiseor
+    | _ ->
+        failwith "Expected And or Or"
 
   let minstruction ?(_lcomm = "") instr = Instruction instr
 
@@ -824,7 +1027,8 @@ module Instruction = struct
              operand1 = register;
              operand2 = `Label label;
              offset = true;
-           })
+           }
+        )
     in
     [ load; add ]
 
@@ -835,17 +1039,29 @@ module Instruction = struct
 
   *)
   let rec copy_large adress_str base_src_reg size =
-    if size < 0L then failwith "Negive size to copy"
-    else if size = 0L then []
+    if size < 0L then
+      failwith "Negive size to copy"
+    else if size = 0L then
+      []
     else
       let (data_size, offset) : data_size option * int64 =
-        if size = 0L then (None, 0L)
-        else if 1L <= size && size < 2L then (Some B, 1L)
-        else if 2L <= size && size < 4L then (Some H, 2L)
-        else if 4L <= size && size < 8L then (None, 4L)
-        else (None, 8L)
+        if size = 0L then
+          (None, 0L)
+        else if 1L <= size && size < 2L then
+          (Some B, 1L)
+        else if 2L <= size && size < 4L then
+          (Some H, 2L)
+        else if 4L <= size && size < 8L then
+          (None, 4L)
+        else
+          (None, 8L)
       in
-      let r10 = if offset >= 8L then x10 else w10 in
+      let r10 =
+        if offset >= 8L then
+          x10
+        else
+          w10
+      in
       let ldr_instructions =
         ldr_instr ~data_size ~mode:Postfix ~destination:r10
           (create_adress ~offset base_src_reg)
@@ -868,24 +1084,37 @@ module Instruction = struct
   let compute_data_size ktype = function
     | 1L ->
         Some
-          (if not @@ KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype
-           then SB
-           else B)
+          ( if not @@ KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype
+            then
+              SB
+            else
+              B
+          )
     | 2L ->
         Some
-          (if not @@ KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype
-           then SH
-           else H)
-    | _ -> None
+          ( if not @@ KosuIrTyped.Asttyhelper.RType.is_unsigned_integer ktype
+            then
+              SH
+            else
+              H
+          )
+    | _ ->
+        None
 
   let copy_from_reg ?(variadic = false) register (address : address) ktype
       rprogram =
     let size = KosuIrTyped.Sizeof.sizeof rprogram ktype in
     let is_reg_size = is_register_size size in
     match is_reg_size with
-    | false -> copy_large address register size
+    | false ->
+        copy_large address register size
     | true ->
-        let size = if variadic then max size 8L else size in
+        let size =
+          if variadic then
+            max size 8L
+          else
+            size
+        in
         let data_size = compute_data_size ktype size in
         let reg = resize_register (regsize_of_ktype size) register in
         let strs = str_instr ~data_size ~source:reg address in
@@ -893,7 +1122,8 @@ module Instruction = struct
 
   let load_register register (address : address) ktype ktype_size =
     match is_register_size ktype_size with
-    | false -> []
+    | false ->
+        []
     | true ->
         let data_size = compute_data_size ktype ktype_size in
         let reg = resize_register (regsize_of_ktype ktype_size) register in
@@ -924,7 +1154,12 @@ module FrameManager = struct
     let ( ** ) = Int64.mul in
     let ( ++ ) = Int64.add in
     let div = Int64.unsigned_div size 16L in
-    let modulo = if Int64.unsigned_rem size 16L = 0L then 0L else 1L in
+    let modulo =
+      if Int64.unsigned_rem size 16L = 0L then
+        0L
+      else
+        1L
+    in
     16L ** (div ++ modulo)
 
   (* let frame_descriptor rprogram (tac_function: KosuIrTAC.Asttac.tac_function_decl) =
@@ -955,8 +1190,10 @@ module FrameManager = struct
     |> List.fold_left
          (fun acc { varia_index; parameters; return_type = _ } ->
            let fpstyle kt =
-             if KosuIrTyped.Asttyhelper.RType.is_float kt then Simple_Reg Float
-             else Simple_Reg Other
+             if KosuIrTyped.Asttyhelper.RType.is_float kt then
+               Simple_Reg Float
+             else
+               Simple_Reg Other
            in
 
            let _, _, stack_args, variadic_args =
@@ -983,11 +1220,14 @@ module FrameManager = struct
              variadic_args
              |> List.map (fun kt ->
                     KosuIrTyped.(
-                      Sizeof.align_8 @@ KosuIrTyped.Sizeof.sizeof rprogram kt))
+                      Sizeof.align_8 @@ KosuIrTyped.Sizeof.sizeof rprogram kt
+                    )
+                )
              |> List.fold_left Int64.add 0L
            in
 
-           max (Int64.add stack_args_size variadic_size) acc)
+           max (Int64.add stack_args_size variadic_size) acc
+         )
          0L
 
   let frame_descriptor ~variadic_style
@@ -998,9 +1238,12 @@ module FrameManager = struct
     let iparas, fparams, stack_parameters =
       Util.Args.consume_args_sysv
         ~reversed_stack:
-          (match variadic_style with
-          | Aarch64AsmSpec.AbiSysV -> true
-          | AbiDarwin -> false)
+          ( match variadic_style with
+          | Aarch64AsmSpec.AbiSysV ->
+              true
+          | AbiDarwin ->
+              false
+          )
         ~fregs:Register.float_arguments_register
         ~iregs:Register.argument_registers
         ~fpstyle:KosuCommon.Function.kosu_passing_style
@@ -1011,7 +1254,8 @@ module FrameManager = struct
       |> List.sort (fun lhs rhs ->
              let lsize = KosuIrTyped.Sizeof.sizeof_kt lhs.locale_ty in
              let rsize = KosuIrTyped.Sizeof.sizeof_kt rhs.locale_ty in
-             compare rsize lsize)
+             compare rsize lsize
+         )
       |> List.map
            KosuIrTAC.Asttachelper.LocaleVariable.variable_of_tac_locale_variable
     in
@@ -1024,13 +1268,19 @@ module FrameManager = struct
       iparas |> ( @ ) fparams
       |> List.map (fun (variable, return_kind) ->
              match return_kind with
-             | Simple_return reg -> (variable, (variable, reg))
-             | Double_return _ -> failwith "Unreachable")
+             | Simple_return reg ->
+                 (variable, (variable, reg))
+             | Double_return _ ->
+                 failwith "Unreachable"
+         )
       |> List.split
     in
     let stack_concat = reg_parameters @ locale_variables in
     let stack_concat =
-      if need_xr then indirect_return_vt :: stack_concat else stack_concat
+      if need_xr then
+        indirect_return_vt :: stack_concat
+      else
+        stack_concat
     in
     let fake_tuple = List.map snd stack_concat in
     let locals_space =
@@ -1059,13 +1309,15 @@ module FrameManager = struct
                  create_adress
                    ~offset:
                      (locals_space |> Int64.neg |> Int64.add offset
-                     |> Int64.add stack_future_call)
+                     |> Int64.add stack_future_call
+                     )
                    x29
                else
                  create_adress ~offset:(Int64.add stack_future_call offset) sp
              in
              (* let () = Printf.printf "-> %s : %s == [x29, %Ld] \n" (fst st) (KosuIrTyped.Asttypprint.string_of_rktype @@ snd @@ st) (offset) in *)
-             IdVarMap.add st address acc)
+             IdVarMap.add st address acc
+           )
            IdVarMap.empty
     in
     let stack_args_rktype = List.map snd stack_parameters in
@@ -1079,7 +1331,8 @@ module FrameManager = struct
              in
              let offset = Int64.add stack_x29_offset offset in
              let address = create_adress ~offset x29 in
-             IdVarMap.add st address acc)
+             IdVarMap.add st address acc
+           )
            map
     in
     {
@@ -1093,14 +1346,17 @@ module FrameManager = struct
 
   let address_of (variable, rktype) frame_desc =
     (* let () = Printf.printf "Lookup => %s : %s\n" (variable) (KosuIrTyped.Asttypprint.string_of_rktype rktype) in *)
-    if List.mem (variable, rktype) frame_desc.discarded_values then None
+    if List.mem (variable, rktype) frame_desc.discarded_values then
+      None
     else
       match IdVarMap.find (variable, rktype) frame_desc.stack_map with
-      | addres -> Some addres
+      | addres ->
+          Some addres
       | exception Not_found ->
           failwith
             (Printf.sprintf "Not found: %s : %s" variable
-               (KosuIrTyped.Asttypprint.string_of_rktype rktype))
+               (KosuIrTyped.Asttypprint.string_of_rktype rktype)
+            )
 
   let prologue_epilogue_stack_size framesize =
     if is_stp_range framesize then
@@ -1113,9 +1369,11 @@ module FrameManager = struct
                  destination = sp;
                  operand1 = sp;
                  operand2 = `ILitteral (Int64.add 16L framesize);
-               })
+               }
+          )
           :: ins_add ~destination:x15 ~operand1:sp ~operand2:x15,
-        { base = x15; offset = `ILitteral 0L } )
+        { base = x15; offset = `ILitteral 0L }
+      )
 
   let stp_inst ~vframe =
     if is_stp_range vframe then
@@ -1190,7 +1448,8 @@ module FrameManager = struct
              destination = sp;
              operand1 = sp;
              operand2 = `ILitteral stack_sub_size;
-           })
+           }
+        )
     in
     let alignx29 =
       Instruction
@@ -1200,7 +1459,8 @@ module FrameManager = struct
              operand1 = sp;
              operand2 = `ILitteral variable_frame_size;
              offset = false;
-           })
+           }
+        )
     in
     let store_x8 =
       if fd.need_xr then
@@ -1212,16 +1472,21 @@ module FrameManager = struct
                  source = xr;
                  adress = address_of indirect_return_vt fd |> Option.get;
                  adress_mode = Immediat;
-               });
+               }
+            );
         ]
-      else []
+      else
+        []
     in
     let iparas, fparams, _ =
       Util.Args.consume_args_sysv
         ~reversed_stack:
-          (match fd.variadic_style with
-          | Aarch64AsmSpec.AbiSysV -> true
-          | AbiDarwin -> false)
+          ( match fd.variadic_style with
+          | Aarch64AsmSpec.AbiSysV ->
+              true
+          | AbiDarwin ->
+              false
+          )
         ~fregs:Register.float_arguments_register
         ~iregs:Register.argument_registers
         ~fpstyle:KosuCommon.Function.kosu_passing_style tac_function.rparameters
@@ -1230,16 +1495,22 @@ module FrameManager = struct
       iparas
       |> List.map (fun (variable, return_kind) ->
              match return_kind with
-             | Simple_return reg -> (variable, reg)
-             | Double_return _ -> failwith "Unreachable")
+             | Simple_return reg ->
+                 (variable, reg)
+             | Double_return _ ->
+                 failwith "Unreachable"
+         )
     in
 
     let fparams =
       fparams
       |> List.map (fun (variable, return_kind) ->
              match return_kind with
-             | Simple_return reg -> (variable, reg)
-             | Double_return _ -> failwith "Unreachable")
+             | Simple_return reg ->
+                 (variable, reg)
+             | Double_return _ ->
+                 failwith "Unreachable"
+         )
     in
 
     let copy_instructions =
@@ -1247,12 +1518,16 @@ module FrameManager = struct
       |> List.fold_left
            (fun acc ((name, kt), register) ->
              let whereis =
-               address_of (name, kt) fd |> fun adr ->
+               address_of (name, kt) fd
+               |> fun adr ->
                match adr with
-               | Some a -> a
-               | None -> failwith "From register setup null address"
+               | Some a ->
+                   a
+               | None ->
+                   failwith "From register setup null address"
              in
-             acc @ copy_from_reg register whereis kt rprogram)
+             acc @ copy_from_reg register whereis kt rprogram
+           )
            []
     in
 
@@ -1261,12 +1536,16 @@ module FrameManager = struct
       |> List.fold_left
            (fun acc ((name, kt), register) ->
              let whereis =
-               address_of (name, kt) fd |> fun adr ->
+               address_of (name, kt) fd
+               |> fun adr ->
                match adr with
-               | Some a -> a
-               | None -> failwith "From register setup null address"
+               | Some a ->
+                   a
+               | None ->
+                   failwith "From register setup null address"
              in
-             acc @ copy_from_reg register whereis kt rprogram)
+             acc @ copy_from_reg register whereis kt rprogram
+           )
            []
     in
 
@@ -1285,7 +1564,8 @@ module FrameManager = struct
              offset = false;
              operand1 = sp;
              operand2 = `ILitteral stack_space;
-           })
+           }
+        )
     in
     let return = Instruction RET in
 

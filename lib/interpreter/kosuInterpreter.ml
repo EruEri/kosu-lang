@@ -53,7 +53,8 @@ struct
         Printf.sprintf "fn %s : (%s) : %s = <fun>" function_decl.fn_name.v
           (function_decl.parameters
           |> List.map (fun (_, kt) -> Pprint.string_of_ktype kt.v)
-          |> String.concat ", ")
+          |> String.concat ", "
+          )
           (Pprint.string_of_ktype function_decl.return_type.v)
     | NOperator operator_decl ->
         let operator =
@@ -96,7 +97,8 @@ struct
         let s = FrontEnd.Registerexn.string_of_lexer_error "" e in
         let () = Printf.printf "%s\n" s in
         repl ienv ()
-    | Ok None -> Printf.printf "\n%!"
+    | Ok None ->
+        Printf.printf "\n%!"
     | Ok (Some inode) -> (
         try
           match inode with
@@ -116,8 +118,10 @@ struct
               in
               let variable =
                 match stmt with
-                | SDeclaration { variable_name; _ } -> Some variable_name.v
-                | _ -> None
+                | SDeclaration { variable_name; _ } ->
+                    Some variable_name.v
+                | _ ->
+                    None
               in
               let () = expression_prompt ~variable typeof () in
               let env = replace_env new_env ienv in
@@ -128,7 +132,8 @@ struct
                   FrontEnd.Astvalidation.validate_module_node
                     (module_path_of_ienv ienv) "" node
                 with
-                | Ok () -> ()
+                | Ok () ->
+                    ()
                 | Error e ->
                     raise
                     @@ FrontEnd.Astvalidation.VError.Validation_error ("", e)
@@ -145,7 +150,8 @@ struct
               Printf.printf "%s\n"
                 (FrontEnd.Pprinterr.string_of_ast_error ast_error)
             in
-            repl ienv ())
+            repl ienv ()
+      )
 
   let repl ~welcome () =
     let () = Printf.printf "%s\n\n" welcome in

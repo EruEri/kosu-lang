@@ -17,7 +17,13 @@
 
 open KosuIrTyped.Asttyped
 
-let asm_module_path = String.map (fun c -> if c = ':' then '_' else c)
+let asm_module_path =
+  String.map (fun c ->
+      if c = ':' then
+        '_'
+      else
+        c
+  )
 
 module type NamingSig = sig
   val label_prefix : string
@@ -34,16 +40,21 @@ module Make (N : NamingSig) = struct
     Printf.sprintf "%s%s"
       (module_path |> Option.map asm_module_path
       |> Option.map (Printf.sprintf "%s%s._" label_prefix)
-      |> Option.value ~default:"")
+      |> Option.value ~default:""
+      )
       const_name
 
   let label_of_function ~label_prefix ~main ~module_path ~fn_name ~generics =
-    if fn_name = "main" then main
+    if fn_name = "main" then
+      main
     else
       Printf.sprintf "%s%s.%s%s" label_prefix
         (asm_module_path module_path)
-        (if generics = [] then ""
-         else generics |> String.concat "." |> Printf.sprintf "_%s_")
+        ( if generics = [] then
+            ""
+          else
+            generics |> String.concat "." |> Printf.sprintf "_%s_"
+        )
         fn_name
 
   let label_of_external_function rextern_func_decl =
@@ -67,14 +78,16 @@ module Make (N : NamingSig) = struct
       (KosuIrTyped.Asttypprint.string_name_of_extended_parser_binary op)
       (ktypes
       |> List.map KosuIrTyped.Asttypprint.string_of_label_rktype
-      |> String.concat "_")
+      |> String.concat "_"
+      )
 
   let label_of_unary_operator (op : KosuFrontend.Ast.parser_unary_op) ktypes =
     Printf.sprintf "%s%s.%s" label_prefix
       (KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_unary op)
       (ktypes
       |> List.map KosuIrTyped.Asttypprint.string_of_label_rktype
-      |> String.concat "_")
+      |> String.concat "_"
+      )
 
   let label_of_kosu_operator ~(module_path : string) =
     let open KosuIrTyped.Asttyped in

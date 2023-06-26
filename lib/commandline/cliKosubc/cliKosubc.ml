@@ -38,11 +38,13 @@ module Cli = struct
           ~docs:"COMPILATION OPTION"
           ~doc:
             "Allow the use of variables with generic type in variadic function \
-             parameters such as $(b,printf(3))")
+             parameters such as $(b,printf(3))"
+    )
 
   let no_std_term =
     Arg.(
-      value & flag & info [ "no-std" ] ~doc:"Don't include the standard library")
+      value & flag & info [ "no-std" ] ~doc:"Don't include the standard library"
+    )
 
   let target_asm_term =
     Arg.(value & flag & info [ "S" ] ~doc:"Produce bytecode assembly files")
@@ -53,7 +55,9 @@ module Cli = struct
       & info [ "o" ] ~docv:"FILENAME"
           ~doc:
             (Printf.sprintf "write output to <%s>"
-               (String.lowercase_ascii "$(docv)")))
+               (String.lowercase_ascii "$(docv)")
+            )
+    )
 
   let files_term =
     Arg.(
@@ -62,7 +66,8 @@ module Cli = struct
       & info [] ~docv:"FILES"
           ~doc:
             "Input files of the compiler. Kosu files must have the extension \
-             .kosu")
+             .kosu"
+    )
 
   let cmd_term run =
     let combine f_allow_generic_in_variadic no_std is_target_asm output files =
@@ -71,7 +76,8 @@ module Cli = struct
     in
     Term.(
       const combine $ f_allow_generic_in_variadic_term $ no_std_term
-      $ target_asm_term $ output_term $ files_term)
+      $ target_asm_term $ output_term $ files_term
+    )
 
   let kosubc_doc = "The Kosu bytecode compiler"
 
@@ -126,7 +132,8 @@ module Cli = struct
     let ast_module = KosuFront.ast_modules kosu_files in
     let typed_program =
       match Asttyconvert.from_program ast_module with
-      | typed_program -> typed_program
+      | typed_program ->
+          typed_program
       | exception KosuFrontend.Ast.Error.Ast_error e ->
           let () =
             e |> KosuFront.Pprinterr.string_of_ast_error |> print_endline
@@ -141,7 +148,8 @@ module Cli = struct
       | true ->
           KosuBackend.Bytecode.Codegen.compile_asm_readable ~outfile:output
             tac_program
-      | false -> failwith ""
+      | false ->
+          failwith ""
     in
     ()
 
