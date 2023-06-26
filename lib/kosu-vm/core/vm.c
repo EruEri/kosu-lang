@@ -63,7 +63,7 @@ int show_reg(const char* regname, reg_t reg, bool_t is_float) {
     if (is_float) {
         printf("%s = %f\n", regname, double_of_bits(reg));
     } else {
-        printf("%s = %ld\n", regname, reg);
+        printf("%s = %ld\n", regname,  (long int) reg);
     }
 
     return 0;
@@ -73,7 +73,7 @@ int show_status(vm_t* vm) {
     printf("last_cmp = %u\n", vm->last_cmp);
     printf("ip = %p\n", vm->ip - (uint64_t) vm->code);
     printf("fp = %p\n", (void *) vm->fp);
-    printf("sc = %lu\n", vm->scp);
+    printf("sc = %lu\n", (long int) vm->scp);
     printf("ir = %p\n", (void *) vm->irp);
     printf("ra = %p\n", (void *) vm->rap);
     show_reg("r0", vm->r0, false);

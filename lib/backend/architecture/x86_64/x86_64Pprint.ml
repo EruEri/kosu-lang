@@ -364,17 +364,17 @@ module Make (AsmSpec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     | IMul { size; source; destination } ->
         sprintf "imul%s %s%s" (string_of_data_size size)
           (string_of_src size source)
-          (destination 
-            |> Option.map (fun r -> sprintf ", %s" @@ string_of_register size r) 
-            |> Option.value ~default:""
-            )
+          (destination
+          |> Option.map (fun r -> sprintf ", %s" @@ string_of_register size r)
+          |> Option.value ~default:""
+          )
     | Mul { size; source; destination } ->
         sprintf "mul%s %s%s" (string_of_data_size size)
           (string_of_src size source)
-          (destination 
-            |> Option.map (fun r -> sprintf ", %s" @@ string_of_register size r) 
-            |> Option.value ~default:""
-            )
+          (destination
+          |> Option.map (fun r -> sprintf ", %s" @@ string_of_register size r)
+          |> Option.value ~default:""
+          )
     | Fdiv { size; destination; source } ->
         let fsize = floatsize size in
         sprintf "div%s %s, %s"

@@ -374,9 +374,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
           (string_of_src operand2)
     | ROR { destination; operand1; operand2 } ->
         sprintf "ror %s, %s, %s"
-        (string_of_register destination)
-        (string_of_register operand1)
-        (string_of_src operand2)
+          (string_of_register destination)
+          (string_of_register operand1)
+          (string_of_src operand2)
     | CMP { operand1; operand2 } ->
         sprintf "%scmp %s, %s" (prefix_of_float operand1)
           (string_of_register operand1)

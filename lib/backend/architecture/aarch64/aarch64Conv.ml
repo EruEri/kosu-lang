@@ -847,60 +847,69 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         Line_Com (Comment ("Field access of " ^ field)) :: copy_instructions
     | RVFieldAcess _ ->
         failwith "Wierd : Fields access force struct as an identifier"
-    | RVArrayAccess {array_expr; index_expr} -> 
+    | RVArrayAccess { array_expr; index_expr } ->
         let r9 = reg9_of_ktype rprogram array_expr.expr_rktype in
         let r10 = reg10_of_ktype rprogram index_expr.expr_rktype in
         let r11 = reg11_of_ktype rprogram rval_rktype in
-        let r10, index_instructions = translate_tac_expression ~litterals ~target_reg:r10 rprogram fd index_expr in
-        let r9, array_instructions = translate_tac_expression ~litterals ~target_reg:r9 rprogram fd array_expr in
-        let elt_type_size = KosuIrTyped.Sizeof.sizeof rprogram rval_rktype
+        let r10, index_instructions =
+          translate_tac_expression ~litterals ~target_reg:r10 rprogram fd
+            index_expr
         in
-        let dest, mov_instructions = match is_register_size @@ sizeofn rprogram array_expr.expr_rktype with
-          | true -> 
-            let mov_pointee_size_ins = mov_integer r11 (Int64.mul 8L elt_type_size) in
-            let offset_instruction = 
-              Instruction (
-                MUL {
-                  destination = r10;
-                  operand1 = r10;
-                  operand2 = r11
-                }
-              )
-            in
-            let ror_instruction = 
-              Instruction (
-                LSR {
-                  destination = r9;
-                  operand1 = r9;
-                  operand2 = `Register (resize_register r9.size r10);
-                }
-              )
-            in
-            r9, mov_pointee_size_ins @ offset_instruction::ror_instruction::[]
-          | false -> 
-            let add_or_sub_instructions =
-              if elt_type_size = 1L then
-                ins_add ~destination:r9
-                  ~operand1:r9 ~operand2:r10
-              else
-                (instruction
-                @@ Mov
-                     {
-                       destination = r11;
-                       flexsec_operand = `ILitteral elt_type_size;
-                     }
-                )
-                :: ins_madd ~destination:r9 ~operand1_base:r9
-                     ~operand2:(resize_register r9.size r10) ~scale:(resize_register r9.size r11)
-            in
-            let resized_r9 = reg9_of_ktype rprogram rval_rktype in
-            let load_instruction = 
-              match is_register_size @@ sizeofn rprogram rval_rktype with
-              | true -> 
-                ldr_instr ~data_size:(compute_data_size rval_rktype elt_type_size) ~destination:resized_r9 (create_adress r9) 
-              | false -> []
+        let r9, array_instructions =
+          translate_tac_expression ~litterals ~target_reg:r9 rprogram fd
+            array_expr
+        in
+        let elt_type_size = KosuIrTyped.Sizeof.sizeof rprogram rval_rktype in
+        let dest, mov_instructions =
+          match is_register_size @@ sizeofn rprogram array_expr.expr_rktype with
+          | true ->
+              let mov_pointee_size_ins =
+                mov_integer r11 (Int64.mul 8L elt_type_size)
               in
-            resized_r9, add_or_sub_instructions @ load_instruction
+              let offset_instruction =
+                Instruction
+                  (MUL { destination = r10; operand1 = r10; operand2 = r11 })
+              in
+              let ror_instruction =
+                Instruction
+                  (LSR
+                     {
+                       destination = r9;
+                       operand1 = r9;
+                       operand2 = `Register (resize_register r9.size r10);
+                     }
+                  )
+              in
+              ( r9,
+                mov_pointee_size_ins @ [ offset_instruction; ror_instruction ]
+              )
+          | false ->
+              let add_or_sub_instructions =
+                if elt_type_size = 1L then
+                  ins_add ~destination:r9 ~operand1:r9 ~operand2:r10
+                else
+                  (instruction
+                  @@ Mov
+                       {
+                         destination = r11;
+                         flexsec_operand = `ILitteral elt_type_size;
+                       }
+                  )
+                  :: ins_madd ~destination:r9 ~operand1_base:r9
+                       ~operand2:(resize_register r9.size r10)
+                       ~scale:(resize_register r9.size r11)
+              in
+              let resized_r9 = reg9_of_ktype rprogram rval_rktype in
+              let load_instruction =
+                match is_register_size @@ sizeofn rprogram rval_rktype with
+                | true ->
+                    ldr_instr
+                      ~data_size:(compute_data_size rval_rktype elt_type_size)
+                      ~destination:resized_r9 (create_adress r9)
+                | false ->
+                    []
+              in
+              (resized_r9, add_or_sub_instructions @ load_instruction)
         in
         let before_copy _ =
           index_instructions @ array_instructions @ mov_instructions

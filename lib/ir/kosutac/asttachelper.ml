@@ -219,10 +219,14 @@ module StringLitteral = struct
                map_fill_string_lit_of_tac_expression map
                  typed_expr.tac_expression ()
            )
-    | RVArrayAccess {array_expr; index_expr} ->
-      let () = map_fill_string_lit_of_tac_expression map array_expr.tac_expression () in
-      let () = map_fill_string_lit_of_tac_expression map index_expr.tac_expression () in
-      ()
+    | RVArrayAccess { array_expr; index_expr } ->
+        let () =
+          map_fill_string_lit_of_tac_expression map array_expr.tac_expression ()
+        in
+        let () =
+          map_fill_string_lit_of_tac_expression map index_expr.tac_expression ()
+        in
+        ()
     | RVEnum { assoc_tac_exprs; _ } ->
         assoc_tac_exprs
         |> List.iter (fun typed_expr ->
@@ -469,10 +473,14 @@ module FloatLitteral = struct
                map_fill_float_lit_of_tac_expression map
                  typed_expr.tac_expression ()
            )
-    | RVArrayAccess {array_expr; index_expr} ->
-      let () = map_fill_float_lit_of_tac_expression map array_expr.tac_expression () in
-      let () = map_fill_float_lit_of_tac_expression map index_expr.tac_expression () in
-      ()
+    | RVArrayAccess { array_expr; index_expr } ->
+        let () =
+          map_fill_float_lit_of_tac_expression map array_expr.tac_expression ()
+        in
+        let () =
+          map_fill_float_lit_of_tac_expression map index_expr.tac_expression ()
+        in
+        ()
     | RVStruct { fields; _ } ->
         fields
         |> List.iter (fun (_, typed_expr) ->

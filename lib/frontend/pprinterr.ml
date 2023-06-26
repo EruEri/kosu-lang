@@ -501,13 +501,17 @@ struct
              (string_of_ktype ktype)
           )
     | Array_subscript_None_array { found } ->
-      string_of_located_error found @@ 
-        sprintf "this expression has the type \"%s\" which is not an array. It \
-        can't be accessed by subscripting" (string_of_ktype found.v)
+        string_of_located_error found
+        @@ sprintf
+             "this expression has the type \"%s\" which is not an array. It \
+              can't be accessed by subscripting"
+             (string_of_ktype found.v)
     | Array_Non_Integer_Index { found } ->
-      string_of_located_error found @@ 
-        sprintf "this expression has the type \"%s\" which is not an integer type. It \
-        can't be used for array index" (string_of_ktype found.v)
+        string_of_located_error found
+        @@ sprintf
+             "this expression has the type \"%s\" which is not an integer \
+              type. It can't be used for array index"
+             (string_of_ktype found.v)
     | Uncompatible_type { expected; found } ->
         string_of_located_error found
           (sprintf

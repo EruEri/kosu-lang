@@ -373,13 +373,16 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
             program first_expr
         in
         RETupleAccess { first_expr = typed_expression; index = index.v }
-    | EArrayAccess {array_expr; index_expr} ->
-      let rearray_expr = typed_expression_of_kexpression ~generics_resolver env current_module program array_expr in
-      let rindex_expr = typed_expression_of_kexpression ~generics_resolver env current_module program index_expr in
-      REArrayAccess {
-        array_expr = rearray_expr;
-        index_expr = rindex_expr
-      }
+    | EArrayAccess { array_expr; index_expr } ->
+        let rearray_expr =
+          typed_expression_of_kexpression ~generics_resolver env current_module
+            program array_expr
+        in
+        let rindex_expr =
+          typed_expression_of_kexpression ~generics_resolver env current_module
+            program index_expr
+        in
+        REArrayAccess { array_expr = rearray_expr; index_expr = rindex_expr }
     | EFieldAcces { first_expr; field } ->
         let typed_expression =
           typed_expression_of_kexpression ~generics_resolver env current_module

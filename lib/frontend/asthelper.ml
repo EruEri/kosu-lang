@@ -800,13 +800,15 @@ module Kbody = struct
                 first_expr;
             field;
           }
-    | EArrayAccess {array_expr; index_expr} -> 
-        EArrayAccess 
+    | EArrayAccess { array_expr; index_expr } ->
+        EArrayAccess
           {
-            array_expr = 
-              remap_located_expr_explicit_type generics current_module array_expr;
-            index_expr = 
-              remap_located_expr_explicit_type generics current_module index_expr
+            array_expr =
+              remap_located_expr_explicit_type generics current_module
+                array_expr;
+            index_expr =
+              remap_located_expr_explicit_type generics current_module
+                index_expr;
           }
     | ETupleAccess { first_expr; index } ->
         ETupleAccess

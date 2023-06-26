@@ -87,7 +87,10 @@ and rkexpression =
   | REIdentifier of { modules_path : string; identifier : string }
   | RETupleAccess of { first_expr : typed_expression; index : int64 }
   | REFieldAcces of { first_expr : typed_expression; field : string }
-  | REArrayAccess of { array_expr : typed_expression; index_expr: typed_expression }
+  | REArrayAccess of {
+      array_expr : typed_expression;
+      index_expr : typed_expression;
+    }
   | REConst_Identifier of { modules_path : string; identifier : string }
   | REStruct of {
       modules_path : string;

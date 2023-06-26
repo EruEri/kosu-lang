@@ -761,43 +761,48 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           (TEIdentifier new_tmp)
       in
       (stmts_needed @ (statement :: last_stmt), return)
-  | REArrayAccess {array_expr; index_expr}, _ -> 
-    let index_allocated, index_stmt = create_forward_init ~map ~count_var index_expr in
-    let index_stmts, index_tte = 
-        convert_from_typed_expression ~discarded_value ~allocated:index_allocated ~switch_count ~cases_count ~map
-        ~count_var ~if_count ~rprogram index_expr
-    in
-    let index_statements = index_stmt @ index_stmts in 
+  | REArrayAccess { array_expr; index_expr }, _ ->
+      let index_allocated, index_stmt =
+        create_forward_init ~map ~count_var index_expr
+      in
+      let index_stmts, index_tte =
+        convert_from_typed_expression ~discarded_value
+          ~allocated:index_allocated ~switch_count ~cases_count ~map ~count_var
+          ~if_count ~rprogram index_expr
+      in
+      let index_statements = index_stmt @ index_stmts in
 
-    let array_allocated, array_stmt = create_forward_init ~map ~count_var index_expr in
-    let array_stmts, array_tte = 
-        convert_from_typed_expression ~discarded_value ~allocated:array_allocated ~switch_count ~cases_count ~map
-        ~count_var ~if_count ~rprogram array_expr
-    in
+      let array_allocated, array_stmt =
+        create_forward_init ~map ~count_var index_expr
+      in
+      let array_stmts, array_tte =
+        convert_from_typed_expression ~discarded_value
+          ~allocated:array_allocated ~switch_count ~cases_count ~map ~count_var
+          ~if_count ~rprogram array_expr
+      in
 
-    let array_statements = array_stmt @ array_stmts in 
+      let array_statements = array_stmt @ array_stmts in
 
-    let identifier = make_inc_tmp trktype map count_var in
-    let array_index_rvalue = 
-      RVArrayAccess {
-        array_expr = array_tte;
-        index_expr = index_tte;
-      }
-    in
-    let rv_statememnt = 
-      STacDeclaration
-      {
-        identifier = identifier;
-        trvalue = make_typed_tac_rvalue trktype array_index_rvalue
-      }
-    in
+      let identifier = make_inc_tmp trktype map count_var in
+      let array_index_rvalue =
+        RVArrayAccess { array_expr = array_tte; index_expr = index_tte }
+      in
+      let rv_statememnt =
+        STacDeclaration
+          {
+            identifier;
+            trvalue = make_typed_tac_rvalue trktype array_index_rvalue;
+          }
+      in
 
-    let last_stmt, return =
-    convert_if_allocated ~expr_rktype:trktype ~allocated
-      (TEIdentifier identifier)
-  in
-  let all_statements = index_statements @ array_statements @ rv_statememnt::last_stmt in
-  all_statements, return
+      let last_stmt, return =
+        convert_if_allocated ~expr_rktype:trktype ~allocated
+          (TEIdentifier identifier)
+      in
+      let all_statements =
+        index_statements @ array_statements @ (rv_statememnt :: last_stmt)
+      in
+      (all_statements, return)
   | REFieldAcces { first_expr; field }, _ ->
       let next_allocated, stmt =
         create_forward_init ~map ~count_var first_expr

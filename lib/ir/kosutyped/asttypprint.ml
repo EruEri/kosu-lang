@@ -322,9 +322,9 @@ and string_of_rkexpression = function
               |> String.concat ", "
               )
         )
-  | REArrayAccess {array_expr; index_expr} ->
-    sprintf "%s[%s]" (string_of_typed_expression array_expr) 
-    @@ string_of_typed_expression index_expr
+  | REArrayAccess { array_expr; index_expr } ->
+      sprintf "%s[%s]" (string_of_typed_expression array_expr)
+      @@ string_of_typed_expression index_expr
   | REArray exprs ->
       sprintf "[%s]"
         (exprs |> List.map string_of_typed_expression |> String.concat ", ")
