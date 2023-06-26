@@ -194,6 +194,8 @@ module Register = struct
   let rip = iregister RIP
   let rdx = iregister RDX
   let rax = iregister RAX
+  let rcx = iregister RCX
+  let cl = iregister ~size:B RCX
 
   (* %rdi, %rsi, %rdx, %rcx, %r8, %r9 *)
   let argument_registers = [ RDI; RSI; RDX; RCX; R8; R9 ]
