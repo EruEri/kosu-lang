@@ -22,6 +22,8 @@
 - **f64**: ieee 754 stantard double precision floating-point number (64 bits) (default float type)
 - **\*t**: pointer to a variable of type **t**
 - **(t1,..., tn)**: a tuple constituated of expression of type **(t1, ... , tn)**
+- **array(N: t)** : an array of ```N``` elements of type ```t```
+    - Kosu array are passed by value
 - **anyptr**: 
     - Only available in the context of declaring a syscall or an external function:
     - Represent a pointer toward any type
@@ -77,15 +79,18 @@
     const b : *s32 = nullptr;
 
     // tuple can be constructed by putting between parenthesis more than one expression separed by comma
-    
     const t : (stringl, s32) = (x, 25)
 
     // to get the address of a variable, we use the &
-
     const ptr_t : *(stringl, s32) = &t;
 
     // to derefence, we use the *
-
     const t2 = *ptr_t;
+
+    // All value of an array must be initialized
+    const a : array(3, s32) = [1, 2, 3];
+
+    // To initialize all the index with a default value
+    const b = [3: expr];
 
 ```

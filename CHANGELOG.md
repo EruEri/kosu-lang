@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+- Create Array subscript
+
 - Create Array litteral
 
 - feature/base_vm

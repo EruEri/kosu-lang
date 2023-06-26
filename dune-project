@@ -20,7 +20,7 @@
 (using menhir 2.0)
 
 (name kosu_lang)
-(version "0.1.0")
+(version "0.2.0")
 
 (cram enable)
 
@@ -37,13 +37,11 @@
 
 ; (documentation https://url/to/documentation)
 
-
-
 (package
  (name kosu_lang)
  (synopsis "A programming language project")
- (description "A programming language that I hope will compile on arm64 and maybe one day on more platforms through the LLVM")
- (depends ocaml dune menhir cmdliner unix)
+ (description "A low level programming language with some high level features")
+ (depends (ocaml (>= "4.13")) (dune (>= "3.2")) menhir (cmdliner (>= "1.1.0")) unix)
 )
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
