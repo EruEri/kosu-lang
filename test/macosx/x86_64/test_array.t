@@ -1,0 +1,1 @@
+  $ kosuc --arch x86_64 --os macos --no-std -o main test_array.kosu && ./main

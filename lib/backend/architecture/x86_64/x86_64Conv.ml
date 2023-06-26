@@ -1113,7 +1113,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             if elt_type_size = 1L then
               []
             else
-              ins_mult ~size:iq ~destination:(`Register Register.rcx)
+              ins_mult ~size:iq ~destination:r10
                 ~source:(`ILitteral elt_type_size)
           in
 
@@ -1121,8 +1121,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             { 
               base = register_of_dst r9; 
               offset = Offset 0L; 
-              index = Option.some @@ rcx;
-                scale = 1
+              index = Option.some @@ register_of_dst r10;
+              scale = 1
             }
           in
           let load_index_instruction = 
