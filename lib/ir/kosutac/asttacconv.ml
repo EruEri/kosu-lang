@@ -761,6 +761,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           (TEIdentifier new_tmp)
       in
       (stmts_needed @ (statement :: last_stmt), return)
+  | REArrayAccess {array_expr = _; index_expr = _}, _ -> failwith ""
   | REFieldAcces { first_expr; field }, _ ->
       let next_allocated, stmt =
         create_forward_init ~map ~count_var first_expr

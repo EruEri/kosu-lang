@@ -398,6 +398,14 @@ module Generics = struct
               instanciate_generics_typed_expression generics first_expr;
             index;
           }
+    | REArrayAccess {array_expr; index_expr} -> 
+        REArrayAccess 
+          {
+            array_expr =
+              instanciate_generics_typed_expression generics array_expr;
+            index_expr = 
+              instanciate_generics_typed_expression generics index_expr
+          }
     | REStruct { modules_path; struct_name; fields } ->
         REStruct
           {
@@ -1325,6 +1333,10 @@ module RProgram = struct
                   |> FnSpec.union recall
           )
       )
+    | REArrayAccess {array_expr; index_expr} ->
+      let spe_array = specialise_generics_function_typed_expression ~ignored current_module rprogram array_expr in
+      let spe_index = specialise_generics_function_typed_expression ~ignored current_module rprogram index_expr in
+      FnSpec.union spe_array spe_index
     | REFieldAcces { first_expr; _ } | RETupleAccess { first_expr; _ } ->
         specialise_generics_function_typed_expression ~ignored current_module
           rprogram first_expr

@@ -373,7 +373,13 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
             program first_expr
         in
         RETupleAccess { first_expr = typed_expression; index = index.v }
-    | EArrayAccess {array_expr; index_expr} -> ignore (array_expr, index_expr); failwith ""
+    | EArrayAccess {array_expr; index_expr} ->
+      let rearray_expr = typed_expression_of_kexpression ~generics_resolver env current_module program array_expr in
+      let rindex_expr = typed_expression_of_kexpression ~generics_resolver env current_module program index_expr in
+      REArrayAccess {
+        array_expr = rearray_expr;
+        index_expr = rindex_expr
+      }
     | EFieldAcces { first_expr; field } ->
         let typed_expression =
           typed_expression_of_kexpression ~generics_resolver env current_module
@@ -804,7 +810,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
             program expression
         in
 
-        if typed.rktype |> RType.is_builtin_type then
+        if RType.is_builtin_type typed.rktype then
           REUn_op (RUMinus typed)
         else
           REUnOperator_Function_call (RUMinus typed)
@@ -814,7 +820,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
             program expression
         in
         let runot = RUNot typed in
-        if typed.rktype |> RType.is_builtin_type then
+        if RType.is_builtin_type typed.rktype then
           REUn_op runot
         else
           REUnOperator_Function_call runot
