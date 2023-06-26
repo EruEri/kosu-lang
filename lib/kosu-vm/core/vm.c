@@ -63,7 +63,7 @@ int show_reg(const char* regname, reg_t reg, bool_t is_float) {
     if (is_float) {
         printf("%s = %f\n", regname, double_of_bits(reg));
     } else {
-        printf("%s = %lld\n", regname, reg);
+        printf("%s = %ld\n", regname, reg);
     }
 
     return 0;
@@ -73,7 +73,7 @@ int show_status(vm_t* vm) {
     printf("last_cmp = %u\n", vm->last_cmp);
     printf("ip = %p\n", vm->ip - (uint64_t) vm->code);
     printf("fp = %p\n", (void *) vm->fp);
-    printf("sc = %llu\n", vm->scp);
+    printf("sc = %lu\n", vm->scp);
     printf("ir = %p\n", (void *) vm->irp);
     printf("ra = %p\n", (void *) vm->rap);
     show_reg("r0", vm->r0, false);
@@ -245,7 +245,7 @@ reg_t* register_of_int32(vm_t* vm, uint32_t bits, uint32_t shift) {
 int isyscall(vm_t* vm, instruction_t instruction) {
 
     #ifndef __APPLE__
-        vm->r0 = __syscall(vm->sc, vm->r0, vm->r1, vm->r2, vm->r3, vm->r4, vm->r5);
+        vm->r0 = syscall(vm->scp, vm->r0, vm->r1, vm->r2, vm->r3, vm->r4, vm->r5);
     #else
         // Find a way since [syscall] is deprecated on macOS and __syscall doesnt exist
         // Maybe inline asm for x86_64 and arm64 
