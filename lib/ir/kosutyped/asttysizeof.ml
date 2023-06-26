@@ -247,6 +247,10 @@ let rec compute_all_size_typed_expr rprogram typed_expression =
       compute_ktype rprogram rktype
   | REFieldAcces { first_expr; _ } | RETupleAccess { first_expr; _ } ->
       compute_all_size_typed_expr rprogram first_expr
+  | REArrayAccess { array_expr; index_expr } ->
+      let () = compute_all_size_typed_expr rprogram array_expr in
+      let () = compute_all_size_typed_expr rprogram index_expr in
+      ()
   | RESwitch { rexpression; cases; wildcard_case : rkbody option } ->
       let () = compute_all_size_typed_expr rprogram rexpression in
       let () =

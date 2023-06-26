@@ -720,6 +720,11 @@ module Instruction = struct
         operand1 : Register.register;
         operand2 : src;
       }
+    | ROR of {
+        destination : Register.register;
+        operand1 : Register.register;
+        operand2 : src;
+      }
     | LDR of {
         data_size : data_size option;
         destination : Register.register;
@@ -892,8 +897,8 @@ module Instruction = struct
       @@ ADD
            {
              destination;
-             operand1;
-             operand2 = `Register operand2;
+             operand1 = resize_register destination.size operand1;
+             operand2 = `Register (resize_register destination.size operand2);
              offset = false;
            };
     ]

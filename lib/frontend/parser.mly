@@ -72,7 +72,7 @@
 %left PLUS MINUS
 %left MULT DIV MOD
 %nonassoc UMINUS NOT
-%left DOT
+%left DOT LSQBRACE
 // %nonassoc ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
 
 %start modul
@@ -391,6 +391,12 @@ expr:
             field = $3
         }
     }
+    | located(expr) delimited(LSQBRACE, located(expr), RSQBRACE) {
+        EArrayAccess {
+            array_expr = $1;
+            index_expr = $2
+        }
+    }
     | NOT located(expr) { EUn_op (UNot $2) }
     | MINUS located(expr) %prec UMINUS { EUn_op (UMinus $2) }
     | located(BUILTIN) parameters=delimited(LPARENT, separated_list(COMMA, located(expr)) ,RPARENT) {
@@ -526,7 +532,7 @@ ctype:
             name = id
         }
      }
-    | ARRAY delimited(LPARENT, ktype=located(ktype) COLON size=located(Integer_lit) {ktype, size}, RPARENT) {
+    | ARRAY delimited(LPARENT, size=located(Integer_lit) COLON ktype=located(ktype) {ktype, size}, RPARENT) {
         let ktype, size = $2 in
         let size = Position.map (fun (_, _, value) -> value) size in
         TArray {
@@ -559,7 +565,7 @@ ktype:
             name = id
         } 
      }
-    | ARRAY delimited(LPARENT, ktype=located(ktype) COLON size=located(Integer_lit) {ktype, size}, RPARENT) {
+    | ARRAY delimited(LPARENT, size=located(Integer_lit) COLON ktype=located(ktype) {ktype, size}, RPARENT) {
         let ktype, size = $2 in
         let size = Position.map (fun (_, _, value) -> value) size in
         TArray {

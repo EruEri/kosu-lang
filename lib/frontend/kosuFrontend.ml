@@ -191,8 +191,6 @@ struct
     files
     |> List.map module_path_of_file
     |> function
-    | [] ->
-        Error No_input_file
     | l -> (
         match
           l

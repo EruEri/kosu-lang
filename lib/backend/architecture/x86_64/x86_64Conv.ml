@@ -1060,6 +1060,106 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         failwith "Weird: Tuple access force tuple as an idnentifier"
     | RVFieldAcess _ ->
         failwith "Wierd : Fields access force struct as an identifier"
+    | RVArrayAccess { array_expr; index_expr } ->
+        let r9 = tmp_r9_ktype array_expr.expr_rktype in
+        let r10 = tmp_r10_ktype index_expr.expr_rktype in
+        (* let r11 = tmp_r11_ktype rval_rktype in  *)
+        let r10, index_instructions =
+          translate_tac_expression ~litterals ~target_dst:(`Register r10)
+            rprogram fd index_expr
+        in
+        let r9, array_instructions =
+          translate_tac_expression ~litterals ~target_dst:(`Register r9)
+            rprogram fd array_expr
+        in
+        let elt_type_size = KosuIrTyped.Sizeof.sizeof rprogram rval_rktype in
+        let mov_instructions =
+          match is_register_size @@ sizeofn rprogram array_expr.expr_rktype with
+          | true ->
+              let offset_reg_instruction =
+                Instruction
+                  (Mov
+                     {
+                       size = iq;
+                       destination = `Register rax;
+                       source = `ILitteral (Int64.mul 8L elt_type_size);
+                     }
+                  )
+              in
+              let mult_offset_instruction =
+                Instruction
+                  (Mul
+                     { size = iq; destination = None; source = src_of_dst r10 }
+                  )
+              in
+              let offset_instruction =
+                Instruction
+                  (Mov
+                     {
+                       size = ib;
+                       destination = `Register rcx;
+                       source = `Register rax;
+                     }
+                  )
+              in
+              let shift_instruction =
+                Instruction
+                  (Shr { size = Q; destination = r9; shift = `Register cl })
+              in
+              [
+                offset_reg_instruction;
+                mult_offset_instruction;
+                offset_instruction;
+                shift_instruction;
+              ]
+          | false ->
+              let scale_instruction =
+                if elt_type_size = 1L then
+                  []
+                else
+                  ins_mult ~size:iq ~destination:r10
+                    ~source:(`ILitteral elt_type_size)
+              in
+
+              let address =
+                {
+                  base = register_of_dst r9;
+                  offset = Offset 0L;
+                  index = Option.some @@ register_of_dst r10;
+                  scale = 1;
+                }
+              in
+              let load_index_instruction =
+                let rvalue_size = sizeofn rprogram rval_rktype in
+                match is_register_size @@ rvalue_size with
+                | true ->
+                    Instruction
+                      (Mov
+                         {
+                           size =
+                             IntSize
+                               (Option.get @@ data_size_of_int64 @@ rvalue_size);
+                           destination = r9;
+                           source = `Address address;
+                         }
+                      )
+                | false ->
+                    Instruction
+                      (Lea
+                         {
+                           destination = register_of_dst r9;
+                           source = address;
+                           size = iq;
+                         }
+                      )
+              in
+              scale_instruction @ (load_index_instruction :: [])
+        in
+        let copy_instructions =
+          copy_result ~where ~register:Register.r9 ~rval_rktype rprogram
+        in
+        index_instructions @ array_instructions @ mov_instructions
+        @ copy_instructions
     | RVAdress id ->
         let pointee_type =
           rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee

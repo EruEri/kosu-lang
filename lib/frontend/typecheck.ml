@@ -683,6 +683,38 @@ Return the type of an expression
               ktype
         in
         validate_location_type expression ~constraint_type ktype
+    | EArrayAccess { array_expr; index_expr } ->
+        let array_ktype =
+          array_expr
+          |> Position.map_use
+             @@ typeof ~constraint_type:None ~generics_resolver env
+                  current_mod_name prog
+        in
+        let index_ktype =
+          index_expr
+          |> Position.map_use
+             @@ typeof ~constraint_type:None ~generics_resolver env
+                  current_mod_name prog
+        in
+        let array_of_type =
+          match array_ktype.v with
+          | TArray { ktype; _ } ->
+              ktype
+          | _ ->
+              raise @@ ast_error
+              @@ Array_subscript_None_array { found = array_ktype }
+        in
+
+        let () =
+          match Type.is_any_integer index_ktype.v with
+          | false ->
+              raise @@ ast_error
+              @@ Array_Non_Integer_Index { found = index_ktype }
+          | true ->
+              ()
+        in
+
+        validate_location_type expression ~constraint_type array_of_type.v
     | ETupleAccess { first_expr; index } ->
         let first_type =
           typeof ~constraint_type:None ~generics_resolver env current_mod_name
