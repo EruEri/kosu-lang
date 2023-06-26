@@ -812,7 +812,7 @@ Return the type of an expression
           match constraint_type with
           | None -> (None, None)
           | Some (TArray { size; ktype }) -> (Some size, Some ktype)
-          | Some _ -> failwith "Wrong type"
+          | Some _ -> (None, None)
         in
         let size =
           expression
@@ -846,7 +846,7 @@ Return the type of an expression
         let ktype_loc = { v = ktype; position = expression.position } in
         let array_type = TArray { size; ktype = ktype_loc } in
         validate_location_type expression ~constraint_type array_type
-    | EArray [] -> failwith "Here"
+    | EArray [] -> failwith "Unreachable: Array can not be empty"
     | EWhile (condition, body) ->
         let if_condition =
           typeof ~constraint_type:None ~generics_resolver env current_mod_name

@@ -140,11 +140,8 @@ module RType = struct
     | RTTuple kts ->
         RTTuple (kts |> List.map (remap_generic_ktype generics_table))
     | RTPointer kt -> kt |> remap_generic_ktype generics_table |> rpointer
-    | RTArray {size; rktype} ->
-      RTArray {
-        size;
-        rktype = remap_generic_ktype generics_table rktype
-      }
+    | RTArray { size; rktype } ->
+        RTArray { size; rktype = remap_generic_ktype generics_table rktype }
     | _ as kt -> kt
 end
 
@@ -285,11 +282,12 @@ module Generics = struct
     | RTPointer ptr -> RTPointer (instanciate_generics_type generics ptr)
     | RTTuple rtks ->
         RTTuple (rtks |> List.map (instanciate_generics_type generics))
-    | RTArray info -> 
-      RTArray {
-        size = info.size;
-        rktype = instanciate_generics_type generics info.rktype
-      } 
+    | RTArray info ->
+        RTArray
+          {
+            size = info.size;
+            rktype = instanciate_generics_type generics info.rktype;
+          }
     | _ as t -> t
 
   let rec instanciate_generics_kbody generics (rkstatements, return_te) =
