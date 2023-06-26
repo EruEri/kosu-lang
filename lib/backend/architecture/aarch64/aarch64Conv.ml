@@ -894,7 +894,12 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
                      ~operand2:(resize_register r9.size r10) ~scale:(resize_register r9.size r11)
             in
             let resized_r9 = reg9_of_ktype rprogram rval_rktype in
-            let load_instruction = ldr_instr ~data_size:(compute_data_size rval_rktype elt_type_size) ~destination:resized_r9 (create_adress r9) in
+            let load_instruction = 
+              match is_register_size @@ sizeofn rprogram rval_rktype with
+              | true -> 
+                ldr_instr ~data_size:(compute_data_size rval_rktype elt_type_size) ~destination:resized_r9 (create_adress r9) 
+              | false -> []
+              in
             resized_r9, add_or_sub_instructions @ load_instruction
         in
         let before_copy _ =

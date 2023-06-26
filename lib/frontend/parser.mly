@@ -532,7 +532,7 @@ ctype:
             name = id
         }
      }
-    | ARRAY delimited(LPARENT, ktype=located(ktype) COLON size=located(Integer_lit) {ktype, size}, RPARENT) {
+    | ARRAY delimited(LPARENT, size=located(Integer_lit) COLON ktype=located(ktype) {ktype, size}, RPARENT) {
         let ktype, size = $2 in
         let size = Position.map (fun (_, _, value) -> value) size in
         TArray {
@@ -565,7 +565,7 @@ ktype:
             name = id
         } 
      }
-    | ARRAY delimited(LPARENT, ktype=located(ktype) COLON size=located(Integer_lit) {ktype, size}, RPARENT) {
+    | ARRAY delimited(LPARENT, size=located(Integer_lit) COLON ktype=located(ktype) {ktype, size}, RPARENT) {
         let ktype, size = $2 in
         let size = Position.map (fun (_, _, value) -> value) size in
         TArray {

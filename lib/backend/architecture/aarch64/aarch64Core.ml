@@ -897,8 +897,8 @@ module Instruction = struct
       @@ ADD
            {
              destination;
-             operand1;
-             operand2 = `Register operand2;
+             operand1 = resize_register destination.size operand1;
+             operand2 = `Register (resize_register destination.size operand2);
              offset = false;
            };
     ]
