@@ -231,6 +231,8 @@ and string_of_kexpression = function
       sprintf "%s.%s" (string_of_kexpression first_expr.v) field.v
   | ETupleAccess { first_expr; index } ->
       sprintf "%s.%Lu" (string_of_kexpression first_expr.v) index.v
+  | EArrayAccess {array_expr; index_expr} ->
+      sprintf "%s[%s]" (string_of_kexpression array_expr.v) @@ string_of_kexpression index_expr.v
   | EStruct { modules_path; struct_name; fields } ->
       sprintf "%s%s { %s }"
         ( if modules_path.v = "" then

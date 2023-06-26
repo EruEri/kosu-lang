@@ -489,7 +489,7 @@ struct
           { v = (); position = location }
           (sprintf
              "this expression has the type \"%s\" which is not a tuple. It \
-              content can't be accessed by index"
+              can't be accessed by index"
              (string_of_ktype ktype)
           )
     | Field_access_for_non_struct_type { location; ktype } ->
@@ -500,6 +500,14 @@ struct
               doesn't contain any field"
              (string_of_ktype ktype)
           )
+    | Array_subscript_None_array { found } ->
+      string_of_located_error found @@ 
+        sprintf "this expression has the type \"%s\" which is not an array. It \
+        can't be accessed by subscripting" (string_of_ktype found.v)
+    | Array_Non_Integer_Index { found } ->
+      string_of_located_error found @@ 
+        sprintf "this expression has the type \"%s\" which is not an integer type. It \
+        can't be used for array index" (string_of_ktype found.v)
     | Uncompatible_type { expected; found } ->
         string_of_located_error found
           (sprintf

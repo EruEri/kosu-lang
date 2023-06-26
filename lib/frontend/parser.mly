@@ -72,7 +72,7 @@
 %left PLUS MINUS
 %left MULT DIV MOD
 %nonassoc UMINUS NOT
-%left DOT
+%left DOT LSQBRACE
 // %nonassoc ENUM EXTERNAL SIG FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR
 
 %start modul
@@ -389,6 +389,12 @@ expr:
         EFieldAcces {
             first_expr = $1;
             field = $3
+        }
+    }
+    | located(expr) delimited(LSQBRACE, located(expr), RSQBRACE) {
+        EArrayAccess {
+            array_expr = $1;
+            index_expr = $2
         }
     }
     | NOT located(expr) { EUn_op (UNot $2) }

@@ -108,6 +108,10 @@ and kexpression =
       first_expr : kexpression location;
       field : string location;
     }
+  | EArrayAccess of {
+    array_expr: kexpression location;
+    index_expr: kexpression location
+  }
   | ETupleAccess of {
       first_expr : kexpression location;
       index : int64 location;
@@ -618,6 +622,8 @@ module Error = struct
     | Enum_Access_field of { field : string location; enum_decl : enum_decl }
     | Tuple_access_for_non_tuple_type of { location : position; ktype : ktype }
     | Field_access_for_non_struct_type of { location : position; ktype : ktype }
+    | Array_subscript_None_array of { found: ktype location } 
+    | Array_Non_Integer_Index of { found: ktype location }
     | Unvalid_Deference of string location
     | Conflicting_type_declaration of {
         path : string;
@@ -676,6 +682,10 @@ module Type = struct
   let is_any_integer = function TInteger _ -> true | _ -> false
   let is_any_float = function TFloat _ -> true | _ -> false
   let is_string_litteral = function TString_lit -> true | _ -> false
+
+  let is_array = function
+    | TArray _ -> true
+    | _ -> false
 
   let pointee_fail = function
     | TPointer kt ->
