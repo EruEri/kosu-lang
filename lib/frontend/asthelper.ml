@@ -705,9 +705,9 @@ module Program = struct
         | _ ->
             `to_many_declaration declaration
       )
-    | TInteger (Signed, _) | TFloat _ ->
+    | TInteger Some (Signed, _) | TFloat _ ->
         `built_in_valid
-    | TInteger (Unsigned, size) ->
+    | TInteger Some (Unsigned, size) ->
         `invalid_unsigned_op size
     | _ ->
         `no_uminus_for_built_in
@@ -1901,29 +1901,29 @@ module Builtin_Function = struct
     let open Ast.Builtin_Function in
     function
     | Stringl_ptr ->
-        TPointer { v = TInteger (Signed, I8); position = Position.dummy }
+        TPointer { v = TInteger (Some (Signed, I8)); position = Position.dummy }
     | Tos8 ->
-        TInteger (Signed, I8)
+        TInteger (Some (Signed, I8))
     | Tou8 ->
-        TInteger (Unsigned, I8)
+        TInteger (Some (Unsigned, I8))
     | Tos16 ->
-        TInteger (Signed, I16)
+        TInteger (Some (Signed, I16))
     | Tou16 ->
-        TInteger (Unsigned, I16)
+        TInteger (Some (Unsigned, I16))
     | Tos32 ->
-        TInteger (Signed, I32)
+        TInteger (Some (Signed, I32))
     | Tou32 ->
-        TInteger (Unsigned, I32)
+        TInteger (Some (Unsigned, I32))
     | Tos64 ->
-        TInteger (Signed, I64)
+        TInteger (Some (Signed, I64))
     | Tou64 ->
-        TInteger (Unsigned, I64)
+        TInteger (Some (Unsigned, I64))
     | Tof32 ->
         TFloat F32
     | Tof64 ->
         TFloat F64
     | Tagof ->
-        TInteger (Unsigned, I32)
+        TInteger (Some (Unsigned, I32))
 end
 
 module Function = struct

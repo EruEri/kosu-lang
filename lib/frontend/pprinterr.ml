@@ -279,7 +279,7 @@ struct
     | Invalid_Uminus_for_Unsigned_integer size ->
         string_of_located_error size
           (sprintf "Cannot use unary minus for unsigned integer: \"%s\""
-             (string_of_ktype (TInteger (Ast.Unsigned, size.v)))
+          (string_of_ktype (TInteger (Some (Ast.Unsigned, size.v))))
           )
 
   let string_of_switch_error =

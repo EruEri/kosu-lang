@@ -54,7 +54,7 @@ type ktype =
       module_path : string location;
       name : string location;
     }
-  | TInteger of (signedness * isize)
+  | TInteger of (signedness * isize) option
   | TFloat of fsize
   | TPointer of ktype location
   | TTuple of ktype location list
@@ -92,7 +92,7 @@ and kexpression =
   | ECmpLess
   | ECmpEqual
   | ECmpGreater
-  | EInteger of (signedness * isize * int64)
+  | EInteger of (signedness * isize) option * int64
   | EFloat of (fsize * float)
   | EChar of char
   | ESizeof of (ktype location, kexpression location) Either.t
@@ -853,6 +853,8 @@ module Type = struct
     | ( TArray { size = lsize; ktype = lktype },
         TArray { size = rsize; ktype = rktype } ) ->
         lsize.v = rsize.v && are_compatible_type lktype.v rktype.v
+    | TInteger None, TInteger _ 
+    | TInteger _, TInteger None -> true
     | _, _ ->
         lhs === rhs
 
@@ -1168,6 +1170,9 @@ module Type = struct
           t
       | (TPointer _ as kt), TPointer { v = TUnknow; _ } ->
           kt
+      | TInteger None, (TInteger _ as i) 
+      | (TInteger _ as i), TInteger None
+      -> i
       | _, _ ->
           to_restrict_type
 end

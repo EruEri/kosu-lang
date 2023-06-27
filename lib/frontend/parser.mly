@@ -24,7 +24,7 @@
 %}
 
 
-%token <Ast.signedness * Ast.isize * int64> Integer_lit
+%token <(Ast.signedness * Ast.isize) option * int64> Integer_lit
 %token <string> String_lit
 %token <char> Char_lit
 %token <Ast.fsize * float> Float_lit
@@ -279,7 +279,7 @@ syscall_decl:
             syscall_name;
             parameters;
             return_type = return_type |> Position.map (Option.value ~default: TUnit);
-            opcode = opcode |> Position.map (fun (_, _, value) -> value )
+            opcode = opcode |> Position.map (fun (_, value) -> value )
         }
     }
 
@@ -298,11 +298,14 @@ function_decl:
 ;;
 const_decl:
     | CONST located(Constant) EQUAL located(Integer_lit) option(SEMICOLON) {
-        let sign, size, _ = $4.v in
+        let sign, size = match fst $4.v with 
+            | Some s -> s
+            | None -> Signed, I32
+        in
         {
             const_name = $2;
-            explicit_type = TInteger (sign, size);
-            value = $4 |> Position.map (fun (sign, size, value) -> EInteger (sign, size, value) ) ;
+            explicit_type = TInteger (Some (sign, size));
+            value = $4 |> Position.map (fun (info, value) -> EInteger (info, value) ) ;
         }
     }
     | CONST located(Constant) EQUAL located(String_lit) option(SEMICOLON) {
@@ -327,7 +330,10 @@ enum_resolver:
     | DOT { None }
     | terminated(located(IDENT), DOUBLECOLON) { Some $1 }
 expr:
-    | Integer_lit { EInteger $1 }
+    | Integer_lit { 
+        let ss, value = $1 in
+        EInteger (ss, value)
+    }
     | String_lit { EString $1 }
     | Float_lit { EFloat $1 }
     | Char_lit  { EChar $1 }
@@ -379,7 +385,7 @@ expr:
     | located(expr) DOUBLEQUAL located(expr) { EBin_op (BEqual ($1, $3)) }
     | located(expr) DIF located(expr) { EBin_op (BDif ($1, $3)) }
     | located(expr) DOT located(Integer_lit) {
-        let value = $3 |> Position.map (fun (_, _, value) -> value) in
+        let value = $3 |> Position.map (fun (_, value) -> value) in
         ETupleAccess {
             first_expr = $1;
             index = value
@@ -490,7 +496,7 @@ expr:
     }
     | delimited(LSQBRACE, size=located(Integer_lit) COLON init_expr=located(expr) { size, init_expr }, RSQBRACE) {
         let size, expr = $1 in
-        let _, _, size = size.v in
+        let _, size = size.v in
         let exprs = List.init (Int64.to_int size) (fun _ -> expr) in
         EArray exprs
     }
@@ -519,14 +525,14 @@ ctype:
         | "bool" -> TBool
         | "stringl" -> TString_lit
         | "anyptr" -> TPointer ({ v = TUnknow; position = id.position })
-        | "s8" -> TInteger( Signed, I8)
-        | "u8" -> TInteger( Unsigned, I8)
-        | "s16" -> TInteger( Signed, I16)
-        | "u16" -> TInteger( Unsigned, I16)
-        | "s32" -> TInteger( Signed, I32)
-        | "u32" -> TInteger( Unsigned, I32)
-        | "s64" -> TInteger( Signed, I64)
-        | "u64" -> TInteger( Unsigned, I64)
+        | "s8" -> TInteger ( Some ( Signed, I8) )
+        | "u8" -> TInteger ( Some ( Unsigned, I8) )
+        | "s16" -> TInteger( Some ( Signed, I16) )
+        | "u16" -> TInteger( Some ( Unsigned, I16))
+        | "s32" -> TInteger( Some ( Signed, I32) )
+        | "u32" -> TInteger( Some ( Unsigned, I32) )
+        | "s64" -> TInteger( Some ( Signed, I64) )
+        | "u64" -> TInteger( Some ( Unsigned, I64) )
         | _ -> TType_Identifier {
             module_path = modules_path ;
             name = id
@@ -534,7 +540,7 @@ ctype:
      }
     | ARRAY delimited(LPARENT, size=located(Integer_lit) COLON ktype=located(ktype) {ktype, size}, RPARENT) {
         let ktype, size = $2 in
-        let size = Position.map (fun (_, _, value) -> value) size in
+        let size = Position.map (fun (_, value) -> value) size in
         TArray {
             size;
             ktype
@@ -550,14 +556,14 @@ ktype:
         | "unit" -> TUnit
         | "bool" -> TBool
         | "char" -> TChar
-        | "s8" -> TInteger( Signed, I8)
-        | "u8" -> TInteger( Unsigned, I8)
-        | "s16" -> TInteger( Signed, I16)
-        | "u16" -> TInteger( Unsigned, I16)
-        | "s32" -> TInteger( Signed, I32)
-        | "u32" -> TInteger( Unsigned, I32)
-        | "s64" -> TInteger( Signed, I64)
-        | "u64" -> TInteger( Unsigned, I64)
+        | "s8" -> TInteger ( Some ( Signed, I8) )
+        | "u8" -> TInteger ( Some ( Unsigned, I8) )
+        | "s16" -> TInteger( Some ( Signed, I16) )
+        | "u16" -> TInteger( Some ( Unsigned, I16))
+        | "s32" -> TInteger( Some ( Signed, I32) )
+        | "u32" -> TInteger( Some ( Unsigned, I32) )
+        | "s64" -> TInteger( Some ( Signed, I64) )
+        | "u64" -> TInteger( Some ( Unsigned, I64) )
         | "order" -> TOredered
         | "stringl" -> TString_lit
         | _ -> TType_Identifier {
@@ -567,7 +573,7 @@ ktype:
      }
     | ARRAY delimited(LPARENT, size=located(Integer_lit) COLON ktype=located(ktype) {ktype, size}, RPARENT) {
         let ktype, size = $2 in
-        let size = Position.map (fun (_, _, value) -> value) size in
+        let size = Position.map (fun (_, value) -> value) size in
         TArray {
             size;
             ktype
