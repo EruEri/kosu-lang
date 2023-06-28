@@ -35,14 +35,14 @@ module Make (Rule : TypeCheckerRuleS) = struct
     match constraint_type with
     | None ->
         ktype.v
-    | Some kt -> (
-        match Ast.Type.are_compatible_type kt ktype.v with
+    | Some cstr_kt -> (
+        match Ast.Type.are_compatible_type cstr_kt ktype.v with
         | true ->
-            Type.restrict_type kt ktype.v
+            Type.restrict_type cstr_kt ktype.v
         | false ->
             raise @@ stmt_error
             @@ Ast.Error.Uncompatible_type_Assign
-                 { expected = kt; found = ktype }
+                 { expected = cstr_kt; found = ktype }
       )
 
   let validate_position_type position ~constraint_type ktype =
@@ -530,9 +530,8 @@ Return the type of an expression
     | ENullptr ->
         validate_location_type expression ~constraint_type
         @@ TPointer { v = TUnknow; position = expression.position }
-    | EInteger (sign, size, _) ->
-        validate_location_type expression ~constraint_type
-        @@ TInteger (sign, size)
+    | EInteger (sign_size, _) ->
+        validate_location_type expression ~constraint_type @@ TInteger sign_size
     | EChar _ ->
         validate_location_type expression ~constraint_type TChar
     | EFloat (fsize, _) ->
@@ -576,7 +575,7 @@ Return the type of an expression
                 )
         in
         validate_location_type expression ~constraint_type
-        @@ TInteger (Unsigned, I64)
+        @@ TInteger (Some (Unsigned, I64))
     | EString _ ->
         validate_location_type expression ~constraint_type @@ TString_lit
     | EAdress s ->
@@ -1803,6 +1802,19 @@ Return the type of an expression
            (typeof ~constraint_type:None ~generics_resolver env current_mod_name
               program
            )
+    in
+    let l_type, r_type =
+      match Type.are_compatible_type l_type.v r_type.v with
+      | false ->
+          (l_type, r_type)
+      | true ->
+          let l_type =
+            l_type |> Position.map (fun l -> Type.restrict_type l r_type.v)
+          in
+          let r_type =
+            r_type |> Position.map (fun r -> Type.restrict_type r l_type.v)
+          in
+          (l_type, r_type)
     in
     let rtype = Option.value ~default:l_type.v ktype in
     let freturn = Option.value ~default:rtype freturn in

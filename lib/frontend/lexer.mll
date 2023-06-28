@@ -175,10 +175,10 @@ rule token = parse
     | "f64" -> Ast.F64 
     | _ -> failwith "Unreachable code"
     in 
-    Float_lit (size, float_of_string f)
+    Float_lit (Some size, float_of_string f)
 }
 | (float_literal as f) {
-    Float_lit (Ast.F64, float_of_string f)
+    Float_lit (None, float_of_string f)
 }
 | (number as n) (integer_sigdness as sign) (integer_size as size) {
     let signdess = if sign = 'u' then Ast.Unsigned else Ast.Signed in
@@ -188,10 +188,11 @@ rule token = parse
     | "32" -> Ast.I32
     | "64" -> Ast.I64
     | _ -> failwith "Unreachable code" in
-    Integer_lit(signdess, isize, Int64.of_string n)
+    let ss = Some (signdess, isize) in
+    Integer_lit(ss, Int64.of_string n)
 }
 | (number as n) {
-    Integer_lit(Ast.Signed, Ast.I32, Int64.of_string n)
+    Integer_lit(None, Int64.of_string n)
 }
 | constante as s {
     Constant s

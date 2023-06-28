@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+- Integer/Float size inference
+
 - Create Array subscript
 
 - Create Array litteral

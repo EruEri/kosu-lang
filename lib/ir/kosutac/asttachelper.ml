@@ -453,6 +453,7 @@ module FloatLitteral = struct
   let rec map_fill_float_lit_of_tac_expression map expression () =
     match expression with
     | TEFloat float -> (
+        (* let () = Printf.printf "%s\n" (match fst float with KosuFrontend.Ast.F32 -> "f32" | _ -> "f64") in *)
         match Hashtbl.find_opt map float with
         | None ->
             Hashtbl.add map float

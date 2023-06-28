@@ -705,9 +705,9 @@ module Program = struct
         | _ ->
             `to_many_declaration declaration
       )
-    | TInteger (Signed, _) | TFloat _ ->
+    | TInteger (Some (Signed, _)) | TFloat _ ->
         `built_in_valid
-    | TInteger (Unsigned, size) ->
+    | TInteger (Some (Unsigned, size)) ->
         `invalid_unsigned_op size
     | _ ->
         `no_uminus_for_built_in
@@ -1893,37 +1893,38 @@ module Builtin_Function = struct
                  {
                    fn_name = fn_location;
                    expected = 1;
-                   found = list |> List.length;
+                   found = List.length list;
                  }
       )
 
   let builtin_return_type =
     let open Ast.Builtin_Function in
+    let open Ast.Type in
     function
     | Stringl_ptr ->
-        TPointer { v = TInteger (Signed, I8); position = Position.dummy }
+        TPointer { v = kt_s8; position = Position.dummy }
     | Tos8 ->
-        TInteger (Signed, I8)
+        kt_s8
     | Tou8 ->
-        TInteger (Unsigned, I8)
+        kt_u8
     | Tos16 ->
-        TInteger (Signed, I16)
+        kt_s16
     | Tou16 ->
-        TInteger (Unsigned, I16)
+        kt_u16
     | Tos32 ->
-        TInteger (Signed, I32)
+        kt_s32
     | Tou32 ->
-        TInteger (Unsigned, I32)
+        kt_u32
     | Tos64 ->
-        TInteger (Signed, I64)
+        kt_s64
     | Tou64 ->
-        TInteger (Unsigned, I64)
+        kt_u64
     | Tof32 ->
-        TFloat F32
+        kt_f32
     | Tof64 ->
-        TFloat F64
+        kt_f64
     | Tagof ->
-        TInteger (Unsigned, I32)
+        kt_u32
 end
 
 module Function = struct

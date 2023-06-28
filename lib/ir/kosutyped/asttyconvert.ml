@@ -43,8 +43,10 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
           }
     | TType_Identifier { module_path; name } ->
         RTType_Identifier { module_path = module_path.v; name = name.v }
-    | TInteger (sign, size) ->
+    | TInteger (Some (sign, size)) ->
         RTInteger (sign, size)
+    | TInteger None ->
+        RTInteger (Signed, I32)
     | TPointer kt ->
         RTPointer (kt.v |> from_ktype)
     | TTuple kts ->
@@ -57,6 +59,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | TString_lit ->
         RTString_lit
     | TFloat fsize ->
+        let fsize = Option.value ~default:F64 fsize in
         RTFloat fsize
     | TBool ->
         RTBool
@@ -77,7 +80,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | RTUnknow ->
         TUnknow
     | RTFloat fsize ->
-        TFloat fsize
+        TFloat (Some fsize)
     | RTBool ->
         TBool
     | RTUnit ->
@@ -91,7 +94,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | RTArray { size; rktype } ->
         TArray { size = val_dummy size; ktype = val_dummy @@ to_ktype rktype }
     | RTInteger (sign, size) ->
-        TInteger (sign, size)
+        TInteger (Some (sign, size))
     | RTPointer rkt ->
         TPointer { v = to_ktype rkt; position = dummy }
     | RTTuple rkts ->
@@ -343,10 +346,26 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
         RENullptr
     | EChar c ->
         REChar c
-    | EInteger (sign, size, value) ->
+    | EInteger (sign_size, value) ->
+        let default =
+          match hint_type with
+          | RTInteger e ->
+              e
+          | _ ->
+              Ast.Type.default_integer_info
+        in
+        let sign, size = Option.value ~default sign_size in
         REInteger (sign, size, value)
-    | EFloat float ->
-        REFloat float
+    | EFloat (size, float) ->
+        let default =
+          match hint_type with
+          | RTFloat e ->
+              e
+          | _ ->
+              Ast.Type.default_float_info
+        in
+        let size = Option.value ~default size in
+        REFloat (size, float)
     | ESizeof either ->
         let ktype =
           match either with
@@ -394,31 +413,71 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
         REConst_Identifier
           { modules_path = modules_path.v; identifier = identifier.v }
     | EStruct { modules_path; struct_name; fields } ->
+        let struct_decl =
+          Result.get_ok
+          @@ Asthelper.Program.find_struct_decl_opt current_module modules_path
+               struct_name program
+        in
+        let fields =
+          struct_decl.fields |> List.combine fields
+          |> List.map (fun ((s, para), (_, ktype)) ->
+                 let hint =
+                   match
+                     KosuFrontend.Asthelper.Struct.is_type_generic ktype.v
+                       struct_decl
+                   with
+                   | true ->
+                       RTUnknow
+                   | false ->
+                       from_ktype ktype.v
+                 in
+                 ( s.v,
+                   typed_expression_of_kexpression ~generics_resolver env
+                     current_module ~hint_type:hint program para
+                 )
+             )
+        in
         REStruct
-          {
-            modules_path = modules_path.v;
-            struct_name = struct_name.v;
-            fields =
-              fields
-              |> List.map (fun (field, expr) ->
-                     ( field.v,
-                       typed_expression_of_kexpression ~generics_resolver env
-                         current_module program expr
-                     )
-                 );
-          }
+          { modules_path = modules_path.v; struct_name = struct_name.v; fields }
     | EEnum { modules_path; enum_name; variant; assoc_exprs } ->
+        let enum_decl =
+          match
+            Asthelper.Program.find_enum_decl_opt current_module modules_path
+              (Option.map Position.value enum_name)
+              variant assoc_exprs program
+          with
+          | Error e ->
+              raise @@ Ast.Error.ast_error e
+          | Ok e ->
+              e
+        in
+
+        let assoc_types =
+          Option.get @@ Asthelper.Enum.associate_type variant enum_decl
+        in
+        let assoc_exprs =
+          assoc_types |> List.combine assoc_exprs
+          |> List.map (fun (expr, ktype) ->
+                 let hint =
+                   match
+                     KosuFrontend.Asthelper.Enum.is_type_generic ktype.v
+                       enum_decl
+                   with
+                   | true ->
+                       RTUnknow
+                   | false ->
+                       from_ktype ktype.v
+                 in
+                 typed_expression_of_kexpression ~generics_resolver env
+                   current_module ~hint_type:hint program expr
+             )
+        in
         REEnum
           {
             modules_path = modules_path.v;
             enum_name = enum_name |> Option.map Position.value;
             variant = variant.v;
-            assoc_exprs =
-              assoc_exprs
-              |> List.map
-                   (typed_expression_of_kexpression ~generics_resolver env
-                      current_module program
-                   );
+            assoc_exprs;
           }
     | ETuple exprs ->
         RETuple
@@ -669,92 +728,93 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               wildcard_case
               |> Option.map
                    (rkbody_of_kbody ~generics_resolver
-                      (env |> Env.push_context [])
+                      (Env.push_empty_context env)
                       current_module ~return_type:hint_type program
                    );
           }
     | EFunction_call
         { modules_path; generics_resolver = grc; fn_name; parameters } -> (
         let fn_decl =
-          Asthelper.Program.find_function_decl_from_fn_name modules_path fn_name
-            current_module program
-          |> Result.get_ok
+          Result.get_ok
+          @@ Asthelper.Program.find_function_decl_from_fn_name modules_path
+               fn_name current_module program
         in
 
         match fn_decl with
         | Ast.Function_Decl.Decl_Syscall
             { syscall_name = _; parameters = sys_type_parameters; _ } ->
-            let sys_rktype_parameters =
-              sys_type_parameters
-              |> List.map (fun stl -> stl |> Position.value |> from_ktype)
-            in
             let typed_parameters =
-              parameters
-              |> List.map
-                   (typed_expression_of_kexpression ~generics_resolver env
-                      current_module program
-                   )
-            in
-            let mapped =
-              List.map2 restrict_typed_expression sys_rktype_parameters
-                typed_parameters
+              sys_type_parameters |> List.combine parameters
+              |> List.map (fun (para, ktype) ->
+                     typed_expression_of_kexpression ~generics_resolver
+                       ~hint_type:(from_ktype ktype.v) env current_module
+                       program para
+                 )
             in
             REFunction_call
               {
                 modules_path = modules_path.v;
                 generics_resolver = None;
                 fn_name = fn_name.v;
-                parameters = mapped;
+                parameters = typed_parameters;
               }
         | Ast.Function_Decl.Decl_External
-            { sig_name = _; fn_parameters; is_variadic; _ } ->
-            let mapped =
-              if is_variadic then
-                let known_parameters_len = fn_parameters |> List.length in
-                let external_rktype_parameters =
-                  fn_parameters
-                  |> List.map (fun stl -> stl |> Position.value |> from_ktype)
+            { sig_name = _; fn_parameters; is_variadic; _ } -> (
+            match is_variadic with
+            | true ->
+                let known_parameters_len = List.length fn_parameters in
+                let expected_params, variadic_params =
+                  parameters |> List.mapi Util.couple
+                  |> List.partition_map (fun (index, para) ->
+                         if index < known_parameters_len then
+                           Either.left para
+                         else
+                           Either.right para
+                     )
                 in
-                parameters
-                |> List.mapi (fun i expr ->
-                       ( i,
-                         typed_expression_of_kexpression ~generics_resolver env
-                           current_module program expr
-                       )
-                   )
-                |> List.partition (fun (index, _) ->
-                       index < known_parameters_len
-                   )
-                |> fun (mappable, variadic) ->
-                List.map2
-                  (fun rktype (i, typed_expr) ->
-                    (i, restrict_typed_expression rktype typed_expr)
-                  )
-                  external_rktype_parameters mappable
-                @ variadic
-                |> List.map snd
-              else
-                let external_rktype_parameters =
+                let expected_typed_parameters =
                   fn_parameters
-                  |> List.map (fun stl -> stl |> Position.value |> from_ktype)
+                  |> List.combine expected_params
+                  |> List.map (fun (para, ktype) ->
+                         typed_expression_of_kexpression ~generics_resolver
+                           ~hint_type:(from_ktype ktype.v) env current_module
+                           program para
+                     )
                 in
-                let typed_parameters =
-                  parameters
+                let variadic_typed_parameters =
+                  variadic_params
                   |> List.map
                        (typed_expression_of_kexpression ~generics_resolver env
                           current_module program
                        )
                 in
-                List.map2 restrict_typed_expression external_rktype_parameters
-                  typed_parameters
-            in
-            REFunction_call
-              {
-                modules_path = modules_path.v;
-                generics_resolver = None;
-                fn_name = fn_name.v;
-                parameters = mapped;
-              }
+                let typed_parameters =
+                  expected_typed_parameters @ variadic_typed_parameters
+                in
+                REFunction_call
+                  {
+                    modules_path = modules_path.v;
+                    generics_resolver = None;
+                    fn_name = fn_name.v;
+                    parameters = typed_parameters;
+                  }
+            | false ->
+                let typed_parameters =
+                  fn_parameters |> List.combine parameters
+                  |> List.map (fun (para, ktype) ->
+                         typed_expression_of_kexpression ~generics_resolver
+                           ~hint_type:(from_ktype ktype.v) env current_module
+                           program para
+                     )
+                in
+                REFunction_call
+                  {
+                    modules_path = modules_path.v;
+                    generics_resolver = None;
+                    fn_name = fn_name.v;
+                    parameters = typed_parameters;
+                  }
+          )
         | Ast.Function_Decl.Decl_Kosu_Function kosu_function ->
             let new_map_generics =
               kosu_function.generics
@@ -766,12 +826,22 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
               |> List.map (fun (_, { v = kt; _ }) -> from_ktype kt)
             in
             let typed_parameters =
-              parameters
-              |> List.map
-                   (typed_expression_of_kexpression
-                      ~generics_resolver:new_map_generics env current_module
-                      program
-                   )
+              kosu_function.parameters |> List.combine parameters
+              |> List.map (fun (para, (_, ktype)) ->
+                     let hint =
+                       match
+                         KosuFrontend.Asthelper.Function.is_ktype_generic
+                           ktype.v kosu_function
+                       with
+                       | true ->
+                           RTUnknow
+                       | false ->
+                           from_ktype ktype.v
+                     in
+                     typed_expression_of_kexpression
+                       ~generics_resolver:new_map_generics env current_module
+                       ~hint_type:hint program para
+                 )
             in
 
             let hashmap =

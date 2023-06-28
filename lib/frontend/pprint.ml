@@ -107,10 +107,15 @@ let rec string_of_ktype = function
             sprintf "%s::" module_path.v
         )
         name.v
-  | TInteger (sign, size) ->
+  | TInteger (Some (sign, size)) ->
       sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
+  | TInteger None ->
+      sprintf "s32(default)"
   | TFloat fsize ->
-      sprintf "f%s" (string_of_fsize fsize)
+      sprintf "f%s"
+        (string_of_fsize
+        @@ Option.value ~default:Ast.Type.default_float_info fsize
+        )
   | TPointer ktype ->
       sprintf "*%s" (string_of_ktype ktype.v)
   | TTuple ktypes ->
@@ -196,13 +201,15 @@ and string_of_kexpression = function
       "lt"
   | EChar c ->
       Printf.sprintf "\'%c\'" c
-  | EInteger (sign, _, value) -> (
+  | EInteger (Some (sign, _), value) -> (
       match sign with
       | Signed ->
           sprintf "%Ld" value
       | Unsigned ->
           sprintf "%Lu" value
     )
+  | EInteger (None, value) ->
+      sprintf "%Ld" value
   | EFloat (_, f) ->
       string_of_float f
   | EBin_op bin ->

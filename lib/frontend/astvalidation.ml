@@ -635,12 +635,13 @@ struct
   end
 
   module ValidateFunction_Decl = struct
-    let is_main_function function_decl = function_decl.fn_name.v = "main"
+    let main = "main"
+    let is_main_function function_decl = function_decl.fn_name.v = main
 
     let argv_type =
       TPointer
         {
-          v = TPointer { v = TInteger (Signed, I8); position = Position.dummy };
+          v = TPointer { v = Ast.Type.kt_s8; position = Position.dummy };
           position = Position.dummy;
         }
 
@@ -650,13 +651,13 @@ struct
       | [] ->
           true
       | [ t1; t2 ] ->
-          t1.v === TInteger (Signed, I32) && t2.v === argv_type
+          t1.v === Ast.Type.kt_s32 && t2.v === argv_type
       | _ ->
           false
 
     let is_valid_main_sig function_decl =
-      function_decl.fn_name.v = "main"
-      && function_decl.return_type.v = TInteger (Signed, I32)
+      function_decl.fn_name.v = main
+      && function_decl.return_type.v = Ast.Type.kt_s32
       && check_main_parameters (List.map snd function_decl.parameters)
       && function_decl.generics = []
 

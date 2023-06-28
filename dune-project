@@ -1,4 +1,4 @@
-(lang dune 3.1)
+(lang dune 3.2)
 
 ;**********************************************************************************************;
 ;*                                                                                            *;
@@ -41,7 +41,7 @@
  (name kosu_lang)
  (synopsis "A programming language project")
  (description "A low level programming language with some high level features")
- (depends (ocaml (>= "4.13")) (dune (>= "3.2")) menhir (cmdliner (>= "1.1.0")) unix)
+ (depends (ocaml (>= "4.13")) dune menhir (cmdliner (>= "1.1.0")) unix)
 )
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
