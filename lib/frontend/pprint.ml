@@ -111,8 +111,8 @@ let rec string_of_ktype = function
       sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
   | TInteger None -> 
       sprintf "s32(default)"
-  | TFloat fsize ->
-      sprintf "f%s" (string_of_fsize fsize)
+  | TFloat (fsize) ->
+      sprintf "f%s" (string_of_fsize @@ Option.value ~default:Ast.Type.default_float_info fsize)
   | TPointer ktype ->
       sprintf "*%s" (string_of_ktype ktype.v)
   | TTuple ktypes ->

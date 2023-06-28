@@ -27,7 +27,7 @@
 %token <(Ast.signedness * Ast.isize) option * int64> Integer_lit
 %token <string> String_lit
 %token <char> Char_lit
-%token <Ast.fsize * float> Float_lit
+%token <Ast.fsize option * float> Float_lit
 %token <string> IDENT
 %token <string> BUILTIN
 %token <string> Constant
@@ -300,12 +300,12 @@ const_decl:
     | CONST located(Constant) EQUAL located(Integer_lit) option(SEMICOLON) {
         let sign, size = match fst $4.v with 
             | Some s -> s
-            | None -> Signed, I32
+            | None -> Ast.Type.default_integer_info 
         in
         {
             const_name = $2;
             explicit_type = TInteger (Some (sign, size));
-            value = $4 |> Position.map (fun (info, value) -> EInteger (info, value) ) ;
+            value = $4 |> Position.map (fun (_, value) -> EInteger (Some (sign, size), value) ) ;
         }
     }
     | CONST located(Constant) EQUAL located(String_lit) option(SEMICOLON) {
@@ -316,11 +316,14 @@ const_decl:
         }
     }
     | CONST located(Constant) EQUAL located(Float_lit) option(SEMICOLON) {
-        let fsize, _ = $4.v in
+        let fsize = match fst $4.v with
+            | Some s -> s
+            | None -> Ast.Type.default_float_info
+        in
         {
             const_name = $2;
-            explicit_type = TFloat fsize; (* For the time, waiting struct constant refacto *)
-            value = $4 |> Position.map ( fun f -> EFloat f)
+            explicit_type = TFloat (Some fsize); (* For the time, waiting struct constant refacto *)
+            value = $4 |> Position.map ( fun (_, value) -> EFloat (Some (fsize), value))
         }
     }
 either_color_equal:
@@ -335,7 +338,10 @@ expr:
         EInteger (ss, value)
     }
     | String_lit { EString $1 }
-    | Float_lit { EFloat $1 }
+    | Float_lit { 
+        let size, value = $1 in
+        EFloat (size, value) 
+    }
     | Char_lit  { EChar $1 }
     | TRUE { True }
     | FALSE { False }
@@ -518,21 +524,22 @@ s_case:
 
 ctype:
     | modules_path=module_path id=located(IDENT) { 
+        let open Ast.Type in
         match id.v with
-        | "f64" -> TFloat F64
-        | "f32" -> TFloat F32
         | "unit" -> TUnit
         | "bool" -> TBool
         | "stringl" -> TString_lit
+        | "f64" -> kt_f64
+        | "f32" -> kt_f32
+        | "s8" -> kt_s8
+        | "u8" -> kt_u8
+        | "s16" -> kt_s16
+        | "u16" -> kt_u16
+        | "s32" -> kt_s32
+        | "u32" -> kt_u32
+        | "s64" -> kt_s64
+        | "u64" -> kt_u64
         | "anyptr" -> TPointer ({ v = TUnknow; position = id.position })
-        | "s8" -> TInteger ( Some ( Signed, I8) )
-        | "u8" -> TInteger ( Some ( Unsigned, I8) )
-        | "s16" -> TInteger( Some ( Signed, I16) )
-        | "u16" -> TInteger( Some ( Unsigned, I16))
-        | "s32" -> TInteger( Some ( Signed, I32) )
-        | "u32" -> TInteger( Some ( Unsigned, I32) )
-        | "s64" -> TInteger( Some ( Signed, I64) )
-        | "u64" -> TInteger( Some ( Unsigned, I64) )
         | _ -> TType_Identifier {
             module_path = modules_path ;
             name = id
@@ -550,20 +557,21 @@ ctype:
 
 ktype:
     | modules_path=module_path id=located(IDENT) {
+        let open Type in
         match id.v with
-        | "f64" -> TFloat F64
-        | "f32" -> TFloat F32
         | "unit" -> TUnit
         | "bool" -> TBool
         | "char" -> TChar
-        | "s8" -> TInteger ( Some ( Signed, I8) )
-        | "u8" -> TInteger ( Some ( Unsigned, I8) )
-        | "s16" -> TInteger( Some ( Signed, I16) )
-        | "u16" -> TInteger( Some ( Unsigned, I16))
-        | "s32" -> TInteger( Some ( Signed, I32) )
-        | "u32" -> TInteger( Some ( Unsigned, I32) )
-        | "s64" -> TInteger( Some ( Signed, I64) )
-        | "u64" -> TInteger( Some ( Unsigned, I64) )
+        | "f64" -> kt_f64
+        | "f32" -> kt_f32
+        | "s8" -> kt_s8
+        | "u8" -> kt_u8
+        | "s16" -> kt_s16
+        | "u16" -> kt_u16
+        | "s32" -> kt_s32
+        | "u32" -> kt_u32
+        | "s64" -> kt_s64
+        | "u64" -> kt_u64
         | "order" -> TOredered
         | "stringl" -> TString_lit
         | _ -> TType_Identifier {

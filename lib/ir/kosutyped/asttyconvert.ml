@@ -59,6 +59,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | TString_lit ->
         RTString_lit
     | TFloat fsize ->
+      let fsize = Option.value ~default:F64 fsize in
         RTFloat fsize
     | TBool ->
         RTBool
@@ -79,7 +80,7 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | RTUnknow ->
         TUnknow
     | RTFloat fsize ->
-        TFloat fsize
+        TFloat (Some fsize)
     | RTBool ->
         TBool
     | RTUnit ->
@@ -346,10 +347,11 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | EChar c ->
         REChar c
     | EInteger ( sign_size, value) ->
-        let sign, size = Option.value ~default:(Signed, I32) sign_size in
+        let sign, size = Option.value ~default:Ast.Type.default_integer_info sign_size in
         REInteger (sign, size, value)
-    | EFloat float ->
-        REFloat float
+    | EFloat (size, float) ->
+        let size = Option.value ~default:Ast.Type.default_float_info size in
+        REFloat (size, float)
     | ESizeof either ->
         let ktype =
           match either with

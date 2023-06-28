@@ -55,7 +55,7 @@ type ktype =
       name : string location;
     }
   | TInteger of (signedness * isize) option
-  | TFloat of fsize
+  | TFloat of fsize option
   | TPointer of ktype location
   | TTuple of ktype location list
   | TFunction of ktype location list * ktype location
@@ -93,7 +93,7 @@ and kexpression =
   | ECmpEqual
   | ECmpGreater
   | EInteger of (signedness * isize) option * int64
-  | EFloat of (fsize * float)
+  | EFloat of fsize option * float
   | EChar of char
   | ESizeof of (ktype location, kexpression location) Either.t
   | EString of string
@@ -653,6 +653,26 @@ module Error = struct
 end
 
 module Type = struct
+  let kt_integer sign size = TInteger (Some (sign, size))
+  let kt_signed_integer = kt_integer Signed
+  let kt_unsigned_integer = kt_integer Unsigned
+  let kt_s8 = kt_signed_integer I8
+  let kt_s16 = kt_signed_integer I16
+  let kt_s32 = kt_signed_integer I32
+  let kt_s64 = kt_signed_integer I64
+
+  let kt_u8 = kt_unsigned_integer I8
+  let kt_u16 = kt_unsigned_integer I16
+  let kt_u32 = kt_unsigned_integer I32
+  let kt_u64 = kt_unsigned_integer I64
+
+  let kt_f32 = TFloat (Some F32)
+  let kt_f64 = TFloat (Some F64)
+
+  let default_integer_info = (Signed, I32)
+  let default_float_info = F64
+
+
   (** Create a hashmap with each generic in [generics] associate with it index and the ktype set as [TUnknown]*)
   let default_generic_map generics =
     generics
@@ -798,7 +818,7 @@ module Type = struct
     | _, _ ->
         lhs = rhs
 
-  let ( !== ) lhs rhs = lhs === rhs |> not
+  let ( !== ) lhs rhs = not @@ (lhs === rhs)
 
   let rec extract_mapped_ktype generics ktype =
     match ktype with
@@ -855,6 +875,8 @@ module Type = struct
         lsize.v = rsize.v && are_compatible_type lktype.v rktype.v
     | TInteger None, TInteger _ 
     | TInteger _, TInteger None -> true
+    | TFloat None, TFloat _
+    | TFloat _, TFloat None -> true
     | _, _ ->
         lhs === rhs
 
@@ -1141,7 +1163,7 @@ module Type = struct
   this function returns the left type if [not (are_compatible_type to_restrict_type restrict_type)]
   *)
   let rec restrict_type (to_restrict_type : ktype) (restricted_type : ktype) =
-    if not (are_compatible_type to_restrict_type restricted_type) then
+    if not @@ are_compatible_type to_restrict_type restricted_type then
       to_restrict_type
     else
       match (to_restrict_type, restricted_type) with
@@ -1168,11 +1190,14 @@ module Type = struct
               }
       | TUnknow, t ->
           t
-      | (TPointer _ as kt), TPointer { v = TUnknow; _ } ->
+      | (TPointer _ as kt), TPointer { v = TUnknow; _ } 
+      | TPointer { v = TUnknow; _ }, (TPointer _ as kt)  ->
           kt
       | TInteger None, (TInteger _ as i) 
       | (TInteger _ as i), TInteger None
       -> i
+      | TFloat None, (TFloat _ as f)
+      | (TFloat _ as f), TFloat None -> f
       | _, _ ->
           to_restrict_type
 end

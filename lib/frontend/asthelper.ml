@@ -1893,37 +1893,38 @@ module Builtin_Function = struct
                  {
                    fn_name = fn_location;
                    expected = 1;
-                   found = list |> List.length;
+                   found = List.length list;
                  }
       )
 
   let builtin_return_type =
     let open Ast.Builtin_Function in
+    let open Ast.Type in
     function
     | Stringl_ptr ->
-        TPointer { v = TInteger (Some (Signed, I8)); position = Position.dummy }
+        TPointer { v = kt_s8; position = Position.dummy }
     | Tos8 ->
-        TInteger (Some (Signed, I8))
+        kt_s8
     | Tou8 ->
-        TInteger (Some (Unsigned, I8))
+       kt_u8
     | Tos16 ->
-        TInteger (Some (Signed, I16))
+       kt_s16
     | Tou16 ->
-        TInteger (Some (Unsigned, I16))
+       kt_u16
     | Tos32 ->
-        TInteger (Some (Signed, I32))
+        kt_s32
     | Tou32 ->
-        TInteger (Some (Unsigned, I32))
+        kt_u32
     | Tos64 ->
-        TInteger (Some (Signed, I64))
+        kt_s64
     | Tou64 ->
-        TInteger (Some (Unsigned, I64))
+        kt_u64
     | Tof32 ->
-        TFloat F32
+        kt_f32
     | Tof64 ->
-        TFloat F64
+        kt_f64
     | Tagof ->
-        TInteger (Some (Unsigned, I32))
+        kt_u32
 end
 
 module Function = struct
