@@ -347,10 +347,20 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | EChar c ->
         REChar c
     | EInteger ( sign_size, value) ->
-        let sign, size = Option.value ~default:Ast.Type.default_integer_info sign_size in
+        let default = 
+          match hint_type with
+          | RTInteger e -> e
+          | _ -> Ast.Type.default_integer_info
+        in
+        let sign, size = Option.value ~default sign_size in
         REInteger (sign, size, value)
     | EFloat (size, float) ->
-        let size = Option.value ~default:Ast.Type.default_float_info size in
+        let default = 
+          match hint_type with
+          | RTFloat e -> e
+          | _ -> Ast.Type.default_float_info
+        in
+        let size = Option.value ~default size in
         REFloat (size, float)
     | ESizeof either ->
         let ktype =
@@ -399,31 +409,60 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
         REConst_Identifier
           { modules_path = modules_path.v; identifier = identifier.v }
     | EStruct { modules_path; struct_name; fields } ->
+        let struct_decl =
+            Result.get_ok @@ Asthelper.Program.find_struct_decl_opt current_module modules_path
+              struct_name program
+        in
+        let fields =
+          struct_decl.fields
+          |> List.combine fields
+          |> List.map (fun ((s, para), (_, ktype)) -> 
+            let hint = 
+              match KosuFrontend.Asthelper.Struct.is_type_generic ktype.v struct_decl with
+              | true -> RTUnknow
+              | false -> from_ktype ktype.v
+            in
+            s.v, typed_expression_of_kexpression ~generics_resolver env current_module ~hint_type:hint program para
+          )
+        in
         REStruct
           {
             modules_path = modules_path.v;
             struct_name = struct_name.v;
-            fields =
-              fields
-              |> List.map (fun (field, expr) ->
-                     ( field.v,
-                       typed_expression_of_kexpression ~generics_resolver env
-                         current_module program expr
-                     )
-                 );
+            fields = fields;
           }
     | EEnum { modules_path; enum_name; variant; assoc_exprs } ->
+      let enum_decl =
+        match
+          Asthelper.Program.find_enum_decl_opt current_module modules_path
+            (Option.map Position.value enum_name)
+            variant assoc_exprs program
+        with
+        | Error e ->
+            raise @@ Ast.Error.ast_error e
+        | Ok e ->
+            e
+      in
+
+      let assoc_types = Option.get @@ Asthelper.Enum.associate_type variant enum_decl in
+      let assoc_exprs = 
+        assoc_types
+        |> List.combine assoc_exprs
+        |> List.map (fun (expr, ktype) ->
+          let hint = 
+            match KosuFrontend.Asthelper.Enum.is_type_generic ktype.v enum_decl with
+            | true -> RTUnknow
+            | false -> from_ktype ktype.v
+          in
+          typed_expression_of_kexpression ~generics_resolver env current_module ~hint_type:hint program expr
+        )
+      in
         REEnum
           {
             modules_path = modules_path.v;
             enum_name = enum_name |> Option.map Position.value;
             variant = variant.v;
-            assoc_exprs =
-              assoc_exprs
-              |> List.map
-                   (typed_expression_of_kexpression ~generics_resolver env
-                      current_module program
-                   );
+            assoc_exprs = assoc_exprs;
           }
     | ETuple exprs ->
         RETuple
@@ -681,9 +720,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
     | EFunction_call
         { modules_path; generics_resolver = grc; fn_name; parameters } -> (
         let fn_decl =
-          Asthelper.Program.find_function_decl_from_fn_name modules_path fn_name
+          Result.get_ok @@ Asthelper.Program.find_function_decl_from_fn_name modules_path fn_name
             current_module program
-          |> Result.get_ok
         in
 
         match fn_decl with
