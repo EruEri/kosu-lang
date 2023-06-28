@@ -705,9 +705,9 @@ module Program = struct
         | _ ->
             `to_many_declaration declaration
       )
-    | TInteger Some (Signed, _) | TFloat _ ->
+    | TInteger (Some (Signed, _)) | TFloat _ ->
         `built_in_valid
-    | TInteger Some (Unsigned, size) ->
+    | TInteger (Some (Unsigned, size)) ->
         `invalid_unsigned_op size
     | _ ->
         `no_uminus_for_built_in
@@ -1906,11 +1906,11 @@ module Builtin_Function = struct
     | Tos8 ->
         kt_s8
     | Tou8 ->
-       kt_u8
+        kt_u8
     | Tos16 ->
-       kt_s16
+        kt_s16
     | Tou16 ->
-       kt_u16
+        kt_u16
     | Tos32 ->
         kt_s32
     | Tou32 ->

@@ -531,8 +531,7 @@ Return the type of an expression
         validate_location_type expression ~constraint_type
         @@ TPointer { v = TUnknow; position = expression.position }
     | EInteger (sign_size, _) ->
-        validate_location_type expression ~constraint_type
-        @@ TInteger (sign_size)
+        validate_location_type expression ~constraint_type @@ TInteger sign_size
     | EChar _ ->
         validate_location_type expression ~constraint_type TChar
     | EFloat (fsize, _) ->
@@ -1804,13 +1803,18 @@ Return the type of an expression
               program
            )
     in
-    let l_type, r_type = 
+    let l_type, r_type =
       match Type.are_compatible_type l_type.v r_type.v with
-      | false -> l_type, r_type
+      | false ->
+          (l_type, r_type)
       | true ->
-        let l_type = l_type |> Position.map (fun l -> Type.restrict_type l r_type.v) in 
-        let r_type = r_type |> Position.map (fun r -> Type.restrict_type r l_type.v) in
-        l_type, r_type
+          let l_type =
+            l_type |> Position.map (fun l -> Type.restrict_type l r_type.v)
+          in
+          let r_type =
+            r_type |> Position.map (fun r -> Type.restrict_type r l_type.v)
+          in
+          (l_type, r_type)
     in
     let rtype = Option.value ~default:l_type.v ktype in
     let freturn = Option.value ~default:rtype freturn in

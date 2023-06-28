@@ -66,10 +66,13 @@
     // to declare a variable we use the const or var keyword
     const x = 10; // x has the type s32
     var f = 23.0; // f has the type f64
-    // for other numeric type you need to suffix the value with the type
-    const x2 = 8u8; // x has the type u8
 
+    // you can also add the number type as a suffix
+    const x2 = 8u8; // x has the type u8
     const f2 = 33.0f32 // f2 has the type f32
+
+    // or explicitly typed the expression
+    const x2 : u64 = 756;
 
     // stringl
     const x = "Hello world";

@@ -660,18 +660,14 @@ module Type = struct
   let kt_s16 = kt_signed_integer I16
   let kt_s32 = kt_signed_integer I32
   let kt_s64 = kt_signed_integer I64
-
   let kt_u8 = kt_unsigned_integer I8
   let kt_u16 = kt_unsigned_integer I16
   let kt_u32 = kt_unsigned_integer I32
   let kt_u64 = kt_unsigned_integer I64
-
   let kt_f32 = TFloat (Some F32)
   let kt_f64 = TFloat (Some F64)
-
   let default_integer_info = (Signed, I32)
   let default_float_info = F64
-
 
   (** Create a hashmap with each generic in [generics] associate with it index and the ktype set as [TUnknown]*)
   let default_generic_map generics =
@@ -873,10 +869,10 @@ module Type = struct
     | ( TArray { size = lsize; ktype = lktype },
         TArray { size = rsize; ktype = rktype } ) ->
         lsize.v = rsize.v && are_compatible_type lktype.v rktype.v
-    | TInteger None, TInteger _ 
-    | TInteger _, TInteger None -> true
-    | TFloat None, TFloat _
-    | TFloat _, TFloat None -> true
+    | TInteger None, TInteger _ | TInteger _, TInteger None ->
+        true
+    | TFloat None, TFloat _ | TFloat _, TFloat None ->
+        true
     | _, _ ->
         lhs === rhs
 
@@ -1190,14 +1186,13 @@ module Type = struct
               }
       | TUnknow, t ->
           t
-      | (TPointer _ as kt), TPointer { v = TUnknow; _ } 
-      | TPointer { v = TUnknow; _ }, (TPointer _ as kt)  ->
+      | (TPointer _ as kt), TPointer { v = TUnknow; _ }
+      | TPointer { v = TUnknow; _ }, (TPointer _ as kt) ->
           kt
-      | TInteger None, (TInteger _ as i) 
-      | (TInteger _ as i), TInteger None
-      -> i
-      | TFloat None, (TFloat _ as f)
-      | (TFloat _ as f), TFloat None -> f
+      | TInteger None, (TInteger _ as i) | (TInteger _ as i), TInteger None ->
+          i
+      | TFloat None, (TFloat _ as f) | (TFloat _ as f), TFloat None ->
+          f
       | _, _ ->
           to_restrict_type
 end

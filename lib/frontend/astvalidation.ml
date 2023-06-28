@@ -640,7 +640,9 @@ struct
     let argv_type =
       TPointer
         {
-          v = TPointer { v = TInteger (Some (Signed, I8)); position = Position.dummy };
+          v =
+            TPointer
+              { v = TInteger (Some (Signed, I8)); position = Position.dummy };
           position = Position.dummy;
         }
 
