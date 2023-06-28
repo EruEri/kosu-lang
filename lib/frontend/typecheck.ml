@@ -1555,6 +1555,12 @@ Return the type of an expression
               |> operator_error |> raise
         in
         validate_location_type expression ~constraint_type kt
+    | EMatch {
+      expression;
+      patterns;
+    } -> 
+      let () = ignore (expression, patterns) in
+      failwith ""
     | ESwitch { expression = expr; cases; wildcard_case } -> (
         let variant_cases =
           cases |> List.map (fun (v, _) -> v) |> List.flatten

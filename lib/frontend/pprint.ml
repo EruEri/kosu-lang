@@ -308,6 +308,7 @@ and string_of_kexpression = function
         (string_of_kexpression expression.v)
         (string_of_kbody if_body)
         (string_of_kbody else_body)
+  | EMatch _ -> "match dummy"
   | ECases { cases; else_case } ->
       sprintf "cases {\n %s else => %s}"
         (cases

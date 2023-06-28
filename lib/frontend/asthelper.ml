@@ -903,6 +903,19 @@ module Kbody = struct
             else_case =
               remap_body_explicit_type generics current_module else_case;
           }
+    | EMatch {expression; patterns} ->
+      let expression = 
+        remap_located_expr_explicit_type generics current_module expression in
+      let patterns = 
+        patterns |> List.map (fun (pattern, body) -> 
+          let body = remap_body_explicit_type generics current_module body in
+          pattern, body  
+        )
+      in
+      EMatch {
+        expression;
+        patterns
+      }
     | ESwitch { expression; cases; wildcard_case } ->
         ESwitch
           {

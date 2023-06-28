@@ -150,6 +150,10 @@ and kexpression =
       cases : (switch_case list * kbody) list;
       wildcard_case : kbody option;
     }
+  | EMatch of {
+    expression: kexpression location;
+    patterns: (pattern location * kbody) list
+  }
   | EBin_op of kbin_op
   | EUn_op of kunary_op
 
@@ -175,6 +179,29 @@ and kbin_op =
   | BCmp of kexpression location * kexpression location
 
 and kunary_op = UMinus of kexpression location | UNot of kexpression location
+
+and pattern = 
+| PTrue
+| PFalse
+| PEmpty
+| PCmpLess
+| PCmpEqual
+| PCmpGreater
+| PNullptr
+| PWildcard
+| PFloat of float location
+| PChar of char location
+| PInteger of int64 location
+| PIdentifier of string location
+| PTuple of pattern location list
+| PCase of {
+  variant: string location;
+  assoc_pattern: pattern location list
+}
+| POr of {
+  lpattern: pattern location;
+  rpattern: pattern location
+}
 
 type struct_decl = {
   struct_name : string location;
