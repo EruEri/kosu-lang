@@ -420,12 +420,12 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     in
     rinstructions @ linstructions @ copy_instructions
 
-  let translate_tac_binop_self ~litterals ~blhs ~brhs ~where fbinop rval_rktype
-      rprogram fd =
-    let r10 = tmp_r10_ktype blhs.expr_rktype in
-    let rax = tmp_rax_ktype brhs.expr_rktype in
+  let translate_tac_binop_self ~is_shift ~litterals ~blhs ~brhs ~where fbinop
+      rval_rktype rprogram fd =
+    let rax = tmp_rax_ktype blhs.expr_rktype in
+    let rcx = tmp_rcx_ktype brhs.expr_rktype in
     let right_reg, rinstructions =
-      translate_tac_expression ~litterals ~target_dst:(`Register r10) rprogram
+      translate_tac_expression ~litterals ~target_dst:(`Register rcx) rprogram
         fd brhs
     in
     let left_reg, linstructions =
@@ -439,7 +439,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     let reg_size = data_size_of_ktype ~default:Q rprogram rval_rktype in
     let mult_instruction =
       fbinop ~size:reg_size ~destination:(`Register left_reg)
-        ~source:(`Register right_reg)
+        ~source:
+          (`Register
+            ( if is_shift then
+                Register.cl
+              else
+                right_reg
+            )
+            )
     in
     let copy_instruction =
       where
@@ -1435,18 +1442,25 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let is_unsigned =
           KosuIrTyped.Asttyhelper.RType.is_raw_unsigned blhs.expr_rktype
         in
+        let is_shift =
+          match self_binop with
+          | TacShiftLeft | TacShiftRight ->
+              true
+          | _ ->
+              false
+        in
         let binop_func =
           binop_instruction_of_tacself ~unsigned:is_unsigned self_binop
         in
-        translate_tac_binop_self ~litterals ~blhs ~brhs ~where binop_func
-          rval_rktype rprogram fd
+        translate_tac_binop_self ~is_shift ~litterals ~blhs ~brhs ~where
+          binop_func rval_rktype rprogram fd
     | RVBuiltinBinop
         { binop = TacSelf ((TacAdd | TacMinus) as self_binop); blhs; brhs } -> (
         match KosuIrTyped.Asttyhelper.RType.is_pointer rval_rktype with
         | false ->
             let binop_func = binop_instruction_of_tacself self_binop in
-            translate_tac_binop_self ~litterals ~blhs ~brhs ~where binop_func
-              rval_rktype rprogram fd
+            translate_tac_binop_self ~is_shift:false ~litterals ~blhs ~brhs
+              ~where binop_func rval_rktype rprogram fd
         | true ->
             let pointee_size =
               rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee
