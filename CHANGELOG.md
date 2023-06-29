@@ -2,6 +2,10 @@
 
 ## **[Unreleased]**
 
+- X86_64: 
+    - Fix Shift operator
+    - Fix mov integer greater than $2^{31} - 1$
+
 - Integer/Float size inference
 
 - Create Array subscript

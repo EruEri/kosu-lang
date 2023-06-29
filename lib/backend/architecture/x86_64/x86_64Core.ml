@@ -233,6 +233,12 @@ module Register = struct
     else
       rax
 
+  let tmp_rcx_ktype ktype =
+    if KosuIrTyped.Asttyhelper.RType.is_float ktype then
+      xmm1
+    else
+      rcx
+
   let tmp_r9_ktype ktype =
     if KosuIrTyped.Asttyhelper.RType.is_float ktype then
       xmm9
