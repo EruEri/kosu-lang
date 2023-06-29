@@ -162,37 +162,44 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
         let is_32bits_encodable = int64 < Int64.of_int32 Int32.max_int in
         let size = data_size_of_isize isize in
         let scaled_data_size = (function Q -> Q | _ -> L) size in
-        let instrs = match (target_dst, is_32bits_encodable) with
-        | `Register _ as dst, _ | dst , true -> 
-          [
-            Instruction
-              (Mov
-                 {
-                   size = IntSize scaled_data_size;
-                   source = `ILitteral int64;
-                   destination = dst;
-                 }
-              );
-          ]
-        | `Address _ as dst, _ -> 
-          let r0 = `Register Register.rax in
-          let mov_rax = Instruction (Mov {
-            size = IntSize scaled_data_size;
-            source = `ILitteral int64;
-            destination = r0
-          }) 
-          in
-          let mov_memory = Instruction (
-            Mov {
-              size = IntSize scaled_data_size;
-              source = r0;
-              destination = dst
-            }
-          )
-          in
-          mov_rax::mov_memory::[]
+        let instrs =
+          match (target_dst, is_32bits_encodable) with
+          | (`Register _ as dst), _ | dst, true ->
+              [
+                Instruction
+                  (Mov
+                     {
+                       size = IntSize scaled_data_size;
+                       source = `ILitteral int64;
+                       destination = dst;
+                     }
+                  );
+              ]
+          | (`Address _ as dst), _ ->
+              let r0 = `Register Register.rax in
+              let mov_rax =
+                Instruction
+                  (Mov
+                     {
+                       size = IntSize scaled_data_size;
+                       source = `ILitteral int64;
+                       destination = r0;
+                     }
+                  )
+              in
+              let mov_memory =
+                Instruction
+                  (Mov
+                     {
+                       size = IntSize scaled_data_size;
+                       source = r0;
+                       destination = dst;
+                     }
+                  )
+              in
+              [ mov_rax; mov_memory ]
         in
-        ( target_dst, instrs)
+        (target_dst, instrs)
     | TEFloat float ->
         let (FLit float_label) = Hashtbl.find litterals.float_lit_map float in
         let fsize = fst float in
