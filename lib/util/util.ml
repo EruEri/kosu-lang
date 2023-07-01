@@ -164,6 +164,16 @@ module ListHelper = struct
     | _ :: q1, _ :: q2 ->
         diff q1 ~remains:q2
 
+  let rec ldiff fcompare lhs rhs = 
+    match lhs, rhs with
+    | [], e  | e, [] -> 
+      e
+    | x1::xs1, x2::xs2 -> 
+      begin match fcompare x1 x2 with
+        | 0 -> ldiff fcompare xs1 xs2
+        | _ -> x2::(ldiff fcompare xs1 xs2)
+      end
+
   let rec shrink ~atlength list =
     match (atlength, list) with
     | n, _ when n < 0 ->
