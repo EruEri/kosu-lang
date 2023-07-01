@@ -196,12 +196,9 @@ and pattern =
 | PTuple of pattern location list
 | PCase of {
   variant: string location;
-  assoc_pattern: pattern location list
+  assoc_patterns: pattern location list
 }
-| POr of {
-  lpattern: pattern location;
-  rpattern: pattern location
-}
+| POr of pattern location list
 
 type struct_decl = {
   struct_name : string location;
@@ -695,6 +692,19 @@ module Type = struct
   let kt_f64 = TFloat (Some F64)
   let default_integer_info = (Signed, I32)
   let default_float_info = F64
+
+  let kt_ptr_unknown = TPointer {
+    v = TUnknow;
+    position = Position.dummy
+  }
+
+  let kt_generic name = TType_Identifier {
+    module_path = {
+      v = "";
+      position = Position.dummy
+    };
+    name
+  }
 
   (** Create a hashmap with each generic in [generics] associate with it index and the ktype set as [TUnknown]*)
   let default_generic_map generics =

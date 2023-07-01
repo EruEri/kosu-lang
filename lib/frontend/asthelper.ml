@@ -713,6 +713,14 @@ module Program = struct
         `no_uminus_for_built_in
 end
 
+
+module Pattern = struct
+  
+  let rec flatten_por pattern = match pattern.v with
+  | POr patterns -> patterns |> List.map flatten_por |> List.flatten
+  | _ -> pattern::[]
+end
+
 module Kbody = struct
   let abs_module s mp =
     mp
@@ -1377,6 +1385,7 @@ module Enum = struct
            |> List.map (fun kt ->
                   generics
                   |> List.find_map (fun (gen_kt, associated_gen_value) ->
+                         let gen_kt = Type.kt_generic gen_kt in
                          if gen_kt === kt.v then
                            Some associated_gen_value
                          else

@@ -1559,8 +1559,34 @@ Return the type of an expression
       expression;
       patterns;
     } -> 
-      let () = ignore (expression, patterns) in
-      failwith ""
+      let scrutinee_type = 
+        expression |> Position.map_use @@ typeof ~constraint_type:None ~generics_resolver env current_mod_name prog in
+        let p, pxs = match patterns with
+          | [] -> failwith "Unreachable: empty pattern"
+          | t::q -> t, q
+        in
+        let type_pattern (pattern, body) = 
+          let ptype = pattern |> Position.map_use @@ typeof_pattern ~scrutinee_type:(scrutinee_type.v) current_mod_name prog in
+          let _ = validate_type ~constraint_type:(Some scrutinee_type.v) ptype in
+          (* later bind variable *)
+          typeof_kbody 
+          ~generics_resolver 
+          (Env.push_empty_context env)
+          ~return_type:constraint_type
+          current_mod_name
+          prog
+          body
+        in
+        let match_base_type = type_pattern p in
+        let kbody_type = pxs |> List.fold_left (fun acc_type pattern_body -> 
+          let _, { v = _; position } = snd pattern_body in
+          let body_type = {
+            v = type_pattern pattern_body;
+            position
+          }  in
+          validate_type ~constraint_type:(Some acc_type) body_type
+        ) match_base_type in
+        kbody_type
     | ESwitch { expression = expr; cases; wildcard_case } -> (
         let variant_cases =
           cases |> List.map (fun (v, _) -> v) |> List.flatten
@@ -1622,17 +1648,9 @@ Return the type of an expression
         in
 
         let generics_mapped =
-          expr_type |> Ast.Type.extract_parametrics_ktype
-          |> List.combine
-               (enum_decl.generics
-               |> List.map (fun name ->
-                      TType_Identifier
-                        {
-                          module_path = { v = ""; position = Position.dummy };
-                          name;
-                        }
-                  )
-               )
+          expr_type 
+          |> Ast.Type.extract_parametrics_ktype
+          |> List.combine  enum_decl.generics
         in
         let open Asthelper.Enum in
         let open Asthelper.Switch_case in
@@ -1650,11 +1668,10 @@ Return the type of an expression
                let combine_binding_type =
                  sc_list
                  |> List.map (fun sc ->
-                        let variant_name = sc |> variant_name in
+                        let variant_name = variant_name sc in
                         let assoc_types =
-                          extract_assoc_type_variant generics_mapped
+                          Option.get @@ extract_assoc_type_variant generics_mapped
                             variant_name enum_decl
-                          |> Option.get
                         in
                         let assoc_binding = assoc_binding sc in
                         ( variant_name,
@@ -1690,9 +1707,9 @@ Return the type of an expression
                                   {
                                     switch_expr = expression;
                                     base_variant = first_variant;
-                                    base_bound_id = lhs |> fst;
+                                    base_bound_id = fst lhs;
                                     wrong_variant = variant_name;
-                                    wrong_bound_id = rhs |> fst;
+                                    wrong_bound_id = fst rhs;
                                   }
                                 |> switch_error |> raise
                             | Some (`diff_binding_ktype (lhs, rhs)) ->
@@ -1843,4 +1860,65 @@ Return the type of an expression
     | Error Builin_Invalid ->
         No_built_in_op { bin_op = op; ktype = l_type }
         |> operator_error |> raise
+  and typeof_pattern ~scrutinee_type current_module program pattern = match pattern.v with
+  | PTrue | PFalse -> TBool
+  | PEmpty -> TUnit
+  | PCmpEqual | PCmpGreater | PCmpLess -> TOredered
+  | PChar _ -> TChar
+  | PFloat _ -> TFloat None
+  | PInteger _ -> TInteger None
+  | PWildcard | PIdentifier _ -> scrutinee_type
+  | PNullptr -> Type.kt_ptr_unknown
+  | PTuple patterns ->
+    let tuple_scrutinee = match scrutinee_type with 
+      | TTuple kts -> kts
+      | _ -> failwith "unmatched between scrutinee type and pattern type"
+    in
+    let () = match Util.are_same_lenght patterns tuple_scrutinee with
+      | true -> ()
+      | false -> failwith "unmatched length between scrutinee type tuple and pattern type tuple"
+    in
+    let ptypes = 
+      tuple_scrutinee
+      |> List.combine patterns
+      |> List.map (fun (pattern, ktype) -> 
+        pattern |> Position.map_use @@ typeof_pattern ~scrutinee_type:ktype.v current_module program
+      )
+    in
+    TTuple ptypes
+  | PCase { variant; assoc_patterns } -> 
+    let enum_decl = match Asthelper.Program.find_type_decl_from_true_ktype scrutinee_type current_module program with
+      | None -> failwith "enum case as builint type"
+      | Some (Decl_Struct _) -> failwith "match struct instead of enum"
+      | Some (Decl_Enum e) -> e
+    in
+    let generic_map = 
+      scrutinee_type
+      |> Type.extract_parametrics_ktype
+      |> List.combine enum_decl.generics
+    in
+    let assoc_types_opt = Asthelper.Enum.extract_assoc_type_variant generic_map variant enum_decl in
+    let assoc_type = match assoc_types_opt with
+      | None -> failwith @@ "type has not variant " ^ variant.v
+      | Some assoc -> assoc 
+    in
+    let () = match Util.are_same_lenght assoc_patterns assoc_type with
+      | true -> ()
+      | false -> failwith "assoc case arithy issue"
+    in
+    let _ = 
+      assoc_type
+      |> List.combine assoc_patterns
+      |> List.map (fun (pattern, ktype) -> 
+        pattern |> Position.map_use @@ typeof_pattern ~scrutinee_type:ktype.v current_module program
+      )
+    in
+    scrutinee_type
+  | POr patterns -> 
+    let _, _ = match patterns with 
+      | [] -> failwith "Unreachable: pattern POr cannot be empty"
+      | t::q -> t,q
+    in
+    let _ = patterns |> List.map @@ Position.map_use @@ typeof_pattern ~scrutinee_type current_module program in
+    scrutinee_type
 end

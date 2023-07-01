@@ -175,14 +175,14 @@ pattern:
     | DOT located(IDENT) loption(delimited(LPARENT, separated_nonempty_list(COMMA, located(pattern)) ,RPARENT))  {
         PCase {
             variant = $2;
-            assoc_pattern = $3
+            assoc_patterns = $3
         }
     }
     | lpattern=located(pattern) PIPE rpattern=located(pattern) {
-        POr {
-            lpattern;
-            rpattern
-        }
+        let lpattern = Asthelper.Pattern.flatten_por lpattern in
+        let rpattern = Asthelper.Pattern.flatten_por rpattern in
+        let patterns = lpattern @ rpattern in
+        POr patterns
     }
 enum_decl:
     | ENUM name=located(IDENT) generics_opt=option( delimited(LPARENT, separated_nonempty_list(COMMA, located(IDENT) ), RPARENT)) LBRACE 
