@@ -83,6 +83,7 @@ and rkexpression =
   | RESizeof of rktype
   | REstring of string
   | REAdress of string
+  | REAdressof of raffacted_value
   | REDeference of int * string
   | REIdentifier of { modules_path : string; identifier : string }
   | RETupleAccess of { first_expr : typed_expression; index : int64 }

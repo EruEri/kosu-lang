@@ -98,6 +98,7 @@ and kexpression =
   | ESizeof of (ktype location, kexpression location) Either.t
   | EString of string
   | EAdress of string location
+  | EAdressof of affected_value
   | EDeference of int * string location
   | EWhile of kexpression location * kbody
   | EIdentifier of {

@@ -864,6 +864,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           (TEIdentifier new_tmp)
       in
       (statement :: last_stmt, return)
+  | REAdressof _, _ -> failwith ""
   | REBin_op bin, _ ->
       let operator = Operator.bin_operantor bin in
       let ltyped, rtyped = Operator.typed_operandes bin in

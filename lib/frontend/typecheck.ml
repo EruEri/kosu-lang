@@ -578,7 +578,7 @@ Return the type of an expression
         @@ TInteger (Some (Unsigned, I64))
     | EString _ ->
         validate_location_type expression ~constraint_type @@ TString_lit
-    | EAdress s ->
+    | EAdress s | EAdressof (AFVariable s) ->
         validate_location_type expression ~constraint_type
           (env |> Env.flat_context |> List.assoc_opt s.v
           |> Option.map (fun (t : Env.variable_info) ->
@@ -587,6 +587,27 @@ Return the type of an expression
           |> function
           | None -> raise (ast_error (Undefined_Identifier s)) | Some s -> s
           )
+    | EAdressof AFField {variable; fields}  -> 
+        let _, ktype =
+        match env |> Env.find_identifier_opt variable.v with
+        | None ->
+            raise 
+            @@ stmt_error
+            @@ Ast.Error.Undefine_Identifier { name = variable }
+        | Some { is_const; ktype } ->
+            (is_const, ktype)
+      in
+      let field_type =
+        Asthelper.Affected_Value.field_type ~variable ktype
+          current_mod_name prog fields
+      in
+      let kt_loc =  expression |> Position.map (fun _ -> 
+        field_type
+      )
+      in
+
+      let ptr_kt = TPointer kt_loc in
+      validate_location_type expression ~constraint_type ptr_kt
     | EDeference (indirection_count, id) -> (
         let rec loop count ktype =
           match count with
