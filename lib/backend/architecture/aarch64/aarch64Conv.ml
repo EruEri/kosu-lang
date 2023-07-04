@@ -1330,26 +1330,32 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
               copy_result ~where ~register:rr9 ~rval_rktype rprogram
             in
             load_tag_instructions @ copy_instructions
-        | Array_len -> 
-          let tte = List.hd parameters in
-          let array_len = match tte.expr_rktype with
-            | RTArray {size; rktype = _} -> size
-            | _ -> failwith "Weird: it should be an pointer array type"
-          in
-          let rr9 = Register.x9 in
-          let mov_instr = mov_integer rr9 array_len in
-          let copy_instructions =
-            copy_result ~where ~register:rr9 ~rval_rktype rprogram
-          in
-        mov_instr @ copy_instructions
-        | Array_ptr -> 
-          let tte = List.hd parameters in
-          let rr9 = Register.x9 in
-          let x9_last_reg, instructions = translate_tac_expression ~litterals ~target_reg:rr9 rprogram fd tte in
-          let copy_instructions =
-            copy_result ~where ~register:x9_last_reg ~rval_rktype rprogram
-          in
-          instructions @ copy_instructions
+        | Array_len ->
+            let tte = List.hd parameters in
+            let array_len =
+              match tte.expr_rktype with
+              | RTArray { size; rktype = _ } ->
+                  size
+              | _ ->
+                  failwith "Weird: it should be an pointer array type"
+            in
+            let rr9 = Register.x9 in
+            let mov_instr = mov_integer rr9 array_len in
+            let copy_instructions =
+              copy_result ~where ~register:rr9 ~rval_rktype rprogram
+            in
+            mov_instr @ copy_instructions
+        | Array_ptr ->
+            let tte = List.hd parameters in
+            let rr9 = Register.x9 in
+            let x9_last_reg, instructions =
+              translate_tac_expression ~litterals ~target_reg:rr9 rprogram fd
+                tte
+            in
+            let copy_instructions =
+              copy_result ~where ~register:x9_last_reg ~rval_rktype rprogram
+            in
+            instructions @ copy_instructions
         | Tos8
         | Tou8
         | Tos16

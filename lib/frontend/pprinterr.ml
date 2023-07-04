@@ -411,16 +411,20 @@ struct
                  "was"
              )
           )
-    | Expected_array {fn_name; found} ->
-      string_of_located_error found 
-      @@ sprintf "Builtin function \"%s\" expects an array but an expression of \
-      type \"%s\" was provided
-        " fn_name @@ string_of_ktype found.v
-    | Expected_array_ptr {fn_name; found} ->
-      string_of_located_error found 
-      @@ sprintf "Builtin function \"%s\" expects an pointer to an array but an expression of \
-      type \"%s\" was provided
-        " fn_name @@ string_of_ktype found.v
+    | Expected_array { fn_name; found } ->
+        string_of_located_error found
+        @@ sprintf
+             "Builtin function \"%s\" expects an array but an expression of \
+              type \"%s\" was provided\n\
+             \        " fn_name
+        @@ string_of_ktype found.v
+    | Expected_array_ptr { fn_name; found } ->
+        string_of_located_error found
+        @@ sprintf
+             "Builtin function \"%s\" expects an pointer to an array but an \
+              expression of type \"%s\" was provided\n\
+             \        " fn_name
+        @@ string_of_ktype found.v
     | Found_no_Integer { fn_name; found } ->
         string_of_located_error found
           (sprintf
