@@ -61,7 +61,9 @@ module type ABI = sig
   val callee_saved_register : t list
   val caller_saved_register : t list
   val syscall_register : t list
-  val arguments_register : t list
+  val arguments_register : variable -> t list
+  val non_float_argument_registers : t list
+  val is_valid_register : variable -> t -> bool
   val does_return_hold_in_register : variable -> bool
   val indirect_return_register : t
   val return_strategy : variable -> return_strategy
@@ -289,6 +291,7 @@ module Make (CfgS : CfgS) :
       }
 
     let fetch_basic_block_from_label label_name bbset =
+      (* let () = print_endline label_name in *)
       bbset |> BasicBlockMap.find label_name
 
     let identifier_of_stmt = function
@@ -324,10 +327,10 @@ module Make (CfgS : CfgS) :
                        killed
                    in
                    TypedIdentifierSet.union generated
-                     remove_block_create_variable_set)
+                     remove_block_create_variable_set
+               )
             |> Option.value ~default:generated
-            |> TypedIdentifierSet.union
-                 (TypedIdentifierSet.diff out_vars killed)
+            |> TypedIdentifierSet.union (TypedIdentifierSet.diff out_vars killed)
         | stmt :: q -> (
             match stmt with
             | CFG_STacDeclaration { identifier; trvalue } ->
@@ -381,18 +384,21 @@ module Make (CfgS : CfgS) :
                     new_geneated
                 in
                 basic_block_cfg_statement_list ~killed
-                  ~generated:extented_generated q)
+                  ~generated:extented_generated q
+          )
       in
       basic_block_cfg_statement_list ~killed:TypedIdentifierSet.empty
         ~generated:TypedIdentifierSet.empty basic_block.cfg_statements
 
     let rec basic_block_output_var_aux ~visited basic_block_set basic_block =
       match basic_block.ending with
-      | Some (Bbe_return _) -> TypedIdentifierSet.empty
+      | Some (Bbe_return _) ->
+          TypedIdentifierSet.empty
       | _ ->
           StringSet.fold
             (fun elt acc ->
-              if Hashtbl.mem visited elt then acc
+              if Hashtbl.mem visited elt then
+                acc
               else
                 let () = Hashtbl.add visited elt () in
                 let follow_block =
@@ -405,7 +411,8 @@ module Make (CfgS : CfgS) :
                 let follow_basic_block_input =
                   basic_block_input_var ~out_vars follow_block
                 in
-                TypedIdentifierSet.union acc follow_basic_block_input)
+                TypedIdentifierSet.union acc follow_basic_block_input
+            )
             basic_block.followed_by TypedIdentifierSet.empty
 
     let basic_block_output_var basic_block_set basic_block =
@@ -441,7 +448,8 @@ module Make (CfgS : CfgS) :
         blocks_details =
           cfg.blocks |> BasicBlockMap.bindings
           |> List.map (fun (label, block) ->
-                 (label, basic_block_detail_of_basic_block cfg.blocks block))
+                 (label, basic_block_detail_of_basic_block cfg.blocks block)
+             )
           |> List.to_seq |> BasicBlockMap.of_seq;
         parameters = cfg.parameters;
         locals_vars = cfg.locals_vars;
@@ -473,7 +481,8 @@ module Make (CfgS : CfgS) :
 
     let rec does_live_after_function_call variable (liveness_stmts, ending) =
       match liveness_stmts with
-      | [] | _ :: [] -> false
+      | [] | _ :: [] ->
+          false
       | [ t1; t2 ] ->
           LivenessInfo.is_alive variable t1.liveness_info
           && is_function_call t2.cfg_statement
@@ -488,23 +497,28 @@ module Make (CfgS : CfgS) :
           in
           if not pre_condition then
             does_live_after_function_call variable (next, ending)
-          else if pre_condition && is_alive_after then true
-          else if pre_condition && not is_alive_after then false
-          else failwith "Unreachable"
+          else if pre_condition && is_alive_after then
+            true
+          else if pre_condition && not is_alive_after then
+            false
+          else
+            failwith "Unreachable"
 
     let does_live_after_function_call_cfg variable cfg =
       let open Basic in
       let open Detail in
       BasicBlockMap.fold
         (fun _ block acc_live_after ->
-          if acc_live_after then acc_live_after
+          if acc_live_after then
+            acc_live_after
           else
             let ending = block.basic_block.ending in
             let stmts = block.basic_block.cfg_statements in
             let does_survive =
               does_live_after_function_call variable (stmts, ending)
             in
-            does_survive)
+            does_survive
+        )
         cfg.blocks_liveness_details false
 
     type liveness_var_block = Die_at of int | Die_in_ending
@@ -513,18 +527,18 @@ module Make (CfgS : CfgS) :
       @returns : whenever the variable leaves the block
      *)
     let does_outlives_block (elt : TypedIdentifierSet.elt)
-        (bbd :
-          (cfg_statement, basic_block_end option) Detail.basic_block_detail) =
+        (bbd : (cfg_statement, basic_block_end option) Detail.basic_block_detail)
+        =
       TypedIdentifierSet.mem elt bbd.out_vars
 
     let dying_in_vars_in_block
-        (bbd :
-          (cfg_statement, basic_block_end option) Detail.basic_block_detail) =
+        (bbd : (cfg_statement, basic_block_end option) Detail.basic_block_detail)
+        =
       TypedIdentifierSet.diff bbd.in_vars bbd.out_vars
 
     let when_variable_dies ~start_from (elt : variable)
-        (bbd :
-          (cfg_statement, basic_block_end option) Detail.basic_block_detail) =
+        (bbd : (cfg_statement, basic_block_end option) Detail.basic_block_detail)
+        =
       let open CfgS in
       let ( >>= ) = Option.bind in
       let liveness =
@@ -535,8 +549,11 @@ module Make (CfgS : CfgS) :
                if
                  used_vars
                  |> List.exists (fun var -> elt |> CfgS.compare var |> ( = ) 0)
-               then (index + 1, Die_at (max start_from index))
-               else (index + 1, acc))
+               then
+                 (index + 1, Die_at (max start_from index))
+               else
+                 (index + 1, acc)
+             )
              (0, Die_at start_from)
         |> snd
       in
@@ -546,8 +563,11 @@ module Make (CfgS : CfgS) :
             if
               used_vars
               |> List.exists (fun var -> elt |> CfgS.compare var |> ( = ) 0)
-            then Some Die_in_ending
-            else None)
+            then
+              Some Die_in_ending
+            else
+              None
+          )
       |> Option.value ~default:liveness
 
     (**
@@ -556,8 +576,10 @@ module Make (CfgS : CfgS) :
       *)
     let when_variable_dies_unsafe ~start_from elt bdd =
       match when_variable_dies ~start_from elt bdd with
-      | Die_at n -> Some n
-      | Die_in_ending -> None
+      | Die_at n ->
+          Some n
+      | Die_in_ending ->
+          None
 
     (**
     Remove the from the hashtable the variable that die at the times of [current]
@@ -567,14 +589,22 @@ module Make (CfgS : CfgS) :
       let removed =
         map |> Hashtbl.to_seq
         |> Seq.filter_map (fun ((time, elt), _) ->
-               if time = Some current then Some elt else None)
+               if time = Some current then
+                 Some elt
+               else
+                 None
+           )
         |> List.of_seq
       in
       (* let removed =  Hashtbl.find_all map (Some current) in *)
       let () =
         map
         |> Hashtbl.filter_map_inplace (fun (key, _) value ->
-               if key = Some current then None else Some value)
+               if key = Some current then
+                 None
+               else
+                 Some value
+           )
       in
       removed
 
@@ -582,13 +612,17 @@ module Make (CfgS : CfgS) :
       BasicBlockMap.union
         (fun key m1 m2 ->
           let () = Printf.eprintf "Conficiting label = %s\n" key in
-          if m1 <> m2 then failwith "Diff for key" else Some m1)
+          if m1 <> m2 then
+            failwith "Diff for key"
+          else
+            Some m1
+        )
         lmap rmap
 
     let dated_basic_block_of_basic_block_detail ~delete_useless_stmt
         dated_info_list
-        (bbd :
-          (cfg_statement, basic_block_end option) Detail.basic_block_detail) =
+        (bbd : (cfg_statement, basic_block_end option) Detail.basic_block_detail)
+        =
       let open Detail in
       let open Basic in
       let open CfgS in
@@ -598,7 +632,8 @@ module Make (CfgS : CfgS) :
                let when_it, elt =
                  (when_variable_dies_unsafe ~start_from:0 elt bbd, elt)
                in
-               ((when_it, elt), elt))
+               ((when_it, elt), elt)
+           )
         |> List.to_seq |> Hashtbl.of_seq
       in
 
@@ -606,7 +641,8 @@ module Make (CfgS : CfgS) :
         LivenessInfo.init
           (fun variable ->
             TypedIdentifierSet.mem variable bbd.in_vars
-            && LivenessInfo.is_alive variable dated_info_list)
+            && LivenessInfo.is_alive variable dated_info_list
+          )
           (LivenessInfo.elements dated_info_list)
       in
 
@@ -616,7 +652,8 @@ module Make (CfgS : CfgS) :
         |> List.fold_left
              (fun ( block_line_index,
                     cfg_liveness_statements,
-                    last_dated_info_list ) stmt ->
+                    last_dated_info_list
+                  ) stmt ->
                let dated_info_list = last_dated_info_list in
                let listof_now_dying_var =
                  fetch_dying_variable ~current:block_line_index
@@ -639,7 +676,8 @@ module Make (CfgS : CfgS) :
                          if CfgS.is_affectation trvalue then
                            LivenessInfo.set_alive variable
                              date_info_updated_dying
-                         else date_info_updated_dying
+                         else
+                           date_info_updated_dying
                        in
                        ( next_line,
                          {
@@ -647,7 +685,8 @@ module Make (CfgS : CfgS) :
                            liveness_info = dated_info_list;
                          }
                          :: cfg_liveness_statements,
-                         updated_alive_info )
+                         updated_alive_info
+                       )
                    | false -> (
                        match CfgS.is_affectation trvalue with
                        | false ->
@@ -657,7 +696,8 @@ module Make (CfgS : CfgS) :
                                liveness_info = date_info_updated_dying;
                              }
                              :: cfg_liveness_statements,
-                             date_info_updated_dying )
+                             date_info_updated_dying
+                           )
                        | true ->
                            let in_how_many_times_it_dies =
                              when_variable_dies_unsafe
@@ -674,15 +714,17 @@ module Make (CfgS : CfgS) :
                                  date_info_updated_dying
                              in
                              ( next_line,
-                               (if delete_useless_stmt then
-                                  cfg_liveness_statements
-                                else
-                                  {
-                                    cfg_statement = stmt;
-                                    liveness_info = dated_info_list;
-                                  }
-                                  :: cfg_liveness_statements),
-                               updated_dead_liveinfo )
+                               ( if delete_useless_stmt then
+                                   cfg_liveness_statements
+                                 else
+                                   {
+                                     cfg_statement = stmt;
+                                     liveness_info = dated_info_list;
+                                   }
+                                   :: cfg_liveness_statements
+                               ),
+                               updated_dead_liveinfo
+                             )
                            else
                              let () =
                                Hashtbl.replace when_to_die_hashmap
@@ -699,7 +741,10 @@ module Make (CfgS : CfgS) :
                                  liveness_info = dated_info_list;
                                }
                                :: cfg_liveness_statements,
-                               updated_alive_info )))
+                               updated_alive_info
+                             )
+                     )
+                 )
                | CFG_STDerefAffectation { identifier; trvalue } ->
                    let variable = lvalue_deref_variable identifier trvalue in
                    let updated_alive_info =
@@ -708,12 +753,16 @@ module Make (CfgS : CfgS) :
                    ( next_line,
                      { cfg_statement = stmt; liveness_info = dated_info_list }
                      :: cfg_liveness_statements,
-                     updated_alive_info ))
+                     updated_alive_info
+                   )
+             )
              (0, [], dated_info_list)
         |> fun (_, list, latest_liveness_info) ->
         match list with
-        | [] -> ([], dated_info_list)
-        | _ :: _ as l -> (List.rev l, latest_liveness_info)
+        | [] ->
+            ([], dated_info_list)
+        | _ :: _ as l ->
+            (List.rev l, latest_liveness_info)
       in
       (stmts, lastest_live_info)
 
@@ -723,8 +772,8 @@ module Make (CfgS : CfgS) :
     *)
     let rec basic_block_liveness_of_convert ~delete_useless_stmt ~visited
         ~dated_info basic_blocks_map
-        (bbd :
-          (cfg_statement, basic_block_end option) Detail.basic_block_detail) =
+        (bbd : (cfg_statement, basic_block_end option) Detail.basic_block_detail)
+        =
       let open Detail in
       if not @@ Hashtbl.mem visited bbd.basic_block.label then
         let self_to_cfg_liveness, last_dated_info =
@@ -759,11 +808,13 @@ module Make (CfgS : CfgS) :
                 basic_block_liveness_of_convert ~delete_useless_stmt ~visited
                   ~dated_info:last_dated_info basic_blocks_map follow_block
               in
-              merge_basic_block_map acc follow_transformed_block)
+              merge_basic_block_map acc follow_transformed_block
+            )
             bbd.basic_block.followed_by singleton
         in
         converted_blocks_map
-      else BasicBlockMap.empty
+      else
+        BasicBlockMap.empty
 
     let of_cfg_details ~delete_useless_stmt (cfg : Detail.cfg_detail) =
       let parameters_set = TypedIdentifierSet.of_list cfg.parameters in
@@ -777,7 +828,8 @@ module Make (CfgS : CfgS) :
             let is_parameters =
               TypedIdentifierSet.mem typed_var parameters_set
             in
-            (typed_var, is_parameters) :: acc)
+            (typed_var, is_parameters) :: acc
+          )
           (TypedIdentifierSet.union cfg.locals_vars parameters_set)
           []
         |> LivenessInfo.of_list
@@ -802,7 +854,11 @@ module Make (CfgS : CfgS) :
         List.flatten
         @@ Util.combinaison
              (fun lhs rhs ->
-               if VariableSig.compare lhs rhs = 0 then None else Some (lhs, rhs))
+               if VariableSig.compare lhs rhs = 0 then
+                 None
+               else
+                 Some (lhs, rhs)
+             )
              alive_elt alive_elt
       in
       combined_alives
@@ -826,25 +882,30 @@ module Make (CfgS : CfgS) :
                      stmt.cfg_statement |> Basic.trvalue_of_stmt
                      |> CfgS.variables_as_parameter
                    with
-                   | None -> inner_acc_str
+                   | None ->
+                       inner_acc_str
                    | Some parameters ->
                        Constraint.add_function_constraint parameters
-                         inner_acc_str)
+                         inner_acc_str
+                 )
                  acc_constr
           in
           let return_constraint =
             block.basic_block.ending |> fst
             >== (function
-                  | BBe_if _ -> None
+                  | BBe_if _ ->
+                      None
                   | Bbe_return tte ->
                       let rc = tte |> CfgS.tte_idenfier_used in
                       Constraint.empty
                       |> Constraint.add_returns_constraints rc
-                      |> Option.some)
+                      |> Option.some
+                  )
             |> Option.value ~default:Constraint.empty
           in
 
-          Constraint.union return_constraint acc_constr)
+          Constraint.union return_constraint acc_constr
+        )
         cfg.blocks_liveness_details constraints
 
     let interfere (cfg : Liveness.cfg_liveness_detail) =
@@ -863,14 +924,17 @@ module Make (CfgS : CfgS) :
             block.basic_block.cfg_statements
             |> List.fold_left
                  (fun inner_graph_acc stmt ->
-                   infer_acc stmt.liveness_info inner_graph_acc)
+                   infer_acc stmt.liveness_info inner_graph_acc
+                 )
                  graph_acc
           in
           let ending, liveness = block.basic_block.ending in
           match ending with
-          | None -> new_graph
+          | None ->
+              new_graph
           | Some (BBe_if { condition = _; _ } | Bbe_return _) ->
-              infer_acc liveness new_graph)
+              infer_acc liveness new_graph
+        )
         cfg.blocks_liveness_details graph
   end
 
@@ -882,7 +946,10 @@ module Make (CfgS : CfgS) :
 
       let compare lhs rhs =
         let i_compare = CfgS.compare (fst lhs) (fst rhs) in
-        if i_compare = 0 then compare (snd lhs) (snd rhs) else i_compare
+        if i_compare = 0 then
+          compare (snd lhs) (snd rhs)
+        else
+          i_compare
     end
 
     module VariableReturnStrategySet = Set.Make (VariableReturnStrategySig)
@@ -891,7 +958,8 @@ module Make (CfgS : CfgS) :
     let variable_return_set_aux map stmt =
       let rvalue = Basic.trvalue_of_stmt stmt in
       match CfgS.variables_as_parameter rvalue with
-      | None -> map
+      | None ->
+          map
       | Some _ -> (
           let lvalue_var =
             CfgS.lvalue_variable (Basic.identifier_of_stmt stmt) rvalue
@@ -901,12 +969,14 @@ module Make (CfgS : CfgS) :
             VariableReturnStrategySet.singleton (lvalue_var, ret_strat)
           in
           match VariableReturnStrategyMap.find_opt lvalue_var map with
-          | None -> VariableReturnStrategyMap.add lvalue_var singleton map
+          | None ->
+              VariableReturnStrategyMap.add lvalue_var singleton map
           | Some set ->
               let extended_set =
                 VariableReturnStrategySet.union singleton set
               in
-              VariableReturnStrategyMap.add lvalue_var extended_set map)
+              VariableReturnStrategyMap.add lvalue_var extended_set map
+        )
 
     let variable_return_set (cfg : Liveness.cfg_liveness_detail) :
         VariableReturnStrategySet.t VariableReturnStrategyMap.t =
@@ -918,14 +988,18 @@ module Make (CfgS : CfgS) :
           block.basic_block.cfg_statements
           |> List.fold_left
                (fun acc_map stmt ->
-                 variable_return_set_aux acc_map stmt.cfg_statement)
-               map)
+                 variable_return_set_aux acc_map stmt.cfg_statement
+               )
+               map
+        )
         cfg.blocks_liveness_details VariableReturnStrategyMap.empty
 
     let return_color_variable variable =
       match ABI.return_strategy variable with
-      | ABI.Simple_return t -> Some (variable, t)
-      | _ -> None
+      | ABI.Simple_return t ->
+          Some (variable, t)
+      | _ ->
+          None
 
     module VariableAbiMap = Map.Make (struct
       type t = TypedIdentifierSet.elt
@@ -940,9 +1014,11 @@ module Make (CfgS : CfgS) :
         TypedIdentifierSet.filter
           (fun iv ->
             match VariableAbiMap.find_opt iv map with
-            | None -> false
+            | None ->
+                false
             | Some icolor ->
-                ABI.compare icolor color = 0 && CfgS.compare iv variable <> 0)
+                ABI.compare icolor color = 0 && CfgS.compare iv variable <> 0
+          )
           nodes
       in
 
@@ -953,13 +1029,15 @@ module Make (CfgS : CfgS) :
 
       (* let () = Printf.printf "has conflict = %b\n\n%!" are_all_parameters in *)
       match are_all_parameters with
-      | false -> map
+      | false ->
+          map
       | true ->
           VariableAbiMap.add variable color
           @@ TypedIdentifierSet.fold
                (fun iv inner_acc_map ->
                  (* let () = Printf.printf "decolor : variable = %s\n%!" (CfgS.repr iv) in *)
-                 VariableAbiMap.remove iv inner_acc_map)
+                 VariableAbiMap.remove iv inner_acc_map
+               )
                nodes map
 
     let _does_live_in_same_moment v1 v2 infer_graph =
@@ -984,21 +1062,31 @@ module Make (CfgS : CfgS) :
                match VariableAbiMap.find_opt variable acc_map with
                (* check if the parameter function variable has already been colored *)
                | None -> (
-                   match List.nth_opt ABI.arguments_register index with
-                   | None -> acc_map
-                   | Some color -> try_color base_graph variable color acc_map)
+                   match
+                     List.nth_opt (ABI.arguments_register variable) index
+                   with
+                   | None ->
+                       acc_map
+                   | Some color ->
+                       try_color base_graph variable color acc_map
+                 )
                | Some color ->
                    let index_color =
-                     ABI.arguments_register |> List.mapi Util.couple
+                     variable |> ABI.arguments_register |> List.mapi Util.couple
                      |> List.find_map (fun (index, reg) ->
-                            if ABI.compare reg color = 0 then Some index
-                            else None)
+                            if ABI.compare reg color = 0 then
+                              Some index
+                            else
+                              None
+                        )
                      |> Option.get
                    in
-                   if index = index_color then acc_map
+                   if index = index_color then
+                     acc_map
                    else
                      (* let () = Printf.printf "decolor : variable = %s: reg = r%d\n%!" (CfgS.repr variable) index in *)
-                     VariableAbiMap.remove variable acc_map)
+                     VariableAbiMap.remove variable acc_map
+             )
              map
       in
 
@@ -1007,8 +1095,11 @@ module Make (CfgS : CfgS) :
         |> List.fold_left
              (fun acc_map variable ->
                match ABI.return_strategy variable with
-               | Indirect_return | Splitted_return _ -> acc_map
-               | Simple_return reg -> try_color base_graph variable reg acc_map)
+               | Indirect_return | Splitted_return _ ->
+                   acc_map
+               | Simple_return reg ->
+                   try_color base_graph variable reg acc_map
+             )
              parameters_functions
       in
 
@@ -1032,14 +1123,18 @@ module Make (CfgS : CfgS) :
       let cg =
         TypedIdentifierSet.(
           parameters |> List.map fst |> of_list |> union cfg.locals_vars
-          |> elements)
+          |> elements
+        )
         |> List.fold_left
              (fun acc_cg variable ->
                match
                  Liveness.does_live_after_function_call_cfg variable cfg
                with
-               | true -> ColoredGraph.remove_node_color variable acc_cg
-               | false -> acc_cg)
+               | true ->
+                   ColoredGraph.remove_node_color variable acc_cg
+               | false ->
+                   acc_cg
+             )
              cg
       in
 
@@ -1055,11 +1150,16 @@ module Make (CfgS : CfgS) :
                  extented
                  |> List.find_opt (fun (var, _) -> CfgS.compare elt var = 0)
                with
-               | None -> acc_cg
+               | None ->
+                   acc_cg
                | Some (variable, color) -> (
                    match ABI.compare color reg = 0 with
-                   | true -> acc_cg
-                   | false -> ColoredGraph.remove_node_color variable acc_cg))
+                   | true ->
+                       acc_cg
+                   | false ->
+                       ColoredGraph.remove_node_color variable acc_cg
+                 )
+             )
              cg
       in
       let cg =
@@ -1072,21 +1172,31 @@ module Make (CfgS : CfgS) :
                      VariableReturnStrategySet.fold
                        (fun strategy acc ->
                          match strategy with
-                         | _, ABI.Indirect_return -> None
-                         | _ -> acc)
-                       strategie_set colored_node.color)
+                         | _, ABI.Indirect_return ->
+                             None
+                         | _ ->
+                             acc
+                       )
+                       strategie_set colored_node.color
+                 )
               |> Option.value ~default:None
             in
             match final_color with
-            | Some _ -> acc_cg
-            | None -> ColoredGraph.remove_node_color variable acc_cg)
+            | Some _ ->
+                acc_cg
+            | None ->
+                ColoredGraph.remove_node_color variable acc_cg
+          )
           return_strategies cg
       in
       cg
 
     let coloration ~(parameters : (TypedIdentifierSet.elt * ABI.t) list)
         ~available_color (cfg : Liveness.cfg_liveness_detail) =
-      let cg = base_coloration ~parameters ~available_color cfg in
+      let cg =
+        base_coloration ~parameters ~available_color
+          ~select:ABI.is_valid_register cfg
+      in
       let cg = decolaration ~parameters cfg cg in
       cg
   end
@@ -1128,11 +1238,18 @@ module MakePprint
         (cfgl_statement.liveness_info |> Liveness.LivenessInfo.to_list
         |> List.map (fun (typed_id, bool) ->
                Printf.sprintf "<%s => %s>" (CfgS.repr typed_id)
-                 (if bool then "alive" else "dead"))
-        |> String.concat ", ")
+                 ( if bool then
+                     "alive"
+                   else
+                     "dead"
+                 )
+           )
+        |> String.concat ", "
+        )
 
     let string_of_basic_block_end = function
-      | Bbe_return tte -> Printf.sprintf "return %s" (string_of_atom tte)
+      | Bbe_return tte ->
+          Printf.sprintf "return %s" (string_of_atom tte)
       | BBe_if { condition; if_label; else_label } ->
           Printf.sprintf "if %s goto %s\n\tgoto %s" (string_of_atom condition)
             if_label else_label

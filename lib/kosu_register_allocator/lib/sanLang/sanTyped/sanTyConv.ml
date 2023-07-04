@@ -58,17 +58,21 @@ let rec of_san_basic_block san_module ~acc env
                              let atom_type =
                                typeof_atom san_module env atom_loc
                              in
-                             typed_atom atom_type atom_loc.value);
+                             typed_atom atom_type atom_loc.value
+                         );
                   }
-            | RVLater san_type -> TYRVLater san_type.value
-            | RVDiscard san_type -> TyRVDiscard san_type.value
+            | RVLater san_type ->
+                TYRVLater san_type.value
+            | RVDiscard san_type ->
+                TyRVDiscard san_type.value
           in
           let exented =
             TySSDeclaration (s.value, typed_rvalue san_rtype san_rvalue) :: acc
           in
           let extented_env = SanEnv.add (s.value, san_rtype) env in
           of_san_basic_block san_module ~acc:exented extented_env
-            { block with statements = q })
+            { block with statements = q }
+    )
   | [] ->
       let ending =
         ending
@@ -83,7 +87,8 @@ let rec of_san_basic_block san_module ~acc env
                      expr = typed_atom atom_type expr.value;
                      if_label = if_label.value;
                      else_label = else_label.value;
-                   })
+                   }
+             )
       in
       let statements = List.rev acc in
       (env, { label = label.value; statements; ending })
@@ -95,7 +100,8 @@ let of_san_basic_blocks san_module env san_basic_blocks =
          let extended_env, ty_bbl =
            of_san_basic_block san_module ~acc:[] acc_env basic_block
          in
-         (extended_env, ty_bbl :: acc_ty_bbl))
+         (extended_env, ty_bbl :: acc_ty_bbl)
+       )
        (env, [])
   |> fun (env, list) -> (env, List.rev list)
 

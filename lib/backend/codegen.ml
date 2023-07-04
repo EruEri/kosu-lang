@@ -85,7 +85,8 @@ module Make (AsmProgram : AsmProgram) : S = struct
     let () =
       rnodes
       |> List.iter (fun node ->
-             Printf.fprintf file "%s\n\n" (string_of_asm_node node))
+             Printf.fprintf file "%s\n\n" (string_of_asm_node node)
+         )
     in
 
     let () =
@@ -95,10 +96,12 @@ module Make (AsmProgram : AsmProgram) : S = struct
                match fsize with
                | KosuFrontend.Ast.F32 ->
                    float |> Int32.bits_of_float |> Printf.sprintf "0x%lX"
-               | F64 -> float |> Int64.bits_of_float |> Printf.sprintf "0x%LX"
+               | F64 ->
+                   float |> Int64.bits_of_float |> Printf.sprintf "0x%LX"
              in
              Printf.fprintf file "%s:\n\t.%s %s\n\n" label
-               (directive_of_fsize fsize) s)
+               (directive_of_fsize fsize) s
+         )
     in
 
     let () = Printf.fprintf file "\n\t%s\n" string_litteral_section_start in
@@ -107,7 +110,8 @@ module Make (AsmProgram : AsmProgram) : S = struct
       |> Seq.iter (fun (str, SLit label) ->
              let string_directive = string_litteral_directive in
              Printf.fprintf file "%s:\n\t%s \"%s\"\n\n" label string_directive
-               str)
+               str
+         )
     in
     let () = Printf.fprintf file "\n%s\n" string_litteral_section_end in
     ()
@@ -116,10 +120,15 @@ module Make (AsmProgram : AsmProgram) : S = struct
     let filename =
       named_asm_module_path |> filename_of_named_asm_module_path
       |> String.map (fun c ->
-             if Char.escaped c = Filename.dir_sep then '_' else c)
+             if Char.escaped c = Filename.dir_sep then
+               '_'
+             else
+               c
+         )
     in
     match is_asm_module_empty named_asm_module_path with
-    | true -> None
+    | true ->
+        None
     | false ->
         let filename, file = Filename.open_temp_file filename ".S" in
         let () = export_asm_module_opened_file file named_asm_module_path in
@@ -129,7 +138,8 @@ module Make (AsmProgram : AsmProgram) : S = struct
   let export_asm_module named_asm_module_path =
     let filename = named_asm_module_path |> filename_of_named_asm_module_path in
     match is_asm_module_empty named_asm_module_path with
-    | true -> None
+    | true ->
+        None
     | false ->
         let file = open_out filename in
         let () = export_asm_module_opened_file file named_asm_module_path in

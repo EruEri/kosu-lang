@@ -26,14 +26,18 @@ module Module = struct
 
   let make_label ref =
     let n = post_incr ref in
-    if n = 0 then Printf.sprintf "l_str" else Printf.sprintf "l_str.%u" n
+    if n = 0 then
+      Printf.sprintf "l_str"
+    else
+      Printf.sprintf "l_str.%u" n
 
   let collect_string_litteral_atom ~count map atom () =
     match atom.atom with
     | String s ->
         let label = make_label count in
         Hashtbl.replace map s (StrLab label)
-    | Int _ | Variable _ | Boolean _ -> ()
+    | Int _ | Variable _ | Boolean _ ->
+        ()
 
   let collect_string_litteral_rvalue ~count map rvalue () =
     match rvalue.san_rvalue with
@@ -45,8 +49,10 @@ module Module = struct
     | TyRVFunctionCall fncall ->
         fncall.parameters
         |> List.iter (fun atom ->
-               collect_string_litteral_atom ~count map atom ())
-    | TYRVLater _ | TyRVDiscard _ -> ()
+               collect_string_litteral_atom ~count map atom ()
+           )
+    | TYRVLater _ | TyRVDiscard _ ->
+        ()
 
   let collect_string_litteral_stmt ~count map stmt () =
     match stmt with
@@ -66,12 +72,14 @@ module Module = struct
 
     block.ending
     |> Option.iter (fun ending ->
-           collect_string_litteral_ending ~count map ending ())
+           collect_string_litteral_ending ~count map ending ()
+       )
 
   let collect_string_litteral_function ~count map ty_san_function () =
     ty_san_function.san_basic_blocks
     |> List.iter (fun ty_san_basic_block ->
-           collect_string_litteral_block ~count map ty_san_basic_block ())
+           collect_string_litteral_block ~count map ty_san_basic_block ()
+       )
 
   let collect_string_litteral_module san_module () =
     let map = Hashtbl.create 7 in
@@ -81,7 +89,9 @@ module Module = struct
            | TyDeclaration san_function ->
                collect_string_litteral_function ~count:(ref 0) map san_function
                  ()
-           | TyExternal _ -> ())
+           | TyExternal _ ->
+               ()
+           )
     in
     map
 end

@@ -70,4 +70,5 @@ let color_map =
 
 let does_return_hold_in_register _ = true
 let indirect_return_register = R8
+let is_valid_register _ _ = true
 let return_strategy _ = Simple_return R0

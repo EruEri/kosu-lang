@@ -36,6 +36,7 @@ type rktype =
   | RTPointer of rktype
   | RTTuple of rktype list
   | RTFunction of rktype list * rktype
+  | RTArray of { size : int64; rktype : rktype }
   | RTOrdered
   | RTString_lit
   | RTUnknow
@@ -82,10 +83,15 @@ and rkexpression =
   | RESizeof of rktype
   | REstring of string
   | REAdress of string
+  | REAdressof of raffacted_value
   | REDeference of int * string
   | REIdentifier of { modules_path : string; identifier : string }
   | RETupleAccess of { first_expr : typed_expression; index : int64 }
   | REFieldAcces of { first_expr : typed_expression; field : string }
+  | REArrayAccess of {
+      array_expr : typed_expression;
+      index_expr : typed_expression;
+    }
   | REConst_Identifier of { modules_path : string; identifier : string }
   | REStruct of {
       modules_path : string;
@@ -98,6 +104,7 @@ and rkexpression =
       variant : string;
       assoc_exprs : typed_expression list;
     }
+  | REArray of typed_expression list
   | RETuple of typed_expression list
   | REBuiltin_Function_call of {
       fn_name : Builtin_Function.functions;
@@ -144,6 +151,14 @@ and rkbin_op =
   | RBCmp of typed_expression * typed_expression
 
 and rkunary_op = RUMinus of typed_expression | RUNot of typed_expression
+
+type function_call_info = {
+  varia_index : int option;
+  parameters : rktype list;
+  return_type : rktype;
+}
+
+type function_call_infos = function_call_info list
 
 type rstruct_decl = {
   rstruct_name : string;

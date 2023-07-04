@@ -69,7 +69,15 @@ module type ABI = sig
   val callee_saved_register : t list
   val caller_saved_register : t list
   val syscall_register : t list
-  val arguments_register : t list
+
+  val arguments_register : variable -> t list
+  (** 
+      Select the argument registers list used for [variable]
+      Can be used for example to distinguish float arguments
+    *)
+
+  val non_float_argument_registers : t list
+  val is_valid_register : variable -> t -> bool
   val does_return_hold_in_register : variable -> bool
   val indirect_return_register : t
   val return_strategy : variable -> return_strategy

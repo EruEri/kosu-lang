@@ -15,6 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
+module Args = Args
+
 type stringlit_label = SLit of string
 type floatlit_label = FLit of string
 type coordinate = { line : int; column : int }
@@ -30,16 +32,21 @@ let is_asm_file filename =
   filename |> Filename.extension |> String.lowercase_ascii |> ( = ) ".s"
 
 let rec string_of_chars_aux count result char =
-  if count <= 0 then result
-  else string_of_chars_aux (count - 1) (Printf.sprintf "%c%s" char result) char
+  if count <= 0 then
+    result
+  else
+    string_of_chars_aux (count - 1) (Printf.sprintf "%c%s" char result) char
 
 let string_of_chars count = string_of_chars_aux count ""
 
 let string_of_module_path path =
-  if path = "" then "" else Printf.sprintf "%s::" path
+  if path = "" then
+    ""
+  else
+    Printf.sprintf "%s::" path
 
 let are_same_lenght l1 l2 = 0 = List.compare_lengths l1 l2
-let are_diff_lenght l1 l2 = not (are_same_lenght l1 l2)
+let are_diff_lenght l1 l2 = not @@ are_same_lenght l1 l2
 
 let dummy_generic_map generic_names parametrics_types =
   let list_len = parametrics_types |> List.length in
@@ -57,21 +64,30 @@ module Occurence = struct
   let is_one = function One _ -> true | _ -> false
 
   let one = function
-    | Empty -> raise No_Occurence
-    | Multiple _ -> raise Too_Many_Occurence
-    | One f -> f
+    | Empty ->
+        raise No_Occurence
+    | Multiple _ ->
+        raise Too_Many_Occurence
+    | One f ->
+        f
 
   let find_map_occurence predicate list =
     match list |> List.filter_map predicate with
-    | [] -> Empty
-    | [ t ] -> One t
-    | t :: q -> Multiple (t :: q)
+    | [] ->
+        Empty
+    | [ t ] ->
+        One t
+    | t :: q ->
+        Multiple (t :: q)
 
   let find_occurence predicate list =
     match list |> List.find_all predicate with
-    | [] -> Empty
-    | [ t ] -> One t
-    | t :: q -> Multiple (t :: q)
+    | [] ->
+        Empty
+    | [ t ] ->
+        One t
+    | t :: q ->
+        Multiple (t :: q)
 end
 
 module Operator = struct
@@ -80,8 +96,13 @@ end
 
 module ListHelper = struct
   let rec index_of_aux f index = function
-    | [] -> raise Not_found
-    | t :: q -> if f t then index else index_of_aux f (index + 1) q
+    | [] ->
+        raise Not_found
+    | t :: q ->
+        if f t then
+          index
+        else
+          index_of_aux f (index + 1) q
 
   let index_of f = index_of_aux f 0
   let head_opt = function [] -> None | t :: _ -> Some t
@@ -91,12 +112,18 @@ module ListHelper = struct
     | [] ->
         hashmap |> Hashtbl.to_seq |> List.of_seq
         |> List.filter_map (fun (key, value) ->
-               if value > 1 then Some key else None)
+               if value > 1 then
+                 Some key
+               else
+                 None
+           )
     | t :: q ->
         let () =
           match Hashtbl.find_opt hashmap t with
-          | Some value -> Hashtbl.replace hashmap t (value + 1)
-          | None -> Hashtbl.add hashmap t 1
+          | Some value ->
+              Hashtbl.replace hashmap t (value + 1)
+          | None ->
+              Hashtbl.add hashmap t 1
         in
         duplicate_aux hashmap q
 
@@ -104,11 +131,15 @@ module ListHelper = struct
 
   let rec duplic_aux cmp ~acc ~list =
     match list with
-    | [] -> acc
+    | [] ->
+        acc
     | t :: q ->
         let duplicate, no_duplicated = q |> List.partition (cmp t) in
         let duplicate =
-          if duplicate = [] then acc else (t :: duplicate) :: acc
+          if duplicate = [] then
+            acc
+          else
+            (t :: duplicate) :: acc
         in
         duplic_aux cmp ~acc:duplicate ~list:no_duplicated
 
@@ -119,21 +150,42 @@ module ListHelper = struct
 
   let rec combine_safe lhs rhs =
     match (lhs, rhs) with
-    | [], _ | _, [] -> []
-    | t1 :: q1, t2 :: q2 -> (t1, t2) :: combine_safe q1 q2
+    | [], _ | _, [] ->
+        []
+    | t1 :: q1, t2 :: q2 ->
+        (t1, t2) :: combine_safe q1 q2
 
   let rec diff base ~remains =
     match (base, remains) with
-    | _, [] -> []
-    | [], l -> l
-    | _ :: q1, _ :: q2 -> diff q1 ~remains:q2
+    | _, [] ->
+        []
+    | [], l ->
+        l
+    | _ :: q1, _ :: q2 ->
+        diff q1 ~remains:q2
+
+  let rec ldiff fcompare lhs rhs =
+    match (lhs, rhs) with
+    | [], e | e, [] ->
+        e
+    | x1 :: xs1, x2 :: xs2 -> (
+        match fcompare x1 x2 with
+        | 0 ->
+            ldiff fcompare xs1 xs2
+        | _ ->
+            x2 :: ldiff fcompare xs1 xs2
+      )
 
   let rec shrink ~atlength list =
     match (atlength, list) with
-    | n, _ when n < 0 -> invalid_arg "Negative number"
-    | 0, _ -> []
-    | _, [] -> []
-    | n, t :: q -> t :: shrink ~atlength:(n - 1) q
+    | n, _ when n < 0 ->
+        invalid_arg "Negative number"
+    | 0, _ ->
+        []
+    | _, [] ->
+        []
+    | n, t :: q ->
+        t :: shrink ~atlength:(n - 1) q
 end
 
 module StringSet = Set.Make (String)
@@ -171,13 +223,18 @@ module PkgConfig = struct
   let empty = create StringSet.empty
 
   let parse_single pkg_config option =
-    if String.length option < 2 then add_others option pkg_config
+    if String.length option < 2 then
+      add_others option pkg_config
     else
       match String.sub option 0 2 with
-      | "-L" -> add_libs_path option pkg_config
-      | "-I" -> add_include_path option pkg_config
-      | "-l" -> add_libs_path option pkg_config
-      | _ -> add_others option pkg_config
+      | "-L" ->
+          add_libs_path option pkg_config
+      | "-I" ->
+          add_include_path option pkg_config
+      | "-l" ->
+          add_libs_path option pkg_config
+      | _ ->
+          add_others option pkg_config
 
   let parse pkg_output =
     pkg_output |> String.split_on_char ' ' |> List.map String.trim
@@ -186,33 +243,58 @@ module PkgConfig = struct
   let of_command_opt ~verbose ?(cflags = false) ?(clibs = true) ~libname () =
     let command =
       Printf.sprintf "%s %s %s %s" cmd
-        (if cflags then "--cflags" else "")
-        (if clibs then "--libs" else "")
+        ( if cflags then
+            "--cflags"
+          else
+            ""
+        )
+        ( if clibs then
+            "--libs"
+          else
+            ""
+        )
         libname
     in
-    let () = if verbose then print_endline command in
+    let () =
+      if verbose then
+        print_endline command
+    in
 
     let in_channel = Unix.open_process_in command in
     let content = In_channel.input_all in_channel in
     let process_status = Unix.close_process_in in_channel in
     match process_status with
-    | WEXITED code when code = 0 -> content |> parse |> Option.some
-    | _ -> None
+    | WEXITED code when code = 0 ->
+        content |> parse |> Option.some
+    | _ ->
+        None
 
   let of_command ~verbose ?(cflags = false) ?(clibs = true) ~libname () =
     let command =
       Printf.sprintf "%s %s %s %s" cmd
-        (if cflags then "--cflags" else "")
-        (if clibs then "--libs" else "")
+        ( if cflags then
+            "--cflags"
+          else
+            ""
+        )
+        ( if clibs then
+            "--libs"
+          else
+            ""
+        )
         libname
     in
-    let () = if verbose then print_endline command in
+    let () =
+      if verbose then
+        print_endline command
+    in
 
     let in_channel = Unix.open_process_in command in
     let content = In_channel.input_all in_channel in
     let process_status = Unix.close_process_in in_channel in
     match process_status with
-    | WEXITED code when code = 0 -> content |> parse
+    | WEXITED code when code = 0 ->
+        content |> parse
     | WEXITED code | WSIGNALED code | WSTOPPED code ->
         let () = prerr_endline content in
         exit code

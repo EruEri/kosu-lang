@@ -23,7 +23,8 @@ module CmdError = struct
   exception CdmError of t
 
   let string_of_cmd_erorr = function
-    | No_function s -> Printf.sprintf "No function \"%s\" was defined" s
+    | No_function s ->
+        Printf.sprintf "No function \"%s\" was defined" s
 end
 
 module Cfg_Command = struct
@@ -41,7 +42,12 @@ module Cfg_Command = struct
   let name = "cfg"
 
   let string_of_enum ?(splitter = "|") ?(quoted = false) enum =
-    let f = if quoted then Arg.doc_quote else Fun.id in
+    let f =
+      if quoted then
+        Arg.doc_quote
+      else
+        Fun.id
+    in
     enum |> List.map (fun (elt, _) -> f elt) |> String.concat splitter
 
   let cfg_type_enum =
@@ -58,24 +64,28 @@ module Cfg_Command = struct
           ~doc:
             "invoke the $(b,dot) command and generate graph with $(docv) image \
              format"
-          [ "d"; "dot" ])
+          [ "d"; "dot" ]
+    )
 
   let colored_term =
     Arg.(
       value & flag
-      & info ~doc:"Color the variable inference graph" [ "c"; "colored" ])
+      & info ~doc:"Color the variable inference graph" [ "c"; "colored" ]
+    )
 
   let infered_term =
     Arg.(
       value & flag
-      & info ~doc:"Generate the variable inference graph" [ "i"; "infered" ])
+      & info ~doc:"Generate the variable inference graph" [ "i"; "infered" ]
+    )
 
   let function_name_term =
     Arg.(
       value
       & opt (some string) None
       & info ~doc:"Generate graph for a the $(opt) function"
-          ~docv:"function_name" [ "f"; "function" ])
+          ~docv:"function_name" [ "f"; "function" ]
+    )
 
   let cfg_type_term =
     Arg.(
@@ -84,7 +94,8 @@ module Cfg_Command = struct
       & info
           ~docv:(string_of_enum cfg_type_enum)
           ~doc:"Precise which iteration of the cfg should be printed"
-          [ "t"; "type" ])
+          [ "t"; "type" ]
+    )
 
   let file_term =
     let info = Arg.info [] ~docv:"FILE" in
@@ -96,7 +107,8 @@ module Cfg_Command = struct
     in
     Term.(
       const combine $ dot_term $ colored_term $ cfg_type_term $ infered_term
-      $ function_name_term $ file_term)
+      $ function_name_term $ file_term
+    )
 
   let cfg_doc = "Visualise control flow graphs and inference graphs"
 
@@ -119,7 +131,11 @@ module Cfg_Command = struct
 
   let infered_name ~extension ~colored fn_name =
     Printf.sprintf "%s.infered%s.%s" fn_name
-      (if colored then ".colored" else "")
+      ( if colored then
+          ".colored"
+        else
+          ""
+      )
       extension
 
   let cfg_name ~extension ~ctype fn_name =
@@ -134,30 +150,36 @@ module Cfg_Command = struct
     match format with
     | None -> (
         match file_type with
-        | `Infered colored -> dot_infered_name ~colored fn_name
-        | `Cfg cfg_type -> dot_cfg_name ~ctype:cfg_type fn_name)
+        | `Infered colored ->
+            dot_infered_name ~colored fn_name
+        | `Cfg cfg_type ->
+            dot_cfg_name ~ctype:cfg_type fn_name
+      )
     | Some extension -> (
         match file_type with
-        | `Infered colored -> infered_name ~colored fn_name ~extension
-        | `Cfg cfg_type -> cfg_name ~ctype:cfg_type fn_name ~extension)
+        | `Infered colored ->
+            infered_name ~colored fn_name ~extension
+        | `Cfg cfg_type ->
+            cfg_name ~ctype:cfg_type fn_name ~extension
+      )
 
   let write_cfg cfg_type ~oc san_function =
     match cfg_type with
     | Basic ->
         let converted =
-          SanCfg.SanCfgConv.basic_of_san_tyfunction san_function
+          SanCommon.CfgConv.basic_of_san_tyfunction san_function
         in
         converted |> SanCfg.SanCfgPprint.dot_diagrah_of_cfg_basic
         |> SanCfg.SanCfgPprint.string_of_dot_graph ~out:oc
     | Detail ->
         let converted =
-          SanCfg.SanCfgConv.detail_of_san_tyfunction san_function
+          SanCommon.CfgConv.detail_of_san_tyfunction san_function
         in
         converted |> SanCfg.SanCfgPprint.dot_diagrah_of_cfg_detail
         |> SanCfg.SanCfgPprint.string_of_dot_graph ~out:oc
     | Liveness ->
         let converted =
-          SanCfg.SanCfgConv.liveness_of_san_tyfunction san_function
+          SanCommon.CfgConv.liveness_of_san_tyfunction san_function
         in
         converted |> SanCfg.SanCfgPprint.dot_diagrah_of_cfg_liveness
         |> SanCfg.SanCfgPprint.string_of_dot_graph ~out:oc
@@ -165,14 +187,19 @@ module Cfg_Command = struct
   let write_infered ~infered ~colored ~oc
       (san_function : SanTyped.SanTyAst.ty_san_function) =
     match infered with
-    | false -> ()
+    | false ->
+        ()
     | true ->
         let livecfg =
-          SanCfg.SanCfgConv.liveness_of_san_tyfunction san_function
+          SanCommon.CfgConv.liveness_of_san_tyfunction san_function
         in
         let transform =
-          if colored then SanCfg.SanCfgPprint.export_colored_graph
-          else SanCfg.SanCfgPprint.export_infer_graph_of_cfg
+          if colored then
+            SanCfg.SanCfgPprint.export_colored_graph
+              ~color_map:SanAarch64.Register.color_map
+              ~available_color:SanAarch64.Register.available_register
+          else
+            SanCfg.SanCfgPprint.export_infer_graph_of_cfg
         in
         transform ~outchan:oc livecfg ()
 
@@ -185,18 +212,22 @@ module Cfg_Command = struct
         in
         let () =
           Out_channel.with_open_bin outchan_name (fun oc ->
-              write_cfg cmd.cfg_type ~oc san_function)
+              write_cfg cmd.cfg_type ~oc san_function
+          )
         in
 
         match cmd.variable_infer with
-        | false -> ()
+        | false ->
+            ()
         | true ->
             let infered_ouchan =
               target_file (`Infered cmd.colored) cmd.dot san_function.fn_name
             in
             Out_channel.with_open_bin infered_ouchan (fun oc ->
                 write_infered ~infered:cmd.variable_infer ~colored:cmd.colored
-                  ~oc san_function))
+                  ~oc san_function
+            )
+      )
     | Some export_format -> (
         let cfg_outname =
           target_file (`Cfg cmd.cfg_type) cmd.dot san_function.fn_name
@@ -207,10 +238,12 @@ module Cfg_Command = struct
         let _ =
           Sys.command
             (Printf.sprintf "dot -T%s -o %s %s" export_format cfg_outname
-               filename)
+               filename
+            )
         in
         match cmd.variable_infer with
-        | false -> ()
+        | false ->
+            ()
         | true ->
             let infered_ouchan =
               target_file (`Infered cmd.colored) cmd.dot san_function.fn_name
@@ -226,9 +259,11 @@ module Cfg_Command = struct
             let _ =
               Sys.command
                 (Printf.sprintf "dot -T%s -o %s %s" export_format infered_ouchan
-                   tmp_infered_filename)
+                   tmp_infered_filename
+                )
             in
-            ())
+            ()
+      )
 
   let cfg_main cmd =
     let { dot; colored; cfg_type; variable_infer; fn_name; file } = cmd in
@@ -241,20 +276,24 @@ module Cfg_Command = struct
                     let open SanTyped.SanTyAst in
                     match node with
                     | TyDeclaration { fn_name; _ } | TyExternal { fn_name } ->
-                        fn_name = s))
+                        fn_name = s
+                )
+         )
       |> Option.value ~default:typed_san_module
     in
     let filtered_san_module =
       typed_san_module
       |> List.filter_map
            (let open SanTyped.SanTyAst in
-            function TyDeclaration fn -> Some fn | TyExternal _ -> None)
+            function TyDeclaration fn -> Some fn | TyExternal _ -> None
+           )
     in
 
     let () =
       filtered_san_module
       |> List.iter (fun (san_function : SanTyped.SanTyAst.ty_san_function) ->
-             export_from_san_function cmd san_function)
+             export_from_san_function cmd san_function
+         )
     in
     ()
 
@@ -283,7 +322,9 @@ module Compile_Cmd = struct
       & info [ "o" ] ~docv:"FILENAME"
           ~doc:
             (Printf.sprintf "write output to <%s>"
-               (String.lowercase_ascii "$(docv)")))
+               (String.lowercase_ascii "$(docv)")
+            )
+    )
 
   let file_term =
     let info = Arg.info [] ~docv:"FILE" in
@@ -292,7 +333,8 @@ module Compile_Cmd = struct
   let other_file_term =
     Arg.(
       value & pos_right 0 file []
-      & info ~doc:"Pass files to $(b,cc)(1)" ~docv:"FILES" [])
+      & info ~doc:"Pass files to $(b,cc)(1)" ~docv:"FILES" []
+    )
 
   let cmd_term run =
     let combine asm outfile file other_files =
@@ -300,7 +342,8 @@ module Compile_Cmd = struct
     in
     Term.(
       const combine $ target_asm_term $ output_term $ file_term
-      $ other_file_term)
+      $ other_file_term
+    )
 
   let compile = "Compile san file"
   let compile_doc = "Compile san programs"
@@ -330,11 +373,13 @@ module Compile_Cmd = struct
         let outfile =
           if outfile = default_outfile then
             Printf.sprintf "%s.s" default_outfile
-          else outfile
+          else
+            outfile
         in
         let () =
           Out_channel.with_open_bin outfile (fun oc ->
-              Codegen.compile_s ~outfile:oc ty_san_module)
+              Codegen.compile_s ~outfile:oc ty_san_module
+          )
         in
         ()
     | false ->

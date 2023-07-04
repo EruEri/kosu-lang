@@ -29,6 +29,33 @@ let make_goto_label ~count_if = Printf.sprintf "Lif.%u.%u" count_if
 let make_end_label ~count_if = Printf.sprintf "Lif.%u.end" count_if
 let make_case_goto_label ~cases_count = Printf.sprintf "Lcase.%u.%u" cases_count
 let is_tmp_var = String.starts_with ~prefix:tmp_var_prefix
+let fake_label_counter = ref 0
+let tag_variable_conter = ref 0
+let cmp_variable_counter = ref 0
+
+let tag_variable () =
+  let n = !tag_variable_conter in
+  let () = incr tag_variable_conter in
+  Printf.sprintf "@tag.%u" n
+
+let cmp_variable () =
+  let n = !cmp_variable_counter in
+  let () = incr cmp_variable_counter in
+  Printf.sprintf "@cmp.%u" n
+
+let fake_label ?(inc = true) () =
+  let n =
+    if inc then
+      let n = !fake_label_counter in
+      let () =
+        if inc then
+          fake_label_counter := n + 1
+      in
+      !fake_label_counter
+    else
+      !fake_label_counter
+  in
+  Printf.sprintf "Lfake_label.%u" n
 
 let make_case_goto_cond_label ~cases_count =
   Printf.sprintf "Lcase.%u.%u.cond" cases_count
@@ -62,6 +89,10 @@ let post_inc n =
   x
 
 let make_inc_tmp n = make_tmp (post_inc n)
+let enum_tag_type = KosuIrTyped.Asttyped.(RTInteger (Unsigned, I32))
+
+let tag_of_variant variant enum_decl =
+  Int32.to_int @@ KosuIrTyped.Asttyhelper.Renum.tag_of_variant variant enum_decl
 
 let typed_locale_assoc ~name ~from ~assoc_index_bound ~rktype =
   {
@@ -70,6 +101,63 @@ let typed_locale_assoc ~name ~from ~assoc_index_bound ~rktype =
   }
 
 let typed_locale_locale id ~rktype = { locale_ty = rktype; locale = Locale id }
+
+let tag_statements ~map enum_tac_expr =
+  let tag = tag_variable () in
+  let tag_atom =
+    { expr_rktype = enum_tag_type; tac_expression = TEIdentifier tag }
+  in
+  let () =
+    Hashtbl.add map tag (typed_locale_locale tag ~rktype:enum_tag_type)
+  in
+  ( tag_atom,
+    STacDeclaration
+      {
+        identifier = tag;
+        trvalue =
+          {
+            rval_rktype = enum_tag_type;
+            rvalue =
+              RVBuiltinCall
+                {
+                  fn_name = KosuFrontend.Ast.Builtin_Function.Tagof;
+                  parameters = [ enum_tac_expr ];
+                };
+          };
+      }
+  )
+
+let cmp_statement ~map atom tag_to_match =
+  let () = ignore map in
+  let cmp = cmp_variable () in
+  let expr_rktype = KosuIrTyped.Asttyped.RTBool in
+  let cmp_atom = { expr_rktype; tac_expression = TEIdentifier cmp } in
+  (* let () =
+       Hashtbl.add map cmp
+         (typed_locale_locale cmp ~rktype:expr_rktype)
+     in *)
+  ( cmp_atom,
+    STacDeclaration
+      {
+        identifier = cmp;
+        trvalue =
+          {
+            rval_rktype = KosuIrTyped.Asttyped.RTBool;
+            rvalue =
+              RVBuiltinBinop
+                {
+                  binop = TacBool TacEqual;
+                  blhs = atom;
+                  brhs =
+                    {
+                      expr_rktype = enum_tag_type;
+                      tac_expression =
+                        TEInt (Unsigned, I32, Int64.of_int tag_to_match);
+                    };
+                };
+          };
+      }
+  )
 
 let add_statements_to_tac_body stmts tac_body =
   let { label; body = future_stmts, future_result } = tac_body in
@@ -87,7 +175,8 @@ let make_inc_tmp rktype map n =
 
 let convert_if_allocated ~expr_rktype ~allocated tac_expression =
   match allocated with
-  | None -> ([], make_typed_tac_expression expr_rktype tac_expression)
+  | None ->
+      ([], make_typed_tac_expression expr_rktype tac_expression)
   | Some (identifier, rktype) ->
       let typed_expr = make_typed_tac_expression expr_rktype tac_expression in
       ( STacModification
@@ -96,7 +185,8 @@ let convert_if_allocated ~expr_rktype ~allocated tac_expression =
             trvalue = make_typed_tac_rvalue rktype (RVExpression typed_expr);
           }
         :: [],
-        make_typed_tac_expression rktype (TEIdentifier identifier) )
+        make_typed_tac_expression rktype (TEIdentifier identifier)
+      )
 
 let create_forward_init ?(rvalue = RVLater) ~map ~count_var typed_expression =
   if Expression.is_typed_expresion_branch typed_expression then
@@ -107,8 +197,10 @@ let create_forward_init ?(rvalue = RVLater) ~map ~count_var typed_expression =
           identifier = new_tmp;
           trvalue = make_typed_tac_rvalue typed_expression.rktype rvalue;
         }
-      :: [] )
-  else (None, [])
+      :: []
+    )
+  else
+    (None, [])
 
 let rec convert_from_typed_expression ~discarded_value ~allocated ~map
     ~count_var ~if_count ~cases_count ~switch_count ~rprogram typed_expression =
@@ -146,7 +238,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
             exit_label;
           }
         :: [],
-        make_typed_tac_expression RTUnit TEmpty )
+        make_typed_tac_expression RTUnit TEmpty
+      )
   | REIf (if_typed_expres, if_body, else_body), Some (identifier, id_rktype) ->
       let incremented = post_inc if_count in
       let next_allocated, stmt =
@@ -183,7 +276,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
             else_tac_body;
           }
         :: [],
-        make_typed_tac_expression id_rktype (TEIdentifier identifier) )
+        make_typed_tac_expression id_rktype (TEIdentifier identifier)
+      )
   | RECases { cases; else_case }, Some (identifier, id_rktype) ->
       let incremented = post_inc cases_count in
 
@@ -199,13 +293,16 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
         |> List.mapi (fun i (case_condition, rkbody) ->
                let label = make_locale_label i in
                let self_condition_label =
-                 if i = 0 then None
-                 else Some (lambda_make_locale_condition_label i)
+                 if i = 0 then
+                   None
+                 else
+                   Some (lambda_make_locale_condition_label i)
                in
                let jmp_next_condition =
                  if i < cases_len - 1 then
                    lambda_make_locale_condition_label (i + 1)
-                 else else_label
+                 else
+                   else_label
                in
                let next_allocated, stmt =
                  create_forward_init ~map ~count_var case_condition
@@ -229,7 +326,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                  goto = label;
                  jmp_false = jmp_next_condition;
                  tac_body;
-               })
+               }
+           )
       in
       let else_tac_body =
         convert_from_rkbody ~discarded_value ~switch_count ~cases_count
@@ -237,7 +335,146 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           ~if_count ~rprogram else_case
       in
       ( SCases { cases; exit_label = end_label; else_tac_body } :: [],
-        make_typed_tac_expression id_rktype (TEIdentifier identifier) )
+        make_typed_tac_expression id_rktype (TEIdentifier identifier)
+      )
+  | RESwitch { rexpression; cases; wildcard_case }, Some (identifier, id_rktype)
+    when false ->
+      let enum_decl =
+        match
+          KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
+            rexpression.rktype rprogram
+        with
+        | Some (RDecl_Struct _) ->
+            failwith "Expected to find an enum get an struct"
+        | Some (RDecl_Enum e) ->
+            e
+        | None ->
+            failwith "Non type decl ??? my validation is very weak"
+      in
+      let enum_decl =
+        let generics =
+          rexpression.rktype
+          |> KosuIrTyped.Asttyhelper.RType.extract_parametrics_rktype
+          |> List.combine enum_decl.generics
+        in
+        KosuIrTyped.Asttyhelper.Renum.instanciate_enum_decl generics enum_decl
+      in
+
+      let incremented = post_inc switch_count in
+      let fn_local_switch_label =
+        make_switch_goto_label ~switch_count:incremented
+      in
+      let sw_exit_label = make_switch_end_label ~switch_count:incremented in
+      let next_allocated, forward_push =
+        create_forward_init ~map ~count_var rexpression
+      in
+      let tmp_statemenets_for_case, enum_tte_expr =
+        convert_from_typed_expression ~discarded_value ~allocated:next_allocated
+          ~switch_count ~cases_count ~if_count ~count_var ~map ~rprogram
+          rexpression
+      in
+      let tag_atom, tag_set_statement = tag_statements ~map enum_tte_expr in
+
+      let tmp_wildcard_label =
+        wildcard_case
+        |> Option.map (fun _ -> make_switch_wild_label ~switch_count:incremented)
+      in
+      let tmp_wildcard_body =
+        wildcard_case
+        |> Option.map (fun wild_body ->
+               let label_name =
+                 make_switch_wild_label ~switch_count:incremented
+               in
+               convert_from_rkbody ~discarded_value ~previous_alloc:allocated
+                 ~cases_count ~switch_count ~label_name ~map ~count_var
+                 ~if_count ~rprogram wild_body
+           )
+      in
+
+      let cases_length = List.length cases in
+      let tmp_switch_list =
+        cases
+        |> List.mapi (fun i (variants, bounds, kbody) ->
+               let variants_count = List.length variants in
+               let is_last_switch_branch = cases_length - 1 = i in
+
+               let sw_goto = fn_local_switch_label i in
+               let variants_to_match =
+                 variants
+                 |> List.map RSwitch_Case.variant
+                 |> List.mapi (fun index variant ->
+                        let variant_label = fake_label ~inc:false () in
+                        (* let () = Printf.printf "fl = %s\n%!" variant_label in *)
+                        let next_variant_label = fake_label () in
+                        let is_last_or_variant = variants_count - 1 = index in
+                        let is_absolute_last =
+                          is_last_or_variant && is_last_switch_branch
+                        in
+                        let variant_next_label =
+                          if not is_absolute_last then
+                            Some next_variant_label
+                          else
+                            tmp_wildcard_label
+                            |> Option.map (fun _ -> next_variant_label)
+                        in
+
+                        let variant_index = tag_of_variant variant enum_decl in
+                        let cmp_atom, cmp_stmt =
+                          cmp_statement ~map tag_atom variant_index
+                        in
+                        {
+                          variant_label;
+                          variant_index;
+                          variant_next_label;
+                          cmp_statement = cmp_stmt;
+                          cmp_atom;
+                        }
+                    )
+               in
+               let tmp_sw_false = Option.some @@ fake_label ~inc:false () in
+               let () =
+                 bounds
+                 |> List.iteri (fun _ (index, name, rktype) ->
+                        Hashtbl.add map name
+                          (typed_locale_assoc ~name ~from:enum_tte_expr
+                             ~assoc_index_bound:index ~rktype
+                          )
+                    )
+               in
+               let assoc_bound = bounds in
+               let switch_tac_body =
+                 convert_from_rkbody ~discarded_value ~previous_alloc:allocated
+                   ~label_name:sw_goto ~rprogram ~map ~count_var ~if_count
+                   ~cases_count ~switch_count kbody
+               in
+               {
+                 variants = variants_to_match;
+                 tmp_assoc_bound = assoc_bound;
+                 tmp_sw_goto = sw_goto;
+                 tmp_sw_false;
+                 tmp_sw_exit_label = sw_exit_label;
+                 tmp_switch_tac_body = switch_tac_body;
+               }
+           )
+      in
+      let expr =
+        make_typed_tac_expression id_rktype (TEIdentifier identifier)
+      in
+      let switch =
+        STSwitchTmp
+          {
+            tmp_statemenets_for_case =
+              forward_push @ tmp_statemenets_for_case @ [ tag_set_statement ];
+            enum_tte = enum_tte_expr;
+            tag_atom;
+            tmp_switch_list;
+            tmp_wildcard_body;
+            tmp_wildcard_label;
+            tmp_sw_exit_label = sw_exit_label;
+          }
+        :: []
+      in
+      (switch, expr)
   | RESwitch { rexpression; cases; wildcard_case }, Some (identifier, id_rktype)
     ->
       let incremented = post_inc switch_count in
@@ -266,12 +503,13 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                  |> List.iteri (fun _ (index, name, rktype) ->
                         Hashtbl.add map name
                           (typed_locale_assoc ~name ~from:condition_switch
-                             ~assoc_index_bound:index ~rktype))
+                             ~assoc_index_bound:index ~rktype
+                          )
+                    )
                in
                let assoc_bound =
                  bounds
-                 |> List.map (fun (index, id, rtype) ->
-                        (id, (index, id, rtype)))
+                 |> List.map (fun (index, id, rtype) -> (id, (index, id, rtype)))
                  |> List.split |> snd
                in
                let switch_tac_body =
@@ -285,13 +523,13 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                  sw_goto;
                  sw_exit_label;
                  switch_tac_body;
-               })
+               }
+           )
       in
 
       let wildcard_label =
         wildcard_case
-        |> Option.map (fun _ ->
-               make_switch_wild_label ~switch_count:incremented)
+        |> Option.map (fun _ -> make_switch_wild_label ~switch_count:incremented)
       in
       let wildcard_body =
         wildcard_case
@@ -301,7 +539,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                in
                convert_from_rkbody ~discarded_value ~previous_alloc:allocated
                  ~cases_count ~switch_count ~label_name ~map ~count_var
-                 ~if_count ~rprogram wild_body)
+                 ~if_count ~rprogram wild_body
+           )
       in
       ( STSwitch
           {
@@ -313,10 +552,14 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
             sw_exit_label;
           }
         :: [],
-        make_typed_tac_expression id_rktype (TEIdentifier identifier) )
-  | REmpty, _ -> convert_if_allocated ~expr_rktype:trktype ~allocated TEmpty
-  | RFalse, _ -> convert_if_allocated ~expr_rktype:trktype ~allocated TEFalse
-  | RTrue, _ -> convert_if_allocated ~expr_rktype:trktype ~allocated TETrue
+        make_typed_tac_expression id_rktype (TEIdentifier identifier)
+      )
+  | REmpty, _ ->
+      convert_if_allocated ~expr_rktype:trktype ~allocated TEmpty
+  | RFalse, _ ->
+      convert_if_allocated ~expr_rktype:trktype ~allocated TEFalse
+  | RTrue, _ ->
+      convert_if_allocated ~expr_rktype:trktype ~allocated TETrue
   | RECmpEqual, _ ->
       convert_if_allocated ~expr_rktype:trktype ~allocated TECmpEqual
   | RECmpGreater, _ ->
@@ -354,13 +597,46 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                    ~allocated:next_allocated ~switch_count ~cases_count ~map
                    ~count_var ~if_count ~rprogram ty_ex
                in
-               (stmt @ stmt_needed, tac_expression))
+               (stmt @ stmt_needed, tac_expression)
+           )
         |> List.fold_left_map
              (fun acc (stmts, value) -> (acc @ stmts, value))
              []
       in
       let new_tmp = make_inc_tmp trktype map count_var in
       let tuple = RVTuple tac_expression in
+      let stt =
+        STacDeclaration
+          {
+            identifier = new_tmp;
+            trvalue = make_typed_tac_rvalue trktype tuple;
+          }
+      in
+      let last_stmt, return =
+        convert_if_allocated ~expr_rktype:trktype ~allocated
+          (TEIdentifier new_tmp)
+      in
+      (stmts_needed @ (last_stmt |> List.cons stt), return)
+  | REArray typed_expressions, _ ->
+      let stmts_needed, tac_expression =
+        typed_expressions
+        |> List.map (fun ty_ex ->
+               let next_allocated, stmt =
+                 create_forward_init ~map ~count_var ty_ex
+               in
+               let stmt_needed, tac_expression =
+                 convert_from_typed_expression ~discarded_value
+                   ~allocated:next_allocated ~switch_count ~cases_count ~map
+                   ~count_var ~if_count ~rprogram ty_ex
+               in
+               (stmt @ stmt_needed, tac_expression)
+           )
+        |> List.fold_left_map
+             (fun acc (stmts, value) -> (acc @ stmts, value))
+             []
+      in
+      let new_tmp = make_inc_tmp trktype map count_var in
+      let tuple = RVArray tac_expression in
       let stt =
         STacDeclaration
           {
@@ -386,7 +662,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                    ~allocated:next_allocated ~switch_count ~cases_count ~map
                    ~count_var ~if_count ~rprogram ty_ex
                in
-               (stmt @ stmt_needed, tac_expression))
+               (stmt @ stmt_needed, tac_expression)
+           )
         |> List.fold_left_map
              (fun acc (stmts, value) -> (acc @ stmts, value))
              []
@@ -426,10 +703,12 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                    ~count_var ~if_count ~rprogram ty_ex
                in
 
-               (field, (stmt @ stmt_needed, tac_expression)))
+               (field, (stmt @ stmt_needed, tac_expression))
+           )
         |> List.fold_left_map
              (fun acc (field, (stmts, tac_expr)) ->
-               (acc @ stmts, (field, tac_expr)))
+               (acc @ stmts, (field, tac_expr))
+             )
              []
       in
       let new_tmp = make_inc_tmp trktype map count_var in
@@ -461,7 +740,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                    ~allocated:next_allocated ~switch_count ~cases_count ~map
                    ~count_var ~if_count ~rprogram ty_ex
                in
-               (stmt @ stmt_needed, tac_expression))
+               (stmt @ stmt_needed, tac_expression)
+           )
         |> List.fold_left_map (fun acc (smts, value) -> (acc @ smts, value)) []
       in
       let new_tmp = make_inc_tmp trktype map count_var in
@@ -481,6 +761,48 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           (TEIdentifier new_tmp)
       in
       (stmts_needed @ (statement :: last_stmt), return)
+  | REArrayAccess { array_expr; index_expr }, _ ->
+      let index_allocated, index_stmt =
+        create_forward_init ~map ~count_var index_expr
+      in
+      let index_stmts, index_tte =
+        convert_from_typed_expression ~discarded_value
+          ~allocated:index_allocated ~switch_count ~cases_count ~map ~count_var
+          ~if_count ~rprogram index_expr
+      in
+      let index_statements = index_stmt @ index_stmts in
+
+      let array_allocated, array_stmt =
+        create_forward_init ~map ~count_var index_expr
+      in
+      let array_stmts, array_tte =
+        convert_from_typed_expression ~discarded_value
+          ~allocated:array_allocated ~switch_count ~cases_count ~map ~count_var
+          ~if_count ~rprogram array_expr
+      in
+
+      let array_statements = array_stmt @ array_stmts in
+
+      let identifier = make_inc_tmp trktype map count_var in
+      let array_index_rvalue =
+        RVArrayAccess { array_expr = array_tte; index_expr = index_tte }
+      in
+      let rv_statememnt =
+        STacDeclaration
+          {
+            identifier;
+            trvalue = make_typed_tac_rvalue trktype array_index_rvalue;
+          }
+      in
+
+      let last_stmt, return =
+        convert_if_allocated ~expr_rktype:trktype ~allocated
+          (TEIdentifier identifier)
+      in
+      let all_statements =
+        index_statements @ array_statements @ (rv_statememnt :: last_stmt)
+      in
+      (all_statements, return)
   | REFieldAcces { first_expr; field }, _ ->
       let next_allocated, stmt =
         create_forward_init ~map ~count_var first_expr
@@ -542,6 +864,21 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           (TEIdentifier new_tmp)
       in
       (statement :: last_stmt, return)
+  | REAdressof ra, _ ->
+      let new_tmp = make_inc_tmp trktype map count_var in
+      let adress = RVAdressof ra in
+      let statement =
+        STacDeclaration
+          {
+            identifier = new_tmp;
+            trvalue = make_typed_tac_rvalue trktype adress;
+          }
+      in
+      let last_stmt, return =
+        convert_if_allocated ~expr_rktype:trktype ~allocated
+          (TEIdentifier new_tmp)
+      in
+      (statement :: last_stmt, return)
   | REBin_op bin, _ ->
       let operator = Operator.bin_operantor bin in
       let ltyped, rtyped = Operator.typed_operandes bin in
@@ -575,7 +912,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       in
       ( lstamements_needed @ rstamements_needed @ lstmt @ rstmt
         @ (stamement :: last_stmt),
-        return )
+        return
+      )
   | REUn_op unary, _ ->
       let operator = Operator.unary_operator unary in
       let operand = Operator.typed_operand unary in
@@ -601,7 +939,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
   | REDeference (n, id), _ ->
       let rec loop ~origin_type ~from i =
         match i with
-        | 0 -> failwith "Never I hope: deferencement without start ??"
+        | 0 ->
+            failwith "Never I hope: deferencement without start ??"
         | 1 ->
             let rtpointee =
               KosuIrTyped.Asttyhelper.RType.rtpointee origin_type
@@ -613,7 +952,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                   identifier = new_tmp;
                   trvalue = make_typed_tac_rvalue rtpointee (RVDefer from);
                 }
-              :: [] )
+              :: []
+            )
         | _ ->
             let rtpointee =
               KosuIrTyped.Asttyhelper.RType.rtpointee origin_type
@@ -629,7 +969,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                   identifier = new_tmp;
                   trvalue = make_typed_tac_rvalue rtpointee (RVDefer from);
                 }
-              :: future_stmt )
+              :: future_stmt
+            )
       in
       let origin_type = KosuIrTyped.Asttyhelper.RType.npointer n trktype in
       let restult, stmt = loop ~origin_type ~from:id n in
@@ -667,7 +1008,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
       in
       ( lstamements_needed @ rstamements_needed @ lstmt @ rstmt
         @ (stamement :: last_stmt),
-        return )
+        return
+      )
   | REUnOperator_Function_call rkunary_op, _ ->
       let operator = Operator.unary_operator rkunary_op in
       let operand = Operator.typed_operand rkunary_op in
@@ -702,7 +1044,8 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
                    ~allocated:next_allocated ~switch_count ~cases_count ~map
                    ~count_var ~if_count ~rprogram ty_ex
                in
-               (stmt @ stmt_needed, tac_expression))
+               (stmt @ stmt_needed, tac_expression)
+           )
         |> List.fold_left_map
              (fun acc (stmts, value) -> (acc @ stmts, value))
              []
@@ -728,7 +1071,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
         "Compiler code Error: Cannot create branch without previous allocation"
 
 (**
-    convert a rkbofy to a tac body
+    convert a rkbody to a tac body
     This function mostly unfold most the nested expression (.ie if) to a more flat representation 
 *)
 and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
@@ -807,7 +1150,8 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
                     make_typed_tac_rvalue typed_expression.rktype
                       (RVExpression tac_expression);
                 }
-              :: [])
+              :: []
+            )
             body
       | RSAffection (identifier, aff_typed_expr) -> (
           (* let find_tmp = Hashtbl.find map identifier in *)
@@ -840,7 +1184,8 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
                 (forward_push @ tac_stmts
                 @ [ STacModificationField { identifier_root; fields; trvalue } ]
                 )
-                body)
+                body
+        )
       | RSDiscard discard_typed_expression ->
           let allocated, push_forward =
             create_forward_init ~map ~count_var ~rvalue:RVDiscard
@@ -853,25 +1198,25 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
           in
 
           let sizeof_discard =
-            KosuIrTyped.Asttyconvert.Sizeof.sizeof rprogram
-              discard_typed_expression.rktype
+            KosuIrTyped.Sizeof.sizeof rprogram discard_typed_expression.rktype
           in
           let () =
             match tac_rvalue.tac_expression with
             | TEIdentifier id
-              when KosuIrTyped.Asttyconvert.Sizeof.discardable_size
-                     sizeof_discard ->
+              when KosuIrTyped.Sizeof.discardable_size sizeof_discard ->
                 let () = Hashtbl.remove map id in
                 let () =
                   Hashtbl.add discarded_value id tac_rvalue.expr_rktype
                 in
                 ()
-            | _ -> ()
+            | _ ->
+                ()
           in
           add_statements_to_tac_body (push_forward @ tac_stmts)
             (convert_from_rkbody ~discarded_value ~cases_count ~previous_alloc
                ~label_name ~map ~count_var ~if_count ~rprogram ~switch_count
-               ~function_return (q, types_return))
+               ~function_return (q, types_return)
+            )
       | RSDerefAffectation (identifier, deref_typed_expr) -> (
           let allocated, forward_declaration =
             create_forward_init ~map ~count_var deref_typed_expr
@@ -897,7 +1242,8 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
                 (forward_declaration @ tac_stmts
                 @ [
                     STDerefAffectation { identifier = fst identifier; trvalue };
-                  ])
+                  ]
+                )
                 body
           | RAFField { variable = identifier_root; fields } ->
               let defere_access =
@@ -905,7 +1251,9 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
               in
               add_statements_to_tac_body
                 (forward_declaration @ tac_stmts @ [ defere_access ])
-                body))
+                body
+        )
+    )
   | [] ->
       let allocated, forward_push =
         create_forward_init ~map ~count_var types_return
@@ -916,7 +1264,8 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
       in
       let penultimate_stmt =
         match previous_alloc with
-        | None -> []
+        | None ->
+            []
         | Some identifier ->
             STacModification
               {
@@ -931,7 +1280,11 @@ and convert_from_rkbody ?(previous_alloc = None) ~label_name ~map
         label = label_name;
         body =
           ( forward_push @ stmts @ penultimate_stmt,
-            if function_return then Some expr else None );
+            if function_return then
+              Some expr
+            else
+              None
+          );
       }
 
 let rec is_in_body id { label = _; body = stmts, _ } =
@@ -959,18 +1312,37 @@ and is_in_declaration id = function
       || sw_cases
          |> List.exists (fun { switch_tac_body; assoc_bound; _ } ->
                 is_in_body id switch_tac_body
-                || assoc_bound |> List.exists (fun (_, n, _) -> n = id))
+                || assoc_bound |> List.exists (fun (_, n, _) -> n = id)
+            )
+  | STSwitchTmp
+      { tmp_statemenets_for_case; tmp_wildcard_body; tmp_switch_list; _ } ->
+      tmp_statemenets_for_case |> List.exists (is_in_declaration id)
+      || tmp_wildcard_body
+         |> Option.map (is_in_body id)
+         |> Option.value ~default:false
+      || tmp_switch_list
+         |> List.exists (fun sw ->
+                sw.tmp_assoc_bound |> List.exists (fun (_, n, _) -> n = id)
+                || sw.variants
+                   |> List.exists (fun v ->
+                          is_in_declaration id v.cmp_statement
+                          || is_in_body id sw.tmp_switch_tac_body
+                      )
+            )
   | SCases { cases; else_tac_body; _ } ->
       is_in_body id else_tac_body
       || cases
          |> List.exists (fun { statement_for_condition; tac_body; _ } ->
                 statement_for_condition |> List.exists (is_in_declaration id)
-                || is_in_body id tac_body)
+                || is_in_body id tac_body
+            )
 
 let rec reduce_variable_used_statements stmts =
   match stmts with
-  | [] -> []
-  | t :: [] -> [ t ]
+  | [] ->
+      []
+  | t :: [] ->
+      [ t ]
   | t1 :: t2 :: q -> (
       match (t1, t2) with
       (* Cancelled because of case
@@ -1024,7 +1396,9 @@ let rec reduce_variable_used_statements stmts =
         when tmp_name = id && is_tmp_var tmp_name ->
           STDerefAffectation { identifier = true_var; trvalue }
           :: reduce_variable_used_statements q
-      | _ -> t1 :: reduce_variable_used_statements (t2 :: q))
+      | _ ->
+          t1 :: reduce_variable_used_statements (t2 :: q)
+    )
 
 and reduce_variable_used_body { label; body = smtms, expr } =
   { label; body = (reduce_variable_used_statements smtms, expr) }
@@ -1077,7 +1451,8 @@ and reduce_variable_used_statement = function
                      jmp_false;
                      end_label;
                      tac_body = reduce_variable_used_body tac_body;
-                   });
+                   }
+               );
           else_tac_body = reduce_variable_used_body else_tac_body;
           exit_label;
         }
@@ -1113,12 +1488,14 @@ and reduce_variable_used_statement = function
                      sw_goto;
                      sw_exit_label;
                      switch_tac_body = reduce_variable_used_body switch_tac_body;
-                   });
+                   }
+               );
           wildcard_label;
           wildcard_body = wildcard_body |> Option.map reduce_variable_used_body;
           sw_exit_label;
         }
-  | s -> s
+  | s ->
+      s
 
 let tac_function_decl_of_rfunction current_module rprogram
     (rfunction_decl : rfunction_decl) =
@@ -1131,20 +1508,21 @@ let tac_function_decl_of_rfunction current_module rprogram
       ~function_return:true ~if_count rfunction_decl.rbody
   in
   let tac_body = reduce_variable_used_body tac_body in
-  let () =
-    map
-    |> Hashtbl.filter_map_inplace (fun key value ->
-           if is_in_body key tac_body then Some value else None)
-  in
+  (* let () =
+       map
+       |> Hashtbl.filter_map_inplace (fun key value ->
+              if is_in_body key tac_body then Some value else None)
+     in *)
   let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
 
   (* let () = locale_var |> List.map ( fun {locale_ty; locale} ->
        let s = (function Locale s -> s | Enum_Assoc_id {name; _} -> name) locale in
        Printf.sprintf "%s : %s" (s) (KosuIrTyped.Asttypprint.string_of_rktype locale_ty)
      ) |> String.concat "\n" |> Printf.printf "%s\n" in *)
-  let stack_params_count =
-    KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
-      rprogram rfunction_decl.rbody
+  let fn_call_infos =
+    KosuIrTyped.Asttyhelper.FnCallInfo.elements
+    @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
+         rprogram rfunction_decl.rbody
   in
   {
     rfn_name = rfunction_decl.rfn_name;
@@ -1152,7 +1530,7 @@ let tac_function_decl_of_rfunction current_module rprogram
     rparameters = rfunction_decl.rparameters;
     return_type = rfunction_decl.return_type;
     tac_body;
-    stack_params_count;
+    fn_call_infos;
     locale_var;
     discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
   }
@@ -1173,12 +1551,17 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
       let () =
         map
         |> Hashtbl.filter_map_inplace (fun key value ->
-               if is_in_body key tac_body then Some value else None)
+               if is_in_body key tac_body then
+                 Some value
+               else
+                 None
+           )
       in
       let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
-      let stack_params_count =
-        KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
-          rprogram kbody
+      let fn_call_infos =
+        KosuIrTyped.Asttyhelper.FnCallInfo.elements
+        @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body
+             current_module rprogram kbody
       in
       TacUnary
         {
@@ -1187,7 +1570,7 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
           rfield;
           return_type;
           tac_body;
-          stack_params_count;
+          fn_call_infos;
           locale_var;
           discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
         }
@@ -1209,12 +1592,17 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
       let () =
         map
         |> Hashtbl.filter_map_inplace (fun key value ->
-               if is_in_body key tac_body then Some value else None)
+               if is_in_body key tac_body then
+                 Some value
+               else
+                 None
+           )
       in
       let locale_var = map |> Hashtbl.to_seq_values |> List.of_seq in
-      let stack_params_count =
-        KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body current_module
-          rprogram kbody
+      let fn_call_infos =
+        KosuIrTyped.Asttyhelper.FnCallInfo.elements
+        @@ KosuIrTyped.Asttyhelper.RProgram.stack_parameters_in_body
+             current_module rprogram kbody
       in
       TacBinary
         {
@@ -1223,27 +1611,33 @@ let tac_operator_decl_of_roperator_decl current_module rprogram = function
           rfields;
           return_type;
           tac_body;
-          stack_params_count;
+          fn_call_infos;
           locale_var;
           discarded_values = discarded_value |> Hashtbl.to_seq |> List.of_seq;
         }
 
 let rec tac_module_node_from_rmodule_node current_module ?(dump_ast = false)
     rprogram = function
-  | RNExternFunc f -> TNExternFunc f
-  | RNSyscall f -> TNSyscall f
-  | RNStruct s -> TNStruct s
-  | RNEnum s -> TNEnum s
-  | RNConst s -> TNConst s
+  | RNExternFunc f ->
+      TNExternFunc f
+  | RNSyscall f ->
+      TNSyscall f
+  | RNStruct s ->
+      TNStruct s
+  | RNEnum s ->
+      TNEnum s
+  | RNConst s ->
+      TNConst s
   | RNFunction f ->
       let tmp = tac_function_decl_of_rfunction current_module rprogram f in
-
+      (* let dump_ast = true || dump_ast in *)
       let () =
         if dump_ast then
-          Printf.eprintf "Locales = %s\nBody:\n%s\n"
+          Printf.eprintf "fname = %s\nLocales = %s\nBody:\n%s\n%!" f.rfn_name
             (tmp.locale_var
             |> List.map Asttacpprint.string_of_typed_locale
-            |> String.concat ", ")
+            |> String.concat ", "
+            )
             (Asttacpprint.string_of_label_tac_body tmp.tac_body)
       in
       TNFunction tmp
@@ -1258,7 +1652,9 @@ and tac_module_path_of_rmodule_path ?(dump_ast = false) rprogram
       TacModule
         (module_nodes
         |> List.map (fun node ->
-               tac_module_node_from_rmodule_node ~dump_ast path rprogram node));
+               tac_module_node_from_rmodule_node ~dump_ast path rprogram node
+           )
+        );
   }
 
 and tac_program_of_rprogram ?(dump_ast = false) (rprogram : rprogram) :
@@ -1270,4 +1666,5 @@ and tac_program_of_rprogram ?(dump_ast = false) (rprogram : rprogram) :
            tac_module_path =
              tac_module_path_of_rmodule_path ~dump_ast rprogram rmodule_path;
            rprogram;
-         })
+         }
+     )

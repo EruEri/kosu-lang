@@ -58,22 +58,33 @@ module Make (OrderedType : OrderedType) = struct
     info
     |> List.map (fun e ->
            let in_element, _ = e in
-           if OrderedType.compare in_element elt = 0 then (in_element, true)
-           else e)
+           if OrderedType.compare in_element elt = 0 then
+             (in_element, true)
+           else
+             e
+       )
 
   let of_list l : liveness_info = l
   let to_list l : (elt * bool) list = l
   let elements : liveness_info -> elt list = List.map fst
 
   let alive_elements : liveness_info -> elt list =
-    List.filter_map (fun (elt, alive) -> if alive then Some elt else None)
+    List.filter_map (fun (elt, alive) ->
+        if alive then
+          Some elt
+        else
+          None
+    )
 
   let set_dead (elt : elt) info : liveness_info =
     info
     |> List.map (fun e ->
            let in_element, _ = e in
-           if OrderedType.compare in_element elt = 0 then (in_element, false)
-           else e)
+           if OrderedType.compare in_element elt = 0 then
+             (in_element, false)
+           else
+             e
+       )
 
   let set_dead_of_list (elts : elt list) info : liveness_info =
     elts |> List.fold_left (fun new_info var -> set_dead var new_info) info

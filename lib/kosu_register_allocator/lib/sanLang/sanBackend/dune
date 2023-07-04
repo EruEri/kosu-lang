@@ -15,9 +15,14 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
+(env
+ (san
+  (flags
+   (:standard -warn-error +A))))
+
 (library
  (name sanBackend)
  (enabled_if
   (= %{profile} san))
  (modules sanBackend)
- (libraries sanTyped sanCfg sanAarch64))
+ (libraries sanTyped sanAarch64))

@@ -1,7 +1,6 @@
 _build
 *.S
 .DS_Store
-*.c
 size
 hello*
 .vscode

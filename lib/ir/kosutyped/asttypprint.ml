@@ -21,61 +21,108 @@ open KosuFrontend.Ast
 open KosuFrontend.Pprint
 
 let symbole_of_roperator = function
-  | RUnary { op; _ } -> ( op |> function PNot -> "!" | PUMinus -> "(-.)")
+  | RUnary { op; _ } -> (
+      op |> function PNot -> "!" | PUMinus -> "(-.)"
+    )
   | RBinary { op; _ } -> (
       match op with
       | ParBinOp op -> (
           match op with
-          | Add -> "+"
-          | Minus -> "-"
-          | Mult -> "*"
-          | Div -> "/"
-          | Modulo -> "%"
-          | BitwiseAnd -> "&"
-          | BitwiseOr -> "|"
-          | BitwiseXor -> "^"
-          | ShiftLeft -> "<<"
-          | ShiftRight -> ">>"
-          | Spaceship -> "<=>"
-          | Equal -> "==")
-      | ParserDiff -> "!="
-      | ParserInfEq -> "<="
-      | ParserSupEq -> ">="
-      | ParserInf -> "<"
-      | ParserSup -> ">")
+          | Add ->
+              "+"
+          | Minus ->
+              "-"
+          | Mult ->
+              "*"
+          | Div ->
+              "/"
+          | Modulo ->
+              "%"
+          | BitwiseAnd ->
+              "&"
+          | BitwiseOr ->
+              "|"
+          | BitwiseXor ->
+              "^"
+          | ShiftLeft ->
+              "<<"
+          | ShiftRight ->
+              ">>"
+          | Spaceship ->
+              "<=>"
+          | Equal ->
+              "=="
+        )
+      | ParserDiff ->
+          "!="
+      | ParserInfEq ->
+          "<="
+      | ParserSupEq ->
+          ">="
+      | ParserInf ->
+          "<"
+      | ParserSup ->
+          ">"
+    )
 
 let name_of_roperator = function
-  | RUnary { op; _ } -> ( op |> function PNot -> "not" | PUMinus -> "unminus")
+  | RUnary { op; _ } -> (
+      op |> function PNot -> "not" | PUMinus -> "unminus"
+    )
   | RBinary { op; _ } -> (
       match op with
       | ParBinOp op -> (
           match op with
-          | Add -> "add"
-          | Minus -> "minus"
-          | Mult -> "mult"
-          | Div -> "dic"
-          | Modulo -> "module"
-          | BitwiseAnd -> "bitwiseand"
-          | BitwiseOr -> "bitwiseor"
-          | BitwiseXor -> "botwisexor"
-          | ShiftLeft -> "shiftleft"
-          | ShiftRight -> "shiftright"
-          | Spaceship -> "spaceshift"
-          | Equal -> "equal")
-      | ParserDiff -> "diff"
-      | ParserInfEq -> "infeq"
-      | ParserSupEq -> "supeq"
-      | ParserInf -> "inf"
-      | ParserSup -> "sup")
+          | Add ->
+              "add"
+          | Minus ->
+              "minus"
+          | Mult ->
+              "mult"
+          | Div ->
+              "dic"
+          | Modulo ->
+              "module"
+          | BitwiseAnd ->
+              "bitwiseand"
+          | BitwiseOr ->
+              "bitwiseor"
+          | BitwiseXor ->
+              "botwisexor"
+          | ShiftLeft ->
+              "shiftleft"
+          | ShiftRight ->
+              "shiftright"
+          | Spaceship ->
+              "spaceshift"
+          | Equal ->
+              "equal"
+        )
+      | ParserDiff ->
+          "diff"
+      | ParserInfEq ->
+          "infeq"
+      | ParserSupEq ->
+          "supeq"
+      | ParserInf ->
+          "inf"
+      | ParserSup ->
+          "sup"
+    )
 
 let string_name_of_extended_parser_binary = function
   | ParBinOp op ->
       KosuFrontend.Asthelper.ParserOperator.string_name_of_parser_binary op
-  | ParserDiff -> "diff"
-  | ParserInfEq -> "infeq"
-  | ParserSupEq -> "supeq"
-  | ParserInf -> "inf"
-  | ParserSup -> "sup"
+  | ParserDiff ->
+      "diff"
+  | ParserInfEq ->
+      "infeq"
+  | ParserSupEq ->
+      "supeq"
+  | ParserInf ->
+      "inf"
+  | ParserSup ->
+      "sup"
 
 let rec string_of_rktype = function
   | RTParametric_identifier { module_path; parametrics_type; name } ->
@@ -84,54 +131,85 @@ let rec string_of_rktype = function
         module_path name
   | RTType_Identifier { module_path; name } ->
       sprintf "%s%s"
-        (if module_path = "" then "" else sprintf "%s::" module_path)
+        ( if module_path = "" then
+            ""
+          else
+            sprintf "%s::" module_path
+        )
         name
   | RTInteger (sign, size) ->
       sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
-  | RTFloat fsize -> sprintf "f%s" (string_of_fsize fsize)
-  | RTPointer ktype -> sprintf "*%s" (string_of_rktype ktype)
+  | RTFloat fsize ->
+      sprintf "f%s" (string_of_fsize fsize)
+  | RTPointer ktype ->
+      sprintf "*%s" (string_of_rktype ktype)
   | RTTuple ktypes ->
       sprintf "(%s)" (ktypes |> List.map string_of_rktype |> String.concat ", ")
   | RTFunction (parameters, r_type) ->
       sprintf "(%s) -> %s"
         (parameters |> List.map string_of_rktype |> String.concat ", ")
         (string_of_rktype r_type)
-  | RTString_lit -> "stringl"
-  | RTOrdered -> "order"
-  | RTBool -> "bool"
-  | RTUnit -> "unit"
-  | RTChar -> "char"
-  | RTUnknow -> "unknwon"
+  | RTArray { size; rktype } ->
+      sprintf "array(%Lu, %s)" size @@ string_of_rktype rktype
+  | RTString_lit ->
+      "stringl"
+  | RTOrdered ->
+      "order"
+  | RTBool ->
+      "bool"
+  | RTUnit ->
+      "unit"
+  | RTChar ->
+      "char"
+  | RTUnknow ->
+      "unknwon"
 
-let asm_module_path_name = String.map (fun c -> if c = ':' then '_' else c)
+let asm_module_path_name =
+  String.map (fun c ->
+      if c = ':' then
+        '_'
+      else
+        c
+  )
 
 let rec string_of_label_rktype = function
   | RTParametric_identifier { module_path; parametrics_type; name } ->
       sprintf "%s_%s_%s"
         (parametrics_type
         |> List.map string_of_label_rktype
-        |> String.concat "__")
+        |> String.concat "__"
+        )
         (asm_module_path_name module_path)
         name
   | RTType_Identifier { module_path; name } ->
       sprintf "%s%s" (asm_module_path_name module_path) name
   | RTInteger (sign, size) ->
       sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
-  | RTFloat fsize -> sprintf "f%s" (string_of_fsize fsize)
-  | RTPointer ktype -> sprintf "ptr_%s" (string_of_rktype ktype)
+  | RTFloat fsize ->
+      sprintf "f%s" (string_of_fsize fsize)
+  | RTPointer ktype ->
+      sprintf "ptr_%s" (string_of_rktype ktype)
   | RTTuple ktypes ->
       sprintf "(%s)"
         (ktypes |> List.map string_of_label_rktype |> String.concat "_")
+  | RTArray { size; rktype } ->
+      sprintf "array_%Lu_%s_" size @@ string_of_rktype rktype
   | RTFunction (parameters, r_type) ->
       sprintf "(%s) -> %s"
         (parameters |> List.map string_of_label_rktype |> String.concat "_")
         (string_of_label_rktype r_type)
-  | RTString_lit -> "stringl"
-  | RTOrdered -> "order"
-  | RTBool -> "bool"
-  | RTUnit -> "unit"
-  | RTChar -> "char"
-  | RTUnknow -> "unknwon"
+  | RTString_lit ->
+      "stringl"
+  | RTOrdered ->
+      "order"
+  | RTBool ->
+      "bool"
+  | RTUnit ->
+      "unit"
+  | RTChar ->
+      "char"
+  | RTUnknow ->
+      "unknwon"
 
 let rec string_of_rkbody = function
   | (statements : rkstatement list), (expr : typed_expression) ->
@@ -140,21 +218,27 @@ let rec string_of_rkbody = function
         (string_of_typed_expression expr)
 
 and string_of_raffacted_value = function
-  | RAFVariable (s, _) -> s
+  | RAFVariable (s, _) ->
+      s
   | RAFField { variable = variable, _; fields } ->
       sprintf "%s.%s" variable (fields |> String.concat ".")
 
 and string_of_rkstatement = function
   | RSDeclaration { is_const; variable_name; typed_expression } ->
       sprintf "%s %s : %s;"
-        (if is_const then "const" else "var")
+        ( if is_const then
+            "const"
+          else
+            "var"
+        )
         variable_name
         (typed_expression |> string_of_typed_expression)
   | RSAffection (id, expression) ->
       sprintf "%s = %s;"
         (string_of_raffacted_value id)
         (expression |> string_of_typed_expression)
-  | RSDiscard expr -> sprintf "discard %s;" (string_of_typed_expression expr)
+  | RSDiscard expr ->
+      sprintf "discard %s;" (string_of_typed_expression expr)
   | RSDerefAffectation (id, exprssion) ->
       sprintf "*%s = %s;"
         (string_of_raffacted_value id)
@@ -166,24 +250,43 @@ and string_of_typed_expression { rktype; rexpression } =
     (string_of_rktype rktype)
 
 and string_of_rkexpression = function
-  | REmpty -> "empty"
-  | RTrue -> "true"
-  | RFalse -> "false"
-  | RENullptr -> "nullptr"
-  | RECmpLess -> "lt"
-  | RECmpEqual -> "eq"
-  | RECmpGreater -> "gt"
-  | REChar c -> Printf.sprintf "\'%c\'" c
+  | REmpty ->
+      "empty"
+  | RTrue ->
+      "true"
+  | RFalse ->
+      "false"
+  | RENullptr ->
+      "nullptr"
+  | RECmpLess ->
+      "lt"
+  | RECmpEqual ->
+      "eq"
+  | RECmpGreater ->
+      "gt"
+  | REChar c ->
+      Printf.sprintf "\'%c\'" c
   | REInteger (sign, _, value) -> (
       match sign with
-      | Signed -> sprintf "%Ld" value
-      | Unsigned -> sprintf "%Lu" value)
-  | REFloat (_, f) -> string_of_float f
-  | REBin_op bin | REBinOperator_Function_call bin -> string_of_rkbin_op bin
-  | REUn_op un | REUnOperator_Function_call un -> string_of_rkunary_op un
-  | RESizeof rktype -> sprintf "sizeof(%s)" (string_of_rktype rktype)
-  | REstring s -> Printf.sprintf "\"%s\"" s
-  | REAdress x -> sprintf "&%s" x
+      | Signed ->
+          sprintf "%Ld" value
+      | Unsigned ->
+          sprintf "%Lu" value
+    )
+  | REFloat (_, f) ->
+      string_of_float f
+  | REBin_op bin | REBinOperator_Function_call bin ->
+      string_of_rkbin_op bin
+  | REUn_op un | REUnOperator_Function_call un ->
+      string_of_rkunary_op un
+  | RESizeof rktype ->
+      sprintf "sizeof(%s)" (string_of_rktype rktype)
+  | REAdressof raffacted_value ->
+      sprintf "addressof(%s)" @@ string_of_raffacted_value raffacted_value
+  | REstring s ->
+      Printf.sprintf "\"%s\"" s
+  | REAdress x ->
+      sprintf "&%s" x
   | REDeference (indirection, id) ->
       sprintf "%s%s" (Util.string_of_chars indirection '*') id
   | REIdentifier { modules_path; identifier }
@@ -195,23 +298,38 @@ and string_of_rkexpression = function
       sprintf "%s.%s" (string_of_typed_expression first_expr) field
   | REStruct { modules_path; struct_name; fields } ->
       sprintf "%s%s { %s }"
-        (if modules_path = "" then "" else sprintf "%s::" modules_path)
+        ( if modules_path = "" then
+            ""
+          else
+            sprintf "%s::" modules_path
+        )
         struct_name
         (fields
         |> List.map (fun (id, expr) ->
-               sprintf "%s: %s" id (string_of_typed_expression expr))
-        |> String.concat ", ")
+               sprintf "%s: %s" id (string_of_typed_expression expr)
+           )
+        |> String.concat ", "
+        )
   | REEnum { modules_path; enum_name; variant; assoc_exprs } ->
       sprintf "%s%s.%s%s"
         (Util.string_of_module_path modules_path)
         (enum_name |> Option.fold ~none:" " ~some:Fun.id)
         variant
-        (if assoc_exprs = [] then ""
-         else
-           sprintf "(%s)"
-             (assoc_exprs
-             |> List.map string_of_typed_expression
-             |> String.concat ", "))
+        ( if assoc_exprs = [] then
+            ""
+          else
+            sprintf "(%s)"
+              (assoc_exprs
+              |> List.map string_of_typed_expression
+              |> String.concat ", "
+              )
+        )
+  | REArrayAccess { array_expr; index_expr } ->
+      sprintf "%s[%s]" (string_of_typed_expression array_expr)
+      @@ string_of_typed_expression index_expr
+  | REArray exprs ->
+      sprintf "[%s]"
+        (exprs |> List.map string_of_typed_expression |> String.concat ", ")
   | RETuple exprs ->
       sprintf "(%s)"
         (exprs |> List.map string_of_typed_expression |> String.concat ", ")
@@ -222,8 +340,10 @@ and string_of_rkexpression = function
         (generics_resolver
         |> Option.map (fun kts ->
                sprintf "::<%s>"
-                 (kts |> List.map string_of_rktype |> String.concat ", "))
-        |> Option.value ~default:"")
+                 (kts |> List.map string_of_rktype |> String.concat ", ")
+           )
+        |> Option.value ~default:""
+        )
         (parameters |> List.map string_of_typed_expression |> String.concat ", ")
   | REIf (expression, if_body, else_body) ->
       sprintf "if %s %s else %s"
@@ -240,8 +360,10 @@ and string_of_rkexpression = function
         |> List.map (fun (expr, kbody) ->
                sprintf "%s => %s"
                  (expr |> string_of_typed_expression)
-                 (string_of_rkbody kbody))
-        |> String.concat "\n")
+                 (string_of_rkbody kbody)
+           )
+        |> String.concat "\n"
+        )
         (string_of_rkbody else_case)
   | RESwitch { rexpression; cases; wildcard_case } ->
       sprintf "switch %s {%s\n%s}"
@@ -250,11 +372,16 @@ and string_of_rkexpression = function
         |> List.map (fun (sc, _, kbody) ->
                sprintf "%s => %s"
                  (sc |> List.map string_of_rswitch_case |> String.concat ", ")
-                 (string_of_rkbody kbody))
-        |> String.concat "\n")
-        (match wildcard_case with
-        | None -> ""
-        | Some kbody -> sprintf "_ => %s" (string_of_rkbody kbody))
+                 (string_of_rkbody kbody)
+           )
+        |> String.concat "\n"
+        )
+        ( match wildcard_case with
+        | None ->
+            ""
+        | Some kbody ->
+            sprintf "_ => %s" (string_of_rkbody kbody)
+        )
   | REBuiltin_Function_call { fn_name; parameters } ->
       sprintf "@%s(%s)"
         (KosuFrontend.Asthelper.Builtin_Function.fn_name_of_built_in_fn fn_name)
@@ -339,33 +466,40 @@ and string_of_rkbin_op = function
         (string_of_typed_expression rhs)
 
 and string_of_rkunary_op = function
-  | RUMinus expr -> sprintf "-(%s)" (string_of_typed_expression expr)
-  | RUNot expr -> sprintf "!(%s)" (string_of_typed_expression expr)
+  | RUMinus expr ->
+      sprintf "-(%s)" (string_of_typed_expression expr)
+  | RUNot expr ->
+      sprintf "!(%s)" (string_of_typed_expression expr)
 
 and string_of_rswitch_case = function
-  | RSC_Enum_Identifier { variant } -> "." ^ variant
+  | RSC_Enum_Identifier { variant } ->
+      "." ^ variant
   | RSC_Enum_Identifier_Assoc { variant; assoc_ids } ->
       sprintf "%s(%s)" variant
         (assoc_ids
         |> List.map (Option.fold ~none:"_" ~some:Fun.id)
-        |> String.concat ",")
+        |> String.concat ","
+        )
 
 let string_of_rfunc_decl (function_decl : rfunction_decl) =
   sprintf "fn %s%s(%s)%s%s" function_decl.rfn_name
-    (if function_decl.generics = [] then ""
-     else sprintf "<%s>" (function_decl.generics |> String.concat ", "))
+    ( if function_decl.generics = [] then
+        ""
+      else
+        sprintf "<%s>" (function_decl.generics |> String.concat ", ")
+    )
     (function_decl.rparameters
-    |> List.map (fun (id, ktype) ->
-           sprintf "%s: %s" id (string_of_rktype ktype))
-    |> String.concat ", ")
+    |> List.map (fun (id, ktype) -> sprintf "%s: %s" id (string_of_rktype ktype))
+    |> String.concat ", "
+    )
     (function_decl.return_type |> string_of_rktype)
     (function_decl.rbody |> string_of_rkbody)
 
 let string_of_rtrue_func_decl (function_decl : rtrue_function_decl) =
   sprintf "fn %s(%s)%s%s" function_decl.rfn_name
     (function_decl.rparameters
-    |> List.map (fun (id, ktype) ->
-           sprintf "%s: %s" id (string_of_rktype ktype))
-    |> String.concat ", ")
+    |> List.map (fun (id, ktype) -> sprintf "%s: %s" id (string_of_rktype ktype))
+    |> String.concat ", "
+    )
     (function_decl.return_type |> string_of_rktype)
     (function_decl.rbody |> string_of_rkbody)

@@ -22,10 +22,14 @@ open Printf
 let char_of_signedness = function Signed -> 's' | Unsigned -> 'u'
 
 let string_of_isize = function
-  | I8 -> "8"
-  | I16 -> "16"
-  | I32 -> "32"
-  | I64 -> "64"
+  | I8 ->
+      "8"
+  | I16 ->
+      "16"
+  | I32 ->
+      "32"
+  | I64 ->
+      "64"
 
 let string_of_fsize = function F32 -> "32" | F64 -> "64"
 
@@ -35,18 +39,31 @@ let located_symbole_of_operator = function
   | Binary { op; _ } ->
       op
       |> Position.map (function
-           | Add -> "+"
-           | Minus -> "-"
-           | Mult -> "*"
-           | Div -> "/"
-           | Modulo -> "%"
-           | BitwiseAnd -> "&"
-           | BitwiseOr -> "|"
-           | BitwiseXor -> "^"
-           | ShiftLeft -> "<<"
-           | ShiftRight -> ">>"
-           | Spaceship -> "<=>"
-           | Equal -> "==")
+           | Add ->
+               "+"
+           | Minus ->
+               "-"
+           | Mult ->
+               "*"
+           | Div ->
+               "/"
+           | Modulo ->
+               "%"
+           | BitwiseAnd ->
+               "&"
+           | BitwiseOr ->
+               "|"
+           | BitwiseXor ->
+               "^"
+           | ShiftLeft ->
+               "<<"
+           | ShiftRight ->
+               ">>"
+           | Spaceship ->
+               "<=>"
+           | Equal ->
+               "=="
+           )
 
 let string_of_position_error { start_position; end_position } =
   let start_position_line, start_position_column =
@@ -57,8 +74,11 @@ let string_of_position_error { start_position; end_position } =
   in
   let column_string =
     Printf.sprintf "%d%s" start_position_column
-      (if start_position_column = end_position_column then ""
-       else " - " ^ string_of_int end_position_column)
+      ( if start_position_column = end_position_column then
+          ""
+        else
+          " - " ^ string_of_int end_position_column
+      )
   in
   if start_position_line = end_position_line then
     Printf.sprintf "Line %d, Characters %s" start_position_line column_string
@@ -69,46 +89,72 @@ let string_of_position_error { start_position; end_position } =
 let string_of_located_error a b =
   Printf.sprintf "%s : %s" (string_of_position_error a.position) b
 
+let string_of_positioned_error a b =
+  Printf.sprintf "%s : %s" (string_of_position_error a) b
+
 let rec string_of_ktype = function
   | TParametric_identifier { module_path; parametrics_type; name } ->
       sprintf "%s %s(%s)" module_path.v name.v
         (parametrics_type
         |> List.map (fun s -> string_of_ktype s.v)
-        |> String.concat ", ")
+        |> String.concat ", "
+        )
   | TType_Identifier { module_path; name } ->
       sprintf "%s%s"
-        (if module_path.v = "" then "" else sprintf "%s::" module_path.v)
+        ( if module_path.v = "" then
+            ""
+          else
+            sprintf "%s::" module_path.v
+        )
         name.v
-  | TInteger (sign, size) ->
+  | TInteger (Some (sign, size)) ->
       sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
-  | TFloat fsize -> sprintf "f%s" (string_of_fsize fsize)
-  | TPointer ktype -> sprintf "*%s" (string_of_ktype ktype.v)
+  | TInteger None ->
+      sprintf "s32(default)"
+  | TFloat fsize ->
+      sprintf "f%s"
+        (string_of_fsize
+        @@ Option.value ~default:Ast.Type.default_float_info fsize
+        )
+  | TPointer ktype ->
+      sprintf "*%s" (string_of_ktype ktype.v)
   | TTuple ktypes ->
       sprintf "(%s)"
         (ktypes |> List.map (fun s -> string_of_ktype s.v) |> String.concat ", ")
+  | TArray ktypes ->
+      sprintf "array(%Ld, %s)" ktypes.size.v (string_of_ktype ktypes.ktype.v)
   | TFunction (parameters, r_type) ->
       sprintf "(%s) -> %s"
         (parameters
         |> List.map (fun s -> string_of_ktype s.v)
-        |> String.concat ", ")
+        |> String.concat ", "
+        )
         (string_of_ktype r_type.v)
-  | TString_lit -> "stringl"
-  | TOredered -> "order"
-  | TChar -> "char"
-  | TBool -> "bool"
-  | TUnit -> "unit"
-  | TUnknow -> "unknow"
+  | TString_lit ->
+      "stringl"
+  | TOredered ->
+      "order"
+  | TChar ->
+      "char"
+  | TBool ->
+      "bool"
+  | TUnit ->
+      "unit"
+  | TUnknow ->
+      "unknow"
 
 let rec string_of_kbody = function
   | (statements : kstatement location list), (expr : kexpression location) ->
       sprintf "{\n  %s  %s\n}"
         (statements
         |> List.map (fun s -> s |> value |> string_of_kstatement)
-        |> String.concat "\n  ")
+        |> String.concat "\n  "
+        )
         (string_of_kexpression expr.v)
 
 and string_of_affected_value = function
-  | AFVariable s -> s.v
+  | AFVariable s ->
+      s.v
   | AFField { variable; fields } ->
       sprintf "%s.%s" variable.v
         (fields |> List.map Position.value |> String.concat ".")
@@ -116,47 +162,75 @@ and string_of_affected_value = function
 and string_of_kstatement = function
   | SDeclaration { is_const; variable_name; explicit_type; expression } ->
       sprintf "%s %s : %s = %s;"
-        (if is_const then "const" else "var")
+        ( if is_const then
+            "const"
+          else
+            "var"
+        )
         variable_name.v
         (explicit_type
         |> Option.map (fun kt -> string_of_ktype kt.v)
-        |> Option.value ~default:"")
+        |> Option.value ~default:""
+        )
         (expression.v |> string_of_kexpression)
   | SAffection (id, expression) ->
       sprintf "%s = %s;"
         (string_of_affected_value id)
         (expression.v |> string_of_kexpression)
-  | SDiscard expr -> sprintf "discard %s;" (string_of_kexpression expr.v)
+  | SDiscard expr ->
+      sprintf "discard %s;" (string_of_kexpression expr.v)
   | SDerefAffectation (id, exprssion) ->
       sprintf "*%s = %s;"
         (string_of_affected_value id)
         (string_of_kexpression exprssion.v)
 
 and string_of_kexpression = function
-  | Empty -> "empty"
-  | True -> "true"
-  | False -> "false"
-  | ENullptr -> "nullptr"
-  | ECmpEqual -> "eq"
-  | ECmpGreater -> "gt"
-  | ECmpLess -> "lt"
-  | EChar c -> Printf.sprintf "\'%c\'" c
-  | EInteger (sign, _, value) -> (
+  | Empty ->
+      "empty"
+  | True ->
+      "true"
+  | False ->
+      "false"
+  | ENullptr ->
+      "nullptr"
+  | ECmpEqual ->
+      "eq"
+  | ECmpGreater ->
+      "gt"
+  | ECmpLess ->
+      "lt"
+  | EChar c ->
+      Printf.sprintf "\'%c\'" c
+  | EInteger (Some (sign, _), value) -> (
       match sign with
-      | Signed -> sprintf "%Ld" value
-      | Unsigned -> sprintf "%Lu" value)
-  | EFloat (_, f) -> string_of_float f
-  | EBin_op bin -> string_of_kbin_op bin
-  | EUn_op un -> string_of_kunary_op un
+      | Signed ->
+          sprintf "%Ld" value
+      | Unsigned ->
+          sprintf "%Lu" value
+    )
+  | EInteger (None, value) ->
+      sprintf "%Ld" value
+  | EFloat (_, f) ->
+      string_of_float f
+  | EBin_op bin ->
+      string_of_kbin_op bin
+  | EUn_op un ->
+      string_of_kunary_op un
   | ESizeof e ->
       let s =
         match e with
-        | Either.Left t -> string_of_ktype t.v
-        | Either.Right expr -> string_of_kexpression expr.v
+        | Either.Left t ->
+            string_of_ktype t.v
+        | Either.Right expr ->
+            string_of_kexpression expr.v
       in
       sprintf "sizeof(%s)" s
-  | EString s -> s
-  | EAdress x -> sprintf "&%s" x.v
+  | EString s ->
+      s
+  | EAdressof affected_value ->
+      sprintf "adrressof(%s)" @@ string_of_affected_value affected_value
+  | EAdress x ->
+      sprintf "&%s" x.v
   | EDeference (indirection, id) ->
       sprintf "%s%s" (Util.string_of_chars indirection '*') id.v
   | EIdentifier { modules_path; identifier }
@@ -166,34 +240,53 @@ and string_of_kexpression = function
       sprintf "%s.%s" (string_of_kexpression first_expr.v) field.v
   | ETupleAccess { first_expr; index } ->
       sprintf "%s.%Lu" (string_of_kexpression first_expr.v) index.v
+  | EArrayAccess { array_expr; index_expr } ->
+      sprintf "%s[%s]" (string_of_kexpression array_expr.v)
+      @@ string_of_kexpression index_expr.v
   | EStruct { modules_path; struct_name; fields } ->
       sprintf "%s%s { %s }"
-        (if modules_path.v = "" then "" else sprintf "%s::" modules_path.v)
+        ( if modules_path.v = "" then
+            ""
+          else
+            sprintf "%s::" modules_path.v
+        )
         struct_name.v
         (fields
         |> List.map (fun (id, expr) ->
-               sprintf "%s: %s" id.v (string_of_kexpression expr.v))
-        |> String.concat ",")
+               sprintf "%s: %s" id.v (string_of_kexpression expr.v)
+           )
+        |> String.concat ","
+        )
   | EEnum { modules_path; enum_name; variant; assoc_exprs } ->
       sprintf "%s%s.%s%s"
         (Util.string_of_module_path modules_path.v)
         (enum_name |> Option.fold ~none:" " ~some:Position.value)
         variant.v
-        (if assoc_exprs = [] then ""
-         else
-           sprintf "(%s)"
-             (assoc_exprs |> List.map Position.value
-             |> List.map string_of_kexpression
-             |> String.concat ", "))
+        ( if assoc_exprs = [] then
+            ""
+          else
+            sprintf "(%s)"
+              (assoc_exprs |> List.map Position.value
+              |> List.map string_of_kexpression
+              |> String.concat ", "
+              )
+        )
   | EWhile (condition, body) ->
       sprintf "while (%s) %s"
         (string_of_kexpression condition.v)
         (string_of_kbody body)
+  | EArray exprs ->
+      sprintf "[%s]"
+        (exprs |> List.map Position.value
+        |> List.map string_of_kexpression
+        |> String.concat ", "
+        )
   | ETuple exprs ->
       sprintf "(%s)"
         (exprs |> List.map Position.value
         |> List.map string_of_kexpression
-        |> String.concat ", ")
+        |> String.concat ", "
+        )
   | EFunction_call { modules_path; generics_resolver; fn_name; parameters } ->
       sprintf "%s%s%s(%s)"
         (Util.string_of_module_path modules_path.v)
@@ -203,24 +296,32 @@ and string_of_kexpression = function
                sprintf "::<%s>"
                  (kts
                  |> List.map (fun gkt -> gkt |> value |> string_of_ktype)
-                 |> String.concat ", "))
-        |> Option.value ~default:"")
+                 |> String.concat ", "
+                 )
+           )
+        |> Option.value ~default:""
+        )
         (parameters |> List.map Position.value
         |> List.map string_of_kexpression
-        |> String.concat ", ")
+        |> String.concat ", "
+        )
   | EIf (expression, if_body, else_body) ->
       sprintf "if %s %s else %s"
         (string_of_kexpression expression.v)
         (string_of_kbody if_body)
         (string_of_kbody else_body)
+  | EMatch _ ->
+      "match dummy"
   | ECases { cases; else_case } ->
       sprintf "cases {\n %s else => %s}"
         (cases
         |> List.map (fun (expr, kbody) ->
                sprintf "%s => %s"
                  (expr.v |> string_of_kexpression)
-                 (string_of_kbody kbody))
-        |> String.concat "\n")
+                 (string_of_kbody kbody)
+           )
+        |> String.concat "\n"
+        )
         (string_of_kbody else_case)
   | ESwitch { expression; cases; wildcard_case } ->
       sprintf "switch %s {%s\n%s}"
@@ -229,16 +330,22 @@ and string_of_kexpression = function
         |> List.map (fun (sc, kbody) ->
                sprintf "%s => %s"
                  (sc |> List.map string_of_switch_case |> String.concat ", ")
-                 (string_of_kbody kbody))
-        |> String.concat "\n")
-        (match wildcard_case with
-        | None -> ""
-        | Some kbody -> sprintf "_ => %s" (string_of_kbody kbody))
+                 (string_of_kbody kbody)
+           )
+        |> String.concat "\n"
+        )
+        ( match wildcard_case with
+        | None ->
+            ""
+        | Some kbody ->
+            sprintf "_ => %s" (string_of_kbody kbody)
+        )
   | EBuiltin_Function_call { fn_name; parameters } ->
       sprintf "@%s(%s)" fn_name.v
         (parameters |> List.map Position.value
         |> List.map string_of_kexpression
-        |> String.concat ", ")
+        |> String.concat ", "
+        )
 
 and string_of_kbin_op = function
   | BAdd (lhs, rhs) ->
@@ -319,16 +426,20 @@ and string_of_kbin_op = function
         (string_of_kexpression rhs.v)
 
 and string_of_kunary_op = function
-  | UMinus expr -> sprintf "-(%s)" (string_of_kexpression expr.v)
-  | UNot expr -> sprintf "!(%s)" (string_of_kexpression expr.v)
+  | UMinus expr ->
+      sprintf "-(%s)" (string_of_kexpression expr.v)
+  | UNot expr ->
+      sprintf "!(%s)" (string_of_kexpression expr.v)
 
 and string_of_switch_case = function
-  | SC_Enum_Identifier { variant } -> "." ^ variant.v
+  | SC_Enum_Identifier { variant } ->
+      "." ^ variant.v
   | SC_Enum_Identifier_Assoc { variant; assoc_ids } ->
       sprintf "%s(%s)" variant.v
         (assoc_ids
         |> List.map (Option.fold ~none:"_" ~some:Position.value)
-        |> String.concat ",")
+        |> String.concat ","
+        )
 
 let string_of_enum_variant (variant : string * Ast.ktype list) =
   let name, types = variant in
@@ -342,7 +453,8 @@ let string_of_enum_decl (enum_decl : enum_decl) =
     (enum_decl.variants
     |> List.map (fun (sl, kl) -> (sl.v, kl |> List.map Position.value))
     |> List.map string_of_enum_variant
-    |> String.concat " | ")
+    |> String.concat " | "
+    )
 
 let string_of_const_decl (const_decl : const_decl) =
   sprintf "const %s : %s " const_decl.const_name.v
@@ -354,53 +466,74 @@ let string_of_struct_decl (struct_decl : struct_decl) =
     struct_decl.struct_name.v
     (struct_decl.fields
     |> List.map (fun (field, t) ->
-           sprintf "%s : %s" field.v (string_of_ktype t.v))
-    |> String.concat ", ")
+           sprintf "%s : %s" field.v (string_of_ktype t.v)
+       )
+    |> String.concat ", "
+    )
 
 let string_of_type_decl = function
-  | Ast.Type_Decl.Decl_Enum e -> string_of_enum_decl e
-  | Ast.Type_Decl.Decl_Struct s -> string_of_struct_decl s
+  | Ast.Type_Decl.Decl_Enum e ->
+      string_of_enum_decl e
+  | Ast.Type_Decl.Decl_Struct s ->
+      string_of_struct_decl s
 
 let string_of_signature fn_name parameters return_type =
   sprintf "%s(%s)%s" fn_name.v
     (parameters
     |> List.map (fun ktl -> ktl |> Position.value |> string_of_ktype)
-    |> String.concat ", ")
+    |> String.concat ", "
+    )
     (return_type |> Position.value |> string_of_ktype)
 
 let string_of_external_func_decl (efucn_decl : external_func_decl) =
   sprintf "external %s(%s%s) %s %s" efucn_decl.sig_name.v
     (efucn_decl.fn_parameters |> List.map Position.value
-   |> List.map string_of_ktype |> String.concat ", ")
-    (if efucn_decl.is_variadic then ";..." else "")
+   |> List.map string_of_ktype |> String.concat ", "
+    )
+    ( if efucn_decl.is_variadic then
+        ";..."
+      else
+        ""
+    )
     (efucn_decl.r_type.v |> string_of_ktype)
     (efucn_decl.c_name
     |> Option.map (fun s -> sprintf " = %s" s)
-    |> Option.value ~default:"")
+    |> Option.value ~default:""
+    )
 
 let string_of_syscall (syscall_decl : syscall_decl) =
   sprintf "syscall %s(%s) %s" syscall_decl.syscall_name.v
     (syscall_decl.parameters |> List.map Position.value
-   |> List.map string_of_ktype |> String.concat ", ")
+   |> List.map string_of_ktype |> String.concat ", "
+    )
     (syscall_decl.return_type.v |> string_of_ktype)
 
 let string_of_func_decl (function_decl : function_decl) =
   sprintf "fn %s%s(%s)%s%s" function_decl.fn_name.v
-    (if function_decl.generics = [] then ""
-     else
-       sprintf "<%s>"
-         (function_decl.generics |> List.map Position.value
-        |> String.concat ", "))
+    ( if function_decl.generics = [] then
+        ""
+      else
+        sprintf "<%s>"
+          (function_decl.generics |> List.map Position.value
+         |> String.concat ", "
+          )
+    )
     (function_decl.parameters
     |> List.map (fun (id, ktype) ->
-           sprintf "%s: %s" id.v (string_of_ktype ktype.v))
-    |> String.concat ", ")
+           sprintf "%s: %s" id.v (string_of_ktype ktype.v)
+       )
+    |> String.concat ", "
+    )
     (function_decl.return_type.v |> string_of_ktype)
     (function_decl.body |> string_of_kbody)
 
 let string_of_variable_info (variable_info : Env.variable_info) =
   Printf.sprintf "(%s, %s)"
-    (if variable_info.is_const then "const" else "var")
+    ( if variable_info.is_const then
+        "const"
+      else
+        "var"
+    )
     (string_of_ktype variable_info.ktype)
 
 let string_of_env (env : Env.t) =
@@ -412,6 +545,10 @@ let string_of_env (env : Env.t) =
              (context
              |> List.map (fun (variable_name, variable_info) ->
                     sprintf "%s = %s" variable_name
-                      (string_of_variable_info variable_info))
-             |> String.concat ", "))
-    |> String.concat " ; ")
+                      (string_of_variable_info variable_info)
+                )
+             |> String.concat ", "
+             )
+       )
+    |> String.concat " ; "
+    )

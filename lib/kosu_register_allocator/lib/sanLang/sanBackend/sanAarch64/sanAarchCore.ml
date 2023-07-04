@@ -15,8 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module SanVariableMap = SanCfg.SanVariableMap
-open Common
+module SanVariableMap = SanCommon.SanVariableMap
+open SanCommon
 
 module Immediat = struct
   let mask_6_8bytes = 0xFFFF_0000_0000_0000L
@@ -37,7 +37,8 @@ module Immediat = struct
     ( Int64.shift_right_logical int64 48,
       Int64.shift_right_logical int48 32,
       Int64.shift_right_logical int32 16,
-      int16 )
+      int16
+    )
 end
 
 module Condition_Code = struct
@@ -64,17 +65,46 @@ module Condition_Code = struct
   let cc_of_tac_bin ?(is_unsigned = false) =
     let open SanFrontend.SanAst in
     function
-    | TacOr | TacAnd -> None
-    | TacEqual -> Some EQ
-    | TacDiff -> Some NE
-    | TacSup -> Some (if is_unsigned then HI else GT)
-    | TacSupEq -> Some (if is_unsigned then CS else GE)
-    | TacInfEq -> Some (if is_unsigned then LS else LE)
-    | TacInf -> Some (if is_unsigned then CC else LT)
+    | TacOr | TacAnd ->
+        None
+    | TacEqual ->
+        Some EQ
+    | TacDiff ->
+        Some NE
+    | TacSup ->
+        Some
+          ( if is_unsigned then
+              HI
+            else
+              GT
+          )
+    | TacSupEq ->
+        Some
+          ( if is_unsigned then
+              CS
+            else
+              GE
+          )
+    | TacInfEq ->
+        Some
+          ( if is_unsigned then
+              LS
+            else
+              LE
+          )
+    | TacInf ->
+        Some
+          ( if is_unsigned then
+              CC
+            else
+              LT
+          )
 
   let data_size_of_type = function
-    | (Ssize : SanTyped.SanTyAst.san_type) | Stringl -> None
-    | Boolean | Unit -> Some B
+    | (Ssize : SanTyped.SanTyAst.san_type) | Stringl ->
+        None
+    | Boolean | Unit ->
+        Some B
 
   let data_size_of_variable variable = data_size_of_type @@ snd variable
 end
@@ -106,27 +136,51 @@ module Register = struct
     | XZR
     | SP
 
+  let color_map =
+    [
+      (X0, "aqua");
+      (X1, "red");
+      (X2, "fuchsia");
+      (X3, "green");
+      (X4, "navyblue");
+      (X5, "pink");
+      (X6, "orange");
+      (X7, "yellow");
+      (X8, "hotpink");
+      (X9, "indigo");
+      (X10, "magenta");
+      (X11, "purple");
+      (X12, "cyan");
+    ]
+
   type register = { register : raw_register; size : register_size }
   type t = raw_register
 
   let word_regsize =
     match Nativeint.size with
-    | 64 -> SReg64
-    | 32 -> SReg32
-    | _ -> failwith "Word size unsupported"
+    | 64 ->
+        SReg64
+    | 32 ->
+        SReg32
+    | _ ->
+        failwith "Word size unsupported"
 
   let worded_register register = { register with size = word_regsize }
   let resize32 register = { register with size = SReg32 }
 
   let resize size register =
     match register.size with
-    | s when s = size -> register
-    | _ -> { register with size }
+    | s when s = size ->
+        register
+    | _ ->
+        { register with size }
 
   let resize_type san_type register =
     match Sizeof.sizeof san_type with
-    | 8 -> { register with size = SReg64 }
-    | _ -> { register with size = SReg32 }
+    | 8 ->
+        { register with size = SReg64 }
+    | _ ->
+        { register with size = SReg32 }
 
   let w0 = { register = X0; size = SReg32 }
   let x0 = { register = X0; size = SReg64 }
@@ -142,12 +196,15 @@ module Register = struct
   let r14_sized = function
     | (Ssize : SanTyped.SanTyAst.san_type) | Stringl ->
         { register = X14; size = word_regsize }
-    | Boolean | Unit -> w14
+    | Boolean | Unit ->
+        w14
 
   let according_register raw_register san_type =
     match Sizeof.sizeof san_type with
-    | 8 -> { register = raw_register; size = SReg64 }
-    | _ -> { register = raw_register; size = SReg32 }
+    | 8 ->
+        { register = raw_register; size = SReg64 }
+    | _ ->
+        { register = raw_register; size = SReg32 }
 
   let according_register_variable raw_register variable =
     according_register raw_register @@ snd variable
@@ -184,24 +241,31 @@ module Register = struct
     ]
 
   let callee_saved_register = [ X16; X29; X30; SP ]
-  let arguments_register = [ X0; X1; X2; X3; X4; X5; X6; X7 ]
+  let non_float_argument_registers = [ X0; X1; X2; X3; X4; X5; X6; X7 ]
+  let arguments_register _ = non_float_argument_registers
   let syscall_register = [ X0; X1; X2; X3; X4; X5 ]
   let available_register = [ X8; X9; X10; X11; X12 ]
+  let is_valid_register (_ : variable) (_ : t) = true
   let does_return_hold_in_register _ = true
   let indirect_return_register = X8
   let return_strategy _ = Simple_return X0
 
   let str_ldr_offset_range reg n =
-    if n < 0L then -256L < n
+    if n < 0L then
+      -256L < n
     else
       match reg.size with
-      | SReg32 -> n < 255L || (Int64.unsigned_rem n 4L = 0L && n < 16380L)
-      | SReg64 -> n < 255L || (Int64.unsigned_rem n 8L = 0L && n < 32760L)
+      | SReg32 ->
+          n < 255L || (Int64.unsigned_rem n 4L = 0L && n < 16380L)
+      | SReg64 ->
+          n < 255L || (Int64.unsigned_rem n 8L = 0L && n < 32760L)
 
   let is_offset_too_far reg address =
     match address with
-    | `ILitteral i when not @@ str_ldr_offset_range reg i -> true
-    | `ILitteral _ | `Register _ -> false
+    | `ILitteral i when not @@ str_ldr_offset_range reg i ->
+        true
+    | `ILitteral _ | `Register _ ->
+        false
 end
 
 module Operande = struct
@@ -211,7 +275,8 @@ module Operande = struct
   type dst = Register.register
 end
 
-module GreedyColoration = SanCfg.SanRegisterAllocator.GreedyColoring (Register)
+module GreedyColoration =
+  SanCommon.SanRegisterAllocator.GreedyColoring (Register)
 
 module Location = struct
   type adress_offset = [ `ILitteral of int64 | `Register of Register.register ]
@@ -230,22 +295,28 @@ module Location = struct
 
   let str_ldr_offset_range reg n =
     let open Register in
-    if n < 0L then -256L < n
+    if n < 0L then
+      -256L < n
     else
       match reg.size with
-      | SReg32 -> n < 255L || (Int64.unsigned_rem n 4L = 0L && n < 16380L)
-      | SReg64 -> n < 255L || (Int64.unsigned_rem n 8L = 0L && n < 32760L)
+      | SReg32 ->
+          n < 255L || (Int64.unsigned_rem n 4L = 0L && n < 16380L)
+      | SReg64 ->
+          n < 255L || (Int64.unsigned_rem n 8L = 0L && n < 32760L)
 
   let is_offset_too_far reg address =
     match address with
-    | `ILitteral i when not @@ str_ldr_offset_range reg i -> true
-    | `ILitteral _ | `Register _ -> false
+    | `ILitteral i when not @@ str_ldr_offset_range reg i ->
+        true
+    | `ILitteral _ | `Register _ ->
+        false
 
   let increment_adress off adress =
     match adress.offset with
     | `ILitteral offset ->
         { adress with offset = `ILitteral (Int64.add offset off) }
-    | `Register _reg -> failwith "Increment register based address"
+    | `Register _reg ->
+        failwith "Increment register based address"
 
   let reg_opt = function LocReg reg -> Some reg | LocAddr _ -> None
   let address_opt = function LocAddr addr -> Some addr | LocReg _ -> None
@@ -440,15 +511,24 @@ module Instruction = struct
   let selfbinop_of_binop =
     let open SanFrontend.SanAst in
     function
-    | TacAdd -> add_r
-    | TacMinus -> sub_r
-    | TacMult -> mult
-    | TacDiv -> div
-    | TacBitwiseOr -> bitwiseor_r
-    | TacBitwiseAnd -> bitwiseand_r
-    | TacBitwiseXor -> bitwisexor_r
-    | TacShiftLeft -> shiftleft_r
-    | TacShiftRight -> shiftright_r
+    | TacAdd ->
+        add_r
+    | TacMinus ->
+        sub_r
+    | TacMult ->
+        mult
+    | TacDiv ->
+        div
+    | TacBitwiseOr ->
+        bitwiseor_r
+    | TacBitwiseAnd ->
+        bitwiseand_r
+    | TacBitwiseXor ->
+        bitwisexor_r
+    | TacShiftLeft ->
+        shiftleft_r
+    | TacShiftRight ->
+        shiftright_r
 
   let is_stp_range n = -512L <= n && n <= 504L
   let ret = RET
@@ -493,38 +573,45 @@ module LineInstruction = struct
       let int64, int48, int32, int16 = split n in
       let base =
         [
-          instruction
-            (Mov { destination = register; source = `ILitteral int16 });
+          instruction (Mov { destination = register; source = `ILitteral int16 });
         ]
       in
-      ( ( base |> fun l ->
-          if int32 = 0L then l
-          else
-            l
-            @ [
-                instruction
-                  (Movk
-                     {
-                       destination = register;
-                       operand = `ILitteral int32;
-                       shift = Some SH16;
-                     });
-              ] )
+      base
+      |> (fun l ->
+           if int32 = 0L then
+             l
+           else
+             l
+             @ [
+                 instruction
+                   (Movk
+                      {
+                        destination = register;
+                        operand = `ILitteral int32;
+                        shift = Some SH16;
+                      }
+                   );
+               ]
+         )
+      |> (fun l ->
+           if int48 = 0L then
+             l
+           else
+             l
+             @ [
+                 instruction
+                   (Movk
+                      {
+                        destination = register;
+                        operand = `ILitteral int48;
+                        shift = Some SH32;
+                      }
+                   );
+               ]
+         )
       |> fun l ->
-        if int48 = 0L then l
-        else
-          l
-          @ [
-              instruction
-                (Movk
-                   {
-                     destination = register;
-                     operand = `ILitteral int48;
-                     shift = Some SH32;
-                   });
-            ] )
-      |> fun l ->
-      if int64 = 0L then l
+      if int64 = 0L then
+        l
       else
         l
         @ [
@@ -534,7 +621,8 @@ module LineInstruction = struct
                    destination = register;
                    operand = `ILitteral int32;
                    shift = Some SH48;
-                 });
+                 }
+              );
           ]
 
   let prologue_epilogue_stack_size framesize =
@@ -546,7 +634,8 @@ module LineInstruction = struct
             [
               sub sp sp (`ILitteral (Int64.add 16L framesize)); add_r x15 sp x15;
             ],
-        { base = x15; offset = `ILitteral 0L } )
+        { base = x15; offset = `ILitteral 0L }
+      )
 
   let str_instr ?(mode = Immediat) ~data_size ~source address =
     match address.offset with
@@ -639,32 +728,39 @@ module LineInstruction = struct
         ]
 end
 
-module AsmProgram = Common.AsmAst.Make (Line)
+module AsmProgram = SanCommon.AsmAst.Make (Line)
 
 module FrameManager = struct
   type description = {
     local_space : int;
-    variable_map : Location.location SanCfg.SanVariableMap.t;
+    variable_map : Location.location SanCommon.SanVariableMap.t;
   }
 
   let location_of variable fd =
     match SanVariableMap.find_opt variable fd.variable_map with
-    | None -> Printf.sprintf "location of: %s failed" "" |> failwith
-    | Some loc -> loc
+    | None ->
+        Printf.sprintf "location of: %s failed" "" |> failwith
+    | Some loc ->
+        loc
 
   let frame_descriptor (function_decl : SanTyped.SanTyAst.ty_san_function) =
-    let parameter_count = List.length Register.arguments_register in
+    let parameter_count = List.length (Register.arguments_register ()) in
     let register_parameters, stack_parameters =
       function_decl.parameters |> List.mapi Util.couple
       |> List.partition_map (fun (index, variable) ->
-             if index < parameter_count then Either.left variable
-             else Either.right variable)
+             if index < parameter_count then
+               Either.left variable
+             else
+               Either.right variable
+         )
     in
-    let cfg = SanCfg.SanCfgConv.liveness_of_san_tyfunction function_decl in
+    let cfg = SanCommon.CfgConv.liveness_of_san_tyfunction function_decl in
     let colored_graph =
       GreedyColoration.coloration
         ~parameters:
-          (Util.combine_safe register_parameters Register.arguments_register)
+          (Util.combine_safe register_parameters
+             (Register.arguments_register ())
+          )
         ~available_color:Register.available_register cfg
     in
 
@@ -675,7 +771,8 @@ module FrameManager = struct
       |> List.sort (fun (_, lhs) (_, rhs) ->
              let lsize = Sizeof.sizeof lhs in
              let rsize = Sizeof.sizeof rhs in
-             compare rsize lsize)
+             compare rsize lsize
+         )
       |> List.fold_left
            (fun (acc_map, acc_stack_variable) variable ->
              let open GreedyColoration.ColoredGraph in
@@ -690,7 +787,9 @@ module FrameManager = struct
                    @@ Register.according_register_variable color variable
                  in
                  (SanVariableMap.add variable reg acc_map, acc_stack_variable)
-             | None -> (acc_map, variable :: acc_stack_variable))
+             | None ->
+                 (acc_map, variable :: acc_stack_variable)
+           )
            (SanVariableMap.empty, [])
     in
 
@@ -707,7 +806,8 @@ module FrameManager = struct
                Location.increment_adress (Int64.of_int offset) base_address
              in
              let loc_adrress = Location.loc_addr address in
-             (address, SanVariableMap.add variable loc_adrress acc_map))
+             (address, SanVariableMap.add variable loc_adrress acc_map)
+           )
            (base_address, variable_map)
       |> snd
     in
@@ -733,26 +833,33 @@ module FrameManager = struct
            (`ILitteral (Int64.of_int variable_frame_size))
     in
 
-    let parameter_count = List.length Register.arguments_register in
+    let parameter_count = List.length (Register.arguments_register ()) in
     let register_parameters, _stack_parameters =
       function_decl.parameters |> List.mapi Util.couple
       |> List.partition_map (fun (index, variable) ->
-             if index < parameter_count then Either.left variable
-             else Either.right variable)
+             if index < parameter_count then
+               Either.left variable
+             else
+               Either.right variable
+         )
     in
 
     let store_parameters_value =
       register_parameters
-      |> Util.combine_safe Register.arguments_register
+      |> Util.combine_safe (Register.arguments_register ())
       |> List.filter_map (fun (register, variable) ->
              match location_of variable fd with
-             | LocAddr address -> Some (variable, register, address)
-             | LocReg _ -> None)
+             | LocAddr address ->
+                 Some (variable, register, address)
+             | LocReg _ ->
+                 None
+         )
       |> List.map (fun (variable, register, address) ->
              str_instr
                ~data_size:(Condition_Code.data_size_of_variable variable)
                ~source:(Register.according_register_variable register variable)
-               address)
+               address
+         )
       |> List.flatten
     in
     (stack_sub_line :: base) @ (alignx29_line :: store_parameters_value)

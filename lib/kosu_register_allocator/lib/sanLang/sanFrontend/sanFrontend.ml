@@ -27,11 +27,14 @@ let san_module_parse file =
   let san_module_res =
     In_channel.with_open_bin file (fun ic ->
         let lexbuf = Lexing.from_channel ic in
-        SanParser.parse lexbuf (Parser.Incremental.san_module lexbuf.lex_curr_p))
+        SanParser.parse lexbuf (Parser.Incremental.san_module lexbuf.lex_curr_p)
+    )
   in
   let san_modules =
     match san_module_res with
-    | Ok san_module -> SanValidation.validate file san_module
-    | Error error -> raise @@ SanError.File_Lexer_Error (file, error)
+    | Ok san_module ->
+        SanValidation.validate file san_module
+    | Error error ->
+        raise @@ SanError.File_Lexer_Error (file, error)
   in
   san_modules

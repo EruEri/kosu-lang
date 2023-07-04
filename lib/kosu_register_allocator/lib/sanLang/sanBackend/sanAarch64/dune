@@ -27,4 +27,4 @@
   sanAarchSpecification
   sanAarchSpecImpl
   sanAarchCodegen)
- (libraries kosuRegisterAllocator sanTyped sanCfg common))
+ (libraries kosuRegisterAllocator sanTyped sanCommon))

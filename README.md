@@ -23,11 +23,11 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 
 == Version 0.1.0 == 
 
-- [ ] Write a register allocator throught graph-coloring method (Will be in an other repository, to be used as a depedency)
-- [ ] Integer size inference
+- [ ] Write a register allocator throught graph-coloring method
+- [x] Integer/Float size inference
 - [ ] Add anonymous function
-- [ ] Add array Literral
-- [ ] Fix stack base function parameters on arm64/x86_64
+- [x] Add array Literral
+- [x] Fix stack base function parameters on arm64/x86_64
 - [ ] Improve c compatibily ABI
 
 

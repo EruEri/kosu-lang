@@ -17,5 +17,9 @@
 
 module SanCfgPprint = SanCfgPprint
 module SanCfgConv = SanCfgConv
-module SanRegisterAllocator = SanCfgAst.SanRegisterAllocator
-module SanVariableMap = Map.Make (SanCfgAst.Cfg_Sig)
+
+module SanRegisterAllocator =
+  KosuRegisterAllocator.MakePprint (SanCommon.Cfg_Sig) (SanCommon.CfgPprint)
+
+module GreedyColoring =
+  SanRegisterAllocator.GreedyColoring (SanBackend.Aarch64.Register)

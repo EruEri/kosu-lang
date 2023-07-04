@@ -23,12 +23,13 @@ module MacOSAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
     let label_prefix = "_"
   end
 
-  module MacosNamingConvention = Common.NamingConvention.Make (MacosNamingSig)
+  module MacosNamingConvention =
+    KosuCommon.NamingConvention.Make (MacosNamingSig)
+
   include MacosNamingConvention
 
-  type address_load_style = MacOS | Other
-
-  let adrp_style : address_load_style = MacOS
+  let adrp_style = Aarch64AsmSpec.MacOS
+  let variadic_style = Aarch64AsmSpec.AbiDarwin
 
   let function_directives fn_name =
     [ sprintf ".globl %s" fn_name; ".p2align 4" ]
@@ -55,8 +56,10 @@ module MacOSAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
     function I8 -> "byte" | I16 -> "value" | I32 -> "long" | I64 -> "quad"
 
   let directive_of_fsize = function
-    | KosuFrontend.Ast.F32 -> "long"
-    | F64 -> "quad"
+    | KosuFrontend.Ast.F32 ->
+        "long"
+    | F64 ->
+        "quad"
 end
 
 module FreeBSDAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
@@ -68,13 +71,12 @@ module FreeBSDAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
   end
 
   module FreeBSDNamingConvention =
-    Common.NamingConvention.Make (FreeBSDNamingSig)
+    KosuCommon.NamingConvention.Make (FreeBSDNamingSig)
 
   include FreeBSDNamingConvention
 
-  type address_load_style = MacOS | Other
-
-  let adrp_style : address_load_style = Other
+  let adrp_style = Aarch64AsmSpec.Other
+  let variadic_style = Aarch64AsmSpec.AbiSysV
 
   let function_directives fn_name =
     [ sprintf ".globl %s" fn_name; ".p2align 4" ]
@@ -101,6 +103,8 @@ module FreeBSDAarch64AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification = struct
     function I8 -> "byte" | I16 -> "hword" | I32 -> "word" | I64 -> "xword"
 
   let directive_of_fsize = function
-    | KosuFrontend.Ast.F32 -> "word"
-    | F64 -> "xword"
+    | KosuFrontend.Ast.F32 ->
+        "word"
+    | F64 ->
+        "xword"
 end

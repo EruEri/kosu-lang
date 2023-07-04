@@ -21,7 +21,9 @@
 - **f32**: ieee 754 stantard single precision floating-point number (32 bits)
 - **f64**: ieee 754 stantard double precision floating-point number (64 bits) (default float type)
 - **\*t**: pointer to a variable of type **t**
-- **(t1,..., tn )**: a tuple constituated of expression of type **(t1, ... , tn )**
+- **(t1,..., tn)**: a tuple constituated of expression of type **(t1, ... , tn)**
+- **array(N: t)** : an array of ```N``` elements of type ```t```
+    - Kosu array are passed by value
 - **anyptr**: 
     - Only available in the context of declaring a syscall or an external function:
     - Represent a pointer toward any type
@@ -42,12 +44,21 @@
     - @tof32(anynumber) -> f32
     - @tof64(anynumber) -> f64
     - @stringlptr(stringl) -> *s8
+    - @tagof(enum_type) -> u32
+    - @arraylen(array(N: t)) -> u64
+    - @arrayptr(*array(N: t)) -> *t
 
 ## Keywords
 
 ### Sizeof
+
 - sizeof(type) -> u64
 - sizeof(: expression) -> u64
+
+### Addressof
+
+- addressof(variable) -> *t
+- adrressof(field access) -> *t
 
 ### Discard
 - the keyword ```discard``` is used if you don't need the result of an expression
@@ -56,35 +67,40 @@
 ```
 
 
-
 ## Builtin-Builtin-type
 
 ```
     // to declare a variable we use the const or var keyword
     const x = 10; // x has the type s32
     var f = 23.0; // f has the type f64
-    // for other numeric type you need to suffix the value with the type
-    const x2 = 8u8; // x has the type u8
 
+    // you can also add the number type as a suffix
+    const x2 = 8u8; // x has the type u8
     const f2 = 33.0f32 // f2 has the type f32
+
+    // or explicitly typed the expression
+    const x2 : u64 = 756;
 
     // stringl
     const x = "Hello world";
 
-    // an explicit type can be added optionally, or something required with the compiler can not fully infered the type
+    // an explicit type can be added optionally, or sometime required when the compiler can not fully infer the type
     // for example, the keyword expression nullptr need an explicit type
     const b : *s32 = nullptr;
 
     // tuple can be constructed by putting between parenthesis more than one expression separed by comma
-    
     const t : (stringl, s32) = (x, 25)
 
     // to get the address of a variable, we use the &
-
     const ptr_t : *(stringl, s32) = &t;
 
     // to derefence, we use the *
-
     const t2 = *ptr_t;
+
+    // All value of an array must be initialized
+    const a : array(3, s32) = [1, 2, 3];
+
+    // To initialize all the index with a default value
+    const b = [3: expr];
 
 ```

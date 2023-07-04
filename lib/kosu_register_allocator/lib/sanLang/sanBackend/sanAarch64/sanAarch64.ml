@@ -18,3 +18,4 @@
 module Codegen = SanAarchCodegen
 module Specification = SanAarchSpecification
 module Implementation = SanAarchSpecImpl
+module Register = SanAarchCore.Register

@@ -33,8 +33,10 @@ module Date = struct
 
   let add_date date dated =
     match dated.start with
-    | None -> { dated with start = Some date }
-    | Some _ -> set_end date dated
+    | None ->
+        { dated with start = Some date }
+    | Some _ ->
+        set_end date dated
 end
 
 let couple i v = (i, v)

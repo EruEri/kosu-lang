@@ -1,0 +1,41 @@
+external printf(format: stringl; ...) s32
+external puts(_: stringl) s32 = "puts"
+
+fn string_of_bool(b: bool) stringl = if (b) ("true") else ("false")
+
+struct coordinate {
+	x: f64,
+	y: f64
+}
+
+fn show_coordinate(c: coordinate) {
+	discard printf("(x = %f, y = %f)\n", c.x, c.y);
+}
+
+fn test_coordinate() {
+    const a = [coordinate { x = 0.0, y = 75.2}, coordinate { x = 1.0, y = 8098.2 }];
+	discard show_coordinate(a[0]);
+    discard show_coordinate(a[1]);
+}
+
+fn test_boolarray_noreg_size() {
+    const bools : array(3: bool) = [true, false, true];
+    discard printf( "%s\n", string_of_bool(bools[0]) );
+    discard printf( "%s\n", string_of_bool(bools[1]) );
+    discard printf( "%s\n", string_of_bool(bools[2]) );
+}
+
+fn test_boolarray_reg_size() {
+    const bools = [true, false, true, false];
+    discard printf( "%s\n", string_of_bool(bools[0]) );
+    discard printf( "%s\n", string_of_bool(bools[1]) );
+    discard printf( "%s\n", string_of_bool(bools[2]) );
+    discard printf( "%s\n", string_of_bool(bools[3]) );
+}
+
+fn main() s32 {
+    discard test_coordinate();
+    discard test_boolarray_noreg_size();
+    discard test_boolarray_reg_size();
+	$ 0
+}
