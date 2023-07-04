@@ -70,6 +70,8 @@ module Cfg_Sig_Impl = struct
         (id, KosuIrTyped.Asttyhelper.RType.rtpointee ttrv.rval_rktype) :: []
     | RVDefer id ->
         (id, KosuIrTyped.Asttyhelper.RType.rpointer ttrv.rval_rktype) :: []
+    | RVAdressof (RAFField {variable; fields = _} | RAFVariable variable) -> 
+        variable::[]
     | RVArrayAccess { array_expr = blhs; index_expr = brhs }
     | RVCustomBinop { blhs; brhs; _ }
     | RVBuiltinBinop { blhs; brhs; _ } ->
