@@ -1219,37 +1219,49 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
           |> Option.value ~default:[]
         in
         copy_instruction
-    | RVAdressof ra -> begin 
-      let variable, offset = match ra with
-        | KosuIrTyped.Asttyped.RAFVariable variable -> variable, 0L
-        | KosuIrTyped.Asttyped.RAFField {variable; fields  }
-          -> 
-            let offset = KosuCommon.OffsetHelper.offset_of_field_access (snd variable) ~fields rprogram in
-            variable, offset
-      in 
-      let base_address = 
-        Option.get 
-        @@ FrameManager.address_of variable fd 
-      in
-      let copy_instru_opt = fun waddress -> 
-        let lea_instr = Instruction
-          (Lea { size = iq; destination = rax; source = base_address });
+    | RVAdressof ra ->
+        let variable, offset =
+          match ra with
+          | KosuIrTyped.Asttyped.RAFVariable variable ->
+              (variable, 0L)
+          | KosuIrTyped.Asttyped.RAFField { variable; fields } ->
+              let offset =
+                KosuCommon.OffsetHelper.offset_of_field_access (snd variable)
+                  ~fields rprogram
+              in
+              (variable, offset)
         in
-        let offset_instructions = 
-          match offset with
-          | 0L -> []
-          | n -> [Instruction (Add { size = iq; destination = `Register rax; source = `ILitteral n})]
+        let base_address = Option.get @@ FrameManager.address_of variable fd in
+        let copy_instru_opt waddress =
+          let lea_instr =
+            Instruction
+              (Lea { size = iq; destination = rax; source = base_address })
+          in
+          let offset_instructions =
+            match offset with
+            | 0L ->
+                []
+            | n ->
+                [
+                  Instruction
+                    (Add
+                       {
+                         size = iq;
+                         destination = `Register rax;
+                         source = `ILitteral n;
+                       }
+                    );
+                ]
+          in
+          let copy_instructions =
+            copy_from_reg rax waddress rval_rktype rprogram
+          in
+          (lea_instr :: offset_instructions) @ copy_instructions
         in
-        let copy_instructions = copy_from_reg rax waddress rval_rktype rprogram in 
-        lea_instr::offset_instructions @ copy_instructions
-      in
-      let instructions =
-        where
-        |> Option.map copy_instru_opt
-        |> Option.value ~default:[]
-      in
-    instructions
-    end
+        let instructions =
+          where |> Option.map copy_instru_opt |> Option.value ~default:[]
+        in
+        instructions
     | RVDefer id ->
         let adress =
           FrameManager.address_of

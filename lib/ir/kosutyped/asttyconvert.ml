@@ -147,23 +147,24 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
 
   and raffacted_value_of_affected_value (env : Env.t) = function
     | AFVariable variable ->
-      let var_kt =
-        env
-        |> Env.find_identifier_opt variable.v
-        |> Option.get |> Env.vi_ktype |> from_ktype
-      in
-      RAFVariable (variable.v, var_kt)
-    | AFField {variable; fields} -> 
-      let first_expr_type =
-        env
-        |> Env.find_identifier_opt variable.v
-        |> Option.get |> Env.vi_ktype
-      in
-       RAFField
-      {
-        variable = (variable.v, from_ktype first_expr_type);
-        fields =  List.map Position.value fields;
-      }
+        let var_kt =
+          env
+          |> Env.find_identifier_opt variable.v
+          |> Option.get |> Env.vi_ktype |> from_ktype
+        in
+        RAFVariable (variable.v, var_kt)
+    | AFField { variable; fields } ->
+        let first_expr_type =
+          env
+          |> Env.find_identifier_opt variable.v
+          |> Option.get |> Env.vi_ktype
+        in
+        RAFField
+          {
+            variable = (variable.v, from_ktype first_expr_type);
+            fields = List.map Position.value fields;
+          }
+
   and rkbody_of_kbody ~generics_resolver (env : Env.t) current_module
       (program : module_path list) ~return_type
       ( (kstatements : Ast.kstatement Position.location list),
@@ -422,8 +423,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
         in
         REArrayAccess { array_expr = rearray_expr; index_expr = rindex_expr }
     | EAdressof affected_value ->
-      let ra = raffacted_value_of_affected_value env affected_value in
-      REAdressof ra
+        let ra = raffacted_value_of_affected_value env affected_value in
+        REAdressof ra
     | EFieldAcces { first_expr; field } ->
         let typed_expression =
           typed_expression_of_kexpression ~generics_resolver env current_module

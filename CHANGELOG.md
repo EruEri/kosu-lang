@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+- Add keyword function ```addressof```
+
 - Pattern matching base:
     - syntax
     - typage
