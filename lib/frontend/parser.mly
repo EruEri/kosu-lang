@@ -35,7 +35,7 @@
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
 %token ENUM ARRAY EXTERNAL FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE
-%token CMP_LESS CMP_EQUAL CMP_GREATER  
+%token CMP_LESS CMP_EQUAL CMP_GREATER MATCH
 %token TRIPLEDOT
 %token COMMA
 %token PIPESUP
@@ -136,6 +136,54 @@ module_nodes:
     | const_decl { NConst $1 }
 ;;
 
+pattern:
+    | TRUE { PTrue }
+    | FALSE { PFalse }
+    | EMPTY { PEmpty }
+    | CMP_LESS { PCmpLess }
+    | CMP_EQUAL { PCmpEqual }
+    | CMP_GREATER { PCmpGreater }
+    | NULLPTR { PNullptr }
+    | WILDCARD { PWildcard }
+    | located(Float_lit) { 
+        let value = Position.map snd $1 in
+        PFloat value
+    }
+    | located(Char_lit) { 
+        PChar $1
+    }
+    | option(MINUS) located(Integer_lit) {
+        let is_neg = Option.is_some $1 in
+        let value = Position.map snd $2 in
+        let value = Position.map (fun value -> 
+            match is_neg with
+            | true -> Int64.neg value
+            | false -> value
+        ) value
+        in
+        PInteger value
+    }
+    | located(IDENT) {
+        PIdentifier $1
+    }
+    | delimited(LPARENT, separated_list(COMMA, located(pattern)) ,RPARENT) {
+        match $1 with
+        | [] -> PEmpty
+        | p::[] -> p.v
+        | list -> PTuple list
+    }
+    | DOT located(IDENT) loption(delimited(LPARENT, separated_nonempty_list(COMMA, located(pattern)) ,RPARENT))  {
+        PCase {
+            variant = $2;
+            assoc_patterns = $3
+        }
+    }
+    | lpattern=located(pattern) PIPE rpattern=located(pattern) {
+        let lpattern = Asthelper.Pattern.flatten_por lpattern in
+        let rpattern = Asthelper.Pattern.flatten_por rpattern in
+        let patterns = lpattern @ rpattern in
+        POr patterns
+    }
 enum_decl:
     | ENUM name=located(IDENT) generics_opt=option( delimited(LPARENT, separated_nonempty_list(COMMA, located(IDENT) ), RPARENT)) LBRACE 
     variants=separated_list(COMMA,enum_assoc) 
@@ -495,6 +543,17 @@ expr:
             expression = $2;
             cases = $4;
             wildcard_case
+        }
+    }
+    | MATCH delimited(LPARENT, located(expr), RPARENT) delimited(
+        LBRACE,
+        preceded(option(PIPE),
+            separated_list(PIPE, p=located(pattern) ARROWFUNC body=kbody {p, body})),
+        RBRACE
+    ){
+        EMatch {
+            expression = $2;
+            patterns = $3
         }
     }
     | delimited(LSQBRACE, separated_nonempty_list(COMMA, located(expr)), RSQBRACE) {

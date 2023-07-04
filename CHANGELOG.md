@@ -2,6 +2,11 @@
 
 ## **[Unreleased]**
 
+- Pattern matching base:
+    - syntax
+    - typage
+    - TODO: check pattern exhaustives
+
 - X86_64: 
     - Fix Shift operator
     - Fix mov integer greater than $2^{31} - 1$

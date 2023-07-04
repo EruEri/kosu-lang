@@ -713,6 +713,15 @@ module Program = struct
         `no_uminus_for_built_in
 end
 
+module Pattern = struct
+  let rec flatten_por pattern =
+    match pattern.v with
+    | POr patterns ->
+        patterns |> List.map flatten_por |> List.flatten
+    | _ ->
+        pattern :: []
+end
+
 module Kbody = struct
   let abs_module s mp =
     mp
@@ -903,6 +912,20 @@ module Kbody = struct
             else_case =
               remap_body_explicit_type generics current_module else_case;
           }
+    | EMatch { expression; patterns } ->
+        let expression =
+          remap_located_expr_explicit_type generics current_module expression
+        in
+        let patterns =
+          patterns
+          |> List.map (fun (pattern, body) ->
+                 let body =
+                   remap_body_explicit_type generics current_module body
+                 in
+                 (pattern, body)
+             )
+        in
+        EMatch { expression; patterns }
     | ESwitch { expression; cases; wildcard_case } ->
         ESwitch
           {
@@ -1364,6 +1387,7 @@ module Enum = struct
            |> List.map (fun kt ->
                   generics
                   |> List.find_map (fun (gen_kt, associated_gen_value) ->
+                         let gen_kt = Type.kt_generic gen_kt in
                          if gen_kt === kt.v then
                            Some associated_gen_value
                          else
