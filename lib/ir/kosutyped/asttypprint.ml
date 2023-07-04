@@ -281,6 +281,8 @@ and string_of_rkexpression = function
       string_of_rkunary_op un
   | RESizeof rktype ->
       sprintf "sizeof(%s)" (string_of_rktype rktype)
+  | REAdressof raffacted_value ->
+      sprintf "addressof(%s)" @@ string_of_raffacted_value raffacted_value
   | REstring s ->
       Printf.sprintf "\"%s\"" s
   | REAdress x ->

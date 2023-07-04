@@ -864,6 +864,21 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
           (TEIdentifier new_tmp)
       in
       (statement :: last_stmt, return)
+  | REAdressof ra, _ ->
+      let new_tmp = make_inc_tmp trktype map count_var in
+      let adress = RVAdressof ra in
+      let statement =
+        STacDeclaration
+          {
+            identifier = new_tmp;
+            trvalue = make_typed_tac_rvalue trktype adress;
+          }
+      in
+      let last_stmt, return =
+        convert_if_allocated ~expr_rktype:trktype ~allocated
+          (TEIdentifier new_tmp)
+      in
+      (statement :: last_stmt, return)
   | REBin_op bin, _ ->
       let operator = Operator.bin_operantor bin in
       let ltyped, rtyped = Operator.typed_operandes bin in

@@ -126,6 +126,7 @@ and tac_rvalue =
       array_expr : tac_typed_expression;
       index_expr : tac_typed_expression;
     }
+  | RVAdressof of raffacted_value
   | RVAdress of string
   | RVDefer of string
   | RVCustomBinop of binary

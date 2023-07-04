@@ -245,6 +245,11 @@ let rec compute_all_size_typed_expr rprogram typed_expression =
       ()
   | RESizeof rktype ->
       compute_ktype rprogram rktype
+  | REAdressof raffacted_value -> (
+      match raffacted_value with
+      | RAFVariable (_, kt) | RAFField { variable = _, kt; fields = _ } ->
+          compute_ktype rprogram kt
+    )
   | REFieldAcces { first_expr; _ } | RETupleAccess { first_expr; _ } ->
       compute_all_size_typed_expr rprogram first_expr
   | REArrayAccess { array_expr; index_expr } ->

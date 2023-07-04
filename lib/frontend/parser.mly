@@ -35,7 +35,7 @@
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token SEMICOLON ARROWFUNC MINUSUP
 %token ENUM ARRAY EXTERNAL FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE
-%token CMP_LESS CMP_EQUAL CMP_GREATER MATCH
+%token CMP_LESS CMP_EQUAL CMP_GREATER MATCH ADDRESSOF
 %token TRIPLEDOT
 %token COMMA
 %token PIPESUP
@@ -400,6 +400,9 @@ expr:
     | CMP_GREATER { ECmpGreater }
     | SIZEOF delimited(LPARENT, preceded(COLON, located(expr)) , RPARENT) { ESizeof ( Either.Right( $2) ) }
     | SIZEOF delimited(LPARENT, t=located(ktype) { t } , RPARENT) { ESizeof (Either.Left $2)  }
+    | ADDRESSOF delimited(LPARENT, affected_value ,RPARENT) {
+        EAdressof $2
+    }
     | nonempty_list(MULT) located(IDENT) { 
         EDeference ( $1 |> List.length , $2)
     }

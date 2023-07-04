@@ -1,0 +1,18 @@
+external printf(_: stringl; ...) s32
+
+struct coordinate {
+	x: s32,
+	y: s32
+}
+
+fn show_coordinate(c: coordinate) {
+	discard printf("(x = %d, y = %d)\n", c.x, c.y);
+}
+
+fn main() s32 {
+	var c = coordinate { x = 10, y = 90 };
+	const py : *s32 = addressof(c.y);
+	*py = 10;
+	discard show_coordinate(c);
+	$ 0
+}

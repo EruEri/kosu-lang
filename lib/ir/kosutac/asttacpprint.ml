@@ -361,6 +361,9 @@ and string_of_tac_rvalue = function
       sprintf "%s.%Lu" (string_of_typed_tac_expression first_expr) index
   | RVFieldAcess { first_expr; field } ->
       sprintf "%s.%s" (string_of_typed_tac_expression first_expr) field
+  | RVAdressof ra ->
+      sprintf "addressof(%s)"
+      @@ KosuIrTyped.Asttypprint.string_of_raffacted_value ra
   | RVAdress id ->
       sprintf "&%s" id
   | RVDefer id ->

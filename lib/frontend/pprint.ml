@@ -227,6 +227,8 @@ and string_of_kexpression = function
       sprintf "sizeof(%s)" s
   | EString s ->
       s
+  | EAdressof affected_value ->
+      sprintf "adrressof(%s)" @@ string_of_affected_value affected_value
   | EAdress x ->
       sprintf "&%s" x.v
   | EDeference (indirection, id) ->

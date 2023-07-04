@@ -1098,6 +1098,7 @@ module Kbody = struct
       | EChar _
       | EString _
       | EAdress _
+      | EAdressof _
       | EDeference (_, _)
       | EIdentifier _ ) as t ->
         t

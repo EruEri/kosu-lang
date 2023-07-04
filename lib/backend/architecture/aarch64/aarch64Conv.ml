@@ -946,6 +946,57 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             ~where ~register:tmp64reg ~rval_rktype rprogram
         in
         copy_instruction
+    | RVAdressof ra ->
+        let variable, offset =
+          match ra with
+          | KosuIrTyped.Asttyped.RAFVariable variable ->
+              (variable, 0L)
+          | KosuIrTyped.Asttyped.RAFField { variable; fields } ->
+              let offset =
+                KosuCommon.OffsetHelper.offset_of_field_access (snd variable)
+                  ~fields rprogram
+              in
+              (variable, offset)
+        in
+        let base_address = Option.get @@ FrameManager.address_of variable fd in
+        let copy_instru_opt waddress =
+          let lea_instr =
+            Instruction
+              (ADD
+                 {
+                   destination = x8;
+                   operand1 = base_address.base;
+                   operand2 = src_of_adress_offset base_address.offset;
+                   offset = false;
+                 }
+              )
+          in
+          let offset_instructions =
+            match offset with
+            | 0L ->
+                []
+            | n ->
+                [
+                  Instruction
+                    (ADD
+                       {
+                         destination = x8;
+                         operand1 = x8;
+                         operand2 = `ILitteral n;
+                         offset = false;
+                       }
+                    );
+                ]
+          in
+          let copy_instructions =
+            copy_from_reg x8 waddress rval_rktype rprogram
+          in
+          (lea_instr :: offset_instructions) @ copy_instructions
+        in
+        let instructions =
+          where |> Option.map copy_instru_opt |> Option.value ~default:[]
+        in
+        instructions
     | RVDefer id ->
         let adress =
           FrameManager.address_of

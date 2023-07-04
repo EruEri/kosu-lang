@@ -516,6 +516,7 @@ module Generics = struct
       | REChar _
       | REstring _
       | REAdress _
+      | REAdressof _
       | REDeference (_, _)
       | REIdentifier _
       | REConst_Identifier _ ) as t ->
@@ -1453,6 +1454,7 @@ module RProgram = struct
     | RESizeof _
     | REstring _
     | REAdress _
+    | REAdressof _
     | REDeference (_, _)
     | REIdentifier _
     | REConst_Identifier _ ->
