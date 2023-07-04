@@ -40,7 +40,7 @@
 (package
  (name kosu_lang)
  (synopsis "A programming language project")
- (description "A low level programming language with some high level features")
+ (description "A low level programming language with some higher level features")
  (depends (ocaml (>= "4.13")) dune menhir (cmdliner (>= "1.1.0")) unix)
 )
 
