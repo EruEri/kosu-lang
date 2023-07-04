@@ -49,15 +49,20 @@
 ## Keywords
 
 ### Sizeof
+
 - sizeof(type) -> u64
 - sizeof(: expression) -> u64
+
+### Addressof
+
+- addressof(variable) -> *t
+- adrressof(field access) -> *t
 
 ### Discard
 - the keyword ```discard``` is used if you don't need the result of an expression
 ```
     discard function_call();
 ```
-
 
 
 ## Builtin-Builtin-type
