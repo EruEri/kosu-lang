@@ -1555,50 +1555,53 @@ Return the type of an expression
               |> operator_error |> raise
         in
         validate_location_type expression ~constraint_type kt
-    | EMatch {
-      expression;
-      patterns;
-    } -> 
-      let scrutinee_type = 
-        expression |> Position.map_use @@ typeof ~constraint_type:None ~generics_resolver env current_mod_name prog in
-        let p, pxs = match patterns with
-          | [] -> failwith "Unreachable: empty pattern"
-          | t::q -> t, q
+    | EMatch { expression; patterns } ->
+        let scrutinee_type =
+          expression
+          |> Position.map_use
+             @@ typeof ~constraint_type:None ~generics_resolver env
+                  current_mod_name prog
         in
-        let type_pattern (pattern, body) = 
-          let bound, ptype = typeof_pattern ~scrutinee_type:(scrutinee_type.v) env current_mod_name prog pattern in
-          let ptype = {
-            v = ptype;
-            position = pattern.position
-          } in
-          let _ = validate_type ~constraint_type:(Some scrutinee_type.v) ptype in
+        let p, pxs =
+          match patterns with
+          | [] ->
+              failwith "Unreachable: empty pattern"
+          | t :: q ->
+              (t, q)
+        in
+        let type_pattern (pattern, body) =
+          let bound, ptype =
+            typeof_pattern ~scrutinee_type:scrutinee_type.v env current_mod_name
+              prog pattern
+          in
+          let ptype = { v = ptype; position = pattern.position } in
+          let _ =
+            validate_type ~constraint_type:(Some scrutinee_type.v) ptype
+          in
+
           (* later bind variable *)
-     
-          let bounds = bound |> List.map (fun (id, kt) -> 
-              id.v, Env.{
-                is_const = false;
-                ktype = kt
-              }
-            ) 
+          let bounds =
+            bound
+            |> List.map (fun (id, kt) ->
+                   (id.v, Env.{ is_const = false; ktype = kt })
+               )
           in
           let env = Env.push_context bounds env in
-          typeof_kbody 
-          ~generics_resolver 
-          (Env.push_empty_context env)
-          ~return_type:constraint_type
-          current_mod_name
-          prog
-          body
+          typeof_kbody ~generics_resolver
+            (Env.push_empty_context env)
+            ~return_type:constraint_type current_mod_name prog body
         in
         let match_base_type = type_pattern p in
-        let kbody_type = pxs |> List.fold_left (fun acc_type pattern_body -> 
-          let _, { v = _; position } = snd pattern_body in
-          let body_type = {
-            v = type_pattern pattern_body;
-            position
-          }  in
-          validate_type ~constraint_type:(Some acc_type) body_type
-        ) match_base_type in
+        let kbody_type =
+          pxs
+          |> List.fold_left
+               (fun acc_type pattern_body ->
+                 let _, { v = _; position } = snd pattern_body in
+                 let body_type = { v = type_pattern pattern_body; position } in
+                 validate_type ~constraint_type:(Some acc_type) body_type
+               )
+               match_base_type
+        in
         kbody_type
     | ESwitch { expression = expr; cases; wildcard_case } -> (
         let variant_cases =
@@ -1661,9 +1664,8 @@ Return the type of an expression
         in
 
         let generics_mapped =
-          expr_type 
-          |> Ast.Type.extract_parametrics_ktype
-          |> List.combine  enum_decl.generics
+          expr_type |> Ast.Type.extract_parametrics_ktype
+          |> List.combine enum_decl.generics
         in
         let open Asthelper.Enum in
         let open Asthelper.Switch_case in
@@ -1683,8 +1685,9 @@ Return the type of an expression
                  |> List.map (fun sc ->
                         let variant_name = variant_name sc in
                         let assoc_types =
-                          Option.get @@ extract_assoc_type_variant generics_mapped
-                            variant_name enum_decl
+                          Option.get
+                          @@ extract_assoc_type_variant generics_mapped
+                               variant_name enum_decl
                         in
                         let assoc_binding = assoc_binding sc in
                         ( variant_name,
@@ -1873,123 +1876,193 @@ Return the type of an expression
     | Error Builin_Invalid ->
         No_built_in_op { bin_op = op; ktype = l_type }
         |> operator_error |> raise
-  and typeof_pattern ~scrutinee_type env current_module program pattern = match pattern.v with
-  | PTrue | PFalse -> [], TBool
-  | PEmpty -> [], TUnit
-  | PCmpEqual | PCmpGreater | PCmpLess -> [], TOredered
-  | PChar _ -> [], TChar
-  | PFloat _ -> [], TFloat None
-  | PInteger _ -> [], TInteger None
-  | PWildcard -> [], scrutinee_type
-  | PIdentifier id -> 
-    let () = match Env.find_identifier_opt id.v env with
-      | None -> ()
-      | Some _ -> failwith "Cannot bind exisiting scope variable"      
-  in
-  (id, scrutinee_type)::[], scrutinee_type
-  | PNullptr -> [], Type.kt_ptr_unknown
-  | PTuple patterns ->
-    let tuple_scrutinee = match scrutinee_type with 
-      | TTuple kts -> kts
-      | _ -> failwith "unmatched between scrutinee type and pattern type"
-    in
-    let () = match Util.are_same_lenght patterns tuple_scrutinee with
-      | true -> ()
-      | false -> failwith "unmatched length between scrutinee type tuple and pattern type tuple"
-    in
-    let bounds, ptypes = 
-      tuple_scrutinee
-      |> List.combine patterns
-      |> List.map (fun (pattern, ktype) -> 
-        let bound, kt = typeof_pattern ~scrutinee_type:ktype.v env current_module program pattern in
-        let kt = { v = kt; position = pattern.position} in
-        bound, kt
-      )
-      |> List.split
-    in
-    let bounds = List.flatten bounds in
-    let duplicated = Util.ListHelper.duplicated (fun (lhs, _) (rhs, _) -> lhs.v = rhs.v) bounds
-    in
-    let () = match duplicated with
-      | [] -> ()
-      | _::_ -> failwith "identifier is already bound"
-    in
-    bounds, TTuple ptypes
-  | PCase { variant; assoc_patterns } -> 
-    let enum_decl = match Asthelper.Program.find_type_decl_from_true_ktype scrutinee_type current_module program with
-      | None -> failwith "enum case as builint type"
-      | Some (Decl_Struct _) -> failwith "match struct instead of enum"
-      | Some (Decl_Enum e) -> e
-    in
-    let generic_map = 
-      scrutinee_type
-      |> Type.extract_parametrics_ktype
-      |> List.combine enum_decl.generics
-    in
-    let assoc_types_opt = Asthelper.Enum.extract_assoc_type_variant generic_map variant enum_decl in
-    let assoc_type = match assoc_types_opt with
-      | None -> failwith @@ "type has not variant " ^ variant.v
-      | Some assoc -> assoc 
-    in
-    let () = match Util.are_same_lenght assoc_patterns assoc_type with
-      | true -> ()
-      | false -> failwith "assoc case arithy issue"
-    in
-    let bounds, _ = 
-      assoc_type
-      |> List.combine assoc_patterns
-      |> List.map (fun (pattern, ktype) -> 
-        let bound, kt = typeof_pattern ~scrutinee_type:ktype.v env current_module program pattern in
-        let kt = { v = kt; position = pattern.position} in
-        bound, kt
-      )
-      |> List.split
-    in
-    let bounds = List.flatten bounds in
-    let duplicated = Util.ListHelper.duplicated (fun (lhs, _) (rhs, _) -> lhs.v = rhs.v) bounds
-    in
-    let () = match duplicated with
-      | [] -> ()
-      | _::_ -> failwith "identifier is already bound"
-    in
-    bounds, scrutinee_type
-  | POr patterns -> 
-    let _, _ = match patterns with 
-      | [] -> failwith "Unreachable: pattern POr cannot be empty"
-      | t::q -> t,q
-    in
-    let bounds, _ = patterns 
-    |> List.map ( fun pattern -> 
-      let bound, kt =  typeof_pattern ~scrutinee_type env current_module program pattern in
-      let kt = {
-        v = kt;
-        position = pattern.position
-      } in
-      bound, kt
-    ) 
-    |> List.split
-  in
 
-    let string_compare lhs rhs = String.compare lhs.v rhs.v in
-  
-    let identifier_bound = bounds |> List.map (fun bound -> 
-      bound |> List.map (fun b -> fst b) |> List.sort string_compare
-    )
-  in
+  and typeof_pattern ~scrutinee_type env current_module program pattern =
+    match pattern.v with
+    | PTrue | PFalse ->
+        ([], TBool)
+    | PEmpty ->
+        ([], TUnit)
+    | PCmpEqual | PCmpGreater | PCmpLess ->
+        ([], TOredered)
+    | PChar _ ->
+        ([], TChar)
+    | PFloat _ ->
+        ([], TFloat None)
+    | PInteger _ ->
+        ([], TInteger None)
+    | PWildcard ->
+        ([], scrutinee_type)
+    | PIdentifier id ->
+        let () =
+          match Env.find_identifier_opt id.v env with
+          | None ->
+              ()
+          | Some _ ->
+              failwith "Cannot bind exisiting scope variable"
+        in
+        ((id, scrutinee_type) :: [], scrutinee_type)
+    | PNullptr ->
+        ([], Type.kt_ptr_unknown)
+    | PTuple patterns ->
+        let tuple_scrutinee =
+          match scrutinee_type with
+          | TTuple kts ->
+              kts
+          | _ ->
+              failwith "unmatched between scrutinee type and pattern type"
+        in
+        let () =
+          match Util.are_same_lenght patterns tuple_scrutinee with
+          | true ->
+              ()
+          | false ->
+              failwith
+                "unmatched length between scrutinee type tuple and pattern \
+                 type tuple"
+        in
+        let bounds, ptypes =
+          tuple_scrutinee |> List.combine patterns
+          |> List.map (fun (pattern, ktype) ->
+                 let bound, kt =
+                   typeof_pattern ~scrutinee_type:ktype.v env current_module
+                     program pattern
+                 in
+                 let kt = { v = kt; position = pattern.position } in
+                 (bound, kt)
+             )
+          |> List.split
+        in
+        let bounds = List.flatten bounds in
+        let duplicated =
+          Util.ListHelper.duplicated
+            (fun (lhs, _) (rhs, _) -> lhs.v = rhs.v)
+            bounds
+        in
+        let () =
+          match duplicated with
+          | [] ->
+              ()
+          | _ :: _ ->
+              failwith "identifier is already bound"
+        in
+        (bounds, TTuple ptypes)
+    | PCase { variant; assoc_patterns } ->
+        let enum_decl =
+          match
+            Asthelper.Program.find_type_decl_from_true_ktype scrutinee_type
+              current_module program
+          with
+          | None ->
+              failwith "enum case as builint type"
+          | Some (Decl_Struct _) ->
+              failwith "match struct instead of enum"
+          | Some (Decl_Enum e) ->
+              e
+        in
+        let generic_map =
+          scrutinee_type |> Type.extract_parametrics_ktype
+          |> List.combine enum_decl.generics
+        in
+        let assoc_types_opt =
+          Asthelper.Enum.extract_assoc_type_variant generic_map variant
+            enum_decl
+        in
+        let assoc_type =
+          match assoc_types_opt with
+          | None ->
+              failwith @@ "type has not variant " ^ variant.v
+          | Some assoc ->
+              assoc
+        in
+        let () =
+          match Util.are_same_lenght assoc_patterns assoc_type with
+          | true ->
+              ()
+          | false ->
+              failwith "assoc case arithy issue"
+        in
+        let bounds, _ =
+          assoc_type
+          |> List.combine assoc_patterns
+          |> List.map (fun (pattern, ktype) ->
+                 let bound, kt =
+                   typeof_pattern ~scrutinee_type:ktype.v env current_module
+                     program pattern
+                 in
+                 let kt = { v = kt; position = pattern.position } in
+                 (bound, kt)
+             )
+          |> List.split
+        in
+        let bounds = List.flatten bounds in
+        let duplicated =
+          Util.ListHelper.duplicated
+            (fun (lhs, _) (rhs, _) -> lhs.v = rhs.v)
+            bounds
+        in
+        let () =
+          match duplicated with
+          | [] ->
+              ()
+          | _ :: _ ->
+              failwith "identifier is already bound"
+        in
+        (bounds, scrutinee_type)
+    | POr patterns ->
+        let _, _ =
+          match patterns with
+          | [] ->
+              failwith "Unreachable: pattern POr cannot be empty"
+          | t :: q ->
+              (t, q)
+        in
+        let bounds, _ =
+          patterns
+          |> List.map (fun pattern ->
+                 let bound, kt =
+                   typeof_pattern ~scrutinee_type env current_module program
+                     pattern
+                 in
+                 let kt = { v = kt; position = pattern.position } in
+                 (bound, kt)
+             )
+          |> List.split
+        in
 
-    let first_identifiers, others_identifier = match identifier_bound with
-      | [] -> failwith "Unreachable"
-      | t::q -> t, q 
-    in
+        let string_compare lhs rhs = String.compare lhs.v rhs.v in
 
-    let _ = others_identifier |> List.fold_left (fun acc bounds -> 
-      match Util.ListHelper.ldiff string_compare acc bounds with
-      | [] -> acc
-      | t::_ -> failwith @@ Printf.sprintf "The identifier %s is not always bound" t.v
-    ) first_identifiers 
-    in
+        let identifier_bound =
+          bounds
+          |> List.map (fun bound ->
+                 bound |> List.map (fun b -> fst b) |> List.sort string_compare
+             )
+        in
 
-    let first_boud = List.hd bounds in
+        let first_identifiers, others_identifier =
+          match identifier_bound with
+          | [] ->
+              failwith "Unreachable"
+          | t :: q ->
+              (t, q)
+        in
 
-    first_boud, scrutinee_type
+        let _ =
+          others_identifier
+          |> List.fold_left
+               (fun acc bounds ->
+                 match Util.ListHelper.ldiff string_compare acc bounds with
+                 | [] ->
+                     acc
+                 | t :: _ ->
+                     failwith
+                     @@ Printf.sprintf "The identifier %s is not always bound"
+                          t.v
+               )
+               first_identifiers
+        in
+
+        let first_boud = List.hd bounds in
+
+        (first_boud, scrutinee_type)
 end

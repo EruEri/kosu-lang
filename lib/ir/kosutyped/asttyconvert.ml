@@ -554,7 +554,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
                    (env |> Env.push_context [])
                    current_module ~return_type:hint_type program;
           }
-    | EMatch _ -> failwith "TODO: in ast convert"
+    | EMatch _ ->
+        failwith "TODO: in ast convert"
     | ESwitch { expression; cases; wildcard_case } ->
         let open Asthelper.Enum in
         let open Asthelper.Switch_case in
