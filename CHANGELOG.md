@@ -2,6 +2,10 @@
 
 ## **[Unreleased]**
 
+- Add array builtin function
+    - ```arrayptr```
+    - ```arraylen```
+
 - Add keyword function ```addressof```
 
 - Pattern matching base:

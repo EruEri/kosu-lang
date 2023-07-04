@@ -1794,6 +1794,10 @@ module Builtin_Function = struct
         "tof64"
     | Tagof ->
         "tagof"
+    | Array_len ->
+        "arraylen"
+    | Array_ptr ->
+        "arrayptr"
     | Stringl_ptr ->
         "stringlptr"
 
@@ -1824,6 +1828,10 @@ module Builtin_Function = struct
         Tagof |> Result.ok
     | { v = "stringlptr"; _ } ->
         Stringl_ptr |> Result.ok
+    | { v = "arraylen"; _ } ->
+        Ok Array_len
+    | { v = "arrayptr"; _ } ->
+        Ok Array_ptr
     | _ as fn_name ->
         Ast.Error.Unknow_built_function fn_name |> Result.error
 
@@ -1879,6 +1887,40 @@ module Builtin_Function = struct
               }
             |> Result.error
       )
+    | Array_ptr -> (
+        match parameters with
+        | { v = TPointer { v = t; position = _ }; position = _ } :: []
+          when Type.is_array t ->
+            Ok Array_ptr
+        | t :: [] ->
+            Result.error
+            @@ Ast.Error.Expected_array_ptr
+                 { fn_name = fn_location.v; found = t }
+        | list ->
+            Result.error
+            @@ Ast.Error.Mismatched_Parameters_Length
+                 {
+                   fn_name = fn_location;
+                   expected = 1;
+                   found = List.length list;
+                 }
+      )
+    | Array_len -> (
+        match parameters with
+        | t :: [] when Type.is_array t.v ->
+            Ok Array_len
+        | t :: [] ->
+            Result.error
+            @@ Ast.Error.Expected_array { fn_name = fn_location.v; found = t }
+        | list ->
+            Result.error
+            @@ Ast.Error.Mismatched_Parameters_Length
+                 {
+                   fn_name = fn_location;
+                   expected = 1;
+                   found = List.length list;
+                 }
+      )
     | Tagof as fn -> (
         match parameters with
         | t :: [] ->
@@ -1922,12 +1964,22 @@ module Builtin_Function = struct
                  }
       )
 
-  let builtin_return_type =
+  let builtin_return_type parameters =
     let open Ast.Builtin_Function in
     let open Ast.Type in
     function
     | Stringl_ptr ->
         TPointer { v = kt_s8; position = Position.dummy }
+    | Array_ptr ->
+        let kt = List.hd parameters in
+        let kt =
+          match kt.v with
+          | TPointer { v = TArray { ktype; size = _ }; position = _ } ->
+              ktype
+          | _ ->
+              failwith "Should be an array ptr"
+        in
+        TPointer kt
     | Tos8 ->
         kt_s8
     | Tou8 ->
@@ -1942,7 +1994,7 @@ module Builtin_Function = struct
         kt_u32
     | Tos64 ->
         kt_s64
-    | Tou64 ->
+    | Tou64 | Array_len ->
         kt_u64
     | Tof32 ->
         kt_f32

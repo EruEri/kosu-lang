@@ -795,7 +795,8 @@ Return the type of an expression
                      Asthelper.Struct.is_ktype_generic_field s struct_decl
                    with
                    | None ->
-                       failwith "Unknown field"
+                       raise @@ ast_error
+                       @@ Impossible_field_Access { field = s; struct_decl }
                    | Some ktopt ->
                        ktopt
                  in
@@ -1139,7 +1140,8 @@ Return the type of an expression
                 Asthelper.Builtin_Function.is_valide_parameters_type fn_name
                   parameters_type current_mod_name prog builtin
               )
-          |> Result.map Asthelper.Builtin_Function.builtin_return_type
+          |> Result.map
+               (Asthelper.Builtin_Function.builtin_return_type parameters_type)
           |> function Ok kt -> kt | Error e -> raise @@ built_in_func_error e
         in
         validate_location_type expression ~constraint_type kt

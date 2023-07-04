@@ -45,6 +45,8 @@
     - @tof64(anynumber) -> f64
     - @stringlptr(stringl) -> *s8
     - @tagof(enum_type) -> u32
+    - @arraylen(array(N: t)) -> u64
+    - @arrayptr(*array(N: t)) -> *t
 
 ## Keywords
 

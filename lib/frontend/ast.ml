@@ -561,6 +561,8 @@ module Error = struct
         expected : ktype;
         found : ktype location;
       }
+    | Expected_array of { fn_name : string; found : ktype location }
+    | Expected_array_ptr of { fn_name : string; found : ktype location }
     | Mismatched_Parameters_Length of {
         fn_name : string location;
         expected : int;
@@ -1240,6 +1242,8 @@ module Builtin_Function = struct
     | Tou64
     | Tof64
     | Stringl_ptr
+    | Array_ptr
+    | Array_len
     | Tagof
 
   let isize_of_functions = function
@@ -1249,7 +1253,7 @@ module Builtin_Function = struct
         I16
     | Tos32 | Tou32 | Tof32 | Tagof ->
         I32
-    | Tos64 | Tou64 | Tof64 | Stringl_ptr ->
+    | Tos64 | Tou64 | Tof64 | Stringl_ptr | Array_ptr | Array_len ->
         I64
 end
 
