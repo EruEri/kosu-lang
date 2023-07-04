@@ -1828,6 +1828,10 @@ module Builtin_Function = struct
         Tagof |> Result.ok
     | { v = "stringlptr"; _ } ->
         Stringl_ptr |> Result.ok
+    | { v = "arraylen"; _} ->
+        Ok Array_len
+    | { v = "arrayptr"; _} ->
+        Ok Array_ptr
     | _ as fn_name ->
         Ast.Error.Unknow_built_function fn_name |> Result.error
 
@@ -1956,6 +1960,10 @@ module Builtin_Function = struct
         TPointer { v = kt_s8; position = Position.dummy }
     | Array_ptr -> begin 
       let kt = List.hd parameters in
+      let kt = match kt.v with
+        | TPointer { v = TArray {ktype; size = _}; position = _}  -> ktype 
+        | _ -> failwith "Should be an array ptr"
+      in
       TPointer kt
     end
     | Tos8 ->
