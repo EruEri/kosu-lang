@@ -946,6 +946,9 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
             ~where ~register:tmp64reg ~rval_rktype rprogram
         in
         copy_instruction
+    | RVAdressof _ra -> begin 
+      failwith ""
+    end
     | RVDefer id ->
         let adress =
           FrameManager.address_of
