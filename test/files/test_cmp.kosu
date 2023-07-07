@@ -101,6 +101,8 @@ fn test_s8() {
     discard test_s8_aux(1s8, 1s8);
     discard test_s8_aux(-7s8, -7s8);
     discard test_s8_aux(-5s8, -7s8);
+    discard test_s8_aux(-5s8, 1);
+    discard test_s8_aux(127, -1s8);
     $ empty
 }
 
@@ -121,6 +123,8 @@ fn test_s16() {
     discard test_s16_aux(78s16, 147s16);
     discard test_s16_aux(0s16, 0s16);
     discard test_s16_aux(1s16, 1s16);
+    discard test_s16_aux(12, -15s16);
+    discard test_s16_aux(-15s16, 12);
     $ empty
 }
 
@@ -141,6 +145,9 @@ fn test_s32() {
     discard test_s32_aux(78, 147);
     discard test_s32_aux(0, 0);
     discard test_s32_aux(1, 1);
+    discard test_s32_aux(-1s32, 1);
+    discard test_s32_aux(12, -15s32);
+    discard test_s32_aux(-15s32, 12);
     $ empty
 }
 

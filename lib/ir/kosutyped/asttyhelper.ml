@@ -22,7 +22,7 @@ module RType = struct
      @returns If the type represents an unsigned value (.ie pointer or unsigned integer) 
   *)
   let is_raw_unsigned = function
-    | RTInteger _ | RTPointer _ ->
+    | RTInteger (Unsigned, _) | RTPointer _ ->
         true
     | _ ->
         false
