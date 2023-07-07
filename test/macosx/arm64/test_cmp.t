@@ -49,6 +49,20 @@ A random test
   s8: -5 == -7 : false
   s8: -5 != -7 : true
   
+  s8: -5 < 1 : true
+  s8: -5 <= 1 : true
+  s8: -5 > 1 : false
+  s8: -5 >= 1 : false
+  s8: -5 == 1 : false
+  s8: -5 != 1 : true
+  
+  s8: 127 < -1 : false
+  s8: 127 <= -1 : false
+  s8: 127 > -1 : true
+  s8: 127 >= -1 : true
+  s8: 127 == -1 : false
+  s8: 127 != -1 : true
+  
   u8: 0 < 2 : true
   u8: 0 <= 2 : true
   u8: 0 > 2 : false
@@ -133,6 +147,20 @@ A random test
   s16: 1 == 1 : true
   s16: 1 != 1 : false
   
+  s16: 12 < -15 : false
+  s16: 12 <= -15 : false
+  s16: 12 > -15 : true
+  s16: 12 >= -15 : true
+  s16: 12 == -15 : false
+  s16: 12 != -15 : true
+  
+  s16: -15 < 12 : true
+  s16: -15 <= 12 : true
+  s16: -15 > 12 : false
+  s16: -15 >= 12 : false
+  s16: -15 == 12 : false
+  s16: -15 != 12 : true
+  
   u16: 0 < 2 : true
   u16: 0 <= 2 : true
   u16: 0 > 2 : false
@@ -216,4 +244,25 @@ A random test
   s32: 1 >= 1 : true
   s32: 1 == 1 : true
   s32: 1 != 1 : false
+  
+  s32: -1 < 1 : true
+  s32: -1 <= 1 : true
+  s32: -1 > 1 : false
+  s32: -1 >= 1 : false
+  s32: -1 == 1 : false
+  s32: -1 != 1 : true
+  
+  s32: 12 < -15 : false
+  s32: 12 <= -15 : false
+  s32: 12 > -15 : true
+  s32: 12 >= -15 : true
+  s32: 12 == -15 : false
+  s32: 12 != -15 : true
+  
+  s32: -15 < 12 : true
+  s32: -15 <= 12 : true
+  s32: -15 > 12 : false
+  s32: -15 >= 12 : false
+  s32: -15 == 12 : false
+  s32: -15 != 12 : true
   

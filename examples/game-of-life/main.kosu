@@ -1,5 +1,5 @@
 // can be compiled with
-// kosuc -no-std --arch <arch> --os <os> -o main main.kosu vector.kosu cio.kosu option.kosu
+// kosuc --no-std --arch <arch> --os <os> -o main main.kosu vector.kosu cio.kosu option.kosu
 
 struct conway {
     x: u32,

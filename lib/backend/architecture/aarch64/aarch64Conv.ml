@@ -1186,7 +1186,12 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         { binop = TacSelf ((TacAdd | TacMinus) as self_binop); blhs; brhs } -> (
         match KosuIrTyped.Asttyhelper.RType.is_pointer rval_rktype with
         | false ->
-            let binop_func = binop_instruction_of_tacself self_binop in
+            let is_unsigned =
+              KosuIrTyped.Asttyhelper.RType.is_unsigned_integer blhs.expr_rktype
+            in
+            let binop_func =
+              binop_instruction_of_tacself ~unsigned:is_unsigned self_binop
+            in
             translate_tac_binop_self ~litterals ~blhs ~brhs ~where ~rval_rktype
               binop_func rprogram fd
         | true ->
