@@ -9,5 +9,8 @@ san:
 clean:
 	dune clean
 
+install:
+	dune install
+
 test:
 	dune test

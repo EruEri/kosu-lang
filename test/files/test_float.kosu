@@ -175,6 +175,8 @@ fn test_cmp_f32() {
     discard test_cmp_f32_aux(1.0f32, 1.0f32);
     discard test_cmp_f32_aux(-7.6f32, -7.6f32);
     discard test_cmp_f32_aux(-5.9863f32, -7.1f32);
+    discard test_cmp_f32_aux(-79.7969f32, 79.76758f32);
+    discard test_cmp_f32_aux(-4.799f32, 79.7678f32);
     $ ()
 }
 
@@ -186,6 +188,8 @@ fn test_cmp_f64() {
     discard test_cmp_f64_aux(1.0f64, 1.0f64);
     discard test_cmp_f64_aux(-7.6f64, -7.6f64);
     discard test_cmp_f64_aux(-5.9863f64, -7.1f64);
+    discard test_cmp_f64_aux(-1.7969f64, 2.76158f64);
+    
     $ ()
 }
 
