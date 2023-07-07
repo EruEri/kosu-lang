@@ -1,7 +1,7 @@
 # Changelog
 
 ## **0.2.1**
-- Fix compare number with different sign
+- [Fix compare number with different sign](https://github.com/EruEri/kosu-lang/pull/66)
 
 ## **0.2.0**
 
