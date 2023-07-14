@@ -43,9 +43,8 @@ type position = {
 
 type 'a location = { v : 'a; position : position }
 
-let end_to_start position = {
-  position with end_position = position.start_position
-}
+let end_to_start position =
+  { position with end_position = position.start_position }
 
 let map f location = { location with v = f location.v }
 let map_use f location = { v = f location; position = location.position }
