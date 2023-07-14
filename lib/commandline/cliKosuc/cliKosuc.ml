@@ -133,10 +133,12 @@ module Cli = struct
 
   let pkg_config_term =
     Arg.(
-      value & opt_all string []
-      & info [ "pkg-config"; "pc" ] ~docv:"libname"
+      value
+      & opt (list string) []
+      & info [ "pkg-config"; "pc" ] ~docv:"LIBRARIES"
           ~doc:
-            "Invoke $(b,pkg-config)(1) to retreive compilation flags and libs"
+            "A comma separated list of libraries. Invoke $(b,pkg-config)(1) to \
+             retreive compilation flags and libs"
     )
 
   let cclib_term =
@@ -158,11 +160,11 @@ module Cli = struct
   let ccol_term =
     Arg.(
       value
-      & Arg.opt_all non_dir_file []
-      & info [ "ccol" ] ~docv:"C FILES"
+      & opt (list string) []
+      & info [ "ccol" ] ~docv:"<C_FILES>"
           ~doc:
-            "Invoke the default C compiler to generate object file and link \
-             those files"
+            "A comma separated list of c_files. Invoke the default C compiler \
+             to generate object file and link those files"
     )
 
   let files_term =
