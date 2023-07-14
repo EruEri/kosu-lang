@@ -1,6 +1,8 @@
 # Function
 
-```
+## Base function
+
+```rust
     fn add(x: s32, y: s32) s32 {
         $ x + y
     }
@@ -22,3 +24,53 @@
         .some(v) => (v)
     }
 ```
+
+## Operator
+
+In kosu, some operators can be defined by the user.
+
+```cpp
+    // Binary operator
+    operator +(lhs: t, rhs: t) t {
+        ..
+    }
+    // Unary operator
+    // Parenthesis and dot are meaningful
+    operator (.-)(u: t) t {
+        ...
+    }
+```
+
+But those defintions are under some type constraints:
+
+For a type ```t```
+
+- Binary operator:
+    - (+): t -> t -> t
+    - (-): t -> t -> t
+    - (*): t -> t -> t
+    - (/): t -> t -> t
+    - (%): t -> t -> t
+    - (|): t -> t -> t
+    - (&): t -> t -> t
+    - (^): t -> t -> t
+    - (\<\<): t -> t -> t
+    - (>>): t -> t -> t
+    - (==): t -> t -> bool
+    - (<=>): t -> t -> order
+
+- Unary operator:
+    - (.-): t -> t
+    - (.!): t -> t
+
+- Special case:
+    - (==):
+        - If defined then the ( != ) operator is created by the compiler
+    - (<=>):
+        - If defined then the following operator are created by the compiler:
+            - (==)
+            - (!=)
+            - (\<)
+            - (\<=)
+            - (>)
+            - (>=)

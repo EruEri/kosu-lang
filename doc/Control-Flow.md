@@ -5,7 +5,7 @@
         - if omitted, the block has the type unit
 
 - if a conditional block contain only one expression, it can be written like
-```
+```nim
     discard if (true) (expr1) else (expr2);
     discard cases { 
         of true => (expr1)
@@ -15,7 +15,8 @@
 ```
 
 ## If
-```
+
+```rust
     const res : s32 = if (true) {
         $ 20
     } else {
@@ -27,7 +28,8 @@
 ```
 
 ## Cases
-```
+
+```nim
     discard cases {
         of true => {
             $ "Hello word"
@@ -45,7 +47,7 @@
 ```
 
 ## While
-```
+```rust
     // the type of the while loop is unit
     // so type of while loop clock must be unit too
 
@@ -57,7 +59,7 @@
 ## Switch
 - currently the switch expression must be of the type of an enum
 
-```
+```rust
     enum direction {
         up, 
         right,
