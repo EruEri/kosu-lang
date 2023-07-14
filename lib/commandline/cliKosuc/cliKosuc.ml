@@ -107,8 +107,8 @@ module Cli = struct
           [ "fallow-generic-variadic" ]
           ~docs:"COMPILATION OPTION"
           ~doc:
-            "Allow the use variable with a generic type in variadic function \
-             parameters such as $(b,printf(3))"
+            "Allow the use of variables with a generic type in variadic \
+             function parameters such as $(b,printf(3))"
     )
 
   let no_std_term =
