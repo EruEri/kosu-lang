@@ -1,6 +1,9 @@
 # Changelog
 
 ## **Unreleased**
+
+- [Cli ccol + pk-config as separated comma list](https://github.com/EruEri/kosu-lang/pull/69)
+
 - [Struct Initialization with field name = variable name](https://github.com/EruEri/kosu-lang/pull/68)
     - Unnecessary to initialize a field if a variable with the same name exist in the scope
     - Update error message
