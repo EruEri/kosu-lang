@@ -21,6 +21,17 @@
     open Position
     (* menhir --list-errors lib/frontend/parser.mly > lib/frontend/parser.messages *)
     (* dune build @update_messsages *)
+
+    let identifier_to_expr id_loc = 
+        Position.map_use (fun id -> 
+            EIdentifier {
+                modules_path = {
+                    v = String.empty;
+                    position = Position.end_to_start id.position
+                };
+                identifier = id
+            }
+        ) id_loc 
 %}
 
 
@@ -33,8 +44,8 @@
 %token <string> Constant
 %token <string> Module_IDENT 
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
-%token SEMICOLON ARROWFUNC MINUSUP
-%token ENUM ARRAY EXTERNAL FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE FOR CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE
+%token SEMICOLON ARROWFUNC
+%token ENUM ARRAY EXTERNAL FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE
 %token CMP_LESS CMP_EQUAL CMP_GREATER MATCH ADDRESSOF
 %token TRIPLEDOT
 %token COMMA
@@ -478,9 +489,9 @@ expr:
         }
     }
     | l=module_path id=located(IDENT) {
-        if l.v = "" then 
+        if l.v = String.empty then 
             EIdentifier { 
-                modules_path = l ;
+                modules_path = l;
                 identifier = id
             }
         else 
@@ -507,7 +518,13 @@ expr:
             parameters = $1::exprs
         }
     }
-    | modules_path=module_path struct_name=located(IDENT) fields=delimited(LBRACE, separated_list(COMMA, id=located(IDENT) either_color_equal  expr=located(expr) { id, expr } ) , RBRACE) {
+    | modules_path=module_path struct_name=located(IDENT) fields=delimited(LBRACE, 
+        separated_list(COMMA, id=located(IDENT) expr=option(preceded(either_color_equal, located(expr))) 
+        { 
+            let expr = Option.value ~default:(identifier_to_expr id) expr in
+            id, expr 
+        }
+        ) ,RBRACE) {
         EStruct {
             modules_path;
             struct_name;
@@ -587,59 +604,64 @@ s_case:
 ctype:
     | modules_path=module_path id=located(IDENT) { 
         let open Ast.Type in
-        match id.v with
-        | "unit" -> TUnit
-        | "bool" -> TBool
-        | "stringl" -> TString_lit
-        | "f64" -> kt_f64
-        | "f32" -> kt_f32
-        | "s8" -> kt_s8
-        | "u8" -> kt_u8
-        | "s16" -> kt_s16
-        | "u16" -> kt_u16
-        | "s32" -> kt_s32
-        | "u32" -> kt_u32
-        | "s64" -> kt_s64
-        | "u64" -> kt_u64
-        | "anyptr" -> TPointer ({ v = TUnknow; position = id.position })
-        | _ -> TType_Identifier {
-            module_path = modules_path ;
-            name = id
-        }
+        match modules_path.v = String.empty with
+        | true -> begin match id.v with
+            | "unit" -> TUnit
+            | "bool" -> TBool
+            | "stringl" -> TString_lit
+            | "f64" -> kt_f64
+            | "f32" -> kt_f32
+            | "s8" -> kt_s8
+            | "u8" -> kt_u8
+            | "s16" -> kt_s16
+            | "u16" -> kt_u16
+            | "s32" -> kt_s32
+            | "u32" -> kt_u32
+            | "s64" -> kt_s64
+            | "u64" -> kt_u64
+            | "anyptr" -> TPointer ({ v = TUnknow; position = id.position })
+            | _ -> TType_Identifier {
+                module_path = modules_path ;
+                name = id
+            }
+        end
+        | false -> 
+            TType_Identifier {
+                module_path = modules_path ;
+                name = id
+            }
      }
-    | ARRAY delimited(LPARENT, size=located(Integer_lit) COLON ktype=located(ktype) {ktype, size}, RPARENT) {
-        let ktype, size = $2 in
-        let size = Position.map (fun (_, value) -> value) size in
-        TArray {
-            size;
-            ktype
-        }
-    }
     | MULT located(ktype) { TPointer $2 } 
 
 ktype:
     | modules_path=module_path id=located(IDENT) {
         let open Type in
-        match id.v with
-        | "unit" -> TUnit
-        | "bool" -> TBool
-        | "char" -> TChar
-        | "f64" -> kt_f64
-        | "f32" -> kt_f32
-        | "s8" -> kt_s8
-        | "u8" -> kt_u8
-        | "s16" -> kt_s16
-        | "u16" -> kt_u16
-        | "s32" -> kt_s32
-        | "u32" -> kt_u32
-        | "s64" -> kt_s64
-        | "u64" -> kt_u64
-        | "order" -> TOredered
-        | "stringl" -> TString_lit
-        | _ -> TType_Identifier {
+        match modules_path.v = String.empty with
+        | false -> TType_Identifier {
             module_path = modules_path;
             name = id
         } 
+        | true -> begin match id.v with
+            | "unit" -> TUnit
+            | "bool" -> TBool
+            | "char" -> TChar
+            | "f64" -> kt_f64
+            | "f32" -> kt_f32
+            | "s8" -> kt_s8
+            | "u8" -> kt_u8
+            | "s16" -> kt_s16
+            | "u16" -> kt_u16
+            | "s32" -> kt_s32
+            | "u32" -> kt_u32
+            | "s64" -> kt_s64
+            | "u64" -> kt_u64
+            | "order" -> TOredered
+            | "stringl" -> TString_lit
+            | _ -> TType_Identifier {
+                module_path = modules_path;
+                name = id
+            } 
+        end
      }
     | ARRAY delimited(LPARENT, size=located(Integer_lit) COLON ktype=located(ktype) {ktype, size}, RPARENT) {
         let ktype, size = $2 in

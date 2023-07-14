@@ -1,5 +1,11 @@
 # Changelog
 
+## **Unreleased**
+- [Struct Initialization with field name = variable name](https://github.com/EruEri/kosu-lang/pull/68)
+    - Unnecessary to initialize a field if a variable with the same name exist in the scope
+    - Update error message
+    - Type contains buildin type are separed if the module_path is not empty
+
 ## **0.2.1**
 - [Fix compare number with different sign](https://github.com/EruEri/kosu-lang/pull/66)
 
