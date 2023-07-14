@@ -1,6 +1,6 @@
 # Changelog
 
-## **Unreleased**
+## **0.3.0**
 
 - [Cli ccol + pk-config as separated comma list](https://github.com/EruEri/kosu-lang/pull/69)
 

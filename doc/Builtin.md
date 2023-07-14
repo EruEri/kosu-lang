@@ -69,7 +69,7 @@
 
 ## Builtin-Builtin-type
 
-```
+```rust
     // to declare a variable we use the const or var keyword
     const x = 10; // x has the type s32
     var f = 23.0; // f has the type f64
