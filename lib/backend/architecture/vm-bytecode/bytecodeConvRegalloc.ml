@@ -16,11 +16,11 @@
 (**********************************************************************************************)
 
 open Util
-open BytecodeCore
-open BytecodeCore.LineInstruction
-open BytecodeCore.Register
-open BytecodeCore.BytecodeProgram
-open BytecodeCore.Location
+open BytecodeCoreRegalloc
+open BytecodeCoreRegalloc.LineInstruction
+open BytecodeCoreRegalloc.Register
+open BytecodeCoreRegalloc.BytecodeProgram
+open BytecodeCoreRegalloc.Location
 open KosuIrTAC.Asttachelper.StringLitteral
 open KosuIrTAC.Asttac
 
@@ -28,7 +28,12 @@ let store_instruction ~large_cp ~rval_rktype ~reg ~where =
   match where with
   | None ->
       []
-  | Some address ->
+  | Some (LocReg rloc) ->
+      if rloc = reg then
+        []
+      else
+        LineInstruction.smv rloc @@ Operande.iregister reg
+  | Some (LocAddr address) ->
       if large_cp then
         LineInstruction.scopy reg address rval_rktype
       else
@@ -64,7 +69,12 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
             loc
       in
       match loc with
-      | address ->
+      | LocReg reg ->
+          if reg = target_reg then
+            []
+          else
+            smv target_reg @@ Operande.iregister reg
+      | LocAddr address ->
           if Register.does_return_hold_in_register_kt tte.expr_rktype then
             let ds = ConditionCode.data_size_of_kt tte.expr_rktype in
             sldr ds target_reg address
@@ -82,7 +92,9 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
 let translate_and_store ~where ~litterals ~target_reg fd tte =
   let () = ignore target_reg in
   match where with
-  | Some address ->
+  | Some (LocReg reg) ->
+      translate_tac_expression ~litterals ~target_reg:reg fd tte
+  | Some (LocAddr address) ->
       let target_reg = Register.r13 in
       let insts = translate_tac_expression ~litterals ~target_reg fd tte in
       let cp_insts = scopy target_reg address tte.expr_rktype in
@@ -92,7 +104,7 @@ let translate_and_store ~where ~litterals ~target_reg fd tte =
       let insts = translate_tac_expression ~litterals ~target_reg fd tte in
       insts
 
-let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
+let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
     current_module rprogram (fd : FrameManager.description) rvalue =
   let () = ignore is_deref in
   match rvalue.rvalue with
@@ -132,10 +144,12 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
              let where =
                where
                |> Option.map (function
-                    | address ->
-                      (increment_adress (List.nth offset_list index) address
+                    | LocAddr address ->
+                        LocAddr
+                          (increment_adress (List.nth offset_list index) address)
+                    | LocReg _ as loc ->
+                        loc
                     )
-            )
              in
              acc
              @ translate_and_store ~where ~litterals ~target_reg:Register.r13 fd
@@ -259,7 +273,11 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
                     failwith
                       "Function call: need stack location for function \
                        indirect return"
-                | Some address ->
+                | Some (LocReg _) ->
+                    failwith
+                      "Function call: return indirect value need to be on \
+                       stack not register"
+                | Some (LocAddr address) ->
                     address
               in
 
@@ -321,9 +339,11 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
              let where =
                where
                |> Option.map (function
-                    | address ->
+                    | LocAddr address ->
                         let offset = List.nth offset_list index in
-                        increment_adress offset address
+                        Location.loc_addr @@ increment_adress offset address
+                    | loc ->
+                        loc
                     )
              in
              translate_and_store ~where ~litterals ~target_reg:Register.r13 fd
@@ -430,8 +450,13 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
         FrameManager.location_of (id, pointee_type) fd
         |> fun adr ->
         match adr with
-        | Some address ->
+        | Some (LocAddr address) ->
             address
+        | Some (LocReg _r) ->
+            failwith
+            @@ Printf.sprintf
+                 "RVAdress : variable %s must be in stack and in %s register" id "reg"
+                 (* (BytecodePprint.string_of_register r) *)
         | None ->
             failwith "address of null address"
       in
