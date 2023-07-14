@@ -114,7 +114,6 @@ rule token = parse
 | "||" { OR }
 | "|>" { PIPESUP }
 | "=>" { ARROWFUNC }
-| "->" { MINUSUP }
 | "$" { DOLLAR }
 | "==" { DOUBLEQUAL }
 | "<=>" { INF_EQ_SUP }
