@@ -933,11 +933,48 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
       let builin_call_instructions =
         match fn_name with
         | Tagof ->
-            failwith ""
+          let tte = List.hd parameters in
+          let address =
+            match tte.tac_expression with
+            | TEIdentifier i ->
+                Option.get @@ FrameManager.location_of (i, tte.expr_rktype) fd
+            | _ ->
+                failwith
+                  "Enum are rvalue, therethore they are converted as \
+                   identifier"
+          in
+          let load_tag_instructions =
+            let tag_size = ConditionCode.SIZE_32 in
+            LineInstruction.sldr tag_size Register.r13 address
+          in
+          let copy_instructions =
+            store_instruction ~large_cp:false ~where ~reg:r13 ~rval_rktype:rvalue.rval_rktype
+          in
+          load_tag_instructions @ copy_instructions
         | Array_len ->
-            failwith ""
+          let tte = List.hd parameters in
+          let array_len =
+            match tte.expr_rktype with
+            | RTArray { size; rktype = _ } ->
+                size
+            | _ ->
+                failwith "Weird: it should be an pointer array type"
+          in
+          let mov_instrs = LineInstruction.mv_integer Register.r13 array_len in
+          let copy_instructions = 
+            store_instruction ~where ~reg:Register.r13 ~large_cp:false ~rval_rktype:rvalue.rval_rktype 
+          in
+          mov_instrs @ copy_instructions
         | Array_ptr ->
-            failwith ""
+          let tte = List.hd parameters in
+          let instructions =
+            translate_tac_expression ~litterals ~target_reg:Register.ir fd
+              tte
+          in
+          let copy_instructions =
+            store_instruction ~large_cp:false ~where ~reg:Register.ir ~rval_rktype:rvalue.rval_rktype
+          in
+          instructions @ copy_instructions
         | _ ->
             failwith "BUILIN CALL TODO"
       in
