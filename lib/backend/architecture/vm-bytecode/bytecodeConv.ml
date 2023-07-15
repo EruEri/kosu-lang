@@ -1081,60 +1081,64 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
       let where = addr_indirect ~offset:field_offset intermediary_address in
       translate_tac_rvalue ~litterals ~where current_module rprogram fd trvalue
   | STWhile
-        {
-          statements_condition;
-          condition;
-          loop_body;
-          self_label;
-          inner_body_label = _;
-          exit_label;
-    } -> 
+      {
+        statements_condition;
+        condition;
+        loop_body;
+        self_label;
+        inner_body_label = _;
+        exit_label;
+      } ->
       let label = Line.label self_label in
-      let stmts_bools = 
-        statements_condition 
-        |> List.map (translate_tac_statement ~litterals current_module rprogram fd)
+      let stmts_bools =
+        statements_condition
+        |> List.map
+             (translate_tac_statement ~litterals current_module rprogram fd)
         |> List.flatten
       in
       let condition_rvalue_inst =
-        translate_tac_expression ~target_reg:Register.r13 ~litterals fd condition
+        translate_tac_expression ~target_reg:Register.r13 ~litterals fd
+          condition
       in
       let mov_condition = LineInstruction.mv_integer r14 0L in
-      let cmp = Line.instruction @@ 
-        Instruction.cmp ConditionCode.EQUAL r13 r14
+      let cmp =
+        Line.instruction @@ Instruction.cmp ConditionCode.EQUAL r13 r14
       in
       let jmp = LineInstruction.sjump_label self_label in
-      let if_block = 
+      let if_block =
         translate_tac_body ~litterals ~end_label:(Some self_label)
-        current_module rprogram fd loop_body
-    in
-    let exit_label = Line.label exit_label in
-    (label :: stmts_bools) @ condition_rvalue_inst @ mov_condition @ (cmp :: jmp :: if_block)
-      @ [ exit_label ]
-    | STIf
-    {
-      statement_for_bool;
-      condition_rvalue;
-      goto1;
-      goto2;
-      exit_label;
-      if_tac_body;
-      else_tac_body;
-    } -> 
-      let stmts_bools = 
-        statement_for_bool 
-        |> List.map (translate_tac_statement ~litterals current_module rprogram fd)
+          current_module rprogram fd loop_body
+      in
+      let exit_label = Line.label exit_label in
+      (label :: stmts_bools) @ condition_rvalue_inst @ mov_condition
+      @ (cmp :: jmp :: if_block) @ [ exit_label ]
+  | STIf
+      {
+        statement_for_bool;
+        condition_rvalue;
+        goto1;
+        goto2;
+        exit_label;
+        if_tac_body;
+        else_tac_body;
+      } ->
+      let stmts_bools =
+        statement_for_bool
+        |> List.map
+             (translate_tac_statement ~litterals current_module rprogram fd)
         |> List.flatten
       in
       let condition_rvalue_inst =
-        translate_tac_expression ~target_reg:Register.r13 ~litterals fd condition_rvalue
+        translate_tac_expression ~target_reg:Register.r13 ~litterals fd
+          condition_rvalue
       in
       let mov_condition = LineInstruction.mv_integer r14 1L in
-      let cmp = Line.instruction @@ 
-        Instruction.cmp ConditionCode.EQUAL r13 r14
+      let cmp =
+        Line.instruction @@ Instruction.cmp ConditionCode.EQUAL r13 r14
       in
       let jmp = LineInstruction.sjump_label goto1 in
       let cmptrue = Line.instruction @@ Instruction.cmp ALWAYS r0 r0 in
-      let jmp2 = LineInstruction.sjump_label goto2 in 
+      let jmp2 = LineInstruction.sjump_label goto2 in
 
       let if_block =
         translate_tac_body ~litterals ~end_label:(Some exit_label)
@@ -1149,8 +1153,62 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
       stmts_bools @ condition_rvalue_inst @ mov_condition
       @ (cmp :: jmp :: cmptrue :: jmp2 :: if_block)
       @ else_block @ [ exit_label_instr ]
-  | _ ->
-      failwith ""
+  | SCases { cases; else_tac_body; exit_label } ->
+      let map_case scases =
+        let setup_next_label_instr =
+          scases.condition_label
+          |> Option.map LineInstruction.sjump_always
+          |> Option.value ~default:[]
+        in
+
+        let setup_conditions_instructions =
+          scases.statement_for_condition
+          |> List.map
+               (translate_tac_statement ~litterals current_module rprogram fd)
+          |> List.flatten
+        in
+        let condition =
+          translate_tac_expression ~litterals ~target_reg:Register.r13 fd
+            scases.condition
+        in
+        let mv_rhs_instr =
+          Line.instruction
+          @@ Instruction.mv Register.r14
+          @@ Operande.ilitteral 1L
+        in
+        let cmp_instr =
+          Line.instruction @@ Instruction.cmp EQUAL Register.r13 r14
+        in
+        let if_true_instruction = LineInstruction.sjump_label scases.goto in
+
+        let if_false_instructions =
+          LineInstruction.sjump_always scases.jmp_false
+        in
+        let body_instruction =
+          translate_tac_body ~litterals ~end_label:(Some scases.end_label)
+            current_module rprogram fd scases.tac_body
+        in
+        ( body_instruction,
+          setup_next_label_instr @ setup_conditions_instructions @ condition
+          @ [ mv_rhs_instr; cmp_instr; if_true_instruction ]
+          @ if_false_instructions
+        )
+      in
+
+      let cases_body, cases_condition =
+        cases |> List.map map_case |> List.split
+        |> fun (lhs, rhs) -> (List.flatten lhs, List.flatten rhs)
+      in
+      let end_label_instruction = Line.label exit_label in
+      let else_body_instruction =
+        translate_tac_body ~litterals ~end_label:(Some exit_label)
+          current_module rprogram fd else_tac_body
+      in
+
+      cases_condition @ cases_body @ else_body_instruction
+      @ [ end_label_instruction ]
+  | STSwitch _ | STSwitchTmp _ ->
+      failwith "switch todo"
 
 and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
     (fd : FrameManager.description) { label; body } =
@@ -1162,11 +1220,14 @@ and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
        )
     |> List.flatten
   in
-  let end_label_insts = end_label |> Option.map (fun end_label -> 
-    let true_exit = Line.instruction @@ Instruction.cmp ALWAYS r0 r0 in
-    true_exit::(sjump_label end_label)::[]
-    ) 
-  |> Option.value ~default:[] in
+  let end_label_insts =
+    end_label
+    |> Option.map (fun end_label ->
+           let true_exit = Line.instruction @@ Instruction.cmp ALWAYS r0 r0 in
+           [ true_exit; sjump_label end_label ]
+       )
+    |> Option.value ~default:[]
+  in
   let return_instructions =
     body |> snd
     |> Option.map (fun tte ->

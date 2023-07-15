@@ -446,12 +446,7 @@ module Instruction = struct
   let add destination operande1 operande2 =
     Add { destination; operande1; operande2 }
 
-
-  let cmp cc lhs rhs = Cmp { 
-    cc;
-    lhs;
-    rhs;
-  }
+  let cmp cc lhs rhs = Cmp { cc; lhs; rhs }
 
   let icset cc destination lhs rhs update =
     Cset { cc; destination; lhs; rhs; update_last_cmp = update }
@@ -655,6 +650,9 @@ module LineInstruction = struct
   let sbr_label label = instruction @@ br @@ `Label label
   let sbr_reg reg = instruction @@ br @@ `Register reg
   let sjump_label label = instruction @@ jump @@ `Label label
+
+  let sjump_always label =
+    [ instruction @@ cmp ALWAYS Register.r0 Register.r0; sjump_label label ]
 
   let slea_address target address =
     sadd target address.Location.base address.Location.offset
