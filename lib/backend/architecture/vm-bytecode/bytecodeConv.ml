@@ -1207,7 +1207,158 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
 
       cases_condition @ cases_body @ else_body_instruction
       @ [ end_label_instruction ]
-  | STSwitch _ | STSwitchTmp _ ->
+  | STSwitch
+      {
+        statemenets_for_case;
+        condition_switch;
+        sw_cases;
+        wildcard_label;
+        wildcard_body;
+        sw_exit_label;
+      } ->
+      let tag_of_variant = KosuIrTyped.Asttyhelper.Renum.tag_of_variant in
+      let enum_decl =
+        match
+          KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
+            condition_switch.expr_rktype rprogram
+        with
+        | Some (RDecl_Struct _) ->
+            failwith "Expected to find an enum get an struct"
+        | Some (RDecl_Enum e) ->
+            e
+        | None ->
+            failwith "Non type decl ??? my validation is very weak"
+      in
+      let enum_decl =
+        let generics =
+          condition_switch.expr_rktype
+          |> KosuIrTyped.Asttyhelper.RType.extract_parametrics_rktype
+          |> List.combine enum_decl.generics
+        in
+        KosuIrTyped.Asttyhelper.Renum.instanciate_enum_decl generics enum_decl
+      in
+      let exit_label_instruction = Line.label sw_exit_label in
+      let setup_instructions =
+        statemenets_for_case
+        |> List.map
+             (translate_tac_statement ~litterals current_module rprogram fd)
+        |> List.flatten
+      in
+      let condition_switch_instruction =
+        translate_tac_expression ~litterals ~target_reg:Register.r13 fd
+          condition_switch
+      in
+      let copy_tag_instructions =
+        match does_return_hold_in_register_kt condition_switch.expr_rktype with
+        | true ->
+            failwith ""
+        | false ->
+            let tag_size = ConditionCode.SIZE_32 in
+            LineInstruction.sldr tag_size Register.r13
+              (create_address Register.r13)
+      in
+      let switch_variable_name =
+        match condition_switch.tac_expression with
+        | TEIdentifier id ->
+            id
+        | _ ->
+            failwith "I need to get the id"
+      in
+
+      let fetch_offset_instructions assoc_type_for_variants (index, id, ktyte) =
+        let offset_a =
+          KosuIrTyped.Sizeof.offset_of_tuple_index (index + 1)
+            assoc_type_for_variants rprogram
+        in
+        let switch_variable_address =
+          Option.get
+          @@ FrameManager.location_of
+               (switch_variable_name, condition_switch.expr_rktype)
+               fd
+        in
+
+        let destination_address =
+          Option.get @@ FrameManager.location_of (id, ktyte) fd
+        in
+
+        let data_size = ConditionCode.data_size_of_kt ktyte in
+        let copy_instructions =
+          match does_return_hold_in_register_kt ktyte with
+          | true ->
+              let ldr_instr =
+                LineInstruction.sldr data_size Register.ir
+                  (increment_adress offset_a switch_variable_address)
+              in
+              let str_instrs =
+                LineInstruction.sstr data_size Register.ir destination_address
+              in
+              ldr_instr @ str_instrs
+          | false ->
+              let i = increment_adress offset_a switch_variable_address in
+              let lea_instr = LineInstruction.slea_address Register.r13 i in
+              let str_instructions =
+                store_instruction
+                  ~where:(addr_direct destination_address)
+                  ~large_cp:true ~rval_rktype:ktyte ~reg:Register.r13
+              in
+              lea_instr @ str_instructions
+        in
+        copy_instructions
+      in
+
+      let map_switch sw_case =
+        let map_variant mvariant =
+          let tag = tag_of_variant mvariant enum_decl in
+          let mov_tag_instr =
+            LineInstruction.mv_integer r14 @@ Int64.of_int32 tag
+          in
+          let compare =
+            Line.instruction @@ Instruction.cmp EQUAL Register.r13 r14
+          in
+          let assoc_type_for_variants =
+            KosuIrTyped.Asttyhelper.Renum.assoc_types_of_variant ~tagged:true
+              mvariant enum_decl
+          in
+          let fetch_offset_instructions =
+            sw_case.assoc_bound
+            |> List.map (fetch_offset_instructions assoc_type_for_variants)
+            |> List.flatten
+          in
+          let jmp_true = LineInstruction.sjump_label sw_case.sw_goto in
+          fetch_offset_instructions @ mov_tag_instr @ [ compare; jmp_true ]
+        in
+
+        let jump_conditions =
+          sw_case.variants_to_match |> List.map map_variant |> List.flatten
+        in
+        let genete_block =
+          translate_tac_body ~litterals ~end_label:(Some sw_case.sw_exit_label)
+            current_module rprogram fd sw_case.switch_tac_body
+        in
+        (jump_conditions, genete_block)
+      in
+
+      let cmp_instrution_list, fn_block =
+        sw_cases |> List.map map_switch |> List.split
+        |> fun (lhs, rhs) -> (List.flatten lhs, List.flatten rhs)
+      in
+      let wildcard_case_jmp =
+        wildcard_label
+        |> Option.map LineInstruction.sjump_always
+        |> Option.value ~default:[]
+      in
+      let wildcard_body_block =
+        wildcard_body
+        |> Option.map (fun body ->
+               translate_tac_body ~litterals ~end_label:(Some sw_exit_label)
+                 current_module rprogram fd body
+           )
+        |> Option.value ~default:[]
+      in
+      setup_instructions @ condition_switch_instruction @ copy_tag_instructions
+      @ cmp_instrution_list @ wildcard_case_jmp @ fn_block @ wildcard_body_block
+      @ [ exit_label_instruction ]
+  | STSwitchTmp _ ->
       failwith "switch todo"
 
 and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
