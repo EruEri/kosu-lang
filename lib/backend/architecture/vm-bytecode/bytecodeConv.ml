@@ -528,6 +528,7 @@ let translate_tac_rvalue ~litterals ~where
       ~where ~reg
     in
     array_instructions @ index_instructions @ mov_instrs @ store_instrs
+    
   | RVAdress id ->
       let pointee_type =
         KosuIrTyped.Asttyhelper.RType.rtpointee rvalue.rval_rktype
@@ -548,6 +549,46 @@ let translate_tac_rvalue ~litterals ~where
           ~reg:r13 ~where
       in
       compute_instructions @ sis
+  | RVAdressof ra -> 
+    let variable, offset = match ra with
+    | KosuIrTyped.Asttyped.RAFVariable variable ->
+        (variable, 0L)
+    | KosuIrTyped.Asttyped.RAFField { variable; fields } ->
+        let offset =
+          KosuCommon.OffsetHelper.offset_of_field_access (snd variable)
+            ~fields rprogram
+        in
+        (variable, offset)
+  in
+  let base_address = Option.get @@ FrameManager.location_of variable fd in
+  let lea_base_address = LineInstruction.slea_address Register.ir base_address in
+  let offset_instrs = match offset with
+    | 0L -> []
+    | offset -> LineInstruction.sadd ir ir @@ Operande.ilitteral offset
+  in
+
+  let store_instrs = 
+    store_instruction ~where ~large_cp:false ~rval_rktype:rvalue.rval_rktype
+    ~reg:Register.ir
+  in
+  lea_base_address @ offset_instrs @ store_instrs
+  | RVDefer id -> 
+    let address =
+      Option.get @@ FrameManager.location_of
+        (id, rvalue.rval_rktype |> KosuIrTyped.Asttyhelper.RType.rpointer)
+        fd
+    in
+    let load_instrs = LineInstruction.sldr SIZE_64 Register.ir address in
+    let indirect_load_instrs = match does_return_hold_in_register_kt rvalue.rval_rktype with
+      | true -> 
+        let data_size = ConditionCode.data_size_of_kt rvalue.rval_rktype in
+        LineInstruction.sldr data_size Register.r13 (create_address ir)
+      | false -> []
+    in
+    let store_instrucs = 
+      store_instruction ~where ~large_cp:true ~rval_rktype:rvalue.rval_rktype ~reg:r13 
+    in
+    load_instrs @ indirect_load_instrs @ store_instrucs
   | RVEnum { variant; assoc_tac_exprs; _ } ->
       let enum_decl =
         match
@@ -936,8 +977,7 @@ let translate_tac_rvalue ~litterals ~where
         linstructions @ rinstructions @ br_i::indirect_return_instructions
     in
     all_instructions
-  | _ ->
-      failwith "TODO"
+
 
 let rec translate_tac_statement ~litterals current_module rprogram fd = function
   | STacDeclaration { identifier; trvalue }
