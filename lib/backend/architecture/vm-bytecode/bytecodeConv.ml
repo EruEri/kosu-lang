@@ -1110,7 +1110,45 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
     let exit_label = Line.label exit_label in
     (label :: stmts_bools) @ condition_rvalue_inst @ mov_condition @ (cmp :: jmp :: if_block)
       @ [ exit_label ]
-    
+    | STIf
+    {
+      statement_for_bool;
+      condition_rvalue;
+      goto1;
+      goto2;
+      exit_label;
+      if_tac_body;
+      else_tac_body;
+    } -> 
+      let stmts_bools = 
+        statement_for_bool 
+        |> List.map (translate_tac_statement ~litterals current_module rprogram fd)
+        |> List.flatten
+      in
+      let condition_rvalue_inst =
+        translate_tac_expression ~target_reg:Register.r13 ~litterals fd condition_rvalue
+      in
+      let mov_condition = LineInstruction.mv_integer r14 1L in
+      let cmp = Line.instruction @@ 
+        Instruction.cmp ConditionCode.EQUAL r13 r14
+      in
+      let jmp = LineInstruction.sjump_label goto1 in
+      let cmptrue = Line.instruction @@ Instruction.cmp ALWAYS r0 r0 in
+      let jmp2 = LineInstruction.sjump_label goto2 in 
+
+      let if_block =
+        translate_tac_body ~litterals ~end_label:(Some exit_label)
+          current_module rprogram fd if_tac_body
+      in
+      let else_block =
+        translate_tac_body ~litterals ~end_label:(Some exit_label)
+          current_module rprogram fd else_tac_body
+      in
+
+      let exit_label_instr = Line.label exit_label in
+      stmts_bools @ condition_rvalue_inst @ mov_condition
+      @ (cmp :: jmp :: cmptrue :: jmp2 :: if_block)
+      @ else_block @ [ exit_label_instr ]
   | _ ->
       failwith ""
 
