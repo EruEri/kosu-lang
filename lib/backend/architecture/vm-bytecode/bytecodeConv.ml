@@ -28,51 +28,62 @@ let rec store_instruction ~large_cp ~rval_rktype ~reg ~where =
   match where with
   | Addr_Direct None ->
       []
-  | Addr_Direct Some address ->
+  | Addr_Direct (Some address) ->
       if large_cp then
         LineInstruction.scopy reg address rval_rktype
       else
         let data_size = ConditionCode.data_size_of_kt rval_rktype in
         LineInstruction.sstr data_size reg address
-  | Addr_Indirect {address; offset} -> 
-    let tmp_reg = Register.tmp_register ~exclude:reg in
-    let ldr = LineInstruction.sldr SIZE_64 tmp_reg address in
-    let incr_addres = match offset with
-      | 0L -> []
-      | offset -> LineInstruction.sadd tmp_reg tmp_reg @@ Operande.ilitteral offset 
-    in
-    let address = create_address tmp_reg in
-    ldr @ incr_addres @ store_instruction ~large_cp ~rval_rktype ~reg ~where:(addr_direct address)
+  | Addr_Indirect { address; offset } ->
+      let tmp_reg = Register.tmp_register ~exclude:reg in
+      let ldr = LineInstruction.sldr SIZE_64 tmp_reg address in
+      let incr_addres =
+        match offset with
+        | 0L ->
+            []
+        | offset ->
+            LineInstruction.sadd tmp_reg tmp_reg @@ Operande.ilitteral offset
+      in
+      let address = create_address tmp_reg in
+      ldr @ incr_addres
+      @ store_instruction ~large_cp ~rval_rktype ~reg
+          ~where:(addr_direct address)
 
-
-let return_non_register_size ~where = 
+let return_non_register_size ~where =
   match where with
-  | Addr_Direct None -> []
-  | Addr_Direct Some address -> 
-    LineInstruction.slea_address Register.ir address
-  | Addr_Indirect {address; offset} -> 
-    let ldr_instrs = LineInstruction.sldr SIZE_64 Register.ir address in
-    let offset_instrs = match offset with
-      | 0L -> []
-      | offset -> LineInstruction.sadd Register.ir Register.ir @@ Operande.ilitteral offset 
-    in 
-    ldr_instrs @ offset_instrs
-    
+  | Addr_Direct None ->
+      []
+  | Addr_Direct (Some address) ->
+      LineInstruction.slea_address Register.ir address
+  | Addr_Indirect { address; offset } ->
+      let ldr_instrs = LineInstruction.sldr SIZE_64 Register.ir address in
+      let offset_instrs =
+        match offset with
+        | 0L ->
+            []
+        | offset ->
+            LineInstruction.sadd Register.ir Register.ir
+            @@ Operande.ilitteral offset
+      in
+      ldr_instrs @ offset_instrs
 
-
-
-let address_of_addressage ?( f = fun () -> failwith "address is null") ~tmp_reg = function
-| Addr_Direct Some a -> [], a
-| Addr_Direct None -> f ()
-| Addr_Indirect {address; offset} ->
-  let ldr = LineInstruction.sldr SIZE_64 tmp_reg address in
-  let incr_addres = match offset with
-    | 0L -> []
-    | offset -> LineInstruction.sadd tmp_reg tmp_reg @@ Operande.ilitteral offset 
-  in
-  let address = create_address tmp_reg in
-  ldr @ incr_addres, address
-
+let address_of_addressage ?(f = fun () -> failwith "address is null") ~tmp_reg =
+  function
+  | Addr_Direct (Some a) ->
+      ([], a)
+  | Addr_Direct None ->
+      f ()
+  | Addr_Indirect { address; offset } ->
+      let ldr = LineInstruction.sldr SIZE_64 tmp_reg address in
+      let incr_addres =
+        match offset with
+        | 0L ->
+            []
+        | offset ->
+            LineInstruction.sadd tmp_reg tmp_reg @@ Operande.ilitteral offset
+      in
+      let address = create_address tmp_reg in
+      (ldr @ incr_addres, address)
 
 let translate_tac_expression ~litterals ~target_reg fd tte =
   match tte.tac_expression with
@@ -120,22 +131,23 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
 
 let translate_and_store ~where ~litterals ~target_reg fd tte =
   match where with
-  | Addr_Direct Some address ->
+  | Addr_Direct (Some address) ->
       let insts = translate_tac_expression ~litterals ~target_reg fd tte in
       let cp_insts = scopy target_reg address tte.expr_rktype in
       insts @ cp_insts
   | Addr_Direct None ->
       let insts = translate_tac_expression ~litterals ~target_reg fd tte in
       insts
-  | Addr_Indirect {address; offset} -> 
-    let tmp_reg = Register.tmp_register ~exclude:target_reg in
-    let ldr = LineInstruction.sldr SIZE_64 tmp_reg address in
-    let incr_addres = LineInstruction.sadd tmp_reg tmp_reg @@ Operande.ilitteral offset in
-    let insts = translate_tac_expression ~litterals ~target_reg fd tte in
-    let address = create_address tmp_reg in
-    let cp_insts = scopy target_reg address tte.expr_rktype in
-    ldr @ incr_addres @ insts @ cp_insts
-
+  | Addr_Indirect { address; offset } ->
+      let tmp_reg = Register.tmp_register ~exclude:target_reg in
+      let ldr = LineInstruction.sldr SIZE_64 tmp_reg address in
+      let incr_addres =
+        LineInstruction.sadd tmp_reg tmp_reg @@ Operande.ilitteral offset
+      in
+      let insts = translate_tac_expression ~litterals ~target_reg fd tte in
+      let address = create_address tmp_reg in
+      let cp_insts = scopy target_reg address tte.expr_rktype in
+      ldr @ incr_addres @ insts @ cp_insts
 
 let translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where ~rval_rktype fd =
   let r13 = Register.r13 in
@@ -157,8 +169,8 @@ let translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where ~rval_rktype fd =
   in
   linstructions @ rinstructions @ (cset_instruction :: str_instrs)
 
-let translate_tac_rvalue ~litterals ~where
-    current_module rprogram (fd : FrameManager.description) rvalue =
+let translate_tac_rvalue ~litterals ~where current_module rprogram
+    (fd : FrameManager.description) rvalue =
   match rvalue.rvalue with
   | RVDiscard | RVLater ->
       []
@@ -196,7 +208,7 @@ let translate_tac_rvalue ~litterals ~where
       |> List.fold_left
            (fun acc (index, (_field, tte)) ->
              let where =
-              increment_addressage (List.nth offset_list index) where
+               increment_addressage (List.nth offset_list index) where
              in
              acc
              @ translate_and_store ~where ~litterals ~target_reg:Register.r13 fd
@@ -322,8 +334,8 @@ let translate_tac_rvalue ~litterals ~where
                 LineInstruction.slea_address Register.ir return_address
               in
               args_instructions @ float_args_instructions
-              @ set_on_stack_instructions @ ldr_addrres_instr @ mv_address_instruction
-              @ [ call_instruction ]
+              @ set_on_stack_instructions @ ldr_addrres_instr
+              @ mv_address_instruction @ [ call_instruction ]
         )
       | RExternal_Decl _external_func_decl ->
           failwith "External function: Find a way for the vm to call them"
@@ -374,7 +386,7 @@ let translate_tac_rvalue ~litterals ~where
       ttes
       |> List.mapi (fun index tte ->
              let where =
-              increment_addressage (List.nth offset_list index) where
+               increment_addressage (List.nth offset_list index) where
              in
              translate_and_store ~where ~litterals ~target_reg:Register.r13 fd
                tte
@@ -472,63 +484,76 @@ let translate_tac_rvalue ~litterals ~where
       failwith "KosuTac force RVFieldAcess to be an tmp variable"
   | RVTupleAccess _ ->
       failwith "KosuTac force RVTupleAccess to be an tmp variable"
-  | RVArrayAccess { array_expr; index_expr } -> 
-    let r13 = Register.r13 in
-    let r14 = Register.r14 in
-    let r12 = Register.r12 in
-    let array_instructions =
-      translate_tac_expression ~litterals ~target_reg:r13 fd
-        array_expr
-    in
-    let index_instructions =
-          translate_tac_expression ~litterals ~target_reg:r14 fd
-            index_expr
-    in
+  | RVArrayAccess { array_expr; index_expr } ->
+      let r13 = Register.r13 in
+      let r14 = Register.r14 in
+      let r12 = Register.r12 in
+      let array_instructions =
+        translate_tac_expression ~litterals ~target_reg:r13 fd array_expr
+      in
+      let index_instructions =
+        translate_tac_expression ~litterals ~target_reg:r14 fd index_expr
+      in
 
-    let elt_type_size = KosuIrTyped.Sizeof.sizeof_kt rvalue.rval_rktype in
+      let elt_type_size = KosuIrTyped.Sizeof.sizeof_kt rvalue.rval_rktype in
 
-    let reg, mov_instrs = match does_return_hold_in_register_kt array_expr.expr_rktype with
-      | true -> 
-        let mov_pointee_size_ins =
-          LineInstruction.mv_integer r12 (Int64.mul 8L elt_type_size)
-        in 
-        let shift_instructions = Line.instructions [
-          Instruction.imul r14 r14 @@ Operande.iregister r12;
-          Instruction.ilshiftright r13 r13 @@ Operande.iregister r14
-        ]
-        in
-        r13, mov_pointee_size_ins @ shift_instructions
-      | false -> 
-        let ptr_arithmetic_instrs = 
-          match elt_type_size with
-          | 1L -> r13, Line.instructions [
-            Instruction.add r13 r13 @@ Operande.iregister r14
-          ]
-          | elt_type_size -> 
-            let mv_size_instr = LineInstruction.mv_integer r12 elt_type_size in
-            let scale_size_instructions =
-              Line.instructions [
-                Instruction.imul r14 r14 @@ Operande.iregister r12;
-                Instruction.add r13 r13 @@ Operande.iregister r14
-              ] 
+      let reg, mov_instrs =
+        match does_return_hold_in_register_kt array_expr.expr_rktype with
+        | true ->
+            let mov_pointee_size_ins =
+              LineInstruction.mv_integer r12 (Int64.mul 8L elt_type_size)
             in
-            let load_instructions = 
-              match does_return_hold_in_register_kt rvalue.rval_rktype with
-              | false -> []
-              | true -> 
-                let data_size = ConditionCode.data_size_of_kt rvalue.rval_rktype in
-                LineInstruction.sldr data_size Register.ir (create_address r13)
+            let shift_instructions =
+              Line.instructions
+                [
+                  Instruction.imul r14 r14 @@ Operande.iregister r12;
+                  Instruction.ilshiftright r13 r13 @@ Operande.iregister r14;
+                ]
             in
-            ir, mv_size_instr @ scale_size_instructions @ load_instructions
-        in
-        ptr_arithmetic_instrs
-    in
-    let store_instrs = 
-      store_instruction ~large_cp:true ~rval_rktype:rvalue.rval_rktype 
-      ~where ~reg
-    in
-    array_instructions @ index_instructions @ mov_instrs @ store_instrs
-    
+            (r13, mov_pointee_size_ins @ shift_instructions)
+        | false ->
+            let ptr_arithmetic_instrs =
+              match elt_type_size with
+              | 1L ->
+                  ( r13,
+                    Line.instructions
+                      [ Instruction.add r13 r13 @@ Operande.iregister r14 ]
+                  )
+              | elt_type_size ->
+                  let mv_size_instr =
+                    LineInstruction.mv_integer r12 elt_type_size
+                  in
+                  let scale_size_instructions =
+                    Line.instructions
+                      [
+                        Instruction.imul r14 r14 @@ Operande.iregister r12;
+                        Instruction.add r13 r13 @@ Operande.iregister r14;
+                      ]
+                  in
+                  let load_instructions =
+                    match
+                      does_return_hold_in_register_kt rvalue.rval_rktype
+                    with
+                    | false ->
+                        []
+                    | true ->
+                        let data_size =
+                          ConditionCode.data_size_of_kt rvalue.rval_rktype
+                        in
+                        LineInstruction.sldr data_size Register.ir
+                          (create_address r13)
+                  in
+                  ( ir,
+                    mv_size_instr @ scale_size_instructions @ load_instructions
+                  )
+            in
+            ptr_arithmetic_instrs
+      in
+      let store_instrs =
+        store_instruction ~large_cp:true ~rval_rktype:rvalue.rval_rktype ~where
+          ~reg
+      in
+      array_instructions @ index_instructions @ mov_instrs @ store_instrs
   | RVAdress id ->
       let pointee_type =
         KosuIrTyped.Asttyhelper.RType.rtpointee rvalue.rval_rktype
@@ -549,46 +574,56 @@ let translate_tac_rvalue ~litterals ~where
           ~reg:r13 ~where
       in
       compute_instructions @ sis
-  | RVAdressof ra -> 
-    let variable, offset = match ra with
-    | KosuIrTyped.Asttyped.RAFVariable variable ->
-        (variable, 0L)
-    | KosuIrTyped.Asttyped.RAFField { variable; fields } ->
-        let offset =
-          KosuCommon.OffsetHelper.offset_of_field_access (snd variable)
-            ~fields rprogram
-        in
-        (variable, offset)
-  in
-  let base_address = Option.get @@ FrameManager.location_of variable fd in
-  let lea_base_address = LineInstruction.slea_address Register.ir base_address in
-  let offset_instrs = match offset with
-    | 0L -> []
-    | offset -> LineInstruction.sadd ir ir @@ Operande.ilitteral offset
-  in
+  | RVAdressof ra ->
+      let variable, offset =
+        match ra with
+        | KosuIrTyped.Asttyped.RAFVariable variable ->
+            (variable, 0L)
+        | KosuIrTyped.Asttyped.RAFField { variable; fields } ->
+            let offset =
+              KosuCommon.OffsetHelper.offset_of_field_access (snd variable)
+                ~fields rprogram
+            in
+            (variable, offset)
+      in
+      let base_address = Option.get @@ FrameManager.location_of variable fd in
+      let lea_base_address =
+        LineInstruction.slea_address Register.ir base_address
+      in
+      let offset_instrs =
+        match offset with
+        | 0L ->
+            []
+        | offset ->
+            LineInstruction.sadd ir ir @@ Operande.ilitteral offset
+      in
 
-  let store_instrs = 
-    store_instruction ~where ~large_cp:false ~rval_rktype:rvalue.rval_rktype
-    ~reg:Register.ir
-  in
-  lea_base_address @ offset_instrs @ store_instrs
-  | RVDefer id -> 
-    let address =
-      Option.get @@ FrameManager.location_of
-        (id, rvalue.rval_rktype |> KosuIrTyped.Asttyhelper.RType.rpointer)
-        fd
-    in
-    let load_instrs = LineInstruction.sldr SIZE_64 Register.ir address in
-    let indirect_load_instrs = match does_return_hold_in_register_kt rvalue.rval_rktype with
-      | true -> 
-        let data_size = ConditionCode.data_size_of_kt rvalue.rval_rktype in
-        LineInstruction.sldr data_size Register.r13 (create_address ir)
-      | false -> []
-    in
-    let store_instrucs = 
-      store_instruction ~where ~large_cp:true ~rval_rktype:rvalue.rval_rktype ~reg:r13 
-    in
-    load_instrs @ indirect_load_instrs @ store_instrucs
+      let store_instrs =
+        store_instruction ~where ~large_cp:false ~rval_rktype:rvalue.rval_rktype
+          ~reg:Register.ir
+      in
+      lea_base_address @ offset_instrs @ store_instrs
+  | RVDefer id ->
+      let address =
+        Option.get
+        @@ FrameManager.location_of
+             (id, rvalue.rval_rktype |> KosuIrTyped.Asttyhelper.RType.rpointer)
+             fd
+      in
+      let load_instrs = LineInstruction.sldr SIZE_64 Register.ir address in
+      let indirect_load_instrs =
+        match does_return_hold_in_register_kt rvalue.rval_rktype with
+        | true ->
+            let data_size = ConditionCode.data_size_of_kt rvalue.rval_rktype in
+            LineInstruction.sldr data_size Register.r13 (create_address ir)
+        | false ->
+            []
+      in
+      let store_instrucs =
+        store_instruction ~where ~large_cp:true ~rval_rktype:rvalue.rval_rktype
+          ~reg:r13
+      in
+      load_instrs @ indirect_load_instrs @ store_instrucs
   | RVEnum { variant; assoc_tac_exprs; _ } ->
       let enum_decl =
         match
@@ -631,11 +666,12 @@ let translate_tac_rvalue ~litterals ~where
              let instructions =
                translate_tac_expression ~target_reg:r13 ~litterals fd tte
              in
-             let where = increment_addressage (List.nth offset_list index) where in
+             let where =
+               increment_addressage (List.nth offset_list index) where
+             in
              let copy_instructions =
-               store_instruction ~large_cp:true
-                 ~where:where
-                 ~reg:r13 ~rval_rktype:tte.expr_rktype
+               store_instruction ~large_cp:true ~where ~reg:r13
+                 ~rval_rktype:tte.expr_rktype
              in
              acc @ instructions @ copy_instructions
            )
@@ -860,82 +896,96 @@ let translate_tac_rvalue ~litterals ~where
 
       linstructions @ rinstructions @ (instructions :: str_instrs)
   | RVBuiltinUnop { unop = TacUminus; expr } ->
-    let r13 = Register.r13 in
-    let instructions = 
-      translate_tac_expression ~litterals ~target_reg:r13 fd expr
-    in
-    let uminus_instruction = Line.instruction @@ 
-      Instruction.mvng r13 @@ Operande.iregister r13
-    in
-    let str_instrs =
-      store_instruction ~large_cp:true ~rval_rktype:rvalue.rval_rktype
-        ~reg:r13 ~where
-    in
+      let r13 = Register.r13 in
+      let instructions =
+        translate_tac_expression ~litterals ~target_reg:r13 fd expr
+      in
+      let uminus_instruction =
+        Line.instruction @@ Instruction.mvng r13 @@ Operande.iregister r13
+      in
+      let str_instrs =
+        store_instruction ~large_cp:true ~rval_rktype:rvalue.rval_rktype
+          ~reg:r13 ~where
+      in
 
-    instructions @ uminus_instruction::str_instrs
+      instructions @ (uminus_instruction :: str_instrs)
+  | RVBuiltinUnop { unop = TacNot; expr } ->
+      let r13 = Register.r13 in
+      let instructions =
+        translate_tac_expression ~litterals ~target_reg:r13 fd expr
+      in
+      let not_instr =
+        Line.instruction
+        @@
+        match KosuIrTyped.Asttyhelper.RType.is_bool rvalue.rval_rktype with
+        | true ->
+            Instruction.ixor r13 r13 @@ Operande.ilitteral 1L
+        | false ->
+            Instruction.mvnt r13 @@ Operande.iregister r13
+      in
+      let str_instrs =
+        store_instruction ~large_cp:true ~rval_rktype:rvalue.rval_rktype
+          ~reg:r13 ~where
+      in
+      instructions @ (not_instr :: str_instrs)
+  | RVBuiltinCall { fn_name; parameters } ->
+      let () = ignore parameters in
+      let builin_call_instructions =
+        match fn_name with
+        | Tagof ->
+            failwith ""
+        | Array_len ->
+            failwith ""
+        | Array_ptr ->
+            failwith ""
+        | _ ->
+            failwith "BUILIN CALL TODO"
+      in
+      builin_call_instructions
+  | RVCustomUnop { unop; expr } ->
+      let open KosuIrTAC.Asttachelper.Operator in
+      let op_decls =
+        KosuIrTyped.Asttyhelper.RProgram.find_unary_operator_decl
+          (parser_unary_op_of_tac_unary_op unop)
+          expr.expr_rktype ~r_type:rvalue.rval_rktype rprogram
+      in
+      let op_decl =
+        match op_decls with
+        | t :: [] ->
+            t
+        | _ ->
+            failwith "What the type checker has done: No unary op declaration"
+      in
+      let fn_label =
+        NamingConvention.label_of_kosu_operator ~module_path:current_module
+          op_decl
+      in
+      let instructions =
+        translate_tac_expression ~litterals ~target_reg:Register.r0 fd expr
+      in
 
-  | RVBuiltinUnop { unop = TacNot; expr } -> 
-    let r13 = Register.r13 in
-    let instructions = 
-      translate_tac_expression ~litterals ~target_reg:r13 fd expr
-    in
-    let not_instr = Line.instruction @@ match KosuIrTyped.Asttyhelper.RType.is_bool rvalue.rval_rktype with
-      | true -> Instruction.ixor r13 r13 @@ Operande.ilitteral 1L 
-      | false -> Instruction.mvnt r13 @@ Operande.iregister r13
-    in
-    let str_instrs =
-      store_instruction ~large_cp:true ~rval_rktype:rvalue.rval_rktype
-        ~reg:r13 ~where
-    in
-    instructions @ not_instr::str_instrs
-  | RVBuiltinCall { fn_name; parameters } -> 
-    let () = ignore parameters in
-    let builin_call_instructions = match fn_name with
-      | Tagof -> failwith ""
-      | Array_len -> failwith ""
-      | Array_ptr -> failwith ""
-      | _ -> failwith "BUILIN CALL TODO"
-    in 
-    builin_call_instructions
-  | RVCustomUnop { unop; expr } ->  
-    let open KosuIrTAC.Asttachelper.Operator in
-    let op_decls =
-      KosuIrTyped.Asttyhelper.RProgram.find_unary_operator_decl
-        (parser_unary_op_of_tac_unary_op unop)
-        expr.expr_rktype ~r_type:rvalue.rval_rktype rprogram
-    in
-    let op_decl =
-      match op_decls with
-      | t :: [] ->
-          t
-      | _ ->
-          failwith "What the type checker has done: No unary op declaration"
-    in
-    let fn_label =
-      NamingConvention.label_of_kosu_operator ~module_path:current_module op_decl
-    in
-    let instructions =
-      translate_tac_expression ~litterals ~target_reg:Register.r0 fd
-        expr
-    in
+      let br_i = LineInstruction.sbr_label fn_label in
+      let return_type =
+        KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl
+      in
 
-    let br_i = LineInstruction.sbr_label fn_label in
-    let return_type =
-      KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl
-    in
-
-    let all_instructions = match does_return_hold_in_register_kt return_type with
-      | true -> 
-      instructions @ br_i
-        ::store_instruction ~where ~large_cp:true ~rval_rktype:return_type ~reg:Register.r0 
-      | false -> 
-        let indirect_return_instructions = return_non_register_size ~where in
-        instructions @ br_i::indirect_return_instructions
-    in
-    all_instructions
-
+      let all_instructions =
+        match does_return_hold_in_register_kt return_type with
+        | true ->
+            instructions
+            @ br_i
+              :: store_instruction ~where ~large_cp:true
+                   ~rval_rktype:return_type ~reg:Register.r0
+        | false ->
+            let indirect_return_instructions =
+              return_non_register_size ~where
+            in
+            instructions @ (br_i :: indirect_return_instructions)
+      in
+      all_instructions
   | RVCustomBinop
-    ({ binop = TacSelf _ | TacBool _ | TacCmp TacOrdered; blhs; brhs } as self) ->
+      ({ binop = TacSelf _ | TacBool _ | TacCmp TacOrdered; blhs; brhs } as self)
+    ->
       let open KosuIrTAC.Asttachelper.Operator in
       let op_decls =
         KosuIrTyped.Asttyhelper.RProgram.find_binary_operator_decl
@@ -949,35 +999,39 @@ let translate_tac_rvalue ~litterals ~where
             t
         | _ ->
             failwith
-              "What the type checker has done: No binary op declaration | \
-               Too much"
+              "What the type checker has done: No binary op declaration | Too \
+               much"
       in
-    let fn_label =
-        NamingConvention.label_of_kosu_operator ~module_path:current_module op_decl
+      let fn_label =
+        NamingConvention.label_of_kosu_operator ~module_path:current_module
+          op_decl
       in
-    let linstructions =
-      translate_tac_expression ~litterals ~target_reg:r0 fd
-        blhs
-    in
-    let rinstructions =
-      translate_tac_expression ~litterals ~target_reg:r1 fd
-        brhs
-    in
-    let br_i = LineInstruction.sbr_label fn_label in
-    let return_type =
-      KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl
-    in
+      let linstructions =
+        translate_tac_expression ~litterals ~target_reg:r0 fd blhs
+      in
+      let rinstructions =
+        translate_tac_expression ~litterals ~target_reg:r1 fd brhs
+      in
+      let br_i = LineInstruction.sbr_label fn_label in
+      let return_type =
+        KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl
+      in
 
-    let all_instructions = match does_return_hold_in_register_kt return_type with
-      | true -> 
-      linstructions @ rinstructions @ br_i
-        ::store_instruction ~where ~large_cp:true ~rval_rktype:return_type ~reg:Register.r0 
-      | false -> 
-        let indirect_return_instructions = return_non_register_size ~where in
-        linstructions @ rinstructions @ br_i::indirect_return_instructions
-    in
-    all_instructions
-
+      let all_instructions =
+        match does_return_hold_in_register_kt return_type with
+        | true ->
+            linstructions @ rinstructions
+            @ br_i
+              :: store_instruction ~where ~large_cp:true
+                   ~rval_rktype:return_type ~reg:Register.r0
+        | false ->
+            let indirect_return_instructions =
+              return_non_register_size ~where
+            in
+            linstructions @ rinstructions
+            @ (br_i :: indirect_return_instructions)
+      in
+      all_instructions
 
 let rec translate_tac_statement ~litterals current_module rprogram fd = function
   | STacDeclaration { identifier; trvalue }
@@ -985,11 +1039,47 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
       let location =
         FrameManager.location_of (identifier, trvalue.rval_rktype) fd
       in
-      translate_tac_rvalue ~litterals ~where:(adrr_direct_raw location) rprogram current_module fd
-        trvalue
+      translate_tac_rvalue ~litterals ~where:(adrr_direct_raw location)
+        current_module rprogram fd trvalue
   | STDerefAffectation { identifier; trvalue } ->
-      let () = ignore (identifier, trvalue) in
-      failwith ""
+      let intermediary_adress =
+        Option.get
+        @@ FrameManager.location_of
+             ( identifier,
+               KosuIrTyped.Asttyhelper.RType.rpointer trvalue.rval_rktype
+             )
+             fd
+      in
+      let addressage = addr_indirect intermediary_adress in
+      translate_tac_rvalue ~litterals ~where:addressage current_module rprogram
+        fd trvalue
+  | STacModificationField { identifier_root; fields; trvalue } ->
+      let root_adress =
+        Option.get @@ FrameManager.location_of identifier_root fd
+      in
+      let field_offset =
+        KosuCommon.OffsetHelper.offset_of_field_access (snd identifier_root)
+          ~fields rprogram
+      in
+      let target_adress =
+        addr_direct @@ increment_adress field_offset root_adress
+      in
+      translate_tac_rvalue ~litterals ~where:target_adress current_module
+        rprogram fd trvalue
+  | STDerefAffectationField { identifier_root; fields; trvalue } ->
+      let intermediary_address =
+        Option.get @@ FrameManager.location_of identifier_root fd
+      in
+      let pointee_type =
+        (fun (_, kt) -> KosuIrTyped.Asttyhelper.RType.rtpointee kt)
+          identifier_root
+      in
+      let field_offset =
+        KosuCommon.OffsetHelper.offset_of_field_access pointee_type ~fields
+          rprogram
+      in
+      let where = addr_indirect ~offset:field_offset intermediary_address in
+      translate_tac_rvalue ~litterals ~where current_module rprogram fd trvalue
   | _ ->
       failwith ""
 
@@ -1048,10 +1138,10 @@ let asm_module_of_tac_module ~litterals current_module rprogram = function
                let prologue = FrameManager.prologue function_decl fd in
                let epilogue = FrameManager.epilogue fd in
                let conversion =
-                 translate_tac_body ~litterals rprogram current_module fd
+                 translate_tac_body ~litterals current_module rprogram fd
                    function_decl.tac_body
                in
-               let asm_body = prologue @ (List.tl conversion) @ epilogue in
+               let asm_body = prologue @ List.tl conversion @ epilogue in
                Option.some @@ Afunction { asm_name; asm_body }
            | TNOperator operator ->
                let function_decl =
@@ -1066,10 +1156,10 @@ let asm_module_of_tac_module ~litterals current_module rprogram = function
                let prologue = FrameManager.prologue function_decl fd in
                let epilogue = FrameManager.epilogue fd in
                let conversion =
-                 translate_tac_body ~litterals rprogram current_module fd
+                 translate_tac_body ~litterals current_module rprogram fd
                    function_decl.tac_body
                in
-               let asm_body = prologue @ (List.tl conversion) @ epilogue in
+               let asm_body = prologue @ List.tl conversion @ epilogue in
                Option.some @@ Afunction { asm_name; asm_body }
            | TNConst _ ->
                failwith "Const"

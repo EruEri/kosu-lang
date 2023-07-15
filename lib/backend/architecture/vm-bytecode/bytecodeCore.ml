@@ -255,15 +255,10 @@ module Register = struct
       (R12, "cyan");
     ]
 
-  let temporary_register = [
-    R12;
-    R13;
-    R14;
-    IR;
-  ]
+  let temporary_register = [ R12; R13; R14; IR ]
 
   let tmp_register ~exclude =
-  temporary_register |> List.filter (( <> ) exclude) |> List.hd
+    temporary_register |> List.filter (( <> ) exclude) |> List.hd
 
   let is_valid_register (variable : variable) (register : t) =
     let _, rktype = variable in
@@ -306,21 +301,13 @@ module Location = struct
   type address = { base : Register.register; offset : address_offset }
   type location = LocAddr of address
 
-  type addressage = 
-  | Addr_Direct of address option
-  | Addr_Indirect of {
-    address: address;
-    offset: int64
-  }
+  type addressage =
+    | Addr_Direct of address option
+    | Addr_Indirect of { address : address; offset : int64 }
 
   let addr_direct a = Addr_Direct (Option.some a)
-
   let adrr_direct_raw a = Addr_Direct a
-
-  let addr_indirect ?(offset = 0L) address = Addr_Indirect {address; offset}
-
-
-
+  let addr_indirect ?(offset = 0L) address = Addr_Indirect { address; offset }
   let loc_addr a = LocAddr a
   let create_address ?(offset = 0L) base = { base; offset = `ILitteral offset }
   let address_register base offset = { base; offset = `Register offset }
@@ -333,17 +320,16 @@ module Location = struct
         failwith "Increment register based address"
 
   let increment_addressage by = function
-    | Addr_Direct address -> Addr_Direct (address |> Option.map @@ increment_adress by)
-    | Addr_Indirect {address; offset} -> 
-      Addr_Indirect {address; offset = Int64.add offset by}
+    | Addr_Direct address ->
+        Addr_Direct (address |> Option.map @@ increment_adress by)
+    | Addr_Indirect { address; offset } ->
+        Addr_Indirect { address; offset = Int64.add offset by }
 
   let increment_location off = function
     | address ->
         loc_addr @@ increment_adress off address
 
   let get_address = function address -> address
-
-
 end
 
 module Operande = struct
