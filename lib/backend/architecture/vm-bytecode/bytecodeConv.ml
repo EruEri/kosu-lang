@@ -1265,6 +1265,7 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
             failwith "I need to get the id"
       in
 
+      (* For each associate bound variable, copy thoses variable before the comparison of tag *)
       let fetch_offset_instructions assoc_type_for_variants (index, id, ktyte) =
         let offset_a =
           KosuIrTyped.Sizeof.offset_of_tuple_index (index + 1)
@@ -1358,8 +1359,145 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
       setup_instructions @ condition_switch_instruction @ copy_tag_instructions
       @ cmp_instrution_list @ wildcard_case_jmp @ fn_block @ wildcard_body_block
       @ [ exit_label_instruction ]
-  | STSwitchTmp _ ->
-      failwith "switch todo"
+  | STSwitchTmp
+      {
+        tmp_statemenets_for_case;
+        enum_tte;
+        tag_atom;
+        tmp_switch_list;
+        tmp_wildcard_label;
+        tmp_wildcard_body;
+        tmp_sw_exit_label;
+      } ->
+      let enum_decl =
+        match
+          KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye
+            enum_tte.expr_rktype rprogram
+        with
+        | Some (RDecl_Struct _) ->
+            failwith "Expected to find an enum get an struct"
+        | Some (RDecl_Enum e) ->
+            e
+        | None ->
+            failwith "Non type decl ??? my validation is very weak"
+      in
+      let enum_decl =
+        let generics =
+          enum_tte.expr_rktype
+          |> KosuIrTyped.Asttyhelper.RType.extract_parametrics_rktype
+          |> List.combine enum_decl.generics
+        in
+        KosuIrTyped.Asttyhelper.Renum.instanciate_enum_decl generics enum_decl
+      in
+      let exit_label_instruction = Line.label tmp_sw_exit_label in
+      let setup_instructions =
+        tmp_statemenets_for_case
+        |> List.map
+             (translate_tac_statement ~litterals current_module rprogram fd)
+        |> List.flatten
+      in
+      let mov_tag_register_instructions =
+        translate_tac_expression ~litterals ~target_reg:Register.r13 fd tag_atom
+      in
+      let enum_variabe =
+        match enum_tte.tac_expression with
+        | TEIdentifier id ->
+            (id, enum_tte.expr_rktype)
+        | _ ->
+            failwith "I need to get the id of the enum"
+      in
+
+      let fetch_offset_instructions assoc_type_for_variants (index, id, ktyte) =
+        let offset_a =
+          KosuIrTyped.Sizeof.offset_of_tuple_index (index + 1)
+            assoc_type_for_variants rprogram
+        in
+        let switch_variable_address =
+          Option.get @@ FrameManager.location_of enum_variabe fd
+        in
+
+        let destination_address =
+          Option.get @@ FrameManager.location_of (id, ktyte) fd
+        in
+
+        let data_size = ConditionCode.data_size_of_kt ktyte in
+        let copy_instructions =
+          match does_return_hold_in_register_kt ktyte with
+          | true ->
+              let ldr_instr =
+                LineInstruction.sldr data_size Register.ir
+                  (increment_adress offset_a switch_variable_address)
+              in
+              let str_instrs =
+                LineInstruction.sstr data_size Register.ir destination_address
+              in
+              ldr_instr @ str_instrs
+          | false ->
+              let i = increment_adress offset_a switch_variable_address in
+              let lea_instr = LineInstruction.slea_address Register.r13 i in
+              let str_instructions =
+                store_instruction
+                  ~where:(addr_direct destination_address)
+                  ~large_cp:true ~rval_rktype:ktyte ~reg:Register.r13
+              in
+              lea_instr @ str_instructions
+        in
+        copy_instructions
+      in
+
+      let map_switch switch =
+        let map_variant variant =
+          let mov_rhs_instr =
+            LineInstruction.mv_integer Register.r14
+              (Int64.of_int variant.variant_index)
+          in
+          let compare_instruction =
+            Line.instruction @@ Instruction.cmp EQUAL Register.r13 Register.r14
+          in
+          let assoc_type_for_variants =
+            KosuIrTyped.Asttyhelper.Renum.assoc_types_of_variant_tag
+              ~tagged:true variant.variant_index enum_decl
+          in
+          let fetch_offset_instructions =
+            switch.tmp_assoc_bound
+            |> List.map (fetch_offset_instructions assoc_type_for_variants)
+            |> List.flatten
+          in
+          let jmp_true = LineInstruction.sjump_label switch.tmp_sw_goto in
+          fetch_offset_instructions @ mov_rhs_instr
+          @ [ compare_instruction; jmp_true ]
+        in
+        let jump_conditions =
+          switch.variants |> List.map map_variant |> List.flatten
+        in
+        let genete_block =
+          translate_tac_body ~litterals
+            ~end_label:(Some switch.tmp_sw_exit_label) current_module rprogram
+            fd switch.tmp_switch_tac_body
+        in
+        (jump_conditions, genete_block)
+      in
+      let cmp_instrution_list, fn_block =
+        tmp_switch_list |> List.map map_switch |> List.split
+        |> fun (lhs, rhs) -> (List.flatten lhs, List.flatten rhs)
+      in
+      let wildcard_case_jmp =
+        tmp_wildcard_label
+        |> Option.map LineInstruction.sjump_always
+        |> Option.value ~default:[]
+      in
+      let wildcard_body_block =
+        tmp_wildcard_body
+        |> Option.map (fun body ->
+               translate_tac_body ~litterals ~end_label:(Some tmp_sw_exit_label)
+                 current_module rprogram fd body
+           )
+        |> Option.value ~default:[]
+      in
+
+      setup_instructions @ mov_tag_register_instructions @ cmp_instrution_list
+      @ wildcard_case_jmp @ fn_block @ wildcard_body_block
+      @ [ exit_label_instruction ]
 
 and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
     (fd : FrameManager.description) { label; body } =
