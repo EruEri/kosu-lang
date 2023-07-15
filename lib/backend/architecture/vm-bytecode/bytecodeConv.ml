@@ -92,10 +92,32 @@ let translate_and_store ~where ~litterals ~target_reg fd tte =
       let insts = translate_tac_expression ~litterals ~target_reg fd tte in
       insts
 
+let translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where ~rval_rktype fd =
+  let r13 = Register.r13 in
+  let r14 = Register.r14 in
+  let ir = Register.ir in
+
+  let linstructions =
+    translate_tac_expression ~litterals ~target_reg:r13 fd blhs
+  in
+  let rinstructions =
+    translate_tac_expression ~litterals ~target_reg:r14 fd brhs
+  in
+  let cset_instruction =
+    Line.instruction @@ Instruction.icset cc ir r13 r14 true
+  in
+
+  let str_instrs =
+    store_instruction ~large_cp:true ~rval_rktype ~reg:ir ~where
+  in
+  linstructions @ rinstructions @ (cset_instruction :: str_instrs)
+
 let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
     current_module rprogram (fd : FrameManager.description) rvalue =
   let () = ignore is_deref in
   match rvalue.rvalue with
+  | RVDiscard | RVLater ->
+      []
   | RVExpression tte ->
       translate_and_store ~where ~litterals ~target_reg:Register.r13 fd tte
   | RVStruct { fields; module_path = _; struct_name = _ } ->
@@ -131,11 +153,9 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
            (fun acc (index, (_field, tte)) ->
              let where =
                where
-               |> Option.map (function
-                    | address ->
-                      (increment_adress (List.nth offset_list index) address
-                    )
-            )
+               |> Option.map (function address ->
+                      increment_adress (List.nth offset_list index) address
+                      )
              in
              acc
              @ translate_and_store ~where ~litterals ~target_reg:Register.r13 fd
@@ -320,11 +340,10 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
       |> List.mapi (fun index tte ->
              let where =
                where
-               |> Option.map (function
-                    | address ->
-                        let offset = List.nth offset_list index in
-                        increment_adress offset address
-                    )
+               |> Option.map (function address ->
+                      let offset = List.nth offset_list index in
+                      increment_adress offset address
+                      )
              in
              translate_and_store ~where ~litterals ~target_reg:Register.r13 fd
                tte
@@ -476,8 +495,56 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
                  rprogram
            )
       in
-      let _ = offset_list in
-      failwith ""
+      enum_tte_list
+      |> List.mapi (fun index value -> (index, value))
+      |> List.fold_left
+           (fun acc (index, tte) ->
+             let r13 = Register.r13 in
+             let instructions =
+               translate_tac_expression ~target_reg:r13 ~litterals fd tte
+             in
+             let copy_instructions =
+               store_instruction ~large_cp:true
+                 ~where:
+                   (Option.map
+                      (increment_adress (List.nth offset_list index))
+                      where
+                   )
+                 ~reg:r13 ~rval_rktype:tte.expr_rktype
+             in
+             acc @ instructions @ copy_instructions
+           )
+           []
+  | RVBuiltinBinop
+      { binop = TacBool ((TacOr | TacAnd) as tac_bool); blhs; brhs } ->
+      let r13 = Register.r13 in
+      let r14 = Register.r14 in
+      let rinstructions =
+        translate_tac_expression ~litterals ~target_reg:r13 fd brhs
+      in
+      let linstructions =
+        translate_tac_expression ~litterals ~target_reg:r14 fd blhs
+      in
+      let and_or_instruction =
+        Line.instruction
+        @@ LineInstruction.and_or_instruction tac_bool r14 r14
+             (Operande.iregister r13)
+      in
+      let copy_instructions =
+        store_instruction ~where ~large_cp:false ~rval_rktype:rvalue.rval_rktype
+          ~reg:r14
+      in
+      linstructions @ rinstructions @ (and_or_instruction :: copy_instructions)
+  | RVBuiltinBinop { binop = TacBool bool_binop; blhs; brhs } ->
+      let is_unsigned =
+        KosuIrTyped.Asttyhelper.RType.is_raw_unsigned blhs.expr_rktype
+        || KosuIrTyped.Asttyhelper.RType.is_raw_unsigned brhs.expr_rktype
+      in
+      let cc =
+        Option.get @@ ConditionCode.cc_of_tac_bin ~is_unsigned bool_binop
+      in
+      translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where
+        ~rval_rktype:rvalue.rval_rktype fd
   | _ ->
       failwith "TODO"
 
@@ -574,7 +641,7 @@ let asm_module_of_tac_module ~litterals current_module rprogram = function
                let asm_body = prologue @ (conversion |> List.tl) @ epilogue in
                Option.some @@ Afunction { asm_name; asm_body }
            | TNConst _ ->
-               failwith ""
+               failwith "Const"
            | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ ->
                None
            )

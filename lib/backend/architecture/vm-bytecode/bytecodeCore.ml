@@ -95,6 +95,44 @@ module ConditionCode = struct
         SIZE_32
     | _ ->
         SIZE_64
+
+  let cc_of_tac_bin ?(is_unsigned = false) =
+    let open KosuIrTAC.Asttac in
+    function
+    | TacOr | TacAnd ->
+        None
+    | TacEqual ->
+        Some EQUAL
+    | TacDiff ->
+        Some DIFF
+    | TacSup ->
+        Some
+          ( if is_unsigned then
+              UNSIGNED_SUP
+            else
+              SUP
+          )
+    | TacSupEq ->
+        Some
+          ( if is_unsigned then
+              UNSIGNED_SUPEQ
+            else
+              SUPEQ
+          )
+    | TacInfEq ->
+        Some
+          ( if is_unsigned then
+              UNSIGNED_INFEQ
+            else
+              INFEQ
+          )
+    | TacInf ->
+        Some
+          ( if is_unsigned then
+              UNSIGNED_INF
+            else
+              INF
+          )
 end
 
 module Register = struct
@@ -272,9 +310,7 @@ module Location = struct
     | address ->
         loc_addr @@ increment_adress off address
 
-  let get_address = function
-    | address ->
-        address
+  let get_address = function address -> address
 end
 
 module Operande = struct
@@ -360,6 +396,12 @@ module Instruction = struct
   let mva destination source shift =
     Mva { operandes = { destination; source }; shift }
 
+  let iand destination operande1 operande2 =
+    And { destination; operande1; operande2 }
+
+  let ior destination operande1 operande2 =
+    Or { destination; operande1; operande2 }
+
   let jump src = Jump src
   let br src = Br src
   let lea destination operande = Lea { destination; operande }
@@ -369,6 +411,9 @@ module Instruction = struct
 
   let add destination operande1 operande2 =
     Add { destination; operande1; operande2 }
+
+  let icset cc destination lhs rhs update =
+    Cset { cc; destination; lhs; rhs; update_last_cmp = update }
 
   let str data_size destination address =
     Str { data_size; destination; address }
@@ -426,6 +471,16 @@ module LineInstruction = struct
           mva register (Operande.ilitteral int64) ConditionCode.SH48 :: mvs
       in
       instructions mvs
+
+  let and_or_instruction =
+    let open KosuIrTAC.Asttac in
+    function
+    | TacAnd ->
+        Instruction.iand
+    | TacOr ->
+        Instruction.ior
+    | _ ->
+        failwith "Should be and or or"
 
   let smv register src =
     match src with
@@ -595,44 +650,44 @@ module FrameManager = struct
       | Some _ as loc ->
           loc
 
-    let stack_args_passed_in_function rprogram
-        (fn_info_calls : KosuIrTyped.Asttyped.function_call_infos) =
-      let open KosuIrTyped.Asttyped in
-      let open Util.Args in
-      fn_info_calls
-      |> List.fold_left
-            (fun acc { varia_index; parameters; return_type = _ } ->
-              let fpstyle kt =
-                if KosuIrTyped.Asttyhelper.RType.is_float kt then
-                  Simple_Reg Float
-                else
-                  Simple_Reg Other
-              in
-  
-              let _, _, stack_args, variadic_args =
-              consume_args ?novariadic_args:varia_index
-                ~fregs:Register.float_argument_registers
-                ~iregs:Register.non_float_argument_registers ~fpstyle parameters
-              in
-  
-              let stack_args_size =
-                stack_args |> KosuIrTyped.Asttyhelper.RType.rtuple
-                |> KosuIrTyped.Sizeof.sizeof rprogram
-              in
-  
-              let variadic_size =
-                variadic_args
-                |> List.map (fun kt ->
-                      KosuIrTyped.(
-                        Sizeof.align_8 @@ KosuIrTyped.Sizeof.sizeof rprogram kt
-                      )
-                  )
-                |> List.fold_left Int64.add 0L
-              in
-  
-              max (Int64.add stack_args_size variadic_size) acc
-            )
-            0L
+  let stack_args_passed_in_function rprogram
+      (fn_info_calls : KosuIrTyped.Asttyped.function_call_infos) =
+    let open KosuIrTyped.Asttyped in
+    let open Util.Args in
+    fn_info_calls
+    |> List.fold_left
+         (fun acc { varia_index; parameters; return_type = _ } ->
+           let fpstyle kt =
+             if KosuIrTyped.Asttyhelper.RType.is_float kt then
+               Simple_Reg Float
+             else
+               Simple_Reg Other
+           in
+
+           let _, _, stack_args, variadic_args =
+             consume_args ?novariadic_args:varia_index
+               ~fregs:Register.float_argument_registers
+               ~iregs:Register.non_float_argument_registers ~fpstyle parameters
+           in
+
+           let stack_args_size =
+             stack_args |> KosuIrTyped.Asttyhelper.RType.rtuple
+             |> KosuIrTyped.Sizeof.sizeof rprogram
+           in
+
+           let variadic_size =
+             variadic_args
+             |> List.map (fun kt ->
+                    KosuIrTyped.(
+                      Sizeof.align_8 @@ KosuIrTyped.Sizeof.sizeof rprogram kt
+                    )
+                )
+             |> List.fold_left Int64.add 0L
+           in
+
+           max (Int64.add stack_args_size variadic_size) acc
+         )
+         0L
 
   let frame_descriptor rprogram
       (function_decl : KosuIrTAC.Asttac.tac_function_decl) =
@@ -690,8 +745,7 @@ module FrameManager = struct
       |> KosuIrTyped.Sizeof.sizeof rprogram
     in
     let stack_future_call =
-      stack_args_passed_in_function rprogram
-        function_decl.fn_call_infos
+      stack_args_passed_in_function rprogram function_decl.fn_call_infos
     in
 
     let locals_space = Int64.add locals_space stack_future_call in
@@ -701,14 +755,15 @@ module FrameManager = struct
       |> List.mapi (fun index value -> (index, value))
       |> List.fold_left
            (fun acc (index, st) ->
-             let offset = KosuIrTyped.Sizeof.offset_of_tuple_index index fake_tuple rprogram in
+             let offset =
+               KosuIrTyped.Sizeof.offset_of_tuple_index index fake_tuple
+                 rprogram
+             in
              let fp_relative_address =
                locals_space |> Int64.neg |> Int64.add offset
              in
              let address =
-                 Location.create_address
-                   ~offset:fp_relative_address
-                   Register.fp
+               Location.create_address ~offset:fp_relative_address Register.fp
              in
              (* let () = Printf.printf "-> %s : %s == [x29, %Ld] \n" (fst st) (KosuIrTyped.Asttypprint.string_of_rktype @@ snd @@ st) (offset) in *)
              IdVarMap.add st address acc
@@ -723,7 +778,8 @@ module FrameManager = struct
       |> List.fold_left
            (fun acc (index, st) ->
              let offset =
-               KosuIrTyped.Sizeof.offset_of_tuple_index index stack_args_rktype rprogram
+               KosuIrTyped.Sizeof.offset_of_tuple_index index stack_args_rktype
+                 rprogram
              in
              let offset = Int64.add stack_fp_offset offset in
              let address = Location.create_address ~offset Register.fp in
@@ -786,7 +842,8 @@ module FrameManager = struct
                  match location_of variable fd with
                  | Some address ->
                      Some (variable, reg, address)
-                | None -> failwith "From register setup null address"
+                 | None ->
+                     failwith "From register setup null address"
                )
          )
       |> List.map (fun (variable, reg, address) ->

@@ -455,8 +455,9 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : location option)
         | Some (LocReg _r) ->
             failwith
             @@ Printf.sprintf
-                 "RVAdress : variable %s must be in stack and in %s register" id "reg"
-                 (* (BytecodePprint.string_of_register r) *)
+                 "RVAdress : variable %s must be in stack and in %s register" id
+                 "reg"
+            (* (BytecodePprint.string_of_register r) *)
         | None ->
             failwith "address of null address"
       in

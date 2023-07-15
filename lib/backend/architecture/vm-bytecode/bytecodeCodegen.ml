@@ -50,4 +50,4 @@ let compile_asm_readable ?outfile tac_rpogram =
       let () = on_file_function outchan in
       close_out outchan
 
-let compile_bytecode () = failwith "TODO"
+let compile_bytecode () = failwith "TODO: compile bytecode"

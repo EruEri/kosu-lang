@@ -88,8 +88,18 @@ let string_of_register = function
       "sp"
 
 let string_of_data_size (data_size : data_size) =
-  data_size |> Obj.repr |> Obj.obj |> ( + ) 1 |> ( * ) 16
-  |> Printf.sprintf ".%u"
+  let i =
+    match data_size with
+    | SIZE_8 ->
+        8
+    | SIZE_16 ->
+        16
+    | SIZE_32 ->
+        32
+    | SIZE_64 ->
+        64
+  in
+  Printf.sprintf ".%u" i
 
 let string_of_src : src -> string = function
   | `ILitteral lit ->
@@ -239,7 +249,7 @@ let string_of_instruction = function
         (string_of_condition_code cc)
         (string_of_register lhs) (string_of_register rhs)
   | Cset { cc; destination; lhs; rhs; update_last_cmp } ->
-      sprintf "cset%s %s, %s, %s, %s"
+      sprintf "cset%s%s, %s, %s, %s"
         ( if update_last_cmp then
             "u"
           else
