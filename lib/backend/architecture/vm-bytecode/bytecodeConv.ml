@@ -1080,6 +1080,37 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
       in
       let where = addr_indirect ~offset:field_offset intermediary_address in
       translate_tac_rvalue ~litterals ~where current_module rprogram fd trvalue
+  | STWhile
+        {
+          statements_condition;
+          condition;
+          loop_body;
+          self_label;
+          inner_body_label = _;
+          exit_label;
+    } -> 
+      let label = Line.label self_label in
+      let stmts_bools = 
+        statements_condition 
+        |> List.map (translate_tac_statement ~litterals current_module rprogram fd)
+        |> List.flatten
+      in
+      let condition_rvalue_inst =
+        translate_tac_expression ~target_reg:Register.r13 ~litterals fd condition
+      in
+      let mov_condition = LineInstruction.mv_integer r14 0L in
+      let cmp = Line.instruction @@ 
+        Instruction.cmp ConditionCode.EQUAL r13 r14
+      in
+      let jmp = LineInstruction.sjump_label self_label in
+      let if_block = 
+        translate_tac_body ~litterals ~end_label:(Some self_label)
+        current_module rprogram fd loop_body
+    in
+    let exit_label = Line.label exit_label in
+    (label :: stmts_bools) @ condition_rvalue_inst @ mov_condition @ (cmp :: jmp :: if_block)
+      @ [ exit_label ]
+    
   | _ ->
       failwith ""
 
@@ -1093,7 +1124,11 @@ and translate_tac_body ~litterals ?(end_label = None) current_module rprogram
        )
     |> List.flatten
   in
-  let end_label_insts = end_label |> Option.map sjump_label |> Option.to_list in
+  let end_label_insts = end_label |> Option.map (fun end_label -> 
+    let true_exit = Line.instruction @@ Instruction.cmp ALWAYS r0 r0 in
+    true_exit::(sjump_label end_label)::[]
+    ) 
+  |> Option.value ~default:[] in
   let return_instructions =
     body |> snd
     |> Option.map (fun tte ->

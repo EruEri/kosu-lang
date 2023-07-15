@@ -336,6 +336,7 @@ int mva(vm_t* vm, instruction_t instruction) {
 }
 
 int br(vm_t* vm, instruction_t instruction) {
+    if (!vm->last_cmp) {return 0;}
     bool_t is_branch_link = is_set(instruction, mask_bit(26));
     bool_t is_register = is_set(instruction, mask_bit(25));
     if (is_register) {

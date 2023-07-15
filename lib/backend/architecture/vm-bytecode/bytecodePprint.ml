@@ -119,7 +119,7 @@ let string_of_shift = function
 
 let string_of_condition_code = function
   | ALWAYS ->
-      ""
+      ".al"
   | EQUAL ->
       ".eq"
   | DIFF ->
@@ -245,7 +245,7 @@ let string_of_instruction = function
       string_of_instruction_format "lsr" string_of_double_operande
         bin_op_operande
   | Cmp { cc; lhs; rhs } ->
-      sprintf "cmp %s, %s, %s"
+      sprintf "cmp%s, %s, %s"
         (string_of_condition_code cc)
         (string_of_register lhs) (string_of_register rhs)
   | Cset { cc; destination; lhs; rhs; update_last_cmp } ->

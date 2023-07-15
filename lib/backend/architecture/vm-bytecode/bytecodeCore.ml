@@ -446,6 +446,13 @@ module Instruction = struct
   let add destination operande1 operande2 =
     Add { destination; operande1; operande2 }
 
+
+  let cmp cc lhs rhs = Cmp { 
+    cc;
+    lhs;
+    rhs;
+  }
+
   let icset cc destination lhs rhs update =
     Cset { cc; destination; lhs; rhs; update_last_cmp = update }
 
