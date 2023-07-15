@@ -24,16 +24,55 @@ open BytecodeCore.Location
 open KosuIrTAC.Asttachelper.StringLitteral
 open KosuIrTAC.Asttac
 
-let store_instruction ~large_cp ~rval_rktype ~reg ~where =
+let rec store_instruction ~large_cp ~rval_rktype ~reg ~where =
   match where with
-  | None ->
+  | Addr_Direct None ->
       []
-  | Some address ->
+  | Addr_Direct Some address ->
       if large_cp then
         LineInstruction.scopy reg address rval_rktype
       else
         let data_size = ConditionCode.data_size_of_kt rval_rktype in
         LineInstruction.sstr data_size reg address
+  | Addr_Indirect {address; offset} -> 
+    let tmp_reg = Register.tmp_register ~exclude:reg in
+    let ldr = LineInstruction.sldr SIZE_64 tmp_reg address in
+    let incr_addres = match offset with
+      | 0L -> []
+      | offset -> LineInstruction.sadd tmp_reg tmp_reg @@ Operande.ilitteral offset 
+    in
+    let address = create_address tmp_reg in
+    ldr @ incr_addres @ store_instruction ~large_cp ~rval_rktype ~reg ~where:(addr_direct address)
+
+
+let return_non_register_size ~where = 
+  match where with
+  | Addr_Direct None -> []
+  | Addr_Direct Some address -> 
+    LineInstruction.slea_address Register.ir address
+  | Addr_Indirect {address; offset} -> 
+    let ldr_instrs = LineInstruction.sldr SIZE_64 Register.ir address in
+    let offset_instrs = match offset with
+      | 0L -> []
+      | offset -> LineInstruction.sadd Register.ir Register.ir @@ Operande.ilitteral offset 
+    in 
+    ldr_instrs @ offset_instrs
+    
+
+
+
+let address_of_addressage ?( f = fun () -> failwith "address is null") ~tmp_reg = function
+| Addr_Direct Some a -> [], a
+| Addr_Direct None -> f ()
+| Addr_Indirect {address; offset} ->
+  let ldr = LineInstruction.sldr SIZE_64 tmp_reg address in
+  let incr_addres = match offset with
+    | 0L -> []
+    | offset -> LineInstruction.sadd tmp_reg tmp_reg @@ Operande.ilitteral offset 
+  in
+  let address = create_address tmp_reg in
+  ldr @ incr_addres, address
+
 
 let translate_tac_expression ~litterals ~target_reg fd tte =
   match tte.tac_expression with
@@ -80,17 +119,23 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
       failwith "Other constant todo"
 
 let translate_and_store ~where ~litterals ~target_reg fd tte =
-  let () = ignore target_reg in
   match where with
-  | Some address ->
-      let target_reg = Register.r13 in
+  | Addr_Direct Some address ->
       let insts = translate_tac_expression ~litterals ~target_reg fd tte in
       let cp_insts = scopy target_reg address tte.expr_rktype in
       insts @ cp_insts
-  | None ->
-      let target_reg = Register.r13 in
+  | Addr_Direct None ->
       let insts = translate_tac_expression ~litterals ~target_reg fd tte in
       insts
+  | Addr_Indirect {address; offset} -> 
+    let tmp_reg = Register.tmp_register ~exclude:target_reg in
+    let ldr = LineInstruction.sldr SIZE_64 tmp_reg address in
+    let incr_addres = LineInstruction.sadd tmp_reg tmp_reg @@ Operande.ilitteral offset in
+    let insts = translate_tac_expression ~litterals ~target_reg fd tte in
+    let address = create_address tmp_reg in
+    let cp_insts = scopy target_reg address tte.expr_rktype in
+    ldr @ incr_addres @ insts @ cp_insts
+
 
 let translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where ~rval_rktype fd =
   let r13 = Register.r13 in
@@ -112,9 +157,8 @@ let translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where ~rval_rktype fd =
   in
   linstructions @ rinstructions @ (cset_instruction :: str_instrs)
 
-let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
+let translate_tac_rvalue ~litterals ~where
     current_module rprogram (fd : FrameManager.description) rvalue =
-  let () = ignore is_deref in
   match rvalue.rvalue with
   | RVDiscard | RVLater ->
       []
@@ -152,10 +196,7 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
       |> List.fold_left
            (fun acc (index, (_field, tte)) ->
              let where =
-               where
-               |> Option.map (function address ->
-                      increment_adress (List.nth offset_list index) address
-                      )
+              increment_addressage (List.nth offset_list index) where
              in
              acc
              @ translate_and_store ~where ~litterals ~target_reg:Register.r13 fd
@@ -262,7 +303,7 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
 
           let set_on_stack_instructions = [] (* TODO *) in
 
-          let call_instruction = LineInstruction.scall_label fn_label in
+          let call_instruction = LineInstruction.sbr_label fn_label in
           match Register.does_return_hold_in_register_kt rvalue.rval_rktype with
           | true ->
               let normal_store_instructions =
@@ -273,21 +314,15 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
               @ set_on_stack_instructions
               @ (call_instruction :: normal_store_instructions)
           | false ->
-              let return_address =
-                match where with
-                | None ->
-                    failwith
-                      "Function call: need stack location for function \
-                       indirect return"
-                | Some address ->
-                    address
+              let ldr_addrres_instr, return_address =
+                address_of_addressage ~tmp_reg:Register.ir where
               in
 
               let mv_address_instruction =
                 LineInstruction.slea_address Register.ir return_address
               in
               args_instructions @ float_args_instructions
-              @ set_on_stack_instructions @ mv_address_instruction
+              @ set_on_stack_instructions @ ldr_addrres_instr @ mv_address_instruction
               @ [ call_instruction ]
         )
       | RExternal_Decl _external_func_decl ->
@@ -339,11 +374,7 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
       ttes
       |> List.mapi (fun index tte ->
              let where =
-               where
-               |> Option.map (function address ->
-                      let offset = List.nth offset_list index in
-                      increment_adress offset address
-                      )
+              increment_addressage (List.nth offset_list index) where
              in
              translate_and_store ~where ~litterals ~target_reg:Register.r13 fd
                tte
@@ -503,13 +534,10 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
              let instructions =
                translate_tac_expression ~target_reg:r13 ~litterals fd tte
              in
+             let where = increment_addressage (List.nth offset_list index) where in
              let copy_instructions =
                store_instruction ~large_cp:true
-                 ~where:
-                   (Option.map
-                      (increment_adress (List.nth offset_list index))
-                      where
-                   )
+                 ~where:where
                  ~reg:r13 ~rval_rktype:tte.expr_rktype
              in
              acc @ instructions @ copy_instructions
@@ -734,6 +762,80 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
       in
 
       linstructions @ rinstructions @ (instructions :: str_instrs)
+  | RVBuiltinUnop { unop = TacUminus; expr } ->
+    let r13 = Register.r13 in
+    let instructions = 
+      translate_tac_expression ~litterals ~target_reg:r13 fd expr
+    in
+    let uminus_instruction = Line.instruction @@ 
+      Instruction.mvng r13 @@ Operande.iregister r13
+    in
+    let str_instrs =
+      store_instruction ~large_cp:true ~rval_rktype:rvalue.rval_rktype
+        ~reg:r13 ~where
+    in
+
+    instructions @ uminus_instruction::str_instrs
+
+  | RVBuiltinUnop { unop = TacNot; expr } -> 
+    let r13 = Register.r13 in
+    let instructions = 
+      translate_tac_expression ~litterals ~target_reg:r13 fd expr
+    in
+    let not_instr = Line.instruction @@ match KosuIrTyped.Asttyhelper.RType.is_bool rvalue.rval_rktype with
+      | true -> Instruction.ixor r13 r13 @@ Operande.ilitteral 1L 
+      | false -> Instruction.mvnt r13 @@ Operande.iregister r13
+    in
+    let str_instrs =
+      store_instruction ~large_cp:true ~rval_rktype:rvalue.rval_rktype
+        ~reg:r13 ~where
+    in
+    instructions @ not_instr::str_instrs
+  | RVBuiltinCall { fn_name; parameters } -> 
+    let () = ignore parameters in
+    let builin_call_instructions = match fn_name with
+      | Tagof -> failwith ""
+      | Array_len -> failwith ""
+      | Array_ptr -> failwith ""
+      | _ -> failwith "BUILIN CALL TODO"
+    in 
+    builin_call_instructions
+  | RVCustomUnop { unop; expr } ->  
+    let open KosuIrTAC.Asttachelper.Operator in
+    let op_decls =
+      KosuIrTyped.Asttyhelper.RProgram.find_unary_operator_decl
+        (parser_unary_op_of_tac_unary_op unop)
+        expr.expr_rktype ~r_type:rvalue.rval_rktype rprogram
+    in
+    let op_decl =
+      match op_decls with
+      | t :: [] ->
+          t
+      | _ ->
+          failwith "What the type checker has done: No unary op declaration"
+    in
+    let fn_label =
+      NamingConvention.label_of_kosu_operator ~module_path:current_module op_decl
+    in
+    let instructions =
+      translate_tac_expression ~litterals ~target_reg:Register.r0 fd
+        expr
+    in
+
+    let br_i = LineInstruction.sbr_label fn_label in
+    let return_type =
+      KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl
+    in
+
+    let all_instructions = match does_return_hold_in_register_kt return_type with
+      | true -> 
+      instructions @ br_i
+        ::store_instruction ~where ~large_cp:true ~rval_rktype:return_type ~reg:Register.r0 
+      | false -> 
+        let indirect_return_instructions = return_non_register_size ~where in
+        instructions @ br_i::indirect_return_instructions
+    in
+    all_instructions
   | _ ->
       failwith "TODO"
 
@@ -743,7 +845,7 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
       let location =
         FrameManager.location_of (identifier, trvalue.rval_rktype) fd
       in
-      translate_tac_rvalue ~litterals ~where:location rprogram current_module fd
+      translate_tac_rvalue ~litterals ~where:(adrr_direct_raw location) rprogram current_module fd
         trvalue
   | STDerefAffectation { identifier; trvalue } ->
       let () = ignore (identifier, trvalue) in
@@ -809,7 +911,7 @@ let asm_module_of_tac_module ~litterals current_module rprogram = function
                  translate_tac_body ~litterals rprogram current_module fd
                    function_decl.tac_body
                in
-               let asm_body = prologue @ (conversion |> List.tl) @ epilogue in
+               let asm_body = prologue @ (List.tl conversion) @ epilogue in
                Option.some @@ Afunction { asm_name; asm_body }
            | TNOperator operator ->
                let function_decl =
@@ -827,7 +929,7 @@ let asm_module_of_tac_module ~litterals current_module rprogram = function
                  translate_tac_body ~litterals rprogram current_module fd
                    function_decl.tac_body
                in
-               let asm_body = prologue @ (conversion |> List.tl) @ epilogue in
+               let asm_body = prologue @ (List.tl conversion) @ epilogue in
                Option.some @@ Afunction { asm_name; asm_body }
            | TNConst _ ->
                failwith "Const"
