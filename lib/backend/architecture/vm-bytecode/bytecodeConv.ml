@@ -545,6 +545,28 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
       in
       translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where
         ~rval_rktype:rvalue.rval_rktype fd
+  | RVBuiltinBinop { binop = TacCmp TacOrdered; blhs; brhs } ->
+    let r13 = Register.r13 in
+    let r14 = Register.r14 in
+    let ir = Register.ir in
+    let linstructions =
+      translate_tac_expression ~litterals ~target_reg:r13 fd blhs
+    in
+    let rinstructions =
+      translate_tac_expression ~litterals ~target_reg:r14 fd brhs
+    in
+    let cmp_instructions = Line.instructions [
+      Instruction.icset ConditionCode.SUPEQ ir r13 r14 true;
+      Instruction.icset ConditionCode.SUP r13 r13 r14 true;
+      Instruction.add ir ir @@ Operande.iregister r13
+    ]
+    in
+    let str_instrs = 
+        store_instruction 
+          ~large_cp:true ~rval_rktype:rvalue.rval_rktype 
+          ~reg:ir ~where
+    in
+    linstructions @ rinstructions @ cmp_instructions @ str_instrs
   | _ ->
       failwith "TODO"
 
