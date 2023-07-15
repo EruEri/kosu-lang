@@ -363,7 +363,7 @@ let translate_tac_rvalue ~litterals ~where
          match does_return_hold_in_register_kt external_func_decl.
       *)
     )
-  | RVTuple ttes ->
+  | RVTuple ttes | RVArray ttes ->
       let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in
       let offset_list =
         ttes
@@ -472,6 +472,62 @@ let translate_tac_rvalue ~litterals ~where
       failwith "KosuTac force RVFieldAcess to be an tmp variable"
   | RVTupleAccess _ ->
       failwith "KosuTac force RVTupleAccess to be an tmp variable"
+  | RVArrayAccess { array_expr; index_expr } -> 
+    let r13 = Register.r13 in
+    let r14 = Register.r14 in
+    let r12 = Register.r12 in
+    let array_instructions =
+      translate_tac_expression ~litterals ~target_reg:r13 fd
+        array_expr
+    in
+    let index_instructions =
+          translate_tac_expression ~litterals ~target_reg:r14 fd
+            index_expr
+    in
+
+    let elt_type_size = KosuIrTyped.Sizeof.sizeof_kt rvalue.rval_rktype in
+
+    let reg, mov_instrs = match does_return_hold_in_register_kt array_expr.expr_rktype with
+      | true -> 
+        let mov_pointee_size_ins =
+          LineInstruction.mv_integer r12 (Int64.mul 8L elt_type_size)
+        in 
+        let shift_instructions = Line.instructions [
+          Instruction.imul r14 r14 @@ Operande.iregister r12;
+          Instruction.ilshiftright r13 r13 @@ Operande.iregister r14
+        ]
+        in
+        r13, mov_pointee_size_ins @ shift_instructions
+      | false -> 
+        let ptr_arithmetic_instrs = 
+          match elt_type_size with
+          | 1L -> r13, Line.instructions [
+            Instruction.add r13 r13 @@ Operande.iregister r14
+          ]
+          | elt_type_size -> 
+            let mv_size_instr = LineInstruction.mv_integer r12 elt_type_size in
+            let scale_size_instructions =
+              Line.instructions [
+                Instruction.imul r14 r14 @@ Operande.iregister r12;
+                Instruction.add r13 r13 @@ Operande.iregister r14
+              ] 
+            in
+            let load_instructions = 
+              match does_return_hold_in_register_kt rvalue.rval_rktype with
+              | false -> []
+              | true -> 
+                let data_size = ConditionCode.data_size_of_kt rvalue.rval_rktype in
+                LineInstruction.sldr data_size Register.ir (create_address r13)
+            in
+            ir, mv_size_instr @ scale_size_instructions @ load_instructions
+        in
+        ptr_arithmetic_instrs
+    in
+    let store_instrs = 
+      store_instruction ~large_cp:true ~rval_rktype:rvalue.rval_rktype 
+      ~where ~reg
+    in
+    array_instructions @ index_instructions @ mov_instrs @ store_instrs
   | RVAdress id ->
       let pointee_type =
         KosuIrTyped.Asttyhelper.RType.rtpointee rvalue.rval_rktype
@@ -834,6 +890,50 @@ let translate_tac_rvalue ~litterals ~where
       | false -> 
         let indirect_return_instructions = return_non_register_size ~where in
         instructions @ br_i::indirect_return_instructions
+    in
+    all_instructions
+
+  | RVCustomBinop
+    ({ binop = TacSelf _ | TacBool _ | TacCmp TacOrdered; blhs; brhs } as self) ->
+      let open KosuIrTAC.Asttachelper.Operator in
+      let op_decls =
+        KosuIrTyped.Asttyhelper.RProgram.find_binary_operator_decl
+          (parser_binary_op_of_tac_binary_op self.binop)
+          (blhs.expr_rktype, brhs.expr_rktype)
+          ~r_type:rvalue.rval_rktype rprogram
+      in
+      let op_decl =
+        match op_decls with
+        | t :: [] ->
+            t
+        | _ ->
+            failwith
+              "What the type checker has done: No binary op declaration | \
+               Too much"
+      in
+    let fn_label =
+        NamingConvention.label_of_kosu_operator ~module_path:current_module op_decl
+      in
+    let linstructions =
+      translate_tac_expression ~litterals ~target_reg:r0 fd
+        blhs
+    in
+    let rinstructions =
+      translate_tac_expression ~litterals ~target_reg:r1 fd
+        brhs
+    in
+    let br_i = LineInstruction.sbr_label fn_label in
+    let return_type =
+      KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl
+    in
+
+    let all_instructions = match does_return_hold_in_register_kt return_type with
+      | true -> 
+      linstructions @ rinstructions @ br_i
+        ::store_instruction ~where ~large_cp:true ~rval_rktype:return_type ~reg:Register.r0 
+      | false -> 
+        let indirect_return_instructions = return_non_register_size ~where in
+        linstructions @ rinstructions @ br_i::indirect_return_instructions
     in
     all_instructions
   | _ ->

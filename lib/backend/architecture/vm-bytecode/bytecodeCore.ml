@@ -291,6 +291,7 @@ module Register = struct
 
   let r0 = R0
   let r1 = R1
+  let r12 = R12
   let r13 = R13
   let r14 = R14
   let sp = SP
