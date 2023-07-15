@@ -354,8 +354,8 @@ module Instruction = struct
     | Add of bin_op_operande
     | Sub of bin_op_operande
     | Mult of bin_op_operande
-    | Div of { operande : bin_op_operande; signed : bool }
-    | Mod of { operande : bin_op_operande; signed : bool }
+    | Div of { operandes : bin_op_operande; signed : bool }
+    | Mod of { operandes : bin_op_operande; signed : bool }
     | And of bin_op_operande
     | Or of bin_op_operande
     | Xor of bin_op_operande
@@ -402,6 +402,21 @@ module Instruction = struct
   let ior destination operande1 operande2 =
     Or { destination; operande1; operande2 }
 
+  let ixor destination operande1 operande2 =
+    Xor { destination; operande1; operande2 }
+
+  let imul destination operande1 operande2 =
+    Mult { destination; operande1; operande2 }
+
+  let ishiftleft destination operande1 operande2 =
+    Lsl { destination; operande1; operande2 }
+
+  let iashiftright destination operande1 operande2 =
+    Asr { destination; operande1; operande2 }
+
+  let ilshiftright destination operande1 operande2 =
+    Lsr { destination; operande1; operande2 }
+
   let jump src = Jump src
   let br src = Br src
   let lea destination operande = Lea { destination; operande }
@@ -414,6 +429,14 @@ module Instruction = struct
 
   let icset cc destination lhs rhs update =
     Cset { cc; destination; lhs; rhs; update_last_cmp = update }
+
+  let idiv signed destination lhs rhs =
+    Div
+      { operandes = { destination; operande1 = lhs; operande2 = rhs }; signed }
+
+  let imod signed destination lhs rhs =
+    Mod
+      { operandes = { destination; operande1 = lhs; operande2 = rhs }; signed }
 
   let str data_size destination address =
     Str { data_size; destination; address }

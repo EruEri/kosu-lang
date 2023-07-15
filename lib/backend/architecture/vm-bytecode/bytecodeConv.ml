@@ -546,27 +546,194 @@ let translate_tac_rvalue ?is_deref ~litterals ~(where : address option)
       translate_tac_binop ~litterals ~cc ~blhs ~brhs ~where
         ~rval_rktype:rvalue.rval_rktype fd
   | RVBuiltinBinop { binop = TacCmp TacOrdered; blhs; brhs } ->
-    let r13 = Register.r13 in
-    let r14 = Register.r14 in
-    let ir = Register.ir in
-    let linstructions =
-      translate_tac_expression ~litterals ~target_reg:r13 fd blhs
-    in
-    let rinstructions =
-      translate_tac_expression ~litterals ~target_reg:r14 fd brhs
-    in
-    let cmp_instructions = Line.instructions [
-      Instruction.icset ConditionCode.SUPEQ ir r13 r14 true;
-      Instruction.icset ConditionCode.SUP r13 r13 r14 true;
-      Instruction.add ir ir @@ Operande.iregister r13
-    ]
-    in
-    let str_instrs = 
-        store_instruction 
-          ~large_cp:true ~rval_rktype:rvalue.rval_rktype 
-          ~reg:ir ~where
-    in
-    linstructions @ rinstructions @ cmp_instructions @ str_instrs
+      let r13 = Register.r13 in
+      let r14 = Register.r14 in
+      let ir = Register.ir in
+      let linstructions =
+        translate_tac_expression ~litterals ~target_reg:r13 fd blhs
+      in
+      let rinstructions =
+        translate_tac_expression ~litterals ~target_reg:r14 fd brhs
+      in
+      let cmp_instructions =
+        Line.instructions
+          [
+            Instruction.icset ConditionCode.SUPEQ ir r13 r14 true;
+            Instruction.icset ConditionCode.SUP r13 r13 r14 true;
+            Instruction.add ir ir @@ Operande.iregister r13;
+          ]
+      in
+      let str_instrs =
+        store_instruction ~large_cp:true ~rval_rktype:rvalue.rval_rktype ~reg:ir
+          ~where
+      in
+      linstructions @ rinstructions @ cmp_instructions @ str_instrs
+  | RVBuiltinBinop
+      { binop = TacSelf ((TacDiv | TacModulo) as tac_self); blhs; brhs } ->
+      let signed =
+        not
+        @@ KosuIrTyped.Asttyhelper.RType.is_unsigned_integer rvalue.rval_rktype
+      in
+
+      let operator_instruction =
+        match tac_self with
+        | TacDiv ->
+            Instruction.idiv signed
+        | TacModulo ->
+            Instruction.imod signed
+        | _ ->
+            failwith "Unreachable: previously filtered"
+      in
+
+      let r13 = Register.r13 in
+      let r14 = Register.r14 in
+
+      let linstructions =
+        translate_tac_expression ~litterals ~target_reg:r13 fd blhs
+      in
+      let rinstructions =
+        translate_tac_expression ~litterals ~target_reg:r14 fd brhs
+      in
+
+      let instructions =
+        Line.instruction
+        @@ operator_instruction r13 r14
+        @@ Operande.iregister r14
+      in
+
+      let str_instrs =
+        store_instruction ~large_cp:true ~rval_rktype:rvalue.rval_rktype
+          ~reg:r13 ~where
+      in
+
+      linstructions @ rinstructions @ (instructions :: str_instrs)
+  | RVBuiltinBinop
+      { binop = TacSelf ((TacAdd | TacMinus) as self_binop); blhs; brhs } ->
+      let r13 = Register.r13 in
+      let r14 = Register.r14 in
+      let ir = Register.ir in
+
+      let linstructions =
+        translate_tac_expression ~litterals ~target_reg:r13 fd blhs
+      in
+      let rinstructions =
+        translate_tac_expression ~litterals ~target_reg:r14 fd brhs
+      in
+
+      let op_i =
+        match self_binop with
+        | TacAdd ->
+            Instruction.add
+        | TacMinus ->
+            Instruction.sub
+        | _ ->
+            failwith "Unreachable: filtered"
+      in
+      let instructions =
+        match KosuIrTyped.Asttyhelper.RType.is_pointer rvalue.rval_rktype with
+        | false ->
+            let instructions =
+              Line.instruction @@ op_i r13 r13 @@ Operande.iregister r14
+            in
+            let str_instrs =
+              store_instruction ~large_cp:true ~rval_rktype:rvalue.rval_rktype
+                ~reg:r13 ~where
+            in
+            linstructions @ rinstructions @ (instructions :: str_instrs)
+        | true ->
+            (* In pointer arith, the compiler force the pointer to be the lhs operande *)
+            let pointee_size =
+              rvalue.rval_rktype |> KosuIrTyped.Asttyhelper.RType.rtpointee
+              |> KosuIrTyped.Sizeof.sizeof_kt
+            in
+
+            let offset_instructions =
+              match pointee_size = 1L with
+              | true ->
+                  []
+              | false ->
+                  let mov_size_instructions =
+                    LineInstruction.mv_integer ir pointee_size
+                  in
+                  let scale_size_instructions =
+                    Line.instruction @@ Instruction.imul r14 r14
+                    @@ Operande.iregister ir
+                  in
+
+                  mov_size_instructions @ [ scale_size_instructions ]
+            in
+
+            let instructions =
+              Line.instruction @@ op_i r13 r13 @@ Operande.iregister r14
+            in
+            let str_instrs =
+              store_instruction ~large_cp:true ~rval_rktype:rvalue.rval_rktype
+                ~reg:r13 ~where
+            in
+
+            linstructions @ rinstructions @ offset_instructions
+            @ (instructions :: str_instrs)
+      in
+      instructions
+  | RVBuiltinBinop
+      {
+        binop =
+          TacSelf
+            ( ( TacMult
+              | TacBitwiseAnd
+              | TacBitwiseOr
+              | TacBitwiseXor
+              | TacShiftLeft
+              | TacShiftRight ) as self_binop
+            );
+        blhs;
+        brhs;
+      } ->
+      let is_unsigned =
+        KosuIrTyped.Asttyhelper.RType.is_unsigned_integer blhs.expr_rktype
+      in
+      let operator_instruction =
+        match self_binop with
+        | TacMult ->
+            Instruction.imul
+        | TacBitwiseAnd ->
+            Instruction.iand
+        | TacBitwiseOr ->
+            Instruction.ior
+        | TacBitwiseXor ->
+            Instruction.ixor
+        | TacShiftLeft ->
+            Instruction.ishiftleft
+        | TacShiftRight when is_unsigned ->
+            Instruction.ilshiftright
+        | TacShiftRight ->
+            Instruction.iashiftright
+        | _ ->
+            failwith "Unreachable: filtered before"
+      in
+
+      let r13 = Register.r13 in
+      let r14 = Register.r14 in
+
+      let linstructions =
+        translate_tac_expression ~litterals ~target_reg:r13 fd blhs
+      in
+      let rinstructions =
+        translate_tac_expression ~litterals ~target_reg:r14 fd brhs
+      in
+
+      let instructions =
+        Line.instruction
+        @@ operator_instruction r13 r14
+        @@ Operande.iregister r14
+      in
+
+      let str_instrs =
+        store_instruction ~large_cp:true ~rval_rktype:rvalue.rval_rktype
+          ~reg:r13 ~where
+      in
+
+      linstructions @ rinstructions @ (instructions :: str_instrs)
   | _ ->
       failwith "TODO"
 

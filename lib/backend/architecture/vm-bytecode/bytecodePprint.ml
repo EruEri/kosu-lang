@@ -210,22 +210,22 @@ let string_of_instruction = function
   | Mult bin_op_operande ->
       string_of_instruction_format "mult" string_of_double_operande
         bin_op_operande
-  | Div { operande; signed } ->
+  | Div { operandes; signed } ->
       let si =
         if signed then
           "div"
         else
           "udiv"
       in
-      string_of_instruction_format si string_of_double_operande operande
-  | Mod { operande; signed } ->
+      string_of_instruction_format si string_of_double_operande operandes
+  | Mod { operandes; signed } ->
       let si =
         if signed then
           "mod"
         else
           "umod"
       in
-      string_of_instruction_format si string_of_double_operande operande
+      string_of_instruction_format si string_of_double_operande operandes
   | And bin_op_operande ->
       string_of_instruction_format "and" string_of_double_operande
         bin_op_operande
