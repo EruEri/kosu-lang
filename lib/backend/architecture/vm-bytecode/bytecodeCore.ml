@@ -403,6 +403,18 @@ module Instruction = struct
         destination : Register.register;
         address : address;
       }
+    | Itof of {
+      data_size: data_size;
+      destination : Register.register;
+      source: Register.register;
+      signed: bool
+    }
+    | Ftoi of {
+      data_size: data_size;
+      destination : Register.register;
+      source: Register.register;
+      signed: bool
+    }
 
   let halt = Halt
   let ret = Ret

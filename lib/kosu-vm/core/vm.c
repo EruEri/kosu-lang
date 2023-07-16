@@ -607,9 +607,107 @@ int str(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
+#define mftoi(value) \
+    bits_of_double((double) (value))
+
+#define mitof(type, value) \
+    (type) (value)
+
+int ftoi(vm_t* vm, instruction_t instruction) {
+    bool_t is_signed = is_set(instruction, mask_bit(25));
+    data_size_t ds = (instruction >> 23) & DATA_SIZE_MASK;
+    reg_t* dst = register_of_int32(vm, instruction, 18);
+    reg_t* src = register_of_int32(vm, instruction, 13);
+    switch (ds) { 
+        case S8: {
+            if (is_signed) {
+                *dst = mftoi((int8_t) *src);
+            } else {
+                *dst = mftoi((uint8_t) *src);
+            }
+            break;
+        }
+        case S16:{
+            if (is_signed) {
+                *dst = mftoi((int16_t) *src);
+            } else {
+                *dst = mftoi((uint16_t) *src);
+            }
+            break;
+        }
+        case S32:{
+            if (is_signed) {
+                *dst = mftoi((int32_t) *src);
+            } else {
+                *dst = mftoi((uint32_t) *src);
+            }
+            break;
+        }
+        case S64: {
+            if (is_signed) {
+                *dst = mftoi((int64_t) *src);
+            } else {
+                *dst = mftoi((uint64_t) *src);
+            }
+            break;
+        }
+        break; 
+    }
+    return 0;
+}
+
+int itof(vm_t* vm, instruction_t instruction) {
+    bool_t is_signed = is_set(instruction, mask_bit(25));
+    data_size_t ds = (instruction >> 23) & DATA_SIZE_MASK;
+    reg_t* dst = register_of_int32(vm, instruction, 18);
+    reg_t* rsrc = register_of_int32(vm, instruction, 13);
+    double src = double_of_bits(*rsrc);
+    switch (ds) { 
+        case S8: {
+            if (is_signed) {
+                *dst = mitof(int8_t, src) ;
+            } else {
+                *dst = mitof(uint8_t, src);
+            }
+            break;
+        }
+        case S16:{
+            if (is_signed) {
+                *dst = mitof(int16_t, src) ;
+            } else {
+                *dst = mitof(uint16_t, src);
+            }
+            break;
+        }
+        case S32:{
+            if (is_signed) {
+                *dst = mitof(int32_t, src) ;
+            } else {
+                *dst = mitof(uint32_t, src);
+            }
+            break;
+        }
+        case S64: {
+            if (is_signed) {
+                *dst = mitof(int64_t, src) ;
+            } else {
+                *dst = mitof(uint64_t, src);
+            }
+            break;
+        }
+        break; 
+    }
+    return 0;
+}
+
 int ldr_str(vm_t* vm, instruction_t instruction) {
     bool_t is_str = is_set(instruction, mask_bit(26));
     return is_str ? str(vm, instruction) : ldr(vm, instruction);
+}
+
+int itof_ftoi(vm_t* vm, instruction_t instruction) {
+    bool_t is_ftoi = is_set(instruction, mask_bit(26));
+    return is_ftoi ? ftoi(vm, instruction) : itof(vm, instruction);
 }
 
 int vm_run_single(vm_t* vm, instruction_t instruction) {
@@ -677,7 +775,10 @@ int vm_run_single(vm_t* vm, instruction_t instruction) {
                 break;
             case LDR:
             case STR:
-                return ldr_str(vm, instruction);
+                ldr_str(vm, instruction);
+                break;
+            case ITOF_FTOI:
+                itof_ftoi(vm, instruction);
                 break;
             default:
                 fprintf(stderr, "Unknown opcode %u\n", ist);

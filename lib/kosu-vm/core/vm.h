@@ -45,7 +45,9 @@ typedef enum {
     CMP, 
     CSET,
     LDR,
-    STR
+    STR,
+    ITOF_FTOI,
+
 } vm_opcode_t;
 
 
