@@ -19,10 +19,13 @@ let vm_register_value = BytecodeCompiler.VmValue.vm_register_value
 let vm_shift_value = BytecodeCompiler.VmValue.vm_shift_value
 let vm_data_size_value = BytecodeCompiler.VmValue.vm_data_size_value
 let vm_cc_value = BytecodeCompiler.VmValue.vm_cc_value
+let ds_encode ds = Int32.of_int @@ vm_data_size_value ds
+let cc_encode cc = Int32.of_int @@ vm_cc_value cc
 let reg_encode reg = Int32.of_int @@ vm_register_value reg
 let shift_encode shift = Int32.of_int @@ vm_shift_value shift
+let mask_12_low = 0x00_00_1F_FFl
 let mask_14_low = 0x00_00_7F_FFl
-let maks_15_low = 0x00_00_FF_FFl
+let mask_15_low = 0x00_00_FF_FFl
 let instruction_size = 4
 let ( & ) = Int32.logand
 let ( &| ) = Int32.logor
@@ -186,11 +189,11 @@ let vm_instruction_encode i =
       let reg_dst = reg_encode destination in
       let reg_src1 = reg_encode operande1 in
       let base = base &| (reg_dst << 22) in
-      let base = base &| (reg_src1 << 21) in
+      let base = base &| (reg_src1 << 17) in
       let base =
         match operande2 with
         | `ILitteral n ->
-            let n = maks_15_low & Int64.to_int32 n in
+            let n = mask_15_low & Int64.to_int32 n in
             let base = base &| (0l << 16) in
             let base = base &| (n << 15) in
             base
@@ -201,11 +204,105 @@ let vm_instruction_encode i =
             base
       in
       base
-  | AsDiv _ | AsMod _ ->
-      failwith ""
-  | AsCmp _ | AsCset _ ->
-      failwith ""
-  | AsLdr _ | AsStr _ ->
-      failwith ""
-  | AsItof _ | AsFtoi _ ->
-      failwith ""
+  | AsDiv { operandes = { destination; operande1; operande2 }; signed }
+  | AsMod { operandes = { destination; operande1; operande2 }; signed } ->
+      let base =
+        match signed with
+        | true ->
+            base &| (1l << 26)
+        | false ->
+            base &| (0l << 26)
+      in
+      let reg_dst = reg_encode destination in
+      let reg_src1 = reg_encode operande1 in
+      let base = base &| (reg_dst << 21) in
+      let base = base &| (reg_src1 << 20) in
+      let base =
+        match operande2 with
+        | `ILitteral n ->
+            let n = mask_14_low & Int64.to_int32 n in
+            let base = base &| (0l << 15) in
+            let base = base &| (n << 14) in
+            base
+        | `Register reg ->
+            let r_value = reg_encode reg in
+            let base = base &| (1l << 15) in
+            let base = base &| (r_value << 11) in
+            base
+      in
+      base
+  | AsCmp { cc; lhs; rhs } ->
+      let cc_enc = cc_encode cc in
+      let lhs_enc = reg_encode lhs in
+      let rhs_enc = reg_encode rhs in
+      let base = base &| (cc_enc << 23) in
+      let base = base &| (0l << 22) in
+      let base = base &| (lhs_enc << 17) in
+      let base = base &| (rhs_enc << 12) in
+      base
+  | AsCset { cc; destination; lhs; rhs; update_last_cmp } ->
+      let update_enc = match update_last_cmp with true -> 1l | false -> 0l in
+      let cc_enc = cc_encode cc in
+      let lhs_enc = reg_encode lhs in
+      let rhs_enc = reg_encode rhs in
+      let dst_enc = reg_encode destination in
+      let base = base &| (cc_enc << 23) in
+      let base = base &| (1l << 22) in
+      let base = base &| (lhs_enc << 17) in
+      let base = base &| (rhs_enc << 12) in
+      let base = base &| (dst_enc << 7) in
+      let base = base &| (update_enc << 6) in
+      base
+  | ( AsLdr { data_size; destination; address = { base = addr_base; offset } }
+    | AsStr { data_size; destination; address = { base = addr_base; offset } }
+      ) as e ->
+      let is_str =
+        match e with
+        | AsLdr _ ->
+            0l
+        | AsStr _ ->
+            1l
+        | _ ->
+            failwith "Unreachable"
+      in
+      let enc_ds = ds_encode data_size in
+      let enc_dst = reg_encode destination in
+      let base_addr_enc = reg_encode addr_base in
+      let base = base &| (is_str << 26) in
+      let base = base &| (enc_ds << 24) in
+      let base = base &| (enc_dst << 19) in
+      let base = base &| (base_addr_enc << 14) in
+      let base =
+        match offset with
+        | `ILitteral n ->
+            let n = Int64.to_int32 n & mask_12_low in
+            let base = base &| n in
+            base
+        | `Register reg ->
+            let addr_rhs = reg_encode reg in
+            let base = base &| (1l << 13) in
+            let base = base &| (addr_rhs << 8) in
+            base
+      in
+      base
+  | ( AsItof { signed; data_size; destination; source }
+    | AsFtoi { signed; data_size; destination; source } ) as e ->
+      let is_ftoi =
+        match e with
+        | AsItof _ ->
+            0l
+        | AsFtoi _ ->
+            1l
+        | _ ->
+            failwith "Unreachable"
+      in
+      let is_signed = match signed with true -> 1l | false -> 0l in
+      let enc_ds = ds_encode data_size in
+      let enc_dst = reg_encode destination in
+      let source_encoding = reg_encode source in
+      let base = base &| (is_ftoi << 26) in
+      let base = base &| (is_signed << 25) in
+      let base = base &| (enc_ds << 23) in
+      let base = base &| (enc_dst << 18) in
+      let base = base &| (source_encoding << 13) in
+      base
