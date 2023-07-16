@@ -23,3 +23,4 @@ module ConditionCode = BytecodeCore.ConditionCode
 module Location = BytecodeCore.Location
 module BytecodeProgram = BytecodeCore.BytecodeProgram
 module Line = BytecodeCore.Line
+module Pprint = BytecodePprint

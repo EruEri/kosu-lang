@@ -263,10 +263,20 @@ let nodes_of_asm_program asm_program =
   let abs_global_map = snd @@ global_map asm_program in
   asm_program
   |> List.fold_left
-       (fun (pc, _previous_node)
+       (fun (pc, previous_nodes)
             { asm_module_path = { asm_module = AsmModule nodes; _ }; _ } ->
          let info = pc_relatif pc nodes in
-         let _info = { info with global_map = abs_global_map } in
-         failwith ""
+         let info = { info with global_map = abs_global_map } in
+         let info, lines =
+           nodes
+           |> List.fold_left
+                (fun (info, acc_line) node ->
+                  let next_info, lines = as_node_of_asm_node info node in
+                  (next_info, lines :: acc_line)
+                )
+                (info, [])
+         in
+         let nodes = List.rev lines in
+         (info.pc, previous_nodes @ nodes)
        )
        (0L, [])
