@@ -20,5 +20,11 @@
 ;     (flags (:standard -warn-error +A))))
 
 (library
- (name bytecode)
- (libraries kosuIrTyped kosuIrTAC kosuFrontend kosuCommon kosuIrCfg))
+ (name bytecodeAssembler)
+ (libraries
+  kosuIrTyped
+  kosuIrTAC
+  kosuFrontend
+  kosuCommon
+  kosuIrCfg
+  bytecodeCompiler))

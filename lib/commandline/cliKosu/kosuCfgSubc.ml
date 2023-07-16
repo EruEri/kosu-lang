@@ -37,7 +37,7 @@ let name = "cfg"
 
 let register_module = function
   | LKVM ->
-      (module Bytecode.Register : KosuIrCfg.Asttaccfg.ABI_Large
+      (module BytecodeCompiler.Register : KosuIrCfg.Asttaccfg.ABI_Large
         with type variable = KosuIrCfg.Asttaccfg.Cfg_Sig_Impl.variable
       )
   | LArm64 ->

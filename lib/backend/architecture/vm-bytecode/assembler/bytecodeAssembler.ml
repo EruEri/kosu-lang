@@ -15,13 +15,14 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-open BytecodeCore.BytecodeProgram
-open BytecodeCore.Line
-module ByteInstruction = BytecodeCore.Instruction
-module Operande = BytecodeCore.Operande
-module Location = BytecodeCore.Location
-module ConditionCode = BytecodeCore.ConditionCode
-module Register = BytecodeCore.Register
+open BytecodeCompiler
+open BytecodeCompiler.BytecodeProgram
+open BytecodeCompiler.Line
+module ByteInstruction = BytecodeCompiler.Instruction
+module Operande = BytecodeCompiler.Operande
+module Location = BytecodeCompiler.Location
+module ConditionCode = BytecodeCompiler.ConditionCode
+module Register = BytecodeCompiler.Register
 module PcRelatifMap = Map.Make (String)
 
 let ( ++ ) = Int64.add
@@ -102,6 +103,18 @@ module AsInstruction = struct
         destination : Register.register;
         source : Register.register;
         signed : bool;
+      }
+
+  type as_function_decl = { as_name : string; as_body : t list }
+  type as_const_decl = asm_const_decl
+
+  type as_node =
+    | AsFunction of as_function_decl
+    | AsConst of as_const_decl
+    | AsStringLitteral of { name : string; value : string }
+    | AsFloatLitteral of {
+        fname : string;
+        fvalue : KosuFrontend.Ast.fsize * float;
       }
 
   let find_symbol symbole (pc : pc_info) =
@@ -289,3 +302,15 @@ let global_map asm_program =
          (pc, map)
        )
        (0L, PcRelatifMap.empty)
+
+let nodes_of_asm_program asm_program =
+  let abs_global_map = snd @@ global_map asm_program in
+  asm_program
+  |> List.fold_left
+       (fun (pc, _previous_node)
+            { asm_module_path = { asm_module = AsmModule nodes; _ }; _ } ->
+         let info = pc_relatif pc nodes in
+         let _info = { info with global_map = abs_global_map } in
+         failwith ""
+       )
+       (0L, [])
