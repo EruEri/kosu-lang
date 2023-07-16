@@ -19,6 +19,10 @@ let vm_register_value = BytecodeCompiler.VmValue.vm_register_value
 let vm_shift_value = BytecodeCompiler.VmValue.vm_shift_value
 let vm_data_size_value = BytecodeCompiler.VmValue.vm_data_size_value
 let vm_cc_value = BytecodeCompiler.VmValue.vm_cc_value
+let reg_encode reg = Int32.of_int @@ vm_register_value reg
+let shift_encode shift = Int32.of_int @@ vm_shift_value shift
+let mask_14_low = 0x00_00_7F_FFl
+let maks_15_low = 0x00_00_FF_FFl
 let instruction_size = 4
 let ( & ) = Int32.logand
 let ( &| ) = Int32.logor
@@ -71,9 +75,6 @@ let vm_instruction_value = function
   | AsItof _ | AsFtoi _ ->
       20
 
-let reg_encode reg = Int32.of_int @@ vm_register_value reg
-let shift_encode shift = Int32.of_int @@ vm_shift_value shift
-
 let vm_instruction_encode i =
   let opcode = Int32.of_int @@ vm_instruction_value i in
   let base = opcode << 27 in
@@ -125,31 +126,82 @@ let vm_instruction_encode i =
             base
       in
       base
-  | AsJump _ | AsBr _ ->
-      failwith ""
-  | AsLea _ ->
-      failwith ""
-  | AsAdd _ ->
-      failwith ""
-  | AsSub _ ->
-      failwith ""
-  | AsMult _ ->
-      failwith ""
-  | AsDiv _ ->
-      failwith ""
-  | AsMod _ ->
-      failwith ""
-  | AsAnd _ ->
-      failwith ""
-  | AsOr _ ->
-      failwith ""
-  | AsXor _ ->
-      failwith ""
-  | AsLsl _ ->
-      failwith ""
-  | AsLsr _ ->
-      failwith ""
-  | AsAsr _ ->
+  | (AsJump jump_src | AsBr jump_src) as e ->
+      let base =
+        match e with
+        | AsJump _ ->
+            base &| (0l << 26)
+        | AsBr _ ->
+            base &| (1l << 26)
+        | _ ->
+            failwith "unreachable"
+      in
+      let base =
+        match jump_src with
+        | `PcRel n ->
+            let n = !0xFE_00_00_00l & Int64.to_int32 n in
+            base &| n
+        | `Register r ->
+            let r_enc = reg_encode r << 20 in
+            base &| r_enc
+      in
+      base
+  | AsLea { destination; operande } ->
+      let dst_value = reg_encode destination in
+      let base = base &| (dst_value << 22) in
+      let base =
+        match operande with
+        | BaLeaPcRel n ->
+            let n = 0x00_1F_FF_FFl & Int64.to_int32 n in
+            base &| n
+        | BaLeaRegAbs { base = base_addr; offset } ->
+            let base = base &| (1l << 21) in
+            let reg_value = reg_encode base_addr in
+            let base = base &| (reg_value << 16) in
+            let base =
+              match offset with
+              | `ILitteral n ->
+                  let n = Int64.to_int32 n & mask_14_low in
+                  let base = base &| (0l << 15) in
+                  let base = base &| n in
+                  base
+              | `Register reg ->
+                  let reg_b = reg_encode reg in
+                  let base = base &| (1l << 15) in
+                  let base = base &| (reg_b << 10) in
+                  base
+            in
+            base
+      in
+      base
+  | AsAdd { destination; operande1; operande2 }
+  | AsSub { destination; operande1; operande2 }
+  | AsMult { destination; operande1; operande2 }
+  | AsAnd { destination; operande1; operande2 }
+  | AsOr { destination; operande1; operande2 }
+  | AsXor { destination; operande1; operande2 }
+  | AsLsl { destination; operande1; operande2 }
+  | AsLsr { destination; operande1; operande2 }
+  | AsAsr { destination; operande1; operande2 } ->
+      let reg_dst = reg_encode destination in
+      let reg_src1 = reg_encode operande1 in
+      let base = base &| (reg_dst << 22) in
+      let base = base &| (reg_src1 << 21) in
+      let base =
+        match operande2 with
+        | `ILitteral n ->
+            let n = maks_15_low & Int64.to_int32 n in
+            let base = base &| (0l << 16) in
+            let base = base &| (n << 15) in
+            base
+        | `Register reg ->
+            let r_value = reg_encode reg in
+            let base = base &| (1l << 16) in
+            let base = base &| (r_value << 12) in
+            base
+      in
+      base
+  | AsDiv _ | AsMod _ ->
       failwith ""
   | AsCmp _ | AsCset _ ->
       failwith ""
