@@ -31,8 +31,29 @@ let ( & ) = Int32.logand
 let ( &| ) = Int32.logor
 let ( ! ) = Int32.lognot
 let ( << ) = Int32.shift_left
-let ( >> ) = Int32.shift_right_logical
-let ( >>> ) = Int32.shift_right
+(* let ( >> ) = Int32.shift_right_logical
+   let ( >>> ) = Int32.shift_right *)
+
+let ( // ) = Int64.unsigned_div
+
+let bytes_of_int32 n =
+  let bytes = Bytes.create instruction_size in
+  let () = Bytes.set_int32_ne bytes 0 n in
+  bytes
+
+let bytes_of_int64 n =
+  let bytes = Bytes.create instruction_size in
+  let () = Bytes.set_int64_ne bytes 0 n in
+  bytes
+
+let bytes_of_string s =
+  let len = String.length s in
+  let to_extend =
+    Int64.to_int @@ KosuIrTyped.Sizeof.align_4 @@ Int64.of_int len
+  in
+  let bytes = String.to_bytes s in
+  let bytes = Bytes.extend bytes 0 to_extend in
+  bytes
 
 let vm_instruction_value = function
   | BytecodeAsCore.AsInstruction.AsHalt | AsRet | AsSyscall | AsCCall _ ->
@@ -306,3 +327,28 @@ let vm_instruction_encode i =
       let base = base &| (enc_dst << 18) in
       let base = base &| (source_encoding << 13) in
       base
+
+let bytes_of_asnode =
+  let open BytecodeAsCore.AsLine in
+  function
+  | BytecodeAsCore.AsNode.AsFunction { as_body; _ } ->
+      as_body
+      |> List.map (function
+           | AsComment _ | AsLabel _ ->
+               Bytes.empty
+           | AsInstruction i ->
+               i |> vm_instruction_encode |> bytes_of_int32
+           )
+      |> Bytes.concat Bytes.empty
+  | AsConst const -> (
+      match const.value with
+      | `StrVal s ->
+          bytes_of_string s
+      | `IntVal (_, value) ->
+          bytes_of_int64 value
+    )
+  | AsStringLitteral { value; _ } ->
+      bytes_of_string value
+  | AsFloatLitteral { fvalue = _, fvalue; _ } ->
+      let value = Int64.bits_of_float fvalue in
+      bytes_of_int64 value
