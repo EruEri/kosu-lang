@@ -52,13 +52,15 @@ let compile_asm_readable ?outfile tac_rpogram =
 
 let compile_as_readable ?outfile tac_rpogram =
   let asm_program = asm_program_of_tac_program ~start:None tac_rpogram in
-  let _, as_prgram = BytecodeAssembler.Convertion.nodes_of_asm_program asm_program in
+  let _, as_prgram =
+    BytecodeAssembler.Convertion.nodes_of_asm_program asm_program
+  in
   let on_file_function file =
     as_prgram
-    |> List.iter
-         (fun node -> 
-           Printf.fprintf file "%s\n\n" @@ BytecodeAssembler.Pprint.string_of_asm_node node
-          )
+    |> List.iter (fun node ->
+           Printf.fprintf file "%s\n\n"
+           @@ BytecodeAssembler.Pprint.string_of_asm_node node
+       )
   in
   match outfile with
   | Some file ->

@@ -15,13 +15,102 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module Register = BytecodeCore.Register
-module Instruction = BytecodeCore.Instruction
-module Operande = BytecodeCore.Operande
-module ConditionCode = BytecodeCore.ConditionCode
-module Location = BytecodeCore.Location
-module BytecodeProgram = BytecodeCore.BytecodeProgram
-module Line = BytecodeCore.Line
-module Pprint = BytecodePprint
-module Convertion = BytecodeConv
-module VmValue = BytecodeVmValue
+let vm_register_value =
+  let open BytecodeCore.Register in
+  function
+  | R0 ->
+      0
+  | R1 ->
+      1
+  | R2 ->
+      2
+  | R3 ->
+      3
+  | R4 ->
+      4
+  | R5 ->
+      5
+  | R6 ->
+      6
+  | R7 ->
+      7
+  | R8 ->
+      8
+  | R9 ->
+      9
+  | R10 ->
+      10
+  | R11 ->
+      11
+  | R12 ->
+      12
+  | R13 ->
+      13
+  | R14 ->
+      14
+  | FR0 ->
+      15
+  | FR1 ->
+      16
+  | FR2 ->
+      17
+  | FR3 ->
+      18
+  | FR4 ->
+      19
+  | FR5 ->
+      20
+  | FR6 ->
+      21
+  | FR7 ->
+      22
+  | FR8 ->
+      23
+  | FR9 ->
+      24
+  | FR10 ->
+      25
+  | IR ->
+      26
+  | SC ->
+      27
+  | FP ->
+      28
+  | RAP ->
+      29
+  | SP ->
+      30
+
+let vm_shift_value =
+  let open BytecodeCore.ConditionCode in
+  function SH0 -> 0 | SH16 -> 1 | SH32 -> 2 | SH48 -> 3
+
+let data_size =
+  let open BytecodeCore.ConditionCode in
+  function SIZE_8 -> 0 | SIZE_16 -> 1 | SIZE_32 -> 2 | SIZE_64 -> 3
+
+let vm_cc_value =
+  let open BytecodeCore.ConditionCode in
+  function
+  | ALWAYS ->
+      0
+  | EQUAL ->
+      1
+  | DIFF ->
+      2
+  | SUP ->
+      3
+  | UNSIGNED_SUP ->
+      4
+  | SUPEQ ->
+      5
+  | UNSIGNED_SUPEQ ->
+      6
+  | INF ->
+      7
+  | UNSIGNED_INF ->
+      8
+  | INFEQ ->
+      9
+  | UNSIGNED_INFEQ ->
+      10

@@ -30,20 +30,17 @@ let string_of_double_operande = BcPp.string_of_double_operande
 let string_of_instruction_format = BcPp.string_of_instruction_format
 let string_of_data_size = BcPp.string_of_data_size
 
-let string_of_map map = 
-  map 
-    |> BytecodeAsCore.PcRelatifMap.bindings
-    |> List.map (fun (label, pc) -> 
-      Printf.sprintf "symbole: %s -> pc = %Ld" label pc
-    )
-    |> String.concat ", "
+let string_of_map map =
+  map |> BytecodeAsCore.PcRelatifMap.bindings
+  |> List.map (fun (label, pc) ->
+         Printf.sprintf "symbole: %s -> pc = %Ld" label pc
+     )
+  |> String.concat ", "
 
-let string_of_pc_info ({pc; local_map; global_map}: BytecodeAsCore.PcInfo.pc_info) = 
-  Printf.sprintf "{
-    pc = %Ld;
-    local = [%s];
-    global = [%s]
-}" pc (string_of_map local_map) (string_of_map global_map)
+let string_of_pc_info
+    ({ pc; local_map; global_map } : BytecodeAsCore.PcInfo.pc_info) =
+  Printf.sprintf "{\n    pc = %Ld;\n    local = [%s];\n    global = [%s]\n}" pc
+    (string_of_map local_map) (string_of_map global_map)
 
 let string_of_lea_instruction = function
   | BaLeaPcRel int64 ->

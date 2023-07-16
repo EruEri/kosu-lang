@@ -36,11 +36,11 @@ let find_symbol symbole (pc : pc_info) =
     | None ->
         PcRelatifMap.find symbole pc.local_map
   in
-  (* let () = Out_channel.with_open_bin "debug.txt" (fun oc -> 
-    let () = Printf.fprintf oc "%s\n\n" @@ string_of_pc_info pc in
-    Printf.fprintf oc "symbole = %s, abspc = %Ld, pc = %Ld\n" symbole absolue_pc pc.pc
-  )
-  in *)
+  (* let () = Out_channel.with_open_bin "debug.txt" (fun oc ->
+       let () = Printf.fprintf oc "%s\n\n" @@ string_of_pc_info pc in
+       Printf.fprintf oc "symbole = %s, abspc = %Ld, pc = %Ld\n" symbole absolue_pc pc.pc
+     )
+     in *)
   absolue_pc -- pc.pc
 
 let as_instruction_of_bytecode_instructions info =
@@ -189,7 +189,9 @@ let pc_relatif_map info = function
           info |> add_global_map asm_const_name |> incr_pc 2L
       | `StrVal string ->
           let stringlen = String.length string in
-          let next = (KosuIrTyped.Sizeof.align_4 @@ Int64.of_int stringlen) // 4L in
+          let next =
+            (KosuIrTyped.Sizeof.align_4 @@ Int64.of_int stringlen) // 4L
+          in
           info |> add_global_map asm_const_name |> incr_pc next
     )
   | Afunction { asm_name; asm_body } ->
@@ -209,12 +211,12 @@ let global_map asm_program =
   |> List.fold_left
        (fun (pc, map)
             { asm_module_path = { asm_module = AsmModule nodes; _ }; _ } ->
-         let { global_map; _ } = pc_relatif pc nodes in
+         let { global_map; pc = new_pc; _ } = pc_relatif pc nodes in
          let map_union _key _lmvalue _rmvalue =
            failwith "Should'nt have key confllict"
          in
          let map = PcRelatifMap.union map_union global_map map in
-         (pc, map)
+         (new_pc, map)
        )
        (0L, PcRelatifMap.empty)
 
@@ -246,7 +248,9 @@ let as_node_of_asm_node info =
           (incr_pc 2L info, AsConst c)
       | `StrVal string ->
           let stringlen = String.length string in
-          let next = (KosuIrTyped.Sizeof.align_4 @@ Int64.of_int stringlen) // 4L in
+          let next =
+            (KosuIrTyped.Sizeof.align_4 @@ Int64.of_int stringlen) // 4L
+          in
           (incr_pc next info, AsConst c)
     )
   | Afunction { asm_name; asm_body } ->
@@ -272,7 +276,7 @@ let nodes_of_asm_program asm_program =
        (fun (pc, previous_nodes)
             { asm_module_path = { asm_module = AsmModule nodes; _ }; _ } ->
          let info = pc_relatif pc nodes in
-         let info = { info with global_map = abs_global_map; pc = pc } in
+         let info = { info with global_map = abs_global_map; pc } in
          let info, lines =
            nodes
            |> List.fold_left
