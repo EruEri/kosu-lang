@@ -1696,13 +1696,19 @@ let asm_module_of_tac_module ~litterals current_module rprogram = function
                None
            )
 
+let asm_node_of_litterals (litterals : litterals) =
+  litterals.str_lit_map |> Hashtbl.to_seq
+  |> Seq.map (fun (str, SLit label) ->
+         AStringLitteral { name = label; value = str }
+     )
+  |> List.of_seq
+
 let asm_module_path_of_tac_module_path ~litterals rprogram { path; tac_module }
     =
-  {
-    apath = path;
-    asm_module =
-      AsmModule (asm_module_of_tac_module ~litterals path rprogram tac_module);
-  }
+  let string_litterals_nodes = asm_node_of_litterals litterals in
+  let nodes = asm_module_of_tac_module ~litterals path rprogram tac_module in
+  let nodes = nodes @ string_litterals_nodes in
+  { apath = path; asm_module = AsmModule nodes }
 
 let asm_program_of_tac_program ~(start : string option) tac_program =
   ignore start;

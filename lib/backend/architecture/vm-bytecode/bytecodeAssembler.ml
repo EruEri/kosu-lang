@@ -14,8 +14,3 @@
 (* If not, see <http://www.gnu.org/licenses/>.                                                *)
 (*                                                                                            *)
 (**********************************************************************************************)
-
-module Codegen = BytecodeCodegen
-module Register = BytecodeCore.Register
-module Instruction = BytecodeCore.Instruction
-module Assembler = BytecodeAssembler

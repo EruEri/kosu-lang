@@ -493,4 +493,18 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         string_of_asm_function f
     | AConst c ->
         string_asm_const_decl c
+    | AFloat_Litteral { fname; fvalue = fsize, float } ->
+        let s =
+          match fsize with
+          | KosuFrontend.Ast.F32 ->
+              float |> Int32.bits_of_float |> Printf.sprintf "0x%lX"
+          | F64 ->
+              float |> Int64.bits_of_float |> Printf.sprintf "0x%LX"
+        in
+        Printf.sprintf "%s:\n\t.%s %s\n\n" fname
+          (AsmSpec.directive_of_fsize fsize)
+          s
+    | AStringLitteral { name; value } ->
+        Printf.sprintf "%s:\n\t%s \"%s\"\n\n" name
+          AsmSpec.string_litteral_directive value
 end

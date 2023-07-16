@@ -149,7 +149,7 @@ module Cli = struct
           KosuBackend.Bytecode.Codegen.compile_asm_readable ~outfile:output
             tac_program
       | false ->
-          failwith ""
+          failwith "Bytecode execuatable compilation todo"
     in
     ()
 
