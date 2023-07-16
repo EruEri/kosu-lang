@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module Codegen = BytecodeCodegen
 module Register = BytecodeCore.Register
 module Instruction = BytecodeCore.Instruction
 module Operande = BytecodeCore.Operande
@@ -24,3 +23,4 @@ module Location = BytecodeCore.Location
 module BytecodeProgram = BytecodeCore.BytecodeProgram
 module Line = BytecodeCore.Line
 module Pprint = BytecodePprint
+module Convertion = BytecodeConv

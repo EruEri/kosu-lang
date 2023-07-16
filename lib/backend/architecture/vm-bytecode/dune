@@ -1,7 +1,7 @@
 ;**********************************************************************************************;
 ;*                                                                                            *;
 ;* This file is part of Kosu                                                                  *;
-;* Copyright (C) 2022 Yves Ndiaye                                                             *;
+;* Copyright (C) 2023 Yves Ndiaye                                                             *;
 ;*                                                                                            *;
 ;* Kosu is free software: you can redistribute it and/or modify it under the terms            *;
 ;* of the GNU General Public License as published by the Free Software Foundation,            *;
@@ -15,6 +15,10 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
+; (env
+;   (san
+;     (flags (:standard -warn-error +A))))
+
 (library
- (name kosuBackend)
- (libraries aarch64 x86_64 unix bytecode))
+ (name bytecode)
+ (libraries bytecodeCompiler bytecodeAssembler bytecodeCodegen))
