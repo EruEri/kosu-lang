@@ -85,7 +85,7 @@ let vm_shift_value =
   let open BytecodeCore.ConditionCode in
   function SH0 -> 0 | SH16 -> 1 | SH32 -> 2 | SH48 -> 3
 
-let data_size =
+let vm_data_size_value =
   let open BytecodeCore.ConditionCode in
   function SIZE_8 -> 0 | SIZE_16 -> 1 | SIZE_32 -> 2 | SIZE_64 -> 3
 

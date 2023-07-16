@@ -15,17 +15,51 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-(* open BytecodeCompiler
-   open BytecodeCompiler.BytecodeProgram
-   open BytecodeCompiler.Line
-   module ByteInstruction = BytecodeCompiler.Instruction
-   module Operande = BytecodeCompiler.Operande
-   module Location = BytecodeCompiler.Location
-   module ConditionCode = BytecodeCompiler.ConditionCode
-   module Register = BytecodeCompiler.Register
-   module PcRelatifMap = Map.Make (String) *)
+let vm_register_value = BytecodeCompiler.VmValue.vm_register_value
+let vm_shift_value = BytecodeCompiler.VmValue.vm_shift_value
+let vm_data_size_value = BytecodeCompiler.VmValue.vm_data_size_value
+let vm_cc_value = BytecodeCompiler.VmValue.vm_cc_value
 
-module Core = BytecodeAsCore
-module Convertion = BytecodeAsConv
-module Pprint = BytecodeAsPrint
-module VmValue = BytecodeAsVmValue
+let vm_instruction_value = function
+  | BytecodeAsCore.AsInstruction.AsHalt | AsRet | AsSyscall | AsCCall _ ->
+      0
+  | AsMvnt _ ->
+      1
+  | AsMvng _ ->
+      2
+  | AsMv _ ->
+      3
+  | AsMva _ ->
+      4
+  | AsJump _ | AsBr _ ->
+      5
+  | AsLea _ ->
+      6
+  | AsAdd _ ->
+      7
+  | AsSub _ ->
+      8
+  | AsMult _ ->
+      9
+  | AsDiv _ ->
+      10
+  | AsMod _ ->
+      11
+  | AsAnd _ ->
+      12
+  | AsOr _ ->
+      13
+  | AsXor _ ->
+      14
+  | AsLsl _ ->
+      15
+  | AsLsr _ ->
+      16
+  | AsAsr _ ->
+      17
+  | AsCmp _ | AsCset _ ->
+      18
+  | AsLdr _ | AsStr _ ->
+      19
+  | AsItof _ | AsFtoi _ ->
+      20
