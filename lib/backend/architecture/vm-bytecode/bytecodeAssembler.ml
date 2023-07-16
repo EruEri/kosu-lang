@@ -17,13 +17,24 @@
 
 open BytecodeCore.BytecodeProgram
 open BytecodeCore.Line
+module ByteInstruction = BytecodeCore.Instruction
 module Operande = BytecodeCore.Operande
 module Location = BytecodeCore.Location
 module ConditionCode = BytecodeCore.ConditionCode
 module Register = BytecodeCore.Register
 module PcRelatifMap = Map.Make (String)
 
-module InstructionPass1 = struct
+let ( ++ ) = Int64.add
+let ( -- ) = Int64.sub
+let ( !+ ) = ( ++ ) 1L
+
+type pc_info = {
+  pc : int64;
+  local_map : int64 PcRelatifMap.t;
+  global_map : int64 PcRelatifMap.t;
+}
+
+module AsInstruction = struct
   open ConditionCode
 
   type address_offset = Location.address_offset
@@ -92,16 +103,132 @@ module InstructionPass1 = struct
         source : Register.register;
         signed : bool;
       }
+
+  let find_symbol symbole (pc : pc_info) =
+    let absolue_pc =
+      match PcRelatifMap.find_opt symbole pc.global_map with
+      | Some pc ->
+          pc
+      | None ->
+          PcRelatifMap.find symbole pc.local_map
+    in
+    absolue_pc -- pc.pc
+
+  let as_instruction_of_bytecode_instructions info =
+    let open ByteInstruction in
+    function
+    | Halt ->
+        AsHalt
+    | Ret ->
+        AsRet
+    | Syscall ->
+        AsSyscall
+    | CCall src ->
+        AsCCall src
+    | Mvnt single_operande ->
+        AsMvnt single_operande
+    | Mvng single_operande ->
+        AsMvng single_operande
+    | Mv single_operande ->
+        AsMv single_operande
+    | Mva { operandes; shift } ->
+        AsMva { operandes; shift }
+    | Jump jump_src ->
+        let src =
+          match jump_src with
+          | `Register _ as e ->
+              e
+          | `Label s ->
+              `PcRel (find_symbol s info)
+        in
+        AsJump src
+    | Br jump_src ->
+        let src =
+          match jump_src with
+          | `Register _ as e ->
+              e
+          | `Label s ->
+              `PcRel (find_symbol s info)
+        in
+        AsBr src
+    | Lea { destination; operande } ->
+        let src =
+          match operande with
+          | LeaPcRel s ->
+              BaLeaPcRel (find_symbol s info)
+          | LeaRegAbs address ->
+              BaLeaRegAbs address
+        in
+        AsLea { destination; operande = src }
+    | Add bin_op_operande ->
+        AsAdd bin_op_operande
+    | Sub bin_op_operande ->
+        AsSub bin_op_operande
+    | Mult bin_op_operande ->
+        AsMult bin_op_operande
+    | Div { operandes : bin_op_operande; signed : bool } ->
+        AsDiv { operandes; signed }
+    | Mod { operandes; signed } ->
+        AsMod { operandes : bin_op_operande; signed : bool }
+    | And bin_op_operande ->
+        AsAnd bin_op_operande
+    | Or bin_op_operande ->
+        AsOr bin_op_operande
+    | Xor bin_op_operande ->
+        AsXor bin_op_operande
+    | Lsl bin_op_operande ->
+        AsLsl bin_op_operande
+    | Asr bin_op_operande ->
+        AsAsr bin_op_operande
+    | Lsr bin_op_operande ->
+        AsLsr bin_op_operande
+    | Cmp
+        {
+          cc : condition_code;
+          lhs : Register.register;
+          rhs : Register.register;
+        } ->
+        AsCmp { cc; lhs; rhs }
+    | Cset
+        {
+          cc : condition_code;
+          destination : Register.register;
+          lhs : Register.register;
+          rhs : Register.register;
+          update_last_cmp : bool;
+        } ->
+        AsCset { cc; destination; lhs; rhs; update_last_cmp }
+    | Ldr
+        {
+          data_size : data_size;
+          destination : Register.register;
+          address : address;
+        } ->
+        AsLdr { data_size; destination; address }
+    | Str
+        {
+          data_size : data_size;
+          destination : Register.register;
+          address : address;
+        } ->
+        AsStr { data_size; destination; address }
+    | Itof
+        {
+          data_size : data_size;
+          destination : Register.register;
+          source : Register.register;
+          signed : bool;
+        } ->
+        AsItof { data_size; destination; source; signed }
+    | Ftoi
+        {
+          data_size : data_size;
+          destination : Register.register;
+          source : Register.register;
+          signed : bool;
+        } ->
+        AsFtoi { data_size; destination; source; signed }
 end
-
-let ( ++ ) = Int64.add
-let ( !+ ) = ( ++ ) 1L
-
-type pc_info = {
-  pc : int64;
-  local_map : int64 PcRelatifMap.t;
-  global_map : int64 PcRelatifMap.t;
-}
 
 let next_pc info = { info with pc = !+(info.pc) }
 let incr_pc n info = { info with pc = info.pc ++ n }
@@ -147,3 +274,18 @@ let pc_relatif pc (asm_module_node_list : asm_module_node list) =
   let global_map = PcRelatifMap.empty in
   let info = { pc; local_map; global_map } in
   asm_module_node_list |> List.fold_left pc_relatif_map info
+
+(** [global_map asm_program] merge all the pc absolue value og the global symbol in [asm_program]  *)
+let global_map asm_program =
+  asm_program
+  |> List.fold_left
+       (fun (pc, map)
+            { asm_module_path = { asm_module = AsmModule nodes; _ }; _ } ->
+         let { global_map; _ } = pc_relatif pc nodes in
+         let map_union _key _lmvalue _rmvalue =
+           failwith "Should'nt have key confllict"
+         in
+         let map = PcRelatifMap.union map_union global_map map in
+         (pc, map)
+       )
+       (0L, PcRelatifMap.empty)
