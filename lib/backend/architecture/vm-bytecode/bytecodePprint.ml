@@ -268,19 +268,27 @@ let string_of_instruction = function
         (string_of_data_size data_size)
         (string_of_register destination)
         (string_of_address address)
-  | Itof {data_size; destination; source; signed} ->
+  | Itof { data_size; destination; source; signed } ->
       sprintf "%sitof.%s %s %s"
-      (if signed then "" else "u")
-      (string_of_data_size data_size)
-      (string_of_register destination)
-      (string_of_register source)
-  | Ftoi {data_size; destination; source; signed} ->
-    sprintf "%sftoi.%s %s %s"
-    (if signed then "" else "u")
-    (string_of_data_size data_size)
-    (string_of_register destination)
-    (string_of_register source) 
-  
+        ( if signed then
+            ""
+          else
+            "u"
+        )
+        (string_of_data_size data_size)
+        (string_of_register destination)
+        (string_of_register source)
+  | Ftoi { data_size; destination; source; signed } ->
+      sprintf "%sftoi.%s %s %s"
+        ( if signed then
+            ""
+          else
+            "u"
+        )
+        (string_of_data_size data_size)
+        (string_of_register destination)
+        (string_of_register source)
+
 let string_of_asm_line (AsmLine (line, comment)) =
   let comment =
     comment |> Option.map (( ^ ) "//") |> Option.value ~default:""

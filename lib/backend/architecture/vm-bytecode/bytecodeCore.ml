@@ -286,6 +286,8 @@ module Register = struct
 
   let r0 = R0
   let r1 = R1
+  let f8 = FR8
+  let f9 = FR9
   let r12 = R12
   let r13 = R13
   let r14 = R14
@@ -404,17 +406,17 @@ module Instruction = struct
         address : address;
       }
     | Itof of {
-      data_size: data_size;
-      destination : Register.register;
-      source: Register.register;
-      signed: bool
-    }
+        data_size : data_size;
+        destination : Register.register;
+        source : Register.register;
+        signed : bool;
+      }
     | Ftoi of {
-      data_size: data_size;
-      destination : Register.register;
-      source: Register.register;
-      signed: bool
-    }
+        data_size : data_size;
+        destination : Register.register;
+        source : Register.register;
+        signed : bool;
+      }
 
   let halt = Halt
   let ret = Ret
@@ -476,6 +478,12 @@ module Instruction = struct
 
   let ldr data_size destination address =
     Ldr { data_size; destination; address }
+
+  let ftoi signed data_size destination source =
+    Ftoi { signed; data_size; destination; source }
+
+  let itof signed data_size destination source =
+    Itof { signed; data_size; destination; source }
 end
 
 module Line = struct

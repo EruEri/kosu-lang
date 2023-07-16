@@ -933,50 +933,119 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
       let builin_call_instructions =
         match fn_name with
         | Tagof ->
-          let tte = List.hd parameters in
-          let address =
-            match tte.tac_expression with
-            | TEIdentifier i ->
-                Option.get @@ FrameManager.location_of (i, tte.expr_rktype) fd
-            | _ ->
-                failwith
-                  "Enum are rvalue, therethore they are converted as \
-                   identifier"
-          in
-          let load_tag_instructions =
-            let tag_size = ConditionCode.SIZE_32 in
-            LineInstruction.sldr tag_size Register.r13 address
-          in
-          let copy_instructions =
-            store_instruction ~large_cp:false ~where ~reg:r13 ~rval_rktype:rvalue.rval_rktype
-          in
-          load_tag_instructions @ copy_instructions
+            let tte = List.hd parameters in
+            let address =
+              match tte.tac_expression with
+              | TEIdentifier i ->
+                  Option.get @@ FrameManager.location_of (i, tte.expr_rktype) fd
+              | _ ->
+                  failwith
+                    "Enum are rvalue, therethore they are converted as \
+                     identifier"
+            in
+            let load_tag_instructions =
+              let tag_size = ConditionCode.SIZE_32 in
+              LineInstruction.sldr tag_size Register.r13 address
+            in
+            let copy_instructions =
+              store_instruction ~large_cp:false ~where ~reg:r13
+                ~rval_rktype:rvalue.rval_rktype
+            in
+            load_tag_instructions @ copy_instructions
         | Array_len ->
-          let tte = List.hd parameters in
-          let array_len =
-            match tte.expr_rktype with
-            | RTArray { size; rktype = _ } ->
-                size
-            | _ ->
-                failwith "Weird: it should be an pointer array type"
-          in
-          let mov_instrs = LineInstruction.mv_integer Register.r13 array_len in
-          let copy_instructions = 
-            store_instruction ~where ~reg:Register.r13 ~large_cp:false ~rval_rktype:rvalue.rval_rktype 
-          in
-          mov_instrs @ copy_instructions
-        | Array_ptr ->
-          let tte = List.hd parameters in
-          let instructions =
-            translate_tac_expression ~litterals ~target_reg:Register.ir fd
-              tte
-          in
-          let copy_instructions =
-            store_instruction ~large_cp:false ~where ~reg:Register.ir ~rval_rktype:rvalue.rval_rktype
-          in
-          instructions @ copy_instructions
-        | _ ->
-            failwith "BUILIN CALL TODO"
+            let tte = List.hd parameters in
+            let array_len =
+              match tte.expr_rktype with
+              | RTArray { size; rktype = _ } ->
+                  size
+              | _ ->
+                  failwith "Weird: it should be an pointer array type"
+            in
+            let mov_instrs =
+              LineInstruction.mv_integer Register.r13 array_len
+            in
+            let copy_instructions =
+              store_instruction ~where ~reg:Register.r13 ~large_cp:false
+                ~rval_rktype:rvalue.rval_rktype
+            in
+            mov_instrs @ copy_instructions
+        | Array_ptr | Stringl_ptr ->
+            let tte = List.hd parameters in
+            let instructions =
+              translate_tac_expression ~litterals ~target_reg:Register.ir fd tte
+            in
+            let copy_instructions =
+              store_instruction ~large_cp:false ~where ~reg:Register.ir
+                ~rval_rktype:rvalue.rval_rktype
+            in
+            instructions @ copy_instructions
+        | Tof32 | Tof64 ->
+            let tte = List.hd parameters in
+
+            let reg =
+              match KosuIrTyped.Asttyhelper.RType.is_float tte.expr_rktype with
+              | true ->
+                  f8
+              | false ->
+                  r13
+            in
+            let instructions =
+              translate_tac_expression ~litterals ~target_reg:reg fd tte
+            in
+            let is_signed =
+              not
+              @@ KosuIrTyped.Asttyhelper.RType.is_raw_unsigned tte.expr_rktype
+            in
+            let data_size = ConditionCode.data_size_of_kt tte.expr_rktype in
+            let convert_instructions =
+              match
+                KosuIrTyped.Asttyhelper.RType.is_any_integer tte.expr_rktype
+              with
+              | false ->
+                  []
+              | true ->
+                  Line.instructions
+                    [ Instruction.itof is_signed data_size f8 reg ]
+            in
+            let str_insts =
+              store_instruction ~large_cp:false ~where
+                ~rval_rktype:rvalue.rval_rktype ~reg
+            in
+            instructions @ convert_instructions @ str_insts
+        | Tos8 | Tou8 | Tos16 | Tou16 | Tos32 | Tou32 | Tos64 | Tou64 ->
+            let tte = List.hd parameters in
+
+            let reg =
+              match KosuIrTyped.Asttyhelper.RType.is_float tte.expr_rktype with
+              | true ->
+                  f8
+              | false ->
+                  r13
+            in
+            let instructions =
+              translate_tac_expression ~litterals ~target_reg:reg fd tte
+            in
+            let is_signed =
+              not
+              @@ KosuIrTyped.Asttyhelper.RType.is_raw_unsigned
+                   rvalue.rval_rktype
+            in
+            let data_size = ConditionCode.data_size_of_kt rvalue.rval_rktype in
+            let convert_instructions =
+              match
+                KosuIrTyped.Asttyhelper.RType.is_any_integer tte.expr_rktype
+              with
+              | true ->
+                  []
+              | false ->
+                  Line.instructions
+                    [ Instruction.ftoi is_signed data_size r13 reg ]
+            in
+            let str_insts =
+              store_instruction ~large_cp:false ~where
+                ~rval_rktype:rvalue.rval_rktype ~reg
+            in
+            instructions @ convert_instructions @ str_insts
       in
       builin_call_instructions
   | RVCustomUnop { unop; expr } ->

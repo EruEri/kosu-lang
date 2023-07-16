@@ -335,6 +335,8 @@ let compute_all_size_module_path rprogram { rmodule = RModule rmodules; _ } =
 
 (** To be call once all generics are replaced *)
 let compute_all_size rprogram () =
+  (* type of enum tag *)
+  let () = compute_ktype rprogram @@ RTInteger (Unsigned, I32) in
   rprogram
   |> List.iter (fun { rmodule_path : rmodule_path; _ } ->
          compute_all_size_module_path rprogram rmodule_path
