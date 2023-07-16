@@ -24,3 +24,7 @@
    module ConditionCode = BytecodeCompiler.ConditionCode
    module Register = BytecodeCompiler.Register
    module PcRelatifMap = Map.Make (String) *)
+
+module Core = BytecodeAsCore
+module Convertion = BytecodeAsConv
+module Pprint = BytecodeAsPrint

@@ -26,6 +26,7 @@ module ByteLine = BytecodeCompiler.Line
 let ( ++ ) = Int64.add
 let ( -- ) = Int64.sub
 let ( !+ ) = ( ++ ) 1L
+let ( // ) = Int64.unsigned_div
 
 let find_symbol symbole (pc : pc_info) =
   let absolue_pc =
@@ -35,6 +36,11 @@ let find_symbol symbole (pc : pc_info) =
     | None ->
         PcRelatifMap.find symbole pc.local_map
   in
+  (* let () = Out_channel.with_open_bin "debug.txt" (fun oc -> 
+    let () = Printf.fprintf oc "%s\n\n" @@ string_of_pc_info pc in
+    Printf.fprintf oc "symbole = %s, abspc = %Ld, pc = %Ld\n" symbole absolue_pc pc.pc
+  )
+  in *)
   absolue_pc -- pc.pc
 
 let as_instruction_of_bytecode_instructions info =
@@ -174,7 +180,7 @@ let pc_relatif_map info = function
       info |> add_local_map fname |> incr_pc 2L
   | AStringLitteral { name; value } ->
       let stringlen = String.length value in
-      let next = KosuIrTyped.Sizeof.align_4 @@ Int64.of_int stringlen in
+      let next = (KosuIrTyped.Sizeof.align_4 @@ Int64.of_int stringlen) // 4L in
       info |> add_local_map name |> incr_pc next
   | AConst { asm_const_name; value } -> (
       match value with
@@ -183,7 +189,7 @@ let pc_relatif_map info = function
           info |> add_global_map asm_const_name |> incr_pc 2L
       | `StrVal string ->
           let stringlen = String.length string in
-          let next = KosuIrTyped.Sizeof.align_4 @@ Int64.of_int stringlen in
+          let next = (KosuIrTyped.Sizeof.align_4 @@ Int64.of_int stringlen) // 4L in
           info |> add_global_map asm_const_name |> incr_pc next
     )
   | Afunction { asm_name; asm_body } ->
@@ -231,7 +237,7 @@ let as_node_of_asm_node info =
       (incr_pc 2L info, AsFloatLitteral { fname; fvalue })
   | AStringLitteral { name; value } ->
       let stringlen = String.length value in
-      let next = KosuIrTyped.Sizeof.align_4 @@ Int64.of_int stringlen in
+      let next = (KosuIrTyped.Sizeof.align_4 @@ Int64.of_int stringlen) // 4L in
       (incr_pc next info, AsStringLitteral { name; value })
   | AConst ({ asm_const_name = _; value } as c) -> (
       match value with
@@ -240,7 +246,7 @@ let as_node_of_asm_node info =
           (incr_pc 2L info, AsConst c)
       | `StrVal string ->
           let stringlen = String.length string in
-          let next = KosuIrTyped.Sizeof.align_4 @@ Int64.of_int stringlen in
+          let next = (KosuIrTyped.Sizeof.align_4 @@ Int64.of_int stringlen) // 4L in
           (incr_pc next info, AsConst c)
     )
   | Afunction { asm_name; asm_body } ->
@@ -266,7 +272,7 @@ let nodes_of_asm_program asm_program =
        (fun (pc, previous_nodes)
             { asm_module_path = { asm_module = AsmModule nodes; _ }; _ } ->
          let info = pc_relatif pc nodes in
-         let info = { info with global_map = abs_global_map } in
+         let info = { info with global_map = abs_global_map; pc = pc } in
          let info, lines =
            nodes
            |> List.fold_left

@@ -146,7 +146,7 @@ module Cli = struct
     let () =
       match is_target_asm with
       | true ->
-          KosuBackend.Bytecode.Codegen.compile_asm_readable ~outfile:output
+          KosuBackend.Bytecode.Codegen.compile_as_readable ~outfile:output
             tac_program
       | false ->
           failwith "Bytecode execuatable compilation todo"
