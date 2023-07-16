@@ -339,6 +339,13 @@ module Operande = struct
   type jump_src = [ `Label of string | `Register of Register.register ]
   type dst = Register.register
   type single_operande = { destination : dst; source : src }
+
+  type bin_op_operande = {
+    destination : Register.register;
+    operande1 : Register.register;
+    operande2 : src;
+  }
+
   type lea_operande = LeaPcRel of string | LeaRegAbs of Location.address
 
   let ilitteral n = (`ILitteral n :> src)
@@ -353,12 +360,6 @@ module Instruction = struct
 
   (* open Register *)
   open Location
-
-  type bin_op_operande = {
-    destination : Register.register;
-    operande1 : Register.register;
-    operande2 : src;
-  }
 
   type t =
     | Halt

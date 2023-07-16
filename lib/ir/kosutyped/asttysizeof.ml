@@ -32,6 +32,7 @@ let align n b =
 
 let align_16 b = align b 16L
 let align_8 b = align b 8L
+let align_4 b = align b 4L
 
 let rec size calcul program rktype =
   match rktype with
