@@ -98,30 +98,55 @@ let run_vm pc code =
   let () = KosuVirtualMachine.CamlVm.vm_free vm () in
   status
 
-let run_main cmd =
-  let _ = cmd in
-  let () = Array.iter print_endline Sys.argv in
-  (* let { bytecode_file; argv } = cmd in
-     let () = ignore (bytecode_file, argv) in
-     let content =
-       In_channel.with_open_bin bytecode_file (fun ic -> Util.Io.read_file ic ())
-     in
-     let checksum_line, remains = prebytecode_keys_val content in
-     let keys, checksum = keyvals checksum_line in
-     (* let () = String.iter (fun c -> Printf.printf "%d" @@ Char.code c) checksum in *)
-     let () = check_key_checksum keys in
-     let () = check_checksum checksum remains in
+let is_shebang string = String.starts_with ~prefix:"#!" string
+let is_kosurun_shebang = String.ends_with ~suffix:name
 
-     let pc_line, bytecode = prebytecode_keys_val remains in
-     let pc_key, pc_value = keyvals pc_line in
-     let () = check_pc_key pc_key in
-     let value = int_of_string pc_value in
-     let status = run_vm value bytecode in
-     let () = Printf.eprintf "status = %d\n" status in *)
+let handle_first_line content =
+  let ((first_line, remains) as line) = prebytecode_keys_val content in
+  let remains_content =
+    match is_shebang first_line with
+    | true ->
+        let () =
+          match is_kosurun_shebang first_line with
+          | true ->
+              ()
+          | false ->
+              failwith "Shebang doesnt point toward kosurun"
+        in
+        prebytecode_keys_val remains
+    | false ->
+        line
+  in
+  remains_content
+
+let run_main cmd =
+  let size = Array.length Sys.argv - 1 in
+  let _argv = Array.make size String.empty in
+  let () = Array.blit Sys.argv 1 _argv 0 size in
+  (* let () = Array.iter print_endline Sys.argv in *)
+  let { bytecode_file; argv } = cmd in
+  let () = ignore (bytecode_file, argv) in
+  let content =
+    In_channel.with_open_bin bytecode_file (fun ic -> Util.Io.read_file ic ())
+  in
+  let checksum_line, remains = handle_first_line content in
+  let keys, checksum = keyvals checksum_line in
+  (* let () = String.iter (fun c -> Printf.printf "%d" @@ Char.code c) checksum in *)
+  let () = check_key_checksum keys in
+  let () = check_checksum checksum remains in
+
+  let pc_line, bytecode = prebytecode_keys_val remains in
+  let pc_key, pc_value = keyvals pc_line in
+  let () = check_pc_key pc_key in
+  let value = int_of_string pc_value in
+  let status = run_vm value bytecode in
+  let () = Printf.eprintf "status = %d\n" status in
   ()
 
 let kosurun () =
-  let info = Cmd.info ~doc:run_doc ~man:run_man name in
+  let info =
+    Cmd.info ~version:CliCommon.version ~doc:run_doc ~man:run_man name
+  in
   Cmd.v info (cmd_term run_main)
 
 let eval () = Cmd.eval ~catch:true @@ kosurun ()

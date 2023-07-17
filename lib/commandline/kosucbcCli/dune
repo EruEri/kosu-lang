@@ -26,4 +26,5 @@
   cmdliner
   ldSpec
   kosuCommon
-  cliCommon))
+  cliCommon
+  kosurunCli))

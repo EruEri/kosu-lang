@@ -21,14 +21,22 @@ open Cmdliner
 module Cli = struct
   let name = "kosuc.bc"
   let default_outfile = "a.out.bc"
+  let shebang = Printf.sprintf "#! /usr/bin/env %s" KosurunCli.name
 
   type cmd = {
+    executable : bool;
     f_allow_generic_in_variadic : bool;
     no_std : bool;
     is_target_asm : bool;
     output : string option;
     files : string list;
   }
+
+  let exectuable_term =
+    Arg.(
+      value & flag
+      & info [ "x" ] ~doc:"Indicate whether the should an executable"
+    )
 
   let f_allow_generic_in_variadic_term =
     Arg.(
@@ -71,13 +79,21 @@ module Cli = struct
     )
 
   let cmd_term run =
-    let combine f_allow_generic_in_variadic no_std is_target_asm output files =
+    let combine executable f_allow_generic_in_variadic no_std is_target_asm
+        output files =
       run
-      @@ { f_allow_generic_in_variadic; no_std; is_target_asm; output; files }
+      @@ {
+           executable;
+           f_allow_generic_in_variadic;
+           no_std;
+           is_target_asm;
+           output;
+           files;
+         }
     in
     Term.(
-      const combine $ f_allow_generic_in_variadic_term $ no_std_term
-      $ target_asm_term $ output_term $ files_term
+      const combine $ exectuable_term $ f_allow_generic_in_variadic_term
+      $ no_std_term $ target_asm_term $ output_term $ files_term
     )
 
   let kosubc_doc = "The Kosu bytecode compiler"
@@ -86,10 +102,9 @@ module Cli = struct
     [
       `S Manpage.s_description;
       `P
-        "WIP: The Kosu bytecode compiler $(b,kosu.bc) compiles kosu files into \
+        "The Kosu bytecode compiler $(b,kosu.bc) compiles kosu files into \
          bytecodes which  \n\
         \      is interpreted by the kosu virtual machine";
-      `P "the bytecode is not fully implemented, so it's unusable";
       `S Manpage.s_see_also;
       `P "$(b,kosuc)(1), $(b,kosu)(1)";
       `Noblank;
@@ -104,6 +119,7 @@ module Cli = struct
 
   let compile cmd =
     let {
+      executable;
       f_allow_generic_in_variadic : bool;
       no_std : bool;
       is_target_asm : bool;
@@ -150,8 +166,8 @@ module Cli = struct
           KosuBackend.Bytecode.Codegen.compile_asm_readable ?outfile:output
             tac_program
       | false ->
-          KosuBackend.Bytecode.Codegen.compile_bytecode ?outfile:output
-            tac_program
+          KosuBackend.Bytecode.Codegen.compile_bytecode shebang executable
+            ?outfile:output tac_program
     in
     ()
 

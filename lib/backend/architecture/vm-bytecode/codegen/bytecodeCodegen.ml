@@ -19,6 +19,8 @@ open BytecodeCompiler.Convertion
 open BytecodeCompiler.BytecodeProgram
 open BytecodeCompiler.Pprint
 
+let default_perm = 0o755
+
 let compile_asm_readable ?outfile tac_rpogram =
   let asm_program = asm_program_of_tac_program ~start:None tac_rpogram in
   let on_file_function file =
@@ -60,13 +62,13 @@ let compile_as_readable ?outfile tac_rpogram =
   let file = Option.value ~default:"a.out.bc.as" outfile in
   Out_channel.with_open_bin file on_file_function
 
-let compile_bytecode ?outfile tac_rpogram =
+let compile_bytecode shebang executable ?outfile tac_rpogram =
   let on_file pc_main bytes oc =
-    (* let fd = Unix.descr_of_out_channel oc in *)
     let pc_line = Printf.sprintf "pc=%Lu\n" pc_main in
     let pc_bytes = String.to_bytes pc_line in
     let checksum_bytes = Bytes.concat Bytes.empty [ pc_bytes; bytes ] in
     let checksum = Util.Checksum.checksum checksum_bytes in
+    let () = Printf.fprintf oc "%s\n" shebang in
     let () = Printf.fprintf oc "checksum=%s\n%!" checksum in
     let () = Printf.fprintf oc "%s" (Bytes.unsafe_to_string checksum_bytes) in
     ()
@@ -77,4 +79,8 @@ let compile_bytecode ?outfile tac_rpogram =
   in
   let bytes = BytecodeAssembler.VmValue.bytes_of_nodes as_nodes in
   let file = Option.value ~default:"a.out.bc" outfile in
-  Out_channel.with_open_bin file (on_file pc_main bytes)
+  let () = Out_channel.with_open_bin file (on_file pc_main bytes) in
+  let () =
+    match executable with true -> Unix.chmod file default_perm | false -> ()
+  in
+  ()
