@@ -19,14 +19,7 @@
  (public_name kosuc)
  (name kosuc)
  (modules kosuc)
- (libraries
-  kosuFrontend
-  kosuIrTyped
-  kosuBackend
-  kosuIrTAC
-  kosuClis
-  ldSpec
-  kosuCommon)
+ (libraries kosuClis)
  (flags
   (:standard -g)))
 
@@ -34,13 +27,7 @@
  (public_name kosu)
  (modules kosu)
  (name kosu)
- (libraries
-  kosuFrontend
-  kosuIrTyped
-  kosuBackend
-  kosuIrTAC
-  kosuClis
-  kosuIrCfg)
+ (libraries kosuClis)
  (flags
   (:standard -g)))
 
@@ -48,12 +35,14 @@
  (public_name kosuc.bc)
  (modules kosuc_bc)
  (name kosuc_bc)
- (libraries
-  kosuFrontend
-  kosuIrTyped
-  kosuBackend
-  kosuIrTAC
-  kosuClis
-  kosuIrCfg)
+ (libraries kosuClis)
+ (flags
+  (:standard -g)))
+
+(executable
+ (public_name kosurun)
+ (name kosurun)
+ (modules kosurun)
+ (libraries kosuClis)
  (flags
   (:standard -g)))

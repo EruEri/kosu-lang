@@ -17,7 +17,7 @@
 
 open Cmdliner
 
-let name = "run"
+let name = "kosurun"
 
 type cmd = { bytecode_file : string; argv : string list }
 
@@ -99,25 +99,29 @@ let run_vm pc code =
   status
 
 let run_main cmd =
-  let { bytecode_file; argv } = cmd in
-  let () = ignore (bytecode_file, argv) in
-  let content =
-    In_channel.with_open_bin bytecode_file (fun ic -> Util.Io.read_file ic ())
-  in
-  let checksum_line, remains = prebytecode_keys_val content in
-  let keys, checksum = keyvals checksum_line in
-  (* let () = String.iter (fun c -> Printf.printf "%d" @@ Char.code c) checksum in *)
-  let () = check_key_checksum keys in
-  let () = check_checksum checksum remains in
+  let _ = cmd in
+  let () = Array.iter print_endline Sys.argv in
+  (* let { bytecode_file; argv } = cmd in
+     let () = ignore (bytecode_file, argv) in
+     let content =
+       In_channel.with_open_bin bytecode_file (fun ic -> Util.Io.read_file ic ())
+     in
+     let checksum_line, remains = prebytecode_keys_val content in
+     let keys, checksum = keyvals checksum_line in
+     (* let () = String.iter (fun c -> Printf.printf "%d" @@ Char.code c) checksum in *)
+     let () = check_key_checksum keys in
+     let () = check_checksum checksum remains in
 
-  let pc_line, bytecode = prebytecode_keys_val remains in
-  let pc_key, pc_value = keyvals pc_line in
-  let () = check_pc_key pc_key in
-  let value = int_of_string pc_value in
-  let status = run_vm value bytecode in
-  let () = Printf.eprintf "status = %d\n" status in
+     let pc_line, bytecode = prebytecode_keys_val remains in
+     let pc_key, pc_value = keyvals pc_line in
+     let () = check_pc_key pc_key in
+     let value = int_of_string pc_value in
+     let status = run_vm value bytecode in
+     let () = Printf.eprintf "status = %d\n" status in *)
   ()
 
-let run : unit Cmd.t =
+let kosurun () =
   let info = Cmd.info ~doc:run_doc ~man:run_man name in
   Cmd.v info (cmd_term run_main)
+
+let eval () = Cmd.eval ~catch:true @@ kosurun ()

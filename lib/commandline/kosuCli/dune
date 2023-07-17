@@ -16,7 +16,7 @@
 ;**********************************************************************************************;
 
 (library
- (name cliKosu)
+ (name kosuCli)
  (libraries
   kosuFrontend
   kosuInterpreter
