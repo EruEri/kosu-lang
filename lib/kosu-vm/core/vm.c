@@ -166,10 +166,12 @@ int64_t sext16(instruction_t instruction) {
 }
 
 int64_t sext13(instruction_t instruction) {
-    const uint32_t eigthteen_first_mask = 0xFFFFC000;
+    const int64_t eigthteen_first_mask = 0xFFFFFFFFFFFFE000;
     const uint32_t litteral = instruction & ~eigthteen_first_mask;
     if (is_set(instruction, mask_bit(12))) {
-        return eigthteen_first_mask | litteral;
+        int64_t i = eigthteen_first_mask | instruction;
+        printf("sext13: i = %lld\n", i);
+        return i;
     } else {
         return litteral;
     }
@@ -593,6 +595,7 @@ int str(vm_t* vm, instruction_t instruction) {
     int64_t offset = is_offset_reg 
         ? *register_of_int32(vm, instruction, 12) 
         : sext13(instruction);
+    printf("reg = %d\noffset = %lld\n", is_offset_reg, offset);
     switch (ds) {
     case S8:
         *((uint8_t*) base + offset) = (uint8_t) *src;
