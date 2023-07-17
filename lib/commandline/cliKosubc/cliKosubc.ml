@@ -26,7 +26,7 @@ module Cli = struct
     f_allow_generic_in_variadic : bool;
     no_std : bool;
     is_target_asm : bool;
-    output : string;
+    output : string option;
     files : string list;
   }
 
@@ -51,7 +51,8 @@ module Cli = struct
 
   let output_term =
     Arg.(
-      value & opt string default_outfile
+      value
+      & opt (some string) None
       & info [ "o" ] ~docv:"FILENAME"
           ~doc:
             (Printf.sprintf "write output to <%s>"
@@ -106,7 +107,7 @@ module Cli = struct
       f_allow_generic_in_variadic : bool;
       no_std : bool;
       is_target_asm : bool;
-      output : string;
+      output : string option;
       files : string list;
     } =
       cmd
@@ -146,10 +147,11 @@ module Cli = struct
     let () =
       match is_target_asm with
       | true ->
-          KosuBackend.Bytecode.Codegen.compile_as_readable ~outfile:output
+          KosuBackend.Bytecode.Codegen.compile_asm_readable ?outfile:output
             tac_program
       | false ->
-          failwith "Bytecode execuatable compilation todo"
+          KosuBackend.Bytecode.Codegen.compile_bytecode ?outfile:output
+            tac_program
     in
     ()
 

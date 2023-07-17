@@ -42,13 +42,8 @@ let compile_asm_readable ?outfile tac_rpogram =
            ()
        )
   in
-  match outfile with
-  | Some file ->
-      Out_channel.with_open_bin file on_file_function
-  | None ->
-      let _, outchan = Filename.open_temp_file "a.kosu.bc" ".s" in
-      let () = on_file_function outchan in
-      close_out outchan
+  let file = Option.value ~default:"a.out.bc.s" outfile in
+  Out_channel.with_open_bin file on_file_function
 
 let compile_as_readable ?outfile tac_rpogram =
   let asm_program = asm_program_of_tac_program ~start:None tac_rpogram in
@@ -62,12 +57,21 @@ let compile_as_readable ?outfile tac_rpogram =
            @@ BytecodeAssembler.Pprint.string_of_asm_node node
        )
   in
-  match outfile with
-  | Some file ->
-      Out_channel.with_open_bin file on_file_function
-  | None ->
-      let _, outchan = Filename.open_temp_file "a.kosu.bc" ".s" in
-      let () = on_file_function outchan in
-      close_out outchan
+  let file = Option.value ~default:"a.out.bc.as" outfile in
+  Out_channel.with_open_bin file on_file_function
 
-let compile_bytecode () = failwith "TODO: compile bytecode"
+let compile_bytecode ?outfile tac_rpogram =
+  let on_file checksum bytes oc =
+    (* let fd = Unix.descr_of_out_channel oc in *)
+    let () = Printf.fprintf oc "checksum=%s\n%!" checksum in
+    let () = Printf.fprintf oc "%s" (Bytes.unsafe_to_string bytes) in
+    ()
+  in
+  let asm_program = asm_program_of_tac_program ~start:None tac_rpogram in
+  let bytes =
+    asm_program |> BytecodeAssembler.Convertion.nodes_of_asm_program |> snd
+    |> BytecodeAssembler.VmValue.bytes_of_nodes
+  in
+  let checksum = Util.Checksum.checksum bytes in
+  let file = Option.value ~default:"a.out.bc" outfile in
+  Out_channel.with_open_bin file (on_file checksum bytes)
