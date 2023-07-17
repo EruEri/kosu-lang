@@ -922,7 +922,7 @@ module FrameManager = struct
     sub_sp_instructions @ str_rap @ str_fp @ align_fp_instructions
     @ store_value_instructions
 
-  let epilogue fd =
+  let epilogue ?(halt = false) fd =
     let open Line in
     let ( ++ ) = Int64.add in
     let ( -- ) = Int64.sub in
@@ -945,7 +945,10 @@ module FrameManager = struct
       LineInstruction.sadd Register.sp Register.sp
       @@ Operande.ilitteral stack_spaces
     in
-    let return_instruction = sinstruction Instruction.ret in
+    let return_instruction =
+      sinstruction
+      @@ match halt with true -> Instruction.halt | false -> Instruction.ret
+    in
     ldr_rad_instructions @ ldr_fp_instructions @ add_sp_instructions
     @ return_instruction
 end

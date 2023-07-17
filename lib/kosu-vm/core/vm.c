@@ -769,12 +769,10 @@ int vm_run_single(vm_t* vm, instruction_t instruction) {
             case LSR:
                 ilsr(vm, instruction);
                 break;
-            case CMP:
-            case CSET:
+            case CMP_CSET:
                 cmp(vm, instruction);
                 break;
-            case LDR:
-            case STR:
+            case LDR_STR:
                 ldr_str(vm, instruction);
                 break;
             case ITOF_FTOI:

@@ -352,3 +352,6 @@ let bytes_of_asnode =
   | AsFloatLitteral { fvalue = _, fvalue; _ } ->
       let value = Int64.bits_of_float fvalue in
       bytes_of_int64 value
+
+let bytes_of_nodes nodes =
+  nodes |> List.map bytes_of_asnode |> Bytes.concat Bytes.empty

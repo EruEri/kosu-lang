@@ -1662,10 +1662,10 @@ let asm_module_of_tac_module ~litterals current_module rprogram = function
                  NamingConvention.label_of_tac_function
                    ~module_path:current_module function_decl
                in
+               let halt = asm_name = NamingConvention.main in
                let fd = FrameManager.frame_descriptor rprogram function_decl in
-
                let prologue = FrameManager.prologue function_decl fd in
-               let epilogue = FrameManager.epilogue fd in
+               let epilogue = FrameManager.epilogue ~halt fd in
                let conversion =
                  translate_tac_body ~litterals current_module rprogram fd
                    function_decl.tac_body

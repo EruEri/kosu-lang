@@ -42,10 +42,8 @@ typedef enum {
     LSL,
     LSR,
     ASR,
-    CMP, 
-    CSET,
-    LDR,
-    STR,
+    CMP_CSET, 
+    LDR_STR,
     ITOF_FTOI,
 
 } vm_opcode_t;
