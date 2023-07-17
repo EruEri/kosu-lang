@@ -110,72 +110,39 @@ instruction_t fetch_instruction(vm_t* vm) {
     return *(vm->ip++);
 }
 
-int64_t sext25(instruction_t instruction) {
-    const uint32_t seven_first_mask = 0xFE000000;
-    const uint32_t litteral = instruction & (~seven_first_mask);
-    if (is_set(instruction, mask_bit(25))) {
-        return seven_first_mask | litteral;
-    } else {
-        return litteral;
-    }
-}
-
-int64_t sext22(instruction_t instruction) {
-    const uint32_t bits_22_mask = mask_bit(21);
-    const uint32_t ten_first_mask = 0xFFC00000;
-    const uint32_t litteral = instruction & (~ten_first_mask);
-
-    if (is_set(litteral, bits_22_mask)) {
-        return ten_first_mask | litteral;
-    } else {
-        return litteral;
-    }
-}
-
-int64_t sext21(instruction_t instruction) {
-    const uint32_t bits_20_mask = mask_bit(20);
-    const uint32_t eleven_first_mask = 0xFFE00000;
-    const uint32_t litteral = instruction & (~eleven_first_mask);
-
-    if (is_set(litteral, bits_20_mask)) {
-        return eleven_first_mask | litteral;
-    } else {
-        return litteral;
-    }
-}
-
-int64_t sext18(instruction_t instruction, bool_t is_signed_extend) {
-    const uint32_t fourteen_first_mask = 0xFFFA0000;
-    const uint32_t litteral = instruction & ~fourteen_first_mask;
-
-    if (is_set(instruction, mask_bit(17))) {
-        return fourteen_first_mask | litteral;
-    } else {
-        return litteral;
-    }
-}
-
-int64_t sext16(instruction_t instruction) {
-    const uint32_t sixteen_first_mask = 0xFFFF0000;
-    const uint32_t litteral = instruction & ~sixteen_first_mask;
-    printf("sex16: lit = %d\n", litteral);
-    if (is_set(instruction, mask_bit(15))) {
-        return sixteen_first_mask | litteral;
-    } else {
-        return litteral;
-    }
-}
-
-int64_t sext13(instruction_t instruction) {
-    const int64_t eigthteen_first_mask = 0xFFFFFFFFFFFFE000;
-    const uint32_t litteral = instruction & ~eigthteen_first_mask;
-    if (is_set(instruction, mask_bit(12))) {
-        int64_t i = eigthteen_first_mask | instruction;
-        printf("sext13: i = %lld\n", i);
+int64_t sextn(instruction_t instruction, int n) {
+    const int64_t mask_not_n =((-1) << n); 
+    const uint32_t litteral = instruction & (~mask_not_n);
+    if (is_set(instruction, mask_bit((n - 1)))) {
+        const int64_t i = mask_not_n | instruction;
         return i;
     } else {
         return litteral;
     }
+}
+
+int64_t sext25(instruction_t instruction) {
+    return sextn(instruction, 25);
+}
+
+int64_t sext22(instruction_t instruction) {
+    return sextn(instruction, 22);
+}
+
+int64_t sext21(instruction_t instruction) {
+    return sextn(instruction, 21);
+}
+
+int64_t sext18(instruction_t instruction, bool_t is_signed_extend) {
+    return sextn(instruction, 18);
+}
+
+int64_t sext16(instruction_t instruction) {
+    return sextn(instruction, 16);
+}
+
+int64_t sext13(instruction_t instruction) {
+    return sextn(instruction, 13);
 }
 
 reg_t* register_of_int32(vm_t* vm, uint32_t bits, uint32_t shift) {

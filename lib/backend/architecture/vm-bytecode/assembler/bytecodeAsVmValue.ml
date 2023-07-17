@@ -163,9 +163,11 @@ let vm_instruction_encode i =
       let base =
         match jump_src with
         | `PcRel n ->
+            let base = base &| (0l << 25) in
             let n = !0xFE_00_00_00l & Int64.to_int32 n in
             base &| n
         | `Register r ->
+            let base = base &| (1l << 25) in
             let r_enc = reg_encode r << 20 in
             base &| r_enc
       in

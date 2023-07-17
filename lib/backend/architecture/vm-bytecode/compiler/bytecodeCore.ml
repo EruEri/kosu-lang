@@ -672,6 +672,9 @@ module LineInstruction = struct
   let sbr_reg reg = instruction @@ br @@ `Register reg
   let sjump_label label = instruction @@ jump @@ `Label label
 
+  let sbr_label_always label =
+    [ instruction @@ cmp ALWAYS Register.r0 Register.r0; sbr_label label ]
+
   let sjump_always label =
     [ instruction @@ cmp ALWAYS Register.r0 Register.r0; sjump_label label ]
 

@@ -315,7 +315,7 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
 
           let set_on_stack_instructions = [] (* TODO *) in
 
-          let call_instruction = LineInstruction.sbr_label fn_label in
+          let call_instruction = LineInstruction.sbr_label_always fn_label in
           match Register.does_return_hold_in_register_kt rvalue.rval_rktype with
           | true ->
               let normal_store_instructions =
@@ -323,8 +323,8 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
                   ~large_cp:false ~reg:Register.r0 ~where
               in
               args_instructions @ float_args_instructions
-              @ set_on_stack_instructions
-              @ (call_instruction :: normal_store_instructions)
+              @ set_on_stack_instructions @ call_instruction
+              @ normal_store_instructions
           | false ->
               let ldr_addrres_instr, return_address =
                 address_of_addressage ~tmp_reg:Register.ir where
@@ -335,7 +335,7 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
               in
               args_instructions @ float_args_instructions
               @ set_on_stack_instructions @ ldr_addrres_instr
-              @ mv_address_instruction @ [ call_instruction ]
+              @ mv_address_instruction @ call_instruction
         )
       | RExternal_Decl _external_func_decl ->
           failwith "External function: Find a way for the vm to call them"
@@ -1070,7 +1070,7 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
         translate_tac_expression ~litterals ~target_reg:Register.r0 fd expr
       in
 
-      let br_i = LineInstruction.sbr_label fn_label in
+      let br_i = LineInstruction.sbr_label_always fn_label in
       let return_type =
         KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl
       in
@@ -1078,15 +1078,14 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
       let all_instructions =
         match does_return_hold_in_register_kt return_type with
         | true ->
-            instructions
-            @ br_i
-              :: store_instruction ~where ~large_cp:true
-                   ~rval_rktype:return_type ~reg:Register.r0
+            instructions @ br_i
+            @ store_instruction ~where ~large_cp:true ~rval_rktype:return_type
+                ~reg:Register.r0
         | false ->
             let indirect_return_instructions =
               return_non_register_size ~where
             in
-            instructions @ (br_i :: indirect_return_instructions)
+            instructions @ br_i @ indirect_return_instructions
       in
       all_instructions
   | RVCustomBinop
@@ -1118,7 +1117,7 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
       let rinstructions =
         translate_tac_expression ~litterals ~target_reg:r1 fd brhs
       in
-      let br_i = LineInstruction.sbr_label fn_label in
+      let br_i = LineInstruction.sbr_label_always fn_label in
       let return_type =
         KosuIrTyped.Asttyhelper.OperatorDeclaration.op_return_type op_decl
       in
@@ -1126,16 +1125,14 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
       let all_instructions =
         match does_return_hold_in_register_kt return_type with
         | true ->
-            linstructions @ rinstructions
-            @ br_i
-              :: store_instruction ~where ~large_cp:true
-                   ~rval_rktype:return_type ~reg:Register.r0
+            linstructions @ rinstructions @ br_i
+            @ store_instruction ~where ~large_cp:true ~rval_rktype:return_type
+                ~reg:Register.r0
         | false ->
             let indirect_return_instructions =
               return_non_register_size ~where
             in
-            linstructions @ rinstructions
-            @ (br_i :: indirect_return_instructions)
+            linstructions @ rinstructions @ br_i @ indirect_return_instructions
       in
       all_instructions
 
