@@ -46,6 +46,14 @@ CAMLprim value caml_vm_init(value code, value stack_size, value start_index, val
     CAMLreturn(val_of_vm(vm));
 }
 
+CAMLprim value caml_vm_run(value vm, value unit) {
+    CAMLparam2(vm, unit);
+    CAMLlocal1(ret);
+    vm_t* c_vm = vm_of_value(vm);
+    int status = vm_run(c_vm);
+    ret = Val_int(status);
+    CAMLreturn(ret);
+}
 
 // vm -> unit -> unit
 CAMLprim value caml_vm_free(value vm, value unit) {

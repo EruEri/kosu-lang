@@ -47,7 +47,7 @@ module Cli = struct
     let info =
       Cmd.info ~doc:kosu_doc ~man:kosu_man ~version:CliCommon.version name
     in
-    Cmd.group info [ KosuRepl.repl; KosuCfgSubc.cfg ]
+    Cmd.group info [ KosuRepl.repl; KosuCfgSubc.cfg; KosuRun.run ]
 
   let eval () = Cmd.eval @@ kosu
 end

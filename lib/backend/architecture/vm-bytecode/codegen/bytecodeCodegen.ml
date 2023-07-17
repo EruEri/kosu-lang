@@ -61,17 +61,20 @@ let compile_as_readable ?outfile tac_rpogram =
   Out_channel.with_open_bin file on_file_function
 
 let compile_bytecode ?outfile tac_rpogram =
-  let on_file checksum bytes oc =
+  let on_file pc_main bytes oc =
     (* let fd = Unix.descr_of_out_channel oc in *)
+    let pc_line = Printf.sprintf "pc=%Lu\n" pc_main in
+    let pc_bytes = String.to_bytes pc_line in
+    let checksum_bytes = Bytes.concat Bytes.empty [ pc_bytes; bytes ] in
+    let checksum = Util.Checksum.checksum checksum_bytes in
     let () = Printf.fprintf oc "checksum=%s\n%!" checksum in
-    let () = Printf.fprintf oc "%s" (Bytes.unsafe_to_string bytes) in
+    let () = Printf.fprintf oc "%s" (Bytes.unsafe_to_string checksum_bytes) in
     ()
   in
   let asm_program = asm_program_of_tac_program ~start:None tac_rpogram in
-  let bytes =
-    asm_program |> BytecodeAssembler.Convertion.nodes_of_asm_program |> snd
-    |> BytecodeAssembler.VmValue.bytes_of_nodes
+  let pc_main, as_nodes =
+    BytecodeAssembler.Convertion.nodes_of_asm_program asm_program
   in
-  let checksum = Util.Checksum.checksum bytes in
+  let bytes = BytecodeAssembler.VmValue.bytes_of_nodes as_nodes in
   let file = Option.value ~default:"a.out.bc" outfile in
-  Out_channel.with_open_bin file (on_file checksum bytes)
+  Out_channel.with_open_bin file (on_file pc_main bytes)

@@ -22,5 +22,5 @@
  (install_c_headers stack util vm)
  (foreign_stubs
   (language c)
-  (names stack util vm)
+  (names stack util vm core_binding)
   (flags (-Wall) (-fPIC))))

@@ -25,3 +25,4 @@ module Line = BytecodeCore.Line
 module Pprint = BytecodePprint
 module Convertion = BytecodeConv
 module VmValue = BytecodeVmValue
+module NamingConvention = BytecodeCore.NamingConvention

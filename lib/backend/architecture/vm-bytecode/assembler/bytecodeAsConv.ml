@@ -271,22 +271,28 @@ let as_node_of_asm_node info =
 let nodes_of_asm_program asm_program =
   let open ByteProgram in
   let abs_global_map = snd @@ global_map asm_program in
-  asm_program
-  |> List.fold_left
-       (fun (pc, previous_nodes)
-            { asm_module_path = { asm_module = AsmModule nodes; _ }; _ } ->
-         let info = pc_relatif pc nodes in
-         let info = { info with global_map = abs_global_map; pc } in
-         let info, lines =
-           nodes
-           |> List.fold_left
-                (fun (info, acc_line) node ->
-                  let next_info, lines = as_node_of_asm_node info node in
-                  (next_info, lines :: acc_line)
-                )
-                (info, [])
-         in
-         let nodes = List.rev lines in
-         (info.pc, previous_nodes @ nodes)
-       )
-       (0L, [])
+  let _, prog =
+    asm_program
+    |> List.fold_left
+         (fun (pc, previous_nodes)
+              { asm_module_path = { asm_module = AsmModule nodes; _ }; _ } ->
+           let info = pc_relatif pc nodes in
+           let info = { info with global_map = abs_global_map; pc } in
+           let info, lines =
+             nodes
+             |> List.fold_left
+                  (fun (info, acc_line) node ->
+                    let next_info, lines = as_node_of_asm_node info node in
+                    (next_info, lines :: acc_line)
+                  )
+                  (info, [])
+           in
+           let nodes = List.rev lines in
+           (info.pc, previous_nodes @ nodes)
+         )
+         (0L, [])
+  in
+  let pc_main =
+    PcRelatifMap.find BytecodeCompiler.NamingConvention.main abs_global_map
+  in
+  (pc_main, prog)

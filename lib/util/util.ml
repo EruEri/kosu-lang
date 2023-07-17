@@ -94,6 +94,10 @@ module Operator = struct
   let ( >? ) o v = Option.value ~default:v o
 end
 
+module Io = struct
+  let read_file ch () = really_input_string ch (in_channel_length ch)
+end
+
 module Checksum = struct
   let checksum bytes = Digest.bytes bytes
 end
