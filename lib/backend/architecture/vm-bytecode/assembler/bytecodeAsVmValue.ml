@@ -221,7 +221,7 @@ let vm_instruction_encode i =
         | `Register reg ->
             let r_value = reg_encode reg in
             let base = base &| (1l << 16) in
-            let base = base &| (r_value << 12) in
+            let base = base &| (r_value << 11) in
             base
       in
       base

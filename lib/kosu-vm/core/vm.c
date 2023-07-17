@@ -72,8 +72,8 @@ int show_reg(const char* regname, reg_t reg, bool_t is_float) {
 int show_status(vm_t* vm) {
     printf("last_cmp = %u\n", vm->last_cmp);
     printf("ip = %p\n", vm->ip - (uint64_t) vm->code);
-    printf("fp = %p\n", (void *) vm->fp);
-    printf("sp = %p\n", (void *) vm->stack->sp);
+    printf("fp = %llx\n", vm->fp);
+    printf("sp = %llx\n", vm->stack->sp);
     printf("sc = %lu\n", (long int) vm->scp);
     printf("ir = %p\n", (void *) vm->irp);
     printf("ra = %p\n", (void *) vm->rap);
@@ -90,6 +90,7 @@ int show_status(vm_t* vm) {
     show_reg("f2", vm->fr2, true);
     show_reg("f3", vm->fr3, true);
     show_reg("f4", vm->fr4, true);
+    puts("");
 
 
     return 0;
@@ -157,7 +158,7 @@ int64_t sext18(instruction_t instruction, bool_t is_signed_extend) {
 int64_t sext16(instruction_t instruction) {
     const uint32_t sixteen_first_mask = 0xFFFF0000;
     const uint32_t litteral = instruction & ~sixteen_first_mask;
-
+    printf("sex16: lit = %d\n", litteral);
     if (is_set(instruction, mask_bit(15))) {
         return sixteen_first_mask | litteral;
     } else {
@@ -376,12 +377,18 @@ int lea(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
+#define regvalue(mesa, shift) \
+    printf("reg %s = %d\n", mesa, ((instruction >> shift) & REG_ONLY_MASK)) 
+
 int add(vm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     reg_t* src = register_of_int32(vm, instruction, 17);
     bool_t is_register = is_set(instruction, mask_bit(16));
     if (is_register) {
         reg_t* src2 = register_of_int32(vm, instruction, 11);
+        regvalue("src2", 11);
+        printf("src = %lld\n", *src2);
+        printf("dst = %lld\n", *dst);
         *dst = *src + *src2;
     } else {
         int64_t value = sext16(instruction);
@@ -562,6 +569,7 @@ int cmp(vm_t* vm, instruction_t instruction) {
 }
 
 int ldr(vm_t* vm, instruction_t instruction) {
+    puts("ldr\n");
     data_size_t ds = (instruction >> 24) & DATA_SIZE_MASK;
     reg_t* dst = register_of_int32(vm, instruction, 19);
     reg_t* base = register_of_int32(vm, instruction, 14);
@@ -588,6 +596,7 @@ int ldr(vm_t* vm, instruction_t instruction) {
 }
 
 int str(vm_t* vm, instruction_t instruction) {
+    puts("str");
     data_size_t ds = (instruction >> 24) & DATA_SIZE_MASK;
     reg_t* src = register_of_int32(vm, instruction, 19);
     reg_t* base = register_of_int32(vm, instruction, 14);
