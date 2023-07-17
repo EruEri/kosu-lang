@@ -216,7 +216,7 @@ let vm_instruction_encode i =
         | `ILitteral n ->
             let n = mask_15_low & Int64.to_int32 n in
             let base = base &| (0l << 16) in
-            let base = base &| (n << 15) in
+            let base = base &| n in
             base
         | `Register reg ->
             let r_value = reg_encode reg in

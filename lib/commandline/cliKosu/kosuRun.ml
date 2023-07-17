@@ -114,7 +114,8 @@ let run_main cmd =
   let pc_key, pc_value = keyvals pc_line in
   let () = check_pc_key pc_key in
   let value = int_of_string pc_value in
-  let _ = run_vm value bytecode in
+  let status = run_vm value bytecode in
+  let () = Printf.eprintf "status = %d\n" status in
   ()
 
 let run : unit Cmd.t =

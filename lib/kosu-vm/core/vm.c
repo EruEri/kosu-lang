@@ -73,6 +73,7 @@ int show_status(vm_t* vm) {
     printf("last_cmp = %u\n", vm->last_cmp);
     printf("ip = %p\n", vm->ip - (uint64_t) vm->code);
     printf("fp = %p\n", (void *) vm->fp);
+    printf("sp = %p\n", (void *) vm->stack->sp);
     printf("sc = %lu\n", (long int) vm->scp);
     printf("ir = %p\n", (void *) vm->irp);
     printf("ra = %p\n", (void *) vm->rap);
@@ -81,6 +82,8 @@ int show_status(vm_t* vm) {
     show_reg("r2", vm->r2, false);
     show_reg("r3", vm->r3, false);
     show_reg("r4", vm->r4, false);
+    show_reg("r13", vm->r13, false);
+    show_reg("r14", vm->r14, false);
 
     show_reg("f0", vm->fr0, true);
     show_reg("f1", vm->fr1, true);
@@ -395,6 +398,7 @@ int sub(vm_t* vm, instruction_t instruction) {
         *dst = *src - *src2;
     } else {
         int64_t value = sext16(instruction);
+        printf("value = %lld\n", value);
         *dst = *src - value;
     }
     return 0;
@@ -712,6 +716,7 @@ int itof_ftoi(vm_t* vm, instruction_t instruction) {
 
 int vm_run_single(vm_t* vm, instruction_t instruction) {
         vm_opcode_t ist = opcode_value(instruction);
+        printf("instruction code = %u\n", ist);
         switch (ist) { 
             case HALT: {
                 bool_t b;
@@ -783,7 +788,6 @@ int vm_run_single(vm_t* vm, instruction_t instruction) {
                 failwith("", 1);
             break;
         }
-        show_status(vm);
     return VM_INSTR_SUCESS;
 }
 
@@ -795,7 +799,7 @@ int vm_run(vm_t* vm){
         show_status(vm);
     } while (status != VM_HALT_EXIT_CODE);
 
-    return 0;
+    return vm->r0;
 }
 
 

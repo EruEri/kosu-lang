@@ -24,6 +24,7 @@
 #include "stack.h"
 #include "util.h"
 #include "string.h"
+#include "vm_base.h"
 
 #define STACKSIZE 1024
 #define WORD_SIZE 8
@@ -39,7 +40,7 @@ vm_stack_t* stack_create(uint64_t size) {
 
     uint8_t* memory = malloc(alloc_size);
     if (!memory) failwith("Malloc failed", 1);
-    vm_stack_t stack = {.memory = memory, .size = alligned_size, .sp = 0};
+    vm_stack_t stack = {.memory = memory, .size = alligned_size, .sp = (reg_t) memory};
     memcpy(stack_ptr, &stack, sizeof(vm_stack_t));
     return stack_ptr;
 }
