@@ -33,8 +33,13 @@ let find_symbol symbole (pc : pc_info) =
     match PcRelatifMap.find_opt symbole pc.global_map with
     | Some pc ->
         pc
-    | None ->
-        PcRelatifMap.find symbole pc.local_map
+    | None -> (
+        match PcRelatifMap.find_opt symbole pc.local_map with
+        | Some pc ->
+            pc
+        | None ->
+            failwith @@ Printf.sprintf "Unable to find pc rel: \"%s\"" symbole
+      )
   in
   (* let () = Out_channel.with_open_bin "debug.txt" (fun oc ->
        let () = Printf.fprintf oc "%s\n\n" @@ string_of_pc_info pc in

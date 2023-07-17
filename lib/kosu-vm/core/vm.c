@@ -111,7 +111,7 @@ instruction_t fetch_instruction(vm_t* vm) {
 }
 
 int64_t sextn(instruction_t instruction, int n) {
-    const int64_t mask_not_n =((-1) << n); 
+    const int64_t mask_not_n = (-1) << n; 
     const uint32_t litteral = instruction & (~mask_not_n);
     if (is_set(instruction, mask_bit((n - 1)))) {
         const int64_t i = mask_not_n | instruction;

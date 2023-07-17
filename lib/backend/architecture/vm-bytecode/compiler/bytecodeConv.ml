@@ -1259,9 +1259,7 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
   | SCases { cases; else_tac_body; exit_label } ->
       let map_case scases =
         let setup_next_label_instr =
-          scases.condition_label
-          |> Option.map LineInstruction.sjump_always
-          |> Option.value ~default:[]
+          scases.condition_label |> Option.map Line.label |> Option.to_list
         in
 
         let setup_conditions_instructions =
