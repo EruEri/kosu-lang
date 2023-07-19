@@ -106,9 +106,9 @@ let vm_instruction_encode i =
   | BytecodeAsCore.AsInstruction.AsHalt ->
       opcode
   | AsRet ->
-      1l << 24
-  | AsSyscall ->
       1l << 25
+  | AsSyscall ->
+      1l << 26
   | AsCCall _ ->
       failwith ""
   | AsMvnt { destination; source }

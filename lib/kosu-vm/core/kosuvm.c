@@ -138,6 +138,7 @@ int halt_opcode(kosuvm_t* vm, instruction_t instruction, bool_t* halt) {
             return 0;
         }
         case RET_BITS: {
+            vm->ip = (const instruction_t *) vm->rap;
             return 0;
         }
 
@@ -213,15 +214,15 @@ int br(kosuvm_t* vm, instruction_t instruction) {
     if (is_register) {
        reg_t* src = register_of_int32(vm, instruction, 20);
        if (is_branch_link) {
-            vm->rap = (reg_t) vm->ip + 1;
+            vm->rap = (reg_t) vm->ip;
        }
        vm->ip = vm->code + *src;
     } else {
         int64_t value = sext25(instruction);
         if (is_branch_link) {
-            vm->rap = (reg_t) vm->ip + 1;
+            vm->rap = (reg_t) vm->ip;
         }
-        vm->ip = vm->ip + value;
+        vm->ip = (vm->ip - 1) + value;
     }
 
     return 0;
@@ -416,14 +417,14 @@ bool_t cmp_value(condition_code_t cc, reg_t lhs, reg_t rhs) {
 
 int cmp(kosuvm_t* vm, instruction_t instruction) {
     condition_code_t cc = (instruction >> 23) & CC_ONLY_MASK;
-    bool_t is_cset = is_set(instruction, mask_bit(23));
-    reg_t* reg1 = register_of_int32(vm, instruction, 22);
-    reg_t* reg2 = register_of_int32(vm, instruction, 17);
+    bool_t is_cset = is_set(instruction, mask_bit(22));
+    reg_t* reg1 = register_of_int32(vm, instruction, 17);
+    reg_t* reg2 = register_of_int32(vm, instruction, 12);
     bool_t value = cmp_value(cc, *reg1, *reg2);
     if (is_cset) {
-        reg_t* reg3 = register_of_int32(vm, instruction, 12);
+        reg_t* reg3 = register_of_int32(vm, instruction, 7);
         *reg3 = value;
-        if (is_set(instruction, mask_bit(11))) {
+        if (is_set(instruction, mask_bit(6))) {
             vm->last_cmp = value;
         }
     } else {

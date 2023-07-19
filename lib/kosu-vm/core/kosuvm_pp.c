@@ -341,14 +341,14 @@ int pp_mod(const instruction_t i) {
 
 int pp_cmp_cset(const instruction_t i){
     const char* cc = repr_condition_code(i >> 23);
-    bool_t is_cset = is_set(i, mask_bit(23));
+    bool_t is_cset = is_set(i, mask_bit(22));
     const char* op = is_cset ? "cset" : "cmp";
-    const char* lhs = repr_register(i >> 22);
-    const char* rhs = repr_register(i >> 17);
+    const char* lhs = repr_register(i >> 17);
+    const char* rhs = repr_register(i >> 12);
     if (is_cset) {
-        const char* update = is_set(i, mask_bit(11)) ? "u" : "";
-        const char* dst = repr_register(i >> 12);
-        printf("%s%s %s, %s, %s", op, update, dst, lhs, rhs);
+        const char* update = is_set(i, mask_bit(6)) ? "u" : "";
+        const char* dst = repr_register(i >> 7);
+        printf("%s%s%s %s, %s, %s", op, update, cc, dst, lhs, rhs);
     } else {
         printf("%s%s %s, %s", op, cc, lhs, rhs);
     }
@@ -356,7 +356,7 @@ int pp_cmp_cset(const instruction_t i){
 }
 
 int pp_ldr_str(const instruction_t i) {
-    const char* op = is_set(i, mask_bit(16)) ? "str" : "ldr";
+    const char* op = is_set(i, mask_bit(26)) ? "str" : "ldr";
     const char* ds = repr_data_size(i >> 24);
     const char* src = repr_register(i >> 19);
     const char* base = repr_register(i >> 14);
