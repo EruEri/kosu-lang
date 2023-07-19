@@ -593,7 +593,7 @@ int itof_ftoi(kosuvm_t* vm, instruction_t instruction) {
 }
 
 int kosuvm_run_single(kosuvm_t* vm, instruction_t instruction) {
-        vm_opcode_t ist = opcode_value(instruction);
+        kosuvm_opcode_t ist = opcode_value(instruction);
         printf("instruction code = %u\n", ist);
         switch (ist) { 
             case HALT: {

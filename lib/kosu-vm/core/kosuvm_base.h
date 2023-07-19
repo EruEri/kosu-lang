@@ -71,7 +71,7 @@ typedef enum {
     LDR_STR,
     ITOF_FTOI,
 
-} vm_opcode_t;
+} kosuvm_opcode_t;
 
 
 typedef enum {
