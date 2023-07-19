@@ -25,11 +25,14 @@
 #define opcode_value(instruction) \
     (((uint32_t) instruction & KOSUVM_OPCODE_MASK) >> (KOSUVM_INSTRUCTION_SIZE - KOSUVM_OPCODE_SIZE))
 
-#define is_set(instruction, mask) \
-    ((instruction & mask) == mask)
 
 #define mask_bit(n) \
     (1 << n)
+
+#define is_set(instruction, mask) \
+    ((instruction & mask) == mask)
+
+
 
 
 int64_t sextn(instruction_t instruction, int n);
@@ -40,7 +43,7 @@ int64_t sext22(instruction_t instruction);
 
 int64_t sext21(instruction_t instruction);
 
-int64_t sext18(instruction_t instruction, bool_t is_signed_extend);
+int64_t sext18(instruction_t instruction);
 
 int64_t sext16(instruction_t instruction);
 

@@ -33,9 +33,72 @@ int show_reg(const char* regname, reg_t reg, bool_t is_float) {
     return 0;
 }
 
-const char* name_of_register(int value) {
+const char* repr_shift(int value) {
+    switch (value & SHIFT_ONLY_MASK) {
+    case 0:
+        return "shl0";
+    case 1:
+        return "shl16";
+    case 2:
+        return "shl32";
+    case 3:
+        return "shl48";
+    }
+
+    // unreachable
+    return NULL;
+}
+
+const char* repr_data_size(data_size_t ds) {
+    ds = ds & DATA_SIZE_MASK;
+    switch (ds) {
+    case S8:
+        return ".8";
+    case S16:
+        return ".16";
+    case S32:
+        return ".S32";
+    case S64:
+        return ".s64";
+    default:
+        failwith("Unknwon size", ds);
+    }
+} 
+
+const char* repr_condition_code(condition_code_t cc) {
+    cc = cc & CC_ONLY_MASK;
+    switch (cc) {
+    case ALWAYS:
+        return ".al";
+    case EQUAL:
+        return ".eq";
+    case DIFF:
+        return ".neq";
+    case SUP:
+        return ".a";
+    case UNSIGNED_SUP:
+        return ".ua";
+    case SUPEQ:
+        return ".aeq";
+    case UNSIGNED_SUPEQ:
+        return ".uaeq";
+    case INF:
+        return ".b";
+    case UNSIGNED_INF:
+        return "ub";
+    case INFEQ:
+        return ".beq";
+    case UNSIGNED_INFEQ:
+        return ".ubeq";
+    default:
+        failwith("Unk", cc); 
+    }
+    return NULL;
+}
+
+const char* repr_register(int value) {
     switch (value & REG_ONLY_MASK) {
-        case 0:
+    case 0:
         return "r0";
     case 1:
         return "r1";
@@ -129,19 +192,43 @@ int show_status(kosuvm_t* vm) {
 }
 
 int pp_halt(const instruction_t i) {
-    return printf("halt");
+    printf("halt");
+    return 0;
 }
 
 int pp_ret(const instruction_t i) {
-    return printf("ret");
+    printf("ret");
+    return 0;
 }
 
 int pp_syscall(const instruction_t i) {
-    return printf("syscall");
+    printf("syscall");
+    return 0;
 }
 
 int pp_ccall(const instruction_t i) {
-    return printf("cc");
+    printf("cc");
+    return 0;
+}
+
+int pp_0(const instruction_t i) {
+    switch ((i >> 25) & 0x3) {
+        case HALT: {
+            return pp_halt(i);
+        }
+        case RET_BITS: {
+            return pp_ret(i);
+        }
+
+        case SYSCALL_BITS: {
+            return pp_syscall(i);
+        }
+
+        case CALL_BITS: {
+            return pp_ccall(i);
+        }
+    }
+    return 0;
 }
 
 
@@ -151,14 +238,197 @@ int pp_ccall(const instruction_t i) {
 /// 2 -> mvnt
 int pp_mv_(const instruction_t i, int which) {
     const char* ni = which == 0 ? "mv" : (which == 1) ? "mvng" : (which == 2) ? "mvnt" : "unknown";
-    const char* dst = name_of_register(i >> 22);
+    const char* dst = repr_register(i >> 22);
     bool_t is_register = (i >> 21) & 1;
     if (is_register) {
-        const char* src = name_of_register(i >> 16);
+        const char* src = repr_register(i >> 16);
         printf("%s %s %s", ni, dst, src);
     } else {
         int64_t value = sext21(i);
         printf("%s %s %lld", ni, dst,  (long long int) value);
+    }
+    return 0;
+}
+
+int pp_mv(const instruction_t i) {
+    return pp_mv_(i, 0);
+}
+
+int pp_mvng(const instruction_t i) {
+    return pp_mv_(i, 1);
+}
+
+int pp_mvnt(const instruction_t i) {
+    return pp_mv_(i, 2);
+}
+
+int pp_mva(const instruction_t i) {
+    const char* op = "mva";
+    const char* dst = repr_register(i >> 22);
+    const char* shift = repr_register(i >> 20);
+    bool_t is_reg = is_set(i, mask_bit(19));
+    if (is_reg) {
+        const char* src = repr_register(i >> 14);
+        printf("%s %s, %s, %s", op, dst, src, shift);
+    } else {
+        int64_t value = sext18(i);
+        printf("%s %s, %lld, %s", op, dst, value, shift);
+    } 
+    return 0;
+}
+
+
+
+int pp_br_jmp(const instruction_t i) {
+    bool_t is_branch_link = is_set(i, mask_bit(26));
+    bool_t is_register = is_set(i, mask_bit(25));
+    const char* op = is_branch_link ? "br" : "jump";
+    if (is_register) {
+        const char* src = repr_register(i >> 20);
+        printf("%s *%s", op, src);
+    } else {
+        int64_t value = sext25(i);
+        printf("%s %lld", op, value );
+    }
+    return 0;
+}
+
+int pp_lea(const instruction_t i) {
+    failwith("LEA TODO", 2);
+    return 2;
+}
+
+
+int pp_arithm(const char* op, const instruction_t i) {
+    const char* dst = repr_register(i >> 22);
+    const char* src = repr_register(i >> 17);
+    bool_t is_register = is_set(i, mask_bit(16));
+    if (is_register) {
+        const char* src2 = repr_register(i >> 11);
+        printf("%s %s %s %s", op, dst, src, src2);
+    } else {
+        int64_t value = sext16(i);
+        printf("%s %s %s %lld", op, dst, src, value);
+    }
+    return 0;
+}
+
+#define pp_op(name) \
+    int pp_##name(const instruction_t i) {\
+        return pp_arithm(#name, i); \
+    \
+    }
+
+pp_op(add)
+pp_op(sub)
+pp_op(mult)
+pp_op(and)
+pp_op(or)
+pp_op(xor)
+pp_op(lsl)
+pp_op(asr)
+pp_op(lsr)
+
+int pp_div(const instruction_t i) {
+    printf("div");
+    return -1;
+}
+
+int pp_mod(const instruction_t i) {
+    printf("mod");
+    return -1;
+}
+
+int pp_cmp_cset(const instruction_t i){
+    const char* cc = repr_condition_code(i >> 23);
+    bool_t is_cset = is_set(i, mask_bit(23));
+    const char* op = is_cset ? "cset" : "cmp";
+    const char* lhs = repr_register(i >> 22);
+    const char* rhs = repr_register(i >> 17);
+    if (is_cset) {
+        const char* update = is_set(i, mask_bit(11)) ? "u" : "";
+        const char* dst = repr_register(i >> 12);
+        printf("%s%s %s, %s, %s", op, update, dst, lhs, rhs);
+    } else {
+        printf("%s%s %s, %s", op, cc, lhs, rhs);
+    }
+    return 0;
+}
+
+int pp_ldr_str(const instruction_t i) {
+    const char* op = is_set(i, mask_bit(16)) ? "str" : "ldr";
+    const char* ds = repr_data_size(i >> 24);
+    const char* src = repr_register(i >> 19);
+    const char* base = repr_register(i >> 14);
+    bool_t is_offset_reg = is_set(i, mask_bit(13));
+    if (is_offset_reg) {
+        const char* offset = repr_register(i >> 12);
+        printf("%s%s %s, *(%s, %s)", op, ds, src, base, offset);
+    } else {
+        int64_t offset = sext13(i);
+        printf("%s%s %s, *(%s, %lld)", op, ds, src, base, offset);
+    }
+    return 0;
+}
+
+int pp_itof_ftoi(const instruction_t i) {
+    const char* unsign = is_set(i, mask_bit(25)) ? "" : "u";
+    const char* op = is_set(i, mask_bit(26)) ? "ftoi" : "itof";
+    const char* ds = repr_data_size(i >> 23);
+    const char* dst = repr_register(i >> 18);
+    const char* src = repr_register(i >> 13);
+    printf("%s%s%s %s, %s", unsign, op, ds, dst, src);
+    return 0;
+}
+
+int pp_instruction(const instruction_t i) {
+    kosuvm_opcode_t ist = opcode_value(i);
+    switch (ist) {
+    case HALT:
+        return pp_0(i);
+    case MVNOT:
+        return pp_mvnt(i);
+    case MVNEG:
+        return pp_mvng(i);
+    case MOV:
+        return pp_mv(i);
+    case MVA:
+        return pp_mva(i);
+    case BR_JUMP:
+        return pp_br_jmp(i);
+    case LEA:
+        return pp_lea(i);
+    case ADD:
+        return pp_add(i);
+    case SUB:
+        return pp_sub(i);
+    case MULT:
+        return pp_mult(i);
+    case DIV:
+        return pp_div(i);
+    case MOD:
+        return pp_mod(i);
+    case AND:
+        return pp_and(i);
+    case OR:
+        return pp_or(i);
+    case XOR:
+        return pp_xor(i);
+    case LSL:
+        return pp_lsl(i);
+    case LSR:
+        return pp_lsr(i);
+    case ASR:
+        return pp_asr(i);
+    case CMP_CSET:
+        return pp_cmp_cset(i);
+    case LDR_STR:
+        return pp_ldr_str(i);
+    case ITOF_FTOI:
+        return pp_itof_ftoi(i);
+    default:
+        fprintf(stderr, "Unknown op: %u\n", ist);
+        failwith("", 2);
     }
     return 0;
 }

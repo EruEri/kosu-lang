@@ -25,5 +25,6 @@
 
 int show_reg(const char* regname, reg_t reg, bool_t is_float) ;
 int show_status(kosuvm_t* vm);
+int pp_instruction(const instruction_t i);
 
 #endif

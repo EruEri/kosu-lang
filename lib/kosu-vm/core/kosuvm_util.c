@@ -42,7 +42,7 @@ int64_t sext21(instruction_t instruction) {
     return sextn(instruction, 21);
 }
 
-int64_t sext18(instruction_t instruction, bool_t is_signed_extend) {
+int64_t sext18(instruction_t instruction) {
     return sextn(instruction, 18);
 }
 

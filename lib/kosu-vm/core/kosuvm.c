@@ -200,8 +200,7 @@ int mva(kosuvm_t* vm, instruction_t instruction) {
         reg_t* src = register_of_int32(vm, instruction, 14);
         *dst = *dst | ( *src << shift);
     } else {
-        bool_t is_signed = is_set(instruction, mask_bit(18));
-        int64_t value = sext18(instruction, is_signed);
+        int64_t value = sext18(instruction);
         *dst = *dst | (value << shift);
     } 
     return 0;
@@ -252,9 +251,9 @@ int add(kosuvm_t* vm, instruction_t instruction) {
     bool_t is_register = is_set(instruction, mask_bit(16));
     if (is_register) {
         reg_t* src2 = register_of_int32(vm, instruction, 11);
-        regvalue("src2", 11);
-        printf("src = %lld\n", *src2);
-        printf("dst = %lld\n", *dst);
+        // regvalue("src2", 11);
+        // printf("src = %lld\n", *src2);
+        // printf("dst = %lld\n", *dst);
         *dst = *src + *src2;
     } else {
         int64_t value = sext16(instruction);
@@ -273,7 +272,7 @@ int sub(kosuvm_t* vm, instruction_t instruction) {
         *dst = *src - *src2;
     } else {
         int64_t value = sext16(instruction);
-        printf("value = %lld\n", value);
+        // printf("value = %lld\n", value);
         *dst = *src - value;
     }
     return 0;
@@ -435,7 +434,6 @@ int cmp(kosuvm_t* vm, instruction_t instruction) {
 }
 
 int ldr(kosuvm_t* vm, instruction_t instruction) {
-    puts("ldr\n");
     data_size_t ds = (instruction >> 24) & DATA_SIZE_MASK;
     reg_t* dst = register_of_int32(vm, instruction, 19);
     reg_t* base = register_of_int32(vm, instruction, 14);
@@ -462,7 +460,6 @@ int ldr(kosuvm_t* vm, instruction_t instruction) {
 }
 
 int str(kosuvm_t* vm, instruction_t instruction) {
-    puts("str");
     data_size_t ds = (instruction >> 24) & DATA_SIZE_MASK;
     reg_t* src = register_of_int32(vm, instruction, 19);
     reg_t* base = register_of_int32(vm, instruction, 14);
@@ -470,7 +467,7 @@ int str(kosuvm_t* vm, instruction_t instruction) {
     int64_t offset = is_offset_reg 
         ? *register_of_int32(vm, instruction, 12) 
         : sext13(instruction);
-    printf("reg = %d\noffset = %lld\n", is_offset_reg, offset);
+    // printf("reg = %d\noffset = %lld\n", is_offset_reg, offset);
     switch (ds) {
     case S8:
         *((uint8_t*) base + offset) = (uint8_t) *src;
@@ -594,7 +591,7 @@ int itof_ftoi(kosuvm_t* vm, instruction_t instruction) {
 
 int kosuvm_run_single(kosuvm_t* vm, instruction_t instruction) {
         kosuvm_opcode_t ist = opcode_value(instruction);
-        printf("instruction code = %u\n", ist);
+        // printf("instruction code = %u\n", ist);
         switch (ist) { 
             case HALT: {
                 bool_t b;
@@ -673,8 +670,10 @@ int kosuvm_run(kosuvm_t* vm){
     int status;
     do {
         instruction_t instruction = fetch_instruction(vm);
+        pp_instruction(instruction);
+        puts("");
         status = kosuvm_run_single(vm, instruction);
-        show_status(vm);
+        // show_status(vm);
     } while (status != VM_HALT_EXIT_CODE);
 
     return vm->r0;
