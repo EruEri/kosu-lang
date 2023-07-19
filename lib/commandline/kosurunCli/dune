@@ -26,5 +26,6 @@
   kosuIrCfg
   cmdliner
   ldSpec
+  str
   kosuCommon
   cliCommon))
