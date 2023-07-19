@@ -15,10 +15,11 @@
 //                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "vm.h"
-#include "stack.h"
+#include "kosuvm_base.h"
+#include "kosuvm_util.h"
+#include "kosuvm_pp.h"
 #include "util.h"
-#include "vm_base.h"
+
 
 #include <stdint.h>
 #include <stdio.h>
@@ -27,125 +28,23 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#define HALT_BITS 0x0
-#define RET_BITS 0x01
-#define SYSCALL_BITS 0x2
-#define CALL_BITS 0x3
 
-
-#define SHIFT_ONLY_MASK 0x3
-#define REG_ONLY_MASK 0x1F
-#define CC_ONLY_MASK 0xF
-#define BR_JMP_MASK 0X3
-#define DATA_SIZE_MASK 0x3
-
-#define VM_INSTR_SUCESS 0
-#define VM_HALT_EXIT_CODE 1
-
-const uint32_t VM_OPCODE_MASK = 0b11111000000000000000000000000000;
-const uint32_t VM_INSTRUCTION_SIZE = 32;
-const uint32_t VM_OPCODE_SIZE = 5;
-const uint32_t VM_CONDITION_CODE_SIZE = 4;
-const uint32_t VM_REGISTER_SIZE = 5;
-const uint32_t VM_LD_ST_DATA_SIZE = 2;
-
-#define opcode_value(instruction) \
-    (((uint32_t) instruction & VM_OPCODE_MASK) >> (VM_INSTRUCTION_SIZE - VM_OPCODE_SIZE))
-
-#define is_set(instruction, mask) \
-    ((instruction & mask) == mask)
-
-#define mask_bit(n) \
-    (1 << n)
-
-
-int show_reg(const char* regname, reg_t reg, bool_t is_float) {
-    if (is_float) {
-        printf("%s = %f\n", regname, double_of_bits(reg));
-    } else {
-        printf("%s = %ld\n", regname,  (long int) reg);
-    }
-
-    return 0;
-}
-
-int show_status(vm_t* vm) {
-    printf("last_cmp = %u\n", vm->last_cmp);
-    printf("ip = %p\n", vm->ip - (uint64_t) vm->code);
-    printf("fp = %llx\n", vm->fp);
-    printf("sp = %llx\n", vm->stack->sp);
-    printf("sc = %lu\n", (long int) vm->scp);
-    printf("ir = %p\n", (void *) vm->irp);
-    printf("ra = %p\n", (void *) vm->rap);
-    show_reg("r0", vm->r0, false);
-    show_reg("r1", vm->r1, false);
-    show_reg("r2", vm->r2, false);
-    show_reg("r3", vm->r3, false);
-    show_reg("r4", vm->r4, false);
-    show_reg("r13", vm->r13, false);
-    show_reg("r14", vm->r14, false);
-
-    show_reg("f0", vm->fr0, true);
-    show_reg("f1", vm->fr1, true);
-    show_reg("f2", vm->fr2, true);
-    show_reg("f3", vm->fr3, true);
-    show_reg("f4", vm->fr4, true);
-    puts("");
-
-
-    return 0;
-}
-
-vm_t* vm_init(const instruction_t *const code, uint64_t stack_size, uint64_t offset) {
-    vm_t* vm_ptr = malloc(sizeof(vm_t));
+kosuvm_t* kosuvm_init(const instruction_t *const code, uint64_t stack_size, uint64_t offset) {
+    kosuvm_t* vm_ptr = malloc(sizeof(kosuvm_t));
     if (!vm_ptr) failwith("Vm alloc fail", 1);
-    vm_stack_t* stack = stack_create(stack_size);
+    kosuvm_stack_t* stack = kosuvm_stack_create(stack_size);
     const instruction_t* ip = code + offset;
-    vm_t vm = {.stack = stack, .code = code, .ip = ip, .fp = stack->sp, .last_cmp = false};
-    memcpy(vm_ptr, &vm, sizeof(vm_t));
+    kosuvm_t vm = {.stack = stack, .code = code, .ip = ip, .fp = stack->sp, .last_cmp = false};
+    memcpy(vm_ptr, &vm, sizeof(kosuvm_t));
     return vm_ptr;
 }
 
-instruction_t fetch_instruction(vm_t* vm) {
+instruction_t fetch_instruction(kosuvm_t* vm) {
     return *(vm->ip++);
 }
 
-int64_t sextn(instruction_t instruction, int n) {
-    const int64_t mask_not_n = (-1) << n; 
-    const uint32_t litteral = instruction & (~mask_not_n);
-    if (is_set(instruction, mask_bit((n - 1)))) {
-        const int64_t i = mask_not_n | instruction;
-        return i;
-    } else {
-        return litteral;
-    }
-}
 
-int64_t sext25(instruction_t instruction) {
-    return sextn(instruction, 25);
-}
-
-int64_t sext22(instruction_t instruction) {
-    return sextn(instruction, 22);
-}
-
-int64_t sext21(instruction_t instruction) {
-    return sextn(instruction, 21);
-}
-
-int64_t sext18(instruction_t instruction, bool_t is_signed_extend) {
-    return sextn(instruction, 18);
-}
-
-int64_t sext16(instruction_t instruction) {
-    return sextn(instruction, 16);
-}
-
-int64_t sext13(instruction_t instruction) {
-    return sextn(instruction, 13);
-}
-
-reg_t* register_of_int32(vm_t* vm, uint32_t bits, uint32_t shift) {
+reg_t* register_of_int32(kosuvm_t* vm, uint32_t bits, uint32_t shift) {
     switch ((bits >> shift) & REG_ONLY_MASK) {
     case 0:
         return &vm->r0;
@@ -215,7 +114,7 @@ reg_t* register_of_int32(vm_t* vm, uint32_t bits, uint32_t shift) {
     return (void *) 0;
 }
 
-int isyscall(vm_t* vm, instruction_t instruction) {
+int isyscall(kosuvm_t* vm, instruction_t instruction) {
 
     #ifdef __APPLE__
         // Find a way since [syscall] is deprecated on macOS and __syscall doesnt exist
@@ -231,7 +130,7 @@ int isyscall(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int halt_opcode(vm_t* vm, instruction_t instruction, bool_t* halt) {
+int halt_opcode(kosuvm_t* vm, instruction_t instruction, bool_t* halt) {
     if (halt) *halt = false;
     switch ((instruction >> 25) & 0x3) {
         case HALT: {
@@ -254,7 +153,7 @@ int halt_opcode(vm_t* vm, instruction_t instruction, bool_t* halt) {
     return -1;
 } 
 
-int mvnt(vm_t* vm, instruction_t instruction) {
+int mvnt(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     bool_t is_register = (instruction >> 21) & 1;
     if (is_register) {
@@ -267,7 +166,7 @@ int mvnt(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int mvng(vm_t* vm, instruction_t instruction) {
+int mvng(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     bool_t is_register = (instruction >> 21) & 1;
     if (is_register) {
@@ -280,7 +179,7 @@ int mvng(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int mv(vm_t* vm, instruction_t instruction) {
+int mv(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     bool_t is_register = (instruction >> 21) & 1;
     if (is_register) {
@@ -293,7 +192,7 @@ int mv(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int mva(vm_t* vm, instruction_t instruction) {
+int mva(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     uint8_t shift = ((instruction >> 20) & SHIFT_ONLY_MASK) * 16;
     bool_t is_reg = is_set(instruction, mask_bit(19));
@@ -308,7 +207,7 @@ int mva(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int br(vm_t* vm, instruction_t instruction) {
+int br(kosuvm_t* vm, instruction_t instruction) {
     if (!vm->last_cmp) {return 0;}
     bool_t is_branch_link = is_set(instruction, mask_bit(26));
     bool_t is_register = is_set(instruction, mask_bit(25));
@@ -329,7 +228,7 @@ int br(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int lea(vm_t* vm, instruction_t instruction) {
+int lea(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     bool_t is_address = is_set(instruction, mask_bit(21));
     if (is_address) {
@@ -347,7 +246,7 @@ int lea(vm_t* vm, instruction_t instruction) {
 #define regvalue(mesa, shift) \
     printf("reg %s = %d\n", mesa, ((instruction >> shift) & REG_ONLY_MASK)) 
 
-int add(vm_t* vm, instruction_t instruction) {
+int add(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     reg_t* src = register_of_int32(vm, instruction, 17);
     bool_t is_register = is_set(instruction, mask_bit(16));
@@ -365,7 +264,7 @@ int add(vm_t* vm, instruction_t instruction) {
 }
 
 
-int sub(vm_t* vm, instruction_t instruction) {
+int sub(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     reg_t* src = register_of_int32(vm, instruction, 17);
     bool_t is_register = is_set(instruction, mask_bit(16));
@@ -380,7 +279,7 @@ int sub(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int mult(vm_t* vm, instruction_t instruction) {
+int mult(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     reg_t* src = register_of_int32(vm, instruction, 17);
     bool_t is_register = is_set(instruction, mask_bit(16));
@@ -394,16 +293,16 @@ int mult(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int idiv(vm_t* vm, instruction_t instruction) {
+int idiv(kosuvm_t* vm, instruction_t instruction) {
     return -1;
 }
 
-int mod(vm_t* vm, instruction_t instruction) {
+int mod(kosuvm_t* vm, instruction_t instruction) {
     return -1;
 }
 
 
-int iand(vm_t* vm, instruction_t instruction) {
+int iand(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     reg_t* src = register_of_int32(vm, instruction, 17);
     bool_t is_register = is_set(instruction, mask_bit(16));
@@ -417,7 +316,7 @@ int iand(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int ior(vm_t* vm, instruction_t instruction) {
+int ior(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     reg_t* src = register_of_int32(vm, instruction, 17);
     bool_t is_register = is_set(instruction, mask_bit(16));
@@ -431,7 +330,7 @@ int ior(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int ixor(vm_t* vm, instruction_t instruction) {
+int ixor(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     reg_t* src = register_of_int32(vm, instruction, 17);
     bool_t is_register = is_set(instruction, mask_bit(16));
@@ -445,7 +344,7 @@ int ixor(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int ilsl(vm_t* vm, instruction_t instruction) {
+int ilsl(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     reg_t* src = register_of_int32(vm, instruction, 17);
     bool_t is_register = is_set(instruction, mask_bit(16));
@@ -459,7 +358,7 @@ int ilsl(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int iasr(vm_t* vm, instruction_t instruction) {
+int iasr(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     reg_t* src = register_of_int32(vm, instruction, 17);
     bool_t is_register = is_set(instruction, mask_bit(16));
@@ -473,7 +372,7 @@ int iasr(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int ilsr(vm_t* vm, instruction_t instruction) {
+int ilsr(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     reg_t* src = register_of_int32(vm, instruction, 17);
     bool_t is_register = is_set(instruction, mask_bit(16));
@@ -516,7 +415,7 @@ bool_t cmp_value(condition_code_t cc, reg_t lhs, reg_t rhs) {
     }
 }
 
-int cmp(vm_t* vm, instruction_t instruction) {
+int cmp(kosuvm_t* vm, instruction_t instruction) {
     condition_code_t cc = (instruction >> 23) & CC_ONLY_MASK;
     bool_t is_cset = is_set(instruction, mask_bit(23));
     reg_t* reg1 = register_of_int32(vm, instruction, 22);
@@ -535,7 +434,7 @@ int cmp(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int ldr(vm_t* vm, instruction_t instruction) {
+int ldr(kosuvm_t* vm, instruction_t instruction) {
     puts("ldr\n");
     data_size_t ds = (instruction >> 24) & DATA_SIZE_MASK;
     reg_t* dst = register_of_int32(vm, instruction, 19);
@@ -562,7 +461,7 @@ int ldr(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int str(vm_t* vm, instruction_t instruction) {
+int str(kosuvm_t* vm, instruction_t instruction) {
     puts("str");
     data_size_t ds = (instruction >> 24) & DATA_SIZE_MASK;
     reg_t* src = register_of_int32(vm, instruction, 19);
@@ -596,7 +495,7 @@ int str(vm_t* vm, instruction_t instruction) {
 #define mitof(type, value) \
     (type) (value)
 
-int ftoi(vm_t* vm, instruction_t instruction) {
+int ftoi(kosuvm_t* vm, instruction_t instruction) {
     bool_t is_signed = is_set(instruction, mask_bit(25));
     data_size_t ds = (instruction >> 23) & DATA_SIZE_MASK;
     reg_t* dst = register_of_int32(vm, instruction, 18);
@@ -639,7 +538,7 @@ int ftoi(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int itof(vm_t* vm, instruction_t instruction) {
+int itof(kosuvm_t* vm, instruction_t instruction) {
     bool_t is_signed = is_set(instruction, mask_bit(25));
     data_size_t ds = (instruction >> 23) & DATA_SIZE_MASK;
     reg_t* dst = register_of_int32(vm, instruction, 18);
@@ -683,17 +582,17 @@ int itof(vm_t* vm, instruction_t instruction) {
     return 0;
 }
 
-int ldr_str(vm_t* vm, instruction_t instruction) {
+int ldr_str(kosuvm_t* vm, instruction_t instruction) {
     bool_t is_str = is_set(instruction, mask_bit(26));
     return is_str ? str(vm, instruction) : ldr(vm, instruction);
 }
 
-int itof_ftoi(vm_t* vm, instruction_t instruction) {
+int itof_ftoi(kosuvm_t* vm, instruction_t instruction) {
     bool_t is_ftoi = is_set(instruction, mask_bit(26));
     return is_ftoi ? ftoi(vm, instruction) : itof(vm, instruction);
 }
 
-int vm_run_single(vm_t* vm, instruction_t instruction) {
+int kosuvm_run_single(kosuvm_t* vm, instruction_t instruction) {
         vm_opcode_t ist = opcode_value(instruction);
         printf("instruction code = %u\n", ist);
         switch (ist) { 
@@ -770,11 +669,11 @@ int vm_run_single(vm_t* vm, instruction_t instruction) {
     return VM_INSTR_SUCESS;
 }
 
-int vm_run(vm_t* vm){
+int kosuvm_run(kosuvm_t* vm){
     int status;
     do {
         instruction_t instruction = fetch_instruction(vm);
-        status = vm_run_single(vm, instruction);
+        status = kosuvm_run_single(vm, instruction);
         show_status(vm);
     } while (status != VM_HALT_EXIT_CODE);
 
@@ -782,7 +681,7 @@ int vm_run(vm_t* vm){
 }
 
 
-void free_vm(vm_t* vm){
-    free_stack(vm->stack);
+void kosuvm_free(kosuvm_t* vm){
+    kosuvm_stack_free(vm->stack);
     free(vm);
 }

@@ -15,4 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module CamlVm = CamlVm
+type t
+
+external kosuvm_init : string -> int -> int -> unit -> t = "caml_kosuvm_init"
+external kosuvm_run : t -> unit -> int = "caml_kosuvm_run"
+external kosuvm_free : t -> unit -> unit = "caml_kosuvm_free"

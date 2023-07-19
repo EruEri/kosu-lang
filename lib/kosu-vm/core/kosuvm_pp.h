@@ -15,13 +15,15 @@
 //                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-#ifndef VM_BASE_H
-#define VM_BASE_H
 
-#include <stdint.h>
+#ifndef VM_PP_H
+#define VM_PP_H
 
-typedef uint64_t reg_t;
-typedef uint64_t freg_t;
-typedef uint32_t instruction_t;
+
+
+#include "kosuvm_base.h"
+
+int show_reg(const char* regname, reg_t reg, bool_t is_float) ;
+int show_status(kosuvm_t* vm);
 
 #endif

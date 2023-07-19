@@ -15,23 +15,16 @@
 //                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-#ifndef STACK_H
-#define STACK_H
+#ifndef VM_H
+#define VM_H
 
-#include <stdint.h>
+#include "kosuvm_base.h"
 #include "util.h"
-#include "vm_base.h"
+#include <stdint.h>
 
-typedef struct {
-    uint8_t* const memory;
-    const uint64_t size;
-    reg_t sp;
-} vm_stack_t;
 
-vm_stack_t* stack_create(uint64_t size);
-void free_stack(vm_stack_t* stack);
-bool_t is_empty(vm_stack_t* stack);
-bool_t push(vm_stack_t* stack, uint64_t value);
-uint64_t pop(vm_stack_t* stack);
 
+kosuvm_t* kosuvm_init(instruction_t const * const code, uint64_t stack_size, uint64_t offset); 
+int kosuvm_run(kosuvm_t* vm);
+void kosuvm_free(kosuvm_t* vm);
 #endif

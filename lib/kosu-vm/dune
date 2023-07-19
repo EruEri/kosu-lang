@@ -19,8 +19,8 @@
 
 (library
  (name kosuVirtualMachine)
- (install_c_headers stack util vm)
+ (install_c_headers kosuvm)
  (foreign_stubs
   (language c)
-  (names stack util vm core_binding)
+  (names core_binding util kosuvm_base kosuvm_pp kosuvm_util kosuvm)
   (flags (-Wall) (-fPIC))))

@@ -15,50 +15,36 @@
 //                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define CAML_NAME_SPACE
-
-#include "caml/misc.h"
-#include "caml/mlvalues.h"
-#include "caml/memory.h"
-#include "caml/alloc.h"
-#include "../core/kosuvm.h"
+#ifndef __KOSUVM_UTIL_H__
+#define __KOSUVM_UTIL_H__
 
 
-static value val_of_vm(kosuvm_t* vm) {
-    value v = caml_alloc(1, Abstract_tag);
-    *((kosuvm_t **) Data_abstract_val(v)) = vm;
-    return v;
-}
+#include <stdint.h>
+#include "kosuvm_base.h"
 
-static kosuvm_t* vm_of_value(value vm) {
-    return *((kosuvm_t **) Data_abstract_val(vm));
-}
+#define opcode_value(instruction) \
+    (((uint32_t) instruction & KOSUVM_OPCODE_MASK) >> (KOSUVM_INSTRUCTION_SIZE - KOSUVM_OPCODE_SIZE))
 
-// code : bytes or string
-// start_index : int
-// string -> int -> int -> unit -> vm
-CAMLprim value caml_kosuvm_init(value code, value stack_size, value start_index, value unit) {
-    CAMLparam4(code, stack_size, start_index, unit);
-    unsigned long index = Long_val(start_index);
-    unsigned long cstack_size = Val_long(stack_size);
-    const void * vm_code = String_val(code);
-    kosuvm_t* vm = kosuvm_init(vm_code, cstack_size, index);
-    CAMLreturn(val_of_vm(vm));
-}
+#define is_set(instruction, mask) \
+    ((instruction & mask) == mask)
 
-CAMLprim value caml_kosuvm_run(value vm, value unit) {
-    CAMLparam2(vm, unit);
-    CAMLlocal1(ret);
-    kosuvm_t* c_vm = vm_of_value(vm);
-    int status = kosuvm_run(c_vm);
-    ret = Val_int(status);
-    CAMLreturn(ret);
-}
+#define mask_bit(n) \
+    (1 << n)
 
-// vm -> unit -> unit
-CAMLprim value caml_kosuvm_free(value vm, value unit) {
-    CAMLparam2(vm, unit);
-    kosuvm_t* cvm = vm_of_value(vm);
-    kosuvm_free(cvm); 
-    CAMLreturn(Val_unit);
-}
+
+int64_t sextn(instruction_t instruction, int n);
+
+int64_t sext25(instruction_t instruction);
+
+int64_t sext22(instruction_t instruction);
+
+int64_t sext21(instruction_t instruction);
+
+int64_t sext18(instruction_t instruction, bool_t is_signed_extend);
+
+int64_t sext16(instruction_t instruction);
+
+int64_t sext13(instruction_t instruction);
+
+
+#endif

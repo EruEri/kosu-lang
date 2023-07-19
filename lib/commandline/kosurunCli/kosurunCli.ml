@@ -93,9 +93,9 @@ let check_checksum check string =
   ()
 
 let run_vm pc code =
-  let vm = KosuVirtualMachine.CamlVm.vm_init code 4096 pc () in
-  let status = KosuVirtualMachine.CamlVm.vm_run vm () in
-  let () = KosuVirtualMachine.CamlVm.vm_free vm () in
+  let vm = KosuVirtualMachine.kosuvm_init code 4096 pc () in
+  let status = KosuVirtualMachine.kosuvm_run vm () in
+  let () = KosuVirtualMachine.kosuvm_free vm () in
   status
 
 let is_shebang string = String.starts_with ~prefix:"#!" string

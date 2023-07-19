@@ -15,13 +15,38 @@
 //                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-#ifndef VM_H
-#define VM_H
+#ifndef __KOSUVM_BASE_H__
+#define __KOSUVM_BASE_H__
 
-#include "vm_base.h"
-#include "stack.h"
-#include "util.h"
 #include <stdint.h>
+#include "util.h"
+
+#define HALT_BITS 0x0
+#define RET_BITS 0x01
+#define SYSCALL_BITS 0x2
+#define CALL_BITS 0x3
+
+
+#define SHIFT_ONLY_MASK 0x3
+#define REG_ONLY_MASK 0x1F
+#define CC_ONLY_MASK 0xF
+#define BR_JMP_MASK 0X3
+#define DATA_SIZE_MASK 0x3
+
+#define VM_INSTR_SUCESS 0
+#define VM_HALT_EXIT_CODE 1
+
+extern const uint32_t KOSUVM_OPCODE_MASK;
+extern const uint32_t KOSUVM_INSTRUCTION_SIZE;
+extern const uint32_t KOSUVM_OPCODE_SIZE;
+extern const uint32_t KOSUVM_CONDITION_CODE_SIZE;
+extern const uint32_t KOSUVM_REGISTER_SIZE;
+extern const uint32_t KOSUVM_LD_ST_DATA_SIZE;
+extern const uint32_t KOSUVM_WORD_SIZE;
+
+typedef uint64_t reg_t;
+typedef uint64_t freg_t;
+typedef uint32_t instruction_t;
 
 typedef enum {
     HALT = 0,
@@ -85,10 +110,16 @@ typedef struct vm_return_t {
 } vm_return_t;
 
 typedef struct {
+    uint8_t* const memory;
+    const uint64_t size;
+    reg_t sp;
+} kosuvm_stack_t;
+
+typedef struct {
     instruction_t const * const code;
     bool_t last_cmp;
     const instruction_t* ip;
-    vm_stack_t* stack;
+    kosuvm_stack_t* stack;
 
 
     // Register parameters
@@ -128,11 +159,14 @@ typedef struct {
     reg_t fp;
     // Return adress register
     reg_t rap;
-} vm_t;
+} kosuvm_t;
 
 
-vm_t* vm_init(instruction_t const * const code, uint64_t stack_size, uint64_t offset); 
-int show_status(vm_t* vm);
-int vm_run(vm_t* vm);
-void free_vm(vm_t* vm);
+kosuvm_stack_t* kosuvm_stack_create(uint64_t size);
+void kosuvm_stack_free(kosuvm_stack_t* stack);
+bool_t kosuvm_stack_is_empty(kosuvm_stack_t* stack);
+bool_t kosuvm_stack_stack_push(kosuvm_stack_t* stack, uint64_t value);
+uint64_t kosuvm_stack_stack_t_pop(kosuvm_stack_t* stack);
+
+
 #endif
