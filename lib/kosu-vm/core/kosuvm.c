@@ -447,16 +447,16 @@ int ldr(kosuvm_t* vm, instruction_t instruction) {
         : sext13(instruction);
     switch (ds) {
     case S8:
-        *dst = *((uint8_t*) base + offset);
+        *dst = *((uint8_t*) *base + offset);
         break;
     case S16:
-        *dst = *((uint16_t*) base + offset);
+        *dst = *((uint16_t*) *base + offset);
         break;
     case S32:
-        *dst = *((uint32_t*) base + offset);
+        *dst = *((uint32_t*) *base + offset);
         break;
     case S64:
-        *dst = *((uint64_t*) base + offset);
+        *dst = *((uint64_t*) *base + offset);
       break;
     }
 
@@ -474,16 +474,16 @@ int str(kosuvm_t* vm, instruction_t instruction) {
     // printf("reg = %d\noffset = %lld\n", is_offset_reg, offset);
     switch (ds) {
     case S8:
-        *((uint8_t*) base + offset) = (uint8_t) *src;
+        *((uint8_t*) *base + offset) = (uint8_t) *src;
         break;
     case S16:
-        *((uint16_t*) base + offset) = (uint16_t) *src;
+        *((uint16_t*) *base + offset) = (uint16_t) *src;
         break;
     case S32:
-        *((uint32_t*) base + offset) = (uint32_t) *src;
+        *((uint32_t*) *base + offset) = (uint32_t) *src;
         break;
     case S64:
-        *((uint64_t*) base + offset) = (uint64_t) *src;
+        *((uint64_t*) *base + offset) = (uint64_t) *src;
         break;
     }
 

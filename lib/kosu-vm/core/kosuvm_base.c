@@ -37,7 +37,7 @@ kosuvm_stack_t* kosuvm_stack_create(uint64_t size) {
 
     uint8_t* memory = malloc(alloc_size);
     if (!memory) failwith("Malloc failed", 1);
-    kosuvm_stack_t stack = {.memory = memory, .size = alligned_size, .sp = (reg_t) memory};
+    kosuvm_stack_t stack = {.memory = memory, .size = alligned_size, .sp = (reg_t) memory + alloc_size};
     memcpy(stack_ptr, &stack, sizeof(kosuvm_stack_t));
     return stack_ptr;
 }
