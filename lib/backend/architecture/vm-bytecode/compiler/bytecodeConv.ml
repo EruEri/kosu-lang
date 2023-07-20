@@ -758,7 +758,7 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
 
       let instructions =
         Line.instruction
-        @@ operator_instruction r13 r14
+        @@ operator_instruction r13 r13
         @@ Operande.iregister r14
       in
 
@@ -885,7 +885,7 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
 
       let instructions =
         Line.instruction
-        @@ operator_instruction r13 r14
+        @@ operator_instruction r13 r13
         @@ Operande.iregister r14
       in
 
@@ -929,7 +929,6 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
       in
       instructions @ (not_instr :: str_instrs)
   | RVBuiltinCall { fn_name; parameters } ->
-      let () = ignore parameters in
       let builin_call_instructions =
         match fn_name with
         | Tagof ->

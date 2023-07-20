@@ -593,7 +593,10 @@ int itof_ftoi(kosuvm_t* vm, instruction_t instruction) {
     return is_ftoi ? ftoi(vm, instruction) : itof(vm, instruction);
 }
 
-int kosuvm_run_single(kosuvm_t* vm, instruction_t instruction) {
+int kosuvm_run_single(kosuvm_t* vm) {
+        instruction_t instruction = fetch_instruction(vm);
+        pp_instruction(instruction);
+        puts("");
         kosuvm_opcode_t ist = opcode_value(instruction);
         // printf("instruction code = %u\n", ist);
         switch (ist) { 
@@ -667,19 +670,15 @@ int kosuvm_run_single(kosuvm_t* vm, instruction_t instruction) {
                 failwith("", 1);
             break;
         }
+    show_status(vm);
     return VM_INSTR_SUCESS;
 }
+
 
 int kosuvm_run(kosuvm_t* vm){
     int status;
     do {
-        instruction_t instruction = fetch_instruction(vm);
-        pp_instruction(instruction);
-        puts("");
-        show_status(vm);
-
-        printf("\n\n\n");
-        status = kosuvm_run_single(vm, instruction);
+        status = kosuvm_run_single(vm);
         // show_status(vm);
     } while (status != VM_HALT_EXIT_CODE);
 

@@ -55,6 +55,15 @@ CAMLprim value caml_kosuvm_run(value vm, value unit) {
     CAMLreturn(ret);
 }
 
+CAMLprim value caml_kosuvm_run_single(value vm, value unit) {
+    CAMLparam2(vm, unit);
+    CAMLlocal1(ret);
+    kosuvm_t* c_vm = vm_of_value(vm);
+    int status = kosuvm_run_single(c_vm);
+    ret = Val_int(status);
+    CAMLreturn(ret);
+}
+
 // vm -> unit -> unit
 CAMLprim value caml_kosuvm_free(value vm, value unit) {
     CAMLparam2(vm, unit);
