@@ -23,4 +23,4 @@
  (foreign_stubs
   (language c)
   (names core_binding util kosuvm_base kosuvm_pp kosuvm_util kosuvm)
-  (flags (-Wall) (-fPIC))))
+  (flags (-Wall) (-std=c99) (-fPIC))))

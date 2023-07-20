@@ -390,8 +390,11 @@ bool_t cmp_value(condition_code_t cc, reg_t lhs, reg_t rhs) {
     switch (cc) {
     case ALWAYS:
         return true;
-    case EQUAL:
-        return lhs == rhs;
+    case EQUAL: {
+        bool_t c = lhs == rhs;
+        printf("%lld == %lld: %d\n", lhs, rhs, c);
+        return c;
+    }
     case DIFF:
         return lhs != rhs;
     case SUP:
@@ -673,6 +676,9 @@ int kosuvm_run(kosuvm_t* vm){
         instruction_t instruction = fetch_instruction(vm);
         pp_instruction(instruction);
         puts("");
+        show_status(vm);
+
+        printf("\n\n\n");
         status = kosuvm_run_single(vm, instruction);
         // show_status(vm);
     } while (status != VM_HALT_EXIT_CODE);

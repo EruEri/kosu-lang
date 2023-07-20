@@ -151,7 +151,7 @@ const char* repr_register(int value) {
     case 25:
         return "fr10";
     case 26:
-        return "irp";
+        return "ir";
     case 27:
         return "scp";
     case 28:

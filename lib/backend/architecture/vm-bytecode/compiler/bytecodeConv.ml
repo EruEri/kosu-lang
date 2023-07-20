@@ -1207,7 +1207,7 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
       let cmp =
         Line.instruction @@ Instruction.cmp ConditionCode.EQUAL r13 r14
       in
-      let jmp = LineInstruction.sjump_label self_label in
+      let jmp = LineInstruction.sjump_label exit_label in
       let if_block =
         translate_tac_body ~litterals ~end_label:(Some self_label)
           current_module rprogram fd loop_body
