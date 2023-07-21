@@ -15,5 +15,5 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-let code = KosuClis.Kosurun.eval ()
+let code = KosurunCli.eval ()
 let () = exit code
