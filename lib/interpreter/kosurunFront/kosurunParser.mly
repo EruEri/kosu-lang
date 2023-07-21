@@ -49,7 +49,7 @@
 
 %start kosurun_ast
 
-%type <'a> kosurun_ast
+%type <kosurun_ast> kosurun_ast
 
 %%
 
@@ -68,6 +68,9 @@ kosurun_ast:
         {shebang; lines; bytecode}
     }
     | EOF { failwith "Parsing error" }
+    | error {
+        failwith "Catch error"
+    }
 
 line:
     | parameter NEWLINE { 

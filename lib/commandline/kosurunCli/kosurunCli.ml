@@ -68,6 +68,10 @@ let run_vm pc code =
 let is_shebang string = String.starts_with ~prefix:"#!" string
 let is_kosurun_shebang = String.ends_with ~suffix:name
 
+let pc_value ast =
+  ast |> KosurunFront.Ast.keyvals |> List.assoc_opt "pc"
+  |> Option.map int_of_string |> Option.get
+
 let check_shebang ast =
   match ast.shebang with
   | Some string -> (
@@ -94,15 +98,9 @@ let run_main cmd =
   let lexfub = Lexing.from_string content in
   let ast = KosurunFront.Parser.kosurun_ast KosurunFront.Lexer.token lexfub in
   let () = check_shebang ast in
-  (* let content =
-
-     let shebang_params, bytecode = spliting_file content in
-     let params = handle_first_line shebang_params in
-     let keys_values_paramas = values params in
-     (* let () = String.iter (fun c -> Printf.printf "%d" @@ Char.code c) checksum in *)
-     let pc_value = Option.get @@ pc_value keys_values_paramas in
-     let status = run_vm pc_value bytecode in
-     let () = Printf.eprintf "status = %d\n" status in *)
+  let pc = pc_value ast in
+  let status = run_vm pc ast.bytecode in
+  let () = Printf.eprintf "status = %d\n" status in
   ()
 
 let kosurun () =

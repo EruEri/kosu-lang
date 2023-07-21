@@ -23,7 +23,7 @@
 
 let newline = '\010'
 let blank   = [' ' '\009' '\012']
-let code_splitter = ("={79}") (newline)
+let code_splitter = "===============================================================================" (newline)
 let digit = ['0'-'9']
 let loLetter = ['a'-'z']
 let upLetter = ['A'-'Z']
@@ -49,6 +49,10 @@ rule token = parse
     Shebang content
 }
 | "#" { Croisillon }
+| code_splitter {
+    let buffer = Buffer.create 256 in
+    read_bytecode buffer lexbuf
+}
 | "=" { EQUAL }
 | "$" { DOLLAR }
 | number as n {
@@ -70,10 +74,6 @@ rule token = parse
 | '"' {
     let buffer = Buffer.create 32 in
     read_string buffer lexbuf
-}
-| code_splitter {
-    let buffer = Buffer.create 256 in
-    read_bytecode buffer lexbuf
 }
 | key_id as key {
     Identifier key
