@@ -55,6 +55,9 @@ rule token = parse
     let n = int_of_string n in
     Integer n
 }
+| "'" (cfn_name as name) "'" {
+    Cfn_name name
+}
 | "s8"  { TY_S8 }
 | "s16" { TY_S16 }
 | "s32" { TY_S32 }
@@ -71,6 +74,12 @@ rule token = parse
 | code_splitter {
     let buffer = Buffer.create 256 in
     read_bytecode buffer lexbuf
+}
+| key_id as key {
+    Identifier key
+}
+| _ as c {
+    failwith @@ Printf.sprintf "Unknwon char : %c" c 
 }
 | eof {
     failwith "EOF: NO Bytecode"

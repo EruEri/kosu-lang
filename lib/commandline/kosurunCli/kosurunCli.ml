@@ -16,6 +16,7 @@
 (**********************************************************************************************)
 
 open Cmdliner
+open KosurunFront.Ast
 
 let name = "kosurun"
 
@@ -46,22 +47,6 @@ let run_man =
     `P "$(iname) executes the bytecode produced by the $(b,kosuc.bc)";
   ]
 
-let prebytecode_keys_val content =
-  let first_line_index =
-    match String.index_opt content '\n' with
-    | Some n ->
-        n
-    | None ->
-        failwith "Wierd"
-  in
-  let strlen = String.length content in
-  let next_start_index = first_line_index + 1 in
-  let first = String.sub content 0 first_line_index in
-  let remains =
-    String.sub content next_start_index (strlen - next_start_index)
-  in
-  (first, remains)
-
 (*
    let check_checksum check string =
      let ch = Digest.string string in
@@ -83,55 +68,17 @@ let run_vm pc code =
 let is_shebang string = String.starts_with ~prefix:"#!" string
 let is_kosurun_shebang = String.ends_with ~suffix:name
 
-let handle_first_line content =
-  let first_line, remains = prebytecode_keys_val content in
-  let remains_content =
-    match is_shebang first_line with
-    | true ->
-        let () =
-          match is_kosurun_shebang first_line with
-          | true ->
-              ()
-          | false ->
-              failwith "Shebang doesnt point toward kosurun"
-        in
-        remains
-    | false ->
-        content
-  in
-  remains_content
-
-let str_splitter =
-  Str.regexp @@ Str.quote KosuBackend.Bytecode.Codegen.exec_splitter
-
-(** [spliting_file content] split the file by the [KosuBackend.Bytecode.Codegen.exec_splitter] string*)
-let spliting_file content =
-  match Str.split str_splitter content with
-  | [ keys; content ] ->
-      (keys, content)
-  | _ ->
-      failwith "Ill formed file, cannot find splitter"
-
-let values params =
-  params |> String.trim |> String.split_on_char '\n'
-  |> List.map (fun kv ->
-         match String.split_on_char '=' kv with
-         | [ k; v ] ->
-             (k, v)
-         | _ ->
-             failwith "params ill formed"
-     )
-
-let get_value key map =
-  let ( let* ) = Option.bind in
-  let* str_value = List.assoc_opt key map in
-  Some str_value
-
-let pc_value keyvals =
-  let ( let* ) = Option.bind in
-  let* str_value = get_value "pc" keyvals in
-  let* pc = int_of_string_opt str_value in
-  Some pc
+let check_shebang ast =
+  match ast.shebang with
+  | Some string -> (
+      match is_kosurun_shebang string with
+      | true ->
+          ()
+      | false ->
+          failwith @@ "unknwon program : " ^ string
+    )
+  | None ->
+      ()
 
 let run_main cmd =
   let size = Array.length Sys.argv - 1 in
@@ -140,16 +87,22 @@ let run_main cmd =
   (* let () = Array.iter print_endline Sys.argv in *)
   let { bytecode_file; argv } = cmd in
   let () = ignore argv in
+  let _ = ignore bytecode_file in
   let content =
     In_channel.with_open_bin bytecode_file (fun ic -> Util.Io.read_file ic ())
   in
-  let shebang_params, bytecode = spliting_file content in
-  let params = handle_first_line shebang_params in
-  let keys_values_paramas = values params in
-  (* let () = String.iter (fun c -> Printf.printf "%d" @@ Char.code c) checksum in *)
-  let pc_value = Option.get @@ pc_value keys_values_paramas in
-  let status = run_vm pc_value bytecode in
-  let () = Printf.eprintf "status = %d\n" status in
+  let lexfub = Lexing.from_string content in
+  let ast = KosurunFront.Parser.kosurun_ast KosurunFront.Lexer.token lexfub in
+  let () = check_shebang ast in
+  (* let content =
+
+     let shebang_params, bytecode = spliting_file content in
+     let params = handle_first_line shebang_params in
+     let keys_values_paramas = values params in
+     (* let () = String.iter (fun c -> Printf.printf "%d" @@ Char.code c) checksum in *)
+     let pc_value = Option.get @@ pc_value keys_values_paramas in
+     let status = run_vm pc_value bytecode in
+     let () = Printf.eprintf "status = %d\n" status in *)
   ()
 
 let kosurun () =

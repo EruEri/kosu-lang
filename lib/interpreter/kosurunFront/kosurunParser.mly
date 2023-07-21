@@ -26,6 +26,7 @@
 %token <string> Shebang
 %token <string> Identifier
 %token <string> StringLit
+%token <string> Cfn_name
 %token <int> Integer
 %token NEWLINE
 %token LPARENT
@@ -63,10 +64,10 @@ kosurun_ast:
     | shebang=option(Shebang) 
         lines=list(line)
         bytecode=Bytecode
-    EOF
     { 
         {shebang; lines; bytecode}
-     }
+    }
+    | EOF { failwith "Parsing error" }
 
 line:
     | parameter NEWLINE { 
@@ -76,7 +77,7 @@ line:
     | parenthesis(ccentry) NEWLINE { CCentry $1 } 
 
 ccentry:
-    | function_name=StringLit arity=Integer dynlib_entry=Integer 
+    | function_name=Cfn_name arity=Integer dynlib_entry=Integer 
         args=parenthesis(list(parenthesis(address)))
         ty_args=parenthesis(list(ffi_type))
         ty_return=ffi_type

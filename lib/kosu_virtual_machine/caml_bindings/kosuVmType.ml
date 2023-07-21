@@ -60,13 +60,13 @@ let rec string_of_ffi_type = function
       "ptr"
   | FFI_Struct types ->
       Printf.sprintf "{ %s }"
-        (types |> List.map string_of_ffi_type |> String.concat ", ")
+        (types |> List.map string_of_ffi_type |> String.concat " ")
 
 let string_of_address_offset = function
   | Off_Reg n ->
-      Printf.sprintf "#%u" n
+      Printf.sprintf "# %u" n
   | Off_value n ->
-      Printf.sprintf "$%d " n
+      Printf.sprintf "$ %d " n
 
 let string_of_address = function
   | { base_reg; offset } ->
@@ -77,7 +77,9 @@ let quoted = Printf.sprintf "\"%s\""
 
 let string_of_ccall_entry = function
   | { function_name; arity; dynlib_entry; args; ty_args; ty_return } ->
-      Printf.sprintf "(%s %d %u (%s) (%s) %s)" function_name arity dynlib_entry
+      Printf.sprintf "(%s %d %u (%s) (%s) %s)"
+        (single_quoted function_name)
+        arity dynlib_entry
         (args |> List.map string_of_address |> String.concat " ")
         (ty_args |> List.map string_of_ffi_type |> String.concat " ")
         (string_of_ffi_type ty_return)

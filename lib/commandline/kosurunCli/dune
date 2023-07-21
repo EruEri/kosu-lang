@@ -17,15 +17,4 @@
 
 (library
  (name kosurunCli)
- (libraries
-  kosuFrontend
-  kosuRepl
-  kosuVirtualMachine
-  kosuIrTyped
-  kosuIrTAC
-  kosuIrCfg
-  cmdliner
-  ldSpec
-  str
-  kosuCommon
-  cliCommon))
+ (libraries kosuVirtualMachine cliCommon kosurunFront))

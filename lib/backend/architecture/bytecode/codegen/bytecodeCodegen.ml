@@ -21,9 +21,6 @@ open BytecodeCompiler.Pprint
 
 let default_perm = 0o755
 
-let exec_splitter =
-  String.init 80 (fun n -> match n with 79 -> '\n' | _ -> '=')
-
 let compile_asm_readable ?outfile tac_rpogram =
   let asm_program = asm_program_of_tac_program ~start:None tac_rpogram in
   let on_file_function file =
@@ -67,16 +64,17 @@ let compile_as_readable ?outfile tac_rpogram =
 
 let compile_bytecode shebang executable ?outfile tac_rpogram =
   let on_file pc_main bytes oc =
-    let () = Printf.fprintf oc "%s\n" shebang in
-    let () = Printf.fprintf oc "pc=%Lu\n" pc_main in
-    let () = Printf.fprintf oc "%s" exec_splitter in
-    let () = Printf.fprintf oc "%s" (Bytes.unsafe_to_string bytes) in
+    let ast =
+      KosurunFront.Ast.create ~shebang ~pc:pc_main (Bytes.unsafe_to_string bytes)
+    in
+    let () = Printf.fprintf oc "%s%!" @@ KosurunFront.Ast.to_string ast in
     ()
   in
   let asm_program = asm_program_of_tac_program ~start:None tac_rpogram in
   let pc_main, as_nodes =
     BytecodeAssembler.Convertion.nodes_of_asm_program asm_program
   in
+  let pc_main = Int64.to_int pc_main in
   let bytes = BytecodeAssembler.VmValue.bytes_of_nodes as_nodes in
   let file = Option.value ~default:"a.out.bc" outfile in
   let () = Out_channel.with_open_bin file (on_file pc_main bytes) in

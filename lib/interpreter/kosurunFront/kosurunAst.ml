@@ -19,8 +19,58 @@ type line =
   | CCentry of KosuVirtualMachine.FFIType.ccall_entry
   | Parameter of string * string
 
+type _ line_kind =
+  | LK_Ccentry : KosuVirtualMachine.FFIType.ccall_entry line_kind
+  | LK_Parameter : (string * string) line_kind
+
 type kosurun_ast = {
   shebang : string option;
   lines : line list;
   bytecode : string;
 }
+
+let create ?shebang ~pc bytecode =
+  let line = Parameter ("pc", Printf.sprintf "%u" pc) in
+  { shebang; lines = line :: []; bytecode }
+
+let add_key_value ~key ~value kosurun_ast =
+  { kosurun_ast with lines = kosurun_ast.lines @ [ Parameter (key, value) ] }
+
+let add_ccall_entry entry kosurun_ast =
+  { kosurun_ast with lines = kosurun_ast.lines @ [ CCentry entry ] }
+
+let lines : type a. a line_kind -> kosurun_ast -> a list =
+ fun kind kosurun_ast ->
+  match kind with
+  | LK_Ccentry ->
+      kosurun_ast.lines
+      |> List.filter_map (function CCentry e -> Some e | Parameter _ -> None)
+  | LK_Parameter ->
+      kosurun_ast.lines
+      |> List.filter_map (function
+           | CCentry _ ->
+               None
+           | Parameter (key, value) ->
+               Some (key, value)
+           )
+
+let keyvals = lines LK_Parameter
+let centries = lines LK_Ccentry
+let delimited char s = Printf.sprintf "%c%s%c" char s char
+let single_quoted = delimited '\''
+let quoted = delimited '\"'
+
+let string_of_line = function
+  | CCentry entry ->
+      KosuVirtualMachine.FFIType.string_of_ccall_entry entry
+  | Parameter (key, value) ->
+      Printf.sprintf "%s=%s" key @@ quoted value
+
+let exec_splitter =
+  String.init 80 (fun n -> match n with 79 -> '\n' | _ -> '=')
+
+let to_string { shebang; lines; bytecode } =
+  Printf.sprintf "%s%s\n%s%s"
+    (shebang |> Option.map (Printf.sprintf "%s\n") |> Option.value ~default:"")
+    (lines |> List.map string_of_line |> String.concat "\n")
+    exec_splitter bytecode

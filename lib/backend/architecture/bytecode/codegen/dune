@@ -25,6 +25,8 @@
   kosuIrTyped
   kosuIrTAC
   kosuFrontend
+  kosuVirtualMachine
+  kosurunFront
   kosuCommon
   kosuIrCfg
   bytecodeCompiler
