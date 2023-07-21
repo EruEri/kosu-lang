@@ -15,6 +15,14 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
+(ocamllex
+ (modules kosurunLexer))
+
+(menhir
+ (modules kosurunParser)
+ (flags --table --explain)
+ (infer true))
+
 (library
  (name kosurunFront)
  (libraries menhirLib util kosuVirtualMachine))
