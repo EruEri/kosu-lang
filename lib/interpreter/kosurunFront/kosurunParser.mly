@@ -17,19 +17,34 @@
 
 
 %{
-
+    open KosurunAst
+    open KosuVirtualMachine.FFIType
 %}
 
 
 %token <string> Bytecode
+%token <string> Shebang
+%token <string> Identifier
+%token <string> StringLit
+%token <int> Integer
 %token NEWLINE
 %token LPARENT
 %token RPARENT
+%token EQUAL
 %token LBRACE
 %token RBRACE
 %token Croisillon
 %token DOLLAR
 %token EOF
+%token TY_S8 
+%token TY_S16
+%token TY_S32
+%token TY_S64
+%token TY_U8 
+%token TY_U16
+%token TY_U32
+%token TY_U64
+%token TY_PTR
 
 %start kosurun_ast
 
@@ -37,5 +52,67 @@
 
 %%
 
+
+%inline parenthesis(X):
+    | delimited(LPARENT, X, RPARENT) { $1 }
+
+%inline bracked(X):
+    | delimited(LBRACE, X, RBRACE) { $1 }
+
 kosurun_ast:
-    | EOF { [] }
+    | shebang=option(Shebang) 
+        lines=list(line)
+        bytecode=Bytecode
+    EOF
+    { 
+        {shebang; lines; bytecode}
+     }
+
+line:
+    | parameter NEWLINE { 
+        let k, v = $1 in
+        Parameter (k,v)
+    }
+    | parenthesis(ccentry) NEWLINE { CCentry $1 } 
+
+ccentry:
+    | function_name=StringLit arity=Integer dynlib_entry=Integer 
+        args=parenthesis(list(parenthesis(address)))
+        ty_args=parenthesis(list(ffi_type))
+        ty_return=ffi_type
+    {
+        {
+            function_name; arity; dynlib_entry;
+            args; ty_args; ty_return
+        
+        }
+    }
+
+
+ffi_type:
+    | TY_S8  { FFI_S8 }
+    | TY_S16   { FFI_S16 }
+    | TY_S32 { FFI_S32 }
+    | TY_S64  { FFI_S64 }
+    | TY_U8 { FFI_U8 }
+    | TY_U16 { FFI_U16 }
+    | TY_U32 { FFI_S32 }
+    | TY_U64 { FFI_S64 }
+    | TY_PTR { FFI_Pointer }
+    | bracked(list(ffi_type)) {
+        FFI_Struct $1
+    }
+
+
+address:
+    | base_reg=Integer offset=parenthesis(address_offset) {
+        { base_reg; offset }
+    }
+
+address_offset:
+    | Croisillon Integer { Off_Reg $2 }
+    | DOLLAR Integer { Off_value $2 }
+parameter:
+    | Identifier EQUAL StringLit {
+        $1, $3
+    }

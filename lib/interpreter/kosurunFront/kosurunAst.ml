@@ -15,8 +15,12 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
+type line =
+  | CCentry of KosuVirtualMachine.FFIType.ccall_entry
+  | Parameter of string * string
+
 type kosurun_ast = {
-  parameters : (string * string) list;
-  c_entries : KosuVirtualMachine.FFIType.ccall_entry list;
+  shebang : string option;
+  lines : line list;
   bytecode : string;
 }
