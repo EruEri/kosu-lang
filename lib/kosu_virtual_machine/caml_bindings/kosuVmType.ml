@@ -15,9 +15,26 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-type t
+type ffi_type =
+  | FFI_S8
+  | FFI_U8
+  | FFI_S16
+  | FFI_U16
+  | FFI_S32
+  | FFI_U32
+  | FFI_S64
+  | FFI_U64
+  | FFI_Pointer
+  | FFI_Struct of ffi_type list
 
-external kosuvm_init : string -> int -> int -> unit -> t = "caml_kosuvm_init"
-external kosuvm_run : t -> unit -> int = "caml_kosuvm_run"
-external kosuvm_free : t -> unit -> unit = "caml_kosuvm_free"
-external kosuvm_run_single : t -> unit -> int = "caml_kosuvm_run_single"
+type address_offset = Off_Reg of int | Off_value of int
+type address = { base_reg : int; offset : address_offset }
+
+type ccall_entry = {
+  function_name : string;
+  arity : int;
+  dynlib_entry : int;
+  args : address list;
+  ty_args : ffi_type list;
+  ty_return : ffi_type;
+}

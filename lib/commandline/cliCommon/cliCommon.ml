@@ -39,7 +39,7 @@ let version =
     | Some v ->
         Build_info.V1.Version.to_string v
   in
-  Printf.sprintf "%s %s" v commit_hash
+  Printf.sprintf "%s-next %s" v commit_hash
 
 let std_global_variable = "KOSU_STD_PATH"
 let architecture_global_variable = "KOSU_TARGET_ARCH"
@@ -96,7 +96,7 @@ module DefaultFront = struct
     KosuFrontend.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
 
   module KosuFrontInterpret =
-    KosuInterpreter.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
+    KosuRepl.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
 
   module Asttyconvert = KosuIrTyped.Asttyconvert.Make (TypeCheckerRule)
 end

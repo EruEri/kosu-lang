@@ -15,23 +15,6 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
-(include_subdirs unqualified)
-
-(rule
- (targets cflags_libffi.sexp clibrary_flags_libffi.sexp)
- (action
-  (run ./config/discover.exe)))
-
 (library
- (name kosuVirtualMachine)
- (install_c_headers kosuvm)
- (foreign_stubs
-  (language c)
-  (names core_binding util kosuvm_base kosuvm_pp kosuvm_util kosuvm)
-  (flags
-   (-Wall)
-   (-std=c99)
-   (-fPIC)
-   (:include cflags_libffi.sexp)))
- (c_library_flags
-  (:include clibrary_flags_libffi.sexp)))
+ (name kosurunFront)
+ (libraries menhirLib util kosuVirtualMachine))

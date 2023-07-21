@@ -19,7 +19,7 @@
  (name kosurunCli)
  (libraries
   kosuFrontend
-  kosuInterpreter
+  kosuRepl
   kosuVirtualMachine
   kosuIrTyped
   kosuIrTAC

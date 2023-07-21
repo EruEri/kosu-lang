@@ -21,6 +21,33 @@
 #include "kosuvm_base.h"
 #include "util.h"
 #include <stdint.h>
+#include <stddef.h>
+#include "ffi/ffi.h"
+
+
+typedef struct {
+    reg_t base_reg;
+    int reg;
+    union {
+        reg_t o_reg;
+        int o_value;
+    } offset;
+} address_t;
+
+typedef struct {
+    const address_t* p_address;
+    const size_t p_count;
+} addresses_t;
+
+
+typedef struct {
+    const char* function_name;
+    int arity;
+    size_t dynlib_entry;
+    addresses_t addresses;
+    ffi_type** args;
+    ffi_type* return_type;
+} ccall_entry_t;
 
 
 

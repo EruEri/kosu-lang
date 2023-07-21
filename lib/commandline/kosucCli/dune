@@ -19,7 +19,7 @@
  (name kosucCli)
  (libraries
   kosuFrontend
-  kosuInterpreter
+  kosuRepl
   kosuIrTyped
   kosuIrTAC
   kosuIrCfg
