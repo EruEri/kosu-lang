@@ -181,8 +181,8 @@ let string_of_instruction = function
       "ret"
   | Syscall ->
       "syscall"
-  | CCall src ->
-      Printf.sprintf "ccall %s" (string_of_src src)
+  | CCall { function_name; _ } ->
+      Printf.sprintf "ccall %s" function_name
   | Mvnt so ->
       sprintf "mvnt %s" (string_of_single_operande so)
   | Mvng so ->

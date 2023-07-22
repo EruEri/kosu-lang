@@ -16,11 +16,14 @@
 (**********************************************************************************************)
 
 type line =
-  | CCentry of KosuVirtualMachine.FFIType.ccall_entry
+  | CCentry of
+      KosuVirtualMachine.FFIType.args KosuVirtualMachine.FFIType.ccall_entry
   | Parameter of string * string
 
 type _ line_kind =
-  | LK_Ccentry : KosuVirtualMachine.FFIType.ccall_entry line_kind
+  | LK_Ccentry
+      : KosuVirtualMachine.FFIType.args KosuVirtualMachine.FFIType.ccall_entry
+        line_kind
   | LK_Parameter : (string * string) line_kind
 
 type kosurun_ast = {

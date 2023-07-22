@@ -23,6 +23,25 @@ let ds_encode ds = Int32.of_int @@ vm_data_size_value ds
 let cc_encode cc = Int32.of_int @@ vm_cc_value cc
 let reg_encode reg = Int32.of_int @@ vm_register_value reg
 let shift_encode shift = Int32.of_int @@ vm_shift_value shift
+
+let args_of_as_args :
+    BytecodeAsCore.AsInstruction.as_args -> KosuVirtualMachine.FFIType.args =
+  function
+  | `ArgsAddr { base; offset } ->
+      let reg = Int64.of_int32 @@ reg_encode base in
+      let offset =
+        match offset with
+        | `ILitteral int64 ->
+            KosuVirtualMachine.FFIType.Off_value int64
+        | `Register register ->
+            Off_Reg (Int64.of_int32 @@ reg_encode register)
+      in
+      ArgsAddr { base_reg = reg; offset }
+  | `ArgsPcReal int ->
+      ArgsPcReal (Int64.to_int int)
+  | `ArgsValue value ->
+      ArgsValue value
+
 let mask_12_low = 0x00_00_1F_FFl
 let mask_14_low = 0x00_00_7F_FFl
 let mask_15_low = 0x00_00_FF_FFl
@@ -54,6 +73,29 @@ let bytes_of_string s =
   let bytes = String.to_bytes s in
   let bytes = Bytes.extend bytes 0 to_extend in
   bytes
+
+let entry_index :
+    ( int,
+      KosuVirtualMachine.FFIType.args KosuVirtualMachine.FFIType.ccall_entry
+    )
+    Hashtbl.t =
+  Hashtbl.create 17
+
+let count = ref 0
+
+let add_entry as_entry =
+  let open KosuVirtualMachine.FFIType in
+  let ({ function_name; arity; args; ty_args; ty_return }
+        : BytecodeAsCore.AsInstruction.as_args ccall_entry
+        ) =
+    as_entry
+  in
+  let args = args |> List.map args_of_as_args in
+  let ffi_entry = { function_name; arity; args; ty_args; ty_return } in
+  let n = Stdlib.( ! ) count in
+  let () = Hashtbl.replace entry_index n ffi_entry in
+  let () = incr count in
+  n
 
 let vm_instruction_value = function
   | BytecodeAsCore.AsInstruction.AsHalt | AsRet | AsSyscall | AsCCall _ ->
@@ -109,8 +151,10 @@ let vm_instruction_encode i =
       1l << 25
   | AsSyscall ->
       1l << 26
-  | AsCCall _ ->
-      failwith ""
+  | AsCCall entry ->
+      let base = base &| (3l << 25) in
+      let n = add_entry entry in
+      base &| Int32.of_int n
   | AsMvnt { destination; source }
   | AsMvng { destination; source }
   | AsMv { destination; source } ->

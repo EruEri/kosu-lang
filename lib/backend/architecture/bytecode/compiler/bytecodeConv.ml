@@ -129,6 +129,50 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
   | TEConst _ ->
       failwith "Other constant todo"
 
+let cc_args_translate_tac_expression ~litterals fd tte =
+  match tte.tac_expression with
+  | TEString s ->
+      let (SLit _) = Hashtbl.find litterals.str_lit_map s in
+      failwith "strign litteral"
+  | TEFalse | TECmpLesser | TEmpty | TENullptr ->
+      Instruction.BcValue 0L
+  | TETrue | TECmpEqual ->
+      Instruction.BcValue 1L
+  | TECmpGreater ->
+      Instruction.BcValue 2L
+  | TEInt (_, _, int64) ->
+      Instruction.BcValue int64
+  | TEChar c ->
+      let int_repr = Int64.of_int @@ Char.code c in
+      Instruction.BcValue int_repr
+  | TEFloat float ->
+      let (FLit _float_label) = Hashtbl.find litterals.float_lit_map float in
+      let bits_repr =
+        match fst float with
+        | F32 ->
+            Int64.of_int32 @@ Int32.bits_of_float @@ snd float
+        | F64 ->
+            Int64.bits_of_float @@ snd float
+      in
+      Instruction.BcValue bits_repr
+  | TEIdentifier id ->
+      let loc =
+        match FrameManager.location_of (id, tte.expr_rktype) fd with
+        | None ->
+            failwith "tte identifier setup null address"
+        | Some loc ->
+            loc
+      in
+      BcAddress loc
+  | TESizeof kt ->
+      let size = KosuIrTyped.Sizeof.sizeof_kt kt in
+      Instruction.BcValue size
+  | TEConst { module_path = _; name = _ } when tte.expr_rktype = RTString_lit ->
+      (* let _   = lea_label target_reg ~module_path name in *)
+      failwith "Litteral const "
+  | TEConst _ ->
+      failwith "Other constant todo"
+
 let translate_and_store ~where ~litterals ~target_reg fd tte =
   match where with
   | Addr_Direct (Some address) ->
@@ -337,43 +381,12 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
               @ set_on_stack_instructions @ ldr_addrres_instr
               @ mv_address_instruction @ call_instruction
         )
-      | RExternal_Decl _external_func_decl ->
-          failwith "External function: Find a way for the vm to call them"
-      (* let fn_label =
-             NamingConvention.label_of_external_function external_func_decl
-           in
-         let novariadic_args = if external_func_decl.is_variadic then
-             Option.some @@ List.length external_func_decl.fn_parameters
-           else Option.none
-         in
-         let iparams, fparams, stack_params = Args.consume_args
-           ?novariadic_args
-           ~fregs:Register.float_argument_registers
-           ~iregs:Register.non_float_argument_registers
-           ~fpstyle:(fun {expr_rktype; _} ->
-             if KosuIrTyped.Asttyhelper.RType.is_float expr_rktype then
-               Simple_Reg Float
-             else
-               Simple_Reg Other
-           ) tac_parameters
-         in
-         let args_instructions = iparams |> List.map (fun (tte, return_kind) ->
-           let open Args in
-           match return_kind with
-           | Double_return _ -> failwith "Float are passed as a simple reg"
-           | Simple_return r -> translate_tac_expression ~litterals ~target_reg:r fd tte
-         ) in
-         let float_args_instructions = fparams |> List.map (fun (tte, return_kind) ->
-           let open Args in
-           match return_kind with
-           | Double_return _ -> failwith "Float are passed as a simple reg"
-           | Simple_return r -> translate_tac_expression ~litterals ~target_reg:r fd tte
-         ) in
-         let call_instructions =
-           LineInstruction.scall_label fn_label
-         in
-         match does_return_hold_in_register_kt external_func_decl.
-      *)
+      | RExternal_Decl external_func_decl ->
+          let args =
+            tac_parameters
+            |> List.map @@ cc_args_translate_tac_expression ~litterals fd
+          in
+          LineInstruction.sccall rprogram args external_func_decl :: []
     )
   | RVTuple ttes | RVArray ttes ->
       let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in

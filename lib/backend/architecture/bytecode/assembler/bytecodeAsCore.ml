@@ -42,11 +42,16 @@ module AsInstruction = struct
   type lea_operande = BaLeaPcRel of int64 | BaLeaRegAbs of address
   type jump_src = [ `PcRel of int64 | `Register of Register.register ]
 
+  type as_args =
+    [ `ArgsValue of int64
+    | `ArgsPcReal of int64
+    | `ArgsAddr of Location.address ]
+
   type t =
     | AsHalt
     | AsRet
     | AsSyscall
-    | AsCCall of src
+    | AsCCall of as_args KosuVirtualMachine.FFIType.ccall_entry
     | AsMvnt of single_operande
     | AsMvng of single_operande
     | AsMv of single_operande

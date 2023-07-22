@@ -361,11 +361,18 @@ module Instruction = struct
   (* open Register *)
   open Location
 
+  type bc_symbol = BclocalSymbol of string | BcGlobalSymbol of string
+
+  type bc_args =
+    | BcValue of int64
+    | BcAddress of address
+    | BcPcRel of bc_symbol
+
   type t =
     | Halt
     | Ret
     | Syscall
-    | CCall of src
+    | CCall of bc_args KosuVirtualMachine.FFIType.ccall_entry
     | Mvnt of single_operande
     | Mvng of single_operande
     | Mv of single_operande
@@ -422,7 +429,6 @@ module Instruction = struct
   let halt = Halt
   let ret = Ret
   let syscall = Syscall
-  let ccall src = CCall src
   let mvnt destination source = Mvnt { destination; source }
   let mvng destination source = Mvng { destination; source }
   let mv destination source = Mv { destination; source }
@@ -454,6 +460,9 @@ module Instruction = struct
   let jump src = Jump src
   let br src = Br src
   let lea destination operande = Lea { destination; operande }
+
+  let ccall function_name arity args ty_args ty_return =
+    CCall { function_name; arity; args; ty_args; ty_return }
 
   let sub destination operande1 operande2 =
     Sub { destination; operande1; operande2 }
@@ -504,6 +513,62 @@ end
 
 module BytecodeProgram = KosuCommon.AsmProgram (Line)
 
+module CType = struct
+  open KosuVirtualMachine.FFIType
+  open KosuIrTyped.Asttyped
+
+  let rec ffi_type_of_ktype rprogram = function
+    | RTBool | RTUnit | RTUnknow | RTChar | RTInteger (Unsigned, I8) ->
+        FFI_U8
+    | RTOrdered | RTInteger (Signed, I8) | RTInteger (Signed, I16) ->
+        FFI_S16
+    | RTInteger (Unsigned, I16) ->
+        FFI_U16
+    | RTInteger (Signed, I32) ->
+        FFI_S32
+    | RTInteger (Unsigned, I32) ->
+        FFI_U32
+    | RTInteger (Signed, I64) ->
+        FFI_S64
+    | RTInteger (Unsigned, I64) ->
+        FFI_U64
+    | RTFloat F32 ->
+        FFI_F32
+    | RTFloat F64 ->
+        FFI_F64
+    | RTString_lit | RTPointer _ | RTFunction _ ->
+        FFI_Pointer
+    | RTArray { size; rktype } ->
+        let ktype = ffi_type_of_ktype rprogram rktype in
+        let types = List.init (Int64.to_int size) (fun _ -> ktype) in
+        FFI_Struct types
+    | RTTuple types ->
+        let types = types |> List.map @@ ffi_type_of_ktype rprogram in
+        FFI_Struct types
+    | ( RTType_Identifier { module_path = _; name = _ }
+      | RTParametric_identifier _ ) as kt ->
+        ffi_of_type_identifier ~ktype:kt rprogram
+
+  and ffi_of_type_identifier ~ktype rprogram =
+    match
+      KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye ktype rprogram
+    with
+    | Some (RDecl_Struct s) ->
+        ffi_of_struct ~ktype rprogram s
+    | Some (RDecl_Enum _) ->
+        FFI_U32
+    | None ->
+        failwith "Non type decl ??? my validation is very weak"
+
+  and ffi_of_struct ~ktype rprogram struct_decl =
+    let types =
+      ktype |> KosuIrTyped.Asttyhelper.RType.extract_parametrics_rktype
+      |> List.combine struct_decl.generics
+      |> List.map @@ fun (_, kt) -> ffi_type_of_ktype rprogram kt
+    in
+    FFI_Struct types
+end
+
 module LineInstruction = struct
   open Instruction
   open Location
@@ -535,7 +600,7 @@ module LineInstruction = struct
         else
           mva register (Operande.ilitteral int64) ConditionCode.SH48 :: mvs
       in
-      instructions mvs
+      instructions @@ List.rev mvs
 
   let and_or_instruction =
     let open KosuIrTAC.Asttac in
@@ -687,6 +752,23 @@ module LineInstruction = struct
           slea_address destination address
         else
           sldr data_size destination address
+
+  let sccall rprogram args
+      (external_function : KosuIrTyped.Asttyped.rexternal_func_decl) =
+    let func_name =
+      external_function.c_name
+      |> Option.value ~default:external_function.rsig_name
+    in
+    let arity = Int64.of_int @@ List.length external_function.fn_parameters in
+    let params_type =
+      external_function.fn_parameters
+      |> List.map @@ CType.ffi_type_of_ktype rprogram
+    in
+    let return_type =
+      CType.ffi_type_of_ktype rprogram external_function.return_type
+    in
+    Line.instruction ~comment:"CCall"
+    @@ Instruction.ccall func_name arity args params_type return_type
 end
 
 module FrameManager = struct

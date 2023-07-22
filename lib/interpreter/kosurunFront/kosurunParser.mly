@@ -45,7 +45,10 @@
 %token TY_U16
 %token TY_U32
 %token TY_U64
+%token TY_F32
+%token TY_F64
 %token TY_PTR
+
 
 %start kosurun_ast
 
@@ -103,6 +106,8 @@ ffi_type:
     | TY_U32 { FFI_S32 }
     | TY_U64 { FFI_S64 }
     | TY_PTR { FFI_Pointer }
+    | TY_F32 { FFI_F32 }
+    | TY_F64 { FFI_F64 }
     | bracked(list(ffi_type)) {
         FFI_Struct $1
     }
@@ -114,6 +119,9 @@ args:
     }
     | Croisillon base_reg=Integer offset=parenthesis(address_offset) {
         ArgsAddr { base_reg; offset }
+    }
+    | Croisillon DOLLAR Integer {
+        ArgsPcReal (Int64.to_int $3)
     }
 
 address_offset:

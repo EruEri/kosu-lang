@@ -24,6 +24,8 @@ type ffi_type =
   | FFI_U32
   | FFI_S64
   | FFI_U64
+  | FFI_F32
+  | FFI_F64
   | FFI_Pointer
   | FFI_Struct of ffi_type list
 
@@ -32,11 +34,12 @@ type address_offset = Off_Reg of int64 | Off_value of int64
 type args =
   | ArgsValue of int64
   | ArgsAddr of { base_reg : int64; offset : address_offset }
+  | ArgsPcReal of int
 
-type ccall_entry = {
+type 'arg ccall_entry = {
   function_name : string;
   arity : int64;
-  args : args list;
+  args : 'arg list;
   ty_args : ffi_type list;
   ty_return : ffi_type;
 }
@@ -60,6 +63,10 @@ let rec string_of_ffi_type = function
       "u64"
   | FFI_Pointer ->
       "ptr"
+  | FFI_F32 ->
+      "f32"
+  | FFI_F64 ->
+      "f64"
   | FFI_Struct types ->
       Printf.sprintf "{ %s }"
         (types |> List.map string_of_ffi_type |> String.concat " ")
@@ -75,6 +82,8 @@ let string_of_args = function
       Printf.sprintf "$%Ld" value
   | ArgsAddr { base_reg; offset } ->
       Printf.sprintf "# %Ld(%s)" base_reg @@ string_of_address_offset offset
+  | ArgsPcReal int ->
+      Printf.sprintf "#$ %d" int
 
 let single_quoted = Printf.sprintf "\'%s\'"
 let quoted = Printf.sprintf "\"%s\""

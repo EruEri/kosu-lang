@@ -70,6 +70,8 @@ rule token = parse
 | "u16" { TY_U16 }
 | "u32" { TY_U32 }
 | "u64" { TY_U64 }
+| "f32" { TY_F32 }
+| "f64" { TY_F64 }
 | "ptr" { TY_PTR }
 | '"' {
     let buffer = Buffer.create 32 in

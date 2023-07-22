@@ -62,7 +62,7 @@ let string_of_as_instruction = function
   | AsSyscall ->
       "syscall"
   | AsCCall src ->
-      Printf.sprintf "ccall %s" (string_of_src src)
+      Printf.sprintf "as_ccall %s" src.function_name
   | AsMvnt so ->
       sprintf "mvnt %s" (string_of_single_operande so)
   | AsMvng so ->

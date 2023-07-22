@@ -27,14 +27,16 @@ let ( ++ ) = Int64.add
 let ( -- ) = Int64.sub
 let ( !+ ) = ( ++ ) 1L
 let ( // ) = Int64.unsigned_div
+let find_global_symbol symbol pc = PcRelatifMap.find_opt symbol pc.global_map
+let find_local_symbol symbol pc = PcRelatifMap.find_opt symbol pc.local_map
 
 let find_symbol symbole (pc : pc_info) =
   let absolue_pc =
-    match PcRelatifMap.find_opt symbole pc.global_map with
+    match find_global_symbol symbole pc with
     | Some pc ->
         pc
     | None -> (
-        match PcRelatifMap.find_opt symbole pc.local_map with
+        match find_local_symbol symbole pc with
         | Some pc ->
             pc
         | None ->
@@ -48,6 +50,16 @@ let find_symbol symbole (pc : pc_info) =
      in *)
   absolue_pc -- pc.pc
 
+let args_of_bcargs info = function
+  | ByteInstruction.BcValue n ->
+      `ArgsValue n
+  | BcAddress addr ->
+      `ArgsAddr addr
+  | BcPcRel (BclocalSymbol s) ->
+      `ArgsPcReal (Option.get @@ find_local_symbol s info)
+  | BcPcRel (BcGlobalSymbol s) ->
+      `ArgsPcReal (Option.get @@ find_global_symbol s info)
+
 let as_instruction_of_bytecode_instructions info =
   let open ByteInstruction in
   let open AsInstruction in
@@ -59,8 +71,13 @@ let as_instruction_of_bytecode_instructions info =
       AsRet
   | Syscall ->
       AsSyscall
-  | CCall src ->
-      AsCCall src
+  | CCall { function_name; arity; args; ty_args; ty_return } ->
+      let args = args |> List.map @@ args_of_bcargs info in
+      let entry =
+        KosuVirtualMachine.FFIType.
+          { function_name; arity; args; ty_args; ty_return }
+      in
+      AsCCall entry
   | Mvnt single_operande ->
       AsMvnt single_operande
   | Mvng single_operande ->

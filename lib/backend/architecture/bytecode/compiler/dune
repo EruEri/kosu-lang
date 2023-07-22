@@ -21,4 +21,10 @@
 
 (library
  (name bytecodeCompiler)
- (libraries kosuIrTyped kosuIrTAC kosuFrontend kosuCommon kosuIrCfg))
+ (libraries
+  kosuIrTyped
+  kosuIrTAC
+  kosuFrontend
+  kosuVirtualMachine
+  kosuCommon
+  kosuIrCfg))
