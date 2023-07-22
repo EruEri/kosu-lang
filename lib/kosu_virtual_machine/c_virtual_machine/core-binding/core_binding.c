@@ -66,7 +66,74 @@ const char** caml_clibs(value libs, size_t len) {
     return c_libs;
 }
 
-arg_t caml_address(value caml_args) {
+ffi_type* caml_ffi_type(value caml_ffi);
+ffi_type** caml_ffi_types_list(value caml_ffi_list);
+
+ffi_type** caml_ffi_types_list(value caml_ffi_list) {
+     size_t list_len = caml_list_length(caml_ffi_list);
+        ffi_type** struture_elt = malloc(sizeof(ffi_type*) * (list_len + 1));
+        if (!struture_elt)
+            return NULL;
+
+        size_t index = 0;
+        while (caml_ffi_list != Val_emptylist) {
+            value head = Field(caml_ffi_list, 0);
+            *(struture_elt + index) = caml_ffi_type(head);
+            caml_ffi_list = Field(caml_ffi_list, 1);
+            index += 1;
+        }
+
+        *(struture_elt + list_len) = NULL;
+        return struture_elt;
+}
+
+ffi_type* caml_ffi_type(value caml_ffi) {
+    if (Is_block(caml_ffi)) {
+        ffi_type* struture = malloc(sizeof(ffi_type));
+        if (!struture) return NULL;
+        struture->type = FFI_TYPE_STRUCT;
+        value caml_ffi_list = Field(caml_ffi, 0);
+        size_t list_len = caml_list_length(caml_ffi_list);
+        ffi_type** struture_elt = caml_ffi_types_list(caml_ffi_list);
+        if (!struture_elt) {
+            free(struture);
+            return NULL;
+        }
+        struture->elements = struture_elt;
+        return struture;
+    } else {
+        switch (Int_val(caml_ffi)) {
+            case 0:
+                return &ffi_type_sint8;
+            case 1:
+                return &ffi_type_uint8;
+            case 2:
+                return &ffi_type_sint16;
+            case 3:
+                return &ffi_type_uint16;
+            case 4:
+                return &ffi_type_sint32;
+            case 5:
+                return &ffi_type_uint32;
+            case 6:
+                return &ffi_type_sint64;
+            case 7:
+                return &ffi_type_uint64;
+            case 8:
+                return &ffi_type_float;
+            case 9:
+                return &ffi_type_double;
+            case 10:
+                return &ffi_type_pointer;
+            default:
+                return NULL;
+        }
+    }
+}
+
+
+
+arg_t caml_arg(value caml_args) {
     arg_t a;
     switch (Tag_val(caml_args)) {
         case AT_VALUE: {
@@ -113,8 +180,11 @@ arg_t caml_address(value caml_args) {
     return a;
 }
 
-ffi_type caml_ffi_type(value ffi_type) {
-    exit(3);
+ccall_entry_t caml_ccall_entry(value caml_entry) {
+    const char* function_name = String_val(Field(caml_entry, 0));
+    int64_t arity = Int64_val(Field(caml_entry, 1));
+
+    exit(1);
 }
 
 CAMLprim value caml_kosuvm_init_bis(value code, value stack_size, value start_index, value libs, value ccentries) {
@@ -128,6 +198,8 @@ CAMLprim value caml_kosuvm_init_bis(value code, value stack_size, value start_in
     if (!c_clibs) {
         caml_failwith("Fail to alloc clibs");
     } 
+
+    exit(1);
 }
 
 // code : bytes or string

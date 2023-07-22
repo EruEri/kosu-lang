@@ -207,18 +207,27 @@ void* cc_find_symbol(kosuvm_t* vm, const char* name) {
     return fn_ptr;
 }
 
-int64_t iccall_offset(kosuvm_t* vm, arg_t addr) {
-    int64_t value = 0;
+void* iccall_offset(kosuvm_t* vm, arg_t addr, size_t* nb_args) {
+    void* value = NULL;
     switch (addr.tag) {
-    case AT_REG:
-        // value = *register_of_int32(vm, addr..o_reg, 0);
-        break;
-    case AT_VALUE:
-        value = addr.offset.o_value;
-        break;
+    case AT_REG: {
+        reg_t* base_reg = register_of_int32(vm, addr.enc_reg, 0);
+        int64_t offset = 
+            (addr.offset.o_reg.aot_tag == AOT_REG)
+            ? *register_of_int32(vm, addr.offset.o_reg.aot_val.aot_enc_reg, 0)
+            : addr.offset.o_reg.aot_val.value
+        ;
+        return (void*) *base_reg + offset;
+    }
+    case AT_VALUE: {
+        reg_t* reg = register_of_int32(vm, *nb_args, 0);
+        *reg = addr.offset.o_value;
+        *nb_args = *nb_args + 1;
+        return reg;
+    }
+
     case AT_PC_REL:
-        value = (vm->irp - 1) + addr.offset.o_pcrel;
-      break;
+        return (void *) (vm->irp - 1) + addr.offset.o_pcrel;
     }
     return value;
 }
@@ -237,14 +246,19 @@ int iccall(kosuvm_t* vm, instruction_t instruction) {
     }
 
     
-    // ffi_cif cif;
+    ffi_cif cif;
     int status;
     if (entry.args.p_count != entry.arity) {
         // DO VARIADIC
 
         status = -1;
     } else {
-        status = -2;
+        status = ffi_prep_cif(
+            &cif, FFI_DEFAULT_ABI, 
+            entry.arity, 
+            entry.return_type, 
+            entry.args_types
+        );
         // status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, entry.arity, entry.return_type, entry.args);
     }
 
@@ -253,15 +267,20 @@ int iccall(kosuvm_t* vm, instruction_t instruction) {
         return -1;
     }
 
+    // TMP Check later if non stacked args overflow on other register
+
     void** values = malloc(sizeof(void*) * entry.args.p_count);
     if (!values) return -1;
+
+    // Since R0 will hold the return address
+    size_t reg_ref = 1;
     for (size_t index = 0; index < entry.args.p_count; index += 1) {
-        // arg_t addr = entry.args.p_address[index];
-        // int64_t offset = iccall_offset(vm, addr);
-        // void* a = (void*) addr. + offset;
-        // *(values + index) = a;
+        arg_t addr = entry.args.p_address[index];
+        void* args_loc = iccall_offset(vm, addr, &reg_ref);
+        *(values + index) = args_loc;
     }
 
+    ffi_call(&cif, fn_ptr, (void*) vm->r0, values);
 
     free(values);
     return 0;
