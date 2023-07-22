@@ -87,12 +87,16 @@ let string_of_args = function
 
 let single_quoted = Printf.sprintf "\'%s\'"
 let quoted = Printf.sprintf "\"%s\""
+let parenthisis = Printf.sprintf "(%s)"
 
 let string_of_ccall_entry = function
   | { function_name; arity; args; ty_args; ty_return } ->
       Printf.sprintf "(%s %Ld (%s) (%s) %s)"
         (single_quoted function_name)
         arity
-        (args |> List.map string_of_args |> String.concat " ")
+        (args
+        |> List.map (fun args -> parenthisis @@ string_of_args args)
+        |> String.concat " "
+        )
         (ty_args |> List.map string_of_ffi_type |> String.concat " ")
         (string_of_ffi_type ty_return)
