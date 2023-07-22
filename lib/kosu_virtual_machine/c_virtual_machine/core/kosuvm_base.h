@@ -117,32 +117,46 @@ typedef struct {
 } kosuvm_stack_t;
 
 typedef enum {
-    AT_REG,
-    AT_VALUE,
-    AT_PC_REL
-} address_tag_t;
+    AOT_REG = 0,
+    AOT_VALUE = 1,
+} address_offset_tag_t;
 
 typedef struct {
-    reg_t base_reg;
-    address_tag_t tag;
+    address_offset_tag_t aot_tag;
     union {
-        reg_t o_reg;
-        int32_t o_value;
+        // encoding of reg
+        uint8_t aot_enc_reg;
+        int64_t value;
+    } aot_val;
+} address_offset_t;
+
+typedef enum {
+    AT_VALUE = 0,
+    AT_REG,
+    AT_PC_REL
+} arg_tag_t;
+
+typedef struct {
+    uint8_t enc_reg;
+    arg_tag_t tag;
+    union {
+        address_offset_t o_reg;
+        int64_t o_value;
         int64_t o_pcrel;
     } offset;
-} address_t;
+} arg_t;
 
 typedef struct {
-    const address_t* p_address;
+    const arg_t* p_address;
     const size_t p_count;
-} addresses_t;
+} args_t;
 
 
 typedef struct {
     const char* function_name;
     int arity;
-    addresses_t addresses;
-    ffi_type** args;
+    args_t args;
+    ffi_type** args_types;
     ffi_type* return_type;
 } ccall_entry_t;
 

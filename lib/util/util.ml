@@ -21,6 +21,7 @@ type stringlit_label = SLit of string
 type floatlit_label = FLit of string
 type coordinate = { line : int; column : int }
 
+let () = Callback.register "c_caml_list_length" List.length
 let couple a b = (a, b)
 
 let is_what_file ~extension filename =

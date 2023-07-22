@@ -207,11 +207,11 @@ void* cc_find_symbol(kosuvm_t* vm, const char* name) {
     return fn_ptr;
 }
 
-int64_t iccall_offset(kosuvm_t* vm, address_t addr) {
+int64_t iccall_offset(kosuvm_t* vm, arg_t addr) {
     int64_t value = 0;
     switch (addr.tag) {
     case AT_REG:
-        value = *register_of_int32(vm, addr.offset.o_reg, 0);
+        // value = *register_of_int32(vm, addr..o_reg, 0);
         break;
     case AT_VALUE:
         value = addr.offset.o_value;
@@ -237,13 +237,15 @@ int iccall(kosuvm_t* vm, instruction_t instruction) {
     }
 
     
-    ffi_cif cif;
+    // ffi_cif cif;
     int status;
-    if (entry.addresses.p_count != entry.arity) {
+    if (entry.args.p_count != entry.arity) {
         // DO VARIADIC
+
         status = -1;
     } else {
-        status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, entry.arity, entry.return_type, entry.args);
+        status = -2;
+        // status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, entry.arity, entry.return_type, entry.args);
     }
 
     if (status != FFI_OK) {
@@ -251,13 +253,13 @@ int iccall(kosuvm_t* vm, instruction_t instruction) {
         return -1;
     }
 
-    void** values = malloc(sizeof(void*) * entry.addresses.p_count);
+    void** values = malloc(sizeof(void*) * entry.args.p_count);
     if (!values) return -1;
-    for (size_t index = 0; index < entry.addresses.p_count; index += 1) {
-        address_t addr = entry.addresses.p_address[index];
-        int64_t offset = iccall_offset(vm, addr);
-        void* a = (void*) addr.base_reg + offset;
-        *(values + index) = a;
+    for (size_t index = 0; index < entry.args.p_count; index += 1) {
+        // arg_t addr = entry.args.p_address[index];
+        // int64_t offset = iccall_offset(vm, addr);
+        // void* a = (void*) addr. + offset;
+        // *(values + index) = a;
     }
 
 
