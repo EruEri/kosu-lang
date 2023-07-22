@@ -400,4 +400,10 @@ let bytes_of_asnode =
       bytes_of_int64 value
 
 let bytes_of_nodes nodes =
-  nodes |> List.map bytes_of_asnode |> Bytes.concat Bytes.empty
+  let res = nodes |> List.map bytes_of_asnode |> Bytes.concat Bytes.empty in
+  let entries =
+    entry_index |> Hashtbl.to_seq |> List.of_seq
+    |> List.sort (fun (li, _) (ri, _) -> compare li ri)
+    |> List.map snd
+  in
+  (entries, res)

@@ -21,20 +21,62 @@
 #include "util.h"
 
 
+#include <ffi/ffi.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <dlfcn.h>
 
 
-kosuvm_t* kosuvm_init(const instruction_t *const code, uint64_t stack_size, uint64_t offset) {
+dl_handlers_t dll_error(void** handler, size_t count) {
+    for (size_t i = count; i < count; i--) {
+        dlclose(handler[i]);
+    }
+
+    dl_handlers_t handlers = {.count = 0};
+    return handlers;
+}
+
+dl_handlers_t handle_dll(const char** librairies) {
+    dl_handlers_t handlers = {.count = 0};
+    if (!librairies) return handlers;
+
+    size_t count = 0;
+    for (count = 0; count < NB_DYNLIB; count += 1) {
+        const char* library = *(librairies + count);
+        if (!library) break;
+        void* handler = dlopen(library, RTLD_LAZY);
+        if (!handler) {
+            return dll_error(handlers.handlers, count);
+        }
+        handlers.handlers[count] = handler;
+    }
+
+    return handlers;
+    
+}
+
+kosuvm_t* kosuvm_init(const instruction_t *const code, uint64_t stack_size, 
+    uint64_t offset, ccall_entries_t entries, const char** librairies
+    ) 
+{
+    dl_handlers_t handlers = handle_dll(librairies);
     kosuvm_t* vm_ptr = malloc(sizeof(kosuvm_t));
     if (!vm_ptr) failwith("Vm alloc fail", 1);
     kosuvm_stack_t* stack = kosuvm_stack_create(stack_size);
     const instruction_t* ip = code + offset;
-    kosuvm_t vm = {.stack = stack, .code = code, .ip = ip, .fp = stack->sp, .last_cmp = false};
+    kosuvm_t vm = {
+        .stack = stack, 
+        .dl_handlers = handlers,
+        .cc_entries = entries,
+        .code = code, 
+        .ip = ip, 
+        .fp = stack->sp, 
+        .last_cmp = false
+    };
     memcpy(vm_ptr, &vm, sizeof(kosuvm_t));
     return vm_ptr;
 }
@@ -153,6 +195,75 @@ int halt_opcode(kosuvm_t* vm, instruction_t instruction, bool_t* halt) {
 
     return -1;
 } 
+
+void* cc_find_symbol(kosuvm_t* vm, const char* name) {
+    void* fn_ptr = NULL;
+    for (size_t index = 0; index < vm->dl_handlers.count; index += 1) {
+        void* handler = vm->dl_handlers.handlers[index];
+        fn_ptr = dlsym(handler, name);
+        if (fn_ptr) break;
+    }
+
+    return fn_ptr;
+}
+
+int64_t iccall_offset(kosuvm_t* vm, address_t addr) {
+    int64_t value = 0;
+    switch (addr.tag) {
+    case AT_REG:
+        value = *register_of_int32(vm, addr.offset.o_reg, 0);
+        break;
+    case AT_VALUE:
+        value = addr.offset.o_value;
+        break;
+    case AT_PC_REL:
+        value = (vm->irp - 1) + addr.offset.o_pcrel;
+      break;
+    }
+    return value;
+}
+
+int iccall(kosuvm_t* vm, instruction_t instruction) {
+    bool_t is_register = is_set(instruction, mask_bit(24));
+    size_t index = (is_register) 
+        ? *register_of_int32(vm, instruction, 19) 
+        : sext25(instruction);
+        ;
+    ccall_entry_t entry = vm->cc_entries.entries[index];
+    void* fn_ptr = cc_find_symbol(vm, entry.function_name);
+    if (!fn_ptr) {
+        printf("Cannot find %s\n", entry.function_name);
+        return -1;
+    }
+
+    
+    ffi_cif cif;
+    int status;
+    if (entry.addresses.p_count != entry.arity) {
+        // DO VARIADIC
+        status = -1;
+    } else {
+        status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, entry.arity, entry.return_type, entry.args);
+    }
+
+    if (status != FFI_OK) {
+        fprintf(stderr, "FFI NOT OK\n");
+        return -1;
+    }
+
+    void** values = malloc(sizeof(void*) * entry.addresses.p_count);
+    if (!values) return -1;
+    for (size_t index = 0; index < entry.addresses.p_count; index += 1) {
+        address_t addr = entry.addresses.p_address[index];
+        int64_t offset = iccall_offset(vm, addr);
+        void* a = (void*) addr.base_reg + offset;
+        *(values + index) = a;
+    }
+
+
+    free(values);
+    return 0;
+}
 
 int mvnt(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
@@ -688,5 +799,6 @@ int kosuvm_run(kosuvm_t* vm){
 
 void kosuvm_free(kosuvm_t* vm){
     kosuvm_stack_free(vm->stack);
+    dll_error(vm->dl_handlers.handlers, vm->dl_handlers.count);
     free(vm);
 }

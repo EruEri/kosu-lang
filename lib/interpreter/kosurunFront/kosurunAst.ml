@@ -32,9 +32,11 @@ type kosurun_ast = {
   bytecode : string;
 }
 
-let create ?shebang ~pc bytecode =
+let create ?shebang ?(entries = []) ~pc bytecode =
+  let lines = entries |> List.map @@ fun e -> CCentry e in
   let line = Parameter ("pc", Printf.sprintf "%u" pc) in
-  { shebang; lines = line :: []; bytecode }
+  let lines = line :: lines in
+  { shebang; lines; bytecode }
 
 let add_key_value ~key ~value kosurun_ast =
   { kosurun_ast with lines = kosurun_ast.lines @ [ Parameter (key, value) ] }

@@ -1,7 +1,7 @@
 ;**********************************************************************************************;
 ;*                                                                                            *;
 ;* This file is part of Kosu                                                                  *;
-;* Copyright (C) 2023 Yves Ndiaye                                                             *;
+;* Copyright (C) 2022 Yves Ndiaye                                                             *;
 ;*                                                                                            *;
 ;* Kosu is free software: you can redistribute it and/or modify it under the terms            *;
 ;* of the GNU General Public License as published by the Free Software Foundation,            *;
@@ -16,5 +16,9 @@
 ;**********************************************************************************************;
 
 (library
- (name kosurunCli)
- (libraries kosuVirtualMachine cliCommon kosurunFront osInfo))
+ (name osInfo)
+ (libraries unix)
+ (foreign_stubs
+  (language c)
+  (names osInfo)
+  (flags (-Wall) (-std=c99) (-fPIC))))

@@ -63,10 +63,7 @@ let compile_as_readable ?outfile tac_rpogram =
   Out_channel.with_open_bin file on_file_function
 
 let compile_bytecode shebang executable ?outfile tac_rpogram =
-  let on_file pc_main bytes oc =
-    let ast =
-      KosurunFront.Ast.create ~shebang ~pc:pc_main (Bytes.unsafe_to_string bytes)
-    in
+  let on_file ast oc =
     let () = Printf.fprintf oc "%s%!" @@ KosurunFront.Ast.to_string ast in
     ()
   in
@@ -75,9 +72,13 @@ let compile_bytecode shebang executable ?outfile tac_rpogram =
     BytecodeAssembler.Convertion.nodes_of_asm_program asm_program
   in
   let pc_main = Int64.to_int pc_main in
-  let bytes = BytecodeAssembler.VmValue.bytes_of_nodes as_nodes in
+  let entries, bytes = BytecodeAssembler.VmValue.bytes_of_nodes as_nodes in
+  let ast =
+    KosurunFront.Ast.create ~entries ~shebang ~pc:pc_main
+      (Bytes.unsafe_to_string bytes)
+  in
   let file = Option.value ~default:"a.out.bc" outfile in
-  let () = Out_channel.with_open_bin file (on_file pc_main bytes) in
+  let () = Out_channel.with_open_bin file (on_file ast) in
   let () =
     match executable with true -> Unix.chmod file default_perm | false -> ()
   in

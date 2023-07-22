@@ -84,6 +84,13 @@ let check_shebang ast =
   | None ->
       ()
 
+let libname name = Printf.sprintf "%s.%s" name OsInfo.dll_extension
+let libc = libname "libc"
+
+let libs ast =
+  ast |> KosurunFront.Ast.keyvals
+  |> List.filter_map (function "library", e -> Some e | _ -> None)
+
 let run_main cmd =
   let size = Array.length Sys.argv - 1 in
   let _argv = Array.make size String.empty in

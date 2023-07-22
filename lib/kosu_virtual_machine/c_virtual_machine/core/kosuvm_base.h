@@ -20,6 +20,7 @@
 
 #include <stdint.h>
 #include "util.h"
+#include "ffi/ffi.h"
 
 #define HALT_BITS 0x0
 #define RET_BITS 0x01
@@ -115,7 +116,52 @@ typedef struct {
     reg_t sp;
 } kosuvm_stack_t;
 
+typedef enum {
+    AT_REG,
+    AT_VALUE,
+    AT_PC_REL
+} address_tag_t;
+
 typedef struct {
+    reg_t base_reg;
+    address_tag_t tag;
+    union {
+        reg_t o_reg;
+        int32_t o_value;
+        int64_t o_pcrel;
+    } offset;
+} address_t;
+
+typedef struct {
+    const address_t* p_address;
+    const size_t p_count;
+} addresses_t;
+
+
+typedef struct {
+    const char* function_name;
+    int arity;
+    addresses_t addresses;
+    ffi_type** args;
+    ffi_type* return_type;
+} ccall_entry_t;
+
+typedef struct {
+    ccall_entry_t* entries;
+    size_t e_count;
+} ccall_entries_t;
+
+
+#define NB_DYNLIB 20
+
+typedef struct {
+    void* handlers[NB_DYNLIB];
+    size_t count;
+} dl_handlers_t;
+
+typedef struct {
+    dl_handlers_t dl_handlers;
+    ccall_entries_t cc_entries;
     instruction_t const * const code;
     bool_t last_cmp;
     const instruction_t* ip;

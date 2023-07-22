@@ -15,17 +15,20 @@
 //                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-#ifndef VM_H
-#define VM_H
 
-#include "kosuvm_base.h"
-#include "util.h"
-#include <stdint.h>
-#include <stddef.h>
+#define CAML_NAMESPACE
+#include "caml/mlvalues.h"
+#include "caml/misc.h"
+#include "caml/memory.h"
 
 
-kosuvm_t* kosuvm_init(instruction_t const * const code, uint64_t stack_size, uint64_t offset); 
-int kosuvm_run(kosuvm_t* vm);
-int kosuvm_run_single(kosuvm_t* vm);
-void kosuvm_free(kosuvm_t* vm);
-#endif
+CAMLprim value caml_macos(value unit) {
+    CAMLparam1(unit);
+    CAMLlocal1(ret);
+    #ifdef __APPLE__
+        ret = Val_true;
+    #else
+        ret = Val_false;
+    #endif
+    CAMLreturn(ret);
+}
