@@ -27,14 +27,16 @@ type ffi_type =
   | FFI_Pointer
   | FFI_Struct of ffi_type list
 
-type address_offset = Off_Reg of int | Off_value of int
-type address = { base_reg : int; offset : address_offset }
+type address_offset = Off_Reg of int64 | Off_value of int64
+
+type args =
+  | ArgsValue of int64
+  | ArgsAddr of { base_reg : int64; offset : address_offset }
 
 type ccall_entry = {
   function_name : string;
-  arity : int;
-  dynlib_entry : int;
-  args : address list;
+  arity : int64;
+  args : args list;
   ty_args : ffi_type list;
   ty_return : ffi_type;
 }
@@ -64,22 +66,24 @@ let rec string_of_ffi_type = function
 
 let string_of_address_offset = function
   | Off_Reg n ->
-      Printf.sprintf "# %u" n
+      Printf.sprintf "# %Lu" n
   | Off_value n ->
-      Printf.sprintf "$ %d " n
+      Printf.sprintf "$ %Ld " n
 
-let string_of_address = function
-  | { base_reg; offset } ->
-      Printf.sprintf "%u(%s)" base_reg @@ string_of_address_offset offset
+let string_of_args = function
+  | ArgsValue value ->
+      Printf.sprintf "$%Ld" value
+  | ArgsAddr { base_reg; offset } ->
+      Printf.sprintf "# %Ld(%s)" base_reg @@ string_of_address_offset offset
 
 let single_quoted = Printf.sprintf "\'%s\'"
 let quoted = Printf.sprintf "\"%s\""
 
 let string_of_ccall_entry = function
-  | { function_name; arity; dynlib_entry; args; ty_args; ty_return } ->
-      Printf.sprintf "(%s %d %u (%s) (%s) %s)"
+  | { function_name; arity; args; ty_args; ty_return } ->
+      Printf.sprintf "(%s %Ld (%s) (%s) %s)"
         (single_quoted function_name)
-        arity dynlib_entry
-        (args |> List.map string_of_address |> String.concat " ")
+        arity
+        (args |> List.map string_of_args |> String.concat " ")
         (ty_args |> List.map string_of_ffi_type |> String.concat " ")
         (string_of_ffi_type ty_return)

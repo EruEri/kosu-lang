@@ -56,7 +56,7 @@ rule token = parse
 | "=" { EQUAL }
 | "$" { DOLLAR }
 | number as n {
-    let n = int_of_string n in
+    let n = Int64.of_string n in
     Integer n
 }
 | "'" (cfn_name as name) "'" {

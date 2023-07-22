@@ -27,7 +27,7 @@
 %token <string> Identifier
 %token <string> StringLit
 %token <string> Cfn_name
-%token <int> Integer
+%token <int64> Integer
 %token NEWLINE
 %token LPARENT
 %token RPARENT
@@ -80,13 +80,13 @@ line:
     | parenthesis(ccentry) NEWLINE { CCentry $1 } 
 
 ccentry:
-    | function_name=Cfn_name arity=Integer dynlib_entry=Integer 
-        args=parenthesis(list(parenthesis(address)))
+    | function_name=Cfn_name arity=Integer 
+        args=parenthesis(list(parenthesis(args)))
         ty_args=parenthesis(list(ffi_type))
         ty_return=ffi_type
     {
         {
-            function_name; arity; dynlib_entry;
+            function_name; arity;
             args; ty_args; ty_return
         
         }
@@ -108,9 +108,12 @@ ffi_type:
     }
 
 
-address:
-    | base_reg=Integer offset=parenthesis(address_offset) {
-        { base_reg; offset }
+args:
+    | DOLLAR Integer {
+	    ArgsValue $2
+    }
+    | Croisillon base_reg=Integer offset=parenthesis(address_offset) {
+        ArgsAddr { base_reg; offset }
     }
 
 address_offset:
