@@ -59,8 +59,8 @@ let run_man =
      in
      () *)
 
-let run_vm pc code =
-  let vm = KosuVirtualMachine.kosuvm_init code 4096 pc () in
+let run_vm libs entries pc code =
+  let vm = KosuVirtualMachine.kosuvm_init code 4096 pc libs entries in
   let status = KosuVirtualMachine.kosuvm_run vm () in
   let () = KosuVirtualMachine.kosuvm_free vm () in
   status
@@ -106,7 +106,8 @@ let run_main cmd =
   let ast = KosurunFront.Parser.kosurun_ast KosurunFront.Lexer.token lexfub in
   let () = check_shebang ast in
   let pc = pc_value ast in
-  let status = run_vm pc ast.bytecode in
+  let entries = KosurunFront.Ast.centries ast in
+  let status = run_vm [ libc ] entries pc ast.bytecode in
   let () = Printf.eprintf "status = %d\n" status in
   ()
 

@@ -180,14 +180,62 @@ arg_t caml_arg(value caml_args) {
     return a;
 }
 
-ccall_entry_t caml_ccall_entry(value caml_entry) {
-    const char* function_name = String_val(Field(caml_entry, 0));
-    int64_t arity = Int64_val(Field(caml_entry, 1));
+args_t caml_args(value caml_args) {
 
-    exit(1);
+    size_t len = caml_list_length(caml_args);    
+    arg_t* args = malloc(sizeof(arg_t) * len);
+    if (!args) {
+        args_t c_args = {.p_count = 0, .p_address = NULL};
+        return c_args;
+    }
+    size_t index = 0;
+    while (caml_args != Val_emptylist) {
+        value head = Field(caml_args, 0);
+        *(args + index) = caml_arg(head);
+        caml_args = Field(caml_args, 1);
+        index += 1;
+    }
+    args_t c_args = {.p_address = args, .p_count = len};
+    return c_args;
 }
 
-CAMLprim value caml_kosuvm_init_bis(value code, value stack_size, value start_index, value libs, value ccentries) {
+ccall_entry_t caml_ccall_entry(value caml_entry) {
+    CAMLparam1(caml_entry);
+    const char* function_name = String_val(Field(caml_entry, 0));
+    int64_t arity = Int64_val(Field(caml_entry, 1));
+    args_t args = caml_args(Field(caml_entry, 2));
+    ffi_type** args_types = caml_ffi_types_list(Field(caml_entry, 3));
+    ffi_type* return_type = caml_ffi_type(Field(caml_entry, 4));
+    ccall_entry_t entry = {
+        .function_name = function_name, 
+        .arity = arity,
+        .args = args,
+        .args_types = args_types,
+        .return_type = return_type
+    };
+    return entry;
+}
+
+ccall_entries_t caml_ccall_entries(value caml_args) {
+
+    size_t len = caml_list_length(caml_args);    
+    ccall_entry_t* entries = malloc(sizeof(ccall_entry_t) * len);
+    if (!entries) {
+        ccall_entries_t c_args = {.e_count = 0, .entries = NULL};
+        return c_args;
+    }
+    size_t index = 0;
+    while (caml_args != Val_emptylist) {
+        value head = Field(caml_args, 0);
+        *(entries + index) = caml_ccall_entry(head);
+        caml_args = Field(caml_args, 1);
+        index += 1;
+    }
+    ccall_entries_t c_entries = {.entries = entries, .e_count = len};
+    return c_entries;
+}
+
+CAMLprim value caml_kosuvm_init(value code, value stack_size, value start_index, value libs, value ccentries) {
     CAMLparam5(code, stack_size, start_index, libs, ccentries);
     unsigned long index = Long_val(start_index);
     unsigned long cstack_size = Val_long(stack_size);
@@ -197,22 +245,23 @@ CAMLprim value caml_kosuvm_init_bis(value code, value stack_size, value start_in
     const char** c_clibs = caml_clibs(libs, libs_length);
     if (!c_clibs) {
         caml_failwith("Fail to alloc clibs");
-    } 
-
-    exit(1);
+    }
+    ccall_entries_t c_entries = caml_ccall_entries(ccentries);
+    kosuvm_t* vm = kosuvm_init(vm_code, cstack_size, index, c_entries, c_clibs);
+    CAMLreturn(val_of_vm(vm));
 }
 
 // code : bytes or string
 // start_index : int
 // string -> int -> int -> unit -> vm
-CAMLprim value caml_kosuvm_init(value code, value stack_size, value start_index, value unit) {
-    CAMLparam4(code, stack_size, start_index, unit);
-    unsigned long index = Long_val(start_index);
-    unsigned long cstack_size = Val_long(stack_size);
-    const void * vm_code = String_val(code);
-    kosuvm_t* vm = kosuvm_init(vm_code, cstack_size, index);
-    CAMLreturn(val_of_vm(vm));
-}
+// CAMLprim value caml_kosuvm_init(value code, value stack_size, value start_index, value unit) {
+//     CAMLparam4(code, stack_size, start_index, unit);
+//     unsigned long index = Long_val(start_index);
+//     unsigned long cstack_size = Val_long(stack_size);
+//     const void * vm_code = String_val(code);
+//     kosuvm_t* vm = kosuvm_init(vm_code, cstack_size, index);
+//     CAMLreturn(val_of_vm(vm));
+// }
 
 CAMLprim value caml_kosuvm_run(value vm, value unit) {
     CAMLparam2(vm, unit);

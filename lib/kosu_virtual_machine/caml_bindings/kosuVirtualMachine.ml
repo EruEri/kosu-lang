@@ -15,11 +15,18 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
+module FFIType = KosuVmType
+
 type t
 
-external kosuvm_init : string -> int -> int -> unit -> t = "caml_kosuvm_init"
+external kosuvm_init :
+  string ->
+  int ->
+  int ->
+  string list ->
+  FFIType.args FFIType.ccall_entry list ->
+  t = "caml_kosuvm_init"
+
 external kosuvm_run : t -> unit -> int = "caml_kosuvm_run"
 external kosuvm_free : t -> unit -> unit = "caml_kosuvm_free"
 external kosuvm_run_single : t -> unit -> int = "caml_kosuvm_run_single"
-
-module FFIType = KosuVmType

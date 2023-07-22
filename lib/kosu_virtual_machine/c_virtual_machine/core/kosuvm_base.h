@@ -148,7 +148,7 @@ typedef struct {
 
 typedef struct {
     const arg_t* p_address;
-    const size_t p_count;
+    size_t p_count;
 } args_t;
 
 
