@@ -28,6 +28,38 @@ const uint32_t KOSUVM_REGISTER_SIZE = 5;
 const uint32_t KOSUVM_LD_ST_DATA_SIZE = 2;
 const uint32_t KOSUVM_WORD_SIZE = 8;
 
+address_offset_t addr_offset(address_offset_tag_t is_value, uint8_t base_reg_addr, int64_t value) {
+    is_value = is_value & 1;
+    address_offset_t addr_off = {.aot_tag = is_value, .aot_base_reg_addr = base_reg_addr};
+    switch (is_value) {
+    case AOT_REG: {
+        addr_off.aot_val.aot_enc_reg = (uint8_t) value;
+        break;
+    }
+    case AOT_VALUE: {
+        addr_off.aot_val.value = value;
+        break;
+    }
+    }
+    return addr_off;
+}
+
+arg_t arg_address(address_offset_tag_t is_value, uint8_t base_reg_addr, int64_t value) {
+    address_offset_t offset = addr_offset(is_value, base_reg_addr, value);
+    arg_t arg = {.tag = AT_ADDR, .offset.o_addr_off = offset};
+    return arg;
+}
+
+arg_t arg_value(int64_t o_value) {
+    arg_t arg = {.tag = AT_VALUE, .offset.o_value = o_value};
+    return arg;
+}
+
+arg_t arg_pc_rel(int64_t o_pcrel) {
+    arg_t arg = {.tag = AT_PC_REL, .offset.o_pcrel = o_pcrel};
+    return arg;
+}
+
 kosuvm_stack_t* kosuvm_stack_create(uint64_t size) {
     kosuvm_stack_t* stack_ptr = malloc(sizeof(kosuvm_stack_t));
     if (!stack_ptr) failwith("Stack alloc failed", 1);

@@ -123,6 +123,7 @@ typedef enum {
 
 typedef struct {
     address_offset_tag_t aot_tag;
+    uint8_t aot_base_reg_addr;
     union {
         // encoding of reg
         uint8_t aot_enc_reg;
@@ -132,15 +133,14 @@ typedef struct {
 
 typedef enum {
     AT_VALUE = 0,
-    AT_REG,
+    AT_ADDR,
     AT_PC_REL
 } arg_tag_t;
 
 typedef struct {
-    uint8_t enc_reg;
     arg_tag_t tag;
     union {
-        address_offset_t o_reg;
+        address_offset_t o_addr_off;
         int64_t o_value;
         int64_t o_pcrel;
     } offset;
@@ -220,6 +220,12 @@ typedef struct {
     // Return adress register
     reg_t rap;
 } kosuvm_t;
+
+
+address_offset_t addr_offset(address_offset_tag_t is_value, uint8_t base_reg_addr, int64_t value);
+arg_t arg_address(address_offset_tag_t is_value, uint8_t base_reg_addr, int64_t value);
+arg_t arg_value(int64_t o_value);
+arg_t arg_pc_rel(int64_t o_pcrel);
 
 
 kosuvm_stack_t* kosuvm_stack_create(uint64_t size);

@@ -56,7 +56,6 @@ dl_handlers_t handle_dll(const char** librairies) {
     }
 
     return handlers;
-    
 }
 
 kosuvm_t* kosuvm_init(const instruction_t *const code, uint64_t stack_size, 
@@ -210,12 +209,13 @@ void* cc_find_symbol(kosuvm_t* vm, const char* name) {
 void* iccall_offset(kosuvm_t* vm, arg_t addr, size_t* nb_args) {
     void* value = NULL;
     switch (addr.tag) {
-    case AT_REG: {
-        reg_t* base_reg = register_of_int32(vm, addr.enc_reg, 0);
+    case AT_ADDR: {
+        address_offset_t addr_off = addr.offset.o_addr_off;
+        reg_t* base_reg = register_of_int32(vm, addr_off.aot_base_reg_addr, 0);
         int64_t offset = 
-            (addr.offset.o_reg.aot_tag == AOT_REG)
-            ? *register_of_int32(vm, addr.offset.o_reg.aot_val.aot_enc_reg, 0)
-            : addr.offset.o_reg.aot_val.value
+            (addr_off.aot_tag == AOT_REG)
+            ? *register_of_int32(vm, addr_off.aot_val.aot_enc_reg, 0)
+            : addr_off.aot_val.value
         ;
         return (void*) *base_reg + offset;
     }

@@ -18,6 +18,7 @@
 
 
 
+#include <stdio.h>
 #define CAML_NAME_SPACE
 #include <stdlib.h>
 #include "caml/misc.h"
@@ -29,7 +30,11 @@
 #include "../core/kosuvm.h"
 #include <ffi/ffi.h>
 
-#define CLOS_CAML_LIST_LENGTH "caml_list_length"
+#define CLOS_CAML_LIST_LENGTH "c_caml_list_length"
+
+#define DEBUG \
+    puts("Hello world"); \
+    fflush(stdout);
 
 static mlsize_t caml_list_length(value l) {
     static const value* closure = NULL;
@@ -93,7 +98,6 @@ ffi_type* caml_ffi_type(value caml_ffi) {
         if (!struture) return NULL;
         struture->type = FFI_TYPE_STRUCT;
         value caml_ffi_list = Field(caml_ffi, 0);
-        size_t list_len = caml_list_length(caml_ffi_list);
         ffi_type** struture_elt = caml_ffi_types_list(caml_ffi_list);
         if (!struture_elt) {
             free(struture);
@@ -134,55 +138,44 @@ ffi_type* caml_ffi_type(value caml_ffi) {
 
 
 arg_t caml_arg(value caml_args) {
-    arg_t a;
+    // CAMLparam1(caml_args);
+    // CAMLlocal2(caml_value, assoc_record);
     switch (Tag_val(caml_args)) {
         case AT_VALUE: {
             value caml_value = Field(caml_args, 0);
             int64_t c_value = Int64_val(caml_value);
-            a.tag = AT_VALUE;
-            a.offset.o_value = c_value;
-            break;
-        }
-        case AT_REG: {
-            a.tag = AT_REG;
-            value assoc_record = Field(caml_args, 0);
-            uint8_t base_reg = Int64_val(Field(assoc_record, 0));
-            a.enc_reg = base_reg;
-            value address_offset_value = Field(assoc_record, 1);
-            address_offset_tag_t aot_tag = Tag_val(address_offset_value);
-            address_offset_t aot = {.aot_tag = aot_tag};
-
-            switch (aot_tag) {
-            case AOT_REG: {
-                uint8_t o_reg = Int64_val(Field(address_offset_value, 0)); 
-                aot.aot_val.aot_enc_reg = o_reg;
-                break;
-            }
-            case AOT_VALUE: {
-                int64_t o_value= Int64_val(Field(address_offset_value, 1)); 
-                aot.aot_val.value = o_value;
-                break;
-            }
-            default:
-                caml_failwith("Unknwon tag for address_offset_tag_t");
-            }
-            a.offset.o_reg = aot;
-            break;
+            return arg_value(c_value);
         }
         case AT_PC_REL:{
-            a.tag = AT_PC_REL;
-            a.offset.o_pcrel = Int_val(Field(caml_args, 0));
-            break;
+            int64_t c_pcrel = Long_val(Field(caml_args, 0));
+            return arg_pc_rel(c_pcrel);
+        }
+        case AT_ADDR: {
+            value assoc_record = caml_args;
+            uint8_t base_reg = Int64_val(Field(assoc_record, 0));
+            value address_offset_value = Field(assoc_record, 1);
+
+            address_offset_tag_t aot_tag = Tag_val(address_offset_value);
+            
+            int64_t value_or_reg;
+            if (aot_tag == AOT_REG) {
+                uint8_t o_reg = Int64_val(Field(address_offset_value, 0)); 
+                value_or_reg = o_reg;
+            } else {
+                int64_t o_value = Int64_val(Field(address_offset_value, 1)); 
+                value_or_reg = o_value;
+            }
+            return arg_address(aot_tag, base_reg, value_or_reg);
         }
         default:
             caml_failwith("Unknwon tag for caml_address");
     }
-    return a;
 }
 
 args_t caml_args(value caml_args) {
 
-    size_t len = caml_list_length(caml_args);    
+    size_t len = caml_list_length(caml_args);
+    printf("len = %lu", len);   
     arg_t* args = malloc(sizeof(arg_t) * len);
     if (!args) {
         args_t c_args = {.p_count = 0, .p_address = NULL};
@@ -200,7 +193,7 @@ args_t caml_args(value caml_args) {
 }
 
 ccall_entry_t caml_ccall_entry(value caml_entry) {
-    CAMLparam1(caml_entry);
+    // CAMLparam1(caml_entry);
     const char* function_name = String_val(Field(caml_entry, 0));
     int64_t arity = Int64_val(Field(caml_entry, 1));
     args_t args = caml_args(Field(caml_entry, 2));
@@ -228,6 +221,7 @@ ccall_entries_t caml_ccall_entries(value caml_args) {
     while (caml_args != Val_emptylist) {
         value head = Field(caml_args, 0);
         *(entries + index) = caml_ccall_entry(head);
+
         caml_args = Field(caml_args, 1);
         index += 1;
     }
@@ -241,12 +235,18 @@ CAMLprim value caml_kosuvm_init(value code, value stack_size, value start_index,
     unsigned long cstack_size = Val_long(stack_size);
     const void * vm_code = String_val(code);
     const size_t libs_length = caml_list_length(libs);
-    const size_t ccentries_length = caml_list_length(ccentries); 
     const char** c_clibs = caml_clibs(libs, libs_length);
     if (!c_clibs) {
         caml_failwith("Fail to alloc clibs");
     }
+
     ccall_entries_t c_entries = caml_ccall_entries(ccentries);
+
+    if (!c_entries.entries) {
+        free(c_clibs);
+        caml_failwith("C_entry failt");
+    }
+
     kosuvm_t* vm = kosuvm_init(vm_code, cstack_size, index, c_entries, c_clibs);
     CAMLreturn(val_of_vm(vm));
 }
