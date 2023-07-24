@@ -154,15 +154,15 @@ arg_t caml_arg(value caml_args) {
             value assoc_record = caml_args;
             uint8_t base_reg = Int64_val(Field(assoc_record, 0));
             value address_offset_value = Field(assoc_record, 1);
-
             address_offset_tag_t aot_tag = Tag_val(address_offset_value);
-            
+            printf("Tag value = %d\n", aot_tag);
+            fflush(stdout);
             int64_t value_or_reg;
             if (aot_tag == AOT_REG) {
                 uint8_t o_reg = Int64_val(Field(address_offset_value, 0)); 
                 value_or_reg = o_reg;
             } else {
-                int64_t o_value = Int64_val(Field(address_offset_value, 1)); 
+                int64_t o_value = Int64_val(Field(address_offset_value, 0));
                 value_or_reg = o_value;
             }
             return arg_address(aot_tag, base_reg, value_or_reg);
@@ -175,7 +175,6 @@ arg_t caml_arg(value caml_args) {
 args_t caml_args(value caml_args) {
 
     size_t len = caml_list_length(caml_args);
-    printf("len = %lu", len);   
     arg_t* args = malloc(sizeof(arg_t) * len);
     if (!args) {
         args_t c_args = {.p_count = 0, .p_address = NULL};
