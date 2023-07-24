@@ -155,8 +155,6 @@ arg_t caml_arg(value caml_args) {
             uint8_t base_reg = Int64_val(Field(assoc_record, 0));
             value address_offset_value = Field(assoc_record, 1);
             address_offset_tag_t aot_tag = Tag_val(address_offset_value);
-            printf("Tag value = %d\n", aot_tag);
-            fflush(stdout);
             int64_t value_or_reg;
             if (aot_tag == AOT_REG) {
                 uint8_t o_reg = Int64_val(Field(address_offset_value, 0)); 

@@ -388,7 +388,29 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
             tac_parameters
             |> List.map @@ cc_args_translate_tac_expression ~litterals fd
           in
-          LineInstruction.sccall rprogram args external_func_decl :: []
+          let r0_return_address =
+            match where with
+            | Addr_Indirect { address; offset } ->
+                let tmp_reg = Register.r14 in
+                let load_instrs =
+                  LineInstruction.sldr SIZE_64 Register.r0 address
+                in
+                let incr_addres =
+                  match offset with
+                  | 0L ->
+                      []
+                  | offset ->
+                      LineInstruction.sadd tmp_reg tmp_reg
+                      @@ Operande.ilitteral offset
+                in
+                load_instrs @ incr_addres
+            | Addr_Direct (Some addr) ->
+                LineInstruction.slea_address Register.r0 addr
+            | Addr_Direct None ->
+                failwith "C funtion Function return no stack location"
+          in
+          r0_return_address
+          @ (LineInstruction.sccall rprogram args external_func_decl :: [])
     )
   | RVTuple ttes | RVArray ttes ->
       let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in

@@ -64,10 +64,6 @@ kosuvm_t* kosuvm_init(const instruction_t *const code, uint64_t stack_size,
     ) 
 {
     dl_handlers_t handlers = handle_dll(librairies);
-    for (size_t index = 0; index < handlers.count; index += 1) {
-        const char* libname = librairies[index];
-        puts(libname);
-    }
     kosuvm_t* vm_ptr = malloc(sizeof(kosuvm_t));
     if (!vm_ptr) failwith("Vm alloc fail", 1);
     kosuvm_stack_t* stack = kosuvm_stack_create(stack_size);
@@ -223,7 +219,7 @@ void* iccall_offset(kosuvm_t* vm, arg_t addr, size_t* nb_args) {
             ? *register_of_int32(vm, addr_off.aot_val.aot_enc_reg, 0)
             : addr_off.aot_val.value
         ;
-        return (void*) *base_reg + offset;
+        return (void**) *base_reg + offset;
     }
     case AT_VALUE: {
         reg_t* reg = register_of_int32(vm, *nb_args, 0);
@@ -233,7 +229,7 @@ void* iccall_offset(kosuvm_t* vm, arg_t addr, size_t* nb_args) {
     }
 
     case AT_PC_REL:
-        return (void *) (vm->irp - 1) + addr.offset.o_pcrel;
+        return (void **) (vm->ip - 1) + addr.offset.o_pcrel;
     }
     return value;
 }
@@ -247,7 +243,7 @@ int iccall(kosuvm_t* vm, instruction_t instruction) {
     ccall_entry_t entry = vm->cc_entries.entries[index];
     void* fn_ptr = cc_find_symbol(vm, entry.function_name);
     if (!fn_ptr) {
-        printf("Cannot find %s\n", entry.function_name);
+        fprintf(stderr, "Cannot find %s\n", entry.function_name);
         return -1;
     }
 
@@ -383,7 +379,8 @@ int lea(kosuvm_t* vm, instruction_t instruction) {
         *dst = *reg_base_a + value;
     } else {
         int64_t value = sext21(instruction);
-        *dst = (reg_t) (vm->ip - 0) + value;
+        *dst = (reg_t) (instruction_t*) ((vm->ip - 1) + value);
+        // printf("dst = %s\n", (const char*) *dst);
     }
 
     return 0;
@@ -630,6 +627,11 @@ int str(kosuvm_t* vm, instruction_t instruction) {
         break;
     case S64:
         *((uint64_t*) *base + offset) = (uint64_t) *src;
+        // if (src == &vm->irp) {
+        //     const char** s = (void**) *base + offset;
+        //     printf("addr = %p\n", s);
+        //     printf("in str = %s\n", *s);
+        // }
         break;
     }
 
@@ -741,8 +743,8 @@ int itof_ftoi(kosuvm_t* vm, instruction_t instruction) {
 
 int kosuvm_run_single(kosuvm_t* vm) {
         instruction_t instruction = fetch_instruction(vm);
-        pp_instruction(instruction);
-        puts("");
+        //pp_instruction(instruction);
+        //puts("");
         kosuvm_opcode_t ist = opcode_value(instruction);
         // printf("instruction code = %u\n", ist);
         switch (ist) { 
@@ -816,7 +818,7 @@ int kosuvm_run_single(kosuvm_t* vm) {
                 failwith("", 1);
             break;
         }
-    show_status(vm);
+    // show_status(vm);
     return VM_INSTR_SUCESS;
 }
 
