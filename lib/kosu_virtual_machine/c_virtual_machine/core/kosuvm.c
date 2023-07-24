@@ -286,8 +286,8 @@ int iccall(kosuvm_t* vm, instruction_t instruction) {
         *(values + index) = args_loc;
     }
 
-    int (*p)(const char*) = fn_ptr;
-    p("Hello world");
+    // int (*p)(const char*) = fn_ptr;
+    // p("Hello world");
 
     ffi_call(&cif, fn_ptr, (void*) vm->r0, values);
 
@@ -383,7 +383,7 @@ int lea(kosuvm_t* vm, instruction_t instruction) {
         *dst = *reg_base_a + value;
     } else {
         int64_t value = sext21(instruction);
-        *dst = (reg_t) (vm->ip - 1) + value;
+        *dst = (reg_t) (vm->ip - 0) + value;
     }
 
     return 0;

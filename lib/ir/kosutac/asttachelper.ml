@@ -190,9 +190,17 @@ module StringLitteral = struct
     in
     SLit lab
 
-  let rec map_fill_string_lit_of_tac_expression map expression () =
+  let rec map_fill_string_lit_of_tac_expression ~null_terminated_string map
+      expression () =
     match expression with
     | TEString s -> (
+        let s =
+          match null_terminated_string with
+          | false ->
+              s
+          | true ->
+              Printf.sprintf "%s\000" s
+        in
         match Hashtbl.find_opt map s with
         | None ->
             Hashtbl.add map s
@@ -203,78 +211,93 @@ module StringLitteral = struct
     | _ ->
         ()
 
-  and map_fill_string_lit_of_trvalue map trvalue () =
+  and map_fill_string_lit_of_trvalue ~null_terminated_string map trvalue () =
     match trvalue with
     | RVExpression e ->
-        map_fill_string_lit_of_tac_expression map e.tac_expression ()
+        map_fill_string_lit_of_tac_expression ~null_terminated_string map
+          e.tac_expression ()
     | RVFunction { tac_parameters; _ } ->
         tac_parameters
         |> List.iter (fun typed_expr ->
-               map_fill_string_lit_of_tac_expression map
+               map_fill_string_lit_of_tac_expression ~null_terminated_string map
                  typed_expr.tac_expression ()
            )
     | RVStruct { fields; _ } ->
         fields
         |> List.iter (fun (_, typed_expr) ->
-               map_fill_string_lit_of_tac_expression map
+               map_fill_string_lit_of_tac_expression ~null_terminated_string map
                  typed_expr.tac_expression ()
            )
     | RVArrayAccess { array_expr; index_expr } ->
         let () =
-          map_fill_string_lit_of_tac_expression map array_expr.tac_expression ()
+          map_fill_string_lit_of_tac_expression ~null_terminated_string map
+            array_expr.tac_expression ()
         in
         let () =
-          map_fill_string_lit_of_tac_expression map index_expr.tac_expression ()
+          map_fill_string_lit_of_tac_expression ~null_terminated_string map
+            index_expr.tac_expression ()
         in
         ()
     | RVEnum { assoc_tac_exprs; _ } ->
         assoc_tac_exprs
         |> List.iter (fun typed_expr ->
-               map_fill_string_lit_of_tac_expression map
+               map_fill_string_lit_of_tac_expression ~null_terminated_string map
                  typed_expr.tac_expression ()
            )
     | RVBuiltinCall { parameters; _ } | RVTuple parameters | RVArray parameters
       ->
         parameters
         |> List.iter (fun typed_expr ->
-               map_fill_string_lit_of_tac_expression map
+               map_fill_string_lit_of_tac_expression ~null_terminated_string map
                  typed_expr.tac_expression ()
            )
     | RVCustomBinop bin | RVBuiltinBinop bin ->
         let () =
-          map_fill_string_lit_of_tac_expression map bin.blhs.tac_expression ()
+          map_fill_string_lit_of_tac_expression ~null_terminated_string map
+            bin.blhs.tac_expression ()
         in
-        map_fill_string_lit_of_tac_expression map bin.brhs.tac_expression ()
+        map_fill_string_lit_of_tac_expression ~null_terminated_string map
+          bin.brhs.tac_expression ()
     | RVCustomUnop un | RVBuiltinUnop un ->
-        map_fill_string_lit_of_tac_expression map un.expr.tac_expression ()
+        map_fill_string_lit_of_tac_expression ~null_terminated_string map
+          un.expr.tac_expression ()
     | RVFieldAcess { first_expr; _ } | RVTupleAccess { first_expr; _ } ->
-        map_fill_string_lit_of_tac_expression map first_expr.tac_expression ()
+        map_fill_string_lit_of_tac_expression ~null_terminated_string map
+          first_expr.tac_expression ()
     | RVAdress _ | RVAdressof _ | RVDefer _ | RVDiscard | RVLater ->
         ()
 
-  and map_fill_string_lit_of_tac_case map
+  and map_fill_string_lit_of_tac_case ~null_terminated_string map
       { statement_for_condition; condition; tac_body; _ } () =
     let () =
       statement_for_condition
-      |> List.iter (fun stmt -> map_fill_string_lit_of_tac_statement map stmt ())
+      |> List.iter (fun stmt ->
+             map_fill_string_lit_of_tac_statement ~null_terminated_string map
+               stmt ()
+         )
     in
     let () =
-      map_fill_string_lit_of_tac_expression map condition.tac_expression ()
+      map_fill_string_lit_of_tac_expression ~null_terminated_string map
+        condition.tac_expression ()
     in
-    let () = map_fill_string_lit_of_tac_body map tac_body () in
+    let () =
+      map_fill_string_lit_of_tac_body ~null_terminated_string map tac_body ()
+    in
     ()
 
   and map_fill_string_lit_of_tac_switch map { switch_tac_body; _ } () =
     map_fill_string_lit_of_tac_body map switch_tac_body ()
 
-  and map_fill_string_lit_of_tac_statement map statement () =
+  and map_fill_string_lit_of_tac_statement ~null_terminated_string map statement
+      () =
     match statement with
     | STacDeclaration { trvalue; _ }
     | STacModification { trvalue; _ }
     | STDerefAffectationField { trvalue; _ }
     | STacModificationField { trvalue; _ }
     | STDerefAffectation { trvalue; _ } ->
-        map_fill_string_lit_of_trvalue map trvalue.rvalue ()
+        map_fill_string_lit_of_trvalue ~null_terminated_string map
+          trvalue.rvalue ()
     | STWhile
         {
           statements_condition;
@@ -287,13 +310,18 @@ module StringLitteral = struct
         let () =
           statements_condition
           |> List.iter (fun lstmt ->
-                 map_fill_string_lit_of_tac_statement map lstmt ()
+                 map_fill_string_lit_of_tac_statement ~null_terminated_string
+                   map lstmt ()
              )
         in
         let () =
-          map_fill_string_lit_of_tac_expression map condition.tac_expression ()
+          map_fill_string_lit_of_tac_expression ~null_terminated_string map
+            condition.tac_expression ()
         in
-        let () = map_fill_string_lit_of_tac_body map loop_body () in
+        let () =
+          map_fill_string_lit_of_tac_body ~null_terminated_string map loop_body
+            ()
+        in
         ()
     | STIf
         { statement_for_bool; condition_rvalue; if_tac_body; else_tac_body; _ }
@@ -301,15 +329,22 @@ module StringLitteral = struct
         let () =
           statement_for_bool
           |> List.iter (fun lstmt ->
-                 map_fill_string_lit_of_tac_statement map lstmt ()
+                 map_fill_string_lit_of_tac_statement ~null_terminated_string
+                   map lstmt ()
              )
         in
         let () =
-          map_fill_string_lit_of_tac_expression map
+          map_fill_string_lit_of_tac_expression ~null_terminated_string map
             condition_rvalue.tac_expression ()
         in
-        let () = map_fill_string_lit_of_tac_body map if_tac_body () in
-        let () = map_fill_string_lit_of_tac_body map else_tac_body () in
+        let () =
+          map_fill_string_lit_of_tac_body ~null_terminated_string map
+            if_tac_body ()
+        in
+        let () =
+          map_fill_string_lit_of_tac_body ~null_terminated_string map
+            else_tac_body ()
+        in
         ()
     | STSwitch
         { statemenets_for_case; condition_switch; sw_cases; wildcard_body; _ }
@@ -317,22 +352,27 @@ module StringLitteral = struct
         let () =
           statemenets_for_case
           |> List.iter (fun smt ->
-                 map_fill_string_lit_of_tac_statement map smt ()
+                 map_fill_string_lit_of_tac_statement ~null_terminated_string
+                   map smt ()
              )
         in
         let () =
-          map_fill_string_lit_of_tac_expression map
+          map_fill_string_lit_of_tac_expression ~null_terminated_string map
             condition_switch.tac_expression ()
         in
         let () =
           sw_cases
           |> List.iter (fun tac_switch ->
-                 map_fill_string_lit_of_tac_switch map tac_switch ()
+                 map_fill_string_lit_of_tac_switch ~null_terminated_string map
+                   tac_switch ()
              )
         in
         let () =
           wildcard_body
-          |> Option.iter (fun tb -> map_fill_string_lit_of_tac_body map tb ())
+          |> Option.iter (fun tb ->
+                 map_fill_string_lit_of_tac_body ~null_terminated_string map tb
+                   ()
+             )
         in
         ()
     | STSwitchTmp
@@ -346,11 +386,13 @@ module StringLitteral = struct
         let () =
           tmp_statemenets_for_case
           |> List.iter (fun smt ->
-                 map_fill_string_lit_of_tac_statement map smt ()
+                 map_fill_string_lit_of_tac_statement ~null_terminated_string
+                   map smt ()
              )
         in
         let () =
-          map_fill_string_lit_of_tac_expression map tag_atom.tac_expression ()
+          map_fill_string_lit_of_tac_expression ~null_terminated_string map
+            tag_atom.tac_expression ()
         in
 
         let () =
@@ -359,63 +401,79 @@ module StringLitteral = struct
                  let () =
                    sw.variants
                    |> List.iter (fun { cmp_statement; _ } ->
-                          map_fill_string_lit_of_tac_statement map cmp_statement
-                            ()
+                          map_fill_string_lit_of_tac_statement
+                            ~null_terminated_string map cmp_statement ()
                       )
                  in
                  let () =
-                   map_fill_string_lit_of_tac_body map sw.tmp_switch_tac_body ()
+                   map_fill_string_lit_of_tac_body ~null_terminated_string map
+                     sw.tmp_switch_tac_body ()
                  in
                  ()
              )
         in
         let () =
           tmp_wildcard_body
-          |> Option.iter (fun tb -> map_fill_string_lit_of_tac_body map tb ())
+          |> Option.iter (fun tb ->
+                 map_fill_string_lit_of_tac_body ~null_terminated_string map tb
+                   ()
+             )
         in
         ()
     | SCases { cases; else_tac_body; _ } ->
         let () =
           cases
-          |> List.iter (fun case -> map_fill_string_lit_of_tac_case map case ())
+          |> List.iter (fun case ->
+                 map_fill_string_lit_of_tac_case map ~null_terminated_string
+                   case ()
+             )
         in
-        map_fill_string_lit_of_tac_body map else_tac_body ()
+        map_fill_string_lit_of_tac_body ~null_terminated_string map
+          else_tac_body ()
 
-  and map_fill_string_lit_of_tac_body map { label = _; body = statements, last }
-      () =
+  and map_fill_string_lit_of_tac_body ~null_terminated_string map
+      { label = _; body = statements, last } () =
     let () =
       statements
-      |> List.iter (fun stmt -> map_fill_string_lit_of_tac_statement map stmt ())
+      |> List.iter (fun stmt ->
+             map_fill_string_lit_of_tac_statement ~null_terminated_string map
+               stmt ()
+         )
     in
     last
     |> Option.iter (fun expr ->
-           map_fill_string_lit_of_tac_expression map expr.tac_expression ()
+           map_fill_string_lit_of_tac_expression ~null_terminated_string map
+             expr.tac_expression ()
        )
 
-  and map_fill_string_lit_of_module_node map node () =
+  and map_fill_string_lit_of_module_node ~null_terminated_string map node () =
     match node with
     | TNFunction { tac_body; _ } ->
-        map_fill_string_lit_of_tac_body map tac_body ()
+        map_fill_string_lit_of_tac_body ~null_terminated_string map tac_body ()
     | TNOperator op ->
         let body = OperatorDeclaration.tac_body op in
-        map_fill_string_lit_of_tac_body map body ()
+        map_fill_string_lit_of_tac_body ~null_terminated_string map body ()
     (* | TNConst {rconst_name; value = {rktype = RTString_lit; rexpression = REstring s}} ->
        Hashtbl.add map s (SLit rconst_name) *)
     | _ ->
         ()
 
-  let map_of_string_litteral_in_module (TacModule rmodule) () =
+  let map_of_string_litteral_in_module ~null_terminated_string
+      (TacModule rmodule) () =
     let map = Hashtbl.create 10 in
     let () =
       rmodule
-      |> List.iter (fun modul -> map_fill_string_lit_of_module_node map modul ())
+      |> List.iter (fun modul ->
+             map_fill_string_lit_of_module_node ~null_terminated_string map
+               modul ()
+         )
     in
     map
 
-  let map_string_litteral_of_named_rmodule_path
+  let map_string_litteral_of_named_rmodule_path ~null_terminated_string
       { filename = _; tac_module_path = { path = _; tac_module }; rprogram = _ }
       =
-    map_of_string_litteral_in_module tac_module
+    map_of_string_litteral_in_module ~null_terminated_string tac_module
 
   let maps_of_prgram program =
     program

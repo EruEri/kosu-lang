@@ -294,8 +294,24 @@ int pp_br_jmp(const instruction_t i) {
 }
 
 int pp_lea(const instruction_t i) {
-    printf("lea ");
-    return 1;
+    const char* repr_lea = "lea";
+    const char* dst = repr_register(i >> 22);
+    bool_t is_address = is_set(i, mask_bit(21));
+    if (is_address) {
+        const char* addr_base = repr_register(i >> 16);
+        bool_t is_value = is_set(i, mask_bit(15));
+        if (is_value) {
+            const char* addr_off = repr_register(i >> 10);
+            printf("%s %s *(%s, %s)", repr_lea, dst, addr_base, addr_off);
+        } else {
+            int64_t offset = sext15(i);
+            printf("%s %s *(%s, %lld)", repr_lea, dst, addr_base, offset);
+        }
+    } else {
+        int64_t value = sext21(i);
+        printf("%s %s *(ip, %lld)", repr_lea, dst, value);
+    }
+    return 0;
 }
 
 
