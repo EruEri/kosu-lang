@@ -294,8 +294,8 @@ int pp_br_jmp(const instruction_t i) {
 }
 
 int pp_lea(const instruction_t i) {
-    failwith("LEA TODO", 2);
-    return 2;
+    printf("lea ");
+    return 1;
 }
 
 

@@ -50,6 +50,11 @@ int64_t sext16(instruction_t instruction) {
     return sextn(instruction, 16);
 }
 
+
+int64_t sext15(instruction_t instruction) {
+    return sextn(instruction, 15);
+}
+
 int64_t sext13(instruction_t instruction) {
     return sextn(instruction, 13);
 }

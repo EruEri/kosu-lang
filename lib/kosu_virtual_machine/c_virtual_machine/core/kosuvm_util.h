@@ -45,6 +45,8 @@ int64_t sext21(instruction_t instruction);
 
 int64_t sext18(instruction_t instruction);
 
+int64_t sext15(instruction_t instruction);
+
 int64_t sext16(instruction_t instruction);
 
 int64_t sext13(instruction_t instruction);

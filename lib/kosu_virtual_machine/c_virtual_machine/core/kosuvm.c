@@ -47,6 +47,7 @@ dl_handlers_t handle_dll(const char** librairies) {
     size_t count = 0;
     for (count = 0; count < NB_DYNLIB; count += 1) {
         const char* library = *(librairies + count);
+       
         if (!library) break;
         void* handler = dlopen(library, RTLD_LAZY);
         if (!handler) {
@@ -54,7 +55,7 @@ dl_handlers_t handle_dll(const char** librairies) {
         }
         handlers.handlers[count] = handler;
     }
-
+    handlers.count = count;
     return handlers;
 }
 
@@ -63,6 +64,10 @@ kosuvm_t* kosuvm_init(const instruction_t *const code, uint64_t stack_size,
     ) 
 {
     dl_handlers_t handlers = handle_dll(librairies);
+    for (size_t index = 0; index < handlers.count; index += 1) {
+        const char* libname = librairies[index];
+        puts(libname);
+    }
     kosuvm_t* vm_ptr = malloc(sizeof(kosuvm_t));
     if (!vm_ptr) failwith("Vm alloc fail", 1);
     kosuvm_stack_t* stack = kosuvm_stack_create(stack_size);
@@ -155,6 +160,8 @@ reg_t* register_of_int32(kosuvm_t* vm, uint32_t bits, uint32_t shift) {
     return (void *) 0;
 }
 
+int iccall(kosuvm_t* vm, instruction_t instruction);
+
 int isyscall(kosuvm_t* vm, instruction_t instruction) {
 
     #ifdef __APPLE__
@@ -182,13 +189,12 @@ int halt_opcode(kosuvm_t* vm, instruction_t instruction, bool_t* halt) {
             vm->ip = (const instruction_t *) vm->rap;
             return 0;
         }
-
         case SYSCALL_BITS: {
             return isyscall(vm, instruction);
         }
 
         case CALL_BITS: {
-            return 0;
+            return iccall(vm, instruction);
         }
     }
 
@@ -280,6 +286,9 @@ int iccall(kosuvm_t* vm, instruction_t instruction) {
         *(values + index) = args_loc;
     }
 
+    int (*p)(const char*) = fn_ptr;
+    p("Hello world");
+
     ffi_call(&cif, fn_ptr, (void*) vm->r0, values);
 
     free(values);
@@ -360,16 +369,21 @@ int br(kosuvm_t* vm, instruction_t instruction) {
     return 0;
 }
 
+
 int lea(kosuvm_t* vm, instruction_t instruction) {
     reg_t* dst = register_of_int32(vm, instruction, 22);
     bool_t is_address = is_set(instruction, mask_bit(21));
     if (is_address) {
         reg_t* reg_base_a = register_of_int32(vm, instruction, 16);
-        int64_t value = sext16(instruction);
+        bool_t is_value = is_set(instruction, mask_bit(15));
+        int64_t value = (is_value)
+            ? sext15(instruction)
+            : *register_of_int32(vm, instruction, 10)
+        ;
         *dst = *reg_base_a + value;
     } else {
         int64_t value = sext21(instruction);
-        *dst = (reg_t) vm->ip + value;
+        *dst = (reg_t) (vm->ip - 1) + value;
     }
 
     return 0;
