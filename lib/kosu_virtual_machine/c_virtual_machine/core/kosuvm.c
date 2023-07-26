@@ -282,10 +282,15 @@ int iccall(kosuvm_t* vm, instruction_t instruction) {
         *(values + index) = args_loc;
     }
 
+    // show_status(vm);
+
     // int (*p)(const char*) = fn_ptr;
     // p("Hello world");
 
     ffi_call(&cif, fn_ptr, (void*) vm->r0, values);
+
+    // show_status(vm);
+    // printf("value ro = %d\n", *(int*) vm->r0 );
 
     free(values);
     return 0;
@@ -588,15 +593,16 @@ int ldr(kosuvm_t* vm, instruction_t instruction) {
     int64_t offset = is_offset_reg 
         ? *register_of_int32(vm, instruction, 12) 
         : sext13(instruction);
+    
     switch (ds) {
     case S8:
-        *dst = *((uint8_t*) *base + offset);
+        *dst = *((uint8_t*) (*base + offset));
         break;
     case S16:
-        *dst = *((uint16_t*) *base + offset);
+        *dst = *((uint16_t*) (*base + offset));
         break;
     case S32:
-        *dst = *((uint32_t*) *base + offset);
+        *dst = *((uint32_t*) (*base + offset) );
         break;
     case S64:
         *dst = *((uint64_t*) *base + offset);
@@ -617,13 +623,13 @@ int str(kosuvm_t* vm, instruction_t instruction) {
     // printf("reg = %d\noffset = %lld\n", is_offset_reg, offset);
     switch (ds) {
     case S8:
-        *((uint8_t*) *base + offset) = (uint8_t) *src;
+        *((uint8_t*) (*base + offset)) = (uint8_t) *src;
         break;
     case S16:
-        *((uint16_t*) *base + offset) = (uint16_t) *src;
+        *((uint16_t*) (*base + offset)) = (uint16_t) *src;
         break;
     case S32:
-        *((uint32_t*) *base + offset) = (uint32_t) *src;
+        *((uint32_t*) (*base + offset)) = (uint32_t) *src;
         break;
     case S64:
         *((uint64_t*) *base + offset) = (uint64_t) *src;
