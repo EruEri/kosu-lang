@@ -60,7 +60,7 @@ let run_man =
      () *)
 
 let run_vm libs entries pc code =
-  let vm = KosuVirtualMachine.kosuvm_init code 4096 pc libs entries in
+  let vm = KosuVirtualMachine.kosuvm_init code 8_000_000 pc libs entries in
   let status = KosuVirtualMachine.kosuvm_run vm () in
   let () = KosuVirtualMachine.kosuvm_free vm () in
   status

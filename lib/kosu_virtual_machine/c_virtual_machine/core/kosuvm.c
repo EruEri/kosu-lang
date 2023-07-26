@@ -540,7 +540,7 @@ bool_t cmp_value(condition_code_t cc, reg_t lhs, reg_t rhs) {
         return true;
     case EQUAL: {
         bool_t c = lhs == rhs;
-        printf("%lld == %lld: %d\n", lhs, rhs, c);
+        // printf("%lld == %lld: %d\n", lhs, rhs, c);
         return c;
     }
     case DIFF:
@@ -593,19 +593,19 @@ int ldr(kosuvm_t* vm, instruction_t instruction) {
     int64_t offset = is_offset_reg 
         ? *register_of_int32(vm, instruction, 12) 
         : sext13(instruction);
-    
+    int64_t raw_address = *base + offset;
     switch (ds) {
     case S8:
-        *dst = *((uint8_t*) (*base + offset));
+        *dst = *((uint8_t*) raw_address);
         break;
     case S16:
-        *dst = *((uint16_t*) (*base + offset));
+        *dst = *((uint16_t*) raw_address);
         break;
     case S32:
-        *dst = *((uint32_t*) (*base + offset) );
+        *dst = *((uint32_t*) raw_address);
         break;
     case S64:
-        *dst = *((uint64_t*) *base + offset);
+        *dst = *((uint64_t*) raw_address);
       break;
     }
 
@@ -621,18 +621,19 @@ int str(kosuvm_t* vm, instruction_t instruction) {
         ? *register_of_int32(vm, instruction, 12) 
         : sext13(instruction);
     // printf("reg = %d\noffset = %lld\n", is_offset_reg, offset);
+    int64_t raw_address = *base + offset;
     switch (ds) {
     case S8:
-        *((uint8_t*) (*base + offset)) = (uint8_t) *src;
+        *((uint8_t*) raw_address) = (uint8_t) *src;
         break;
     case S16:
-        *((uint16_t*) (*base + offset)) = (uint16_t) *src;
+        *((uint16_t*) raw_address) = (uint16_t) *src;
         break;
     case S32:
-        *((uint32_t*) (*base + offset)) = (uint32_t) *src;
+        *((uint32_t*) raw_address) = (uint32_t) *src;
         break;
     case S64:
-        *((uint64_t*) *base + offset) = (uint64_t) *src;
+        *((uint64_t*) raw_address) = (uint64_t) *src;
         // if (src == &vm->irp) {
         //     const char** s = (void**) *base + offset;
         //     printf("addr = %p\n", s);
