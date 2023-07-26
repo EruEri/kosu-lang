@@ -219,7 +219,8 @@ void* iccall_offset(kosuvm_t* vm, arg_t addr, size_t* nb_args) {
             ? *register_of_int32(vm, addr_off.aot_val.aot_enc_reg, 0)
             : addr_off.aot_val.value
         ;
-        return (void**) *base_reg + offset;
+        int64_t raw_address = *base_reg + offset;
+        return (void**) raw_address;
     }
     case AT_VALUE: {
         reg_t* reg = register_of_int32(vm, *nb_args, 0);
@@ -229,7 +230,7 @@ void* iccall_offset(kosuvm_t* vm, arg_t addr, size_t* nb_args) {
     }
 
     case AT_PC_REL:
-        return (void **) (vm->ip - 1) + addr.offset.o_pcrel;
+        return (void **) ((vm->ip - 1) + addr.offset.o_pcrel);
     }
     return value;
 }
