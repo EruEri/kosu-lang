@@ -40,7 +40,7 @@ let find_symbol symbole (pc : pc_info) =
         | Some pc ->
             pc
         | None ->
-            failwith @@ Printf.sprintf "Unable to find pc rel: \"%s\"" symbole
+            failwith @@ Printf.sprintf "Unable to find pc rel: %s" symbole
       )
   in
   (* let () = Out_channel.with_open_bin "debug.txt" (fun oc ->

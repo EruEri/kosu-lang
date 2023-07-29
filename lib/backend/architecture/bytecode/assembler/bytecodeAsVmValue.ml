@@ -61,7 +61,7 @@ let bytes_of_int32 n =
   bytes
 
 let bytes_of_int64 n =
-  let bytes = Bytes.create instruction_size in
+  let bytes = Bytes.create (2 * instruction_size) in
   let () = Bytes.set_int64_ne bytes 0 n in
   bytes
 

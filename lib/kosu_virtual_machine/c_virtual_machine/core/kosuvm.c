@@ -254,7 +254,11 @@ int iccall(kosuvm_t* vm, instruction_t instruction) {
     if (entry.args.p_count != entry.arity) {
         // DO VARIADIC
 
-        status = -1;
+        status = ffi_prep_cif_var(
+            &cif, FFI_DEFAULT_ABI, 
+            entry.arity, entry.args.p_count, 
+            entry.return_type, entry.args_types
+            );
     } else {
         status = ffi_prep_cif(
             &cif, FFI_DEFAULT_ABI, 
@@ -262,7 +266,6 @@ int iccall(kosuvm_t* vm, instruction_t instruction) {
             entry.return_type, 
             entry.args_types
         );
-        // status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, entry.arity, entry.return_type, entry.args);
     }
 
     if (status != FFI_OK) {

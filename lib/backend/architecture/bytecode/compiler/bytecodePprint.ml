@@ -309,9 +309,16 @@ let string_of_asm_function
 let string_of_asm_node = function
   | BytecodeCore.BytecodeProgram.Afunction f ->
       string_of_asm_function f
-  | AConst _c ->
-      failwith "TODO: string_of_asm_node Const"
+  | AConst { asm_const_name; value } ->
+      let string_of_value =
+        match value with
+        | `IntVal (_, value) ->
+            Printf.sprintf "%LX" value
+        | `StrVal str ->
+            Printf.sprintf "\"%s\"" str
+      in
+      Printf.sprintf "%s:\n\t%s" asm_const_name string_of_value
   | AStringLitteral { name; value } ->
-      Printf.sprintf "%s:\n\t \"%s\"\n\n" name value
+      Printf.sprintf "%s:\n\t\"%s\"\n\n" name value
   | AFloat_Litteral { fname; fvalue } ->
-      Printf.sprintf "%s:\n\t %LX\n\n" fname (Int64.bits_of_float @@ snd fvalue)
+      Printf.sprintf "%s:\n\t%LX\n\n" fname (Int64.bits_of_float @@ snd fvalue)

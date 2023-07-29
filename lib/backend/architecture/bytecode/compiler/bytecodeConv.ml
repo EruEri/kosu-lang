@@ -128,14 +128,22 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
       mv_integer target_reg size
   | TEConst { module_path; name } when tte.expr_rktype = RTString_lit ->
       lea_label target_reg ~module_path name
+  | TEConst { module_path; name }
+    when KosuIrTyped.Asttyhelper.RType.is_any_integer tte.expr_rktype
+         || KosuIrTyped.Asttyhelper.RType.is_float tte.expr_rktype ->
+      let lea_instructions = lea_label target_reg ~module_path name in
+      let load =
+        LineInstruction.sldr SIZE_64 target_reg (create_address target_reg)
+      in
+      lea_instructions @ load
   | TEConst _ ->
-      failwith "Other constant todo"
+      failwith "Other constant unspported"
 
 let cc_args_translate_tac_expression ~litterals fd tte =
   match tte.tac_expression with
   | TEString s ->
       let (SLit _) = Hashtbl.find litterals.str_lit_map s in
-      failwith "strign litteral"
+      Instruction.BcPcRel (BclocalSymbol s)
   | TEFalse | TECmpLesser | TEmpty | TENullptr ->
       Instruction.BcValue 0L
   | TETrue | TECmpEqual ->
@@ -169,11 +177,10 @@ let cc_args_translate_tac_expression ~litterals fd tte =
   | TESizeof kt ->
       let size = KosuIrTyped.Sizeof.sizeof_kt kt in
       Instruction.BcValue size
-  | TEConst { module_path = _; name = _ } when tte.expr_rktype = RTString_lit ->
-      (* let _   = lea_label target_reg ~module_path name in *)
-      failwith "Litteral const "
-  | TEConst _ ->
-      failwith "Other constant todo"
+  | TEConst { module_path; name } ->
+      let symbole = NamingConvention.const_label_format module_path name in
+      let () = print_endline symbole in
+      Instruction.(BcPcRel (BcGlobalSymbol symbole))
 
 let translate_and_store ~where ~litterals ~target_reg fd tte =
   match where with
@@ -1721,6 +1728,60 @@ let asm_module_of_tac_module ~litterals current_module rprogram = function
                in
                let asm_body = prologue @ List.tl conversion @ epilogue in
                Option.some @@ Afunction { asm_name; asm_body }
+           | TNConst
+               {
+                 rconst_name;
+                 value =
+                   {
+                     rktype = RTInteger _;
+                     rexpression = REInteger (_ssign, size, value);
+                   };
+               } ->
+               Some
+                 (AConst
+                    {
+                      asm_const_name =
+                        NamingConvention.const_label_format current_module
+                          rconst_name;
+                      value = `IntVal (size, value);
+                    }
+                 )
+           | TNConst
+               {
+                 rconst_name;
+                 value =
+                   { rktype = RTFloat fsize; rexpression = REFloat (_, f) };
+               } ->
+               let size, bit_float =
+                 match fsize with
+                 | F32 ->
+                     ( KosuFrontend.Ast.I64,
+                       f |> Int32.bits_of_float |> Int64.of_int32
+                     )
+                 | F64 ->
+                     (KosuFrontend.Ast.I64, Int64.bits_of_float f)
+               in
+               Some
+                 (AConst
+                    {
+                      asm_const_name =
+                        NamingConvention.const_label_format current_module
+                          rconst_name;
+                      value = `IntVal (size, bit_float);
+                    }
+                 )
+           | TNConst
+               { rconst_name; value = { rktype = _; rexpression = REstring s } }
+             ->
+               Some
+                 (AConst
+                    {
+                      asm_const_name =
+                        NamingConvention.const_label_format current_module
+                          rconst_name;
+                      value = `StrVal s;
+                    }
+                 )
            | TNConst _ ->
                failwith "Const"
            | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ ->

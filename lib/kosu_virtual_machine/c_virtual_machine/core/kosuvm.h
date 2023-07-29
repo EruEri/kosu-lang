@@ -15,8 +15,8 @@
 //                                                                                            //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-#ifndef VM_H
-#define VM_H
+#ifndef __KOSUVM_H__
+#define __KOSUVM_H__
 
 #include "kosuvm_base.h"
 #include "util.h"
