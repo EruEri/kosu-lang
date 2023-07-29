@@ -89,7 +89,6 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
   match tte.tac_expression with
   | TEString s ->
       (* Linked to the map_string_litteral, param  ill terminalted for bytecode *)
-      let s = Printf.sprintf "%s\000" s in
       let (SLit str_labl) = Hashtbl.find litterals.str_lit_map s in
       lea_label target_reg str_labl
   | TEFalse | TECmpLesser | TEmpty | TENullptr ->
@@ -142,7 +141,6 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
 let cc_args_translate_tac_expression ~litterals fd tte =
   match tte.tac_expression with
   | TEString s ->
-      let s = Printf.sprintf "%s\000" s in
       let (SLit symbole) = Hashtbl.find litterals.str_lit_map s in
       Instruction.BcPcRel (BclocalSymbol symbole)
   | TEFalse | TECmpLesser | TEmpty | TENullptr ->
@@ -1808,7 +1806,7 @@ let asm_program_of_tac_program tac_program =
   |> List.map (fun ({ filename; tac_module_path; rprogram } as named) ->
          let str_lit_map =
            map_string_litteral_of_named_rmodule_path
-             ~null_terminated_string:true named ()
+             ~null_terminated_string:false named ()
          in
          let float_lit_map =
            KosuIrTAC.Asttachelper.FloatLitteral
