@@ -203,8 +203,8 @@ module StringLitteral = struct
         in
         match Hashtbl.find_opt map s with
         | None ->
-            Hashtbl.add map s
-              (make_string_litteral_label (map |> Hashtbl.length))
+            Hashtbl.add map s @@ make_string_litteral_label
+            @@ Hashtbl.length map
         | Some _ ->
             ()
       )

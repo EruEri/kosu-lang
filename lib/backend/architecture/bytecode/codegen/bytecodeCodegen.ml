@@ -22,7 +22,7 @@ open BytecodeCompiler.Pprint
 let default_perm = 0o755
 
 let compile_asm_readable ?outfile tac_rpogram =
-  let asm_program = asm_program_of_tac_program ~start:None tac_rpogram in
+  let asm_program = asm_program_of_tac_program tac_rpogram in
   let on_file_function file =
     asm_program
     |> List.iter
@@ -48,7 +48,7 @@ let compile_asm_readable ?outfile tac_rpogram =
   Out_channel.with_open_bin file on_file_function
 
 let compile_as_readable ?outfile tac_rpogram =
-  let asm_program = asm_program_of_tac_program ~start:None tac_rpogram in
+  let asm_program = asm_program_of_tac_program tac_rpogram in
   let _, as_prgram =
     BytecodeAssembler.Convertion.nodes_of_asm_program asm_program
   in
@@ -67,7 +67,7 @@ let compile_bytecode shebang executable ?outfile tac_rpogram =
     let () = Printf.fprintf oc "%s%!" @@ KosurunFront.Ast.to_string ast in
     ()
   in
-  let asm_program = asm_program_of_tac_program ~start:None tac_rpogram in
+  let asm_program = asm_program_of_tac_program tac_rpogram in
   let pc_main, as_nodes =
     BytecodeAssembler.Convertion.nodes_of_asm_program asm_program
   in

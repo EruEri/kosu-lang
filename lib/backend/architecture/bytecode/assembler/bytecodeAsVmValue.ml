@@ -70,8 +70,9 @@ let bytes_of_string s =
   let to_extend =
     Int64.to_int @@ KosuIrTyped.Sizeof.align_4 @@ Int64.of_int len
   in
+  let () = Printf.printf "s: \"%s\", len: %u, extend: %u\n\n" s len to_extend in
   let bytes = String.to_bytes s in
-  let bytes = Bytes.extend bytes 0 to_extend in
+  let bytes = Bytes.extend bytes 0 (to_extend - len) in
   bytes
 
 let entry_index :

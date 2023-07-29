@@ -142,8 +142,9 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
 let cc_args_translate_tac_expression ~litterals fd tte =
   match tte.tac_expression with
   | TEString s ->
-      let (SLit _) = Hashtbl.find litterals.str_lit_map s in
-      Instruction.BcPcRel (BclocalSymbol s)
+      let s = Printf.sprintf "%s\000" s in
+      let (SLit symbole) = Hashtbl.find litterals.str_lit_map s in
+      Instruction.BcPcRel (BclocalSymbol symbole)
   | TEFalse | TECmpLesser | TEmpty | TENullptr ->
       Instruction.BcValue 0L
   | TETrue | TECmpEqual ->
@@ -1802,8 +1803,7 @@ let asm_module_path_of_tac_module_path ~litterals rprogram { path; tac_module }
   let nodes = nodes @ string_litterals_nodes in
   { apath = path; asm_module = AsmModule nodes }
 
-let asm_program_of_tac_program ~(start : string option) tac_program =
-  ignore start;
+let asm_program_of_tac_program tac_program =
   tac_program
   |> List.map (fun ({ filename; tac_module_path; rprogram } as named) ->
          let str_lit_map =

@@ -56,9 +56,9 @@ let args_of_bcargs info = function
   | BcAddress addr ->
       `ArgsAddr addr
   | BcPcRel (BclocalSymbol s) ->
-      `ArgsPcReal (Option.get @@ find_local_symbol s info)
+      `ArgsPcReal (find_symbol s info)
   | BcPcRel (BcGlobalSymbol s) ->
-      `ArgsPcReal (Option.get @@ find_global_symbol s info)
+      `ArgsPcReal (find_symbol s info)
 
 let as_instruction_of_bytecode_instructions info =
   let open ByteInstruction in
@@ -269,6 +269,7 @@ let as_node_of_asm_node info =
           (* vm will store all number as 64 bits *)
           (incr_pc 2L info, AsConst c)
       | `StrVal string ->
+          let string = Printf.sprintf "%s\000" string in
           let stringlen = String.length string in
           let next =
             (KosuIrTyped.Sizeof.align_4 @@ Int64.of_int stringlen) // 4L

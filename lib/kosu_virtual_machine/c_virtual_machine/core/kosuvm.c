@@ -229,8 +229,13 @@ void* iccall_offset(kosuvm_t* vm, arg_t addr, size_t* nb_args) {
         return reg;
     }
 
-    case AT_PC_REL:
-        return (void **) ((vm->ip - 1) + addr.offset.o_pcrel);
+    case AT_PC_REL: {
+        printf("pc rel = %lld\n", addr.offset.o_pcrel);
+        fflush(stdout);
+        const instruction_t* new_ip = vm->ip - 1; 
+        const instruction_t* label = new_ip + addr.offset.o_pcrel;
+        return (void **) label;
+    }
     }
     return value;
 }
@@ -388,6 +393,7 @@ int lea(kosuvm_t* vm, instruction_t instruction) {
         *dst = *reg_base_a + value;
     } else {
         int64_t value = sext21(instruction);
+        printf("lea offset = %lld\n", value);
         *dst = (reg_t) (instruction_t*) ((vm->ip - 1) + value);
         // printf("dst = %s\n", (const char*) *dst);
     }
