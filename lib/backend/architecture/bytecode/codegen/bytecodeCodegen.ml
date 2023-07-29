@@ -67,7 +67,10 @@ let compile_bytecode shebang executable ?outfile tac_rpogram =
     let () = Printf.fprintf oc "%s%!" @@ KosurunFront.Ast.to_string ast in
     ()
   in
-  let asm_program = asm_program_of_tac_program tac_rpogram in
+  let asm_program =
+    asm_program_of_tac_program
+    @@ KosuIrTAC.Asttachelper.Convertion.null_terminated_program tac_rpogram
+  in
   let pc_main, as_nodes =
     BytecodeAssembler.Convertion.nodes_of_asm_program asm_program
   in
