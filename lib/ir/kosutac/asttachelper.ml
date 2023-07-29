@@ -747,3 +747,234 @@ module FloatLitteral = struct
     |> Seq.map (fun (s, SLit label) -> Printf.sprintf "%s : \"%s\"" label s)
     |> List.of_seq |> String.concat "\n\t"
 end
+
+module Convertion = struct
+
+  let null_terminate = 
+    Printf.sprintf "%s\000"
+
+  let rec null_terminate_typed_expression ty_ex = 
+    {
+      ty_ex with rexpression = null_terminate_expression ty_ex.rexpression
+    }
+
+  and null_terminate_expression = function
+  | REstring s ->
+    REstring (null_terminate s)
+  | RETupleAccess { first_expr; index } 
+  -> 
+    let first_expr = null_terminate_typed_expression first_expr in
+    RETupleAccess {first_expr; index}
+  | REFieldAcces { first_expr; field }
+  ->
+    let first_expr = null_terminate_typed_expression first_expr in
+    REFieldAcces {first_expr; field}
+  | REArrayAccess {
+      array_expr;
+      index_expr;
+    } ->
+      let array_expr = null_terminate_typed_expression array_expr in
+      let index_expr = null_terminate_typed_expression index_expr in
+      REArrayAccess {array_expr; index_expr}
+  | REStruct {
+    modules_path;
+    struct_name;
+    fields : (string * typed_expression) list;
+  } -> 
+    let fields = List.map (fun (s, ty) -> s, null_terminate_typed_expression ty) fields in
+    REStruct {modules_path; struct_name; fields}
+    | REEnum {
+      modules_path;
+      enum_name;
+      variant;
+      assoc_exprs;
+    }
+    ->
+      let assoc_exprs = List.map null_terminate_typed_expression assoc_exprs in
+      REEnum {modules_path; enum_name; variant; assoc_exprs}
+  | REArray tes ->
+    REArray (List.map null_terminate_typed_expression tes)
+  | RETuple tes ->
+    RETuple (List.map null_terminate_typed_expression tes)
+  | REBuiltin_Function_call {fn_name; parameters} ->
+    let parameters = List.map null_terminate_typed_expression parameters in
+    REBuiltin_Function_call {fn_name; parameters}
+  | REFunction_call {modules_path; generics_resolver; fn_name; parameters} ->
+    let parameters = List.map null_terminate_typed_expression parameters in
+    REFunction_call {modules_path; generics_resolver; fn_name; parameters}
+  | REBinOperator_Function_call rkbin_op -> 
+    REBinOperator_Function_call (null_terminate_rkbin_op rkbin_op)
+  | REUnOperator_Function_call  rkunary_op ->
+    REUnOperator_Function_call (null_terminate_rkunary_op rkunary_op)
+  | REWhile (ty_ex, body) ->
+    let ty_ex = null_terminate_typed_expression ty_ex in
+    let body = null_terminate_kbody body in
+    REWhile (ty_ex, body)
+  | REIf (condition, if_true, else_false) ->
+    let condition = null_terminate_typed_expression condition in
+    let if_true = null_terminate_kbody if_true in
+    let else_false = null_terminate_kbody else_false in
+    REIf (condition, if_true, else_false)
+  | RECases {cases; else_case} ->
+    let cases = cases |> List.map (fun (ty, body) ->
+      let ty = null_terminate_typed_expression ty in
+      let body = null_terminate_kbody body in
+      ty, body
+    ) in 
+    let else_case = null_terminate_kbody else_case in
+    RECases {cases; else_case}
+  | RESwitch {rexpression; cases; wildcard_case} ->
+    let rexpression = null_terminate_typed_expression rexpression in
+    let cases = cases |> List.map (fun (rswi, bounds, body) -> 
+      let body = null_terminate_kbody body in
+      rswi, bounds, body
+    )
+    in
+    let wildcard_case = Option.map null_terminate_kbody wildcard_case in
+    RESwitch {rexpression; cases; wildcard_case}
+  | REBin_op rkbin_op -> 
+    REBin_op (null_terminate_rkbin_op rkbin_op)
+  | REUn_op rkunary_op ->
+    REUn_op (null_terminate_rkunary_op rkunary_op)
+  | REmpty
+  | RTrue
+  | RFalse
+  | RENullptr
+  | RECmpLess
+  | RECmpEqual
+  | RECmpGreater
+  | REInteger _
+  | REFloat _
+  | REChar _
+  | RESizeof _
+  | REAdress _
+  | REAdressof _
+  | REDeference _
+  | REIdentifier _ 
+  | REConst_Identifier _ as e 
+    -> e
+  and null_terminate_rkunary_op = function
+  | RUMinus te -> RUMinus (null_terminate_typed_expression te)
+  | RUNot te -> RUNot (null_terminate_typed_expression te)
+  and null_terminate_rkbin_op = function
+  | RBAdd (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBAdd (lhs, rhs)
+  | RBMinus  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBMinus (lhs, rhs)
+  | RBMult  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBMult (lhs, rhs)
+  | RBDiv (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBDiv (lhs, rhs)
+  | RBMod  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBMod (lhs, rhs)
+  | RBBitwiseOr  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBBitwiseOr (lhs, rhs)
+  | RBBitwiseAnd  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBBitwiseAnd (lhs, rhs)
+  | RBBitwiseXor  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBBitwiseXor (lhs, rhs)
+  | RBShiftLeft  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBShiftLeft (lhs, rhs)
+  | RBShiftRight  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBShiftRight (lhs, rhs)
+  | RBAnd  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBAnd  (lhs, rhs)
+  | RBOr  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBOr (lhs, rhs)
+  | RBSup  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBSup (lhs, rhs)
+  | RBSupEq  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBSupEq (lhs, rhs)
+  | RBInf  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBInf (lhs, rhs)
+  | RBInfEq  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBInfEq (lhs, rhs)
+  | RBEqual  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBEqual  (lhs, rhs)
+  | RBDif  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBDif (lhs, rhs)
+  | RBCmp  (lhs, rhs) ->
+    let lhs = null_terminate_typed_expression lhs in
+    let rhs = null_terminate_typed_expression rhs in
+    RBCmp (lhs, rhs)
+  and null_terminate_statement = function
+  | RSDeclaration {is_const; variable_name; typed_expression} -> 
+    let typed_expression = null_terminate_typed_expression typed_expression in
+    RSDeclaration {is_const; variable_name; typed_expression}
+  | RSAffection (ra_val, ty) ->
+    let ty = null_terminate_typed_expression ty in
+    RSAffection (ra_val, ty)
+  | RSDiscard ty -> 
+    let ty = null_terminate_typed_expression ty in
+    RSDiscard ty
+  | RSDerefAffectation (raffection, ty) ->
+    let ty = null_terminate_typed_expression ty in
+    RSDerefAffectation (raffection, ty)
+  and null_terminate_kbody (stmts, final_expr) =
+    let stmts = List.map null_terminate_statement stmts in
+    let final_expr = null_terminate_typed_expression final_expr in
+    stmts, final_expr 
+
+  let null_terminate_rconst_decl rconst_decl = 
+    {
+      rconst_decl with value = null_terminate_typed_expression rconst_decl.value
+    }
+
+
+  let null_terminate_rmodule = function
+  | TNConst rconst_decl -> TNConst (null_terminate_rconst_decl rconst_decl)
+  | e -> e
+
+  let null_terminated_tac_module (TacModule rmodule) = 
+    let rmodules = List.map null_terminate_rmodule rmodule in
+    TacModule rmodules
+
+  let null_terminated_named_rmodule_path rmodule = 
+    let { filename = _; tac_module_path = { path = _; tac_module } as t; rprogram = _ } as m = rmodule in
+    {
+      m with tac_module_path = { t with tac_module = null_terminated_tac_module tac_module}
+    }
+
+
+  let null_terminated_program program =
+    program
+    |> List.map (fun named_module -> 
+      null_terminated_named_rmodule_path named_module
+    )
+end
