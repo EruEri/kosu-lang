@@ -19,8 +19,6 @@
 #include "kosuvm_util.h"
 #include "kosuvm_pp.h"
 #include "util.h"
-
-
 #include <ffi/ffi.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -223,6 +221,8 @@ void* iccall_offset(kosuvm_t* vm, arg_t addr, size_t* nb_args) {
         return (void**) raw_address;
     }
     case AT_VALUE: {
+        // printf("value = %lld\n", addr.offset.o_value);
+        // fflush(stdout);
         reg_t* reg = register_of_int32(vm, *nb_args, 0);
         *reg = addr.offset.o_value;
         *nb_args = *nb_args + 1;
@@ -261,7 +261,7 @@ int iccall(kosuvm_t* vm, instruction_t instruction) {
     int status;
     if (entry.args.p_count != entry.arity) {
         // DO VARIADIC
-
+        // printf("arity = %u, count = %lu\n", entry.arity, entry.args.p_count);
         status = ffi_prep_cif_var(
             &cif, FFI_DEFAULT_ABI, 
             entry.arity, entry.args.p_count, 
@@ -283,7 +283,7 @@ int iccall(kosuvm_t* vm, instruction_t instruction) {
 
     // TMP Check later if non stacked args overflow on other register
 
-    void** values = malloc(sizeof(void*) * entry.args.p_count);
+    void** values = malloc(sizeof(void*) * (entry.args.p_count + 1));
     if (!values) return -1;
 
     // Since R0 will hold the return address
@@ -291,14 +291,14 @@ int iccall(kosuvm_t* vm, instruction_t instruction) {
     for (size_t index = 0; index < entry.args.p_count; index += 1) {
         arg_t addr = entry.args.p_address[index];
         void* args_loc = iccall_offset(vm, addr, &reg_ref);
-        *(values + index) = args_loc;
+        values[index] = args_loc;
     }
+    values[entry.args.p_count] = NULL;
 
     // show_status(vm);
 
     // int (*p)(const char*) = fn_ptr;
     // p("Hello world");
-
     ffi_call(&cif, fn_ptr, (void*) vm->r0, values);
 
     // show_status(vm);
@@ -397,8 +397,8 @@ int lea(kosuvm_t* vm, instruction_t instruction) {
     } else {
         int64_t value = sext21(instruction);
         *dst = (reg_t) (instruction_t*) ((vm->ip - 1) + value);
-        printf("addr = %lld\n", *dst);
-        fflush(stdout);
+        // printf("addr = %lld\n", *dst);
+        // fflush(stdout);
         // printf("dst = %s\n", (const char*) *dst);
     }
 

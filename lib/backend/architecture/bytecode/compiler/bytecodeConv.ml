@@ -413,7 +413,7 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
             | Addr_Direct (Some addr) ->
                 LineInstruction.slea_address Register.r0 addr
             | Addr_Direct None ->
-                failwith "C funtion Function return no stack location"
+                LineInstruction.smv Register.r0 @@ Operande.ilitteral 0L
           in
           r0_return_address
           @ (LineInstruction.sccall rprogram args external_func_decl :: [])
