@@ -394,6 +394,12 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
             tac_parameters
             |> List.map @@ cc_args_translate_tac_expression ~litterals fd
           in
+          let extra_args =
+            Util.ListHelper.popn
+              (List.length @@ external_func_decl.fn_parameters)
+              tac_parameters
+          in
+          let extra_types = List.map (fun e -> e.expr_rktype) extra_args in
           let r0_return_address =
             match where with
             | Addr_Indirect { address; offset } ->
@@ -416,7 +422,8 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
                 LineInstruction.smv Register.r0 @@ Operande.ilitteral 0L
           in
           r0_return_address
-          @ (LineInstruction.sccall rprogram args external_func_decl :: [])
+          @ LineInstruction.sccall ~extra_types rprogram args external_func_decl
+            :: []
     )
   | RVTuple ttes | RVArray ttes ->
       let ktlis = ttes |> List.map (fun { expr_rktype; _ } -> expr_rktype) in

@@ -753,7 +753,7 @@ module LineInstruction = struct
         else
           sldr data_size destination address
 
-  let sccall rprogram args
+  let sccall ~extra_types rprogram args
       (external_function : KosuIrTyped.Asttyped.rexternal_func_decl) =
     let func_name =
       external_function.c_name
@@ -764,6 +764,8 @@ module LineInstruction = struct
       external_function.fn_parameters
       |> List.map @@ CType.ffi_type_of_ktype rprogram
     in
+    let extra_types = List.map (CType.ffi_type_of_ktype rprogram) extra_types in
+    let params_type = params_type @ extra_types in
     let return_type =
       CType.ffi_type_of_ktype rprogram external_function.return_type
     in

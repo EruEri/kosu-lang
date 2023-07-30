@@ -185,6 +185,15 @@ module ListHelper = struct
             x2 :: ldiff fcompare xs1 xs2
       )
 
+  let rec popn n = function
+    | [] ->
+        []
+    | _ :: q as list ->
+        if n = 0 then
+          list
+        else
+          popn (n - 1) q
+
   let rec shrink ~atlength list =
     match (atlength, list) with
     | n, _ when n < 0 ->
