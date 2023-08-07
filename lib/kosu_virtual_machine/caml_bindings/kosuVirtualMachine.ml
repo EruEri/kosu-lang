@@ -20,12 +20,14 @@ module FFIType = KosuVmType
 type t
 
 external kosuvm_init :
+  int ->
+  string array ->
   string ->
   int ->
   int ->
   string list ->
   FFIType.args FFIType.ccall_entry list ->
-  t = "caml_kosuvm_init"
+  t = "caml_kosuvm_init_bytecode" "caml_kosuvm_init"
 
 external kosuvm_run : t -> unit -> int = "caml_kosuvm_run"
 external kosuvm_free : t -> unit -> unit = "caml_kosuvm_free"

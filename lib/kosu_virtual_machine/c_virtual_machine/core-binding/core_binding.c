@@ -17,9 +17,10 @@
 
 
 
+#include <string.h>
+#define CAML_NAME_SPACE
 
 #include <stdio.h>
-#define CAML_NAME_SPACE
 #include <stdlib.h>
 #include "caml/misc.h"
 #include "caml/mlvalues.h"
@@ -226,26 +227,63 @@ ccall_entries_t caml_ccall_entries(value caml_args) {
     return c_entries;
 }
 
-CAMLprim value caml_kosuvm_init(value code, value stack_size, value start_index, value libs, value ccentries) {
-    CAMLparam5(code, stack_size, start_index, libs, ccentries);
-    unsigned long index = Long_val(start_index);
-    unsigned long cstack_size = Val_long(stack_size);
-    const void * vm_code = String_val(code);
-    const size_t libs_length = caml_list_length(libs);
-    const char** c_clibs = caml_clibs(libs, libs_length);
-    if (!c_clibs) {
-        caml_failwith("Fail to alloc clibs");
+const char** caml_argv_array(int argc, value argv) {
+    size_t count = argc + 1; // TO STORE NULL
+    char** cargv = calloc(count, sizeof(const char*));
+    if (!argv) return NULL;
+    for (size_t i = 0; i < argc; i += 1 ) {
+        const char* caml_str = String_val(Field(argv, i));
+        const size_t c_strlen = strlen(caml_str) + 1;
+        const char* c_str = calloc(c_strlen, sizeof(char));
+        puts(c_str);
+        if (!c_str) goto error;
+        memcpy((void *) c_str, caml_str, c_strlen);
+        cargv[i] = (char*) c_str;
     }
+
+    return (const char**) cargv;
+
+    error: {
+        for (size_t i = 0; i < argc; i += 1 ) {
+            free( (void*) cargv[i] );
+        }
+        free( cargv );
+    }
+    return NULL;
+}
+
+CAMLprim value caml_kosuvm_init(value argc, value argv, value code, value stack_size, value start_index, value libs, value ccentries) {
+    CAMLparam5(argc, argv, code, stack_size, start_index);
+    CAMLxparam2(libs, ccentries);
 
     ccall_entries_t c_entries = caml_ccall_entries(ccentries);
 
-    if (!c_entries.entries) {
-        free(c_clibs);
-        caml_failwith("C_entry failt");
+    int cargc = Int_val(argc);
+    const char ** cargv = caml_argv_array(cargc, argv);
+    unsigned long index = Long_val(start_index);
+    unsigned long cstack_size = Val_long(stack_size);
+    const void * vm_code = String_val(code);
+
+    const size_t libs_length = caml_list_length(libs);
+    const char** c_clibs = caml_clibs(libs, libs_length);
+    if (!c_clibs || !cargv || !c_entries.entries) {
+        goto error;
     }
 
-    kosuvm_t* vm = kosuvm_init(vm_code, cstack_size, index, c_entries, c_clibs);
+    kosuvm_t* vm = kosuvm_init(cargc, cargv, vm_code, cstack_size, index, c_entries, c_clibs);
     CAMLreturn(val_of_vm(vm));
+
+    error:
+        free(cargv);
+        free(c_clibs);
+        free(c_entries.entries);
+        caml_failwith("caml_kosuvm_init_bytecode: an alloc fail");
+}
+
+CAMLprim value caml_kosuvm_init_bytecode(value* values, int argn) {
+    return caml_kosuvm_init(values[0], values[1], values[2], 
+        values[3], values[4], values[5], values[6]
+        );
 }
 
 // code : bytes or string

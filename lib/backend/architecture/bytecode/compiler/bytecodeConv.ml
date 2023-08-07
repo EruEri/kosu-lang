@@ -1401,7 +1401,8 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
       let copy_tag_instructions =
         match does_return_hold_in_register_kt condition_switch.expr_rktype with
         | true ->
-            failwith ""
+            (* To handle properly later *)
+            []
         | false ->
             let tag_size = ConditionCode.SIZE_32 in
             LineInstruction.sldr tag_size Register.r13

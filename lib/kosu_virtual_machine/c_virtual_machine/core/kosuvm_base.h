@@ -174,13 +174,15 @@ typedef struct {
 } dl_handlers_t;
 
 typedef struct {
+    bool_t last_cmp;
+
+    instruction_t const * const code;
+    const instruction_t* ip;
+    const char** argv;
+
+    kosuvm_stack_t* stack;
     dl_handlers_t dl_handlers;
     ccall_entries_t cc_entries;
-    instruction_t const * const code;
-    bool_t last_cmp;
-    const instruction_t* ip;
-    kosuvm_stack_t* stack;
-
 
     // Register parameters
     reg_t r0;

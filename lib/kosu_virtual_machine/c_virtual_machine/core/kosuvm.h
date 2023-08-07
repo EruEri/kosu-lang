@@ -25,7 +25,7 @@
 
 
 // kosuvm_t* kosuvm_init(instruction_t const * const code, uint64_t stack_size, uint64_t offset); 
-kosuvm_t* kosuvm_init(const instruction_t *const code, uint64_t stack_size, 
+kosuvm_t* kosuvm_init(int argc, const char** argv, const instruction_t *const code, uint64_t stack_size, 
     uint64_t offset, ccall_entries_t entries, const char** librairies
     );
 int kosuvm_run(kosuvm_t* vm);

@@ -126,5 +126,5 @@ $ ./example
 ## Other
 - You can see more detail about:
   - in [Readme.md](/doc/Readme.md)
-  - in [test](test/files/)
+  - in [test](/test/files/)
 

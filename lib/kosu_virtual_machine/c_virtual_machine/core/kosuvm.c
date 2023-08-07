@@ -57,7 +57,7 @@ dl_handlers_t handle_dll(const char** librairies) {
     return handlers;
 }
 
-kosuvm_t* kosuvm_init(const instruction_t *const code, uint64_t stack_size, 
+kosuvm_t* kosuvm_init(int argc, const char** argv, const instruction_t *const code, uint64_t stack_size, 
     uint64_t offset, ccall_entries_t entries, const char** librairies
     ) 
 {
@@ -67,7 +67,8 @@ kosuvm_t* kosuvm_init(const instruction_t *const code, uint64_t stack_size,
     kosuvm_stack_t* stack = kosuvm_stack_create(stack_size);
     const instruction_t* ip = code + offset;
     kosuvm_t vm = {
-        .stack = stack, 
+        .stack = stack,
+        .argv = argv,
         .dl_handlers = handlers,
         .cc_entries = entries,
         .code = code, 
@@ -75,6 +76,9 @@ kosuvm_t* kosuvm_init(const instruction_t *const code, uint64_t stack_size,
         .fp = stack->sp, 
         .last_cmp = false
     };
+    vm.r0 = argc;
+    vm.r1 = (size_t) (void *) argv;
+    // show_status(&vm);
     memcpy(vm_ptr, &vm, sizeof(kosuvm_t));
     return vm_ptr;
 }

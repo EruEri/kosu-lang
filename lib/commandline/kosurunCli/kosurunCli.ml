@@ -59,8 +59,11 @@ let run_man =
      in
      () *)
 
-let run_vm libs entries pc code =
-  let vm = KosuVirtualMachine.kosuvm_init code 8_000_000 pc libs entries in
+let run_vm argv libs entries pc code =
+  let argc = Array.length argv in
+  let vm =
+    KosuVirtualMachine.kosuvm_init argc argv code 8_000_000 pc libs entries
+  in
   let status = KosuVirtualMachine.kosuvm_run vm () in
   let () = KosuVirtualMachine.kosuvm_free vm () in
   status
@@ -93,12 +96,10 @@ let libs ast =
 
 let run_main cmd =
   let size = Array.length Sys.argv - 1 in
-  let _argv = Array.make size String.empty in
-  let () = Array.blit Sys.argv 1 _argv 0 size in
-  (* let () = Array.iter print_endline Sys.argv in *)
-  let { bytecode_file; argv } = cmd in
-  let () = ignore argv in
-  let _ = ignore bytecode_file in
+  let argv = Array.make size String.empty in
+  let () = Array.blit Sys.argv 1 argv 0 size in
+  (* let () = Array.iter print_endline argv in *)
+  let { bytecode_file; argv = _ } = cmd in
   let content =
     In_channel.with_open_bin bytecode_file (fun ic -> Util.Io.read_file ic ())
   in
@@ -107,7 +108,7 @@ let run_main cmd =
   let () = check_shebang ast in
   let pc = pc_value ast in
   let entries = KosurunFront.Ast.centries ast in
-  let status = run_vm [ libc ] entries pc ast.bytecode in
+  let status = run_vm argv [ libc ] entries pc ast.bytecode in
   let () = Printf.eprintf "status = %d\n" status in
   ()
 
