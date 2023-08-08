@@ -85,7 +85,7 @@ let address_of_addressage ?(f = fun () -> failwith "address is null") ~tmp_reg =
       let address = create_address tmp_reg in
       (ldr @ incr_addres, address)
 
-let translate_tac_expression ~litterals ~target_reg fd tte =
+let translate_tac_expression ?(enum = false) ~litterals ~target_reg fd tte =
   match tte.tac_expression with
   | TEString s ->
       (* Linked to the map_string_litteral, param  ill terminalted for bytecode *)
@@ -117,7 +117,13 @@ let translate_tac_expression ~litterals ~target_reg fd tte =
       match loc with
       | address ->
           if Register.does_return_hold_in_register_kt tte.expr_rktype then
-            let ds = ConditionCode.data_size_of_kt tte.expr_rktype in
+            let ds =
+              match enum with
+              | false ->
+                  ConditionCode.data_size_of_kt tte.expr_rktype
+              | true ->
+                  SIZE_32 (* Enum size *)
+            in
             sldr ds target_reg address
           else
             sadd target_reg address.base address.offset
@@ -1395,8 +1401,8 @@ let rec translate_tac_statement ~litterals current_module rprogram fd = function
         |> List.flatten
       in
       let condition_switch_instruction =
-        translate_tac_expression ~litterals ~target_reg:Register.r13 fd
-          condition_switch
+        translate_tac_expression ~enum:true ~litterals ~target_reg:Register.r13
+          fd condition_switch
       in
       let copy_tag_instructions =
         match does_return_hold_in_register_kt condition_switch.expr_rktype with

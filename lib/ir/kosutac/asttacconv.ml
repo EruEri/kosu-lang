@@ -20,6 +20,7 @@ open KosuIrTyped.Asttyhelper
 open Asttac
 open Asttachelper
 
+let new_switch_tac = false
 let if_count = ref 0
 let cases_count = ref 0
 let switch_count = ref 0
@@ -338,7 +339,7 @@ let rec convert_from_typed_expression ~discarded_value ~allocated ~map
         make_typed_tac_expression id_rktype (TEIdentifier identifier)
       )
   | RESwitch { rexpression; cases; wildcard_case }, Some (identifier, id_rktype)
-    when false ->
+    when new_switch_tac ->
       let enum_decl =
         match
           KosuIrTyped.Asttyhelper.RProgram.find_type_decl_from_rktye

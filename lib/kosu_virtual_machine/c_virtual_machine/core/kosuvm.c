@@ -165,7 +165,7 @@ int isyscall(kosuvm_t* vm, instruction_t instruction) {
     #ifdef __APPLE__
         // Find a way since [syscall] is deprecated on macOS and __syscall doesnt exist
         // Maybe inline asm for x86_64 and arm64 
-        vm->r0 = -1;
+        vm->r0 = syscall(vm->scp, vm->r0, vm->r1, vm->r2, vm->r3, vm->r4, vm->r5);
     #else
         #ifdef __FreeBSD__
             vm->r0 = __syscall(vm->scp, vm->r0, vm->r1, vm->r2, vm->r3, vm->r4, vm->r5);
