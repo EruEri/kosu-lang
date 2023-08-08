@@ -21,6 +21,7 @@ type stringlit_label = SLit of string
 type floatlit_label = FLit of string
 type coordinate = { line : int; column : int }
 
+let () = Callback.register "c_caml_list_length" List.length
 let couple a b = (a, b)
 
 let is_what_file ~extension filename =
@@ -92,6 +93,14 @@ end
 
 module Operator = struct
   let ( >? ) o v = Option.value ~default:v o
+end
+
+module Io = struct
+  let read_file ch () = really_input_string ch (in_channel_length ch)
+end
+
+module Checksum = struct
+  let checksum bytes = Digest.bytes bytes
 end
 
 module ListHelper = struct
@@ -175,6 +184,15 @@ module ListHelper = struct
         | _ ->
             x2 :: ldiff fcompare xs1 xs2
       )
+
+  let rec popn n = function
+    | [] ->
+        []
+    | _ :: q as list ->
+        if n = 0 then
+          list
+        else
+          popn (n - 1) q
 
   let rec shrink ~atlength list =
     match (atlength, list) with

@@ -2908,7 +2908,8 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
       |> List.map (fun ({ filename; tac_module_path; rprogram } as named) ->
              let str_lit_map =
                KosuIrTAC.Asttachelper.StringLitteral
-               .map_string_litteral_of_named_rmodule_path named ()
+               .map_string_litteral_of_named_rmodule_path
+                 ~null_terminated_string:false named ()
              in
              let float_lit_map =
                KosuIrTAC.Asttachelper.FloatLitteral

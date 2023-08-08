@@ -32,6 +32,7 @@ let align n b =
 
 let align_16 b = align b 16L
 let align_8 b = align b 8L
+let align_4 b = align b 4L
 
 let rec size calcul program rktype =
   match rktype with
@@ -335,6 +336,8 @@ let compute_all_size_module_path rprogram { rmodule = RModule rmodules; _ } =
 
 (** To be call once all generics are replaced *)
 let compute_all_size rprogram () =
+  (* type of enum tag *)
+  let () = compute_ktype rprogram @@ RTInteger (Unsigned, I32) in
   rprogram
   |> List.iter (fun { rmodule_path : rmodule_path; _ } ->
          compute_all_size_module_path rprogram rmodule_path

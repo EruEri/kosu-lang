@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+- [Bytecode compiler base](https://github.com/EruEri/kosu-lang/pull/71)
+    - Base of the kosuvm (can do simple calculation)
+    - libffi new c depedency
+    - 1 new executable:
+        - kosurun
+
 ## **0.3.0**
 
 - [Cli ccol + pk-config as separated comma list](https://github.com/EruEri/kosu-lang/pull/69)
