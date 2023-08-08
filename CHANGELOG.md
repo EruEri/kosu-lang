@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- [Bytecode compiler base](https://github.com/EruEri/kosu-lang/pull/70)
+- [Bytecode compiler base](https://github.com/EruEri/kosu-lang/pull/71)
     - Base of the kosuvm (can do simple calculation)
     - libffi new c depedency
     - 1 new executable:
