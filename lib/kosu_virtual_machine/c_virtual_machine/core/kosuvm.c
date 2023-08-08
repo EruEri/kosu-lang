@@ -19,7 +19,7 @@
 #include "kosuvm_util.h"
 #include "kosuvm_pp.h"
 #include "util.h"
-#include <ffi/ffi.h>
+#include <ffi.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -165,7 +165,8 @@ int isyscall(kosuvm_t* vm, instruction_t instruction) {
     #ifdef __APPLE__
         // Find a way since [syscall] is deprecated on macOS and __syscall doesnt exist
         // Maybe inline asm for x86_64 and arm64 
-        vm->r0 = syscall(vm->scp, vm->r0, vm->r1, vm->r2, vm->r3, vm->r4, vm->r5);
+        // vm->r0 = syscall(vm->scp, vm->r0, vm->r1, vm->r2, vm->r3, vm->r4, vm->r5);
+        vm->r0 = -1;
     #else
         #ifdef __FreeBSD__
             vm->r0 = __syscall(vm->scp, vm->r0, vm->r1, vm->r2, vm->r3, vm->r4, vm->r5);
@@ -862,5 +863,6 @@ int kosuvm_run(kosuvm_t* vm){
 void kosuvm_free(kosuvm_t* vm){
     kosuvm_stack_free(vm->stack);
     dll_error(vm->dl_handlers.handlers, vm->dl_handlers.count);
+    
     free(vm);
 }

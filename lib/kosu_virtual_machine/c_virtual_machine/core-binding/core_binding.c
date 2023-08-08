@@ -17,6 +17,7 @@
 
 
 
+#include <ffi/ffi.h>
 #include <string.h>
 #define CAML_NAME_SPACE
 
@@ -29,13 +30,26 @@
 #include "caml/callback.h"
 #include "caml/fail.h"
 #include "../core/kosuvm.h"
-#include <ffi/ffi.h>
+#include <ffi.h>
 
 #define CLOS_CAML_LIST_LENGTH "c_caml_list_length"
 
 #define DEBUG \
     puts("Hello world"); \
     fflush(stdout);
+
+
+typedef struct {
+    kosuvm_t* vm;
+    char** argv;
+    ccall_entries_t entries;
+} caml_kosuvm_t;
+
+ffi_type* caml_ffi_type(value caml_ffi);
+ffi_type** caml_ffi_types_list(value caml_ffi_list);
+
+void free_caml_ffi(ffi_type* ffi);
+void free_caml_ffi_array(ffi_type** ffi);
 
 static mlsize_t caml_list_length(value l) {
     static const value* closure = NULL;
@@ -45,14 +59,15 @@ static mlsize_t caml_list_length(value l) {
      
 }
 
-static value val_of_vm(kosuvm_t* vm) {
-    value v = caml_alloc(1, Abstract_tag);
-    *((kosuvm_t **) Data_abstract_val(v)) = vm;
+static value val_of_camlvm(caml_kosuvm_t vm) {
+    size_t alloc_size = (sizeof(caml_kosuvm_t) / sizeof(value) ) + 1;
+    value v = caml_alloc(alloc_size, Abstract_tag);
+    *((caml_kosuvm_t *) Data_abstract_val(v)) = vm;
     return v;
 }
 
-static kosuvm_t* vm_of_value(value vm) {
-    return *((kosuvm_t **) Data_abstract_val(vm));
+static caml_kosuvm_t vm_of_value(value vm) {
+    return *((caml_kosuvm_t *) Data_abstract_val(vm));
 }
 
 const char** caml_clibs(value libs, size_t len) {
@@ -71,9 +86,6 @@ const char** caml_clibs(value libs, size_t len) {
     c_libs[len] = NULL;
     return c_libs;
 }
-
-ffi_type* caml_ffi_type(value caml_ffi);
-ffi_type** caml_ffi_types_list(value caml_ffi_list);
 
 ffi_type** caml_ffi_types_list(value caml_ffi_list) {
      size_t list_len = caml_list_length(caml_ffi_list);
@@ -235,7 +247,6 @@ const char** caml_argv_array(int argc, value argv) {
         const char* caml_str = String_val(Field(argv, i));
         const size_t c_strlen = strlen(caml_str) + 1;
         const char* c_str = calloc(c_strlen, sizeof(char));
-        puts(c_str);
         if (!c_str) goto error;
         memcpy((void *) c_str, caml_str, c_strlen);
         cargv[i] = (char*) c_str;
@@ -252,6 +263,52 @@ const char** caml_argv_array(int argc, value argv) {
     return NULL;
 }
 
+void free_caml_argv(char** argv) {
+    char** base = argv;
+    char* current;
+    do {
+        current = *argv;
+        free(current);
+        argv += 1;
+    } while (current);
+    free(base);
+}
+
+void free_caml_ffi_array(ffi_type** base) {
+    ffi_type** c_base = base;
+    ffi_type* current = NULL;
+    do {
+        current = *base;
+        free_caml_ffi(current);
+        free(current);
+        base += 1;
+    } while (current);
+
+    free(c_base);
+}
+
+void free_caml_args(args_t e) {
+    free( (void *) e.p_address);
+}
+
+void free_caml_ffi(ffi_type* ffi) {
+    if (!ffi || ffi->type != FFI_TYPE_STRUCT) { return; }
+    free_caml_ffi_array(ffi->elements);
+    ffi->elements = NULL;
+    free(ffi);
+}
+
+void free_ccentry(ccall_entries_t entries) {
+    for (size_t i = 0; i < entries.e_count; i += 1) {
+        ccall_entry_t e = entries.entries[i];
+        free_caml_ffi(e.return_type);
+        free_caml_ffi_array(e.args_types);
+        free_caml_args(e.args);
+    }
+
+    free(entries.entries);
+}
+
 CAMLprim value caml_kosuvm_init(value argc, value argv, value code, value stack_size, value start_index, value libs, value ccentries) {
     CAMLparam5(argc, argv, code, stack_size, start_index);
     CAMLxparam2(libs, ccentries);
@@ -263,6 +320,7 @@ CAMLprim value caml_kosuvm_init(value argc, value argv, value code, value stack_
     unsigned long index = Long_val(start_index);
     unsigned long cstack_size = Val_long(stack_size);
     const void * vm_code = String_val(code);
+    kosuvm_t* vm = NULL;
 
     const size_t libs_length = caml_list_length(libs);
     const char** c_clibs = caml_clibs(libs, libs_length);
@@ -270,13 +328,17 @@ CAMLprim value caml_kosuvm_init(value argc, value argv, value code, value stack_
         goto error;
     }
 
-    kosuvm_t* vm = kosuvm_init(cargc, cargv, vm_code, cstack_size, index, c_entries, c_clibs);
-    CAMLreturn(val_of_vm(vm));
+    vm = kosuvm_init(cargc, cargv, vm_code, cstack_size, index, c_entries, c_clibs);
+    if (!vm) goto error;
+    caml_kosuvm_t cvm = {.entries = c_entries, .argv = (char**) cargv, .vm = vm};
+
+    CAMLreturn(val_of_camlvm(cvm));
 
     error:
         free(cargv);
         free(c_clibs);
         free(c_entries.entries);
+        free(vm);
         caml_failwith("caml_kosuvm_init_bytecode: an alloc fail");
 }
 
@@ -286,23 +348,11 @@ CAMLprim value caml_kosuvm_init_bytecode(value* values, int argn) {
         );
 }
 
-// code : bytes or string
-// start_index : int
-// string -> int -> int -> unit -> vm
-// CAMLprim value caml_kosuvm_init(value code, value stack_size, value start_index, value unit) {
-//     CAMLparam4(code, stack_size, start_index, unit);
-//     unsigned long index = Long_val(start_index);
-//     unsigned long cstack_size = Val_long(stack_size);
-//     const void * vm_code = String_val(code);
-//     kosuvm_t* vm = kosuvm_init(vm_code, cstack_size, index);
-//     CAMLreturn(val_of_vm(vm));
-// }
-
 CAMLprim value caml_kosuvm_run(value vm, value unit) {
     CAMLparam2(vm, unit);
     CAMLlocal1(ret);
-    kosuvm_t* c_vm = vm_of_value(vm);
-    int status = kosuvm_run(c_vm);
+    caml_kosuvm_t c_vm = vm_of_value(vm);
+    int status = kosuvm_run(c_vm.vm);
     ret = Val_int(status);
     CAMLreturn(ret);
 }
@@ -310,8 +360,8 @@ CAMLprim value caml_kosuvm_run(value vm, value unit) {
 CAMLprim value caml_kosuvm_run_single(value vm, value unit) {
     CAMLparam2(vm, unit);
     CAMLlocal1(ret);
-    kosuvm_t* c_vm = vm_of_value(vm);
-    int status = kosuvm_run_single(c_vm);
+    caml_kosuvm_t c_vm = vm_of_value(vm);
+    int status = kosuvm_run_single(c_vm.vm);
     ret = Val_int(status);
     CAMLreturn(ret);
 }
@@ -319,7 +369,9 @@ CAMLprim value caml_kosuvm_run_single(value vm, value unit) {
 // vm -> unit -> unit
 CAMLprim value caml_kosuvm_free(value vm, value unit) {
     CAMLparam2(vm, unit);
-    kosuvm_t* cvm = vm_of_value(vm);
-    kosuvm_free(cvm); 
+    caml_kosuvm_t cvm = vm_of_value(vm);
+    free_caml_argv(cvm.argv);
+    free_ccentry(cvm.entries);
+    kosuvm_free(cvm.vm); 
     CAMLreturn(Val_unit);
 }
