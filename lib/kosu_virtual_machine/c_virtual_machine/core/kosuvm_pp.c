@@ -346,13 +346,35 @@ pp_op(asr)
 pp_op(lsr)
 
 int pp_div(const instruction_t i) {
-    printf("div");
-    return -1;
+    const char* op = "div";
+    const char * ssigned = is_set(i, mask_bit(26)) ? "" : "u";
+    const char* dst = repr_register(i >> 21);
+    const char* src = repr_register(i >> 16);
+    bool_t is_register = is_set(i, mask_bit(15));
+    if (is_register) {
+        const char* src2 = repr_register(i >> 10);
+        printf("%s%s %s %s %s", ssigned, op, dst, src, src2);
+    } else {
+        int64_t value = sext16(i);
+        printf("%s%s %s %s %lld", ssigned, op, dst, src, value);
+    }
+    return 0;
 }
 
 int pp_mod(const instruction_t i) {
-    printf("mod");
-    return -1;
+    const char* op = "mod";
+    const char * ssigned = is_set(i, mask_bit(26)) ? "" : "u";
+    const char* dst = repr_register(i >> 21);
+    const char* src = repr_register(i >> 16);
+    bool_t is_register = is_set(i, mask_bit(15));
+    if (is_register) {
+        const char* src2 = repr_register(i >> 10);
+        printf("%s%s %s %s %s", ssigned, op, dst, src, src2);
+    } else {
+        int64_t value = sext16(i);
+        printf("%s%s %s %s %lld", ssigned, op, dst, src, value);
+    }
+    return 0;
 }
 
 int pp_cmp_cset(const instruction_t i){

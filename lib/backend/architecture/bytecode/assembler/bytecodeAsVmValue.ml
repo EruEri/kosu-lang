@@ -283,7 +283,7 @@ let vm_instruction_encode i =
       let reg_dst = reg_encode destination in
       let reg_src1 = reg_encode operande1 in
       let base = base &| (reg_dst << 21) in
-      let base = base &| (reg_src1 << 20) in
+      let base = base &| (reg_src1 << 16) in
       let base =
         match operande2 with
         | `ILitteral n ->
@@ -294,7 +294,7 @@ let vm_instruction_encode i =
         | `Register reg ->
             let r_value = reg_encode reg in
             let base = base &| (1l << 15) in
-            let base = base &| (r_value << 11) in
+            let base = base &| (r_value << 10) in
             base
       in
       base

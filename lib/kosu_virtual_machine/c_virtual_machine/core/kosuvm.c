@@ -402,9 +402,6 @@ int lea(kosuvm_t* vm, instruction_t instruction) {
     } else {
         int64_t value = sext21(instruction);
         *dst = (reg_t) (instruction_t*) ((vm->ip - 1) + value);
-        // printf("addr = %lld\n", *dst);
-        // fflush(stdout);
-        // printf("dst = %s\n", (const char*) *dst);
     }
 
     return 0;
@@ -419,9 +416,6 @@ int add(kosuvm_t* vm, instruction_t instruction) {
     bool_t is_register = is_set(instruction, mask_bit(16));
     if (is_register) {
         reg_t* src2 = register_of_int32(vm, instruction, 11);
-        // regvalue("src2", 11);
-        // printf("src = %lld\n", *src2);
-        // printf("dst = %lld\n", *dst);
         *dst = *src + *src2;
     } else {
         int64_t value = sext16(instruction);
@@ -440,7 +434,6 @@ int sub(kosuvm_t* vm, instruction_t instruction) {
         *dst = *src - *src2;
     } else {
         int64_t value = sext16(instruction);
-        // printf("value = %lld\n", value);
         *dst = *src - value;
     }
     return 0;
@@ -461,11 +454,33 @@ int mult(kosuvm_t* vm, instruction_t instruction) {
 }
 
 int idiv(kosuvm_t* vm, instruction_t instruction) {
-    return -1;
+    bool_t is_signed = is_set(instruction, 26);
+    reg_t* dst = register_of_int32(vm, instruction, 21);
+    reg_t* src = register_of_int32(vm, instruction, 16);
+    bool_t is_register = is_set(instruction, mask_bit(15));
+    if (is_register) {
+        reg_t* src2 = register_of_int32(vm, instruction, 10);
+        *dst = is_signed ? (int64_t) ( (int64_t) (*src)) / ( (int64_t) *src2) : (*src) / (*src2) ;
+    } else {
+        int64_t value = sext15(instruction);
+        *dst = is_signed ? (int64_t) ( (int64_t) (*src)) / ( value) : (*src) / value ;
+    }
+    return 0;
 }
 
 int mod(kosuvm_t* vm, instruction_t instruction) {
-    return -1;
+    bool_t is_signed = is_set(instruction, 26);
+    reg_t* dst = register_of_int32(vm, instruction, 21);
+    reg_t* src = register_of_int32(vm, instruction, 16);
+    bool_t is_register = is_set(instruction, mask_bit(15));
+    if (is_register) {
+        reg_t* src2 = register_of_int32(vm, instruction, 10);
+        *dst = is_signed ? (int64_t) ( (int64_t) (*src)) % ( (int64_t) *src2) : (*src) % (*src2) ;
+    } else {
+        int64_t value = sext15(instruction);
+        *dst = is_signed ? (int64_t) ( (int64_t) (*src)) % ( value) : (*src) % (value) ;
+    }
+    return 0;
 }
 
 
@@ -863,6 +878,5 @@ int kosuvm_run(kosuvm_t* vm){
 void kosuvm_free(kosuvm_t* vm){
     kosuvm_stack_free(vm->stack);
     dll_error(vm->dl_handlers.handlers, vm->dl_handlers.count);
-    
     free(vm);
 }
