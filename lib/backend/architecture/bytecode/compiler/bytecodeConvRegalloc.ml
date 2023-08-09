@@ -601,7 +601,8 @@ let asm_module_of_tac_module ~litterals current_module rprogram = function
                Option.some @@ Afunction { asm_name; asm_body }
            | TNConst _ ->
                failwith ""
-           | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ ->
+           | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ | TNOpaque _
+             ->
                None
            )
 

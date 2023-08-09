@@ -1653,7 +1653,7 @@ Return the type of an expression
           with
           | Ok (Type_Decl.Decl_Enum e) ->
               e
-          | Ok (Type_Decl.Decl_Struct _s) ->
+          | Ok (Type_Decl.Decl_Struct _ | Type_Decl.Decl_Opaque _) ->
               raise @@ switch_error
               @@ Not_enum_type_in_switch_Expression
                    (expr |> Position.map (fun _ -> expr_type))
@@ -1976,6 +1976,8 @@ Return the type of an expression
               failwith "enum case as builint type"
           | Some (Decl_Struct _) ->
               failwith "match struct instead of enum"
+          | Some (Decl_Opaque _) ->
+              failwith "opaque match enum"
           | Some (Decl_Enum e) ->
               e
         in

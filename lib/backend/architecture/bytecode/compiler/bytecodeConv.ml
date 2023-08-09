@@ -1797,7 +1797,8 @@ let asm_module_of_tac_module ~litterals current_module rprogram = function
                  )
            | TNConst _ ->
                failwith "Const"
-           | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ ->
+           | TNEnum _ | TNStruct _ | TNSyscall _ | TNExternFunc _ | TNOpaque _
+             ->
                None
            )
 

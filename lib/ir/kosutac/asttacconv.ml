@@ -1629,6 +1629,8 @@ let rec tac_module_node_from_rmodule_node current_module ?(dump_ast = false)
       TNEnum s
   | RNConst s ->
       TNConst s
+  | RNOpaque s ->
+      TNOpaque s
   | RNFunction f ->
       let tmp = tac_function_decl_of_rfunction current_module rprogram f in
       (* let dump_ast = true || dump_ast in *)

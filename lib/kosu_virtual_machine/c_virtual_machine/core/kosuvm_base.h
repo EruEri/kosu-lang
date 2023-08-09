@@ -19,8 +19,9 @@
 #define __KOSUVM_BASE_H__
 
 #include <stdint.h>
+#include <stddef.h>
 #include "util.h"
-#include "ffi/ffi.h"
+#include "ffi.h"
 
 #define HALT_BITS 0x0
 #define RET_BITS 0x01

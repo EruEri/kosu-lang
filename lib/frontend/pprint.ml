@@ -107,6 +107,15 @@ let rec string_of_ktype = function
             sprintf "%s::" module_path.v
         )
         name.v
+  | TOpaque { module_path; name } ->
+      let s =
+        match module_path.v = String.empty with
+        | true ->
+            ""
+        | false ->
+            sprintf "%s::" module_path.v
+      in
+      sprintf "%s#%s" s name.v
   | TInteger (Some (sign, size)) ->
       sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
   | TInteger None ->
@@ -476,6 +485,8 @@ let string_of_type_decl = function
       string_of_enum_decl e
   | Ast.Type_Decl.Decl_Struct s ->
       string_of_struct_decl s
+  | Ast.Type_Decl.Decl_Opaque s ->
+      Printf.sprintf "opaque(%s)" s.v
 
 let string_of_signature fn_name parameters return_type =
   sprintf "%s(%s)%s" fn_name.v

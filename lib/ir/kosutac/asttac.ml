@@ -275,6 +275,7 @@ type tac_module_node =
   | TNStruct of rstruct_decl
   | TNEnum of renum_decl
   | TNConst of rconst_decl
+  | TNOpaque of string
 
 type tac_module = TacModule of tac_module_node list
 type tac_module_path = { path : string; tac_module : tac_module }

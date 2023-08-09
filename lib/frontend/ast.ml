@@ -60,6 +60,7 @@ type ktype =
   | TTuple of ktype location list
   | TFunction of ktype location list * ktype location
   | TArray of { ktype : ktype location; size : int64 location }
+  | TOpaque of { module_path : string location; name : string location }
   | TOredered
   | TString_lit
   | TUnknow
@@ -264,6 +265,8 @@ type sig_decl = {
   return_type : ktype;
 }
 
+type opaque_decl = string location
+
 type module_node =
   | NExternFunc of external_func_decl
   | NFunction of function_decl
@@ -272,6 +275,7 @@ type module_node =
   | NStruct of struct_decl
   | NEnum of enum_decl
   | NConst of const_decl
+  | NOpaque of opaque_decl
 
 type iexpression_node =
   | IModule_Node of module_node
@@ -292,10 +296,14 @@ module Fsize = struct
 end
 
 module Type_Decl = struct
-  type type_decl = Decl_Enum of enum_decl | Decl_Struct of struct_decl
+  type type_decl =
+    | Decl_Enum of enum_decl
+    | Decl_Struct of struct_decl
+    | Decl_Opaque of opaque_decl
 
   let decl_enum e = Decl_Enum e
   let decl_struct s = Decl_Struct s
+  let decl_opaque o = Decl_Opaque o
 end
 
 module Function_Decl = struct
@@ -647,6 +655,7 @@ module Error = struct
         struct_decl : struct_decl;
       }
     | Enum_Access_field of { field : string location; enum_decl : enum_decl }
+    | Opaque_field_access of { field : string location; opaque : opaque_decl }
     | Tuple_access_for_non_tuple_type of { location : position; ktype : ktype }
     | Field_access_for_non_struct_type of { location : position; ktype : ktype }
     | Array_subscript_None_array of { found : ktype location }
@@ -785,6 +794,11 @@ module Type = struct
             ktype =
               ktype |> Position.map @@ set_module_path generics new_module_name;
           }
+    | TOpaque { module_path; name } ->
+        let module_path =
+          module_path |> Position.map (function "" -> new_module_name | s -> s)
+        in
+        TOpaque { module_path; name }
     | _ as kt ->
         kt
 
@@ -843,6 +857,9 @@ module Type = struct
            |> List.for_all (fun (k1, k2) -> k1 === k2)
     | TArray a1, TArray a2 ->
         a1.size.v = a2.size.v && a1.ktype.v === a2.ktype.v
+    | TOpaque lhs, TOpaque rhs ->
+        let eq = lhs.module_path.v = rhs.module_path.v in
+        eq && lhs.name.v = rhs.name.v
     | _, _ ->
         lhs = rhs
 
@@ -904,6 +921,9 @@ module Type = struct
     | TInteger None, TInteger _ | TInteger _, TInteger None ->
         true
     | TFloat None, TFloat _ | TFloat _, TFloat None ->
+        true
+    | TPointer { v = TUnknow; _ }, TOpaque _
+    | TOpaque _, TPointer { v = TUnknow; _ } ->
         true
     | _, _ ->
         lhs === rhs
@@ -1219,7 +1239,7 @@ module Type = struct
       | TUnknow, t ->
           t
       | (TPointer _ as kt), TPointer { v = TUnknow; _ }
-      | TPointer { v = TUnknow; _ }, (TPointer _ as kt) ->
+      | TPointer { v = TUnknow; _ }, ((TPointer _ | TOpaque _) as kt) ->
           kt
       | TInteger None, (TInteger _ as i) | (TInteger _ as i), TInteger None ->
           i

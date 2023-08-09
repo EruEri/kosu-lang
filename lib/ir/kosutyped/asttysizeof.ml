@@ -42,7 +42,7 @@ let rec size calcul program rktype =
       Isize.size_of_isize isize / 8 |> Int64.of_int
   | RTFloat fsize ->
       Fsize.size_of_fsize fsize / 8 |> Int64.of_int
-  | RTPointer _ | RTString_lit | RTFunction _ ->
+  | RTPointer _ | RTString_lit | RTFunction _ | RTOpaque _ ->
       8L
   | RTTuple kts ->
       size_tuple calcul program kts
@@ -295,6 +295,8 @@ and compute_all_size_kbody rprogram (stmts, final_expr) =
   ()
 
 let compute_all_size_module_node rprogram = function
+  | RNOpaque _ ->
+      ()
   | RNConst rconst_decl ->
       compute_ktype rprogram rconst_decl.value.rktype
   | RNExternFunc { fn_parameters = parameters; return_type; _ }
