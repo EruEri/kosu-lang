@@ -26,12 +26,12 @@
     Lexing.new_line lexbuf;
     f lexbuf
 
-    let keywords = Hashtbl.create 21
+    let keywords = Hashtbl.create 23
     let _ = [("addressof", ADDRESSOF); ("and", FULLAND); ("array", ARRAY); ("cases", CASES); ("const", CONST); ("discard", DISCARD); 
     ("enum", ENUM); ("external", EXTERNAL); ("empty", EMPTY); ("else", ELSE); ("eq", CMP_EQUAL);
     ("fn", FUNCTION); ("false", FALSE); ("gt", CMP_GREATER); ("lt", CMP_LESS); ("match", MATCH); ("nullptr", NULLPTR); 
-    ("struct", STRUCT); ("syscall", SYSCALL); ("of", OF); ("or", FULLOR); ("operator", OPERATOR); ("true", TRUE); 
-    ("switch", SWITCH); ("sizeof", SIZEOF); ("if", IF); ("var", VAR); ("while", WHILE)
+    ("struct", STRUCT); ("syscall", SYSCALL); ("of", OF); ("or", FULLOR); ("opaque", OPAQUE); ("operator", OPERATOR); ("true", TRUE); 
+    ("type", TYPE); ("switch", SWITCH); ("sizeof", SIZEOF); ("if", IF); ("var", VAR); ("while", WHILE)
     ] |> List.iter (fun (s,t) -> Hashtbl.add keywords s t)
 }
 
@@ -82,6 +82,7 @@ rule token = parse
 | "_" { WILDCARD }
 | "@" { built_in_function lexbuf }
 | "=" { EQUAL }
+| "#" { CROISILLION }
 | "&"  { AMPERSAND }
 | "^" { XOR }
 | "&&" { AND }

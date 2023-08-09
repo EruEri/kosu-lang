@@ -60,6 +60,7 @@ type ktype =
   | TTuple of ktype location list
   | TFunction of ktype location list * ktype location
   | TArray of { ktype : ktype location; size : int64 location }
+  | TOpaque of { module_path : string location; name : string location }
   | TOredered
   | TString_lit
   | TUnknow
@@ -272,6 +273,7 @@ type module_node =
   | NStruct of struct_decl
   | NEnum of enum_decl
   | NConst of const_decl
+  | NOpaque of string location
 
 type iexpression_node =
   | IModule_Node of module_node
@@ -785,6 +787,11 @@ module Type = struct
             ktype =
               ktype |> Position.map @@ set_module_path generics new_module_name;
           }
+    | TOpaque { module_path; name } ->
+        let module_path =
+          module_path |> Position.map (function "" -> new_module_name | s -> s)
+        in
+        TOpaque { module_path; name }
     | _ as kt ->
         kt
 
@@ -843,6 +850,9 @@ module Type = struct
            |> List.for_all (fun (k1, k2) -> k1 === k2)
     | TArray a1, TArray a2 ->
         a1.size.v = a2.size.v && a1.ktype.v === a2.ktype.v
+    | TOpaque lhs, TOpaque rhs ->
+        let eq = lhs.module_path.v = rhs.module_path.v in
+        eq && lhs.name.v = rhs.name.v
     | _, _ ->
         lhs = rhs
 
@@ -904,6 +914,8 @@ module Type = struct
     | TInteger None, TInteger _ | TInteger _, TInteger None ->
         true
     | TFloat None, TFloat _ | TFloat _, TFloat None ->
+        true
+    | TOpaque _, TPointer { v = TUnknow; _ } ->
         true
     | _, _ ->
         lhs === rhs

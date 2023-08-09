@@ -1258,7 +1258,8 @@ module Convertion = struct
         TNFunction { tfd with tac_body = null_terminate_tac_body tfd.tac_body }
     | TNOperator tac_operator_decl ->
         TNOperator (null_terminate_tac_operator_decl tac_operator_decl)
-    | (TNStruct _ | TNEnum _ | TNExternFunc _ | TNSyscall _) as e ->
+    | (TNStruct _ | TNEnum _ | TNExternFunc _ | TNSyscall _ | TNOpaque _) as e
+      ->
         e
 
   let null_terminated_tac_module (TacModule rmodule) =

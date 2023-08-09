@@ -80,6 +80,8 @@ struct
         Printf.sprintf "%s" (Pprint.string_of_enum_decl enum_decl)
     | NConst const_decl ->
         Printf.sprintf "%s" (Pprint.string_of_const_decl const_decl)
+    | NOpaque s ->
+        Printf.sprintf "external opaque type %s" s.v
 
   let expression_prompt ~variable ktype () =
     let name = variable |> Option.value ~default:" - " in

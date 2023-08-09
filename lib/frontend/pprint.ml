@@ -107,6 +107,15 @@ let rec string_of_ktype = function
             sprintf "%s::" module_path.v
         )
         name.v
+  | TOpaque { module_path; name } ->
+      let s =
+        match module_path.v = String.empty with
+        | true ->
+            ""
+        | false ->
+            sprintf "%s::" module_path.v
+      in
+      sprintf "%s#%s" s name.v
   | TInteger (Some (sign, size)) ->
       sprintf "%c%s" (char_of_signedness sign) (string_of_isize size)
   | TInteger None ->

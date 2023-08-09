@@ -2372,6 +2372,8 @@ module AstModif = struct
           (Struct.rename_parameter_explicit_module new_module_path struct_decl)
     | NConst c ->
         NConst c
+    | NOpaque _ as nopaque ->
+        nopaque
 end
 
 module Affected_Value = struct

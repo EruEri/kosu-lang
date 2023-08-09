@@ -1053,6 +1053,8 @@ struct
     | NOperator operator_decl ->
         ValidateOperator_Decl.is_valid_operator_decl current_module_name program
           operator_decl
+    | NOpaque _ ->
+        Ok ()
 
   let validate_module program
       { filename; module_path = { path; _module = Mod _module } as package } =

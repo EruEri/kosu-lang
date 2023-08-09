@@ -536,7 +536,7 @@ module CType = struct
         FFI_F32
     | RTFloat F64 ->
         FFI_F64
-    | RTString_lit | RTPointer _ | RTFunction _ ->
+    | RTString_lit | RTPointer _ | RTFunction _ | RTOpaque _ ->
         FFI_Pointer
     | RTArray { size; rktype } ->
         let ktype = ffi_type_of_ktype rprogram rktype in
