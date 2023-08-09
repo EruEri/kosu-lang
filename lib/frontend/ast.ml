@@ -655,6 +655,7 @@ module Error = struct
         struct_decl : struct_decl;
       }
     | Enum_Access_field of { field : string location; enum_decl : enum_decl }
+    | Opaque_field_access of { field : string location; opaque : opaque_decl }
     | Tuple_access_for_non_tuple_type of { location : position; ktype : ktype }
     | Field_access_for_non_struct_type of { location : position; ktype : ktype }
     | Array_subscript_None_array of { found : ktype location }

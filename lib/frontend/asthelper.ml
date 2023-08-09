@@ -1601,8 +1601,8 @@ module Struct = struct
     let open Ast.Type_Decl in
     let open Ast.Error in
     match type_decl with
-    | Ast.Type_Decl.Decl_Opaque _ ->
-        failwith "Opaque field access"
+    | Ast.Type_Decl.Decl_Opaque s ->
+        raise @@ ast_error @@ Opaque_field_access { field; opaque = s }
     | Decl_Enum enum_decl ->
         Enum_Access_field { field; enum_decl } |> ast_error |> raise
     | Decl_Struct struct_decl -> (
@@ -2434,8 +2434,8 @@ module Affected_Value = struct
         match type_decl with
         | Decl_Enum enum_decl ->
             Enum_Access_field { field = t; enum_decl } |> ast_error |> raise
-        | Ast.Type_Decl.Decl_Opaque _ ->
-            failwith "opaque field access"
+        | Ast.Type_Decl.Decl_Opaque s ->
+            raise @@ ast_error @@ Opaque_field_access { field = t; opaque = s }
         | Decl_Struct struct_decl -> (
             match
               Struct.ktype_of_field_gen ~current_module:current_mod_name
@@ -2452,8 +2452,8 @@ module Affected_Value = struct
         match type_decl with
         | Decl_Enum enum_decl ->
             Enum_Access_field { field = t; enum_decl } |> ast_error |> raise
-        | Ast.Type_Decl.Decl_Opaque _ ->
-            failwith "opaque field access"
+        | Ast.Type_Decl.Decl_Opaque s ->
+            raise @@ ast_error @@ Opaque_field_access { field = t; opaque = s }
         | Decl_Struct struct_decl -> (
             match
               Struct.ktype_of_field_gen ~current_module:current_mod_name

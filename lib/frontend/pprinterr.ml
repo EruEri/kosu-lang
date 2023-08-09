@@ -574,6 +574,10 @@ struct
         sprintf "%s Enum doesn't have field : \"%s\" for enum : \"%s\""
           (string_of_position_error record.field.position)
           record.field.v record.enum_decl.enum_name.v
+    | Opaque_field_access record ->
+        sprintf "%s Opaque type doesn't have field : \"%s\" for enum : \"%s\""
+          (string_of_position_error record.field.position)
+          record.field.v record.opaque.v
     | Unvalid_Deference identifier ->
         string_of_located_error identifier
           (sprintf "Invalid Deference for \"%s\"" identifier.v)
