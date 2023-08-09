@@ -265,6 +265,8 @@ type sig_decl = {
   return_type : ktype;
 }
 
+type opaque_decl = string location
+
 type module_node =
   | NExternFunc of external_func_decl
   | NFunction of function_decl
@@ -273,7 +275,7 @@ type module_node =
   | NStruct of struct_decl
   | NEnum of enum_decl
   | NConst of const_decl
-  | NOpaque of string location
+  | NOpaque of opaque_decl
 
 type iexpression_node =
   | IModule_Node of module_node
@@ -294,10 +296,14 @@ module Fsize = struct
 end
 
 module Type_Decl = struct
-  type type_decl = Decl_Enum of enum_decl | Decl_Struct of struct_decl
+  type type_decl =
+    | Decl_Enum of enum_decl
+    | Decl_Struct of struct_decl
+    | Decl_Opaque of opaque_decl
 
   let decl_enum e = Decl_Enum e
   let decl_struct s = Decl_Struct s
+  let decl_opaque o = Decl_Opaque o
 end
 
 module Function_Decl = struct
@@ -915,6 +921,7 @@ module Type = struct
         true
     | TFloat None, TFloat _ | TFloat _, TFloat None ->
         true
+    | TPointer { v = TUnknow; _ }, TOpaque _
     | TOpaque _, TPointer { v = TUnknow; _ } ->
         true
     | _, _ ->
@@ -1231,7 +1238,7 @@ module Type = struct
       | TUnknow, t ->
           t
       | (TPointer _ as kt), TPointer { v = TUnknow; _ }
-      | TPointer { v = TUnknow; _ }, (TPointer _ as kt) ->
+      | TPointer { v = TUnknow; _ }, ((TPointer _ | TOpaque _) as kt) ->
           kt
       | TInteger None, (TInteger _ as i) | (TInteger _ as i), TInteger None ->
           i

@@ -79,6 +79,8 @@ module Module = struct
                    Some (Ast.Type_Decl.decl_enum e)
                | Ast.NStruct s ->
                    Some (Ast.Type_Decl.decl_struct s)
+               | Ast.NOpaque s ->
+                   Some (Ast.Type_Decl.decl_opaque s)
                | _ ->
                    None
            )
@@ -119,6 +121,8 @@ module Module = struct
              e.enum_name.v = type_name
          | Ast.Type_Decl.Decl_Struct s ->
              s.struct_name.v = type_name
+         | Ast.Type_Decl.Decl_Opaque s ->
+             s.v = type_name
          )
 
   let function_decl_occurence (fn_name : string)
@@ -295,12 +299,16 @@ module Program = struct
           e.generics
       | Ast.Type_Decl.Decl_Struct s ->
           s.generics
+      | Ast.Type_Decl.Decl_Opaque _ ->
+          []
     in
     let type_name = function
       | Ast.Type_Decl.Decl_Enum e ->
           e.enum_name
       | Ast.Type_Decl.Decl_Struct s ->
           s.struct_name
+      | Ast.Type_Decl.Decl_Opaque s ->
+          s
     in
     match ktype with
     | TType_Identifier { module_path = ktype_def_path; name = ktype_name } ->
@@ -377,7 +385,28 @@ module Program = struct
                ()
            );
         None
-    | _ ->
+    | TOpaque { module_path = ktype_def_path; name = ktype_name } ->
+        let type_decl =
+          match
+            find_type_decl_from_ktype ~ktype_def_path ~ktype_name
+              ~current_module program
+          with
+          | Error e ->
+              e |> Ast.Error.ast_error |> raise
+          | Ok type_decl ->
+              type_decl
+        in
+        Some type_decl
+    | TOredered
+    | TString_lit
+    | TUnknow
+    | TChar
+    | TBool
+    | TUnit
+    | TInteger _
+    | TFloat _
+    | TFunction (_, _)
+    | TArray _ ->
         None
 
   (**
@@ -414,6 +443,8 @@ module Program = struct
   let rec is_c_type current_mod_name (type_decl : Ast.Type_Decl.type_decl)
       program =
     match type_decl with
+    | Ast.Type_Decl.Decl_Opaque _ ->
+        true
     | Decl_Enum e ->
         e.generics = []
         && e.variants |> List.for_all (fun (_, assoc) -> assoc = [])
@@ -1570,6 +1601,8 @@ module Struct = struct
     let open Ast.Type_Decl in
     let open Ast.Error in
     match type_decl with
+    | Ast.Type_Decl.Decl_Opaque _ ->
+        failwith "Opaque field access"
     | Decl_Enum enum_decl ->
         Enum_Access_field { field; enum_decl } |> ast_error |> raise
     | Decl_Struct struct_decl -> (
@@ -1707,30 +1740,40 @@ module Type_Decl = struct
         e.enum_name
     | Ast.Type_Decl.Decl_Struct s ->
         s.struct_name
+    | Ast.Type_Decl.Decl_Opaque s ->
+        s
 
   let generics = function
     | Ast.Type_Decl.Decl_Enum e ->
         e.generics
     | Ast.Type_Decl.Decl_Struct s ->
         s.generics
+    | Ast.Type_Decl.Decl_Opaque _ ->
+        []
 
   let is_ktype_generic kt = function
     | Ast.Type_Decl.Decl_Enum e ->
         e |> Enum.is_type_generic kt
     | Ast.Type_Decl.Decl_Struct s ->
         s |> Struct.is_type_generic kt
+    | Ast.Type_Decl.Decl_Opaque _ ->
+        false
 
   let is_ktype_generic_level_zero kt = function
     | Ast.Type_Decl.Decl_Enum e ->
         e |> Enum.is_ktype_generic_level_zero kt
     | Ast.Type_Decl.Decl_Struct s ->
         s |> Struct.is_ktype_generic_level_zero kt
+    | Ast.Type_Decl.Decl_Opaque _ ->
+        false
 
   let remove_level_zero_genenics kts = function
     | Ast.Type_Decl.Decl_Enum e ->
         e |> Enum.remove_level_zero_genenics kts
     | Ast.Type_Decl.Decl_Struct s ->
         s |> Struct.remove_level_zero_genenics kts
+    | Ast.Type_Decl.Decl_Opaque _ ->
+        []
 
   let are_same_type_decl lhs rhs =
     lhs |> type_name |> Position.value = (rhs |> type_name |> Position.value)
@@ -1944,6 +1987,8 @@ module Builtin_Function = struct
                          position = t.position;
                          ktype = t.v;
                        }
+              | Some (Decl_Opaque _) ->
+                  failwith "Tag opaque"
               | None ->
                   Result.error
                   @@ Builin_type_tag
@@ -2389,6 +2434,8 @@ module Affected_Value = struct
         match type_decl with
         | Decl_Enum enum_decl ->
             Enum_Access_field { field = t; enum_decl } |> ast_error |> raise
+        | Ast.Type_Decl.Decl_Opaque _ ->
+            failwith "opaque field access"
         | Decl_Struct struct_decl -> (
             match
               Struct.ktype_of_field_gen ~current_module:current_mod_name
@@ -2405,6 +2452,8 @@ module Affected_Value = struct
         match type_decl with
         | Decl_Enum enum_decl ->
             Enum_Access_field { field = t; enum_decl } |> ast_error |> raise
+        | Ast.Type_Decl.Decl_Opaque _ ->
+            failwith "opaque field access"
         | Decl_Struct struct_decl -> (
             match
               Struct.ktype_of_field_gen ~current_module:current_mod_name

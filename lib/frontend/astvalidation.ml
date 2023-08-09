@@ -167,6 +167,8 @@ struct
           | Ok (Ast.Type_Decl.Decl_Enum enum_decl) ->
               does_contains_type_decl_enum current_module program enum_decl
                 already_visited type_decl_to_check
+          | Ok (Ast.Type_Decl.Decl_Opaque _) ->
+              failwith "Unreachable TType_Identifier: cannot be opaque"
           | Error e ->
               e |> Ast.Error.ast_error |> raise
         )
@@ -180,6 +182,8 @@ struct
           match type_decl_found with
           | Error e ->
               e |> Ast.Error.ast_error |> raise
+          | Ok (Ast.Type_Decl.Decl_Opaque _) ->
+              failwith "Unreachable TType_Identifier: cannot be opaque"
           | Ok (Ast.Type_Decl.Decl_Struct struct_decl) ->
               let new_struct =
                 Asthelper.Struct.bind_struct_decl
@@ -441,6 +445,20 @@ struct
       else
         Ok ()
 
+    let is_all_type_exist current_module program external_decl =
+      external_decl.fn_parameters
+      |> List.cons external_decl.r_type
+      |> List.find_map (fun kt ->
+             match
+               Help.is_ktype_exist_from_ktype [] current_module program kt.v
+             with
+             | Ok () ->
+                 None
+             | Error e ->
+                 Some e
+         )
+      |> Option.fold ~some:Result.error ~none:(Ok ())
+
     let does_contains_not_c_compatible_type program current_module
         (external_func_decl : external_func_decl) =
       external_func_decl.fn_parameters
@@ -479,7 +497,10 @@ struct
             does_contains_not_c_compatible_type program current_module_name
               external_func_decl
           )
-      >>= fun () -> does_parameters_contains_unit external_func_decl
+      >>= fun () ->
+      does_parameters_contains_unit external_func_decl
+      >>= fun () ->
+      is_all_type_exist current_module_name program external_func_decl
   end
 
   module ValidateSyscall = struct

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- [Opaque type]()
+    - Add pointer to unknown size type (to interop more easily with c library)
+    - Fix: exception raised on unknwon type in external declaration
+
 - [Bytecode compiler base](https://github.com/EruEri/kosu-lang/pull/71)
     - Base of the kosuvm (can do simple calculation)
     - libffi new c depedency
