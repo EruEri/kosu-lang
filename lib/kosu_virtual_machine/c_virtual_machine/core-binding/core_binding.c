@@ -17,7 +17,6 @@
 
 
 
-#include <ffi/ffi.h>
 #include <string.h>
 #define CAML_NAME_SPACE
 
@@ -30,7 +29,7 @@
 #include "caml/callback.h"
 #include "caml/fail.h"
 #include "../core/kosuvm.h"
-#include <ffi.h>
+#include "ffi.h"
 
 #define CLOS_CAML_LIST_LENGTH "c_caml_list_length"
 
@@ -279,8 +278,8 @@ void free_caml_ffi_array(ffi_type** base) {
     ffi_type* current = NULL;
     do {
         current = *base;
+        if (current == NULL) break;
         free_caml_ffi(current);
-        free(current);
         base += 1;
     } while (current);
 
