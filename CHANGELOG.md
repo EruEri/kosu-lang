@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- [Opaque type]()
+- [Opaque type](https://github.com/EruEri/kosu-lang/pull/72)
     - Add pointer to unknown size type (to interop more easily with c library)
     - Fix: exception raised on unknwon type in external declaration
 
