@@ -49,7 +49,7 @@
 ## While
 ```rust
     // the type of the while loop is unit
-    // so type of while loop clock must be unit too
+    // so type of while loop body must be unit too
 
     const unit : unit = while (true) {
         discard 10;

@@ -63,11 +63,11 @@ For a type ```t```
     - (.-): t -> t
     - (.!): t -> t
 
-- Special case:
+- Special cases:
     - (==):
         - If defined then the ( != ) operator is created by the compiler
     - (<=>):
-        - If defined then the following operator are created by the compiler:
+        - If defined then the following operators are created by the compiler:
             - (==)
             - (!=)
             - (\<)
