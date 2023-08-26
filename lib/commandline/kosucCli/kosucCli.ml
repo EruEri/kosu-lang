@@ -35,7 +35,7 @@ module Cli = struct
       (KosuBackend.Aarch64.Aarch64Codegen.Codegen
          (KosuBackend.Aarch64.Aarch64AsmSpecImpl.MacOSAarch64AsmSpec))
 
-  module FreebBSDAarch64 =
+  module FreeBSDAarch64 =
     KosuBackend.Codegen.Make
       (KosuBackend.Aarch64.Aarch64Codegen.Codegen
          (KosuBackend.Aarch64.Aarch64AsmSpecImpl.FreeBSDAarch64AsmSpec))
@@ -54,6 +54,7 @@ module Cli = struct
     pkg_configs : string list;
     ccol : string list;
     cclib : string list;
+    frameworks : string list;
     files : string list;
   }
 
@@ -147,6 +148,13 @@ module Cli = struct
       & info [ "l" ] ~docv:"libname" ~doc:"Pass $(i,libname) to the linker"
     )
 
+  let framework_term =
+    Arg.(
+      value & opt_all string []
+      & info [ "framework" ] ~docv:"framework"
+          ~doc:"Pass $(i,framework) to the linker"
+    )
+
   let output_term =
     Arg.(
       value & opt string default_outfile
@@ -183,7 +191,7 @@ module Cli = struct
 
   let cmd_term run =
     let combine architecture os f_allow_generic_in_variadic no_std verbose cc
-        is_target_asm output pkg_configs ccol cclib files =
+        is_target_asm output pkg_configs ccol cclib frameworks files =
       run
       @@ {
            architecture;
@@ -197,6 +205,7 @@ module Cli = struct
            pkg_configs;
            cclib;
            ccol;
+           frameworks;
            files;
          }
     in
@@ -204,7 +213,7 @@ module Cli = struct
       const combine $ target_archi_term $ os_target_term
       $ f_allow_generic_in_variadic_term $ no_std_term $ verbose_term $ cc_term
       $ target_asm_term $ output_term $ pkg_config_term $ ccol_term $ cclib_term
-      $ files_term
+      $ framework_term $ files_term
     )
 
   let kosuc_doc = "The Kosu compiler"
@@ -257,6 +266,7 @@ module Cli = struct
       output;
       ccol;
       files;
+      frameworks;
       cclib;
     } =
       cmd
@@ -288,7 +298,7 @@ module Cli = struct
             | Arm64, Macos ->
                 (module MacOSAarch64)
             | Arm64, (FreeBSD | Linux) ->
-                (module FreebBSDAarch64)
+                (module FreeBSDAarch64)
           : KosuBackend.Codegen.S
         )
     in
@@ -327,8 +337,9 @@ module Cli = struct
           Compiler.generate_asm_only tac_program ()
       | false ->
           let compilation = Compiler.compilation ~cc in
-          compilation ~outfile:output ~debug:true ~ccol ~other:other_files
-            ~cclib ~verbose ~pkg_config_names:pkg_configs tac_program
+          compilation ~outfile:output ~frameworks ~debug:true ~ccol
+            ~other:other_files ~cclib ~verbose ~pkg_config_names:pkg_configs
+            tac_program
     in
     ()
 

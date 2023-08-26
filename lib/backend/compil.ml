@@ -70,8 +70,8 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
          )
          pkg_config
 
-  let cc_compilation ?(debug = false) ?(ccol = []) ?(cclib = [])
-      ~pkg_config_names ~verbose ~outfile ~other tac_prgram =
+  let cc_compilation ?(debug = false) ~ccol ~cclib ~frameworks ~pkg_config_names
+      ~verbose ~outfile ~other tac_prgram =
     let c_obj_files =
       ccol
       |> List.map (fun s ->
@@ -105,9 +105,15 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
           pkg_config ~verbose ~cflags:true ~clibs:true ~pkg_config_names ()
         in
 
+        let frameworks =
+          frameworks
+          |> List.map @@ Printf.sprintf "-framework %s"
+          |> String.concat " "
+        in
+
         let pkg_configs = pkg_append_lib cclib pkg_configs in
         let cmd =
-          Printf.sprintf "cc %s -o %s %s %s %s"
+          Printf.sprintf "cc %s -o %s %s %s %s %s"
             ( if debug then
                 "-g"
               else
@@ -116,11 +122,12 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
             outfile
             (asm_files |> String.concat " ")
             (obj_file @ other |> String.concat " ")
+            frameworks
             (Util.PkgConfig.to_string pkg_configs)
         in
         run_command ~verbose cmd
 
-  let native_compilation ?(debug = false) ?(ccol = []) ?(cclib = [])
+  let native_compilation ?(debug = false) ~ccol ~cclib ~frameworks
       ~pkg_config_names ~verbose ~outfile ~other tac_prgram =
     let () =
       match LD.disable with
@@ -202,9 +209,15 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
       LD.raw_args |> List.map LD.string_of_option |> String.concat " "
     in
 
+    let frameworks =
+      frameworks
+      |> List.map @@ Printf.sprintf "-framework %s"
+      |> String.concat " "
+    in
+
     let ld_cmd =
-      Printf.sprintf "%s %s -o %s %s %s %s" LD.ld_command options out_file
-        raw_args string_of_objects_files
+      Printf.sprintf "%s %s %s -o %s %s %s %s" LD.ld_command options frameworks
+        out_file raw_args string_of_objects_files
         (Util.PkgConfig.linker_flags_format pkg)
     in
     let code = run_command ~verbose ld_cmd in
