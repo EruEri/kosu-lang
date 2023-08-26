@@ -1,8 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## **0.4.0**
 
-- [Compiler Option]()
+- [Discard function]()
+    - Fix :
+        - discard a function call than return a type where the size is between 9-16 in some case a segfault
+
+- [Compiler Option](https://github.com/EruEri/kosu-lang/pull/73)
     - Remove **--ccol** option
         - Now (C, Assembly, Objects) files can be passed as positional arguments
     - Add **--framework** option

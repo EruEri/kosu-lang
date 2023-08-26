@@ -180,11 +180,9 @@ let offset_of_field ?(generics = Hashtbl.create 0) field rstruct_decl rprogram =
 (* on X86 and Arm64: if the retuned_value can be held in R0 and R1 (RAX, RCX)*)
 (* If so, there is no need to pass the address of the destination to the function*)
 (* Therefore : the retunred values dont need to be on the stack since there are discarded*)
-let discardable_size = function
-  | 1L | 2L | 4L | 8L | 9L | 10L | 12L | 16L ->
-      true
-  | _ ->
-      false
+(* But Kosu ABI is than is the return size is > than a word size*)
+(* The return address must be passed so we cannot discard from 8-16 L *)
+let discardable_size = function 1L | 2L | 4L | 8L -> true | _ -> false
 
 let compute_ktype rprogram ktype =
   match Hashtbl.find_opt mapsize ktype with
