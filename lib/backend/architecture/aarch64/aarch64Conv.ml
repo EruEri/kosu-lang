@@ -538,7 +538,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         | RSyscall_Decl syscall_decl ->
             let instructions, _regs =
               tac_parameters
-              |> Util.ListHelper.combine_safe argument_registers
+              |> Util.Ulist.combine_safe argument_registers
               |> List.fold_left_map
                    (fun acc (reg, tte) ->
                      let reg, instruction =

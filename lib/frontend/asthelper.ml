@@ -106,7 +106,7 @@ module Module = struct
     |> Util.Occurence.find_occurence (fun fn_decl ->
            fn_decl.fn_name = fn_name
            && Ast.Type.are_compatible_type r_types.v fn_decl.return_type.v
-           && Util.are_same_lenght fn_decl.parameters parameters_types
+           && Util.Ulist.are_same_length fn_decl.parameters parameters_types
            && List.for_all2
                 (fun para init -> Ast.Type.are_compatible_type para.v init.v)
                 (fn_decl.parameters |> List.map (fun (_, kt) -> kt))
@@ -206,14 +206,15 @@ module Program = struct
                    enum_decl.variants
                    |> List.exists (fun (variant_decl, assoc_type) ->
                           variant_decl.v = variant.v
-                          && Util.are_same_lenght assoc_exprs assoc_type
+                          && Util.Ulist.are_same_length assoc_exprs assoc_type
                       )
                | Some enum_name ->
                    enum_name = enum_decl.enum_name.v
                    && enum_decl.variants
                       |> List.exists (fun (variant_decl, assoc_type) ->
                              variant_decl.v = variant.v
-                             && Util.are_same_lenght assoc_exprs assoc_type
+                             && Util.Ulist.are_same_length assoc_exprs
+                                  assoc_type
                          )
            )
         |> function
@@ -553,7 +554,7 @@ module Program = struct
               let declaration =
                 program |> find_binary_operator op (kt, kt) rtype
               in
-              match declaration |> Util.ListHelper.inner_count with
+              match declaration |> Util.Ulist.inner_count with
               | 0 ->
                   Result.error No_declaration_found
               | 1 ->
@@ -580,7 +581,7 @@ module Program = struct
       match lhs with
       | TType_Identifier _ as kt -> (
           let declaration = program |> find_binary_operator op (kt, kt) rtype in
-          match declaration |> Util.ListHelper.inner_count with
+          match declaration |> Util.Ulist.inner_count with
           | 0 -> (
               match no_decl with
               | Some f ->
@@ -705,7 +706,7 @@ module Program = struct
     match ktype with
     | TType_Identifier _ as kt -> (
         let declaration = program |> find_unary_operator Ast.PNot kt kt in
-        match declaration |> Util.ListHelper.inner_count with
+        match declaration |> Util.Ulist.inner_count with
         | 0 ->
             `no_function_found
         | 1 ->
@@ -725,7 +726,7 @@ module Program = struct
     match ktype with
     | TType_Identifier _ as kt -> (
         let declaration = program |> find_unary_operator Ast.PUMinus kt kt in
-        match declaration |> Util.ListHelper.inner_count with
+        match declaration |> Util.Ulist.inner_count with
         | 0 ->
             `no_function_found
         | 1 ->
@@ -1156,7 +1157,7 @@ module Switch_case = struct
         matched_variant.v = variant.v && assoc_types |> List.length = 0
     | SC_Enum_Identifier_Assoc { variant = matched_variant; assoc_ids } ->
         matched_variant.v = variant.v
-        && Util.are_same_lenght assoc_ids assoc_types
+        && Util.Ulist.are_same_length assoc_ids assoc_types
 
   let is_cases_matched variant (switch_cases : t list) =
     switch_cases |> List.exists (is_case_matched variant)
@@ -1213,7 +1214,7 @@ module Enum = struct
     | TPointer l_type, TPointer r_type ->
         are_type_compatible l_type.v r_type.v enum_decl
     | TTuple lhs, TTuple rhs ->
-        Util.are_same_lenght lhs rhs
+        Util.Ulist.are_same_length lhs rhs
         && List.combine lhs rhs
            |> List.for_all (fun (lhs_type, rhs_type) ->
                   are_type_compatible lhs_type.v rhs_type.v enum_decl
@@ -1241,7 +1242,7 @@ module Enum = struct
                  let () =
                    Hashtbl.replace generic_table name.v
                      ( enum_decl.generics
-                       |> Util.ListHelper.index_of (fun ge -> ge.v = name.v),
+                       |> Util.Ulist.index_of (fun ge -> ge.v = name.v),
                        kt
                      )
                  in
@@ -1277,7 +1278,7 @@ module Enum = struct
     | TPointer l_type, TPointer r_type ->
         is_type_compatible_hashgen generic_table l_type.v r_type.v enum_decl
     | TTuple lhs, TTuple rhs ->
-        Util.are_same_lenght lhs rhs
+        Util.Ulist.are_same_length lhs rhs
         && List.combine lhs rhs
            |> List.for_all (fun (lhs_type, rhs_type) ->
                   is_type_compatible_hashgen generic_table lhs_type.v rhs_type.v
@@ -1308,7 +1309,7 @@ module Enum = struct
         }
 
   let is_valide_assoc_type_init ~init_types ~expected_types enum_decl =
-    Util.are_same_lenght init_types expected_types
+    Util.Ulist.are_same_length init_types expected_types
     && List.combine init_types expected_types
        |> List.for_all (fun (init_type, expected_type) ->
               are_type_compatible init_type expected_type enum_decl
@@ -1641,7 +1642,7 @@ module Struct = struct
                  let () =
                    Hashtbl.replace generic_table name.v
                      ( struct_decl.generics |> List.map Position.value
-                       |> Util.ListHelper.index_of (( = ) name.v),
+                       |> Util.Ulist.index_of (( = ) name.v),
                        kt
                      )
                  in
@@ -1682,7 +1683,7 @@ module Struct = struct
         && is_type_compatible_hashgen generic_table lhs.ktype.v rhs.ktype.v
              struct_decl
     | TTuple lhs, TTuple rhs ->
-        Util.are_same_lenght lhs rhs
+        Util.Ulist.are_same_length lhs rhs
         && List.for_all2
              (fun init exptected ->
                is_type_compatible_hashgen generic_table init exptected
@@ -2140,7 +2141,7 @@ module Function = struct
                  let () =
                    Hashtbl.replace generic_table name.v
                      ( function_decl.generics
-                       |> Util.ListHelper.index_of (fun g -> g.v = name.v),
+                       |> Util.Ulist.index_of (fun g -> g.v = name.v),
                        kt
                      )
                  in
@@ -2184,7 +2185,7 @@ module Function = struct
     | TPointer lhs, TPointer rhs ->
         is_type_compatible_hashgen generic_table lhs.v rhs.v function_decl
     | TTuple lhs, TTuple rhs ->
-        Util.are_same_lenght lhs rhs
+        Util.Ulist.are_same_length lhs rhs
         && List.for_all2
              (fun lkt rkt ->
                is_type_compatible_hashgen generic_table lkt.v rkt.v

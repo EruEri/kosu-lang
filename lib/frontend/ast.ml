@@ -843,7 +843,7 @@ module Type = struct
         TParametric_identifier
           { module_path = mp2; parametrics_type = pt2; name = n2 } ) ->
         n1.v = n2.v && mp1.v = mp2.v
-        && pt1 |> Util.are_same_lenght pt2
+        && pt1 |> Util.Ulist.are_same_length pt2
         && List.for_all2 (fun kt1 kt2 -> kt1.v === kt2.v) pt1 pt2
     | TPointer pt1, TPointer pt2 ->
         pt1.v === pt2.v
@@ -851,7 +851,7 @@ module Type = struct
         TType_Identifier { module_path = mp2; name = n2 } ) ->
         mp1.v = mp2.v && n1.v = n2.v
     | TTuple t1, TTuple t2 ->
-        Util.are_same_lenght t1 t2
+        Util.Ulist.are_same_length t1 t2
         && List.combine t1 t2
            |> List.map Position.assocs_value
            |> List.for_all (fun (k1, k2) -> k1 === k2)
@@ -895,7 +895,7 @@ module Type = struct
         TParametric_identifier
           { module_path = mp2; parametrics_type = pt2; name = n2 } ) ->
         n1.v = n2.v && mp1.v = mp2.v
-        && pt1 |> Util.are_same_lenght pt2
+        && pt1 |> Util.Ulist.are_same_length pt2
         && List.for_all2
              (fun kt1 kt2 -> are_compatible_type kt1.v kt2.v)
              pt1 pt2
@@ -911,7 +911,7 @@ module Type = struct
         TType_Identifier { module_path = mp2; name = n2 } ) ->
         mp1.v = mp2.v && n1.v = n2.v
     | TTuple t1, TTuple t2 ->
-        Util.are_same_lenght t1 t2
+        Util.Ulist.are_same_length t1 t2
         && List.combine t1 t2
            |> List.map Position.assocs_value
            |> List.for_all (fun (k1, k2) -> are_compatible_type k1 k2)
@@ -947,7 +947,9 @@ module Type = struct
           { module_path = lmp; parametrics_type = lpt; name = lname },
         TParametric_identifier
           { module_path = rmp; parametrics_type = rpt; name = rname } ) ->
-        if lmp.v <> rmp.v || lname.v <> rname.v || Util.are_diff_lenght lpt rpt
+        if
+          lmp.v <> rmp.v || lname.v <> rname.v
+          || Util.Ulist.are_diff_length lpt rpt
         then
           ()
         else
@@ -1219,7 +1221,9 @@ module Type = struct
             { module_path = mp1; parametrics_type = pt1; name = n1 },
           TParametric_identifier
             { module_path = mp2; parametrics_type = pt2; name = n2 } ) ->
-          if n1.v <> n2.v || mp1.v <> mp2.v || Util.are_diff_lenght pt1 pt2 then
+          if
+            n1.v <> n2.v || mp1.v <> mp2.v || Util.Ulist.are_diff_length pt1 pt2
+          then
             to_restrict_type
           else
             TParametric_identifier

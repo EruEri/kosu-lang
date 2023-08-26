@@ -714,7 +714,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             (* Totally use that syscall args cannot contains float according to the Sys V ABI *)
             let set_on_reg_instructions =
               tac_parameters
-              |> Util.ListHelper.combine_safe syscall_arguments_register
+              |> Util.Ulist.combine_safe syscall_arguments_register
               |> List.fold_left
                    (fun acc (reg, tte) ->
                      let reg = iregister reg in

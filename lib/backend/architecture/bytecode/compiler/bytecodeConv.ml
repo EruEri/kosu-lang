@@ -401,7 +401,7 @@ let translate_tac_rvalue ~litterals ~where current_module rprogram
             |> List.map @@ cc_args_translate_tac_expression ~litterals fd
           in
           let extra_args =
-            Util.ListHelper.popn
+            Util.Ulist.popn
               (List.length @@ external_func_decl.fn_parameters)
               tac_parameters
           in
