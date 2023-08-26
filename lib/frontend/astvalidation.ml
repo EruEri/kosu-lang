@@ -149,7 +149,7 @@ struct
       | _ ->
           Ok ()
       | exception Ast.Error.Ast_error e ->
-          VError.Ast_Error e |> Result.error
+          Result.error @@ VError.Ast_Error e
 
     let rec does_ktype_contains_type_decl current_module program ktype
         ktype_type_decl_origin already_visited type_decl_to_check =
@@ -167,8 +167,6 @@ struct
           | Ok (Ast.Type_Decl.Decl_Enum enum_decl) ->
               does_contains_type_decl_enum current_module program enum_decl
                 already_visited type_decl_to_check
-          | Ok (Ast.Type_Decl.Decl_Opaque _) ->
-              failwith "Unreachable TType_Identifier: cannot be opaque"
           | Error e ->
               e |> Ast.Error.ast_error |> raise
         )
@@ -182,8 +180,6 @@ struct
           match type_decl_found with
           | Error e ->
               e |> Ast.Error.ast_error |> raise
-          | Ok (Ast.Type_Decl.Decl_Opaque _) ->
-              failwith "Unreachable TType_Identifier: cannot be opaque"
           | Ok (Ast.Type_Decl.Decl_Struct struct_decl) ->
               let new_struct =
                 Asthelper.Struct.bind_struct_decl
@@ -572,7 +568,7 @@ struct
     let is_field_duplicate struct_decl =
       struct_decl.fields
       |> List.map (fun (field, _) -> field.v)
-      |> Util.ListHelper.duplicate
+      |> Util.Ulist.duplicate
       |> function [] -> None | t :: _ -> Some t
 
     let is_valid_struct_decl program (current_module_name : string)
@@ -625,7 +621,7 @@ struct
     let is_variant_duplicate enum_decl =
       enum_decl.variants
       |> List.map (fun (s, _) -> s.v)
-      |> Util.ListHelper.duplicate
+      |> Util.Ulist.duplicate
       |> function [] -> None | t :: _ -> Some t
 
     let is_valid_enum_decl program (current_module_name : string)
@@ -685,7 +681,7 @@ struct
     let check_parameters_duplicate (function_decl : function_decl) =
       function_decl.parameters
       |> List.map (fun (field, _) -> field.v)
-      |> Util.ListHelper.duplicate
+      |> Util.Ulist.duplicate
       |> function
       | [] ->
           Ok ()
@@ -898,7 +894,7 @@ struct
   module ValidateModule = struct
     let check_duplicate_function { path; _module } =
       _module |> Asthelper.Module.retrieve_functions_decl
-      |> Util.ListHelper.duplicated (fun lfn rfn ->
+      |> Util.Ulist.duplicated (fun lfn rfn ->
              lfn |> Ast.Function_Decl.calling_name |> value
              = (rfn |> Ast.Function_Decl.calling_name |> value)
          )
@@ -909,7 +905,7 @@ struct
           VError.Duplicate_function_declaration { path; functions = t }
           |> VError.module_error |> Result.error
     (* |> List.map Ast.Function_Decl.calling_name
-       |> Util.ListHelper.duplicate
+       |> Util.Ulist.duplicate
        |> function
        | [] -> Ok ()
        | t :: _ ->
@@ -918,7 +914,7 @@ struct
     let check_duplicate_operator { path; _module } =
       let open Ast.Type in
       _module |> Asthelper.Module.retrieve_operator_decl
-      |> Util.ListHelper.duplicated (fun lop rop ->
+      |> Util.Ulist.duplicated (fun lop rop ->
              match (lop, rop) with
              | Binary l, Binary r ->
                  l.op |> Position.value = (r.op |> Position.value)
@@ -988,7 +984,7 @@ struct
     let check_duplicate_type { path; _module } =
       let type_decls = _module |> Asthelper.Module.retrieve_type_decl in
       type_decls
-      |> Util.ListHelper.duplicated (fun lhs rhs ->
+      |> Util.Ulist.duplicated (fun lhs rhs ->
              lhs |> Asthelper.Type_Decl.type_name |> Position.value
              = (rhs |> Asthelper.Type_Decl.type_name |> Position.value)
          )
@@ -1002,7 +998,7 @@ struct
     let check_duplicate_const_name { path; _module } =
       let consts_decl = _module |> Asthelper.Module.retrieve_const_decl in
       consts_decl
-      |> Util.ListHelper.duplicated (fun lconst rconst ->
+      |> Util.Ulist.duplicated (fun lconst rconst ->
              lconst.const_name.v = rconst.const_name.v
          )
       |> function
@@ -1084,14 +1080,8 @@ struct
       ValidateModule.check_validate_module package
       >>= fun () ->
       _module
-      |> List.fold_left
-           (fun acc value ->
-             if acc |> Result.is_error then
-               acc
-             else
-               validate_module_node program path value
-           )
-           (Ok ())
+      |> Util.Ulist.map_ok (fun value -> validate_module_node program path value)
+      |> Result.map (fun _ -> ())
     )
 
   let valide_program (program : program) =
@@ -1100,19 +1090,16 @@ struct
     | Error e ->
         ("", Error e)
     | Ok () ->
-        let remove_program =
-          program |> Help.program_remove_implicit_type_path
-        in
-        remove_program
-        |> List.fold_left
-             (fun acc named_module_path ->
-               let _f_name, result = acc in
-               if result |> Result.is_error then
-                 acc
-               else
-                 validate_module
-                   (remove_program |> Asthelper.Program.to_module_path_list)
-                   named_module_path
-             )
-             ("", Ok ())
+        let remove_program = Help.program_remove_implicit_type_path program in
+        List.fold_left
+          (fun acc named_module_path ->
+            let _f_name, result = acc in
+            if result |> Result.is_error then
+              acc
+            else
+              validate_module
+                (Asthelper.Program.to_module_path_list remove_program)
+                named_module_path
+          )
+          ("", Ok ()) remove_program
 end

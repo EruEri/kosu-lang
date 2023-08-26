@@ -35,16 +35,18 @@ module Cli = struct
       (KosuBackend.Aarch64.Aarch64Codegen.Codegen
          (KosuBackend.Aarch64.Aarch64AsmSpecImpl.MacOSAarch64AsmSpec))
 
-  module FreebBSDAarch64 =
+  module FreeBSDAarch64 =
     KosuBackend.Codegen.Make
       (KosuBackend.Aarch64.Aarch64Codegen.Codegen
          (KosuBackend.Aarch64.Aarch64AsmSpecImpl.FreeBSDAarch64AsmSpec))
 
   let name = "kosuc"
+  let c_compiler = "cc"
 
   type cmd = {
     architecture : architecture;
     os : os;
+    check_only : bool;
     f_allow_generic_in_variadic : bool;
     no_std : bool;
     is_target_asm : bool;
@@ -52,8 +54,8 @@ module Cli = struct
     verbose : bool;
     output : string;
     pkg_configs : string list;
-    ccol : string list;
     cclib : string list;
+    frameworks : string list;
     files : string list;
   }
 
@@ -82,6 +84,13 @@ module Cli = struct
                architecture_global_variable
             )
           ~doc:"architecture compilation target" [ "arch" ]
+    )
+
+  let check_only_term =
+    Arg.(
+      value & flag
+      & info [ "check-only" ]
+          ~doc:"Run only the parsing and type checking stages"
     )
 
   let os_target_term =
@@ -147,6 +156,13 @@ module Cli = struct
       & info [ "l" ] ~docv:"libname" ~doc:"Pass $(i,libname) to the linker"
     )
 
+  let framework_term =
+    Arg.(
+      value & opt_all string []
+      & info [ "framework" ] ~docv:"framework"
+          ~doc:"Pass $(i,framework) to the linker"
+    )
+
   let output_term =
     Arg.(
       value & opt string default_outfile
@@ -167,27 +183,30 @@ module Cli = struct
              to generate object file and link those files"
     )
 
+  (* let x =   "Input files of the compiler. Kosu files must have the extension .kosu.
+     Files ending with .c are treated as C files, are compiled to object files with $(b, cc)
+     and linked to the program
+     Files ending with .s are treated as Assembly file, are assembled with $(b, as)
+     and linked to the program
+     Files ending with .o are treated as object files to be passed to the linker. \
+     If --cc flag is set, files ending with .c, .s or .o are passed as it to $(b, cc)
+     \ " *)
+
   let files_term =
     Arg.(
       non_empty
       & pos_all Arg.non_dir_file []
-      & info [] ~docv:"FILES"
-          ~doc:
-            "Input files of the compiler. Kosu files must have the extension \
-             .kosu. Files ending  \n\
-            \  with .o are treated as object files to be passed to the linker. \
-             If --cc flag is set, any files recognized by the $(b,cc(1)) can \
-             be passed. \n\
-            \  "
+      & info [] ~docv:"FILES" ~doc:"Compiler Input files"
     )
 
   let cmd_term run =
-    let combine architecture os f_allow_generic_in_variadic no_std verbose cc
-        is_target_asm output pkg_configs ccol cclib files =
+    let combine architecture os check_only f_allow_generic_in_variadic no_std
+        verbose cc is_target_asm output pkg_configs cclib frameworks files =
       run
       @@ {
            architecture;
            f_allow_generic_in_variadic;
+           check_only;
            os;
            no_std;
            verbose;
@@ -196,15 +215,15 @@ module Cli = struct
            output;
            pkg_configs;
            cclib;
-           ccol;
+           frameworks;
            files;
          }
     in
     Term.(
-      const combine $ target_archi_term $ os_target_term
+      const combine $ target_archi_term $ os_target_term $ check_only_term
       $ f_allow_generic_in_variadic_term $ no_std_term $ verbose_term $ cc_term
-      $ target_asm_term $ output_term $ pkg_config_term $ ccol_term $ cclib_term
-      $ files_term
+      $ target_asm_term $ output_term $ pkg_config_term $ cclib_term
+      $ framework_term $ files_term
     )
 
   let kosuc_doc = "The Kosu compiler"
@@ -219,6 +238,21 @@ module Cli = struct
         "The philosophy of Kosu is to have as control over memory as C (manual \
          memory management, pointers) while having some higher features like \
          generics or sum type.";
+      `P "Kosu files must have the extension .kosu.";
+      `P
+        "Files ending with .c are treated as C files, are compiled to object \
+         files with $(b,cc)(1)\n\
+        \      and linked to the program";
+      `P
+        "Files ending with .s are treated as Assembly file, are assembled with \
+         $(b,as)(1)\n\
+        \      and linked to the program";
+      `P
+        "Files ending with .o are treated as object files to be passed to the \
+         linker.";
+      `P
+        "If --cc flag is set, files ending with .c, .s or .o are passed as it \
+         is to $(b,cc)(1)";
       `S Manpage.s_environment;
       `I
         ( Printf.sprintf "$(b,%s)" std_global_variable,
@@ -248,6 +282,7 @@ module Cli = struct
     let {
       architecture;
       os;
+      check_only;
       f_allow_generic_in_variadic;
       no_std;
       verbose;
@@ -255,14 +290,23 @@ module Cli = struct
       cc;
       pkg_configs;
       output;
-      ccol;
       files;
+      frameworks;
       cclib;
     } =
       cmd
     in
 
-    let kosu_files, other_files = files |> List.partition is_kosu_file in
+    let ( `KosuFile kosu_files,
+          `CFile c_files,
+          `ObjFile object_files,
+          `AssemblyFile assembly_files ) =
+      match CliCommon.input_file files with
+      | Ok e ->
+          e
+      | Error e ->
+          failwith @@ Printf.sprintf "unsported file %s" e
+    in
 
     let std_file = fetch_std_file ~no_std () in
 
@@ -288,7 +332,7 @@ module Cli = struct
             | Arm64, Macos ->
                 (module MacOSAarch64)
             | Arm64, (FreeBSD | Linux) ->
-                (module FreebBSDAarch64)
+                (module FreeBSDAarch64)
           : KosuBackend.Codegen.S
         )
     in
@@ -318,6 +362,8 @@ module Cli = struct
           failwith "Error while typing ast: Shouldn't append"
     in
 
+    let () = match check_only with true -> exit 0 | false -> () in
+
     let tac_program =
       KosuIrTAC.Asttacconv.tac_program_of_rprogram typed_program
     in
@@ -326,9 +372,12 @@ module Cli = struct
       | true ->
           Compiler.generate_asm_only tac_program ()
       | false ->
+          let args =
+            KosuBackend.Compil.{ c_files; assembly_files; object_files }
+          in
           let compilation = Compiler.compilation ~cc in
-          compilation ~outfile:output ~debug:true ~ccol ~other:other_files
-            ~cclib ~verbose ~pkg_config_names:pkg_configs tac_program
+          compilation ~outfile:output ~frameworks ~debug:true ~args ~cclib
+            ~verbose ~pkg_config_names:pkg_configs tac_program
     in
     ()
 

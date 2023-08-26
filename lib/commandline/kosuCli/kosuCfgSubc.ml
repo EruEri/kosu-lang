@@ -39,7 +39,7 @@ let register_module = function
   | LKVM ->
       (module BytecodeCompiler.Register : KosuIrCfg.Asttaccfg.ABI_Large
         with type variable = KosuIrCfg.Asttaccfg.Cfg_Sig_Impl.variable
-      )
+    )
   | LArm64 ->
       failwith "Not implemented yet"
   | LX86_64 ->

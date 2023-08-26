@@ -888,7 +888,7 @@ Return the type of an expression
               failwith "Wierd to fall here"
         in
         let () =
-          if Util.are_diff_lenght assoc_exprs raw_associated_types then
+          if Util.Ulist.are_diff_length assoc_exprs raw_associated_types then
             raise @@ enum_error
             @@ Ast.Error.Wrong_length_assoc_type
                  {
@@ -925,7 +925,7 @@ Return the type of an expression
           |> Option.get
           |> fun assoc_types ->
           let () =
-            if Util.are_diff_lenght init_types assoc_types then
+            if Util.Ulist.are_diff_length init_types assoc_types then
               raise @@ Ast.Error.enum_error
               @@ Ast.Error.Wrong_length_assoc_type
                    {
@@ -1160,7 +1160,9 @@ Return the type of an expression
         match fn_decl with
         | Ast.Function_Decl.Decl_Kosu_Function kosu_function_decl ->
             let () =
-              if Util.are_diff_lenght parameters kosu_function_decl.parameters
+              if
+                Util.Ulist.are_diff_length parameters
+                  kosu_function_decl.parameters
               then
                 raise @@ func_error
                 @@ Unmatched_Parameters_length
@@ -1218,7 +1220,7 @@ Return the type of an expression
               | true ->
                   let () =
                     if
-                      Util.are_diff_lenght
+                      Util.Ulist.are_diff_length
                         (grc |> Option.value ~default:[])
                         kosu_function_decl.generics
                     then
@@ -1316,8 +1318,8 @@ Return the type of an expression
               | false ->
                   let () =
                     if
-                      Util.are_diff_lenght external_func_decl.fn_parameters
-                        parameters
+                      Util.Ulist.are_diff_length
+                        external_func_decl.fn_parameters parameters
                     then
                       raise @@ func_error
                       @@ Unmatched_Parameters_length
@@ -1367,7 +1369,8 @@ Return the type of an expression
               external_func_decl.r_type.v
         | Ast.Function_Decl.Decl_Syscall syscall_decl ->
             let () =
-              if Util.are_diff_lenght syscall_decl.parameters parameters then
+              if Util.Ulist.are_diff_length syscall_decl.parameters parameters
+              then
                 raise @@ func_error
                 @@ Unmatched_Parameters_length
                      {
@@ -1653,7 +1656,7 @@ Return the type of an expression
           with
           | Ok (Type_Decl.Decl_Enum e) ->
               e
-          | Ok (Type_Decl.Decl_Struct _ | Type_Decl.Decl_Opaque _) ->
+          | Ok (Type_Decl.Decl_Struct _) ->
               raise @@ switch_error
               @@ Not_enum_type_in_switch_Expression
                    (expr |> Position.map (fun _ -> expr_type))
@@ -1932,7 +1935,7 @@ Return the type of an expression
               failwith "unmatched between scrutinee type and pattern type"
         in
         let () =
-          match Util.are_same_lenght patterns tuple_scrutinee with
+          match Util.Ulist.are_same_length patterns tuple_scrutinee with
           | true ->
               ()
           | false ->
@@ -1954,9 +1957,7 @@ Return the type of an expression
         in
         let bounds = List.flatten bounds in
         let duplicated =
-          Util.ListHelper.duplicated
-            (fun (lhs, _) (rhs, _) -> lhs.v = rhs.v)
-            bounds
+          Util.Ulist.duplicated (fun (lhs, _) (rhs, _) -> lhs.v = rhs.v) bounds
         in
         let () =
           match duplicated with
@@ -1974,12 +1975,12 @@ Return the type of an expression
           with
           | None ->
               failwith "enum case as builint type"
-          | Some (Decl_Struct _) ->
+          | Some (Left (Decl_Struct _)) ->
               failwith "match struct instead of enum"
-          | Some (Decl_Opaque _) ->
-              failwith "opaque match enum"
-          | Some (Decl_Enum e) ->
+          | Some (Left (Decl_Enum e)) ->
               e
+          | Some (Right _) ->
+              failwith "match opaque type"
         in
         let generic_map =
           scrutinee_type |> Type.extract_parametrics_ktype
@@ -1997,7 +1998,7 @@ Return the type of an expression
               assoc
         in
         let () =
-          match Util.are_same_lenght assoc_patterns assoc_type with
+          match Util.Ulist.are_same_length assoc_patterns assoc_type with
           | true ->
               ()
           | false ->
@@ -2018,9 +2019,7 @@ Return the type of an expression
         in
         let bounds = List.flatten bounds in
         let duplicated =
-          Util.ListHelper.duplicated
-            (fun (lhs, _) (rhs, _) -> lhs.v = rhs.v)
-            bounds
+          Util.Ulist.duplicated (fun (lhs, _) (rhs, _) -> lhs.v = rhs.v) bounds
         in
         let () =
           match duplicated with
@@ -2072,7 +2071,7 @@ Return the type of an expression
           others_identifier
           |> List.fold_left
                (fun acc bounds ->
-                 match Util.ListHelper.ldiff string_compare acc bounds with
+                 match Util.Ulist.ldiff string_compare acc bounds with
                  | [] ->
                      acc
                  | t :: _ ->
