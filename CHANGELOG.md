@@ -8,6 +8,7 @@
     - Add **--framework** option
     - Add **--check_only** option
         - Equivalent of cc ```-fsyntax-only``` option
+    - Fix opaque type mistaken with simple identifier type
 
 - [Opaque type](https://github.com/EruEri/kosu-lang/pull/72)
     - Add pointer to unknown size type (to interop more easily with c library)

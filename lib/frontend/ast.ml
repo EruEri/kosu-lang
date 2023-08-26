@@ -296,14 +296,10 @@ module Fsize = struct
 end
 
 module Type_Decl = struct
-  type type_decl =
-    | Decl_Enum of enum_decl
-    | Decl_Struct of struct_decl
-    | Decl_Opaque of opaque_decl
+  type type_decl = Decl_Enum of enum_decl | Decl_Struct of struct_decl
 
   let decl_enum e = Decl_Enum e
   let decl_struct s = Decl_Struct s
-  let decl_opaque o = Decl_Opaque o
 end
 
 module Function_Decl = struct
@@ -564,6 +560,11 @@ module Error = struct
         position : position;
         ktype : ktype;
       }
+    | Opque_type_tag of {
+        fn_name : string;
+        position : position;
+        opaque_decl : opaque_decl;
+      }
     | Wrong_parameters of {
         fn_name : string;
         expected : ktype;
@@ -629,6 +630,7 @@ module Error = struct
     | Undefined_Struct of string location
     | Unbound_Module of string location
     | Undefine_Type of string location
+    | Undefine_OpaqueType of string location
     | Undefine_function of string location
     | Struct_Error of struct_error
     | Enum_Error of enum_error

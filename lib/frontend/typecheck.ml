@@ -1656,7 +1656,7 @@ Return the type of an expression
           with
           | Ok (Type_Decl.Decl_Enum e) ->
               e
-          | Ok (Type_Decl.Decl_Struct _ | Type_Decl.Decl_Opaque _) ->
+          | Ok (Type_Decl.Decl_Struct _) ->
               raise @@ switch_error
               @@ Not_enum_type_in_switch_Expression
                    (expr |> Position.map (fun _ -> expr_type))
@@ -1975,12 +1975,12 @@ Return the type of an expression
           with
           | None ->
               failwith "enum case as builint type"
-          | Some (Decl_Struct _) ->
+          | Some (Left (Decl_Struct _)) ->
               failwith "match struct instead of enum"
-          | Some (Decl_Opaque _) ->
-              failwith "opaque match enum"
-          | Some (Decl_Enum e) ->
+          | Some (Left (Decl_Enum e)) ->
               e
+          | Some (Right _) ->
+              failwith "match opaque type"
         in
         let generic_map =
           scrutinee_type |> Type.extract_parametrics_ktype

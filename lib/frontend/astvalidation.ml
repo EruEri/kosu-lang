@@ -149,7 +149,7 @@ struct
       | _ ->
           Ok ()
       | exception Ast.Error.Ast_error e ->
-          VError.Ast_Error e |> Result.error
+          Result.error @@ VError.Ast_Error e
 
     let rec does_ktype_contains_type_decl current_module program ktype
         ktype_type_decl_origin already_visited type_decl_to_check =
@@ -167,8 +167,6 @@ struct
           | Ok (Ast.Type_Decl.Decl_Enum enum_decl) ->
               does_contains_type_decl_enum current_module program enum_decl
                 already_visited type_decl_to_check
-          | Ok (Ast.Type_Decl.Decl_Opaque _) ->
-              failwith "Unreachable TType_Identifier: cannot be opaque"
           | Error e ->
               e |> Ast.Error.ast_error |> raise
         )
@@ -182,8 +180,6 @@ struct
           match type_decl_found with
           | Error e ->
               e |> Ast.Error.ast_error |> raise
-          | Ok (Ast.Type_Decl.Decl_Opaque _) ->
-              failwith "Unreachable TType_Identifier: cannot be opaque"
           | Ok (Ast.Type_Decl.Decl_Struct struct_decl) ->
               let new_struct =
                 Asthelper.Struct.bind_struct_decl
@@ -1084,14 +1080,8 @@ struct
       ValidateModule.check_validate_module package
       >>= fun () ->
       _module
-      |> List.fold_left
-           (fun acc value ->
-             if acc |> Result.is_error then
-               acc
-             else
-               validate_module_node program path value
-           )
-           (Ok ())
+      |> Util.Ulist.map_ok (fun value -> validate_module_node program path value)
+      |> Result.map (fun _ -> ())
     )
 
   let valide_program (program : program) =
