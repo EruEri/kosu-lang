@@ -2,7 +2,7 @@
 
 ## **0.4.0**
 
-- [Discard function]()
+- [Discard function](https://github.com/EruEri/kosu-lang/pull/74)
     - Fix :
         - discard a function call than return a type where the size is between 9-16 in some case a segfault
 
