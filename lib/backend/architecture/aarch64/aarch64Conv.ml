@@ -538,7 +538,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
         | RSyscall_Decl syscall_decl ->
             let instructions, _regs =
               tac_parameters
-              |> Util.ListHelper.combine_safe argument_registers
+              |> Util.Ulist.combine_safe argument_registers
               |> List.fold_left_map
                    (fun acc (reg, tte) ->
                      let reg, instruction =
@@ -2338,7 +2338,8 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
     tac_program
     |> List.map (fun ({ filename; tac_module_path; rprogram } as named) ->
            let str_lit_map =
-             map_string_litteral_of_named_rmodule_path named ()
+             map_string_litteral_of_named_rmodule_path
+               ~null_terminated_string:false named ()
            in
            let float_lit_map =
              KosuIrTAC.Asttachelper.FloatLitteral
@@ -2347,7 +2348,7 @@ module Make (AsmSpec : Aarch64AsmSpec.Aarch64AsmSpecification) = struct
            let litterals = { str_lit_map; float_lit_map } in
            {
              filename =
-               filename |> Filename.chop_extension |> Printf.sprintf "%s.S";
+               filename |> Filename.chop_extension |> Printf.sprintf "%s.s";
              asm_module_path =
                asm_module_path_of_tac_module_path ~litterals rprogram
                  tac_module_path;

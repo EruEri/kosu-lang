@@ -60,6 +60,7 @@ type ktype =
   | TTuple of ktype location list
   | TFunction of ktype location list * ktype location
   | TArray of { ktype : ktype location; size : int64 location }
+  | TOpaque of { module_path : string location; name : string location }
   | TOredered
   | TString_lit
   | TUnknow
@@ -264,6 +265,8 @@ type sig_decl = {
   return_type : ktype;
 }
 
+type opaque_decl = string location
+
 type module_node =
   | NExternFunc of external_func_decl
   | NFunction of function_decl
@@ -272,6 +275,7 @@ type module_node =
   | NStruct of struct_decl
   | NEnum of enum_decl
   | NConst of const_decl
+  | NOpaque of opaque_decl
 
 type iexpression_node =
   | IModule_Node of module_node
@@ -556,6 +560,11 @@ module Error = struct
         position : position;
         ktype : ktype;
       }
+    | Opque_type_tag of {
+        fn_name : string;
+        position : position;
+        opaque_decl : opaque_decl;
+      }
     | Wrong_parameters of {
         fn_name : string;
         expected : ktype;
@@ -621,6 +630,7 @@ module Error = struct
     | Undefined_Struct of string location
     | Unbound_Module of string location
     | Undefine_Type of string location
+    | Undefine_OpaqueType of string location
     | Undefine_function of string location
     | Struct_Error of struct_error
     | Enum_Error of enum_error
@@ -647,6 +657,7 @@ module Error = struct
         struct_decl : struct_decl;
       }
     | Enum_Access_field of { field : string location; enum_decl : enum_decl }
+    | Opaque_field_access of { field : string location; opaque : opaque_decl }
     | Tuple_access_for_non_tuple_type of { location : position; ktype : ktype }
     | Field_access_for_non_struct_type of { location : position; ktype : ktype }
     | Array_subscript_None_array of { found : ktype location }
@@ -785,6 +796,11 @@ module Type = struct
             ktype =
               ktype |> Position.map @@ set_module_path generics new_module_name;
           }
+    | TOpaque { module_path; name } ->
+        let module_path =
+          module_path |> Position.map (function "" -> new_module_name | s -> s)
+        in
+        TOpaque { module_path; name }
     | _ as kt ->
         kt
 
@@ -829,7 +845,7 @@ module Type = struct
         TParametric_identifier
           { module_path = mp2; parametrics_type = pt2; name = n2 } ) ->
         n1.v = n2.v && mp1.v = mp2.v
-        && pt1 |> Util.are_same_lenght pt2
+        && pt1 |> Util.Ulist.are_same_length pt2
         && List.for_all2 (fun kt1 kt2 -> kt1.v === kt2.v) pt1 pt2
     | TPointer pt1, TPointer pt2 ->
         pt1.v === pt2.v
@@ -837,12 +853,15 @@ module Type = struct
         TType_Identifier { module_path = mp2; name = n2 } ) ->
         mp1.v = mp2.v && n1.v = n2.v
     | TTuple t1, TTuple t2 ->
-        Util.are_same_lenght t1 t2
+        Util.Ulist.are_same_length t1 t2
         && List.combine t1 t2
            |> List.map Position.assocs_value
            |> List.for_all (fun (k1, k2) -> k1 === k2)
     | TArray a1, TArray a2 ->
         a1.size.v = a2.size.v && a1.ktype.v === a2.ktype.v
+    | TOpaque lhs, TOpaque rhs ->
+        let eq = lhs.module_path.v = rhs.module_path.v in
+        eq && lhs.name.v = rhs.name.v
     | _, _ ->
         lhs = rhs
 
@@ -878,7 +897,7 @@ module Type = struct
         TParametric_identifier
           { module_path = mp2; parametrics_type = pt2; name = n2 } ) ->
         n1.v = n2.v && mp1.v = mp2.v
-        && pt1 |> Util.are_same_lenght pt2
+        && pt1 |> Util.Ulist.are_same_length pt2
         && List.for_all2
              (fun kt1 kt2 -> are_compatible_type kt1.v kt2.v)
              pt1 pt2
@@ -894,7 +913,7 @@ module Type = struct
         TType_Identifier { module_path = mp2; name = n2 } ) ->
         mp1.v = mp2.v && n1.v = n2.v
     | TTuple t1, TTuple t2 ->
-        Util.are_same_lenght t1 t2
+        Util.Ulist.are_same_length t1 t2
         && List.combine t1 t2
            |> List.map Position.assocs_value
            |> List.for_all (fun (k1, k2) -> are_compatible_type k1 k2)
@@ -904,6 +923,9 @@ module Type = struct
     | TInteger None, TInteger _ | TInteger _, TInteger None ->
         true
     | TFloat None, TFloat _ | TFloat _, TFloat None ->
+        true
+    | TPointer { v = TUnknow; _ }, TOpaque _
+    | TOpaque _, TPointer { v = TUnknow; _ } ->
         true
     | _, _ ->
         lhs === rhs
@@ -927,7 +949,9 @@ module Type = struct
           { module_path = lmp; parametrics_type = lpt; name = lname },
         TParametric_identifier
           { module_path = rmp; parametrics_type = rpt; name = rname } ) ->
-        if lmp.v <> rmp.v || lname.v <> rname.v || Util.are_diff_lenght lpt rpt
+        if
+          lmp.v <> rmp.v || lname.v <> rname.v
+          || Util.Ulist.are_diff_length lpt rpt
         then
           ()
         else
@@ -1199,7 +1223,9 @@ module Type = struct
             { module_path = mp1; parametrics_type = pt1; name = n1 },
           TParametric_identifier
             { module_path = mp2; parametrics_type = pt2; name = n2 } ) ->
-          if n1.v <> n2.v || mp1.v <> mp2.v || Util.are_diff_lenght pt1 pt2 then
+          if
+            n1.v <> n2.v || mp1.v <> mp2.v || Util.Ulist.are_diff_length pt1 pt2
+          then
             to_restrict_type
           else
             TParametric_identifier
@@ -1219,7 +1245,7 @@ module Type = struct
       | TUnknow, t ->
           t
       | (TPointer _ as kt), TPointer { v = TUnknow; _ }
-      | TPointer { v = TUnknow; _ }, (TPointer _ as kt) ->
+      | TPointer { v = TUnknow; _ }, ((TPointer _ | TOpaque _) as kt) ->
           kt
       | TInteger None, (TInteger _ as i) | (TInteger _ as i), TInteger None ->
           i

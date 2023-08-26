@@ -80,11 +80,30 @@ fn main() s32 {
 ```
 
 ## How to build 
+
+- You will also need to install [libffi](https://github.com/libffi/libffi):
+
 ```bash
   $ opam install dune cmdliner menhir
   $ cd kosu-lang
   $ dune build
 ```
+
+Once build, the following programs are generated:
+
+| command     | description |
+| ----        | ------
+| `kosuc`     | the Kosu native compiler
+| `kosu`      | the Kosu repl
+| `kosuc.bc`  | the Kosu bytecode compiler
+| `kosurun`   | the Kosu bytecode interpreter
+
+### Caution
+- ```kosuc.bc``` is highly experimental, segmentation-fault prone and not even terminated.
+So unless wanted, you don't have any reason to use ```kosuc.bc``` over ```kosuc``` 
+
+
+## How to run
 
 To compile the example above on MacOS (M1)
 ```bash
@@ -110,5 +129,5 @@ $ ./example
 ## Other
 - You can see more detail about:
   - in [Readme.md](/doc/Readme.md)
-  - in [test](test/files/)
+  - in [test](/test/files/)
 

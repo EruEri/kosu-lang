@@ -714,7 +714,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
             (* Totally use that syscall args cannot contains float according to the Sys V ABI *)
             let set_on_reg_instructions =
               tac_parameters
-              |> Util.ListHelper.combine_safe syscall_arguments_register
+              |> Util.Ulist.combine_safe syscall_arguments_register
               |> List.fold_left
                    (fun acc (reg, tte) ->
                      let reg = iregister reg in
@@ -2902,13 +2902,14 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
     }
 
   let asm_program_of_tac_program ~(start : string option) tac_program =
-    ignore start;
+    let () = ignore start in
     let modules =
       tac_program
       |> List.map (fun ({ filename; tac_module_path; rprogram } as named) ->
              let str_lit_map =
                KosuIrTAC.Asttachelper.StringLitteral
-               .map_string_litteral_of_named_rmodule_path named ()
+               .map_string_litteral_of_named_rmodule_path
+                 ~null_terminated_string:false named ()
              in
              let float_lit_map =
                KosuIrTAC.Asttachelper.FloatLitteral
@@ -2917,7 +2918,7 @@ module Make (Spec : X86_64AsmSpec.X86_64AsmSpecification) = struct
              let litterals = { str_lit_map; float_lit_map } in
              {
                filename =
-                 filename |> Filename.chop_extension |> Printf.sprintf "%s.S";
+                 filename |> Filename.chop_extension |> Printf.sprintf "%s.s";
                asm_module_path =
                  asm_module_path_of_tac_module_path ~litterals rprogram
                    tac_module_path;

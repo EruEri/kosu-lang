@@ -130,7 +130,7 @@ module Make (AsmProgram : AsmProgram) : S = struct
     | true ->
         None
     | false ->
-        let filename, file = Filename.open_temp_file filename ".S" in
+        let filename, file = Filename.open_temp_file filename ".s" in
         let () = export_asm_module_opened_file file named_asm_module_path in
         let () = close_out file in
         Some filename

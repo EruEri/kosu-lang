@@ -113,7 +113,8 @@ module RType = struct
           { module_path = lmp; parametrics_type = lpt; name = lname },
         RTParametric_identifier
           { module_path = rmp; parametrics_type = rpt; name = rname } ) ->
-        if lmp <> rmp || lname <> rname || Util.are_diff_lenght lpt rpt then
+        if lmp <> rmp || lname <> rname || Util.Ulist.are_diff_length lpt rpt
+        then
           ()
         else
           List.iter2 (fun l r -> update_generics map l r ()) lpt rpt
@@ -133,7 +134,8 @@ module RType = struct
         ),
         RTParametric_identifier
           { module_path = rmp; parametrics_type = rpt; name = rname } ) ->
-        if lmp <> rmp || lname <> rname || Util.are_diff_lenght lpt rpt then
+        if lmp <> rmp || lname <> rname || Util.Ulist.are_diff_length lpt rpt
+        then
           lhs
         else
           RTParametric_identifier
@@ -151,7 +153,7 @@ module RType = struct
     | RTUnknow, rtk | rtk, RTUnknow ->
         rtk
     | (RTTuple rkts as rkt), RTTuple lkts ->
-        if Util.are_diff_lenght rkts lkts then
+        if Util.Ulist.are_diff_length rkts lkts then
           rkt
         else
           RTTuple (List.map2 restrict_rktype rkts lkts)
@@ -702,8 +704,7 @@ module Function = struct
                if function_decl.generics |> List.mem name then
                  let () =
                    Hashtbl.replace generic_table name
-                     ( function_decl.generics
-                       |> Util.ListHelper.index_of (( = ) name),
+                     ( function_decl.generics |> Util.Ulist.index_of (( = ) name),
                        kt
                      )
                  in
@@ -743,7 +744,7 @@ module Function = struct
     | RTPointer lhs, RTPointer rhs ->
         is_type_compatible_hashgen generic_table lhs rhs function_decl
     | RTTuple lhs, RTTuple rhs ->
-        Util.are_same_lenght lhs rhs
+        Util.Ulist.are_same_length lhs rhs
         && List.for_all2
              (fun lkt rkt ->
                is_type_compatible_hashgen generic_table lkt rkt function_decl
@@ -1275,8 +1276,8 @@ module RProgram = struct
                 parameters
                 |> List.combine function_decl.rparameters
                 |> List.map
-                     (fun ((_, type_decl), ({ rktype; rexpression = _ } as te))
-                     ->
+                     (fun
+                       ((_, type_decl), ({ rktype; rexpression = _ } as te)) ->
                        (* let () = Printf.printf "te: %s\n\n" (Asttypprint.string_of_typed_expression te) in *)
                        let _ =
                          Function.is_type_compatible_hashgen maped_type rktype

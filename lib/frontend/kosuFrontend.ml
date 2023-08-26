@@ -19,7 +19,7 @@ module Ast = Ast
 module Pprint = Pprint
 module Asthelper = Asthelper
 module Position = Position
-module Lexer = Lexer
+module LexerError = LexerError
 module KosuParser = KosuParser
 module Parser = Parser
 module Typecheck = Typecheck
@@ -42,10 +42,9 @@ struct
 
   module Registerexn = struct
     open Pprint
-    open Lexer
 
     let string_of_lexer_error filename = function
-      | Lexer.Syntax_Error { position; current_lexeme; message; state } ->
+      | LexerError.Syntax_Error { position; current_lexeme; message; state } ->
           let s = string_of_position_error position in
           Printf.sprintf
             "\nFile \"%s\", %s : Unexpected \"%s\"\nSyntax Error : %s%s"
@@ -54,38 +53,39 @@ struct
             |> Option.map (Printf.sprintf "Error in state \"%d\"")
             |> Option.value ~default:""
             )
-      | Lexer.Forbidden_char (position, char) ->
+      | LexerError.Forbidden_char (position, char) ->
           let s = position |> string_of_position_error in
           Printf.sprintf "%s: Forbidden character : %c" s char
           |> Printf.sprintf "\nFile \"%s\", %s" filename
-      | Lexer.Unexpected_escaped_char (position, lexeme) ->
+      | LexerError.Unexpected_escaped_char (position, lexeme) ->
           let s = position |> string_of_position_error in
           Printf.sprintf "%s: Unexpected Escaped character: %s" s lexeme
           |> Printf.sprintf "\nFile \"%s\", %s" filename
-      | Lexer.Invalid_keyword_for_build_in_function (position, id) ->
+      | LexerError.Invalid_keyword_for_build_in_function (position, id) ->
           let s = position |> string_of_position_error in
           Printf.sprintf "%s: Invalid Keyword For Builtin Function: %s" s id
           |> Printf.sprintf "\nFile \"%s\", %s" filename
-      | Lexer.Invalid_litteral_for_build_in_function (position, litteral) ->
+      | LexerError.Invalid_litteral_for_build_in_function (position, litteral)
+        ->
           let s = position |> string_of_position_error in
           Printf.sprintf "%s: Invalid Litteral For Builtin Function: %c" s
             litteral
           |> Printf.sprintf "\nFile \"%s\", %s" filename
-      | Lexer.Not_finished_built_in_function position ->
+      | LexerError.Not_finished_built_in_function position ->
           position |> string_of_position_error
           |> Printf.sprintf "\nFile \"%s\" %s: Builtin function not finished"
                filename
-      | Lexer.Unclosed_comment position ->
+      | LexerError.Unclosed_comment position ->
           position |> string_of_position_error
           |> Printf.sprintf "\nFile \"%s\" %s: Comments not terminated" filename
-      | Lexer.Unclosed_string position ->
+      | LexerError.Unclosed_string position ->
           position |> string_of_position_error
           |> Printf.sprintf "\nFile \"%s\" %s: String litteral not terminated"
                filename
-      | Lexer.Char_Error position ->
+      | LexerError.Char_Error position ->
           position |> string_of_position_error
           |> Printf.sprintf "\nFile \"%s\" %s: Character parsing error" filename
-      | Lexer.Char_out_of_range (position, code) ->
+      | LexerError.Char_out_of_range (position, code) ->
           let epos = position |> string_of_position_error in
           Printf.sprintf
             "\nFile \"%s\", %s : Ascii value '%u' is not in [0-255]" filename
@@ -98,7 +98,7 @@ struct
               e |> Pprinterr.string_of_validation_error |> Printf.sprintf "%s"
               |> Printf.sprintf "\nFile \"%s\", %s" filename
               |> Option.some
-          | Lexer_Error { filename; error } ->
+          | LexerError.Lexer_Error { filename; error } ->
               Some (string_of_lexer_error filename error)
           | _ ->
               None
@@ -109,7 +109,7 @@ struct
   module Pprint = Pprint
   module Asthelper = Asthelper
   module Position = Position
-  module Lexer = Lexer
+  module LexerError = LexerError
   module KosuParser = KosuParser
   module Parser = Parser
   open Astvalidation
@@ -175,7 +175,7 @@ struct
     >>= fun lexbuf ->
     KosuParser.parse lexbuf (Parser.Incremental.modul lexbuf.lex_curr_p)
     |> Result.map_error (fun lexer_error ->
-           Lexer_Error (Lexer.Lexer_Error { filename; error = lexer_error })
+           Lexer_Error (LexerError.Lexer_Error { filename; error = lexer_error })
        )
     >>= fun _module ->
     chomped_filename |> convert_filename_to_path

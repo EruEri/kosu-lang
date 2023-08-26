@@ -444,6 +444,12 @@ struct
              "Builtin function \"%s\", this expression has the type \"%s\" \
               which is a struct type and not an enum"
              fn_name (string_of_ktype ktype)
+    | Opque_type_tag { fn_name; position; opaque_decl } ->
+        string_of_positioned_error position
+        @@ sprintf
+             "Builtin function \"%s\", this expression has the type \"%s\" \
+              which is an opaque type and not an enum"
+             fn_name opaque_decl.v
 
   let quoted = sprintf "\"%s\""
 
@@ -484,6 +490,8 @@ struct
         string_of_located_error s (sprintf "Unbound Module \"%s\"" s.v)
     | Undefine_Type s ->
         string_of_located_error s (sprintf "Undefined Type \"%s\"" s.v)
+    | Undefine_OpaqueType s ->
+        string_of_located_error s (sprintf "Undefined Opaque Type \"#%s\"" s.v)
     | Struct_Error s ->
         string_of_struct_error s
     | Enum_Error e ->
@@ -574,6 +582,10 @@ struct
         sprintf "%s Enum doesn't have field : \"%s\" for enum : \"%s\""
           (string_of_position_error record.field.position)
           record.field.v record.enum_decl.enum_name.v
+    | Opaque_field_access record ->
+        sprintf "%s Opaque type doesn't have field : \"%s\" for enum : \"%s\""
+          (string_of_position_error record.field.position)
+          record.field.v record.opaque.v
     | Unvalid_Deference identifier ->
         string_of_located_error identifier
           (sprintf "Invalid Deference for \"%s\"" identifier.v)

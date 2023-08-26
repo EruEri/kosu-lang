@@ -51,3 +51,21 @@
         some(t)
     }
 ```
+
+## Opaque type
+```rust
+    opaque type t
+
+    // opaque type represents a pointer to a struct of unknown size
+    // a struct not declared in kosu
+
+    // ncurses example
+    opaque type window
+
+    // To indicate an opaque type in a signature, you need to prefix it with a [#]
+    external initscr() #window;
+    // or as type explicit
+
+    var window : #window = initscr();
+
+```

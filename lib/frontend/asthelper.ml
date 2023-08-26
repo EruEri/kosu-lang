@@ -70,6 +70,13 @@ module Module = struct
                match node with Ast.NConst s -> Some s | _ -> None
            )
 
+  let retrieve_opaque_decl = function
+    | Ast.Mod nodes ->
+        nodes
+        |> List.filter_map (fun node ->
+               match node with Ast.NOpaque s -> Some s | _ -> None
+           )
+
   let retrieve_type_decl = function
     | Ast.Mod nodes ->
         nodes
@@ -104,7 +111,7 @@ module Module = struct
     |> Util.Occurence.find_occurence (fun fn_decl ->
            fn_decl.fn_name = fn_name
            && Ast.Type.are_compatible_type r_types.v fn_decl.return_type.v
-           && Util.are_same_lenght fn_decl.parameters parameters_types
+           && Util.Ulist.are_same_length fn_decl.parameters parameters_types
            && List.for_all2
                 (fun para init -> Ast.Type.are_compatible_type para.v init.v)
                 (fn_decl.parameters |> List.map (fun (_, kt) -> kt))
@@ -120,6 +127,11 @@ module Module = struct
          | Ast.Type_Decl.Decl_Struct s ->
              s.struct_name.v = type_name
          )
+
+  let opaque_type_occurence (opaque_name : string)
+      (module_definition : Ast._module) =
+    module_definition |> retrieve_opaque_decl
+    |> Util.Occurence.find_occurence (function decl -> opaque_name = decl.v)
 
   let function_decl_occurence (fn_name : string)
       (module_definition : Ast._module) =
@@ -202,14 +214,15 @@ module Program = struct
                    enum_decl.variants
                    |> List.exists (fun (variant_decl, assoc_type) ->
                           variant_decl.v = variant.v
-                          && Util.are_same_lenght assoc_exprs assoc_type
+                          && Util.Ulist.are_same_length assoc_exprs assoc_type
                       )
                | Some enum_name ->
                    enum_name = enum_decl.enum_name.v
                    && enum_decl.variants
                       |> List.exists (fun (variant_decl, assoc_type) ->
                              variant_decl.v = variant.v
-                             && Util.are_same_lenght assoc_exprs assoc_type
+                             && Util.Ulist.are_same_length assoc_exprs
+                                  assoc_type
                          )
            )
         |> function
@@ -253,6 +266,39 @@ module Program = struct
                module_path.path = s
            )
 
+  let find_module ~current_module fn_def_path program =
+    match fn_def_path with
+    | "" ->
+        program
+        |> Util.Occurence.find_occurence (fun module_path ->
+               module_path.path = current_module
+           )
+    | s ->
+        program
+        |> Util.Occurence.find_occurence (fun module_path ->
+               module_path.path = s
+           )
+
+  let find_opaque_type_declaration ~current_module ~module_path ~name program =
+    let ( let* ) = Result.bind in
+    let* module_decl =
+      match find_module ~current_module module_path.v program with
+      | Util.Occurence.Empty ->
+          Result.error @@ Ast.Error.Unbound_Module module_path
+      | Util.Occurence.One module_path ->
+          Ok module_path
+      | Util.Occurence.Multiple module_paths ->
+          Result.error
+          @@ Ast.Error.Conflicting_module_path_declaration
+               { module_path; choices = module_paths }
+    in
+    match Module.opaque_type_occurence name.v module_decl._module with
+    | Util.Occurence.Empty | Util.Occurence.Multiple [] ->
+        Result.error @@ Ast.Error.Undefine_OpaqueType name
+    (* Pass because multiple opaque type with the same name are trated as the same*)
+    | Util.Occurence.One m | Util.Occurence.Multiple (m :: _) ->
+        Result.ok m
+
   (**
     Find type declaration from ktype
   *)
@@ -284,7 +330,7 @@ module Program = struct
         |> Result.error
 
   (**
-      Find type declaration from ktype
+      Find type declaration from ktype or opaque type declaration
       @return type_decl if ktype came from a type declaration, [None] if ktype is a builtin type
       @raise Ast_error: if length of assoc_type is not the same as the length of the generic of the type declaration found
     *)
@@ -330,7 +376,7 @@ module Program = struct
               }
             |> Ast.Error.ast_error |> raise
           else
-            type_decl |> Option.some
+            Option.some @@ Either.left @@ type_decl
     | TParametric_identifier
         { module_path = ktype_def_path; parametrics_type; name = ktype_name } ->
         let _ =
@@ -364,7 +410,7 @@ module Program = struct
             }
           |> Ast.Error.ast_error |> raise
         else
-          type_decl |> Option.some
+          Option.some @@ Either.left @@ type_decl
     | TPointer kt ->
         find_type_decl_from_true_ktype ~generics kt.v current_module program
     | TTuple kts ->
@@ -377,7 +423,28 @@ module Program = struct
                ()
            );
         None
-    | _ ->
+    | TOpaque { module_path; name } ->
+        let type_decl =
+          match
+            find_opaque_type_declaration ~module_path ~name ~current_module
+              program
+          with
+          | Error e ->
+              e |> Ast.Error.ast_error |> raise
+          | Ok type_decl ->
+              type_decl
+        in
+        Option.some @@ Either.right @@ type_decl
+    | TOredered
+    | TString_lit
+    | TUnknow
+    | TChar
+    | TBool
+    | TUnit
+    | TInteger _
+    | TFloat _
+    | TFunction (_, _)
+    | TArray _ ->
         None
 
   (**
@@ -522,7 +589,7 @@ module Program = struct
               let declaration =
                 program |> find_binary_operator op (kt, kt) rtype
               in
-              match declaration |> Util.ListHelper.inner_count with
+              match declaration |> Util.Ulist.inner_count with
               | 0 ->
                   Result.error No_declaration_found
               | 1 ->
@@ -549,7 +616,7 @@ module Program = struct
       match lhs with
       | TType_Identifier _ as kt -> (
           let declaration = program |> find_binary_operator op (kt, kt) rtype in
-          match declaration |> Util.ListHelper.inner_count with
+          match declaration |> Util.Ulist.inner_count with
           | 0 -> (
               match no_decl with
               | Some f ->
@@ -674,7 +741,7 @@ module Program = struct
     match ktype with
     | TType_Identifier _ as kt -> (
         let declaration = program |> find_unary_operator Ast.PNot kt kt in
-        match declaration |> Util.ListHelper.inner_count with
+        match declaration |> Util.Ulist.inner_count with
         | 0 ->
             `no_function_found
         | 1 ->
@@ -694,7 +761,7 @@ module Program = struct
     match ktype with
     | TType_Identifier _ as kt -> (
         let declaration = program |> find_unary_operator Ast.PUMinus kt kt in
-        match declaration |> Util.ListHelper.inner_count with
+        match declaration |> Util.Ulist.inner_count with
         | 0 ->
             `no_function_found
         | 1 ->
@@ -1125,7 +1192,7 @@ module Switch_case = struct
         matched_variant.v = variant.v && assoc_types |> List.length = 0
     | SC_Enum_Identifier_Assoc { variant = matched_variant; assoc_ids } ->
         matched_variant.v = variant.v
-        && Util.are_same_lenght assoc_ids assoc_types
+        && Util.Ulist.are_same_length assoc_ids assoc_types
 
   let is_cases_matched variant (switch_cases : t list) =
     switch_cases |> List.exists (is_case_matched variant)
@@ -1182,7 +1249,7 @@ module Enum = struct
     | TPointer l_type, TPointer r_type ->
         are_type_compatible l_type.v r_type.v enum_decl
     | TTuple lhs, TTuple rhs ->
-        Util.are_same_lenght lhs rhs
+        Util.Ulist.are_same_length lhs rhs
         && List.combine lhs rhs
            |> List.for_all (fun (lhs_type, rhs_type) ->
                   are_type_compatible lhs_type.v rhs_type.v enum_decl
@@ -1210,7 +1277,7 @@ module Enum = struct
                  let () =
                    Hashtbl.replace generic_table name.v
                      ( enum_decl.generics
-                       |> Util.ListHelper.index_of (fun ge -> ge.v = name.v),
+                       |> Util.Ulist.index_of (fun ge -> ge.v = name.v),
                        kt
                      )
                  in
@@ -1246,7 +1313,7 @@ module Enum = struct
     | TPointer l_type, TPointer r_type ->
         is_type_compatible_hashgen generic_table l_type.v r_type.v enum_decl
     | TTuple lhs, TTuple rhs ->
-        Util.are_same_lenght lhs rhs
+        Util.Ulist.are_same_length lhs rhs
         && List.combine lhs rhs
            |> List.for_all (fun (lhs_type, rhs_type) ->
                   is_type_compatible_hashgen generic_table lhs_type.v rhs_type.v
@@ -1277,7 +1344,7 @@ module Enum = struct
         }
 
   let is_valide_assoc_type_init ~init_types ~expected_types enum_decl =
-    Util.are_same_lenght init_types expected_types
+    Util.Ulist.are_same_length init_types expected_types
     && List.combine init_types expected_types
        |> List.for_all (fun (init_type, expected_type) ->
               are_type_compatible init_type expected_type enum_decl
@@ -1608,7 +1675,7 @@ module Struct = struct
                  let () =
                    Hashtbl.replace generic_table name.v
                      ( struct_decl.generics |> List.map Position.value
-                       |> Util.ListHelper.index_of (( = ) name.v),
+                       |> Util.Ulist.index_of (( = ) name.v),
                        kt
                      )
                  in
@@ -1649,7 +1716,7 @@ module Struct = struct
         && is_type_compatible_hashgen generic_table lhs.ktype.v rhs.ktype.v
              struct_decl
     | TTuple lhs, TTuple rhs ->
-        Util.are_same_lenght lhs rhs
+        Util.Ulist.are_same_length lhs rhs
         && List.for_all2
              (fun init exptected ->
                is_type_compatible_hashgen generic_table init exptected
@@ -1934,15 +2001,23 @@ module Builtin_Function = struct
             in
             let res =
               match type_decl with
-              | Some (Decl_Enum _) ->
+              | Some (Either.Left (Decl_Enum _)) ->
                   Result.ok fn
-              | Some (Decl_Struct _) ->
+              | Some (Either.Left (Decl_Struct _)) ->
                   Result.error
                   @@ Struct_type_tag
                        {
                          fn_name = fn_location.v;
                          position = t.position;
                          ktype = t.v;
+                       }
+              | Some (Either.Right opaque_decl) ->
+                  Result.error
+                  @@ Opque_type_tag
+                       {
+                         fn_name = fn_location.v;
+                         position = t.position;
+                         opaque_decl;
                        }
               | None ->
                   Result.error
@@ -2095,7 +2170,7 @@ module Function = struct
                  let () =
                    Hashtbl.replace generic_table name.v
                      ( function_decl.generics
-                       |> Util.ListHelper.index_of (fun g -> g.v = name.v),
+                       |> Util.Ulist.index_of (fun g -> g.v = name.v),
                        kt
                      )
                  in
@@ -2139,7 +2214,7 @@ module Function = struct
     | TPointer lhs, TPointer rhs ->
         is_type_compatible_hashgen generic_table lhs.v rhs.v function_decl
     | TTuple lhs, TTuple rhs ->
-        Util.are_same_lenght lhs rhs
+        Util.Ulist.are_same_length lhs rhs
         && List.for_all2
              (fun lkt rkt ->
                is_type_compatible_hashgen generic_table lkt.v rkt.v
@@ -2372,6 +2447,8 @@ module AstModif = struct
           (Struct.rename_parameter_explicit_module new_module_path struct_decl)
     | NConst c ->
         NConst c
+    | NOpaque _ as nopaque ->
+        nopaque
 end
 
 module Affected_Value = struct

@@ -44,7 +44,9 @@
 %token <string> Constant
 %token <string> Module_IDENT 
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
+%token CROISILLION
 %token SEMICOLON ARROWFUNC
+%token TYPE OPAQUE
 %token ENUM ARRAY EXTERNAL FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE CONST VAR OF CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE
 %token CMP_LESS CMP_EQUAL CMP_GREATER MATCH ADDRESSOF
 %token TRIPLEDOT
@@ -145,6 +147,7 @@ module_nodes:
     | syscall_decl { NSyscall $1 }
     | function_decl { NFunction $1 }
     | const_decl { NConst $1 }
+    | opaque_decl { NOpaque $1 }
 ;;
 
 pattern:
@@ -195,6 +198,11 @@ pattern:
         let patterns = lpattern @ rpattern in
         POr patterns
     }
+opaque_decl:
+    | OPAQUE TYPE located(IDENT) {
+        $3
+    }
+
 enum_decl:
     | ENUM name=located(IDENT) generics_opt=option( delimited(LPARENT, separated_nonempty_list(COMMA, located(IDENT) ), RPARENT)) LBRACE 
     variants=separated_list(COMMA,enum_assoc) 
@@ -630,7 +638,10 @@ ctype:
                 module_path = modules_path ;
                 name = id
             }
-     }
+    }
+    | module_path=module_path CROISILLION name=located(IDENT) {
+        TOpaque {module_path; name}
+    }
     | MULT located(ktype) { TPointer $2 } 
 
 ktype:
@@ -662,7 +673,10 @@ ktype:
                 name = id
             } 
         end
-     }
+    }
+    | module_path=module_path CROISILLION name=located(IDENT) {
+        TOpaque {module_path; name}
+    }
     | ARRAY delimited(LPARENT, size=located(Integer_lit) COLON ktype=located(ktype) {ktype, size}, RPARENT) {
         let ktype, size = $2 in
         let size = Position.map (fun (_, value) -> value) size in

@@ -47,8 +47,10 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
         RTInteger (sign, size)
     | TInteger None ->
         RTInteger (Signed, I32)
+    | TOpaque { module_path; name } ->
+        RTOpaque { module_path = Position.value module_path; name = name.v }
     | TPointer kt ->
-        RTPointer (kt.v |> from_ktype)
+        RTPointer (from_ktype kt.v)
     | TTuple kts ->
         RTTuple (kts |> List.map (fun kt -> kt |> Position.value |> from_ktype))
     | TFunction (parameters, return_type) ->
@@ -97,6 +99,12 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
         TInteger (Some (sign, size))
     | RTPointer rkt ->
         TPointer { v = to_ktype rkt; position = dummy }
+    | RTOpaque { module_path; name } ->
+        TOpaque
+          {
+            module_path = Position.val_dummy module_path;
+            name = val_dummy name;
+          }
     | RTTuple rkts ->
         TTuple
           (rkts |> List.map (fun rkt -> { v = to_ktype rkt; position = dummy }))
@@ -1128,6 +1136,8 @@ module Make (TypeCheckerRule : KosuFrontend.TypeCheckerRule) = struct
   and from_module_node current_module (prog : module_path list) =
     let open Position in
     function
+    | NOpaque s ->
+        RNOpaque s.v
     | NStruct { struct_name; generics; fields } ->
         RNStruct
           {

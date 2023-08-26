@@ -15,6 +15,12 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
+type args_file = {
+  c_files : string list;
+  assembly_files : string list;
+  object_files : string list;
+}
+
 module type LinkerOption = sig
   type linker_option
 
@@ -70,73 +76,57 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
          )
          pkg_config
 
-  let cc_compilation ?(debug = false) ?(ccol = []) ?(cclib = [])
-      ~pkg_config_names ~verbose ~outfile ~other tac_prgram =
-    let c_obj_files =
-      ccol
-      |> List.map (fun s ->
-             let tmp_name = Filename.temp_file s ".o" in
-             let cc_cmd = Printf.sprintf "cc -c -o %s %s" tmp_name s in
-             let code = run_command ~verbose cc_cmd in
-             if code = 0 then
-               Ok tmp_name
-             else
-               Error code
-         )
+  let cc_compilation ?(debug = false) ~(args : args_file) ~cclib ~frameworks
+      ~pkg_config_names ~verbose ~outfile tac_prgram =
+    let kosu_asm_files =
+      Codegen.compile_asm_from_tac_tmp ~start:None tac_prgram
     in
-    let error_code =
-      c_obj_files
-      |> List.find_map (function
-           | Error code when code <> 0 ->
-               Some code
-           | _ ->
-               None
-           )
+    let pkg_configs =
+      pkg_config ~verbose ~cflags:true ~clibs:true ~pkg_config_names ()
     in
-    match error_code with
-    | Some s ->
-        s
-    | None ->
-        let asm_files =
-          Codegen.compile_asm_from_tac_tmp ~start:None tac_prgram
-        in
-        let obj_file = c_obj_files |> List.map Result.get_ok in
-        let pkg_configs =
-          pkg_config ~verbose ~cflags:true ~clibs:true ~pkg_config_names ()
-        in
 
-        let pkg_configs = pkg_append_lib cclib pkg_configs in
-        let cmd =
-          Printf.sprintf "cc %s -o %s %s %s %s"
-            ( if debug then
-                "-g"
-              else
-                ""
-            )
-            outfile
-            (asm_files |> String.concat " ")
-            (obj_file @ other |> String.concat " ")
-            (Util.PkgConfig.to_string pkg_configs)
-        in
-        run_command ~verbose cmd
+    let frameworks =
+      frameworks
+      |> List.map @@ Printf.sprintf "-framework %s"
+      |> String.concat " "
+    in
 
-  let native_compilation ?(debug = false) ?(ccol = []) ?(cclib = [])
-      ~pkg_config_names ~verbose ~outfile ~other tac_prgram =
+    let pkg_configs = pkg_append_lib cclib pkg_configs in
+    let sdebug =
+      if debug then
+        "-g"
+      else
+        ""
+    in
+    let args =
+      args.c_files @ args.assembly_files @ args.object_files @ kosu_asm_files
+    in
+    let files = String.concat " " args in
+    let cmd =
+      Printf.sprintf "cc %s -o %s %s %s %s" sdebug outfile files frameworks
+        (Util.PkgConfig.to_string pkg_configs)
+    in
+    run_command ~verbose cmd
+
+  let native_compilation ?(debug = false) ~(args : args_file) ~cclib ~frameworks
+      ~pkg_config_names ~verbose ~outfile tac_prgram =
+    let _ = ignore debug in
     let () =
       match LD.disable with
       | Some message ->
-          Printf.eprintf "%s\n" message;
+          let () = Printf.eprintf "%s\n" message in
           exit 1
       | None ->
           ()
     in
-    let _ = ignore debug in
+
     let out_file = outfile in
     let pkg =
-      pkg_config ~verbose ~cflags:(ccol <> []) ~clibs:true ~pkg_config_names ()
+      pkg_config ~verbose ~cflags:(args.c_files <> []) ~clibs:true
+        ~pkg_config_names ()
     in
     let c_obj_files =
-      ccol
+      args.c_files
       |> List.map (fun s ->
              let tmp_name = Filename.temp_file s ".o" in
              let cmd =
@@ -155,22 +145,8 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
       Codegen.compile_asm_from_tac_tmp ~start:LD.should_create_entry_point
         tac_prgram
     in
-    let ccol_obj_files = c_obj_files in
 
-    let other_object_files, other_asm_files =
-      other
-      |> List.filter (fun file ->
-             Util.is_asm_file file || Util.is_object_file file
-         )
-      |> List.partition_map (fun file ->
-             if Util.is_object_file file then
-               Either.left file
-             else
-               Either.right file
-         )
-    in
-
-    let asm_files = kosu_asm_files @ other_asm_files in
+    let asm_files = kosu_asm_files @ args.assembly_files in
     let asm_to_object_files =
       asm_files
       |> List.map (fun file ->
@@ -185,9 +161,7 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
          )
     in
 
-    let objects_files =
-      ccol_obj_files @ other_object_files @ asm_to_object_files
-    in
+    let objects_files = c_obj_files @ args.object_files @ asm_to_object_files in
     let string_of_objects_files = objects_files |> String.concat " " in
     let options =
       LD.options
@@ -202,9 +176,15 @@ module Make (Codegen : Codegen.S) (LD : LinkerOption) = struct
       LD.raw_args |> List.map LD.string_of_option |> String.concat " "
     in
 
+    let frameworks =
+      frameworks
+      |> List.map @@ Printf.sprintf "-framework %s"
+      |> String.concat " "
+    in
+
     let ld_cmd =
-      Printf.sprintf "%s %s -o %s %s %s %s" LD.ld_command options out_file
-        raw_args string_of_objects_files
+      Printf.sprintf "%s %s %s -o %s %s %s %s" LD.ld_command options frameworks
+        out_file raw_args string_of_objects_files
         (Util.PkgConfig.linker_flags_format pkg)
     in
     let code = run_command ~verbose ld_cmd in

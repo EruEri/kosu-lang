@@ -100,6 +100,11 @@ module AsmProgram (InstructionLine : InstructionLine) = struct
   type asm_module_node =
     | Afunction of asm_function_decl
     | AConst of asm_const_decl
+    | AStringLitteral of { name : string; value : string }
+    | AFloat_Litteral of {
+        fname : string;
+        fvalue : KosuFrontend.Ast.fsize * float;
+      }
 
   type asm_module = AsmModule of asm_module_node list
   type asm_module_path = { apath : string; asm_module : asm_module }

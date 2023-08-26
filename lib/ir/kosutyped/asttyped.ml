@@ -37,6 +37,7 @@ type rktype =
   | RTTuple of rktype list
   | RTFunction of rktype list * rktype
   | RTArray of { size : int64; rktype : rktype }
+  | RTOpaque of { module_path : string; name : string }
   | RTOrdered
   | RTString_lit
   | RTUnknow
@@ -232,6 +233,7 @@ type rmodule_node =
   | RNStruct of rstruct_decl
   | RNEnum of renum_decl
   | RNConst of rconst_decl
+  | RNOpaque of string
 
 type rmodule = RModule of rmodule_node list
 type rmodule_path = { path : string; rmodule : rmodule }

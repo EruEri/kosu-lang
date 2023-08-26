@@ -32,6 +32,7 @@ let align n b =
 
 let align_16 b = align b 16L
 let align_8 b = align b 8L
+let align_4 b = align b 4L
 
 let rec size calcul program rktype =
   match rktype with
@@ -41,7 +42,7 @@ let rec size calcul program rktype =
       Isize.size_of_isize isize / 8 |> Int64.of_int
   | RTFloat fsize ->
       Fsize.size_of_fsize fsize / 8 |> Int64.of_int
-  | RTPointer _ | RTString_lit | RTFunction _ ->
+  | RTPointer _ | RTString_lit | RTFunction _ | RTOpaque _ ->
       8L
   | RTTuple kts ->
       size_tuple calcul program kts
@@ -179,11 +180,9 @@ let offset_of_field ?(generics = Hashtbl.create 0) field rstruct_decl rprogram =
 (* on X86 and Arm64: if the retuned_value can be held in R0 and R1 (RAX, RCX)*)
 (* If so, there is no need to pass the address of the destination to the function*)
 (* Therefore : the retunred values dont need to be on the stack since there are discarded*)
-let discardable_size = function
-  | 1L | 2L | 4L | 8L | 9L | 10L | 12L | 16L ->
-      true
-  | _ ->
-      false
+(* But Kosu ABI is than is the return size is > than a word size*)
+(* The return address must be passed so we cannot discard from 8-16 L *)
+let discardable_size = function 1L | 2L | 4L | 8L -> true | _ -> false
 
 let compute_ktype rprogram ktype =
   match Hashtbl.find_opt mapsize ktype with
@@ -294,6 +293,8 @@ and compute_all_size_kbody rprogram (stmts, final_expr) =
   ()
 
 let compute_all_size_module_node rprogram = function
+  | RNOpaque _ ->
+      ()
   | RNConst rconst_decl ->
       compute_ktype rprogram rconst_decl.value.rktype
   | RNExternFunc { fn_parameters = parameters; return_type; _ }
@@ -335,6 +336,8 @@ let compute_all_size_module_path rprogram { rmodule = RModule rmodules; _ } =
 
 (** To be call once all generics are replaced *)
 let compute_all_size rprogram () =
+  (* type of enum tag *)
+  let () = compute_ktype rprogram @@ RTInteger (Unsigned, I32) in
   rprogram
   |> List.iter (fun { rmodule_path : rmodule_path; _ } ->
          compute_all_size_module_path rprogram rmodule_path

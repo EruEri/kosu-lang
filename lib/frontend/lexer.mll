@@ -20,43 +20,18 @@
     open Parser
     open Lexing
     open Position
-
-    type lexer_error =
-    | Forbidden_char of position*char
-    | Unexpected_escaped_char of position*string
-    | Invalid_keyword_for_build_in_function of position*string
-    | Invalid_litteral_for_build_in_function of position*char
-    | Not_finished_built_in_function of position
-    | Unclosed_string of position
-    | Unclosed_comment of position
-    | Char_out_of_range of position * int
-    | Char_Error of position
-    | Syntax_Error of {
-        position: Position.position;
-        current_lexeme: string;
-        message: string;
-        state: int option
-    }
-
-    exception Raw_Lexer_Error of lexer_error
-
-    exception Lexer_Error of {
-        filename : string;
-        error: lexer_error
-    }
-
-    let raw_lexer_error e = Raw_Lexer_Error e
+    open LexerError
 
   let next_line_and f lexbuf =
     Lexing.new_line lexbuf;
     f lexbuf
 
-    let keywords = Hashtbl.create 21
+    let keywords = Hashtbl.create 23
     let _ = [("addressof", ADDRESSOF); ("and", FULLAND); ("array", ARRAY); ("cases", CASES); ("const", CONST); ("discard", DISCARD); 
     ("enum", ENUM); ("external", EXTERNAL); ("empty", EMPTY); ("else", ELSE); ("eq", CMP_EQUAL);
     ("fn", FUNCTION); ("false", FALSE); ("gt", CMP_GREATER); ("lt", CMP_LESS); ("match", MATCH); ("nullptr", NULLPTR); 
-    ("struct", STRUCT); ("syscall", SYSCALL); ("of", OF); ("or", FULLOR); ("operator", OPERATOR); ("true", TRUE); 
-    ("switch", SWITCH); ("sizeof", SIZEOF); ("if", IF); ("var", VAR); ("while", WHILE)
+    ("struct", STRUCT); ("syscall", SYSCALL); ("of", OF); ("or", FULLOR); ("opaque", OPAQUE); ("operator", OPERATOR); ("true", TRUE); 
+    ("type", TYPE); ("switch", SWITCH); ("sizeof", SIZEOF); ("if", IF); ("var", VAR); ("while", WHILE)
     ] |> List.iter (fun (s,t) -> Hashtbl.add keywords s t)
 }
 
@@ -107,6 +82,7 @@ rule token = parse
 | "_" { WILDCARD }
 | "@" { built_in_function lexbuf }
 | "=" { EQUAL }
+| "#" { CROISILLION }
 | "&"  { AMPERSAND }
 | "^" { XOR }
 | "&&" { AND }

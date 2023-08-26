@@ -23,4 +23,4 @@
 
 (library
  (name cliCommon)
- (libraries cmdliner kosuInterpreter kosuFrontend dune-build-info))
+ (libraries cmdliner kosuRepl kosuFrontend dune-build-info))

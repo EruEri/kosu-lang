@@ -151,6 +151,9 @@ let rec string_of_rktype = function
         (string_of_rktype r_type)
   | RTArray { size; rktype } ->
       sprintf "array(%Lu, %s)" size @@ string_of_rktype rktype
+  | RTOpaque { module_path; name } ->
+      let module_path = match module_path with "" -> String.empty | s -> s in
+      sprintf "%s#%s" module_path name
   | RTString_lit ->
       "stringl"
   | RTOrdered ->
@@ -189,6 +192,8 @@ let rec string_of_label_rktype = function
       sprintf "f%s" (string_of_fsize fsize)
   | RTPointer ktype ->
       sprintf "ptr_%s" (string_of_rktype ktype)
+  | RTOpaque { module_path; name } ->
+      sprintf "ext_%s%s" (asm_module_path_name module_path) name
   | RTTuple ktypes ->
       sprintf "(%s)"
         (ktypes |> List.map string_of_label_rktype |> String.concat "_")

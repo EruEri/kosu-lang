@@ -18,6 +18,43 @@
 type architecture = Arm64 | X86_64
 type os = Macos | Linux | FreeBSD
 type large_architecture = LArm64 | LX86_64 | LKVM
+type suppoted_file = SF_Kosu | SF_C | SF_Object | SF_Assembly
+
+let extension_list =
+  [ (SF_C, ".c"); (SF_Object, ".o"); (SF_Kosu, ".kosu"); (SF_Assembly, ".s") ]
+
+let rev_extension_list =
+  let swap (a, b) = (b, a) in
+  List.map swap extension_list
+
+let rec input_file ~kosu ~c ~co ~assembly = function
+  | [] ->
+      Ok (List.rev kosu, List.rev c, List.rev co, List.rev assembly)
+  | t :: q ->
+      let ( let* ) = Result.bind in
+      let filekind = List.assoc_opt (Filename.extension t) rev_extension_list in
+      let* kind =
+        match filekind with None -> Error t | Some kind -> Ok kind
+      in
+      let kosu, c, co, assembly =
+        match kind with
+        | SF_C ->
+            (kosu, t :: c, co, assembly)
+        | SF_Object ->
+            (kosu, c, t :: co, assembly)
+        | SF_Kosu ->
+            (t :: kosu, c, co, assembly)
+        | SF_Assembly ->
+            (kosu, c, co, t :: assembly)
+      in
+      input_file ~kosu ~c ~co ~assembly q
+
+let input_file files =
+  match input_file ~kosu:[] ~c:[] ~co:[] ~assembly:[] files with
+  | Ok (kosu, c, co, assembly) ->
+      Ok (`KosuFile kosu, `CFile c, `ObjFile co, `AssemblyFile assembly)
+  | Error _ as e ->
+      e
 
 let large_architecture_enum =
   [ ("arm64", LArm64); ("x86_64", LX86_64); ("kvm", LKVM) ]
@@ -40,6 +77,7 @@ let version =
         Build_info.V1.Version.to_string v
   in
   Printf.sprintf "%s %s" v commit_hash
+(* Printf.sprintf "%s-next %s" v commit_hash *)
 
 let std_global_variable = "KOSU_STD_PATH"
 let architecture_global_variable = "KOSU_TARGET_ARCH"
@@ -96,7 +134,7 @@ module DefaultFront = struct
     KosuFrontend.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
 
   module KosuFrontInterpret =
-    KosuInterpreter.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
+    KosuRepl.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
 
   module Asttyconvert = KosuIrTyped.Asttyconvert.Make (TypeCheckerRule)
 end

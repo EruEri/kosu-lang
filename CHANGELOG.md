@@ -1,5 +1,29 @@
 # Changelog
 
+## **0.4.0**
+
+- [Discard function](https://github.com/EruEri/kosu-lang/pull/74)
+    - Fix :
+        - discard a function call than return a type where the size is between 9-16 in some case a segfault
+
+- [Compiler Option](https://github.com/EruEri/kosu-lang/pull/73)
+    - Remove **--ccol** option
+        - Now (C, Assembly, Objects) files can be passed as positional arguments
+    - Add **--framework** option
+    - Add **--check_only** option
+        - Equivalent of cc ```-fsyntax-only``` option
+    - Fix opaque type mistaken with simple identifier type
+
+- [Opaque type](https://github.com/EruEri/kosu-lang/pull/72)
+    - Add pointer to unknown size type (to interop more easily with c library)
+    - Fix: exception raised on unknwon type in external declaration
+
+- [Bytecode compiler base](https://github.com/EruEri/kosu-lang/pull/71)
+    - Base of the kosuvm (can do simple calculation)
+    - libffi new c depedency
+    - 1 new executable:
+        - kosurun
+
 ## **0.3.0**
 
 - [Cli ccol + pk-config as separated comma list](https://github.com/EruEri/kosu-lang/pull/69)

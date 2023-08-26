@@ -241,27 +241,31 @@ type tac_function_decl = {
   discarded_values : (string * rktype) list;
 }
 
+type tac_unary_operator_decl = {
+  op : parser_unary_op;
+  asm_name : string;
+  rfield : string * rktype;
+  return_type : rktype;
+  tac_body : tac_body;
+  fn_call_infos : function_call_info list;
+  locale_var : tac_typed_locale_variable list;
+  discarded_values : (string * rktype) list;
+}
+
+type tac_binary_operator_decl = {
+  op : extended_parser_operator;
+  asm_name : string;
+  rfields : (string * rktype) * (string * rktype);
+  return_type : rktype;
+  tac_body : tac_body;
+  fn_call_infos : function_call_info list;
+  locale_var : tac_typed_locale_variable list;
+  discarded_values : (string * rktype) list;
+}
+
 type tac_operator_decl =
-  | TacUnary of {
-      op : parser_unary_op;
-      asm_name : string;
-      rfield : string * rktype;
-      return_type : rktype;
-      tac_body : tac_body;
-      fn_call_infos : function_call_info list;
-      locale_var : tac_typed_locale_variable list;
-      discarded_values : (string * rktype) list;
-    }
-  | TacBinary of {
-      op : extended_parser_operator;
-      asm_name : string;
-      rfields : (string * rktype) * (string * rktype);
-      return_type : rktype;
-      tac_body : tac_body;
-      fn_call_infos : function_call_info list;
-      locale_var : tac_typed_locale_variable list;
-      discarded_values : (string * rktype) list;
-    }
+  | TacUnary of tac_unary_operator_decl
+  | TacBinary of tac_binary_operator_decl
 
 type tac_module_node =
   | TNExternFunc of rexternal_func_decl
@@ -271,6 +275,7 @@ type tac_module_node =
   | TNStruct of rstruct_decl
   | TNEnum of renum_decl
   | TNConst of rconst_decl
+  | TNOpaque of string
 
 type tac_module = TacModule of tac_module_node list
 type tac_module_path = { path : string; tac_module : tac_module }
