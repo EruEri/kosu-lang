@@ -1108,7 +1108,7 @@ struct
               acc
             else
               validate_module
-                (remove_program |> Asthelper.Program.to_module_path_list)
+                (Asthelper.Program.to_module_path_list remove_program)
                 named_module_path
           )
           ("", Ok ()) remove_program

@@ -46,6 +46,7 @@ module Cli = struct
   type cmd = {
     architecture : architecture;
     os : os;
+    check_only : bool;
     f_allow_generic_in_variadic : bool;
     no_std : bool;
     is_target_asm : bool;
@@ -83,6 +84,13 @@ module Cli = struct
                architecture_global_variable
             )
           ~doc:"architecture compilation target" [ "arch" ]
+    )
+
+  let check_only_term =
+    Arg.(
+      value & flag
+      & info [ "check-only" ]
+          ~doc:"Run only the parsing and type checking stages"
     )
 
   let os_target_term =
@@ -192,12 +200,13 @@ module Cli = struct
     )
 
   let cmd_term run =
-    let combine architecture os f_allow_generic_in_variadic no_std verbose cc
-        is_target_asm output pkg_configs cclib frameworks files =
+    let combine architecture os check_only f_allow_generic_in_variadic no_std
+        verbose cc is_target_asm output pkg_configs cclib frameworks files =
       run
       @@ {
            architecture;
            f_allow_generic_in_variadic;
+           check_only;
            os;
            no_std;
            verbose;
@@ -211,7 +220,7 @@ module Cli = struct
          }
     in
     Term.(
-      const combine $ target_archi_term $ os_target_term
+      const combine $ target_archi_term $ os_target_term $ check_only_term
       $ f_allow_generic_in_variadic_term $ no_std_term $ verbose_term $ cc_term
       $ target_asm_term $ output_term $ pkg_config_term $ cclib_term
       $ framework_term $ files_term
@@ -273,6 +282,7 @@ module Cli = struct
     let {
       architecture;
       os;
+      check_only;
       f_allow_generic_in_variadic;
       no_std;
       verbose;
@@ -351,6 +361,8 @@ module Cli = struct
           in
           failwith "Error while typing ast: Shouldn't append"
     in
+
+    let () = match check_only with true -> exit 0 | false -> () in
 
     let tac_program =
       KosuIrTAC.Asttacconv.tac_program_of_rprogram typed_program
