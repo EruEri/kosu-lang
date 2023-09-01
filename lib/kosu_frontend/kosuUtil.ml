@@ -15,15 +15,13 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
-
 module LocType = struct
   open KosuAst.TyLoc
+
   let isize_8 = Some KosuAst.I8
   let isize_16 = Some KosuAst.I16
   let isize_32 = Some KosuAst.I32
   let isize_64 = Some KosuAst.I64
-
   let signed = Some KosuAst.Signed
   let unsigned = Some KosuAst.Unsigned
   let s8 = TyLocInteger (signed, isize_8)
@@ -34,5 +32,4 @@ module LocType = struct
   let u32 = TyLocInteger (unsigned, isize_32)
   let s64 = TyLocInteger (signed, isize_64)
   let u64 = TyLocInteger (unsigned, isize_64)
-
 end

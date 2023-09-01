@@ -141,6 +141,8 @@ kosu_module:
 
 kosu_module_node:
     | kosu_external_func_decl { NExternFunc $1 }
+    | kosu_function_decl { NFunction $1 }
+    | kosu_syscall_decl { NSyscall $1 }
     | kosu_opaque_decl { NOpaque $1 }
     | kosu_const_decl { NConst $1 }
     | kosu_enum_decl { NEnum $1 }
@@ -169,6 +171,17 @@ kosu_external_func_decl:
         }
      }
 ;;
+
+kosu_syscall_decl:
+    | SYSCALL syscall_name=located(Identifier) parameters=parenthesis(separated_list(COMMA, typed_parameter_loc(c_type))) return_type=located(c_type) EQUAL opcode=located(IntegerLitteral)
+    {
+        {
+            syscall_name;
+            parameters;
+            return_type;
+            opcode = Position.map (fun (_, value) -> value ) opcode
+        }
+    }
 
 
 
@@ -211,10 +224,79 @@ kosu_enum_decl:
     }
 
 kosu_struct_decl:
-    | { failwith ""}
+    | ENUM struct_name=located(Identifier) 
+        poly_vars=loption_parenthesis_separated_list(COMMA, loc_poly_vars)
+        fields=bracketed(
+            trailing_separated_list(
+                COMMA, 
+                id=located(Identifier) COLON kt=located(kosu_type) {id, kt}
+            )
+        )
+    {
+        {
+            struct_name;
+            poly_vars;
+            fields
+        }
+    }
+
+kosu_function_decl:
+    | FUNCTION 
+        poly_vars=loption(terminated(separated_nonempty_list(COMMA, loc_poly_vars), DOT))
+        fn_name=loc_var_identifier
+        parameters=parenthesis(separated_list(COMMA, kosu_function_parameters))
+        return_type=located(kosu_type)
+        body=kosu_function_block 
+        {
+            {
+                fn_name;
+                poly_vars;
+                parameters;
+                return_type;
+                body
+            }
+        }
+
+
+%inline kosu_function_parameters:
+    | is_var=boption(VAR) name=loc_var_identifier COLON kosu_type=located(kosu_type) {
+        {
+            is_var;
+            name;
+            kosu_type
+        }
+    }
+
+kosu_function_block:
+    | preceded(EQUAL, located(kosu_expression)) {
+        $1
+    }
+    | located(kosu_block) {
+        Position.map (fun block -> EBlock block) $1
+    }
 
 kosu_expression:
     | { failwith "Kosu expresion"}
+
+
+kosu_statement:
+    | located(kosu_statement_base) SEMICOLON { $1 }
+
+kosu_statement_base:
+    | { failwith "Kosu statement"}
+
+kosu_block:
+    | bracketed(kosu_block_base) { $1 }
+
+kosu_block_base:
+    | kosu_stmts=list(kosu_statement) kosu_expr=located(kosu_expression) {
+        {
+            kosu_stmts;
+            kosu_expr
+        }
+    }
+
+
 
 kosu_type:
     | { failwith "Type todo" }
