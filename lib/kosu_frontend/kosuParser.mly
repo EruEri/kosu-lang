@@ -59,9 +59,11 @@
 %token CROISILLION
 %token SEMICOLON 
 %token TYPE OPAQUE
-%token ENUM ARRAY EXTERNAL FUNCTION STRUCT TRUE FALSE EMPTY SWITCH IF ELSE CONST VAR OF 
-%token CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE OPEN MUT
+%token ENUM ARRAY EXTERNAL STRUCT TRUE FALSE EMPTY SWITCH IF ELSE CONST VAR OF MUT
+%token FUNCTION CLOSURE
+%token CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE OPEN
 %token CMP_LESS CMP_EQUAL CMP_GREATER MATCH ADDRESSOF
+%token STAR
 %token TRIPLEDOT DOT
 %token BACKTICK
 %token EQUAL
@@ -90,7 +92,7 @@
 
 %inline module_resolver:
     | mp=loption(terminated(separated_nonempty_list(DOUBLECOLON, located(ModuleIdentifier)), DOT)) { 
-        mp
+        ModuleResoler mp
     }
 
 %inline loption_parenthesis_separated_list(sep, X):
@@ -130,10 +132,22 @@
     | located(prefix_operator)
     | backticked(located(infix_operator)) { $1 }
 
-
 %inline loc_poly_vars:
     | located(PolymorphicVar) { 
         KosuAst.TyLoc.PolymorphicVar $1
+    }
+
+%inline pointer_state:
+    | CONST { Const }
+    | MUT | VAR { Mutable }
+
+%inline variable_constancy:
+    | CONST { true }
+    | VAR { false }
+
+%inline kosu_lvalue:
+    | variable=loc_var_identifier fields=loption(preceded(DOT, separated_nonempty_list(DOT, located(Identifier)))) {
+        KosuLvalue {variable; fields}
     }
 
 kosu_module:
@@ -275,15 +289,31 @@ kosu_function_block:
         Position.map (fun block -> EBlock block) $1
     }
 
-kosu_expression:
-    | { failwith "Kosu expresion"}
-
-
 kosu_statement:
     | located(kosu_statement_base) SEMICOLON { $1 }
 
 kosu_statement_base:
-    | { failwith "Kosu statement"}
+    | is_const=variable_constancy 
+        pattern=located(kosu_pattern) 
+        explicit_type=option(preceded(COLON, located(kosu_type)))
+        expression=preceded(EQUAL, located(kosu_expression)) {
+        SDeclaration {is_const; pattern; explicit_type; expression}
+    }
+    | MUT is_deref=boption(STAR) lvalue=kosu_lvalue expression=preceded(EQUAL, located(kosu_expression)) {
+        SAffection {
+            is_deref;
+            lvalue;
+            expression
+        }
+    }
+    | DISCARD expr=located(kosu_expression) {
+        SDiscard expr
+    }
+    | OPEN module_resolver=module_resolver {
+        SOpen { module_resolver}
+    }
+
+    
 
 kosu_block:
     | bracketed(kosu_block_base) { $1 }
@@ -296,10 +326,81 @@ kosu_block_base:
         }
     }
 
+kosu_expression:
+    | { failwith "Kosu expresion"}
+
+kosu_pattern:
+    | { failwith "Kosu pattern"}
+
 
 
 kosu_type:
-    | { failwith "Type todo" }
+    | module_resolver=module_resolver name=located(Identifier) parametrics_type=parenthesis(separated_nonempty_list(COMMA, located(kosu_type)))  {
+        KosuAst.TyLoc.TyLocParametricIdentifier {
+            module_resolver;
+            parametrics_type;
+            name
+        }
+    }
+    | module_resolver=module_resolver id=located(Identifier) {
+        let open KosuUtil.LocType in
+        let open KosuAst.TyLoc in
+        let ModuleResoler content = module_resolver in
+        match Util.Ulist.is_empty content with
+        | false -> TyLocIdentifier {
+            module_resolver = module_resolver;
+            name = id
+        } 
+        | true -> begin match id.value with
+            | "unit" -> TyLocUnit
+            | "bool" -> TyLocBool
+            | "char" -> TyLocChar
+            | "f64" -> f64
+            | "f32" -> f32
+            | "s8" -> s8
+            | "u8" -> u8
+            | "s16" -> s16
+            | "u16" -> u16
+            | "s32" -> s32
+            | "u32" -> u32
+            | "s64" -> s64
+            | "u64" -> u64
+            | "usize" -> usize
+            | "isize" -> ssize
+            | "order" -> TyLocOrdered
+            | "stringl" -> TyLocStringLit
+            | _ -> TyLocIdentifier {
+                module_resolver = module_resolver;
+                name = id
+            } 
+        end
+    }
+    | module_resolver=module_resolver CROISILLION name=located(Identifier) {
+        TyLocOpaque {module_resolver; name}
+    }
+    | ARRAY parenthesis(size=located(IntegerLitteral) COLON ktype=located(kosu_type) {ktype, size}) {
+        let ktype, size = $2 in
+        let size = Position.map (fun (_, value) -> value) size in
+        TyLocArray {
+            size;
+            ktype
+        }
+    }
+    | parenthesis(separated_list(COMMA, located(kosu_type) )) {
+        match $1 with
+        | [] -> KosuAst.TyLoc.TyLocUnit
+        | t::[] -> t.value
+        | _::_ as l -> TyLocTuple l
+    }
+    | STAR pointer_state=pointer_state pointee_type=located(kosu_type) {
+        KosuAst.TyLoc.TyLocPointer {
+            pointer_state;
+            pointee_type;
+        }
+    }
+    | loc_poly_vars {
+        KosuAst.TyLoc.TyLocPolymorphic $1
+    }
 
 c_type:
     | { failwith "C Type" }

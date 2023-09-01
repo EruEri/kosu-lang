@@ -127,3 +127,7 @@ let rec map_ok f = function
       let* res = f t in
       let* list = map_ok f q in
       Result.ok @@ (res :: list)
+
+let is_empty = function
+| [] -> true
+| _::_ -> false

@@ -20,13 +20,21 @@ open Position
 type signedness = Signed | Unsigned
 type isize = I8 | I16 | I32 | I64
 type fsize = F32 | F64
-type parser_unary_op = PNot | PUMinus
+type pointer_state = 
+  | Const
+  | Mutable
+
 type module_resolver = ModuleResoler of string location list
 
 module TyLoc = struct
   type kosu_loctype_polymorphic = PolymorphicVar of string location
+  type kosu_inner_closure_type = ClosureType of {
+    id: string;
+    parameters: kosu_loctype;
+    return_type: kosu_loctype
+  }
 
-  type kosu_loctype =
+  and kosu_loctype =
     | TyLocParametricIdentifier of {
         module_resolver : module_resolver;
         parametrics_type : kosu_loctype location list;
@@ -37,11 +45,17 @@ module TyLoc = struct
         name : string location;
       }
     | TyLocPolymorphic of kosu_loctype_polymorphic
-    | TyLocPointer of { is_const : bool; pointee_type : kosu_loctype location }
+    | TyLocPointer of { pointer_state : pointer_state; pointee_type : kosu_loctype location }
     | TyLocInteger of signedness option * isize option
+    | TyLocPointerSize of signedness 
     | TyLocFloat of fsize option
     | TyLocFunctionPtr of kosu_loctype location list * kosu_loctype location
+    (* This closure type is used by the user in function signature*)
+    | TyLocClosure of kosu_loctype location list * kosu_loctype location
+    (* Used by the typecker to give an unique id to the closure *)
+    | TyLocInnerClosureId of kosu_inner_closure_type
     | TyLocArray of { ktype : kosu_loctype location; size : int64 location }
+    | TyLocTuple of kosu_loctype location list
     | TyLocOpaque of {
         module_resolver : module_resolver;
         name : string location;
