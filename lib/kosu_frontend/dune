@@ -1,0 +1,85 @@
+;**********************************************************************************************;
+;*                                                                                            *;
+;* This file is part of Kosu                                                                  *;
+;* Copyright (C) 2023 Yves Ndiaye                                                             *;
+;*                                                                                            *;
+;* Kosu is free software: you can redistribute it and/or modify it under the terms            *;
+;* of the GNU General Public License as published by the Free Software Foundation,            *;
+;* either version 3 of the License, or (at your option) any later version.                    *;
+;*                                                                                            *;
+;* Kosu is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;          *;
+;* without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR           *;
+;* PURPOSE.  See the GNU General Public License for more details.                             *;
+;* You should have received a copy of the GNU General Public License along with Kosu.         *;
+;* If not, see <http://www.gnu.org/licenses/>.                                                *;
+;*                                                                                            *;
+;**********************************************************************************************;
+
+(ocamllex
+ (modules kosuLexer))
+
+(menhir
+ (modules kosuParser)
+ (flags --table --explain)
+ (infer true))
+
+; (rule 
+;  (targets parser.messages)
+;  (deps parser.mly)
+;  (action
+;   (with-stdout-to %{targets}
+;   (run menhir --list-errors %{deps})
+;   )))
+
+; Convenience rule to generate a fresh messages file,
+; and update an already existing one.
+
+; (rule
+;  (target new.messages)
+;  (deps
+;   (:parser parser.mly))
+;  (action
+;   (with-stdout-to
+;    %{target}
+;    (run menhir %{parser} --base %{parser} --list-errors))))
+
+; (rule
+;  (target updated.messages)
+;  (deps
+;   (:parser parser.mly)
+;   (:msg parser.messages))
+;  (action
+;   (with-stdout-to
+;    %{target}
+;    (run menhir %{parser} --base %{parser} --update-errors %{msg}))))
+
+; (rule
+;  (target parser.messages.updated)
+;  (deps
+;   (:parser parser.mly)
+;   (:new new.messages)
+;   (:updated updated.messages))
+;  (action
+;   (with-stdout-to
+;    %{target}
+;    (run
+;     menhir
+;     %{parser}
+;     --base
+;     %{parser}
+;     --merge-errors
+;     %{new}
+;     --merge-errors
+;     %{updated}))))
+
+; (rule
+;  (targets kosu_parser_messages.ml)
+;  (deps parser.messages parser.mly)
+;  (action
+;   (with-stdout-to
+;    %{targets}
+;    (run menhir --compile-errors %{deps}))))
+
+(library
+ (name kosuFrontendAlt)
+ (libraries menhirLib util))
