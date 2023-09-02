@@ -128,6 +128,4 @@ let rec map_ok f = function
       let* list = map_ok f q in
       Result.ok @@ (res :: list)
 
-let is_empty = function
-| [] -> true
-| _::_ -> false
+let is_empty = function [] -> true | _ :: _ -> false

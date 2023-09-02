@@ -18,17 +18,6 @@
 %{
     open KosuAst
     open Position
-
-    (* let identifier_to_expr id_loc = 
-    Position.map_use (fun id -> 
-        EIdentifier {
-            modules_path = {
-                v = String.empty;
-                position = Position.end_to_start id.position
-            };
-            identifier = id
-        }
-    ) id_loc *)
 %}
 
 %token <(KosuAst.signedness option * KosuAst.isize option) * int64> IntegerLitteral
@@ -55,22 +44,33 @@
 %token <string> INFIX_TILDE
 %token <string> PREFIX_EXCLA
 %token <string> PREFIX_QUESTIONMARK
+%token STAR MINUS PIPE MINUS_SUP
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token CROISILLION
 %token SEMICOLON 
-%token TYPE OPAQUE
+%token TYPE OPAQUE AS
 %token ENUM ARRAY EXTERNAL STRUCT TRUE FALSE EMPTY SWITCH IF ELSE CONST VAR OF MUT
 %token FUNCTION CLOSURE
 %token CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE OPEN
-%token CMP_LESS CMP_EQUAL CMP_GREATER MATCH ADDRESSOF
-%token STAR
+%token CMP_LESS CMP_EQUAL CMP_GREATER MATCH ADDRESSOF SIZEOF
 %token TRIPLEDOT DOT
 %token BACKTICK
 %token EQUAL
 %token COMMA
-
 %token DOUBLECOLON COLON
 %token EOF
+
+%left INFIX_PIPE
+%left OR
+%left INFIX_AMPERSAND AMPERSAND
+%left PIPE
+%left INFIX_CARET
+%left EQUAL INFIX_EQUAL INFIX_TILDE
+%left INFIX_INF INFIX_SUP
+%left INFIX_PLUS INFIX_MINUS MINUS PLUS
+%left STAR INFIX_MULT INFIX_DIV INFIX_PERCENT
+%left INFIX_DOLLAR
+%left DOT
 
 %start kosu_module
 
@@ -90,15 +90,21 @@
 %inline bracketed(X):
     | delimited(LBRACE, X, RBRACE) { $1 }
 
+%inline sqrbracketed(X):
+    | delimited(LSQBRACE, X, RSQBRACE) { $1 }
+
 %inline module_resolver:
     | mp=loption(terminated(separated_nonempty_list(DOUBLECOLON, located(ModuleIdentifier)), DOT)) { 
-        ModuleResoler mp
+        ModuleResolver mp
     }
 
 %inline loption_parenthesis_separated_list(sep, X):
     | loption(parenthesis(separated_nonempty_list(sep, X))) {
         $1
     }
+
+%inline splitted(lhs, sep, rhs):
+    | lhs=lhs sep rhs=rhs { lhs, rhs }
 
 %inline trailing_separated_list(sep, elt):
     | nonempty_list(terminated(elt, sep)) { $1 }
@@ -107,7 +113,11 @@
 %inline backticked(X):
     | delimited(BACKTICK, X, BACKTICK) { $1 }
 
+
 %inline infix_operator:
+    | STAR { "*" }
+    | MINUS { "-" }
+    | PIPE { "|" }
     | INFIX_PIPE
     | INFIX_AMPERSAND
     | INFIX_EQUAL
@@ -148,6 +158,16 @@
 %inline kosu_lvalue:
     | variable=loc_var_identifier fields=loption(preceded(DOT, separated_nonempty_list(DOT, located(Identifier)))) {
         KosuLvalue {variable; fields}
+    }
+
+%inline else_block:
+    | located(option(preceded(ELSE, kosu_block))) { 
+        match $1.value with
+        | Some body -> body
+        | None -> KosuAst.{
+            kosu_stmts = [];
+            kosu_expr = Position.map (fun _ -> EEmpty) $1
+        }
     }
 
 kosu_module:
@@ -327,10 +347,229 @@ kosu_block_base:
     }
 
 kosu_expression:
-    | { failwith "Kosu expresion"}
+    | TRUE { ETrue }
+    | FALSE { EFalse }
+    | NULLPTR { ENullptr }
+    | CMP_LESS { ECmpLess }
+    | CMP_EQUAL { ECmpEqual }
+    | CMP_GREATER { ECmpGreater }
+    | StringLitteral { EStringl $1 }
+    | CharLitteral { EChar $1 }
+    | IntegerLitteral { 
+        let (signedness, isize), ivalue = $1 in
+        EInteger {
+            signedness;
+            isize;
+            ivalue
+        }
+    }
+    | FloatLitteral { 
+        let fsize, fvalue = $1 in
+        EFloat { fsize; fvalue }
+    }
+    | SIZEOF value=parenthesis(preceded(COLON, located(kosu_expression))) {
+        ESizeof (Either.right value)
+    }
+    | SIZEOF value=parenthesis(located(kosu_type)) {
+        ESizeof (Either.left value)
+    }
+    | kosu_block {
+        EBlock $1
+    }
+    | lhs=located(kosu_expression) fn_name=located(infix_operator) rhs=located(kosu_expression) {
+        let parameters = lhs::rhs::[] in
+        EFunctionCall {
+            module_resolver = KosuUtil.ModuleResolver.empty_module;
+            generics_resolver = None;
+            fn_name;
+            parameters
+        }
+    }
+    | fn_name=located(Builtin) parameters=parenthesis(separated_list(COMMA, located(kosu_expression))) {
+        EBuiltinFunctionCall {
+            fn_name;
+            parameters
+        }
+    }
+    | module_resolver=module_resolver identifier=located(Constant) {
+        EConstIdentifier {
+            module_resolver;
+            identifier
+        }
+    }
+    | module_resolver=module_resolver id=loc_var_identifier {
+        EIdentifier {
+            module_resolver;
+            id
+        }
+    }
+    | first_expr=located(kosu_expression) DOT field=located(Identifier) {
+        EFieldAccess {
+            first_expr;
+            field
+        }
+    }
+    | module_resolver=module_resolver struct_name=located(Identifier) DOT fields=bracketed(
+        trailing_separated_list(
+            COMMA,
+                id=located(Identifier) expr=option(preceded(EQUAL, located(kosu_expression))) {id, expr}
+        )
+    ) {
+
+        let fields = List.map (fun (id, expr_opt) -> 
+            let expr = match expr_opt with
+                | Some expr -> expr
+                | None -> Position.map_use (fun id -> EIdentifier {
+                    module_resolver = KosuUtil.ModuleResolver.empty_module;
+                    id
+                } ) id
+            in
+            id, expr
+        ) fields in
+        EStruct {
+            module_resolver;
+            struct_name;
+            fields
+        }
+
+    }
+    | module_resolver=module_resolver enum_name=enum_resolver 
+        variant=located(Identifier)
+        assoc_exprs=loption(parenthesis(trailing_separated_list(COMMA, located(kosu_expression)))) {
+            EEnum {
+                module_resolver;
+                enum_name;
+                variant;
+                assoc_exprs
+            }
+        }
+    | WHILE condition_expr=located(kosu_expression) body=kosu_block {
+        EWhile {
+            condition_expr;
+            body
+        }
+    }
+    | IF condition_expr=located(kosu_expression) if_block=kosu_block else_body=else_block {
+        let cases = (condition_expr, if_block)::[] in
+        ECases {
+            cases;
+            else_body
+        }
+    }
+    | CASES cases=bracketed(
+        cases=nonempty_list(
+            preceded(
+                OF,
+                splitted(
+                    located(kosu_expression),
+                    MINUS_SUP,
+                    kosu_block
+                )
+            )
+        )
+        else_body=else_block {cases, else_body}
+    ) {
+        let cases, else_body = cases in
+        ECases {
+            cases; 
+            else_body
+        }
+    }
+    | MATCH expression=located(kosu_expression) patterns=bracketed(
+        nonempty_list(
+            preceded(
+                PIPE,
+                splitted(
+                    located(kosu_pattern),
+                    MINUS_SUP,
+                    kosu_block
+                )
+            )
+        )
+    ) {
+        EMatch {
+            expression;
+            patterns
+        }
+    }
+    | parenthesis(separated_list(COMMA, located(kosu_expression))) {
+        match $1 with
+        | [] -> EEmpty
+        | t::[] -> t.value
+        | _::_ as elts -> ETuple elts
+    }
+
+%inline enum_resolver:
+    | DOT { None }
+    | terminated(located(Identifier), DOUBLECOLON) { Some $1 }
 
 kosu_pattern:
-    | { failwith "Kosu pattern"}
+    | TRUE { PTrue }
+    | FALSE { PFalse }
+    | EMPTY { PEmpty }
+    | CMP_LESS { PCmpLess }
+    | CMP_EQUAL { PCmpEqual }
+    | CMP_GREATER { PCmpGreater }
+    | NULLPTR { PNullptr }
+    | WILDCARD { PWildcard }
+    | located(FloatLitteral) { 
+        let value = Position.map snd $1 in
+        PFloat value
+    }
+    | located(CharLitteral) { 
+        PChar $1
+    }
+    | neg_sign=boption(MINUS) located(IntegerLitteral) {
+        let value = Position.map snd $2 in
+        let value = Position.map (fun value -> 
+            match neg_sign with
+            | true -> Int64.neg value
+            | false -> value
+        ) value
+        in
+        PInteger {
+            neg_sign;
+            value
+        }
+    }
+    | located(Identifier) {
+        PIdentifier $1
+    }
+    | DOT located(Identifier) loption(parenthesis(separated_nonempty_list(COMMA, located(kosu_pattern))))  {
+        PCase {
+            variant = $2;
+            assoc_patterns = $3
+        }
+    }
+    |  module_resolver=module_resolver struct_name=located(Identifier) DOT pfields=bracketed(
+        trailing_separated_list(SEMICOLON, 
+            splitted(located(Identifier), EQUAL, located(kosu_pattern))
+        )) {
+            PRecord {
+                module_resolver;
+                struct_name;
+                pfields;
+            }
+        }
+    | lpattern=located(kosu_pattern) PIPE rpattern=located(kosu_pattern) {
+        let lpattern = KosuUtil.Pattern.flatten_por lpattern in
+        let rpattern = KosuUtil.Pattern.flatten_por rpattern in
+        let patterns = lpattern @ rpattern in
+        POr patterns
+    }
+    | pas_pattern=located(kosu_pattern) AS pas_bound=loc_var_identifier {
+        PAs {
+            pas_pattern;
+            pas_bound
+        }
+    }
+    | parenthesis(separated_list(COMMA, located(kosu_pattern))) {
+        match $1 with
+        | [] -> PEmpty
+        | p::[] -> p.value
+        | list -> PTuple list
+    }
+
 
 
 
@@ -345,7 +584,7 @@ kosu_type:
     | module_resolver=module_resolver id=located(Identifier) {
         let open KosuUtil.LocType in
         let open KosuAst.TyLoc in
-        let ModuleResoler content = module_resolver in
+        let ModuleResolver content = module_resolver in
         match Util.Ulist.is_empty content with
         | false -> TyLocIdentifier {
             module_resolver = module_resolver;
@@ -366,7 +605,7 @@ kosu_type:
             | "s64" -> s64
             | "u64" -> u64
             | "usize" -> usize
-            | "isize" -> ssize
+            | "ssize" -> ssize
             | "order" -> TyLocOrdered
             | "stringl" -> TyLocStringLit
             | _ -> TyLocIdentifier {
@@ -398,9 +637,16 @@ kosu_type:
             pointee_type;
         }
     }
+    | FUNCTION parameters=parenthesis(separated_list(COMMA, located(kosu_type))) return_type=located(kosu_type) {
+        KosuAst.TyLoc.TyLocFunctionPtr (parameters, return_type)
+    } 
+    | CLOSURE FUNCTION parameters=parenthesis(separated_list(COMMA, located(kosu_type))) return_type=located(kosu_type) {
+        KosuAst.TyLoc.TyLocClosure (parameters, return_type)
+    }
     | loc_poly_vars {
         KosuAst.TyLoc.TyLocPolymorphic $1
     }
 
 c_type:
     | { failwith "C Type" }
+

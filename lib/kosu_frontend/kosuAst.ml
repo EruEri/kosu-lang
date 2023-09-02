@@ -20,19 +20,18 @@ open Position
 type signedness = Signed | Unsigned
 type isize = I8 | I16 | I32 | I64
 type fsize = F32 | F64
-type pointer_state = 
-  | Const
-  | Mutable
-
-type module_resolver = ModuleResoler of string location list
+type pointer_state = Const | Mutable
+type module_resolver = ModuleResolver of string location list
 
 module TyLoc = struct
   type kosu_loctype_polymorphic = PolymorphicVar of string location
-  type kosu_inner_closure_type = ClosureType of {
-    id: string;
-    parameters: kosu_loctype;
-    return_type: kosu_loctype
-  }
+
+  type kosu_inner_closure_type =
+    | ClosureType of {
+        id : string;
+        parameters : kosu_loctype;
+        return_type : kosu_loctype;
+      }
 
   and kosu_loctype =
     | TyLocParametricIdentifier of {
@@ -45,9 +44,12 @@ module TyLoc = struct
         name : string location;
       }
     | TyLocPolymorphic of kosu_loctype_polymorphic
-    | TyLocPointer of { pointer_state : pointer_state; pointee_type : kosu_loctype location }
+    | TyLocPointer of {
+        pointer_state : pointer_state;
+        pointee_type : kosu_loctype location;
+      }
     | TyLocInteger of signedness option * isize option
-    | TyLocPointerSize of signedness 
+    | TyLocPointerSize of signedness
     | TyLocFloat of fsize option
     | TyLocFunctionPtr of kosu_loctype location list * kosu_loctype location
     (* This closure type is used by the user in function signature*)
@@ -98,7 +100,7 @@ and kosu_pattern =
   | PChar of char location
   | PIdentifier of string location
   | PTuple of kosu_pattern location list
-  | PInteger of { neg_sig : bool; value : int64 location }
+  | PInteger of { neg_sign : bool; value : int64 location }
   | PCase of {
       variant : string location;
       assoc_patterns : kosu_pattern location list;
@@ -106,6 +108,7 @@ and kosu_pattern =
   | POr of kosu_pattern location list
   | PRecord of {
       module_resolver : module_resolver;
+      struct_name : string location;
       pfields : (string location * kosu_pattern location) list;
     }
   | PAs of { pas_pattern : kosu_pattern location; pas_bound : string location }
@@ -143,7 +146,7 @@ and kosu_expression =
       module_resolver : module_resolver;
       identifier : string location;
     }
-  | EIdenfifier of { id : string location }
+  | EIdentifier of { module_resolver : module_resolver; id : string location }
   | EStruct of {
       module_resolver : module_resolver;
       struct_name : string location;
@@ -163,15 +166,15 @@ and kosu_expression =
       parameters : kosu_expression location list;
     }
   | EFunctionCall of {
-      modules_path : module_resolver;
+      module_resolver : module_resolver;
       generics_resolver : TyLoc.kosu_loctype location list option;
       fn_name : string location;
       parameters : kosu_expression location list;
     }
+  | EWhile of { condition_expr : kosu_expression location; body : kosu_block }
   (* If expression will be a syntaxique sugar of ecases *)
   | ECases of {
-      condition_expr : kosu_expression location;
-      if_body : kosu_block;
+      cases : (kosu_expression location * kosu_block) list;
       else_body : kosu_block;
     }
   | EMatch of {

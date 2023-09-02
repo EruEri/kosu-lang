@@ -15,6 +15,18 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
+module ModuleResolver = struct
+  open KosuAst
+
+  let is_empty = function
+    | ModuleResolver [] ->
+        true
+    | ModuleResolver (_ :: _) ->
+        false
+
+  let empty_module = ModuleResolver []
+end
+
 module LocType = struct
   open KosuAst.TyLoc
 
@@ -22,7 +34,6 @@ module LocType = struct
   let isize_16 = Some KosuAst.I16
   let isize_32 = Some KosuAst.I32
   let isize_64 = Some KosuAst.I64
-
   let fsize_32 = Some KosuAst.F32
   let fsize_64 = Some KosuAst.F64
   let signed = Some KosuAst.Signed
@@ -37,6 +48,19 @@ module LocType = struct
   let u64 = TyLocInteger (unsigned, isize_64)
   let f32 = TyLocFloat fsize_32
   let f64 = TyLocFloat fsize_64
-  let usize = KosuAst.(TyLocPointerSize Unsigned) 
+  let usize = KosuAst.(TyLocPointerSize Unsigned)
   let ssize = KosuAst.(TyLocPointerSize Signed)
 end
+
+module Pattern = struct
+  open KosuAst
+
+  let rec flatten_por (pattern : kosu_pattern Position.location) =
+    match pattern.value with
+    | POr patterns ->
+        patterns |> List.map flatten_por |> List.flatten
+    | _ ->
+        pattern :: []
+end
+
+module Expression = struct end
