@@ -158,7 +158,7 @@
 %inline kosu_lvalue:
     | variable=loc_var_identifier fields=loption(preceded(DOT, separated_nonempty_list(DOT, located(Identifier)))) {
         KosuLvalue {variable; fields}
-    }
+    } 
 
 %inline else_block:
     | located(option(preceded(ELSE, kosu_block))) { 
@@ -532,8 +532,9 @@ kosu_pattern:
             value
         }
     }
-    | located(Identifier) {
-        PIdentifier $1
+    | module_resolver=module_resolver id=loc_var_identifier {
+        let () = ignore module_resolver in
+        PIdentifier id
     }
     | DOT located(Identifier) loption(parenthesis(separated_nonempty_list(COMMA, located(kosu_pattern))))  {
         PCase {
@@ -557,7 +558,14 @@ kosu_pattern:
         let patterns = lpattern @ rpattern in
         POr patterns
     }
-    | pas_pattern=located(kosu_pattern) AS pas_bound=loc_var_identifier {
+    | t=parenthesis(
+        splitted(
+            located(kosu_pattern),
+            AS,
+            loc_var_identifier
+        )
+    ) {
+        let pas_pattern, pas_bound = t in
         PAs {
             pas_pattern;
             pas_bound
