@@ -60,6 +60,8 @@
 %token DOUBLECOLON COLON
 %token EOF
 
+%right ENUM_SIZE
+
 %left INFIX_PIPE
 %left OR
 %left INFIX_AMPERSAND AMPERSAND
@@ -150,6 +152,10 @@
 %inline pointer_state:
     | CONST { Const }
     | MUT | VAR { Mutable }
+
+%inline anon_function_kind:
+    | FUNCTION { KAFunctionPointer }
+    | CLOSURE { KAClosure }
 
 %inline variable_constancy:
     | CONST { true }
@@ -258,7 +264,7 @@ kosu_enum_decl:
     }
 
 kosu_struct_decl:
-    | ENUM struct_name=located(Identifier) 
+    | STRUCT struct_name=located(Identifier) 
         poly_vars=loption_parenthesis_separated_list(COMMA, loc_poly_vars)
         fields=bracketed(
             trailing_separated_list(
@@ -409,7 +415,7 @@ kosu_expression:
             field
         }
     }
-    | module_resolver=module_resolver struct_name=located(Identifier) DOT fields=bracketed(
+    | module_resolver=module_resolver struct_name=located(Identifier) COLON fields=bracketed(
         trailing_separated_list(
             COMMA,
                 id=located(Identifier) expr=option(preceded(EQUAL, located(kosu_expression))) {id, expr}
@@ -491,6 +497,16 @@ kosu_expression:
             expression;
             patterns
         }
+    }
+    | kind=anon_function_kind 
+        parameters=separated_list(COMMA, kosu_function_parameters)
+        MINUS_SUP
+        body=kosu_block {
+            EAnonFunction {
+                kind;
+                parameters;
+                body
+            }
     }
     | parenthesis(separated_list(COMMA, located(kosu_expression))) {
         match $1 with

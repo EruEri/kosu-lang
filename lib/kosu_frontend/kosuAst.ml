@@ -72,6 +72,14 @@ end
 type kosu_lvalue =
   | KosuLvalue of { variable : string location; fields : string location list }
 
+type kosu_function_parameters = {
+  is_var : bool;
+  name : string location;
+  kosu_type : TyLoc.kosu_loctype location;
+}
+
+type kosu_anon_function_kind = KAClosure | KAFunctionPointer
+
 type kosu_statement =
   | SDeclaration of {
       is_const : bool;
@@ -181,33 +189,11 @@ and kosu_expression =
       expression : kosu_expression location;
       patterns : (kosu_pattern location * kosu_block) list;
     }
-  | EBinOp of kosu_bin_op
-  | EUnOp of kosu_unary_op
-
-and kosu_bin_op =
-  | BAdd of kosu_expression location * kosu_expression location
-  | BMinus of kosu_expression location * kosu_expression location
-  | BMult of kosu_expression location * kosu_expression location
-  | BDiv of kosu_expression location * kosu_expression location
-  | BMod of kosu_expression location * kosu_expression location
-  | BBitwiseOr of kosu_expression location * kosu_expression location
-  | BBitwiseAnd of kosu_expression location * kosu_expression location
-  | BBitwiseXor of kosu_expression location * kosu_expression location
-  | BShiftLeft of kosu_expression location * kosu_expression location
-  | BShiftRight of kosu_expression location * kosu_expression location
-  | BAnd of kosu_expression location * kosu_expression location
-  | BOr of kosu_expression location * kosu_expression location
-  | BSup of kosu_expression location * kosu_expression location
-  | BSupEq of kosu_expression location * kosu_expression location
-  | BInf of kosu_expression location * kosu_expression location
-  | BInfEq of kosu_expression location * kosu_expression location
-  | BEqual of kosu_expression location * kosu_expression location
-  | BDif of kosu_expression location * kosu_expression location
-  | BCmp of kosu_expression location * kosu_expression location
-
-and kosu_unary_op =
-  | UMinus of kosu_expression location
-  | UNot of kosu_expression location
+  | EAnonFunction of {
+      kind : kosu_anon_function_kind;
+      parameters : kosu_function_parameters list;
+      body : kosu_block;
+    }
 
 and kosu_block = {
   kosu_stmts : kosu_statement location list;
@@ -229,12 +215,6 @@ type kosu_enum_decl = {
   *)
   tag_type : TyLoc.kosu_loctype location;
   variants : (string location * TyLoc.kosu_loctype location list) list;
-}
-
-type kosu_function_parameters = {
-  is_var : bool;
-  name : string location;
-  kosu_type : TyLoc.kosu_loctype location;
 }
 
 type kosu_function_decl = {
