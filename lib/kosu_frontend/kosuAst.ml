@@ -15,59 +15,9 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
+include KosuBaseAst
 open Position
-
-type signedness = Signed | Unsigned
-type isize = I8 | I16 | I32 | I64
-type fsize = F32 | F64
-type pointer_state = Const | Mutable
-type module_resolver = ModuleResolver of string location list
-
-module TyLoc = struct
-  type kosu_loctype_polymorphic = PolymorphicVar of string location
-
-  type kosu_inner_closure_type =
-    | ClosureType of {
-        id : string;
-        parameters : kosu_loctype;
-        return_type : kosu_loctype;
-      }
-
-  and kosu_loctype =
-    | TyLocParametricIdentifier of {
-        module_resolver : module_resolver;
-        parametrics_type : kosu_loctype location list;
-        name : string location;
-      }
-    | TyLocIdentifier of {
-        module_resolver : module_resolver;
-        name : string location;
-      }
-    | TyLocPolymorphic of kosu_loctype_polymorphic
-    | TyLocPointer of {
-        pointer_state : pointer_state;
-        pointee_type : kosu_loctype location;
-      }
-    | TyLocInteger of signedness option * isize option
-    | TyLocPointerSize of signedness
-    | TyLocFloat of fsize option
-    | TyLocFunctionPtr of kosu_loctype location list * kosu_loctype location
-    (* This closure type is used by the user in function signature*)
-    | TyLocClosure of kosu_loctype location list * kosu_loctype location
-    (* Used by the typecker to give an unique id to the closure *)
-    | TyLocInnerClosureId of kosu_inner_closure_type
-    | TyLocArray of { ktype : kosu_loctype location; size : int64 location }
-    | TyLocTuple of kosu_loctype location list
-    | TyLocOpaque of {
-        module_resolver : module_resolver;
-        name : string location;
-      }
-    | TyLocOrdered
-    | TyLocStringLit
-    | TyLocChar
-    | TyLocBool
-    | TyLocUnit
-end
+open KosuType
 
 type kosu_lvalue =
   | KosuLvalue of { variable : string location; fields : string location list }
@@ -93,7 +43,7 @@ type kosu_statement =
       expression : kosu_expression location;
     }
   | SDiscard of kosu_expression location
-  | SOpen of { module_resolver : module_resolver }
+  | SOpen of { module_resolver : module_resolver_loc }
 
 and kosu_pattern =
   | PTrue
@@ -115,7 +65,7 @@ and kosu_pattern =
     }
   | POr of kosu_pattern location list
   | PRecord of {
-      module_resolver : module_resolver;
+      module_resolver : module_resolver_loc;
       struct_name : string location;
       pfields : (string location * kosu_pattern location) list;
     }
@@ -151,22 +101,27 @@ and kosu_expression =
       index : int64 location;
     }
   | EConstIdentifier of {
-      module_resolver : module_resolver;
+      module_resolver : module_resolver_loc;
       identifier : string location;
     }
-  | EIdentifier of { module_resolver : module_resolver; id : string location }
+  | EIdentifier of {
+      module_resolver : module_resolver_loc;
+      id : string location;
+    }
   | EStruct of {
-      module_resolver : module_resolver;
+      module_resolver : module_resolver_loc;
       struct_name : string location;
       fields : (string location * kosu_expression location) list;
     }
   | EBlock of kosu_block
   | EEnum of {
-      module_resolver : module_resolver;
+      module_resolver : module_resolver_loc;
       enum_name : string location option;
       variant : string location;
       assoc_exprs : kosu_expression location list;
     }
+  (* * expr *)
+  | EDeref of kosu_expression location
   | ETuple of kosu_expression location list
   | EArray of kosu_expression location list
   | EBuiltinFunctionCall of {
@@ -174,7 +129,7 @@ and kosu_expression =
       parameters : kosu_expression location list;
     }
   | EFunctionCall of {
-      module_resolver : module_resolver;
+      module_resolver : module_resolver_loc;
       generics_resolver : TyLoc.kosu_loctype location list option;
       fn_name : string location;
       parameters : kosu_expression location list;

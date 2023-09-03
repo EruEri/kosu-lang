@@ -49,27 +49,24 @@
 %token CROISILLION
 %token SEMICOLON 
 %token TYPE OPAQUE AS
-%token ENUM ARRAY EXTERNAL STRUCT TRUE FALSE EMPTY SWITCH IF ELSE CONST VAR OF MUT
+%token ENUM ARRAY EXTERNAL STRUCT TRUE FALSE EMPTY IF ELSE CONST VAR OF MUT
 %token FUNCTION CLOSURE
-%token CASES DISCARD NULLPTR SYSCALL OPERATOR WHILE OPEN
+%token CASES DISCARD NULLPTR SYSCALL WHILE OPEN
 %token CMP_LESS CMP_EQUAL CMP_GREATER MATCH ADDRESSOF SIZEOF
-%token TRIPLEDOT DOT
+%token DOT
 %token BACKTICK
 %token EQUAL
 %token COMMA
 %token DOUBLECOLON COLON
 %token EOF
 
-%right ENUM_SIZE
-
 %left INFIX_PIPE
-%left OR
-%left INFIX_AMPERSAND AMPERSAND
+%left INFIX_AMPERSAND
 %left PIPE
 %left INFIX_CARET
-%left EQUAL INFIX_EQUAL INFIX_TILDE
+%left INFIX_EQUAL INFIX_TILDE
 %left INFIX_INF INFIX_SUP
-%left INFIX_PLUS INFIX_MINUS MINUS PLUS
+%left INFIX_PLUS INFIX_MINUS MINUS
 %left STAR INFIX_MULT INFIX_DIV INFIX_PERCENT
 %left INFIX_DOLLAR
 %left DOT
@@ -97,7 +94,7 @@
 
 %inline module_resolver:
     | mp=loption(terminated(separated_nonempty_list(DOUBLECOLON, located(ModuleIdentifier)), DOT)) { 
-        ModuleResolver mp
+        ModuleResolverLoc mp
     }
 
 %inline loption_parenthesis_separated_list(sep, X):
@@ -146,7 +143,7 @@
 
 %inline loc_poly_vars:
     | located(PolymorphicVar) { 
-        KosuAst.TyLoc.PolymorphicVar $1
+        KosuType.TyLoc.PolymorphicVarLoc $1
     }
 
 %inline pointer_state:
@@ -599,7 +596,7 @@ kosu_pattern:
 
 kosu_type:
     | module_resolver=module_resolver name=located(Identifier) parametrics_type=parenthesis(separated_nonempty_list(COMMA, located(kosu_type)))  {
-        KosuAst.TyLoc.TyLocParametricIdentifier {
+        KosuType.TyLoc.TyLocParametricIdentifier {
             module_resolver;
             parametrics_type;
             name
@@ -607,8 +604,8 @@ kosu_type:
     }
     | module_resolver=module_resolver id=located(Identifier) {
         let open KosuUtil.LocType in
-        let open KosuAst.TyLoc in
-        let ModuleResolver content = module_resolver in
+        let open KosuType.TyLoc in
+        let ModuleResolverLoc content = module_resolver in
         match Util.Ulist.is_empty content with
         | false -> TyLocIdentifier {
             module_resolver = module_resolver;
@@ -651,24 +648,24 @@ kosu_type:
     }
     | parenthesis(separated_list(COMMA, located(kosu_type) )) {
         match $1 with
-        | [] -> KosuAst.TyLoc.TyLocUnit
+        | [] -> KosuType.TyLoc.TyLocUnit
         | t::[] -> t.value
         | _::_ as l -> TyLocTuple l
     }
     | STAR pointer_state=pointer_state pointee_type=located(kosu_type) {
-        KosuAst.TyLoc.TyLocPointer {
+        KosuType.TyLoc.TyLocPointer {
             pointer_state;
             pointee_type;
         }
     }
     | FUNCTION parameters=parenthesis(separated_list(COMMA, located(kosu_type))) return_type=located(kosu_type) {
-        KosuAst.TyLoc.TyLocFunctionPtr (parameters, return_type)
+        KosuType.TyLoc.TyLocFunctionPtr (parameters, return_type)
     } 
-    | CLOSURE FUNCTION parameters=parenthesis(separated_list(COMMA, located(kosu_type))) return_type=located(kosu_type) {
-        KosuAst.TyLoc.TyLocClosure (parameters, return_type)
+    | CLOSURE parameters=parenthesis(separated_list(COMMA, located(kosu_type))) return_type=located(kosu_type) {
+        KosuType.TyLoc.TyLocClosure (parameters, return_type)
     }
     | loc_poly_vars {
-        KosuAst.TyLoc.TyLocPolymorphic $1
+        KosuType.TyLoc.TyLocPolymorphic $1
     }
 
 c_type:

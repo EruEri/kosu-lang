@@ -15,52 +15,15 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module ModuleResolver = struct
-  open KosuAst
+open Position
 
-  let is_empty = function
-    | ModuleResolverLoc [] ->
-        true
-    | ModuleResolverLoc (_ :: _) ->
-        false
+type signedness = Signed | Unsigned
+type isize = I8 | I16 | I32 | I64
+type fsize = F32 | F64
+type pointer_state = Const | Mutable
+type module_resolver_loc = ModuleResolverLoc of string location list
+type module_resolver = ModuleResolver_ of string list
 
-  let empty_module = ModuleResolverLoc []
-end
-
-module LocType = struct
-  open KosuType.TyLoc
-
-  let isize_8 = Some KosuAst.I8
-  let isize_16 = Some KosuAst.I16
-  let isize_32 = Some KosuAst.I32
-  let isize_64 = Some KosuAst.I64
-  let fsize_32 = Some KosuAst.F32
-  let fsize_64 = Some KosuAst.F64
-  let signed = Some KosuAst.Signed
-  let unsigned = Some KosuAst.Unsigned
-  let s8 = TyLocInteger (signed, isize_8)
-  let u8 = TyLocInteger (unsigned, isize_8)
-  let s16 = TyLocInteger (signed, isize_16)
-  let u16 = TyLocInteger (unsigned, isize_16)
-  let s32 = TyLocInteger (signed, isize_32)
-  let u32 = TyLocInteger (unsigned, isize_32)
-  let s64 = TyLocInteger (signed, isize_64)
-  let u64 = TyLocInteger (unsigned, isize_64)
-  let f32 = TyLocFloat fsize_32
-  let f64 = TyLocFloat fsize_64
-  let usize = KosuAst.(TyLocPointerSize Unsigned)
-  let ssize = KosuAst.(TyLocPointerSize Signed)
-end
-
-module Pattern = struct
-  open KosuAst
-
-  let rec flatten_por (pattern : kosu_pattern Position.location) =
-    match pattern.value with
-    | POr patterns ->
-        patterns |> List.map flatten_por |> List.flatten
-    | _ ->
-        pattern :: []
-end
-
-module Expression = struct end
+type integer_info =
+  | Worded of signedness
+  | Sized of signedness option * isize option
