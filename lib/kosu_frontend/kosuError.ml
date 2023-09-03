@@ -15,15 +15,4 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-open Position
-
-type signedness = Signed | Unsigned
-type isize = I8 | I16 | I32 | I64
-type fsize = F32 | F64
-type pointer_state = Const | Mutable
-type module_resolver_loc = ModuleResolverLoc of string location list
-type module_resolver = ModuleResolver_ of string list
-
-type integer_info =
-  | Worded of signedness option
-  | Sized of signedness option * isize option
+type kosu_lexer_error = |

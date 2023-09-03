@@ -25,7 +25,20 @@ module ModuleResolver = struct
         false
 
   let empty_module = ModuleResolverLoc []
+
+  let to_unlocated = function
+    | ModuleResolverLoc l ->
+        ModuleResolver_ (List.map Position.value l)
 end
+
+(* module IntegerInfo = struct
+     let sized (sign, size) = KosuBaseAst.Sized (sign, size)
+
+     let worded sign = KosuBaseAst.Worded (sign)
+     let sworded sign = worded (Some sign)
+
+
+   end *)
 
 module LocType = struct
   open KosuType.TyLoc
@@ -50,6 +63,63 @@ module LocType = struct
   let f64 = TyLocFloat fsize_64
   let usize = KosuAst.(TyLocPointerSize Unsigned)
   let ssize = KosuAst.(TyLocPointerSize Signed)
+end
+
+module Ty = struct
+  open Position
+  open KosuType
+
+  let rec of_tyloc' tyloc = of_tyloc @@ value tyloc
+  and of_tyloc : KosuType.TyLoc.kosu_loctype -> KosuType.Ty.kosu_type = function
+    | TyLoc.TyLocParametricIdentifier
+        { module_resolver; parametrics_type; name } ->
+        let module_resolver = ModuleResolver.to_unlocated module_resolver in
+        let parametrics_type = List.map of_tyloc' parametrics_type in
+        let name = Position.value name in
+        Ty.TyParametricIdentifier { module_resolver; parametrics_type; name }
+    | TyLocIdentifier { module_resolver; name } ->
+        let module_resolver = ModuleResolver.to_unlocated module_resolver in
+        let name = Position.value name in
+        Ty.TyIdentifier { module_resolver; name }
+    | TyLocPolymorphic poly ->
+        TyPolymorphic (of_tyloc_polymorphic poly)
+    | TyLocFunctionPtr (parameters, return) ->
+        TyFunctionPtr (List.map of_tyloc' parameters, of_tyloc' return)
+    | TyLocClosure (parameters, return) ->
+        TyClosure (List.map of_tyloc' parameters, of_tyloc' return)
+    | TyLocOpaque { module_resolver; name } ->
+        let module_resolver = ModuleResolver.to_unlocated module_resolver in
+        let name = value name in
+        TyOpaque { module_resolver; name }
+    | TyLocPointer { pointer_state; pointee_type } ->
+        let pointee_type = of_tyloc' pointee_type in
+        TyPointer { pointer_state; pointee_type }
+    | TyLocInteger (sign, size) ->
+        TyInteger (sign, size)
+    | TyLocPointerSize sign ->
+        TyPointerSize sign
+    | TyLocFloat size ->
+        TyFloat size
+    | TyLocTuple elts ->
+        TyTuple (List.map of_tyloc' elts)
+    | TyLocArray { ktype; size } ->
+        let ktype = of_tyloc' ktype in
+        let size = value size in
+        TyArray { ktype; size }
+    | TyLocStringLit ->
+        TyStringLit
+    | TyLocChar ->
+        TyChar
+    | TyLocBool ->
+        TyBool
+    | TyLocUnit ->
+        TyUnit
+    | TyLocOrdered ->
+        TyOrdered
+
+  and of_tyloc_polymorphic = function
+    | TyLoc.PolymorphicVarLoc s ->
+        Ty.PolymorphicVar s.value
 end
 
 module Pattern = struct

@@ -21,13 +21,6 @@ open KosuBaseAst
 module TyLoc = struct
   type kosu_loctype_polymorphic = PolymorphicVarLoc of string location
 
-  type kosu_inner_closure_type =
-    | ClosureType of {
-        id : string;
-        parameters : kosu_loctype;
-        return_type : kosu_loctype;
-      }
-
   and kosu_loctype =
     | TyLocParametricIdentifier of {
         module_resolver : module_resolver_loc;
@@ -50,7 +43,6 @@ module TyLoc = struct
     (* This closure type is used by the user in function signature*)
     | TyLocClosure of kosu_loctype location list * kosu_loctype location
     (* Used by the typecker to give an unique id to the closure *)
-    | TyLocInnerClosureId of kosu_inner_closure_type
     | TyLocArray of { ktype : kosu_loctype location; size : int64 location }
     | TyLocTuple of kosu_loctype location list
     | TyLocOpaque of {
@@ -93,11 +85,12 @@ module Ty = struct
     | TyInnerClosureId of kosu_inner_closure_type
     | TyArray of { ktype : kosu_type; size : int64 }
     | TyTuple of kosu_type list
-    | TyOpaque of { module_resolver : module_resolver_loc; name : string }
+    | TyOpaque of { module_resolver : module_resolver; name : string }
     | TyOrdered
     | TyStringLit
     | TyChar
     | TyBool
+    | TyUnit
 
   type kosu_type_constraint = { clhs : kosu_type; crhs : kosu_type }
 end
