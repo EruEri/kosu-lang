@@ -93,4 +93,18 @@ module Ty = struct
     | TyUnit
 
   type kosu_type_constraint = { clhs : kosu_type; crhs : kosu_type }
+
+  let fresh_variable reset =
+    let counter = ref 0 in
+    fun () -> 
+      let () = match reset with
+        | false -> ()
+        | true -> counter := 0 
+      in
+      let n = !counter in
+      let () = incr counter in
+      Printf.sprintf "'t%u" n
+  
+  let fresh_variable_type ?(reset = false) () = 
+    TyPolymorphic(PolymorphicVar (fresh_variable reset ()))
 end
