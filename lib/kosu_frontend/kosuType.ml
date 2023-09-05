@@ -36,8 +36,7 @@ module TyLoc = struct
         pointer_state : pointer_state;
         pointee_type : kosu_loctype location;
       }
-    | TyLocInteger of signedness option * isize option
-    | TyLocPointerSize of signedness
+    | TyLocInteger of integer_info option
     | TyLocFloat of fsize option
     | TyLocFunctionPtr of kosu_loctype location list * kosu_loctype location
     (* This closure type is used by the user in function signature*)
@@ -62,8 +61,9 @@ module Ty = struct
   type kosu_inner_closure_type =
     | ClosureType of {
         id : string;
-        parameters : kosu_type;
+        parameters : kosu_type list;
         return_type : kosu_type;
+        env : string * kosu_type list;
       }
 
   and kosu_type =
@@ -75,8 +75,7 @@ module Ty = struct
     | TyIdentifier of { module_resolver : module_resolver; name : string }
     | TyPolymorphic of kosu_type_polymorphic
     | TyPointer of { pointer_state : pointer_state; pointee_type : kosu_type }
-    | TyInteger of signedness option * isize option
-    | TyPointerSize of signedness
+    | TyInteger of integer_info option
     | TyFloat of fsize option
     | TyFunctionPtr of kosu_type list * kosu_type
     (* This closure type is used by the user in function signature*)
@@ -92,19 +91,20 @@ module Ty = struct
     | TyBool
     | TyUnit
 
-  type kosu_type_constraint = { clhs : kosu_type; crhs : kosu_type }
+  type kosu_type_constraint = {
+    clhs : kosu_type;
+    crhs : kosu_type;
+    position : Position.position;
+  }
 
   let fresh_variable reset =
     let counter = ref 0 in
-    fun () -> 
-      let () = match reset with
-        | false -> ()
-        | true -> counter := 0 
-      in
+    fun () ->
+      let () = match reset with false -> () | true -> counter := 0 in
       let n = !counter in
       let () = incr counter in
       Printf.sprintf "'t%u" n
-  
-  let fresh_variable_type ?(reset = false) () = 
-    TyPolymorphic(PolymorphicVar (fresh_variable reset ()))
+
+  let fresh_variable_type ?(reset = false) () =
+    TyPolymorphic (PolymorphicVar (fresh_variable reset ()))
 end

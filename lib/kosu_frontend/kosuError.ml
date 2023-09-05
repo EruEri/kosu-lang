@@ -16,3 +16,12 @@
 (**********************************************************************************************)
 
 type kosu_lexer_error = |
+
+type kosu_error =
+  | LexerErrof of kosu_lexer_error
+  | SizeofPolymorphicType of Position.position
+
+exception KosuErr of kosu_error
+
+let kosu_error e = KosuErr e
+let sizeof_polytype p = kosu_error @@ SizeofPolymorphicType p

@@ -18,7 +18,12 @@
 module KosuTypeConstraintSet = Set.Make (struct
   type t = KosuType.Ty.kosu_type_constraint
 
-  let compare = Stdlib.compare
+  let compare (lhs : t) (rhs : t) =
+    match compare lhs.clhs rhs.clhs with
+    | 0 ->
+        compare lhs.clhs rhs.crhs
+    | n ->
+        n
 end)
 
 type kyo_tying_env = (string Position.location * KosuType.Ty.kosu_type) list
@@ -30,7 +35,7 @@ type kosu_env = {
   env_tying_constraint : KosuTypeConstraintSet.t;
 }
 
-let merge_constraint lhs rhs =
+let merge_constraint rhs lhs =
   {
     lhs with
     env_tying_constraint =
@@ -38,8 +43,10 @@ let merge_constraint lhs rhs =
         rhs.env_tying_constraint;
   }
 
-let add_typing_constraint ~lhs ~rhs env =
-  let constr = KosuType.Ty.{ clhs = lhs; crhs = rhs } in
+let add_typing_constraint ~lhs ~rhs (location : 'a Position.location) env =
+  let constr =
+    KosuType.Ty.{ clhs = lhs; crhs = rhs; position = location.position }
+  in
   {
     env with
     env_tying_constraint =

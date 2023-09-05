@@ -31,17 +31,15 @@ module ModuleResolver = struct
         ModuleResolver_ (List.map Position.value l)
 end
 
-(* module IntegerInfo = struct
-     let sized (sign, size) = KosuBaseAst.Sized (sign, size)
-
-     let worded sign = KosuBaseAst.Worded (sign)
-     let sworded sign = worded (Some sign)
-
-
-   end *)
+module IntegerInfo = struct
+  let sized (sign, size) = KosuBaseAst.Sized (sign, size)
+  let worded sign = KosuBaseAst.Worded sign
+  let sworded sign = worded (Some sign)
+end
 
 module LocType = struct
   open KosuType.TyLoc
+  open IntegerInfo
 
   let isize_8 = Some KosuAst.I8
   let isize_16 = Some KosuAst.I16
@@ -51,25 +49,97 @@ module LocType = struct
   let fsize_64 = Some KosuAst.F64
   let signed = Some KosuAst.Signed
   let unsigned = Some KosuAst.Unsigned
-  let s8 = TyLocInteger (signed, isize_8)
-  let u8 = TyLocInteger (unsigned, isize_8)
-  let s16 = TyLocInteger (signed, isize_16)
-  let u16 = TyLocInteger (unsigned, isize_16)
-  let s32 = TyLocInteger (signed, isize_32)
-  let u32 = TyLocInteger (unsigned, isize_32)
-  let s64 = TyLocInteger (signed, isize_64)
-  let u64 = TyLocInteger (unsigned, isize_64)
+  let s8 = TyLocInteger (Some (sized @@ (signed, isize_8)))
+  let u8 = TyLocInteger (Some (sized @@ (unsigned, isize_8)))
+  let s16 = TyLocInteger (Some (sized @@ (signed, isize_16)))
+  let u16 = TyLocInteger (Some (sized @@ (unsigned, isize_16)))
+  let s32 = TyLocInteger (Some (sized @@ (signed, isize_32)))
+  let u32 = TyLocInteger (Some (sized @@ (unsigned, isize_32)))
+  let s64 = TyLocInteger (Some (sized @@ (signed, isize_64)))
+  let u64 = TyLocInteger (Some (sized @@ (unsigned, isize_64)))
   let f32 = TyLocFloat fsize_32
   let f64 = TyLocFloat fsize_64
-  let usize = KosuAst.(TyLocPointerSize Unsigned)
-  let ssize = KosuAst.(TyLocPointerSize Signed)
+  let usize = TyLocInteger (Some (sworded KosuAst.Unsigned))
+  let ssize = TyLocInteger (Some (sworded KosuAst.Unsigned))
 end
 
 module Ty = struct
   open Position
   open KosuType
 
+  let is_integer : KosuType.Ty.kosu_type -> bool = function
+    | Ty.TyInteger _ ->
+        true
+    | TyParametricIdentifier _
+    | TyIdentifier _
+    | TyPolymorphic _
+    | TyFunctionPtr _
+    | TyClosure _
+    | TyOpaque _
+    | TyFloat _
+    | TyOrdered
+    | TyChar
+    | TyStringLit
+    | TyUnit
+    | TyPointer _
+    | TyInnerClosureId _
+    | TyArray _
+    | TyTuple _
+    | TyBool ->
+        false
+
+  let is_polymorphic : KosuType.Ty.kosu_type -> bool = function
+    | TyPolymorphic _ ->
+        true
+    | TyParametricIdentifier _
+    | TyIdentifier _
+    | TyInteger _
+    | TyFunctionPtr _
+    | TyClosure _
+    | TyOpaque _
+    | TyFloat _
+    | TyOrdered
+    | TyChar
+    | TyStringLit
+    | TyUnit
+    | TyPointer _
+    | TyInnerClosureId _
+    | TyArray _
+    | TyTuple _
+    | TyBool ->
+        false
+
+  let rec contains_polymorphic : KosuType.Ty.kosu_type -> bool = function
+    | TyPolymorphic _ ->
+        true
+    | TyFunctionPtr (parameters, return_type)
+    | TyClosure (parameters, return_type)
+    (* Should captured variabe be in the compuation ? *)
+    | TyInnerClosureId (ClosureType { id = _; env = _; parameters; return_type })
+      ->
+        let lhs = List.exists contains_polymorphic parameters in
+        let rhs = contains_polymorphic return_type in
+        lhs || rhs
+    | TyParametricIdentifier
+        { parametrics_type = tys; module_resolver = _; name = _ }
+    | TyTuple tys ->
+        List.exists contains_polymorphic tys
+    | TyPointer { pointee_type = ktype; pointer_state = _ }
+    | TyArray { ktype; size = _ } ->
+        contains_polymorphic ktype
+    | TyIdentifier _
+    | TyInteger _
+    | TyOpaque _
+    | TyFloat _
+    | TyOrdered
+    | TyChar
+    | TyStringLit
+    | TyUnit
+    | TyBool ->
+        false
+
   let rec of_tyloc' tyloc = of_tyloc @@ value tyloc
+
   and of_tyloc : KosuType.TyLoc.kosu_loctype -> KosuType.Ty.kosu_type = function
     | TyLoc.TyLocParametricIdentifier
         { module_resolver; parametrics_type; name } ->
@@ -94,10 +164,8 @@ module Ty = struct
     | TyLocPointer { pointer_state; pointee_type } ->
         let pointee_type = of_tyloc' pointee_type in
         TyPointer { pointer_state; pointee_type }
-    | TyLocInteger (sign, size) ->
-        TyInteger (sign, size)
-    | TyLocPointerSize sign ->
-        TyPointerSize sign
+    | TyLocInteger info ->
+        TyInteger info
     | TyLocFloat size ->
         TyFloat size
     | TyLocTuple elts ->
@@ -134,3 +202,35 @@ module Pattern = struct
 end
 
 module Expression = struct end
+
+module Module = struct
+  let constant_decls kosu_module =
+    let open KosuAst in
+    kosu_module
+    |> List.filter_map (function
+         | NConst kosu_const_decl ->
+             Some kosu_const_decl
+         | NExternFunc _
+         | NEnum _
+         | NFunction _
+         | NSyscall _
+         | NStruct _
+         | NOpaque _ ->
+             None
+         )
+
+  let enum_decls kosu_module =
+    let open KosuAst in
+    kosu_module
+    |> List.filter_map (function
+         | NEnum kosu_enum_decl ->
+             Some kosu_enum_decl
+         | NExternFunc _
+         | NConst _
+         | NFunction _
+         | NSyscall _
+         | NStruct _
+         | NOpaque _ ->
+             None
+         )
+end

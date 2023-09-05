@@ -20,7 +20,7 @@
     open Position
 %}
 
-%token <(KosuAst.signedness option * KosuAst.isize option) * int64> IntegerLitteral
+%token <KosuAst.integer_info option * int64> IntegerLitteral
 %token <string> StringLitteral 
 %token <char> CharLitteral
 %token <KosuAst.fsize option * float> FloatLitteral
@@ -359,10 +359,9 @@ kosu_expression:
     | StringLitteral { EStringl $1 }
     | CharLitteral { EChar $1 }
     | IntegerLitteral { 
-        let (signedness, isize), ivalue = $1 in
+        let integer_info, ivalue = $1 in
         EInteger {
-            signedness;
-            isize;
+            integer_info;
             ivalue
         }
     }

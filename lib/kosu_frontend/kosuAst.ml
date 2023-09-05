@@ -81,11 +81,7 @@ and kosu_expression =
   | ECmpGreater
   | EStringl of string
   | EChar of char
-  | EInteger of {
-      signedness : signedness option;
-      isize : isize option;
-      ivalue : int64;
-    }
+  | EInteger of { integer_info : integer_info option; ivalue : int64 }
   | EFloat of { fsize : fsize option; fvalue : float }
   | ESizeof of (TyLoc.kosu_loctype location, kosu_expression location) Either.t
   | EFieldAccess of {
