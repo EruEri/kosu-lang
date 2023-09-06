@@ -111,13 +111,13 @@ and kosu_expression =
       struct_name : string location;
       fields : (string location * kosu_expression location) list;
     }
-  | EBlock of kosu_block
   | EEnum of {
       module_resolver : module_resolver_loc;
       enum_name : string location option;
       variant : string location;
       assoc_exprs : kosu_expression location list;
     }
+  | EBlock of kosu_block
   (* * expr *)
   | EDeref of kosu_expression location
   | ETuple of kosu_expression location list

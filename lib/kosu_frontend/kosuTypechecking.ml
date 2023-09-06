@@ -27,6 +27,8 @@ module PatternIdentifierBound = Set.Make (struct
     String.compare (value @@ fst lhs) (value @@ fst rhs)
 end)
 
+module CapturedIdentifier = PatternIdentifierBound
+
 let rec typeof (kosu_env : KosuEnv.kosu_env)
     (expr : KosuAst.kosu_expression location) =
   match expr.value with
@@ -144,7 +146,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | TyPointer { pointee_type; pointer_state = _ } ->
             pointee_type
         | _ ->
-            failwith ""
+            failwith "Should be pointer type"
       in
       (kosu_env, pointee_type)
   | ETuple exprs ->
@@ -227,9 +229,9 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
   | EAnonFunction { kind; parameters; body } ->
       failwith ""
 
-and typeof_block kosu_env block = 
-    let kosu_env = List.fold_left typeof_statement kosu_env block.kosu_stmts in
-    typeof kosu_env block.kosu_expr
+and typeof_block kosu_env block =
+  let kosu_env = List.fold_left typeof_statement kosu_env block.kosu_stmts in
+  typeof kosu_env block.kosu_expr
 
 and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
   match statement.value with
@@ -424,3 +426,96 @@ and typeof_pattern scrutinee_type kosu_env
       in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       (bound, (kosu_env, ty))
+
+and free_variable_expression ~closure_env ~scope_env (expression : _ location) =
+  let of_variable_info KosuEnv.{ identifier; kosu_type; is_const = _ } =
+    (identifier, kosu_type)
+  in
+  (* capture should handle the resolve of identifier without module resolver *)
+  let capture (identifier : _ location) =
+    let in_clo_env = KosuEnv.assoc_type_opt identifier.value closure_env in
+    let in_scope_env = KosuEnv.assoc_type_opt identifier.value scope_env in
+    match (in_clo_env, in_scope_env) with
+    | Some _, (Some _ | None) ->
+        CapturedIdentifier.empty
+    | None, Some scope_info ->
+        CapturedIdentifier.singleton @@ of_variable_info scope_info
+    | None, None ->
+        failwith @@ "Undefine identifier " ^ identifier.value
+  in
+  match expression.value with
+  | EIdentifier { module_resolver; id } ->
+      let c =
+        match KosuUtil.ModuleResolver.is_empty module_resolver with
+        | true ->
+            capture id
+        | false ->
+            (* Pointer toward a function symbol in a module so it's not captured*)
+            CapturedIdentifier.empty
+      in
+      c
+  | EEmpty
+  | ETrue
+  | EFalse
+  | ENullptr
+  | ECmpLess
+  | ECmpEqual
+  | ECmpGreater
+  | EStringl _
+  | EChar _
+  | EInteger { integer_info = _; ivalue = _ }
+  | EConstIdentifier { module_resolver = _; identifier = _ }
+  | EFloat { fsize = _; fvalue = _ } ->
+      CapturedIdentifier.empty
+  | ESizeof either ->
+      let captured =
+        match either with
+        | Either.Left _ ->
+            CapturedIdentifier.empty
+        | Either.Right expr ->
+            free_variable_expression ~closure_env ~scope_env expr
+      in
+      captured
+  | EFieldAccess { first_expr; field = _ }
+  | ETupleAccess { first_expr; index = _ }
+  | EDeref first_expr ->
+      free_variable_expression ~closure_env ~scope_env first_expr
+  | EArrayAccess { array_expr; index_expr } ->
+      let set = free_variable_expression ~closure_env ~scope_env array_expr in
+      let set2 = free_variable_expression ~closure_env ~scope_env index_expr in
+      CapturedIdentifier.union set set2
+  | EStruct { module_resolver = _; struct_name = _; fields } ->
+      List.fold_left
+        (fun set (_, expr) ->
+          let s = free_variable_expression ~closure_env ~scope_env expr in
+          CapturedIdentifier.union s set
+        )
+        CapturedIdentifier.empty fields
+  | EEnum
+      { assoc_exprs = exprs; module_resolver = _; enum_name = _; variant = _ }
+  | ETuple exprs
+  | EArray exprs
+  | EBuiltinFunctionCall { parameters = exprs; fn_name = _ }
+  | EFunctionCall
+      {
+        parameters = exprs;
+        module_resolver = _;
+        generics_resolver = _;
+        fn_name = _;
+      } ->
+      List.fold_left
+        (fun set expr ->
+          let s = free_variable_expression ~closure_env ~scope_env expr in
+          CapturedIdentifier.union s set
+        )
+        CapturedIdentifier.empty exprs
+  | EBlock _ ->
+      failwith ""
+  | EAnonFunction { parameters; body; kind = _ } ->
+      failwith "Anon function todo"
+  | EWhile _ ->
+      failwith "TODO WHILE"
+  | ECases _ ->
+      failwith "ECASES"
+  | EMatch _ ->
+      failwith ""
