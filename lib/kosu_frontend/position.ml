@@ -34,3 +34,6 @@ let located_value start_position end_position value =
 let current_position lexbuf =
   let open Lexing in
   { start_position = lexbuf.lex_start_p; end_position = lexbuf.lex_curr_p }
+
+(* Temporary location *)
+let filename_of_module s = s |> List.map value |> String.concat Filename.dir_sep

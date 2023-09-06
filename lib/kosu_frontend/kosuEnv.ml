@@ -30,7 +30,7 @@ type kyo_tying_env = (string Position.location * KosuType.Ty.kosu_type) list
 
 type kosu_env = {
   program : KosuAst.kosu_program;
-  opened_modules : KosuAst.kosu_module;
+  opened_modules : KosuAst.kosu_module list;
   env_variable : kyo_tying_env;
   env_tying_constraint : KosuTypeConstraintSet.t;
 }
@@ -75,3 +75,40 @@ let assoc_type_opt name kosu_env = List.assoc_opt name kosu_env.env_variable
 let mem name kosu_env = Option.is_some @@ assoc_type_opt name kosu_env
 
 let modules kosu_env = kosu_env.opened_modules
+
+let find_module_opt (KosuBaseAst.ModuleResolverLoc modules) kosu_env =
+  let open KosuAst in
+  let module_name = Position.filename_of_module modules in
+  kosu_env.program
+  |> List.find_map (fun { filename; kosu_module } ->
+         match filename = module_name with
+         | true ->
+             Some kosu_module
+         | false ->
+             None
+     )
+
+(** 
+  [find_const_declaration (module_resolver, identifier) kosu_env] try to find the constant with
+  the name [identifier] in the module provided by [module_resolver].
+  If [module_resolver] is empty, the function will try to find the declaration in the opened modules of [kosu_env]
+  If the module doesn't exist or no identifier matching is found, return [None].
+*)
+let find_const_declaration (module_resolver, identifier) kosu_env =
+  let open KosuAst in
+  let open Position in
+  let enum_decl_opt kmodule =
+    let const_decls = KosuUtil.Module.constant_decls kmodule in
+    const_decls
+    |> List.find_opt (fun const_decl ->
+           const_decl.const_name.value = identifier.value
+       )
+  in
+
+  let ( let* ) = Option.bind in
+  match module_resolver with
+  | ModuleResolverLoc [] ->
+      List.find_map enum_decl_opt kosu_env.opened_modules
+  | ModuleResolverLoc (_ :: _) ->
+      let* kmodule = find_module_opt module_resolver kosu_env in
+      enum_decl_opt kmodule

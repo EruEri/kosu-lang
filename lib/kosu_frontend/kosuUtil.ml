@@ -59,8 +59,8 @@ module LocType = struct
   let u64 = TyLocInteger (Some (sized @@ (unsigned, isize_64)))
   let f32 = TyLocFloat fsize_32
   let f64 = TyLocFloat fsize_64
-  let usize = TyLocInteger (Some (sworded KosuAst.Unsigned))
-  let ssize = TyLocInteger (Some (sworded KosuAst.Unsigned))
+  let usize = TyLocInteger (Some (worded unsigned))
+  let ssize = TyLocInteger (Some (worded signed))
 end
 
 module Ty = struct
@@ -233,4 +233,18 @@ module Module = struct
          | NOpaque _ ->
              None
          )
+end
+
+module Program = struct
+  let find_module_opt (KosuBaseAst.ModuleResolverLoc modules) kosu_program =
+    let open KosuAst in
+    let module_name = Position.filename_of_module modules in
+    kosu_program
+    |> List.find_map (fun { filename; kosu_module } ->
+           match filename = module_name with
+           | true ->
+               Some kosu_module
+           | false ->
+               None
+       )
 end
