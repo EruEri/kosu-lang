@@ -65,12 +65,12 @@ and kosu_pattern =
       variant : string location;
       assoc_patterns : kosu_pattern location list;
     }
-  | POr of kosu_pattern location list
   | PRecord of {
       module_resolver : module_resolver_loc;
       struct_name : string location;
       pfields : (string location * kosu_pattern location) list;
     }
+  | POr of kosu_pattern location list
   | PAs of { pas_pattern : kosu_pattern location; pas_bound : string location }
 
 and kosu_expression =

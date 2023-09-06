@@ -290,6 +290,9 @@ and typeof_pattern scrutinee_type kosu_env
           (fun kosu_env pattern ->
             let fresh_ty = fresh_variable_type () in
             let bound, (env, ty) = typeof_pattern fresh_ty kosu_env pattern in
+            let env =
+              KosuEnv.add_typing_constraint ~lhs:fresh_ty ~rhs:ty pattern env
+            in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
             (kosu_env, (bound, ty))
           )
@@ -321,5 +324,30 @@ and typeof_pattern scrutinee_type kosu_env
 
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       (indentifiers, (kosu_env, ty_pattern))
-  | _ ->
+  | PCase { module_resolver; enum_name; variant; assoc_patterns } ->
       failwith ""
+  | PRecord { module_resolver; struct_name; pfields } ->
+      failwith ""
+  | POr patterns ->
+      failwith ""
+  | PAs { pas_pattern; pas_bound } ->
+      let bound, (env, ty) =
+        typeof_pattern scrutinee_type kosu_env pas_pattern
+      in
+      let bound =
+        match
+          List.exists
+            (fun ((id : _ location), _) -> id.value = pas_bound.value)
+            bound
+        with
+        | true ->
+            raise @@ pattern_already_bound_identifier [ pas_bound ]
+        | false ->
+            (pas_bound, ty) :: bound
+      in
+      let env =
+        KosuEnv.add_typing_constraint ~lhs:scrutinee_type ~rhs:ty pas_pattern
+          env
+      in
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      (bound, (kosu_env, ty))
