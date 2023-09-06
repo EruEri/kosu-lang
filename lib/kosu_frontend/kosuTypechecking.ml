@@ -221,3 +221,22 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       failwith ""
 
 and typeof_block kosu_env block = failwith ""
+
+and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
+  match statement.value with
+  | SDeclaration { is_const; pattern; explicit_type; expression } ->
+      failwith "DEclaration todo"
+  | SAffection { is_deref; lvalue; expression } ->
+      failwith "Affectation"
+  | SDiscard expression ->
+      let env, _ = typeof kosu_env expression in
+      KosuEnv.merge_constraint env kosu_env
+  | SOpen { module_resolver } ->
+      let kosu_module =
+        match KosuEnv.find_module_opt module_resolver kosu_env with
+        | Some kosu_module ->
+            kosu_module
+        | None ->
+            failwith "Module not found"
+      in
+      KosuEnv.add_module kosu_module kosu_env
