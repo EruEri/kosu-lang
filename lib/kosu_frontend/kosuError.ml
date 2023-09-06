@@ -15,13 +15,21 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-type kosu_lexer_error = |
+type kosu_lexer_error =
+  | UnexpectedEscapedChar of string Position.location
+  | UnclosedComment of Position.position
+  | CharOutOfRange of int Position.location
+  | ForbiddenChar of char Position.location
+  | InvalidLitteralBuiltinFunction of char Position.location
+  | NotFinishedBuiltinFunction of Position.position
 
 type kosu_error =
   | LexerErrof of kosu_lexer_error
   | SizeofPolymorphicType of Position.position
 
 exception KosuErr of kosu_error
+exception KosuLexerError of kosu_lexer_error
 
 let kosu_error e = KosuErr e
+let kosu_lexer_error e = KosuLexerError e
 let sizeof_polytype p = kosu_error @@ SizeofPolymorphicType p
