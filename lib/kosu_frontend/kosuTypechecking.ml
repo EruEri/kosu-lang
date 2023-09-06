@@ -330,10 +330,10 @@ and typeof_pattern scrutinee_type kosu_env
       failwith ""
   | POr patterns ->
       let module PIB = PatternIdentifierBound in
+      let fresh_ty = fresh_variable_type () in
       let env, bound_typed =
         List.fold_left_map
           (fun kosu_env pattern ->
-            let fresh_ty = fresh_variable_type () in
             let bound, (env, ty) = typeof_pattern fresh_ty kosu_env pattern in
             let env =
               KosuEnv.add_typing_constraint ~lhs:fresh_ty ~rhs:ty pattern env
@@ -343,7 +343,7 @@ and typeof_pattern scrutinee_type kosu_env
           )
           kosu_env patterns
       in
-      let bound_variable, tuples_elt_ty = List.split bound_typed in
+      let bound_variable, _ = List.split bound_typed in
 
       let x_bounds, xs_bounds =
         match bound_variable with
@@ -375,11 +375,12 @@ and typeof_pattern scrutinee_type kosu_env
       in
 
       let indentifiers = PIB.elements indentifier_set in
-
-      let ty_pattern = TyTuple tuples_elt_ty in
-
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
-      (indentifiers, (kosu_env, ty_pattern))
+      let kosu_env =
+        KosuEnv.add_typing_constraint ~lhs:scrutinee_type ~rhs:fresh_ty pattern
+          kosu_env
+      in
+      (indentifiers, (kosu_env, scrutinee_type))
   | PAs { pas_pattern; pas_bound } ->
       let bound, (env, ty) =
         typeof_pattern scrutinee_type kosu_env pas_pattern
