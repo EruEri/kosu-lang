@@ -15,7 +15,7 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module KosuTypeConstraintSet = Set.Make (struct
+module KosuTypeConstraint = struct
   type t = KosuType.Ty.kosu_type_constraint
 
   let compare (lhs : t) (rhs : t) =
@@ -24,7 +24,9 @@ module KosuTypeConstraintSet = Set.Make (struct
         compare lhs.clhs rhs.crhs
     | n ->
         n
-end)
+end
+
+module KosuTypeConstraintSet = Set.Make (KosuTypeConstraint)
 
 module KosuTypeVariableSet = Set.Make (struct
   type t = KosuType.Ty.kosu_type_polymorphic
@@ -32,7 +34,13 @@ module KosuTypeVariableSet = Set.Make (struct
   let compare = Stdlib.compare
 end)
 
-type kyo_tying_env = (string Position.location * KosuType.Ty.kosu_type) list
+type kosu_variable_info = {
+  is_const : bool;
+  identifier : string Position.location;
+  kosu_type : KosuType.Ty.kosu_type;
+}
+
+type kyo_tying_env = kosu_variable_info list
 
 type kosu_env = {
   program : KosuAst.kosu_program;
@@ -67,16 +75,22 @@ let add_module kosu_module kosu_env =
   { kosu_env with opened_modules = kosu_module :: kosu_env.opened_modules }
 
 (**
-  [add_variable variable kyo_type kosu_env] extends the variable environment [kosu_env] by the binding of [variable] with the type [kyo_type]
+  [add_variable const identifier kosu_type kosu_env] extends the variable environment [kosu_env] by the binding of [identifier] with the type [kosu_type]
 *)
-let add_variable variable kyo_type kosu_env =
-  { kosu_env with env_variable = (variable, kyo_type) :: kosu_env.env_variable }
+let add_variable is_const identifier kosu_type kosu_env =
+  {
+    kosu_env with
+    env_variable = { is_const; identifier; kosu_type } :: kosu_env.env_variable;
+  }
 
 (** 
   [assoc_type_opt name kosu_env] returns the type associated with the identifier [name] in the variable environment [kosu_env].
   Returns [None] if [name] doesn't exist in [kosu_env]
 *)
-let assoc_type_opt name kosu_env = List.assoc_opt name kosu_env.env_variable
+let assoc_type_opt name kosu_env =
+  List.find_opt
+    (fun { identifier; _ } -> identifier.value = name)
+    kosu_env.env_variable
 
 (** [mem name kosu_env] checks if the identifier [name] exists in the variable environment [kosu_env]*)
 let mem name kosu_env = Option.is_some @@ assoc_type_opt name kosu_env

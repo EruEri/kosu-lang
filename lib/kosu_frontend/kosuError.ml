@@ -40,6 +40,7 @@ type kosu_error =
   | DerefNonPointerType of KosuType.Ty.kosu_type Position.location
   | PatternAlreadyBoundIdentifier of string Position.location list
   | PatternIdentifierNotBoundEveryTime of string Position.location list
+  | UnboundModule of KosuBaseAst.module_resolver_loc
 
 exception KosuErr of kosu_error
 exception KosuLexerError of kosu_lexer_error
@@ -54,3 +55,5 @@ let pattern_already_bound_identifier e =
 
 let pattern_identifier_not_bound e =
   kosu_error @@ PatternIdentifierNotBoundEveryTime e
+
+let unbound_module e = kosu_error @@ UnboundModule e

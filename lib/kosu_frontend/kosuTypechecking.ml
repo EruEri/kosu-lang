@@ -227,12 +227,34 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
   | EAnonFunction { kind; parameters; body } ->
       failwith ""
 
-and typeof_block kosu_env block = failwith ""
+and typeof_block kosu_env block = 
+    let kosu_env = List.fold_left typeof_statement kosu_env block.kosu_stmts in
+    typeof kosu_env block.kosu_expr
 
 and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
   match statement.value with
   | SDeclaration { is_const; pattern; explicit_type; expression } ->
-      failwith "DEclaration todo"
+      let env, ety = typeof kosu_env expression in
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      let kosu_env =
+        match explicit_type with
+        | Some tly ->
+            let ty = KosuUtil.Ty.of_tyloc' tly in
+            KosuEnv.add_typing_constraint ~lhs:ty ~rhs:ety expression kosu_env
+        | None ->
+            kosu_env
+      in
+      let bounds, (env, ty) = typeof_pattern ety kosu_env pattern in
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      let kosu_env =
+        KosuEnv.add_typing_constraint ~lhs:ty ~rhs:ety pattern kosu_env
+      in
+      let kosu_env =
+        List.fold_left
+          (fun kosu_env (id, ty) -> KosuEnv.add_variable is_const id ty kosu_env)
+          kosu_env bounds
+      in
+      kosu_env
   | SAffection { is_deref; lvalue; expression } ->
       failwith "Affectation"
   | SDiscard expression ->
@@ -244,7 +266,7 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
         | Some kosu_module ->
             kosu_module
         | None ->
-            failwith "Module not found"
+            raise @@ unbound_module module_resolver
       in
       KosuEnv.add_module kosu_module kosu_env
 
