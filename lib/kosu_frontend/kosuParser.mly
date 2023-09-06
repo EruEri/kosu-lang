@@ -540,7 +540,6 @@ kosu_pattern:
         ) value
         in
         PInteger {
-            neg_sign;
             value
         }
     }
@@ -548,10 +547,14 @@ kosu_pattern:
         let () = ignore module_resolver in
         PIdentifier id
     }
-    | DOT located(Identifier) loption(parenthesis(separated_nonempty_list(COMMA, located(kosu_pattern))))  {
+    | module_resolver=module_resolver enum_name=enum_resolver DOT 
+        variant=located(Identifier) 
+        assoc_patterns=loption(parenthesis(separated_nonempty_list(COMMA, located(kosu_pattern))))  {
         PCase {
-            variant = $2;
-            assoc_patterns = $3
+            module_resolver;
+            enum_name;
+            variant;
+            assoc_patterns
         }
     }
     |  module_resolver=module_resolver struct_name=located(Identifier) DOT pfields=bracketed(

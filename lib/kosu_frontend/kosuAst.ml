@@ -58,8 +58,10 @@ and kosu_pattern =
   | PChar of char location
   | PIdentifier of string location
   | PTuple of kosu_pattern location list
-  | PInteger of { neg_sign : bool; value : int64 location }
+  | PInteger of { value : int64 location }
   | PCase of {
+      module_resolver : module_resolver_loc;
+      enum_name : string location option;
       variant : string location;
       assoc_patterns : kosu_pattern location list;
     }

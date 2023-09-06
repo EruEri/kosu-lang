@@ -20,6 +20,13 @@ open KosuAst
 open KosuType
 open KosuError
 
+module PatternIdentifierBound = Set.Make (struct
+  type t = string location * Ty.kosu_type
+
+  let compare (lhs : t) (rhs : t) =
+    String.compare (value @@ fst lhs) (value @@ fst rhs)
+end)
+
 let rec typeof (kosu_env : KosuEnv.kosu_env)
     (expr : KosuAst.kosu_expression location) =
   match expr.value with
@@ -240,3 +247,79 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
             failwith "Module not found"
       in
       KosuEnv.add_module kosu_module kosu_env
+
+and typeof_pattern scrutinee_type kosu_env
+    (pattern : KosuAst.kosu_pattern location) =
+  let open KosuType.Ty in
+  match pattern.value with
+  | PEmpty ->
+      let ty = Ty.TyUnit in
+      (* let kosu_env = KosuEnv.add_typing_constraint ~lhs:strutinee_type ~rhs:ty pattern kosu_env in *)
+      ([], (kosu_env, ty))
+  | PTrue | PFalse ->
+      let ty = Ty.TyBool in
+      (* let kosu_env = KosuEnv.add_typing_constraint ~lhs:strutinee_type ~rhs:ty pattern kosu_env in *)
+      ([], (kosu_env, ty))
+  | PCmpLess | PCmpEqual | PCmpGreater ->
+      let ty = TyOrdered in
+      (* let kosu_env = KosuEnv.add_typing_constraint ~lhs:strutinee_type ~rhs:ty pattern kosu_env in *)
+      ([], (kosu_env, ty))
+  | PNullptr ->
+      let fresh_ty = fresh_variable_type () in
+      let ty = TyPointer { pointer_state = Const; pointee_type = fresh_ty } in
+      (* let kosu_env = KosuEnv.add_typing_constraint ~lhs:strutinee_type ~rhs:ty pattern kosu_env in *)
+      ([], (kosu_env, ty))
+  | PWildcard ->
+      ([], (kosu_env, scrutinee_type))
+  | PFloat _ ->
+      let ty = TyFloat None in
+      ([], (kosu_env, ty))
+  | PChar _ ->
+      let ty = TyChar in
+      ([], (kosu_env, ty))
+  | PInteger { value = _ } ->
+      let ty = TyInteger None in
+      ([], (kosu_env, ty))
+  | PIdentifier identifier ->
+      let bound = (identifier, scrutinee_type) in
+      ([ bound ], (kosu_env, scrutinee_type))
+  | PTuple patterns ->
+      let module PIB = PatternIdentifierBound in
+      let env, bound_typed =
+        List.fold_left_map
+          (fun kosu_env pattern ->
+            let fresh_ty = fresh_variable_type () in
+            let bound, (env, ty) = typeof_pattern fresh_ty kosu_env pattern in
+            let kosu_env = KosuEnv.merge_constraint env kosu_env in
+            (kosu_env, (bound, ty))
+          )
+          kosu_env patterns
+      in
+      let bound_variable, tuples_elt_ty = List.split bound_typed in
+
+      let indentifier_set =
+        List.fold_left
+          (fun set t_bounds_ty ->
+            let comming = PIB.of_list t_bounds_ty in
+            let intersection = PIB.inter comming set in
+            let () =
+              match PIB.is_empty intersection with
+              | true ->
+                  ()
+              | false ->
+                  raise @@ pattern_already_bound_identifier @@ List.map fst
+                  @@ PIB.elements intersection
+            in
+            PIB.union comming set
+          )
+          PIB.empty bound_variable
+      in
+
+      let indentifiers = PIB.elements indentifier_set in
+
+      let ty_pattern = TyTuple tuples_elt_ty in
+
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      (indentifiers, (kosu_env, ty_pattern))
+  | _ ->
+      failwith ""
