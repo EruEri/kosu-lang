@@ -23,6 +23,17 @@ type kosu_lexer_error =
   | InvalidLitteralBuiltinFunction of char Position.location
   | NotFinishedBuiltinFunction of Position.position
 
+type kosu_syntax_error = {
+  position : Position.position;
+  current_lexeme : string;
+  message : string;
+  state : int option;
+}
+
+type kosu_analytics_error =
+  | KosuAnalysLexerError of kosu_lexer_error
+  | KosuAnalysSyntaxError of kosu_syntax_error
+
 type kosu_error =
   | LexerErrof of kosu_lexer_error
   | SizeofPolymorphicType of Position.position

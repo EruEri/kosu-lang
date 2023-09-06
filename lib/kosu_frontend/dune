@@ -23,6 +23,14 @@
  (flags --table --explain)
  (infer true))
 
+(rule
+ (targets kosuParserMessage.ml)
+ (deps kosuParser.messages kosuParser.mly)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run menhir --compile-errors %{deps}))))
+
 ; (rule 
 ;  (targets parser.messages)
 ;  (deps parser.mly)
