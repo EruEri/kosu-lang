@@ -26,6 +26,12 @@ module KosuTypeConstraintSet = Set.Make (struct
         n
 end)
 
+module KosuTypeVariableSet = Set.Make (struct
+  type t = KosuType.Ty.kosu_type_polymorphic
+
+  let compare = Stdlib.compare
+end)
+
 type kyo_tying_env = (string Position.location * KosuType.Ty.kosu_type) list
 
 type kosu_env = {
@@ -33,6 +39,7 @@ type kosu_env = {
   opened_modules : KosuAst.kosu_module list;
   env_variable : kyo_tying_env;
   env_tying_constraint : KosuTypeConstraintSet.t;
+  env_bound_ty_vars : KosuTypeVariableSet.t;
 }
 
 let merge_constraint rhs lhs =
@@ -87,6 +94,57 @@ let find_module_opt (KosuBaseAst.ModuleResolverLoc modules) kosu_env =
          | false ->
              None
      )
+
+let rec free_ty_variable acc ty kosu_env =
+  let open KosuType.Ty in
+  match ty with
+  | TyPolymorphic variable ->
+      let acc =
+        match KosuTypeVariableSet.mem variable kosu_env.env_bound_ty_vars with
+        | true ->
+            acc
+        | false ->
+            KosuTypeVariableSet.add variable acc
+      in
+      acc
+  | TyFunctionPtr (parameters, return_type)
+  | TyClosure (parameters, return_type)
+  (* Should captured variabe be in the compuation ? *)
+  | TyInnerClosureId (ClosureType { id = _; env = _; parameters; return_type })
+    ->
+      let acc =
+        List.fold_left
+          (fun acc ty -> free_ty_variable acc ty kosu_env)
+          acc parameters
+      in
+      let acc = free_ty_variable acc return_type kosu_env in
+      acc
+  | TyParametricIdentifier
+      { parametrics_type = tys; module_resolver = _; name = _ }
+  | TyTuple tys ->
+      let acc =
+        List.fold_left (fun acc ty -> free_ty_variable acc ty kosu_env) acc tys
+      in
+      acc
+  | TyPointer { pointee_type = ktype; pointer_state = _ }
+  | TyArray { ktype; size = _ } ->
+      free_ty_variable acc ktype kosu_env
+  | TyIdentifier _
+  | TyInteger _
+  | TyOpaque _
+  | TyFloat _
+  | TyOrdered
+  | TyChar
+  | TyStringLit
+  | TyUnit
+  | TyBool ->
+      acc
+
+(** 
+  [free_ty_variable ty kosu_env] returns all the type variable within [ty] which 
+  aren't bound an existing type variable in [kosu_env]
+*)
+let free_ty_variable = free_ty_variable KosuTypeVariableSet.empty
 
 (** 
   [find_const_declaration (module_resolver, identifier) kosu_env] try to find the constant with

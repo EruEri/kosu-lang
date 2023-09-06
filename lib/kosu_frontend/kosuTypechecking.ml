@@ -46,11 +46,14 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | Either.Left kosu_type ->
             let ty = KosuUtil.Ty.of_tyloc' kosu_type in
             let () =
-              match KosuUtil.Ty.contains_polymorphic ty with
-              | true ->
-                  raise @@ sizeof_polytype kosu_type.position
+              match
+                KosuEnv.KosuTypeVariableSet.is_empty
+                @@ KosuEnv.free_ty_variable ty kosu_env
+              with
               | false ->
                   ()
+              | true ->
+                  raise @@ sizeof_polytype kosu_type.position
             in
             kosu_env
         | Either.Right rhs ->
@@ -64,9 +67,43 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       failwith ""
   | EArrayAccess { array_expr; index_expr } ->
-      failwith "TODO: Array"
+      let env, ty = typeof kosu_env array_expr in
+      let ty_elt =
+        match ty with
+        | TyArray { ktype; size = _ } ->
+            ktype
+        | _ ->
+            failwith "Array access of no array type"
+      in
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      let env, ty = typeof kosu_env index_expr in
+      let () =
+        match ty with
+        | TyInteger _ ->
+            ()
+        | _ ->
+            failwith "Arrayy subscript with on integer type"
+      in
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      (kosu_env, ty_elt)
   | ETupleAccess { first_expr; index } ->
-      failwith "TUPLE"
+      let env, ty = typeof kosu_env first_expr in
+      let ty_elts =
+        match ty with
+        | TyTuple elts ->
+            elts
+        | _ ->
+            failwith "Tuple access of no tuple type"
+      in
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      let ty =
+        match List.nth_opt ty_elts (Int64.to_int index.value) with
+        | Some ty ->
+            ty
+        | None ->
+            failwith "Tuple out of bound index"
+      in
+      (kosu_env, ty)
   | EConstIdentifier { module_resolver; identifier } ->
       let const_decl =
         match
