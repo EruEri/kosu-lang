@@ -39,6 +39,7 @@ type kosu_error =
   | SizeofPolymorphicType of Position.position
   | DerefNonPointerType of KosuType.Ty.kosu_type Position.location
   | PatternAlreadyBoundIdentifier of string Position.location list
+  | PatternIdentifierNotBoundEveryTime of string Position.location list
 
 exception KosuErr of kosu_error
 exception KosuLexerError of kosu_lexer_error
@@ -50,3 +51,6 @@ let deref_non_pointer e = kosu_error @@ DerefNonPointerType e
 
 let pattern_already_bound_identifier e =
   kosu_error @@ PatternAlreadyBoundIdentifier e
+
+let pattern_identifier_not_bound e =
+  kosu_error @@ PatternIdentifierNotBoundEveryTime e

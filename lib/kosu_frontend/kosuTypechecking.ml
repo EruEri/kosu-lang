@@ -329,7 +329,57 @@ and typeof_pattern scrutinee_type kosu_env
   | PRecord { module_resolver; struct_name; pfields } ->
       failwith ""
   | POr patterns ->
-      failwith ""
+      let module PIB = PatternIdentifierBound in
+      let env, bound_typed =
+        List.fold_left_map
+          (fun kosu_env pattern ->
+            let fresh_ty = fresh_variable_type () in
+            let bound, (env, ty) = typeof_pattern fresh_ty kosu_env pattern in
+            let env =
+              KosuEnv.add_typing_constraint ~lhs:fresh_ty ~rhs:ty pattern env
+            in
+            let kosu_env = KosuEnv.merge_constraint env kosu_env in
+            (kosu_env, (bound, ty))
+          )
+          kosu_env patterns
+      in
+      let bound_variable, tuples_elt_ty = List.split bound_typed in
+
+      let x_bounds, xs_bounds =
+        match bound_variable with
+        | [] ->
+            failwith "Unreachable: Cannot be empty"
+        | x :: xs ->
+            (x, xs)
+      in
+      let first_set = PIB.of_list x_bounds in
+
+      let indentifier_set =
+        List.fold_left
+          (fun set t_bounds_ty ->
+            let comming = PIB.of_list t_bounds_ty in
+            let () =
+              match PIB.equal set comming with
+              | true ->
+                  ()
+              | false ->
+                  let inter1 = PIB.diff set comming in
+                  let inter2 = PIB.diff comming set in
+                  let diff = PIB.union inter1 inter2 in
+                  raise @@ pattern_identifier_not_bound @@ List.map fst
+                  @@ PIB.elements diff
+            in
+            set
+          )
+          first_set xs_bounds
+      in
+
+      let indentifiers = PIB.elements indentifier_set in
+
+      let ty_pattern = TyTuple tuples_elt_ty in
+
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      (indentifiers, (kosu_env, ty_pattern))
   | PAs { pas_pattern; pas_bound } ->
       let bound, (env, ty) =
         typeof_pattern scrutinee_type kosu_env pas_pattern
