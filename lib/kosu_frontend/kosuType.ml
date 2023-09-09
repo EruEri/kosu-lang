@@ -22,13 +22,9 @@ module TyLoc = struct
   type kosu_loctype_polymorphic = PolymorphicVarLoc of string location
 
   and kosu_loctype =
-    | TyLocParametricIdentifier of {
-        module_resolver : module_resolver_loc;
-        parametrics_type : kosu_loctype location list;
-        name : string location;
-      }
     | TyLocIdentifier of {
         module_resolver : module_resolver_loc;
+        parametrics_type : kosu_loctype location list;
         name : string location;
       }
     | TyLocPolymorphic of kosu_loctype_polymorphic
@@ -67,12 +63,11 @@ module Ty = struct
       }
 
   and kosu_type =
-    | TyParametricIdentifier of {
+    | TyIdentifier of {
         module_resolver : module_resolver;
         parametrics_type : kosu_type list;
         name : string;
       }
-    | TyIdentifier of { module_resolver : module_resolver; name : string }
     | TyPolymorphic of kosu_type_polymorphic
     | TyPointer of { pointer_state : pointer_state; pointee_type : kosu_type }
     | TyInteger of integer_info option

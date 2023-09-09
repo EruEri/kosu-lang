@@ -34,13 +34,26 @@ module KosuTypeVariableSet = Set.Make (struct
   let compare = Stdlib.compare
 end)
 
-type kosu_variable_info = {
-  is_const : bool;
-  identifier : string Position.location;
-  kosu_type : KosuType.Ty.kosu_type;
-}
+module KosuVariableInfo = struct
+  type kosu_variable_info = {
+    is_const : bool;
+    identifier : string Position.location;
+    kosu_type : KosuType.Ty.kosu_type;
+  }
 
-type kyo_tying_env = kosu_variable_info list
+  type t = kosu_variable_info
+
+  (*
+     This compare is only use in [merge_variable_disjoint]
+     which difference variable only by there identifier
+  *)
+  let compare (lhs : t) (rhs : t) =
+    String.compare lhs.identifier.value rhs.identifier.value
+end
+
+module KosuVariableInfoSet = Set.Make (KosuVariableInfo)
+
+type kyo_tying_env = KosuVariableInfo.t list
 
 type kosu_env = {
   program : KosuAst.kosu_program;
@@ -57,6 +70,20 @@ let merge_constraint rhs lhs =
       KosuTypeConstraintSet.union lhs.env_tying_constraint
         rhs.env_tying_constraint;
   }
+
+(**
+  [merge_variable_disjoint env1 env2] adds the variable present in 
+  [env1] which aren't in [env2]. 
+
+  In case of variable having the same name in [env1] and [env2], the identifier kept
+  is within [env2]
+*)
+let merge_variable_disjoint env1 env2 =
+  let env1set = KosuVariableInfoSet.of_list env1.env_variable in
+  let env2set = KosuVariableInfoSet.of_list env2.env_variable in
+  let diff = KosuVariableInfoSet.diff env1set env2set in
+  let set = KosuVariableInfoSet.union env2set diff in
+  { env2 with env_variable = KosuVariableInfoSet.elements set }
 
 let add_typing_constraint ~lhs ~rhs (location : 'a Position.location) env =
   let constr =
@@ -88,6 +115,7 @@ let add_variable is_const identifier kosu_type kosu_env =
   Returns [None] if [name] doesn't exist in [kosu_env]
 *)
 let assoc_type_opt name kosu_env =
+  let open KosuVariableInfo in
   List.find_opt
     (fun { identifier; _ } -> identifier.value = name)
     kosu_env.env_variable
@@ -133,8 +161,7 @@ let rec free_ty_variable acc ty kosu_env =
       in
       let acc = free_ty_variable acc return_type kosu_env in
       acc
-  | TyParametricIdentifier
-      { parametrics_type = tys; module_resolver = _; name = _ }
+  | TyIdentifier { parametrics_type = tys; module_resolver = _; name = _ }
   | TyTuple tys ->
       let acc =
         List.fold_left (fun acc ty -> free_ty_variable acc ty kosu_env) acc tys
@@ -143,7 +170,6 @@ let rec free_ty_variable acc ty kosu_env =
   | TyPointer { pointee_type = ktype; pointer_state = _ }
   | TyArray { ktype; size = _ } ->
       free_ty_variable acc ktype kosu_env
-  | TyIdentifier _
   | TyInteger _
   | TyOpaque _
   | TyFloat _

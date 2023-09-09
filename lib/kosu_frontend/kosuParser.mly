@@ -598,7 +598,7 @@ kosu_pattern:
 
 kosu_type:
     | module_resolver=module_resolver name=located(Identifier) parametrics_type=parenthesis(separated_nonempty_list(COMMA, located(kosu_type)))  {
-        KosuType.TyLoc.TyLocParametricIdentifier {
+        KosuType.TyLoc.TyLocIdentifier {
             module_resolver;
             parametrics_type;
             name
@@ -611,6 +611,7 @@ kosu_type:
         match Util.Ulist.is_empty content with
         | false -> TyLocIdentifier {
             module_resolver = module_resolver;
+            parametrics_type = [];
             name = id
         } 
         | true -> begin match id.value with
@@ -633,6 +634,7 @@ kosu_type:
             | "stringl" -> TyLocStringLit
             | _ -> TyLocIdentifier {
                 module_resolver = module_resolver;
+                parametrics_type = [];
                 name = id
             } 
         end

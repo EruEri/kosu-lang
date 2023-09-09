@@ -21,10 +21,10 @@ open KosuType
 open KosuError
 
 module PatternIdentifierBound = Set.Make (struct
-  type t = string location * Ty.kosu_type
+  type t = string location * KosuType.Ty.kosu_type
 
   let compare (lhs : t) (rhs : t) =
-    String.compare (value @@ fst lhs) (value @@ fst rhs)
+    String.compare (Position.value @@ fst lhs) (Position.value @@ fst rhs)
 end)
 
 module CapturedIdentifier = PatternIdentifierBound
@@ -428,7 +428,8 @@ and typeof_pattern scrutinee_type kosu_env
       (bound, (kosu_env, ty))
 
 and free_variable_expression ~closure_env ~scope_env (expression : _ location) =
-  let of_variable_info KosuEnv.{ identifier; kosu_type; is_const = _ } =
+  let of_variable_info
+      KosuEnv.KosuVariableInfo.{ identifier; kosu_type; is_const = _ } =
     (identifier, kosu_type)
   in
   (* capture should handle the resolve of identifier without module resolver *)

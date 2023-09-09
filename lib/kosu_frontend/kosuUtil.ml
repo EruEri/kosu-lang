@@ -70,7 +70,6 @@ module Ty = struct
   let is_integer : KosuType.Ty.kosu_type -> bool = function
     | Ty.TyInteger _ ->
         true
-    | TyParametricIdentifier _
     | TyIdentifier _
     | TyPolymorphic _
     | TyFunctionPtr _
@@ -91,7 +90,6 @@ module Ty = struct
   let is_polymorphic : KosuType.Ty.kosu_type -> bool = function
     | TyPolymorphic _ ->
         true
-    | TyParametricIdentifier _
     | TyIdentifier _
     | TyInteger _
     | TyFunctionPtr _
@@ -120,14 +118,12 @@ module Ty = struct
         let lhs = List.exists contains_polymorphic parameters in
         let rhs = contains_polymorphic return_type in
         lhs || rhs
-    | TyParametricIdentifier
-        { parametrics_type = tys; module_resolver = _; name = _ }
+    | TyIdentifier { parametrics_type = tys; module_resolver = _; name = _ }
     | TyTuple tys ->
         List.exists contains_polymorphic tys
     | TyPointer { pointee_type = ktype; pointer_state = _ }
     | TyArray { ktype; size = _ } ->
         contains_polymorphic ktype
-    | TyIdentifier _
     | TyInteger _
     | TyOpaque _
     | TyFloat _
@@ -141,16 +137,11 @@ module Ty = struct
   let rec of_tyloc' tyloc = of_tyloc @@ value tyloc
 
   and of_tyloc : KosuType.TyLoc.kosu_loctype -> KosuType.Ty.kosu_type = function
-    | TyLoc.TyLocParametricIdentifier
-        { module_resolver; parametrics_type; name } ->
+    | TyLoc.TyLocIdentifier { module_resolver; parametrics_type; name } ->
         let module_resolver = ModuleResolver.to_unlocated module_resolver in
         let parametrics_type = List.map of_tyloc' parametrics_type in
         let name = Position.value name in
-        Ty.TyParametricIdentifier { module_resolver; parametrics_type; name }
-    | TyLocIdentifier { module_resolver; name } ->
-        let module_resolver = ModuleResolver.to_unlocated module_resolver in
-        let name = Position.value name in
-        Ty.TyIdentifier { module_resolver; name }
+        Ty.TyIdentifier { module_resolver; parametrics_type; name }
     | TyLocPolymorphic poly ->
         TyPolymorphic (of_tyloc_polymorphic poly)
     | TyLocFunctionPtr (parameters, return) ->
