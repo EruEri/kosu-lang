@@ -63,6 +63,16 @@ type kosu_env = {
   env_bound_ty_vars : KosuTypeVariableSet.t;
 }
 
+let current_module kosu_env =
+  let rec last = function [] -> None | t :: [] -> Some t | _ :: q -> last q in
+  match last kosu_env.opened_modules with
+  | Some kosu_module ->
+      kosu_module
+  | None ->
+      failwith
+        "Should not append since: the first env of kosu module is the current \
+         module"
+
 let merge_constraint rhs lhs =
   {
     lhs with

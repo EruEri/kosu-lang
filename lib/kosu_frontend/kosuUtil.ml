@@ -29,6 +29,10 @@ module ModuleResolver = struct
   let to_unlocated = function
     | ModuleResolverLoc l ->
         ModuleResolver_ (List.map Position.value l)
+
+  let dummy_located = function
+    | ModuleResolver_ modules ->
+        ModuleResolverLoc (List.map Position.dummy_located modules)
 end
 
 module IntegerInfo = struct
@@ -224,6 +228,24 @@ module Module = struct
          | NOpaque _ ->
              None
          )
+
+  let type_decl_from_name name =
+    let open KosuAst in
+    List.filter_map (function
+      | NEnum ({ enum_name; _ } as enum_decl) when enum_name.value = name ->
+          Option.some @@ DEnum enum_decl
+      | NStruct ({ struct_name; _ } as strucT_decl)
+        when struct_name.value = name ->
+          Option.some @@ DStruct strucT_decl
+      | NEnum _
+      | NStruct _
+      | NConst _
+      | NOpaque _
+      | NFunction _
+      | NExternFunc _
+      | NSyscall _ ->
+          None
+      )
 end
 
 module Program = struct
@@ -238,4 +260,38 @@ module Program = struct
            | false ->
                None
        )
+
+  (**
+    [type_decl kosu_type ~curent_module kosu_program] retuns all type declarations
+    [`enum`] or [`struct`] for the type [kosu_type] in [kosu_program]
+    return [None] if [kosu_type] is not a [TyIdentifier]
+  *)
+  let type_decl kosu_type ~curent_module kosu_program =
+    let open KosuType in
+    match kosu_type with
+    | Ty.TyIdentifier { module_resolver; parametrics_type = _; name } ->
+        let kosu_module =
+          find_module_opt
+            (ModuleResolver.dummy_located module_resolver)
+            kosu_program
+        in
+        let kosu_module = Option.value ~default:curent_module kosu_module in
+        let decls = Module.type_decl_from_name name kosu_module in
+        Some decls
+    | TyPolymorphic _
+    | TyInteger _
+    | TyFunctionPtr _
+    | TyClosure _
+    | TyOpaque _
+    | TyFloat _
+    | TyOrdered
+    | TyChar
+    | TyStringLit
+    | TyUnit
+    | TyPointer _
+    | TyInnerClosureId _
+    | TyArray _
+    | TyTuple _
+    | TyBool ->
+        None
 end

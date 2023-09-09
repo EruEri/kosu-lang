@@ -74,6 +74,15 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       (* instanciante todo*)
       let env, typeof = typeof kosu_env first_expr in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      let module_resolver, parametrics_type, name =
+        match typeof with
+        | TyIdentifier { module_resolver; parametrics_type; name } ->
+            failwith ""
+        | TyPolymorphic _ ->
+            failwith "Cannot not access type of polyvar"
+        | _ ->
+            failwith "Field access of not idenfiier type"
+      in
       failwith ""
   | EArrayAccess { array_expr; index_expr } ->
       let env, ty = typeof kosu_env array_expr in
