@@ -228,8 +228,8 @@ kosu_opaque_decl:
     }
 
 kosu_const_decl:
-    | CONST const_name=located(Constant) COLON explicit_type=located(kosu_type) EQUAL value=located(kosu_expression) {
-        {const_name; explicit_type; value}
+    | CONST const_name=located(Constant) COLON explicit_type=located(kosu_type) EQUAL c_value=located(kosu_expression) {
+        {const_name; explicit_type; c_value}
     }
 
 kosu_enum_decl:
@@ -244,7 +244,7 @@ kosu_enum_decl:
         { 
             let tag_type = match tag_type.value with
                 | Some t -> t
-                | None -> Position.map (fun _ -> KosuUtil.LocType.s32 ) tag_type
+                | None -> Position.map (fun _ -> KosuUtil.TyLoc.s32 ) tag_type
             in
 
             {
@@ -605,7 +605,7 @@ kosu_type:
         }
     }
     | module_resolver=module_resolver id=located(Identifier) {
-        let open KosuUtil.LocType in
+        let open KosuUtil.TyLoc in
         let open KosuType.TyLoc in
         let ModuleResolverLoc content = module_resolver in
         match Util.Ulist.is_empty content with

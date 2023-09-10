@@ -153,6 +153,23 @@ and kosu_block = {
   kosu_expr : kosu_expression location;
 }
 
+type kosu_raw_struct_decl = {
+  struct_name : string;
+  poly_vars : Ty.kosu_type_polymorphic list;
+  fields : (string * Ty.kosu_type) list;
+}
+
+type kosu_raw_enum_decl = {
+  enum_name : string;
+  poly_vars : Ty.kosu_type_polymorphic list;
+  (*
+     Should be an integer type
+     Default to s32
+  *)
+  tag_type : Ty.kosu_type;
+  variants : (string * Ty.kosu_type list) list;
+}
+
 type kosu_struct_decl = {
   struct_name : string location;
   poly_vars : TyLoc.kosu_loctype_polymorphic list;
@@ -197,7 +214,7 @@ type kosu_external_func_decl = {
 type kosu_const_decl = {
   const_name : string location;
   explicit_type : TyLoc.kosu_loctype location;
-  value : kosu_expression location;
+  c_value : kosu_expression location;
 }
 
 type kosu_opaque_decl = { name : string location }

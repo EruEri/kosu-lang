@@ -135,6 +135,22 @@ let mem name kosu_env = Option.is_some @@ assoc_type_opt name kosu_env
 
 let modules kosu_env = kosu_env.opened_modules
 
+let resolve_module kosu_module kosu_env =
+  (* Shouldn't be [None] since the module mostly come from [kosu_env.opened_modules or kosu_env.program] *)
+  Option.get
+  @@ List.find_map
+       (fun named_module ->
+         let open KosuAst in
+         (* Can use physic equal since module aren't recreated*)
+         match named_module.kosu_module == kosu_module with
+         | true ->
+             Option.some
+             @@ KosuUtil.ModuleResolver.of_filename named_module.filename
+         | false ->
+             None
+       )
+       kosu_env.program
+
 let find_module_opt (KosuBaseAst.ModuleResolverLoc modules) kosu_env =
   let open KosuAst in
   let module_name = Position.filename_of_module modules in
@@ -196,6 +212,32 @@ let rec free_ty_variable acc ty kosu_env =
 *)
 let free_ty_variable = free_ty_variable KosuTypeVariableSet.empty
 
+(**
+    [find_declaration ~fmodule ~ffilter module_resolver kosu_env] try to find a
+    declaration kind specified by [fmodule] and sort the elements by applying [ffilter] 
+    to the return of [fmodule]
+    If [module_resolver] is empty, the function will try to find the declaration in the opened modules of [kosu_env]
+    If the module doesn't exist or no identifier matching is found, return [None].
+*)
+let find_declaration ~fmodule ~ffilter module_resolver kosu_env =
+  let open KosuAst in
+  let decl_opt kmodule =
+    let const_decls = fmodule kmodule in
+    const_decls |> List.find_opt ffilter
+    |> Option.map (fun c ->
+           let resolve_module = resolve_module kmodule kosu_env in
+           (resolve_module, c)
+       )
+  in
+
+  let ( let* ) = Option.bind in
+  match module_resolver with
+  | ModuleResolverLoc [] ->
+      List.find_map decl_opt kosu_env.opened_modules
+  | ModuleResolverLoc (_ :: _) ->
+      let* kmodule = find_module_opt module_resolver kosu_env in
+      decl_opt kmodule
+
 (** 
   [find_const_declaration (module_resolver, identifier) kosu_env] try to find the constant with
   the name [identifier] in the module provided by [module_resolver].
@@ -203,20 +245,15 @@ let free_ty_variable = free_ty_variable KosuTypeVariableSet.empty
   If the module doesn't exist or no identifier matching is found, return [None].
 *)
 let find_const_declaration (module_resolver, identifier) kosu_env =
-  let open KosuAst in
   let open Position in
-  let enum_decl_opt kmodule =
-    let const_decls = KosuUtil.Module.constant_decls kmodule in
-    const_decls
-    |> List.find_opt (fun const_decl ->
-           const_decl.const_name.value = identifier.value
-       )
-  in
+  find_declaration ~fmodule:KosuUtil.Module.constant_decls
+    ~ffilter:(fun const_decl -> const_decl.const_name.value = identifier.value)
+    module_resolver kosu_env
 
-  let ( let* ) = Option.bind in
-  match module_resolver with
-  | ModuleResolverLoc [] ->
-      List.find_map enum_decl_opt kosu_env.opened_modules
-  | ModuleResolverLoc (_ :: _) ->
-      let* kmodule = find_module_opt module_resolver kosu_env in
-      enum_decl_opt kmodule
+let find_struct_declaration (module_resolver, identifier) kosu_env =
+  let open Position in
+  find_declaration ~fmodule:KosuUtil.Module.struct_decls
+    ~ffilter:(fun struct_decl ->
+      struct_decl.struct_name.value = identifier.value
+    )
+    module_resolver kosu_env

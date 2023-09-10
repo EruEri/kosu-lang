@@ -136,8 +136,8 @@ rule token = parse
 }
 | (float_literal as f) (fsize as fsize) {
     let size = match fsize with
-    | "f32" -> KosuUtil.LocType.fsize_32
-    | "f64" ->  KosuUtil.LocType.fsize_64 
+    | "f32" -> KosuUtil.TyLoc.fsize_32
+    | "f64" ->  KosuUtil.TyLoc.fsize_64 
     | _ -> failwith "Unreachable code"
     in 
     FloatLitteral (size, float_of_string f)
@@ -147,7 +147,7 @@ rule token = parse
 }
 | (number as n) (integer_sigdness as sign) (integer_size as size) {
     let open KosuUtil.IntegerInfo in
-    let open KosuUtil.LocType in
+    let open KosuUtil.TyLoc in
     let signdess = if sign = 'u' then signed else unsigned in
     let info = match size with
     | "8" ->  sized (signdess, isize_8 )

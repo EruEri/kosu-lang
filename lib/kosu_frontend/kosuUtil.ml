@@ -26,6 +26,24 @@ module ModuleResolver = struct
 
   let empty_module = ModuleResolverLoc []
 
+  let of_filename name =
+    (* Should be reversed since file are stacked in reverse order*)
+    let rec split s =
+      let root_dir = "." in
+      let basename =
+        s |> Filename.basename |> Filename.remove_extension
+        |> String.capitalize_ascii
+      in
+      let dirname = Filename.dirname s in
+      match dirname = root_dir with
+      | true ->
+          basename :: []
+      | false ->
+          basename :: split dirname
+    in
+    let modules = List.rev @@ split name in
+    ModuleResolver_ modules
+
   let to_unlocated = function
     | ModuleResolverLoc l ->
         ModuleResolver_ (List.map Position.value l)
@@ -41,7 +59,7 @@ module IntegerInfo = struct
   let sworded sign = worded (Some sign)
 end
 
-module LocType = struct
+module TyLoc = struct
   open KosuType.TyLoc
   open IntegerInfo
 
@@ -65,6 +83,67 @@ module LocType = struct
   let f64 = TyLocFloat fsize_64
   let usize = TyLocInteger (Some (worded unsigned))
   let ssize = TyLocInteger (Some (worded signed))
+
+  (**
+    [tyloc_substitution assoc_types ty] replace the type variable occurences in [ty] 
+    by there value associated in [assoc_types]
+  *)
+  let rec tyloc_substitution assoc_types ty =
+    match ty.Position.value with
+    | TyLocPolymorphic variable as t ->
+        let ty =
+          match List.assoc_opt variable assoc_types with
+          | Some ty ->
+              ty
+          | None ->
+              t
+        in
+        ty
+    | TyLocIdentifier { module_resolver; parametrics_type; name } ->
+        TyLocIdentifier
+          {
+            module_resolver;
+            parametrics_type =
+              List.map (tyloc_substitution_map assoc_types) parametrics_type;
+            name;
+          }
+    | TyLocFunctionPtr (parameters, return_type) ->
+        let parameters =
+          List.map (tyloc_substitution_map assoc_types) parameters
+        in
+        let return_type = tyloc_substitution_map assoc_types return_type in
+        TyLocFunctionPtr (parameters, return_type)
+    | TyLocClosure (parameters, return_type) ->
+        let parameters =
+          List.map (tyloc_substitution_map assoc_types) parameters
+        in
+        let return_type = tyloc_substitution_map assoc_types return_type in
+        TyLocClosure (parameters, return_type)
+    | TyLocPointer { pointer_state; pointee_type } ->
+        let pointee_type = tyloc_substitution_map assoc_types pointee_type in
+        TyLocPointer { pointer_state; pointee_type }
+    | TyLocArray { ktype; size } ->
+        let ktype = tyloc_substitution_map assoc_types ktype in
+        TyLocArray { ktype; size }
+    | TyLocTuple ttes ->
+        let ttes = List.map (tyloc_substitution_map assoc_types) ttes in
+        TyLocTuple ttes
+    | ( TyLocBool
+      | TyLocUnit
+      | TyLocFloat _
+      | TyLocOrdered
+      | TyLocChar
+      | TyLocStringLit
+      | TyLocOpaque { module_resolver = _; name = _ }
+      | TyLocInteger
+          ( None
+          | Some
+              (Worded (None | Some _) | Sized ((None | Some _), (None | Some _)))
+            ) ) as ty ->
+        ty
+
+  and tyloc_substitution_map assoc_types =
+    Position.map_use @@ fun ty -> tyloc_substitution assoc_types ty
 end
 
 module Ty = struct
@@ -138,6 +217,26 @@ module Ty = struct
     | TyBool ->
         false
 
+  let parametrics_type = function
+    | Ty.TyIdentifier { parametrics_type; module_resolver = _; name = _ } ->
+        parametrics_type
+    | TyPolymorphic _
+    | TyInteger _
+    | TyFunctionPtr _
+    | TyClosure _
+    | TyOpaque _
+    | TyFloat _
+    | TyOrdered
+    | TyChar
+    | TyStringLit
+    | TyUnit
+    | TyPointer _
+    | TyInnerClosureId _
+    | TyArray _
+    | TyTuple _
+    | TyBool ->
+        []
+
   let rec of_tyloc' tyloc = of_tyloc @@ value tyloc
 
   and of_tyloc : KosuType.TyLoc.kosu_loctype -> KosuType.Ty.kosu_type = function
@@ -183,6 +282,118 @@ module Ty = struct
   and of_tyloc_polymorphic = function
     | TyLoc.PolymorphicVarLoc s ->
         Ty.PolymorphicVar s.value
+
+  (**
+    [ty_substitution assoc_types ty] replace the type variable occurences in [ty] 
+    by there value associated in [assoc_types]
+  *)
+  let rec ty_substitution assoc_types ty =
+    match ty with
+    | Ty.TyPolymorphic variable as t ->
+        let ty =
+          match List.assoc_opt variable assoc_types with
+          | Some ty ->
+              ty
+          | None ->
+              t
+        in
+        ty
+    | TyIdentifier { module_resolver; parametrics_type; name } ->
+        TyIdentifier
+          {
+            module_resolver;
+            parametrics_type =
+              List.map (ty_substitution assoc_types) parametrics_type;
+            name;
+          }
+    | TyFunctionPtr (parameters, return_type) ->
+        let parameters = List.map (ty_substitution assoc_types) parameters in
+        let return_type = ty_substitution assoc_types return_type in
+        TyFunctionPtr (parameters, return_type)
+    | TyClosure (parameters, return_type) ->
+        let parameters = List.map (ty_substitution assoc_types) parameters in
+        let return_type = ty_substitution assoc_types return_type in
+        TyClosure (parameters, return_type)
+    | TyPointer { pointer_state; pointee_type } ->
+        let pointee_type = ty_substitution assoc_types pointee_type in
+        TyPointer { pointer_state; pointee_type }
+    | TyInnerClosureId (ClosureType { id; parameters; return_type; env }) ->
+        let parameters = List.map (ty_substitution assoc_types) parameters in
+        let return_type = ty_substitution assoc_types return_type in
+        let env =
+          List.map
+            (fun (name, ty) ->
+              let ty = ty_substitution assoc_types ty in
+              (name, ty)
+            )
+            env
+        in
+        TyInnerClosureId (ClosureType { id; parameters; return_type; env })
+    | TyArray { ktype; size } ->
+        let ktype = ty_substitution assoc_types ktype in
+        TyArray { ktype; size }
+    | TyTuple ttes ->
+        let ttes = List.map (ty_substitution assoc_types) ttes in
+        TyTuple ttes
+    | ( TyBool
+      | TyUnit
+      | TyFloat _
+      | TyOrdered
+      | TyChar
+      | TyStringLit
+      | TyOpaque { module_resolver = _; name = _ }
+      | TyInteger
+          ( None
+          | Some
+              (Worded (None | Some _) | Sized ((None | Some _), (None | Some _)))
+            ) ) as ty ->
+        ty
+end
+
+module Struct = struct
+  (**
+      [substitution module_resolver types kosu_struct_decl] replaces the type variable in 
+      [kosu_struct_decl] by there value in [types].
+      Returns [None] if [types] hasn't the same length as [kosu_struct_decl.poly_vars]
+  *)
+  let substitution module_resolver types
+      (kosu_struct_decl : KosuAst.kosu_struct_decl) =
+    let ( let* ) = Option.bind in
+    let* assoc =
+      match List.combine kosu_struct_decl.poly_vars types with
+      | assoc ->
+          Some assoc
+      | exception _ ->
+          None
+    in
+    let fields =
+      List.map
+        (fun (name, ty) ->
+          let ty = TyLoc.tyloc_substitution_map assoc ty in
+          (name, ty)
+        )
+        kosu_struct_decl.fields
+    in
+    let ty =
+      KosuType.TyLoc.TyLocIdentifier
+        {
+          module_resolver = ModuleResolver.dummy_located module_resolver;
+          parametrics_type = List.map Position.dummy_located types;
+          name = kosu_struct_decl.struct_name;
+        }
+    in
+    Option.some @@ ({ kosu_struct_decl with fields }, ty)
+
+  (**
+    [substitution_fresh ~fresh module_resolver kosu_struct_decl] substitutes the type variable
+    in [kosu_struct_decl] by the values provided by [fresh]
+  *)
+  let substitution_fresh ~fresh module_resolver
+      (kosu_struct_decl : KosuAst.kosu_struct_decl) =
+    let fresh_variable =
+      List.map (fun _ -> fresh ()) kosu_struct_decl.poly_vars
+    in
+    Option.get @@ substitution module_resolver fresh_variable kosu_struct_decl
 end
 
 module Pattern = struct
@@ -225,6 +436,21 @@ module Module = struct
          | NFunction _
          | NSyscall _
          | NStruct _
+         | NOpaque _ ->
+             None
+         )
+
+  let struct_decls kosu_module =
+    let open KosuAst in
+    kosu_module
+    |> List.filter_map (function
+         | NStruct kosu_struct_decl ->
+             Some kosu_struct_decl
+         | NExternFunc _
+         | NConst _
+         | NFunction _
+         | NSyscall _
+         | NEnum _
          | NOpaque _ ->
              None
          )

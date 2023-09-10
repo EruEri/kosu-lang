@@ -15,10 +15,10 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-open Position
 open KosuAst
 open KosuType
 open KosuError
+open Position
 
 module PatternIdentifierBound = Set.Make (struct
   type t = string location * KosuType.Ty.kosu_type
@@ -69,7 +69,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
             let ext_env, _ = typeof kosu_env rhs in
             KosuEnv.merge_constraint ext_env kosu_env
       in
-      (kosu_env, KosuUtil.(Ty.of_tyloc LocType.usize))
+      (kosu_env, KosuUtil.(Ty.of_tyloc TyLoc.usize))
   | EFieldAccess { first_expr; field } ->
       (* instanciante todo*)
       let env, typeof = typeof kosu_env first_expr in
@@ -143,7 +143,52 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       in
       failwith ""
   | EStruct { module_resolver; struct_name; fields } ->
-      failwith ""
+      let module_resolver, struct_decl =
+        match
+          KosuEnv.find_struct_declaration
+            (module_resolver, struct_name)
+            kosu_env
+        with
+        | Some decl ->
+            decl
+        | None ->
+            failwith "No struct found"
+      in
+      let struct_decl, ty =
+        KosuUtil.Struct.substitution_fresh ~fresh:Ty.fresh_variable_typeloc
+          module_resolver struct_decl
+      in
+      let combined_fields =
+        match List.combine struct_decl.fields fields with
+        | combined ->
+            combined
+        | exception _ ->
+            failwith "Wrong field arrity"
+      in
+
+      let kosu_env =
+        List.fold_left
+          (fun kosu_env ((struct_name, struct_type), (expr_name, expr_expr)) ->
+            let () =
+              match struct_name.value = expr_name.value with
+              | true ->
+                  ()
+              | false ->
+                  failwith "Struct init not matching name"
+            in
+            let env, ty = typeof kosu_env expr_expr in
+            let kosu_env = KosuEnv.merge_constraint env kosu_env in
+            let kosu_env =
+              KosuEnv.add_typing_constraint ~lhs:ty
+                ~rhs:(KosuUtil.Ty.of_tyloc' struct_type)
+                expr_expr kosu_env
+            in
+            kosu_env
+          )
+          kosu_env combined_fields
+      in
+      let ty = KosuUtil.Ty.of_tyloc ty in
+      (kosu_env, ty)
   | EEnum { module_resolver; enum_name; variant; assoc_exprs } ->
       failwith ""
   | EBlock block ->
@@ -234,7 +279,38 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       in
       (kosu_env, fresh_type)
   | EMatch { expression; patterns } ->
-      failwith ""
+      let env, scrutinee_type = typeof kosu_env expression in
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      let fresh_variable_ty = Ty.fresh_variable_type () in
+      let kosu_env =
+        List.fold_left
+          (fun kosu_env (kosu_pattern, kosu_block) ->
+            let bound, (env, pattern_ty) =
+              typeof_pattern scrutinee_type kosu_env kosu_pattern
+            in
+            let kosu_env = KosuEnv.merge_constraint env kosu_env in
+            let kosu_env =
+              KosuEnv.add_typing_constraint ~lhs:scrutinee_type ~rhs:pattern_ty
+                kosu_pattern kosu_env
+            in
+            let kosu_block_env =
+              List.fold_left
+                (fun env (id, bound_ty) ->
+                  KosuEnv.add_variable true id bound_ty env
+                )
+                kosu_env bound
+            in
+            let block_env, block_ty = typeof_block kosu_block_env kosu_block in
+            let block_env =
+              KosuEnv.add_typing_constraint ~lhs:fresh_variable_ty ~rhs:block_ty
+                kosu_block.kosu_expr block_env
+            in
+            let kosu_env = KosuEnv.merge_constraint block_env kosu_env in
+            kosu_env
+          )
+          kosu_env patterns
+      in
+      (kosu_env, scrutinee_type)
   | EAnonFunction { kind; parameters; body } ->
       failwith ""
 
@@ -281,8 +357,13 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
       in
       KosuEnv.add_module kosu_module kosu_env
 
+(**
+    [typeof_pattern scrutinee_type kosu_env pattern] types the pattern [pattern] in the environment [kosu_env]
+    with the scrutinee_type being [scrutinee_type]
+*)
 and typeof_pattern scrutinee_type kosu_env
     (pattern : KosuAst.kosu_pattern location) =
+  (*Dont forget to raise if we try to bind an identifier to an existing variable in the*)
   let open KosuType.Ty in
   match pattern.value with
   | PEmpty ->

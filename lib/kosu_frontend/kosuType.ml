@@ -59,7 +59,7 @@ module Ty = struct
         id : string;
         parameters : kosu_type list;
         return_type : kosu_type;
-        env : string * kosu_type list;
+        env : (string * kosu_type) list;
       }
 
   and kosu_type =
@@ -92,6 +92,10 @@ module Ty = struct
     position : Position.position;
   }
 
+  type _ kosu_type_kind =
+    | KosuTy : kosu_type kosu_type_kind
+    | KosuTyLoc : TyLoc.kosu_loctype kosu_type_kind
+
   let fresh_variable reset =
     let counter = ref 0 in
     fun () ->
@@ -100,6 +104,16 @@ module Ty = struct
       let () = incr counter in
       Printf.sprintf "'t%u" n
 
-  let fresh_variable_type ?(reset = false) () =
-    TyPolymorphic (PolymorphicVar (fresh_variable reset ()))
+  let fresh_variable_type_gadt :
+      type a. kind:a kosu_type_kind -> ?reset:bool -> unit -> a =
+   fun ~kind ?(reset = false) () ->
+    let n = fresh_variable reset () in
+    match kind with
+    | KosuTy ->
+        TyPolymorphic (PolymorphicVar n)
+    | KosuTyLoc ->
+        TyLoc.(TyLocPolymorphic (PolymorphicVarLoc (Position.dummy_located n)))
+
+  let fresh_variable_type = fresh_variable_type_gadt ~kind:KosuTy
+  let fresh_variable_typeloc = fresh_variable_type_gadt ~kind:KosuTyLoc
 end
