@@ -332,7 +332,8 @@ kosu_statement_base:
     | DISCARD expr=located(kosu_expression) {
         SDiscard expr
     }
-    | OPEN module_resolver=module_resolver {
+    | OPEN modules=separated_nonempty_list(DOUBLECOLON, located(ModuleIdentifier)) {
+        let module_resolver = ModuleResolverLoc modules in
         SOpen { module_resolver}
     }
 

@@ -85,17 +85,36 @@ module TyLoc = struct
   let ssize = TyLocInteger (Some (worded signed))
 
   (**
-    [tyloc_substitution assoc_types ty] replace the type variable occurences in [ty] 
-    by there value associated in [assoc_types]
+    [tyloc_substitution bound assoc_types ty] replace the type variable occurences in [ty] 
+    by there value associated in [assoc_types] and not in [bound]
+
+    [bound] is useful for function signature where type variable can be bound to the function signature
+    (.ie for all 'a . ..)
   *)
-  let rec tyloc_substitution assoc_types ty =
+  let rec tyloc_substitution bound assoc_types ty =
     match ty.Position.value with
-    | TyLocPolymorphic variable as t ->
+    | TyLocPolymorphic (PolymorphicVarLoc variable) as t ->
+        let assoc_type =
+          List.find_map
+            (fun (PolymorphicVarLoc s, ty) ->
+              match s.value = variable.value with
+              | true ->
+                  Some ty
+              | false ->
+                  None
+            )
+            assoc_types
+        in
+        let is_bound =
+          List.exists
+            (fun (PolymorphicVarLoc s, _) -> s.value = variable.value)
+            bound
+        in
         let ty =
-          match List.assoc_opt variable assoc_types with
-          | Some ty ->
+          match (assoc_type, is_bound) with
+          | Some ty, false ->
               ty
-          | None ->
+          | Some _, true | None, (true | false) ->
               t
         in
         ty
@@ -247,10 +266,10 @@ module Ty = struct
         Ty.TyIdentifier { module_resolver; parametrics_type; name }
     | TyLocPolymorphic poly ->
         TyPolymorphic (of_tyloc_polymorphic poly)
-    | TyLocFunctionPtr (parameters, return) ->
-        TyFunctionPtr (List.map of_tyloc' parameters, of_tyloc' return)
-    | TyLocClosure (parameters, return) ->
-        TyClosure (List.map of_tyloc' parameters, of_tyloc' return)
+    | TyLocFunctionPtr schema ->
+        TyFunctionPtr (of_schema schema)
+    | TyLocClosure schema ->
+        TyClosure (of_schema schema)
     | TyLocOpaque { module_resolver; name } ->
         let module_resolver = ModuleResolver.to_unlocated module_resolver in
         let name = value name in
@@ -282,6 +301,13 @@ module Ty = struct
   and of_tyloc_polymorphic = function
     | TyLoc.PolymorphicVarLoc s ->
         Ty.PolymorphicVar s.value
+
+  and of_schema = function
+    | { poly_vars; parameters_type; return_type } ->
+        let poly_vars = List.map of_tyloc_polymorphic poly_vars in
+        let parameters_type = List.map of_tyloc' parameters_type in
+        let return_type = of_tyloc' return_type in
+        { poly_vars; parameters_type; return_type }
 
   (**
     [ty_substitution assoc_types ty] replace the type variable occurences in [ty] 

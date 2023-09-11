@@ -21,6 +21,12 @@ open KosuBaseAst
 module TyLoc = struct
   type kosu_loctype_polymorphic = PolymorphicVarLoc of string location
 
+  type kosu_locfunction_schema = {
+    poly_vars : kosu_loctype_polymorphic list;
+    parameters_type : kosu_loctype location list;
+    return_type : kosu_loctype location;
+  }
+
   and kosu_loctype =
     | TyLocIdentifier of {
         module_resolver : module_resolver_loc;
@@ -34,9 +40,9 @@ module TyLoc = struct
       }
     | TyLocInteger of integer_info option
     | TyLocFloat of fsize option
-    | TyLocFunctionPtr of kosu_loctype location list * kosu_loctype location
+    | TyLocFunctionPtr of kosu_locfunction_schema
     (* This closure type is used by the user in function signature*)
-    | TyLocClosure of kosu_loctype location list * kosu_loctype location
+    | TyLocClosure of kosu_locfunction_schema
     (* Used by the typecker to give an unique id to the closure *)
     | TyLocArray of { ktype : kosu_loctype location; size : int64 location }
     | TyLocTuple of kosu_loctype location list
@@ -54,11 +60,16 @@ end
 module Ty = struct
   type kosu_type_polymorphic = PolymorphicVar of string
 
-  type kosu_inner_closure_type =
+  type kosu_function_schema = {
+    poly_vars : kosu_type_polymorphic list;
+    parameters_type : kosu_type list;
+    return_type : kosu_type;
+  }
+
+  and kosu_inner_closure_type =
     | ClosureType of {
         id : string;
-        parameters : kosu_type list;
-        return_type : kosu_type;
+        schema : kosu_function_schema;
         env : (string * kosu_type) list;
       }
 
@@ -72,9 +83,9 @@ module Ty = struct
     | TyPointer of { pointer_state : pointer_state; pointee_type : kosu_type }
     | TyInteger of integer_info option
     | TyFloat of fsize option
-    | TyFunctionPtr of kosu_type list * kosu_type
+    | TyFunctionPtr of kosu_function_schema
     (* This closure type is used by the user in function signature*)
-    | TyClosure of kosu_type list * kosu_type
+    | TyClosure of kosu_function_schema
     (* Used by the typecker to give an unique id to the closure *)
     | TyInnerClosureId of kosu_inner_closure_type
     | TyArray of { ktype : kosu_type; size : int64 }
