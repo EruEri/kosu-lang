@@ -107,7 +107,7 @@ module TyLoc = struct
         in
         let is_bound =
           List.exists
-            (fun (PolymorphicVarLoc s, _) -> s.value = variable.value)
+            (fun (PolymorphicVarLoc s) -> s.value = variable.value)
             bound
         in
         let ty =
@@ -123,29 +123,27 @@ module TyLoc = struct
           {
             module_resolver;
             parametrics_type =
-              List.map (tyloc_substitution_map assoc_types) parametrics_type;
+              List.map
+                (tyloc_substitution_map bound assoc_types)
+                parametrics_type;
             name;
           }
-    | TyLocFunctionPtr (parameters, return_type) ->
-        let parameters =
-          List.map (tyloc_substitution_map assoc_types) parameters
-        in
-        let return_type = tyloc_substitution_map assoc_types return_type in
-        TyLocFunctionPtr (parameters, return_type)
-    | TyLocClosure (parameters, return_type) ->
-        let parameters =
-          List.map (tyloc_substitution_map assoc_types) parameters
-        in
-        let return_type = tyloc_substitution_map assoc_types return_type in
-        TyLocClosure (parameters, return_type)
+    | TyLocFunctionPtr schema ->
+        let schema = tyloc_substitution_schema bound assoc_types schema in
+        TyLocFunctionPtr schema
+    | TyLocClosure schema ->
+        let schema = tyloc_substitution_schema bound assoc_types schema in
+        TyLocClosure schema
     | TyLocPointer { pointer_state; pointee_type } ->
-        let pointee_type = tyloc_substitution_map assoc_types pointee_type in
+        let pointee_type =
+          tyloc_substitution_map bound assoc_types pointee_type
+        in
         TyLocPointer { pointer_state; pointee_type }
     | TyLocArray { ktype; size } ->
-        let ktype = tyloc_substitution_map assoc_types ktype in
+        let ktype = tyloc_substitution_map bound assoc_types ktype in
         TyLocArray { ktype; size }
     | TyLocTuple ttes ->
-        let ttes = List.map (tyloc_substitution_map assoc_types) ttes in
+        let ttes = List.map (tyloc_substitution_map bound assoc_types) ttes in
         TyLocTuple ttes
     | ( TyLocBool
       | TyLocUnit
@@ -161,8 +159,17 @@ module TyLoc = struct
             ) ) as ty ->
         ty
 
-  and tyloc_substitution_map assoc_types =
-    Position.map_use @@ fun ty -> tyloc_substitution assoc_types ty
+  and tyloc_substitution_schema bound assoc_type = function
+    | { poly_vars; parameters_type; return_type } as e ->
+        let bound = poly_vars @ bound in
+        let parameters_type =
+          List.map (tyloc_substitution_map bound assoc_type) parameters_type
+        in
+        let return_type = tyloc_substitution_map bound assoc_type return_type in
+        { e with parameters_type; return_type }
+
+  and tyloc_substitution_map bound assoc_types =
+    Position.map_use @@ fun ty -> tyloc_substitution bound assoc_types ty
 end
 
 module Ty = struct
@@ -212,13 +219,12 @@ module Ty = struct
   let rec contains_polymorphic : KosuType.Ty.kosu_type -> bool = function
     | TyPolymorphic _ ->
         true
-    | TyFunctionPtr (parameters, return_type)
-    | TyClosure (parameters, return_type)
+    | TyFunctionPtr schema
+    | TyClosure schema
     (* Should captured variabe be in the compuation ? *)
-    | TyInnerClosureId (ClosureType { id = _; env = _; parameters; return_type })
-      ->
-        let lhs = List.exists contains_polymorphic parameters in
-        let rhs = contains_polymorphic return_type in
+    | TyInnerClosureId (ClosureType { id = _; env = _; schema }) ->
+        let lhs = List.exists contains_polymorphic schema.parameters_type in
+        let rhs = contains_polymorphic schema.return_type in
         lhs || rhs
     | TyIdentifier { parametrics_type = tys; module_resolver = _; name = _ }
     | TyTuple tys ->
@@ -310,17 +316,28 @@ module Ty = struct
         { poly_vars; parameters_type; return_type }
 
   (**
-    [ty_substitution assoc_types ty] replace the type variable occurences in [ty] 
-    by there value associated in [assoc_types]
+    [tyloc_substitution bound assoc_types ty] replace the type variable occurences in [ty] 
+    by there value associated in [assoc_types] and not in [bound]
+
+    [bound] is useful for function signature where type variable can be bound to the function signature
+    (.ie for all 'a . ..)
   *)
-  let rec ty_substitution assoc_types ty =
+  let rec ty_substitution bound assoc_types ty =
     match ty with
     | Ty.TyPolymorphic variable as t ->
+        let assoc_type =
+          List.find_map
+            (fun (s, ty) ->
+              match s = variable with true -> Some ty | false -> None
+            )
+            assoc_types
+        in
+        let is_bound = List.exists (( = ) variable) bound in
         let ty =
-          match List.assoc_opt variable assoc_types with
-          | Some ty ->
+          match (assoc_type, is_bound) with
+          | Some ty, false ->
               ty
-          | None ->
+          | Some _, true | None, (true | false) ->
               t
         in
         ty
@@ -329,37 +346,26 @@ module Ty = struct
           {
             module_resolver;
             parametrics_type =
-              List.map (ty_substitution assoc_types) parametrics_type;
+              List.map (ty_substitution bound assoc_types) parametrics_type;
             name;
           }
-    | TyFunctionPtr (parameters, return_type) ->
-        let parameters = List.map (ty_substitution assoc_types) parameters in
-        let return_type = ty_substitution assoc_types return_type in
-        TyFunctionPtr (parameters, return_type)
-    | TyClosure (parameters, return_type) ->
-        let parameters = List.map (ty_substitution assoc_types) parameters in
-        let return_type = ty_substitution assoc_types return_type in
-        TyClosure (parameters, return_type)
+    | TyFunctionPtr schema ->
+        let schema = ty_substitution_schema bound assoc_types schema in
+        TyFunctionPtr schema
+    | TyClosure schema ->
+        let schema = ty_substitution_schema bound assoc_types schema in
+        TyClosure schema
     | TyPointer { pointer_state; pointee_type } ->
-        let pointee_type = ty_substitution assoc_types pointee_type in
+        let pointee_type = ty_substitution bound assoc_types pointee_type in
         TyPointer { pointer_state; pointee_type }
-    | TyInnerClosureId (ClosureType { id; parameters; return_type; env }) ->
-        let parameters = List.map (ty_substitution assoc_types) parameters in
-        let return_type = ty_substitution assoc_types return_type in
-        let env =
-          List.map
-            (fun (name, ty) ->
-              let ty = ty_substitution assoc_types ty in
-              (name, ty)
-            )
-            env
-        in
-        TyInnerClosureId (ClosureType { id; parameters; return_type; env })
+    | TyInnerClosureId (ClosureType { id = _; schema = _; env = _ } as ct) ->
+        let closure_type = ty_substitution_closure_type bound assoc_types ct in
+        TyInnerClosureId closure_type
     | TyArray { ktype; size } ->
-        let ktype = ty_substitution assoc_types ktype in
+        let ktype = ty_substitution bound assoc_types ktype in
         TyArray { ktype; size }
     | TyTuple ttes ->
-        let ttes = List.map (ty_substitution assoc_types) ttes in
+        let ttes = List.map (ty_substitution bound assoc_types) ttes in
         TyTuple ttes
     | ( TyBool
       | TyUnit
@@ -374,6 +380,39 @@ module Ty = struct
               (Worded (None | Some _) | Sized ((None | Some _), (None | Some _)))
             ) ) as ty ->
         ty
+
+  and ty_substitution_schema bound assoc_type = function
+    | { poly_vars; parameters_type; return_type } as e ->
+        let bound = poly_vars @ bound in
+        let parameters_type =
+          List.map (ty_substitution bound assoc_type) parameters_type
+        in
+        let return_type = ty_substitution bound assoc_type return_type in
+        { e with parameters_type; return_type }
+
+  and ty_substitution_closure_type bound assoc_type = function
+    | ClosureType
+        ( {
+            id = _;
+            schema = { poly_vars; parameters_type; return_type } as aschema;
+            env;
+          } as e
+        ) ->
+        let bound = poly_vars @ bound in
+        let parameters_type =
+          List.map (ty_substitution bound assoc_type) parameters_type
+        in
+        let return_type = ty_substitution bound assoc_type return_type in
+        let schema = { aschema with parameters_type; return_type } in
+        let env =
+          List.map
+            (fun (name, ty) ->
+              let ty = ty_substitution bound assoc_type ty in
+              (name, ty)
+            )
+            env
+        in
+        ClosureType { e with schema; env }
 end
 
 module Struct = struct
@@ -395,7 +434,7 @@ module Struct = struct
     let fields =
       List.map
         (fun (name, ty) ->
-          let ty = TyLoc.tyloc_substitution_map assoc ty in
+          let ty = TyLoc.tyloc_substitution_map [] assoc ty in
           (name, ty)
         )
         kosu_struct_decl.fields

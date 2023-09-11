@@ -664,10 +664,12 @@ kosu_type:
         }
     }
     | FUNCTION parameters=parenthesis(separated_list(COMMA, located(kosu_type))) return_type=located(kosu_type) {
-        KosuType.TyLoc.TyLocFunctionPtr (parameters, return_type)
+        let schema = KosuType.TyLoc.{ poly_vars = []; parameters_type = parameters; return_type } in
+        KosuType.TyLoc.TyLocFunctionPtr schema
     } 
     | CLOSURE parameters=parenthesis(separated_list(COMMA, located(kosu_type))) return_type=located(kosu_type) {
-        KosuType.TyLoc.TyLocClosure (parameters, return_type)
+        let schema = KosuType.TyLoc.{ poly_vars = []; parameters_type = parameters; return_type } in
+        KosuType.TyLoc.TyLocClosure schema
     }
     | loc_poly_vars {
         KosuType.TyLoc.TyLocPolymorphic $1

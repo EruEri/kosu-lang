@@ -163,39 +163,51 @@ let find_module_opt (KosuBaseAst.ModuleResolverLoc modules) kosu_env =
              None
      )
 
-let rec free_ty_variable acc ty kosu_env =
+(** 
+  [free_ty_variable bound acc ty kosu_env] returns all the type variable within [ty] as [acc] which 
+  aren't bound to an existing type variable in [kosu_env] and in [bound]
+*)
+let rec free_ty_variable bound acc ty kosu_env =
   let open KosuType.Ty in
   match ty with
   | TyPolymorphic variable ->
+      let condition =
+        KosuTypeVariableSet.mem variable kosu_env.env_bound_ty_vars
+        && (not @@ KosuTypeVariableSet.mem variable bound)
+      in
       let acc =
-        match KosuTypeVariableSet.mem variable kosu_env.env_bound_ty_vars with
+        match condition with
         | true ->
             acc
         | false ->
             KosuTypeVariableSet.add variable acc
       in
       acc
-  | TyFunctionPtr (parameters, return_type)
-  | TyClosure (parameters, return_type)
+  | TyFunctionPtr schema
+  | TyClosure schema
   (* Should captured variabe be in the compuation ? *)
-  | TyInnerClosureId (ClosureType { id = _; env = _; parameters; return_type })
-    ->
+  | TyInnerClosureId (ClosureType { id = _; env = _; schema }) ->
+      let bound =
+        KosuTypeVariableSet.add_seq (List.to_seq schema.poly_vars) bound
+      in
       let acc =
         List.fold_left
-          (fun acc ty -> free_ty_variable acc ty kosu_env)
-          acc parameters
+          (fun acc ty -> free_ty_variable bound acc ty kosu_env)
+          acc schema.parameters_type
       in
-      let acc = free_ty_variable acc return_type kosu_env in
+      let acc = free_ty_variable bound acc schema.return_type kosu_env in
       acc
   | TyIdentifier { parametrics_type = tys; module_resolver = _; name = _ }
   | TyTuple tys ->
       let acc =
-        List.fold_left (fun acc ty -> free_ty_variable acc ty kosu_env) acc tys
+        List.fold_left
+          (fun acc ty -> free_ty_variable bound acc ty kosu_env)
+          acc tys
       in
       acc
   | TyPointer { pointee_type = ktype; pointer_state = _ }
   | TyArray { ktype; size = _ } ->
-      free_ty_variable acc ktype kosu_env
+      free_ty_variable bound acc ktype kosu_env
   | TyInteger _
   | TyOpaque _
   | TyFloat _
@@ -208,9 +220,10 @@ let rec free_ty_variable acc ty kosu_env =
 
 (** 
   [free_ty_variable ty kosu_env] returns all the type variable within [ty] which 
-  aren't bound an existing type variable in [kosu_env]
+  aren't bound to an existing type variable in [kosu_env]
 *)
-let free_ty_variable = free_ty_variable KosuTypeVariableSet.empty
+let free_ty_variable =
+  free_ty_variable KosuTypeVariableSet.empty KosuTypeVariableSet.empty
 
 (**
     [find_declaration ~fmodule ~ffilter module_resolver kosu_env] try to find a
