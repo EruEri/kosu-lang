@@ -289,6 +289,12 @@ let find_struct_declaration_type (ty : KosuType.Ty.kosu_type) kosu_env =
   | TyUnit ->
       None
 
+let find_callable_declaration module_resolver identifier kosu_env =
+  find_declaration
+    ~fmodule:(KosuUtil.Module.callable_decls_name identifier)
+    ~ffilter:(fun _ -> true)
+    module_resolver kosu_env
+
 (**
   [equations ty_var kosu_env] filters the equations collected in [kosu_env] by
   equation where [ty_vars] appears

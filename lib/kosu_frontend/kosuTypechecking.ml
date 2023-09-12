@@ -156,25 +156,43 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       in
       (kosu_env, ty)
   | EConstIdentifier { module_resolver; identifier } ->
-      let const_decl =
+      let _module_resolver, const_decl =
         match
           KosuEnv.find_const_declaration (module_resolver, identifier) kosu_env
         with
         | Some decl ->
             decl
         | None ->
-            raise @@ failwith ""
+            raise @@ failwith "NO const found"
       in
-      failwith ""
-  | EIdentifier { module_resolver = ModuleResolverLoc modules; id } ->
-      let _ =
-        match modules with
-        | [] ->
-            failwith "Find module in first case"
-        | _ :: _ as modules ->
-            failwith "Find speficique module"
+      let ty = KosuUtil.Ty.of_tyloc' const_decl.explicit_type in
+      (kosu_env, ty)
+  | EIdentifier { module_resolver; id } ->
+      let t =
+        match
+          KosuEnv.find_callable_declaration module_resolver id.value kosu_env
+        with
+        | Some (_, decl) ->
+            KosuUtil.Ty.ty_of_callable decl
+        | None ->
+            let opt =
+              match KosuUtil.ModuleResolver.is_empty module_resolver with
+              | true ->
+                  KosuEnv.assoc_type_opt id.value kosu_env
+              | false ->
+                  failwith "Nothing found"
+            in
+            let typeof =
+              match opt with
+              | Some { kosu_type; is_const = _; identifier = _ } ->
+                  kosu_type
+              | None ->
+                  failwith "No identifier found"
+            in
+            typeof
       in
-      failwith ""
+
+      (kosu_env, t)
   | EStruct { module_resolver; struct_name; fields } ->
       let module_resolver, struct_decl =
         match
@@ -221,7 +239,8 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       in
       (kosu_env, ty)
   | EEnum { module_resolver; enum_name; variant; assoc_exprs } ->
-      failwith ""
+      let () = ignore (module_resolver, enum_name, variant, assoc_exprs) in
+      failwith "TODO: ENUM"
   | EBlock block ->
       typeof_block kosu_env block
   | EDeref expr ->
@@ -263,9 +282,103 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       in
       (kosu_env, TyArray { size = Int64.of_int length; ktype = fresh_variable })
   | EBuiltinFunctionCall { fn_name; parameters } ->
-      failwith ""
+      let () = ignore (fn_name, parameters) in
+      failwith "TODO: Ebuiling duntion"
   | EFunctionCall { module_resolver; generics_resolver; fn_name; parameters } ->
-      failwith ""
+      let t =
+        match
+          KosuEnv.find_callable_declaration module_resolver fn_name.value
+            kosu_env
+        with
+        | Some (_, decl) ->
+            KosuUtil.Ty.ty_of_callable decl
+        | None ->
+            let opt =
+              match KosuUtil.ModuleResolver.is_empty module_resolver with
+              | true ->
+                  KosuEnv.assoc_type_opt fn_name.value kosu_env
+              | false ->
+                  failwith "Nothing found"
+            in
+            let typeof =
+              match opt with
+              | Some { kosu_type; is_const = _; identifier = _ } ->
+                  kosu_type
+              | None ->
+                  failwith "No identifier found"
+            in
+            typeof
+      in
+
+      let schema, _ =
+        match t with
+        | ( TyFunctionPtr schema
+          | TyClosure schema
+          | TyInnerClosureId (ClosureType { schema; _ }) ) as ty ->
+            (schema, ty)
+        | TyOrdered
+        | TyStringLit
+        | TyChar
+        | TyBool
+        | TyUnit
+        | TyIdentifier { module_resolver = ModuleResolver_ _; _ }
+        | TyPolymorphic (PolymorphicVar _)
+        | TyPointer _
+        | TyInteger _
+        | TyFloat _
+        | TyArray _
+        | TyTuple _
+        | TyOpaque { module_resolver = ModuleResolver_ _; _ } ->
+            failwith "Not a callable type"
+      in
+
+      let () =
+        match Util.Ulist.are_same_length schema.parameters_type parameters with
+        | true ->
+            ()
+        | false ->
+            failwith "Not same length for callable"
+      in
+
+      let fresh_variables =
+        List.map (fun _ -> Ty.fresh_variable_type ()) schema.poly_vars
+      in
+      let assoc_poly_fresh = List.combine schema.poly_vars fresh_variables in
+      let kosu_env =
+        match generics_resolver with
+        | None ->
+            kosu_env
+        | Some tyes ->
+            let () =
+              match Util.Ulist.are_same_length tyes schema.poly_vars with
+              | false ->
+                  failwith "Unwrong generic explit size"
+              | true ->
+                  ()
+            in
+            tyes
+            |> List.combine assoc_poly_fresh
+            |> List.fold_left
+                 (fun kosu_env ((_, fresh_ty), ty) ->
+                   KosuEnv.add_typing_constraint ~lhs:(KosuUtil.Ty.of_tyloc' ty)
+                     ~rhs:fresh_ty ty kosu_env
+                 )
+                 kosu_env
+      in
+      let schema = KosuUtil.Ty.ty_substitution_schema assoc_poly_fresh schema in
+
+      let parameters = List.combine schema.parameters_type parameters in
+      let kosu_env =
+        List.fold_left
+          (fun kosu_env (sig_ty, expr) ->
+            let env, ty = typeof kosu_env expr in
+            let kosu_env = KosuEnv.merge_constraint env kosu_env in
+            KosuEnv.add_typing_constraint ~lhs:sig_ty ~rhs:ty expr kosu_env
+          )
+          kosu_env parameters
+      in
+
+      (kosu_env, schema.return_type)
   | EWhile { condition_expr; body } ->
       let env, ty = typeof kosu_env condition_expr in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
@@ -343,7 +456,8 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       in
       (kosu_env, scrutinee_type)
   | EAnonFunction { kind; parameters; body } ->
-      failwith ""
+      let () = ignore (kind, parameters, body) in
+      failwith "TODO: EAnonFunction"
 
 and typeof_block kosu_env block =
   let kosu_env = List.fold_left typeof_statement kosu_env block.kosu_stmts in
@@ -374,6 +488,7 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
       in
       kosu_env
   | SAffection { is_deref; lvalue; expression } ->
+      let () = ignore (is_deref, lvalue, expression) in
       failwith "Affectation"
   | SDiscard expression ->
       let env, _ = typeof kosu_env expression in
@@ -470,8 +585,10 @@ and typeof_pattern scrutinee_type kosu_env
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       (indentifiers, (kosu_env, ty_pattern))
   | PCase { module_resolver; enum_name; variant; assoc_patterns } ->
-      failwith ""
+      let () = ignore (module_resolver, enum_name, variant, assoc_patterns) in
+      failwith "PCASES"
   | PRecord { module_resolver; struct_name; pfields } ->
+      let () = ignore (module_resolver, struct_name, pfields) in
       failwith ""
   | POr patterns ->
       let module PIB = PatternIdentifierBound in
@@ -634,6 +751,7 @@ and free_variable_expression ~closure_env ~scope_env (expression : _ location) =
   | EBlock _ ->
       failwith ""
   | EAnonFunction { parameters; body; kind = _ } ->
+      let () = ignore (parameters, body) in
       failwith "Anon function todo"
   | EWhile _ ->
       failwith "TODO WHILE"

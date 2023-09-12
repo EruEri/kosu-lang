@@ -327,12 +327,13 @@ module Ty = struct
             )
             assoc_types
         in
+        (* The variable needs to be bound in order to be substitutate *)
         let is_bound = List.exists (( = ) variable) bound in
         let ty =
           match (assoc_type, is_bound) with
-          | Some ty, false ->
+          | Some ty, true ->
               ty
-          | Some _, true | None, (true | false) ->
+          | Some _, false | None, (true | false) ->
               t
         in
         ty
@@ -345,16 +346,16 @@ module Ty = struct
             name;
           }
     | TyFunctionPtr schema ->
-        let schema = ty_substitution_schema bound assoc_types schema in
+        let schema = ty_substitution_schema assoc_types schema in
         TyFunctionPtr schema
     | TyClosure schema ->
-        let schema = ty_substitution_schema bound assoc_types schema in
+        let schema = ty_substitution_schema assoc_types schema in
         TyClosure schema
     | TyPointer { pointer_state; pointee_type } ->
         let pointee_type = ty_substitution bound assoc_types pointee_type in
         TyPointer { pointer_state; pointee_type }
     | TyInnerClosureId (ClosureType { id = _; schema = _; env = _ } as ct) ->
-        let closure_type = ty_substitution_closure_type bound assoc_types ct in
+        let closure_type = ty_substitution_closure_type assoc_types ct in
         TyInnerClosureId closure_type
     | TyArray { ktype; size } ->
         let ktype = ty_substitution bound assoc_types ktype in
@@ -372,16 +373,16 @@ module Ty = struct
       | TyInteger (None | Some (Worded _ | Sized (_, _))) ) as ty ->
         ty
 
-  and ty_substitution_schema bound assoc_type = function
+  and ty_substitution_schema assoc_type = function
     | { poly_vars; parameters_type; return_type } as e ->
-        let bound = poly_vars @ bound in
+        let bound = poly_vars in
         let parameters_type =
           List.map (ty_substitution bound assoc_type) parameters_type
         in
         let return_type = ty_substitution bound assoc_type return_type in
         { e with parameters_type; return_type }
 
-  and ty_substitution_closure_type bound assoc_type = function
+  and ty_substitution_closure_type assoc_type = function
     | ClosureType
         ( {
             id = _;
@@ -389,7 +390,7 @@ module Ty = struct
             env;
           } as e
         ) ->
-        let bound = poly_vars @ bound in
+        let bound = poly_vars in
         let parameters_type =
           List.map (ty_substitution bound assoc_type) parameters_type
         in
@@ -404,6 +405,45 @@ module Ty = struct
             env
         in
         ClosureType { e with schema; env }
+
+  let return_type : KosuType.Ty.kosu_type -> KosuType.Ty.kosu_type option =
+    function
+    | TyFunctionPtr schema
+    | TyClosure schema
+    | TyInnerClosureId (ClosureType { schema; _ }) ->
+        Some schema.return_type
+    | TyOrdered
+    | TyStringLit
+    | TyChar
+    | TyBool
+    | TyUnit
+    | TyIdentifier { module_resolver = ModuleResolver_ _; _ }
+    | TyPolymorphic (PolymorphicVar _)
+    | TyPointer _
+    | TyInteger _
+    | TyFloat _
+    | TyArray _
+    | TyTuple _
+    | TyOpaque { module_resolver = ModuleResolver_ _; _ } ->
+        None
+
+  let ty_of_callable : KosuAst.kosu_callable_decl -> Ty.kosu_type = function
+    | CdExternalFunction { parameters; return_type; _ }
+    | CdSyscall { parameters; return_type; _ } ->
+        let poly_vars = [] in
+        let parameters_type = List.map of_tyloc' parameters in
+        let return_type = of_tyloc' return_type in
+        (* Think about are syscall call are function pointer*)
+        TyFunctionPtr { poly_vars; parameters_type; return_type }
+    | CdKosuFuntion { poly_vars; parameters; return_type; _ } ->
+        let poly_vars = List.map of_tyloc_polymorphic poly_vars in
+        let parameters_type =
+          List.map
+            (fun KosuAst.{ kosu_type; _ } -> of_tyloc' kosu_type)
+            parameters
+        in
+        let return_type = of_tyloc' return_type in
+        TyFunctionPtr { poly_vars; parameters_type; return_type }
 end
 
 module Struct = struct
@@ -529,6 +569,27 @@ module Module = struct
          | NOpaque _ ->
              None
          )
+
+  let callable_decls_name name =
+    let open KosuAst in
+    List.filter_map (function
+      | NFunction ({ fn_name; _ } as fn_decl) when fn_name.value = name ->
+          Option.some @@ CdKosuFuntion fn_decl
+      | NSyscall ({ syscall_name; _ } as sys_decl)
+        when syscall_name.value = name ->
+          Option.some @@ CdSyscall sys_decl
+      | NExternFunc ({ sig_name; _ } as external_decl)
+        when sig_name.value = name ->
+          Option.some @@ CdExternalFunction external_decl
+      | NEnum _
+      | NConst _
+      | NOpaque _
+      | NStruct _
+      | NExternFunc _
+      | NFunction _
+      | NSyscall _ ->
+          None
+      )
 
   let type_decl_from_name name =
     let open KosuAst in

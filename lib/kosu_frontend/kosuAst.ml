@@ -220,6 +220,11 @@ type kosu_const_decl = {
 type kosu_opaque_decl = { name : string location }
 type kosu_type_decl = DStruct of kosu_struct_decl | DEnum of kosu_enum_decl
 
+type kosu_callable_decl =
+  | CdExternalFunction of kosu_external_func_decl
+  | CdKosuFuntion of kosu_function_decl
+  | CdSyscall of kosu_syscall_decl
+
 type kosu_module_node =
   | NExternFunc of kosu_external_func_decl
   | NFunction of kosu_function_decl
