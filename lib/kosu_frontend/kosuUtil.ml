@@ -56,21 +56,20 @@ end
 module IntegerInfo = struct
   let sized (sign, size) = KosuBaseAst.Sized (sign, size)
   let worded sign = KosuBaseAst.Worded sign
-  let sworded sign = worded (Some sign)
 end
 
 module TyLoc = struct
   open KosuType.TyLoc
   open IntegerInfo
 
-  let isize_8 = Some KosuAst.I8
-  let isize_16 = Some KosuAst.I16
-  let isize_32 = Some KosuAst.I32
-  let isize_64 = Some KosuAst.I64
+  let isize_8 = KosuAst.I8
+  let isize_16 = KosuAst.I16
+  let isize_32 = KosuAst.I32
+  let isize_64 = KosuAst.I64
   let fsize_32 = Some KosuAst.F32
   let fsize_64 = Some KosuAst.F64
-  let signed = Some KosuAst.Signed
-  let unsigned = Some KosuAst.Unsigned
+  let signed = KosuAst.Signed
+  let unsigned = KosuAst.Unsigned
   let s8 = TyLocInteger (Some (sized @@ (signed, isize_8)))
   let u8 = TyLocInteger (Some (sized @@ (unsigned, isize_8)))
   let s16 = TyLocInteger (Some (sized @@ (signed, isize_16)))
@@ -152,11 +151,7 @@ module TyLoc = struct
       | TyLocChar
       | TyLocStringLit
       | TyLocOpaque { module_resolver = _; name = _ }
-      | TyLocInteger
-          ( None
-          | Some
-              (Worded (None | Some _) | Sized ((None | Some _), (None | Some _)))
-            ) ) as ty ->
+      | TyLocInteger (None | Some (Worded _ | Sized (_, _))) ) as ty ->
         ty
 
   and tyloc_substitution_schema bound assoc_type = function
@@ -374,11 +369,7 @@ module Ty = struct
       | TyChar
       | TyStringLit
       | TyOpaque { module_resolver = _; name = _ }
-      | TyInteger
-          ( None
-          | Some
-              (Worded (None | Some _) | Sized ((None | Some _), (None | Some _)))
-            ) ) as ty ->
+      | TyInteger (None | Some (Worded _ | Sized (_, _))) ) as ty ->
         ty
 
   and ty_substitution_schema bound assoc_type = function

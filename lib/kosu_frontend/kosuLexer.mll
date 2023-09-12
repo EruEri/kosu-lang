@@ -154,7 +154,7 @@ rule token = parse
     | "16" -> sized (signdess, isize_16 )
     | "32" -> sized (signdess, isize_32 )
     | "64" -> sized (signdess, isize_64 )
-    | "size" -> sworded (Option.get signdess)
+    | "size" -> worded signdess
     | _ -> failwith "Unreachable code" in
 
     IntegerLitteral(Some info, Int64.of_string n)
