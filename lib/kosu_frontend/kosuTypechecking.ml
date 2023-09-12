@@ -275,8 +275,49 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       in
       (kosu_env, ty)
   | EEnum { module_resolver; enum_name; variant; assoc_exprs } ->
-      let () = ignore (module_resolver, enum_name, variant, assoc_exprs) in
-      failwith "TODO: ENUM"
+      let module_resolver, enum_decl =
+        match
+          KosuEnv.find_enum_declaration module_resolver
+            (Option.map Position.value enum_name)
+            variant kosu_env
+        with
+        | Some t ->
+            t
+        | None ->
+            failwith "Cannot find the enum declaration"
+      in
+      let enum_decl, ty =
+        KosuUtil.Enum.substitution_fresh ~fresh:Ty.fresh_variable_type
+          module_resolver enum_decl
+      in
+      let enum_associated_type =
+        match KosuUtil.Enum.assoc_types variant.value enum_decl with
+        | Some assoc_types ->
+            assoc_types
+        | None ->
+            failwith "No variant name"
+      in
+      let assoc_types_exprs =
+        match List.combine enum_associated_type assoc_exprs with
+        | combined ->
+            combined
+        | exception _ ->
+            failwith "Wrong field arrity for enum"
+      in
+      let kosu_env =
+        List.fold_left
+          (fun kosu_env (enum_type, enum_expr) ->
+            let env, ty = typeof kosu_env enum_expr in
+            let kosu_env = KosuEnv.merge_constraint env kosu_env in
+            let kosu_env =
+              KosuEnv.add_typing_constraint ~lhs:ty ~rhs:enum_type enum_expr
+                kosu_env
+            in
+            kosu_env
+          )
+          kosu_env assoc_types_exprs
+      in
+      (kosu_env, ty)
   | EBlock block ->
       typeof_block kosu_env block
   | EDeref expr ->

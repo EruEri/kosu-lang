@@ -512,6 +512,15 @@ module Enum = struct
       List.map (fun _ -> fresh ()) kosu_enum_decl.poly_vars
     in
     Option.get @@ substitution module_resolver fresh_variable kosu_enum_decl
+
+  (**
+      [assoc_types variant kosu_enum_decl] returns the associated types for the variant [variant] in
+      [kosu_enum_decl]
+
+      Return [None], if [variant] isn't a variant of [kosu_enum_decl]
+  *)
+  let assoc_types variant (kosu_enum_decl : KosuAst.kosu_raw_enum_decl) =
+    List.assoc_opt variant kosu_enum_decl.variants
 end
 
 module Struct = struct
@@ -668,6 +677,35 @@ module Module = struct
         when struct_name.value = name ->
           Option.some @@ DStruct strucT_decl
       | NEnum _
+      | NStruct _
+      | NConst _
+      | NOpaque _
+      | NFunction _
+      | NExternFunc _
+      | NSyscall _ ->
+          None
+      )
+
+  (**
+      [enum_decls_from_variant_name name kosu_module] finds all the enum_declaration within [kosu_module] which have a variant named [name]
+  *)
+  let enum_decls_from_variant_name name =
+    let open KosuAst in
+    List.filter_map (function
+      | NEnum ({ variants; _ } as enum_decl) ->
+          let ( let* ) = Option.bind in
+          let* enum_decl =
+            match
+              List.exists
+                (fun (variant, _) -> variant.Position.value = name)
+                variants
+            with
+            | true ->
+                Some enum_decl
+            | false ->
+                None
+          in
+          Some enum_decl
       | NStruct _
       | NConst _
       | NOpaque _

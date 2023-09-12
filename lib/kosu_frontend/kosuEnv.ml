@@ -281,6 +281,27 @@ let find_struct_declaration (module_resolver, identifier) kosu_env =
     module_resolver kosu_env
 
 (**
+    [find_enum_declaration module_resolver enum_name variant kosu_env] find the enum declaration with
+    a variant named [named] with the optionnal enum precision [enum_name] in the module provided by [module_resolver].
+
+    If [module_resolver] is empty, the function will try to find the declaration in the opened modules of [kosu_env]
+    If the module doesn't exist or no identifier matching is found, return [None].
+
+*)
+let find_enum_declaration module_resolver enum_name variant kosu_env =
+  let open Position in
+  let open KosuAst in
+  (* If there is an explicit enum name, we add a filter layer *)
+  let ffilter =
+    enum_name
+    |> Option.map (fun name enum_decl -> enum_decl.enum_name.value = name)
+    |> Option.value ~default:(fun _ -> true)
+  in
+  find_declaration
+    ~fmodule:(KosuUtil.Module.enum_decls_from_variant_name variant.value)
+    ~ffilter module_resolver kosu_env
+
+(**
     [find_struct_declaration_type ty kosu_env] try to find a struct declaration for type [ty] in [kosu_env]
 *)
 let find_struct_declaration_type (ty : KosuType.Ty.kosu_type) kosu_env =
