@@ -65,3 +65,18 @@ let rec parse lexbuf (checkpoint : KosuAst.kosu_module I.checkpoint) =
              message = "Parser reject the input";
              state = None;
            }
+
+let rec kosu_program ~acc = function
+  | [] ->
+      Result.ok @@ List.rev acc
+  | kosu_file :: q ->
+      let ( let* ) = Result.bind in
+      let* kosu_module =
+        In_channel.with_open_bin kosu_file (fun ic ->
+            let lexbuf = Lexing.from_channel ic in
+            parse lexbuf @@ KosuParser.Incremental.kosu_module lexbuf.lex_curr_p
+        )
+      in
+      kosu_program ~acc:(KosuAst.{ filename = kosu_file; kosu_module } :: acc) q
+
+let kosu_program = kosu_program ~acc:[]

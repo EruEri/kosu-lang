@@ -145,4 +145,12 @@ let rec fold_some f acc = function
       let* acc = f acc t in
       fold_some f acc q
 
+let rec fold_ok f acc = function
+  | [] ->
+      Result.ok acc
+  | t :: q ->
+      let ( let* ) = Result.bind in
+      let* acc = f acc t in
+      fold_ok f acc q
+
 let is_empty = function [] -> true | _ :: _ -> false

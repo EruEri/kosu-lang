@@ -53,6 +53,23 @@ type kosu_env = {
   env_bound_ty_vars : KosuTypeVariableSet.t;
 }
 
+let create current_module program =
+  {
+    program;
+    opened_modules = current_module :: [];
+    env_variable = [];
+    env_tying_constraint = KosuTypeConstraintSet.empty;
+    env_bound_ty_vars = KosuTypeVariableSet.empty;
+  }
+
+let add_bound_poly_vars poly_vars kosu_env =
+  {
+    kosu_env with
+    env_bound_ty_vars =
+      KosuTypeVariableSet.add_seq (List.to_seq poly_vars)
+        kosu_env.env_bound_ty_vars;
+  }
+
 let current_module kosu_env =
   let rec last = function [] -> None | t :: [] -> Some t | _ :: q -> last q in
   match last kosu_env.opened_modules with

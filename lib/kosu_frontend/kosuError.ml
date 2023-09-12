@@ -36,6 +36,7 @@ type kosu_analytics_error =
 
 type kosu_error =
   | LexerErrof of kosu_lexer_error
+  | AnalyticsError of kosu_analytics_error
   | SizeofPolymorphicType of Position.position
   | DerefNonPointerType of KosuType.Ty.kosu_type Position.location
   | PatternAlreadyBoundIdentifier of string Position.location list
@@ -47,6 +48,7 @@ exception KosuLexerError of kosu_lexer_error
 
 let kosu_error e = KosuErr e
 let kosu_lexer_error e = KosuLexerError e
+let analytics_error e = kosu_error @@ AnalyticsError e
 let sizeof_polytype p = kosu_error @@ SizeofPolymorphicType p
 let deref_non_pointer e = kosu_error @@ DerefNonPointerType e
 
