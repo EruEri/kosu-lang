@@ -388,6 +388,17 @@ kosu_expression:
             parameters
         }
     }
+    | module_resolver=module_resolver 
+        fn_name=loc_var_identifier 
+        generics_resolver=option(delimited(LSQBRACE, trailing_separated_list(COMMA, located(kosu_type)), RSQBRACE))
+        parameters=parenthesis(separated_list(COMMA, located(kosu_expression))) {
+        EFunctionCall {
+            module_resolver;
+            generics_resolver;
+            fn_name;
+            parameters
+        }
+        }
     | fn_name=located(Builtin) parameters=parenthesis(separated_list(COMMA, located(kosu_expression))) {
         EBuiltinFunctionCall {
             fn_name;
@@ -675,6 +686,6 @@ kosu_type:
         KosuType.TyLoc.TyLocPolymorphic $1
     }
 
-c_type:
-    | { failwith "C Type" }
+%inline c_type:
+    | kosu_type { $1 }
 

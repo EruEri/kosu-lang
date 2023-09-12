@@ -106,6 +106,8 @@ let add_typing_constraint ~lhs ~rhs (location : 'a Position.location) env =
   let constr =
     KosuType.Ty.{ clhs = lhs; crhs = rhs; position = location.position }
   in
+  let skt = KosuPrint.string_of_kosu_type in
+  let () = Printf.fprintf stdout "eq : %s == %s \n%!" (skt lhs) (skt rhs) in
   {
     env with
     env_tying_constraint =

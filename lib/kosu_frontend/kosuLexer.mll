@@ -162,7 +162,7 @@ rule token = parse
 | (number as n) {
     IntegerLitteral(None, Int64.of_string n)
 }
-| '"' {
+| '\"' {
     let buffer = Buffer.create 17 in
     read_string buffer lexbuf
 }
