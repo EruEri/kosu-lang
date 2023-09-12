@@ -17,7 +17,6 @@
 
 type architecture = Arm64 | X86_64
 type os = Macos | Linux | FreeBSD
-type large_architecture = LArm64 | LX86_64 | LKVM
 type suppoted_file = SF_Kosu | SF_C | SF_Object | SF_Assembly
 
 let extension_list =
@@ -55,9 +54,6 @@ let input_file files =
       Ok (`KosuFile kosu, `CFile c, `ObjFile co, `AssemblyFile assembly)
   | Error _ as e ->
       e
-
-let large_architecture_enum =
-  [ ("arm64", LArm64); ("x86_64", LX86_64); ("kvm", LKVM) ]
 
 let architecture_enum = [ ("arm64", Arm64); ("x86_64", X86_64) ]
 let os_enum = [ ("freebsd", FreeBSD); ("linux", Linux); ("macos", Macos) ]

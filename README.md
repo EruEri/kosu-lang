@@ -30,6 +30,19 @@ The philosophy of Kosu is to have as control over memory as C (manual memory man
 - [x] Fix stack base function parameters on arm64/x86_64
 - [ ] Improve c compatibily ABI
 
+== Version 0.5.0 == 
+
+Full rewirte
+
+- New ast
+  - change syntax : (removal of $)
+  - new type
+  - proper support for closure and function pointer 
+- New typechecking algorithm ( kind of hindley milner algorithm)
+- Remove kosu virtual machine:
+  - Remove libffi dependance
+- ... etc
+
 
 
 ## Example

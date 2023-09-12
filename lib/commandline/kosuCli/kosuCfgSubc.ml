@@ -25,7 +25,7 @@ type cfg_type = Basic | Detail | Liveness
 type cmd = {
   dot : string option;
   colored : bool;
-  arch : CliCommon.large_architecture;
+  arch : CliCommon.architecture;
   cfg_type : cfg_type;
   variable_infer : bool;
   fn_name : string option;
@@ -35,14 +35,14 @@ type cmd = {
 
 let name = "cfg"
 
-let register_module = function
-  | LKVM ->
-      (module BytecodeCompiler.Register : KosuIrCfg.Asttaccfg.ABI_Large
-        with type variable = KosuIrCfg.Asttaccfg.Cfg_Sig_Impl.variable
-    )
-  | LArm64 ->
+let register_module :
+    architecture ->
+    (module KosuIrCfg.Asttaccfg.ABI_Large
+       with type variable = KosuIrCfg.Asttaccfg.Cfg_Sig_Impl.variable
+    ) = function
+  | Arm64 ->
       failwith "Not implemented yet"
-  | LX86_64 ->
+  | X86_64 ->
       failwith "Not implemented yet"
 
 let string_of_enum ?(splitter = "|") ?(quoted = false) enum =
@@ -74,9 +74,9 @@ let dot_term =
 let target_arch_term =
   Arg.(
     required
-    & opt (some & enum large_architecture_enum) None
+    & opt (some & enum architecture_enum) None
     & info
-        ~docv:(string_of_enum large_architecture_enum)
+        ~docv:(string_of_enum architecture_enum)
         ~env:
           (Cmd.Env.info
              ~doc:
