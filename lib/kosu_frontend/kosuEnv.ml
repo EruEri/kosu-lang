@@ -15,17 +15,7 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module KosuTypeConstraint = struct
-  type t = KosuType.Ty.kosu_type_constraint
-
-  let compare (lhs : t) (rhs : t) =
-    match compare lhs.clhs rhs.clhs with
-    | 0 ->
-        compare lhs.clhs rhs.crhs
-    | n ->
-        n
-end
-
+module KosuTypeConstraint = KosuTypeConstraint
 module KosuTypeConstraintSet = Set.Make (KosuTypeConstraint)
 
 module KosuTypeVariableSet = Set.Make (struct
@@ -270,3 +260,35 @@ let find_struct_declaration (module_resolver, identifier) kosu_env =
       struct_decl.struct_name.value = identifier.value
     )
     module_resolver kosu_env
+
+(**
+  [equations ty_var kosu_env] filters the equations collected in [kosu_env] by
+  equation where [ty_vars] appears
+*)
+let equations ty_var kosu_env =
+  KosuTypeConstraintSet.filter
+    (fun { clhs; crhs; position = _ } ->
+      let ty_var = KosuType.Ty.TyPolymorphic ty_var in
+      clhs = ty_var || crhs = ty_var
+    )
+    kosu_env.env_tying_constraint
+
+(**
+  [try_solve ty_var kosu_env] try to solve the equations collected in [kosu_env] where
+  [ty_var] appears.
+
+  Returns [None] with [ty_var] doesn't appears
+  @raise something (tbd) where the equations don't have a solution
+*)
+let try_solve ty_var kosu_env =
+  let eqs = KosuTypeConstraintSet.elements @@ equations ty_var kosu_env in
+  match eqs with
+  | [] ->
+      None
+  | constra :: constraints ->
+      let ty_ty_vars = KosuType.Ty.TyPolymorphic ty_var in
+      let first = Option.get @@ KosuTypeConstraint.other ty_ty_vars constra in
+      let ty =
+        List.fold_left (fun ty_acc elt_ty -> failwith "") first constraints
+      in
+      Some ty

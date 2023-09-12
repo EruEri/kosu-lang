@@ -128,4 +128,13 @@ let rec map_ok f = function
       let* list = map_ok f q in
       Result.ok @@ (res :: list)
 
+let rec map_some f = function
+  | [] ->
+      Option.some []
+  | t :: q ->
+      let ( let* ) = Option.bind in
+      let* res = f t in
+      let* list = map_some f q in
+      Option.some @@ (res :: list)
+
 let is_empty = function [] -> true | _ :: _ -> false
