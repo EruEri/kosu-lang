@@ -407,6 +407,21 @@ module Ty = struct
 end
 
 module Struct = struct
+  let to_unlocated (struct_decl : KosuAst.kosu_struct_decl) :
+      KosuAst.kosu_raw_struct_decl =
+    let struct_name = struct_decl.struct_name.value in
+    let poly_vars = List.map Ty.of_tyloc_polymorphic struct_decl.poly_vars in
+    let fields =
+      List.map
+        (fun (s, ty) ->
+          let s = s.Position.value in
+          let ty = Ty.of_tyloc' ty in
+          (s, ty)
+        )
+        struct_decl.fields
+    in
+    { struct_name; poly_vars; fields }
+
   (**
       [substitution module_resolver types kosu_struct_decl] replaces the type variable in 
       [kosu_struct_decl] by there value in [types].
@@ -414,6 +429,7 @@ module Struct = struct
   *)
   let substitution module_resolver types
       (kosu_struct_decl : KosuAst.kosu_struct_decl) =
+    let kosu_struct_decl = to_unlocated kosu_struct_decl in
     let ( let* ) = Option.bind in
     let* assoc =
       match List.combine kosu_struct_decl.poly_vars types with
@@ -425,16 +441,16 @@ module Struct = struct
     let fields =
       List.map
         (fun (name, ty) ->
-          let ty = TyLoc.tyloc_substitution_map [] assoc ty in
+          let ty = Ty.ty_substitution [] assoc ty in
           (name, ty)
         )
         kosu_struct_decl.fields
     in
     let ty =
-      KosuType.TyLoc.TyLocIdentifier
+      KosuType.Ty.TyIdentifier
         {
-          module_resolver = ModuleResolver.dummy_located module_resolver;
-          parametrics_type = List.map Position.dummy_located types;
+          module_resolver;
+          parametrics_type = types;
           name = kosu_struct_decl.struct_name;
         }
     in
@@ -450,6 +466,9 @@ module Struct = struct
       List.map (fun _ -> fresh ()) kosu_struct_decl.poly_vars
     in
     Option.get @@ substitution module_resolver fresh_variable kosu_struct_decl
+
+  let field name (struct_decl : KosuAst.kosu_raw_struct_decl) =
+    List.assoc_opt name struct_decl.fields
 end
 
 module Pattern = struct

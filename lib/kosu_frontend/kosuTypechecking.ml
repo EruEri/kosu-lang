@@ -70,20 +70,53 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
             KosuEnv.merge_constraint ext_env kosu_env
       in
       (kosu_env, KosuUtil.(Ty.of_tyloc TyLoc.usize))
-  | EFieldAccess { first_expr; field } ->
+  | EFieldAccess { first_expr; field = sfield } ->
       (* instanciante todo*)
       let env, typeof = typeof kosu_env first_expr in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
-      let module_resolver, parametrics_type, name =
+      let struct_decl_opt =
         match typeof with
-        | TyIdentifier { module_resolver; parametrics_type; name } ->
-            failwith ""
-        | TyPolymorphic _ ->
-            failwith "Cannot not access type of polyvar"
+        | TyIdentifier { module_resolver = _; parametrics_type = _; name = _ }
+          as ty ->
+            KosuEnv.find_struct_declaration_type ty kosu_env
+        | TyPolymorphic ty ->
+            let ty =
+              match KosuEnv.try_solve ty kosu_env with
+              | Some ty ->
+                  KosuEnv.find_struct_declaration_type ty kosu_env
+              | None ->
+                  failwith "After solve not goot type"
+            in
+            ty
         | _ ->
             failwith "Field access of not idenfiier type"
       in
-      failwith ""
+      let module_resolver, struct_decl =
+        match struct_decl_opt with
+        | Some t ->
+            t
+        | None ->
+            failwith "No struct decl found"
+      in
+      let pametrics_type = KosuUtil.Ty.parametrics_type typeof in
+      let struct_decl =
+        match
+          KosuUtil.Struct.substitution module_resolver pametrics_type
+            struct_decl
+        with
+        | Some (raw_struct_decl, _) ->
+            raw_struct_decl
+        | None ->
+            failwith "Fail to substitute type"
+      in
+      let ty =
+        match KosuUtil.Struct.field sfield.value struct_decl with
+        | Some ty ->
+            ty
+        | None ->
+            failwith "No field with this name"
+      in
+      (kosu_env, ty)
   | EArrayAccess { array_expr; index_expr } ->
       let env, ty = typeof kosu_env array_expr in
       let ty_elt =
@@ -155,7 +188,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
             failwith "No struct found"
       in
       let struct_decl, ty =
-        KosuUtil.Struct.substitution_fresh ~fresh:Ty.fresh_variable_typeloc
+        KosuUtil.Struct.substitution_fresh ~fresh:Ty.fresh_variable_type
           module_resolver struct_decl
       in
       let combined_fields =
@@ -170,7 +203,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         List.fold_left
           (fun kosu_env ((struct_name, struct_type), (expr_name, expr_expr)) ->
             let () =
-              match struct_name.value = expr_name.value with
+              match struct_name = expr_name.value with
               | true ->
                   ()
               | false ->
@@ -179,15 +212,13 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
             let env, ty = typeof kosu_env expr_expr in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
             let kosu_env =
-              KosuEnv.add_typing_constraint ~lhs:ty
-                ~rhs:(KosuUtil.Ty.of_tyloc' struct_type)
-                expr_expr kosu_env
+              KosuEnv.add_typing_constraint ~lhs:ty ~rhs:struct_type expr_expr
+                kosu_env
             in
             kosu_env
           )
           kosu_env combined_fields
       in
-      let ty = KosuUtil.Ty.of_tyloc ty in
       (kosu_env, ty)
   | EEnum { module_resolver; enum_name; variant; assoc_exprs } ->
       failwith ""

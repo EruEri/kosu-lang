@@ -262,6 +262,34 @@ let find_struct_declaration (module_resolver, identifier) kosu_env =
     module_resolver kosu_env
 
 (**
+    [find_struct_declaration_type ty kosu_env] try to find a struct declaration for type [ty] in [kosu_env]
+*)
+let find_struct_declaration_type (ty : KosuType.Ty.kosu_type) kosu_env =
+  match ty with
+  | TyIdentifier { module_resolver; name; parametrics_type = _ } ->
+      find_struct_declaration
+        ( KosuUtil.ModuleResolver.dummy_located module_resolver,
+          Position.dummy_located name
+        )
+        kosu_env
+  | TyPolymorphic _
+  | TyPointer _
+  | TyInteger _
+  | TyFloat _
+  | TyFunctionPtr _
+  | TyClosure _
+  | TyInnerClosureId _
+  | TyArray _
+  | TyTuple _
+  | TyOpaque _
+  | TyOrdered
+  | TyStringLit
+  | TyChar
+  | TyBool
+  | TyUnit ->
+      None
+
+(**
   [equations ty_var kosu_env] filters the equations collected in [kosu_env] by
   equation where [ty_vars] appears
 *)
