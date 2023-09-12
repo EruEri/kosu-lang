@@ -107,13 +107,13 @@ module Ty = struct
     | KosuTy : kosu_type kosu_type_kind
     | KosuTyLoc : TyLoc.kosu_loctype kosu_type_kind
 
-  let fresh_variable reset =
-    let counter = ref 0 in
-    fun () ->
-      let () = match reset with false -> () | true -> counter := 0 in
-      let n = !counter in
-      let () = incr counter in
-      Printf.sprintf "'t%u" n
+  let counter = ref 0
+
+  let fresh_variable reset () =
+    let () = match reset with false -> () | true -> counter := 0 in
+    let n = !counter in
+    let () = incr counter in
+    Printf.sprintf "'t%u" n
 
   let fresh_variable_type_gadt :
       type a. kind:a kosu_type_kind -> ?reset:bool -> unit -> a =

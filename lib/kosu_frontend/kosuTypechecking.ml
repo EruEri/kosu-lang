@@ -46,9 +46,33 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
   | EChar _ ->
       (kosu_env, TyChar)
   | EInteger { integer_info; ivalue = _ } ->
-      (kosu_env, TyInteger integer_info)
+      let default = Ty.TyInteger integer_info in
+      let tuples =
+        match integer_info with
+        | Some _ ->
+            (kosu_env, default)
+        | None ->
+            let t = Ty.fresh_variable_type () in
+            let kosu_env =
+              KosuEnv.add_typing_constraint ~lhs:t ~rhs:default expr kosu_env
+            in
+            (kosu_env, t)
+      in
+      tuples
   | EFloat { fsize; fvalue = _ } ->
-      (kosu_env, TyFloat fsize)
+      let default = Ty.TyFloat fsize in
+      let tuple =
+        match fsize with
+        | Some _ ->
+            (kosu_env, default)
+        | None ->
+            let t = Ty.fresh_variable_type () in
+            let kosu_env =
+              KosuEnv.add_typing_constraint ~lhs:t ~rhs:default expr kosu_env
+            in
+            (kosu_env, t)
+      in
+      tuple
   | ESizeof either ->
       let kosu_env =
         match either with
@@ -78,11 +102,13 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         match typeof with
         | TyIdentifier { module_resolver = _; parametrics_type = _; name = _ }
           as ty ->
+            (* let () = Printf.printf "direct found = %s\n" (KosuPrint.string_of_kosu_type ty) in  *)
             KosuEnv.find_struct_declaration_type ty kosu_env
         | TyPolymorphic ty ->
             let ty =
               match KosuEnv.try_solve ty kosu_env with
               | Some ty ->
+                  (* let () = Printf.printf "field found = %s\n" (KosuPrint.string_of_kosu_type ty) in  *)
                   KosuEnv.find_struct_declaration_type ty kosu_env
               | None ->
                   failwith "After solve not goot type"

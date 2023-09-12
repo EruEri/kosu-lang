@@ -481,7 +481,7 @@ module Struct = struct
     let fields =
       List.map
         (fun (name, ty) ->
-          let ty = Ty.ty_substitution [] assoc ty in
+          let ty = Ty.ty_substitution kosu_struct_decl.poly_vars assoc ty in
           (name, ty)
         )
         kosu_struct_decl.fields

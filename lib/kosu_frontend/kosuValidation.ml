@@ -25,6 +25,9 @@ let validate_kosu_node kosu_program current_module = function
   | NExternFunc _ ->
       ok
   | NFunction kosu_function_decl ->
+      let () =
+        Printf.printf "Fuction %s\n%!" kosu_function_decl.fn_name.value
+      in
       (* Check that poly vars in type are bound in the fields *)
       (* Check function unitity in the module *)
       (* chach that each type exit *)
