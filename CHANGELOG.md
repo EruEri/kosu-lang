@@ -1,7 +1,7 @@
 # Changelog
 
 ## **[Unrealeased]**
-- [Remove Kosu virtual machine]()
+- [Remove Kosu virtual machine](https://github.com/EruEri/kosu-lang/pull/76)
 
 
 ## **0.4.0**
