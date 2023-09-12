@@ -446,6 +446,74 @@ module Ty = struct
         TyFunctionPtr { poly_vars; parameters_type; return_type }
 end
 
+module Enum = struct
+  let to_unlocated (enum_decl : KosuAst.kosu_enum_decl) :
+      KosuAst.kosu_raw_enum_decl =
+    let enum_name = enum_decl.enum_name.value in
+    let poly_vars = List.map Ty.of_tyloc_polymorphic enum_decl.poly_vars in
+    let tag_type = Ty.of_tyloc' enum_decl.tag_type in
+    let variants =
+      List.map
+        (fun (variant, assoc_type) ->
+          let tytes = List.map Ty.of_tyloc' assoc_type in
+          let variant = Position.value variant in
+          (variant, tytes)
+        )
+        enum_decl.variants
+    in
+    { enum_name; poly_vars; tag_type; variants }
+
+  (**
+      [substitution module_resolver types kosu_enum_decl] replaces the type variable in 
+      [kosu_enum_decl] by there value in [types].
+      Returns [None] if [types] hasn't the same length as [kosu_enum_decl.poly_vars]
+  *)
+  let substitution module_resolver types
+      (kosu_enum_decl : KosuAst.kosu_enum_decl) =
+    let kosu_enum_decl = to_unlocated kosu_enum_decl in
+    let ( let* ) = Option.bind in
+    let* assoc =
+      match List.combine kosu_enum_decl.poly_vars types with
+      | assoc ->
+          Some assoc
+      | exception _ ->
+          None
+    in
+    let variants =
+      List.map
+        (fun (name, assoc_types) ->
+          let assoc_types =
+            List.map
+              (Ty.ty_substitution kosu_enum_decl.poly_vars assoc)
+              assoc_types
+          in
+          (name, assoc_types)
+        )
+        kosu_enum_decl.variants
+    in
+
+    let ty =
+      KosuType.Ty.TyIdentifier
+        {
+          module_resolver;
+          parametrics_type = types;
+          name = kosu_enum_decl.enum_name;
+        }
+    in
+    Option.some @@ ({ kosu_enum_decl with variants }, ty)
+
+  (**
+    [substitution_fresh ~fresh module_resolver kosu_enum_decl] substitutes the type variable
+    in [kosu_enum_decl] by the values provided by [fresh]
+  *)
+  let substitution_fresh ~fresh module_resolver
+      (kosu_enum_decl : KosuAst.kosu_enum_decl) =
+    let fresh_variable =
+      List.map (fun _ -> fresh ()) kosu_enum_decl.poly_vars
+    in
+    Option.get @@ substitution module_resolver fresh_variable kosu_enum_decl
+end
+
 module Struct = struct
   let to_unlocated (struct_decl : KosuAst.kosu_struct_decl) :
       KosuAst.kosu_raw_struct_decl =

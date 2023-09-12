@@ -43,12 +43,18 @@ let validate_kosu_node kosu_program current_module = function
           )
           kosu_env kosu_function_decl.parameters
       in
-      let _env, _ty =
+      let env, ty =
         match KosuTypechecking.typeof kosu_env kosu_function_decl.body with
         | res ->
             res
         | exception e ->
             raise e
+      in
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      let _kosu_env =
+        KosuEnv.add_typing_constraint
+          ~lhs:(KosuUtil.Ty.of_tyloc' kosu_function_decl.return_type)
+          ~rhs:ty kosu_function_decl.body kosu_env
       in
       ok
   | NSyscall _ ->

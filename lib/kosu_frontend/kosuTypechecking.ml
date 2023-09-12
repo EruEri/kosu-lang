@@ -149,6 +149,16 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         match ty with
         | TyArray { ktype; size = _ } ->
             ktype
+        | TyPolymorphic ty ->
+            let ty =
+              match KosuEnv.try_solve ty kosu_env with
+              | Some ty ->
+                  (* let () = Printf.printf "field found = %s\n" (KosuPrint.string_of_kosu_type ty) in  *)
+                  ty
+              | None ->
+                  failwith "After solve not goot type"
+            in
+            ty
         | _ ->
             failwith "Array access of no array type"
       in
