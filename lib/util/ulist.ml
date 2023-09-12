@@ -137,4 +137,12 @@ let rec map_some f = function
       let* list = map_some f q in
       Option.some @@ (res :: list)
 
+let rec fold_some f acc = function
+  | [] ->
+      Option.some acc
+  | t :: q ->
+      let ( let* ) = Option.bind in
+      let* acc = f acc t in
+      fold_some f acc q
+
 let is_empty = function [] -> true | _ :: _ -> false

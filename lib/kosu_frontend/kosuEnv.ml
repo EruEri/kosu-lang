@@ -288,7 +288,16 @@ let try_solve ty_var kosu_env =
   | constra :: constraints ->
       let ty_ty_vars = KosuType.Ty.TyPolymorphic ty_var in
       let first = Option.get @@ KosuTypeConstraint.other ty_ty_vars constra in
-      let ty =
-        List.fold_left (fun ty_acc elt_ty -> failwith "") first constraints
+      let elts_types =
+        List.map
+          (fun t -> Option.get @@ KosuTypeConstraint.other ty_ty_vars t)
+          constraints
       in
-      Some ty
+      let ty =
+        Util.Ulist.fold_some
+          (fun ty_acc elt_ty ->
+            KosuTypeConstraint.restrict ~with_ty:elt_ty ty_acc
+          )
+          first elts_types
+      in
+      ty

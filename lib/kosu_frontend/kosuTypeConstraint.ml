@@ -133,7 +133,7 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
       TyPointer _ ) ->
       None
   | TyInteger lhs, TyInteger rhs ->
-      let* integer_info =
+      let integer_info =
         match (lhs, rhs) with
         | None, info | info, None ->
             info
@@ -154,6 +154,244 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
         | Some (Worded _), Some (Sized _) | Some (Sized _), Some (Worded _) ->
             None
       in
-      return @@ TyInteger (Some integer_info)
-  | _ ->
+      return @@ TyInteger integer_info
+  | ( TyInteger _,
+      ( TyFloat _
+      | TyFunctionPtr _
+      | TyClosure _
+      | TyInnerClosureId _
+      | TyArray _
+      | TyTuple _
+      | TyOpaque _
+      | TyOrdered
+      | TyStringLit
+      | TyChar
+      | TyBool
+      | TyUnit ) )
+  | ( ( TyFloat _
+      | TyFunctionPtr _
+      | TyClosure _
+      | TyInnerClosureId _
+      | TyArray _
+      | TyTuple _
+      | TyOpaque _
+      | TyOrdered
+      | TyStringLit
+      | TyChar
+      | TyBool
+      | TyUnit ),
+      TyInteger _ ) ->
+      None
+  | TyFloat linfo, TyFloat rinfo ->
+      let info =
+        match (linfo, rinfo) with
+        | None, info | info, None ->
+            info
+        | Some lhs, Some rhs ->
+            let* fsize =
+              match lhs = rhs with true -> Some lhs | false -> None
+            in
+            Some fsize
+      in
+      return @@ TyFloat info
+  | ( TyFloat _,
+      ( TyFunctionPtr _
+      | TyClosure _
+      | TyInnerClosureId _
+      | TyArray _
+      | TyTuple _
+      | TyOpaque _
+      | TyOrdered
+      | TyStringLit
+      | TyChar
+      | TyBool
+      | TyUnit ) )
+  | ( ( TyFunctionPtr _
+      | TyClosure _
+      | TyInnerClosureId _
+      | TyArray _
+      | TyTuple _
+      | TyOpaque _
+      | TyOrdered
+      | TyStringLit
+      | TyChar
+      | TyBool
+      | TyUnit ),
+      TyFloat _ ) ->
+      None
+  | ( TyFunctionPtr { poly_vars = _; parameters_type = lpt; return_type = lrt },
+      TyFunctionPtr { poly_vars; parameters_type = rpt; return_type = rrt } ) ->
+      let* () =
+        match Util.Ulist.are_same_length lpt rpt with
+        | true ->
+            Some ()
+        | false ->
+            None
+      in
+      let parameters_type = List.combine lpt rpt in
+      let* parameters_type =
+        Util.Ulist.map_some
+          (fun (lhs, rhs) -> restrict ~with_ty:lhs rhs)
+          parameters_type
+      in
+      let* return_type = restrict ~with_ty:lrt rrt in
+
+      return @@ TyFunctionPtr { poly_vars; parameters_type; return_type }
+  | ( TyFunctionPtr _,
+      ( TyClosure _
+      | TyInnerClosureId _
+      | TyArray _
+      | TyTuple _
+      | TyOpaque _
+      | TyOrdered
+      | TyStringLit
+      | TyChar
+      | TyBool
+      | TyUnit ) )
+  | ( ( TyClosure _
+      | TyInnerClosureId _
+      | TyArray _
+      | TyTuple _
+      | TyOpaque _
+      | TyOrdered
+      | TyStringLit
+      | TyChar
+      | TyBool
+      | TyUnit ),
+      TyFunctionPtr _ ) ->
+      None
+  | ( TyClosure { poly_vars = _; parameters_type = lpt; return_type = lrt },
+      TyClosure { poly_vars; parameters_type = rpt; return_type = rrt } ) ->
+      let* () =
+        match Util.Ulist.are_same_length lpt rpt with
+        | true ->
+            Some ()
+        | false ->
+            None
+      in
+      let parameters_type = List.combine lpt rpt in
+      let* parameters_type =
+        Util.Ulist.map_some
+          (fun (lhs, rhs) -> restrict ~with_ty:lhs rhs)
+          parameters_type
+      in
+      let* return_type = restrict ~with_ty:lrt rrt in
+
+      return @@ TyClosure { poly_vars; parameters_type; return_type }
+  | ( TyClosure _,
+      ( TyInnerClosureId _
+      | TyArray _
+      | TyTuple _
+      | TyOpaque _
+      | TyOrdered
+      | TyStringLit
+      | TyChar
+      | TyBool
+      | TyUnit ) )
+  | ( ( TyInnerClosureId _
+      | TyArray _
+      | TyTuple _
+      | TyOpaque _
+      | TyOrdered
+      | TyStringLit
+      | TyChar
+      | TyBool
+      | TyUnit ),
+      TyClosure _ ) ->
+      None
+  | TyInnerClosureId linner, TyInnerClosureId rinner ->
+      (* How to handle id ... *)
+      let () = ignore (linner, rinner) in
       failwith ""
+  | ( TyInnerClosureId _,
+      ( TyArray _
+      | TyTuple _
+      | TyOpaque _
+      | TyOrdered
+      | TyStringLit
+      | TyChar
+      | TyBool
+      | TyUnit ) )
+  | ( ( TyArray _
+      | TyTuple _
+      | TyOpaque _
+      | TyOrdered
+      | TyStringLit
+      | TyChar
+      | TyBool
+      | TyUnit ),
+      TyInnerClosureId _ ) ->
+      None
+  | ( TyArray { ktype = ltype; size = lsize },
+      TyArray { ktype = rtype; size = rsize } ) ->
+      let* size =
+        match lsize = rsize with true -> Some lsize | false -> None
+      in
+      let* ktype = restrict ~with_ty:ltype rtype in
+      return @@ TyArray { ktype; size }
+  | ( TyArray _,
+      ( TyTuple _
+      | TyOpaque _
+      | TyOrdered
+      | TyStringLit
+      | TyChar
+      | TyBool
+      | TyUnit ) )
+  | ( ( TyTuple _
+      | TyOpaque _
+      | TyOrdered
+      | TyStringLit
+      | TyChar
+      | TyBool
+      | TyUnit ),
+      TyArray _ ) ->
+      None
+  | TyTuple lttes, TyTuple rttes ->
+      let* () =
+        match Util.Ulist.are_same_length lttes rttes with
+        | true ->
+            Some ()
+        | false ->
+            None
+      in
+      let ttes = List.combine lttes rttes in
+      let* ttes =
+        Util.Ulist.map_some (fun (lhs, rhs) -> restrict ~with_ty:lhs rhs) ttes
+      in
+      return @@ TyTuple ttes
+  | TyTuple _, (TyOpaque _ | TyOrdered | TyStringLit | TyChar | TyBool | TyUnit)
+  | (TyOpaque _ | TyOrdered | TyStringLit | TyChar | TyBool | TyUnit), TyTuple _
+    ->
+      None
+  | ( TyOpaque { module_resolver = lmr; name = lname },
+      TyOpaque { module_resolver = rmr; name = rname } ) ->
+      let* module_resolver =
+        match lmr = rmr with true -> Some lmr | false -> None
+      in
+      let* name =
+        match lname = rname with true -> Some lname | false -> None
+      in
+      return @@ TyOpaque { module_resolver; name }
+  | TyOpaque _, (TyOrdered | TyStringLit | TyChar | TyBool | TyUnit)
+  | (TyOrdered | TyStringLit | TyChar | TyBool | TyUnit), TyOpaque _ ->
+      None
+  | (TyOrdered as ty), TyOrdered ->
+      return ty
+  | TyOrdered, (TyStringLit | TyChar | TyBool | TyUnit)
+  | (TyStringLit | TyChar | TyBool | TyUnit), TyOrdered ->
+      None
+  | (TyStringLit as ty), TyStringLit ->
+      return ty
+  | TyStringLit, (TyChar | TyBool | TyUnit)
+  | (TyChar | TyBool | TyUnit), TyStringLit ->
+      None
+  | (TyChar as ty), TyChar ->
+      return ty
+  | TyChar, (TyBool | TyUnit) | (TyBool | TyUnit), TyChar ->
+      None
+  | (TyBool as ty), TyBool ->
+      return ty
+  | TyBool, TyUnit | TyUnit, TyBool ->
+      None
+  | (TyUnit as ty), TyUnit ->
+      Some ty
