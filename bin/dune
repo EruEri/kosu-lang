@@ -30,19 +30,3 @@
  (libraries kosuCli)
  (flags
   (:standard -g)))
-
-(executable
- (public_name kosuc.bc)
- (modules kosuc_bc)
- (name kosuc_bc)
- (libraries kosucbcCli)
- (flags
-  (:standard -g)))
-
-(executable
- (public_name kosurun)
- (name kosurun)
- (modules kosurun)
- (libraries kosucbcCli)
- (flags
-  (:standard -g)))
