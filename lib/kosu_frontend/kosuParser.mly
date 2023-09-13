@@ -559,7 +559,7 @@ kosu_pattern:
         let () = ignore module_resolver in
         PIdentifier id
     }
-    | module_resolver=module_resolver enum_name=enum_resolver DOT 
+    | module_resolver=module_resolver enum_name=enum_resolver 
         variant=located(Identifier) 
         assoc_patterns=loption(parenthesis(separated_nonempty_list(COMMA, located(kosu_pattern))))  {
         PCase {
