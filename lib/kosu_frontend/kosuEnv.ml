@@ -114,21 +114,6 @@ let add_typing_constraint ~lhs ~rhs (location : 'a Position.location) env =
       KosuTypeConstraintSet.add constr env.env_tying_constraint;
   }
 
-(**
-  [add_module kosu_module kosu_env] adds the module [kosu_module] to the list of opened modules in [kosu_env]
-*)
-let add_module kosu_module kosu_env =
-  { kosu_env with opened_modules = kosu_module :: kosu_env.opened_modules }
-
-(**
-  [add_variable const identifier kosu_type kosu_env] extends the variable environment [kosu_env] by the binding of [identifier] with the type [kosu_type]
-*)
-let add_variable is_const identifier kosu_type kosu_env =
-  {
-    kosu_env with
-    env_variable = { is_const; identifier; kosu_type } :: kosu_env.env_variable;
-  }
-
 (** 
   [assoc_type_opt name kosu_env] returns the type associated with the identifier [name] in the variable environment [kosu_env].
   Returns [None] if [name] doesn't exist in [kosu_env]
@@ -141,6 +126,33 @@ let assoc_type_opt name kosu_env =
 
 (** [mem name kosu_env] checks if the identifier [name] exists in the variable environment [kosu_env]*)
 let mem name kosu_env = Option.is_some @@ assoc_type_opt name kosu_env
+
+(**
+  [add_module kosu_module kosu_env] adds the module [kosu_module] to the list of opened modules in [kosu_env]
+*)
+let add_module kosu_module kosu_env =
+  { kosu_env with opened_modules = kosu_module :: kosu_env.opened_modules }
+
+(**
+  [add_variable ?check const identifier kosu_type kosu_env] extends the variable environment [kosu_env] by the binding of [identifier] with the type [kosu_type]
+
+  if [check], the function will raise [KosuError.IdentifierAlreadyBound] with [identifier] already exist in [kosu_env]
+
+  @raise KosuErr(IdentifierAlreadyBound)
+*)
+let add_variable ?(check = true) is_const identifier kosu_type kosu_env =
+  let exist = mem identifier.Position.value kosu_env in
+  let () =
+    match check with
+    | true when exist ->
+        raise @@ KosuError.identifier_already_bound identifier
+    | true | false ->
+        ()
+  in
+  {
+    kosu_env with
+    env_variable = { is_const; identifier; kosu_type } :: kosu_env.env_variable;
+  }
 
 let modules kosu_env = kosu_env.opened_modules
 

@@ -479,24 +479,23 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
           else_body.kosu_expr kosu_env
       in
       let kosu_env =
-        cases
-        |> List.fold_left
-             (fun kosu_env (condition_expr, body) ->
-               let env, ty = typeof kosu_env condition_expr in
-               let kosu_env = KosuEnv.merge_constraint env kosu_env in
-               let kosu_env =
-                 KosuEnv.add_typing_constraint ~lhs:ty ~rhs:TyBool
-                   condition_expr kosu_env
-               in
-               let env, body_ty = typeof_block kosu_env body in
-               let kosu_env = KosuEnv.merge_constraint env kosu_env in
-               let kosu_env =
-                 KosuEnv.add_typing_constraint ~lhs:body_ty ~rhs:fresh_type
-                   body.kosu_expr kosu_env
-               in
-               kosu_env
-             )
-             kosu_env
+        List.fold_left
+          (fun kosu_env (condition_expr, body) ->
+            let env, ty = typeof kosu_env condition_expr in
+            let kosu_env = KosuEnv.merge_constraint env kosu_env in
+            let kosu_env =
+              KosuEnv.add_typing_constraint ~lhs:ty ~rhs:TyBool condition_expr
+                kosu_env
+            in
+            let env, body_ty = typeof_block kosu_env body in
+            let kosu_env = KosuEnv.merge_constraint env kosu_env in
+            let kosu_env =
+              KosuEnv.add_typing_constraint ~lhs:body_ty ~rhs:fresh_type
+                body.kosu_expr kosu_env
+            in
+            kosu_env
+          )
+          kosu_env cases
       in
       (kosu_env, fresh_type)
   | EMatch { expression; patterns } ->
