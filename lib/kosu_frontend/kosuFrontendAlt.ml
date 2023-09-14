@@ -23,3 +23,11 @@ module Parsing = KosuParsing
 module Error = KosuError
 module Print = KosuPrint
 module Validation = KosuValidation
+
+let register_exn () =
+  Printexc.register_printer (function
+    | Error.KosuErr kosu ->
+        Option.some @@ Print.string_of_kosu_error "" kosu
+    | _ ->
+        None
+    )

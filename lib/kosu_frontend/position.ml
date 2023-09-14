@@ -40,3 +40,8 @@ let dummy_located value = { value; position = dummy }
 
 (* Temporary location *)
 let filename_of_module s = s |> List.map value |> String.concat Filename.dir_sep
+
+let line_column_of_position p =
+  let line_number = p.Lexing.pos_lnum in
+  let column = p.Lexing.pos_cnum - p.Lexing.pos_bol + 1 in
+  (line_number, column)
