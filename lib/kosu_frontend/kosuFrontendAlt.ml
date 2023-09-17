@@ -26,8 +26,10 @@ module Validation = KosuValidation
 
 let register_exn () =
   Printexc.register_printer (function
-    | Error.KosuErr kosu ->
-        Option.some @@ Print.string_of_kosu_error "" kosu
+    | Error.KosuRawErr kosu ->
+        Option.some @@ Print.string_of_kosu_error String.empty kosu
+    | Error.KosuErr (filename, kosu) ->
+        Option.some @@ Print.string_of_kosu_error filename kosu
     | _ ->
         None
     )

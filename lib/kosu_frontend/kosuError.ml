@@ -44,20 +44,21 @@ type kosu_error =
   | UnboundModule of KosuBaseAst.module_resolver_loc
   | IdentifierAlreadyBound of string Position.location
 
-exception KosuErr of kosu_error
+exception KosuRawErr of kosu_error
+exception KosuErr of string * kosu_error
 exception KosuLexerError of kosu_lexer_error
 
-let kosu_error e = KosuErr e
+let kosu_raw_error e = KosuRawErr e
 let kosu_lexer_error e = KosuLexerError e
-let analytics_error e = kosu_error @@ AnalyticsError e
-let sizeof_polytype p = kosu_error @@ SizeofPolymorphicType p
-let deref_non_pointer e = kosu_error @@ DerefNonPointerType e
+let analytics_error e = kosu_raw_error @@ AnalyticsError e
+let sizeof_polytype p = kosu_raw_error @@ SizeofPolymorphicType p
+let deref_non_pointer e = kosu_raw_error @@ DerefNonPointerType e
 
 let pattern_already_bound_identifier e =
-  kosu_error @@ PatternAlreadyBoundIdentifier e
+  kosu_raw_error @@ PatternAlreadyBoundIdentifier e
 
 let pattern_identifier_not_bound e =
-  kosu_error @@ PatternIdentifierNotBoundEveryTime e
+  kosu_raw_error @@ PatternIdentifierNotBoundEveryTime e
 
-let unbound_module e = kosu_error @@ UnboundModule e
-let identifier_already_bound e = kosu_error @@ IdentifierAlreadyBound e
+let unbound_module e = kosu_raw_error @@ UnboundModule e
+let identifier_already_bound e = kosu_raw_error @@ IdentifierAlreadyBound e

@@ -18,6 +18,7 @@
 open KosuAst
 
 let ok = Ok ()
+let ( let* ) = Result.bind
 
 let validate_kosu_node kosu_program current_module = function
   | NOpaque _ ->
@@ -43,12 +44,12 @@ let validate_kosu_node kosu_program current_module = function
           )
           kosu_env kosu_function_decl.parameters
       in
-      let env, ty =
+      let* env, ty =
         match KosuTypechecking.typeof kosu_env kosu_function_decl.body with
         | res ->
-            res
-        | exception e ->
-            raise e
+            Ok res
+        | exception KosuError.KosuRawErr e ->
+            Error e
       in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       let _kosu_env =

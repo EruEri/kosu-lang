@@ -138,7 +138,7 @@ let add_module kosu_module kosu_env =
 
   if [check], the function will raise [KosuError.IdentifierAlreadyBound] with [identifier] already exist in [kosu_env]
 
-  @raise KosuErr(IdentifierAlreadyBound)
+  @raise KosuRawErr(IdentifierAlreadyBound)
 *)
 let add_variable ?(check = true) is_const identifier kosu_type kosu_env =
   let exist = mem identifier.Position.value kosu_env in

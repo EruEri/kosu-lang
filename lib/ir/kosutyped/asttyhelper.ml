@@ -1276,8 +1276,8 @@ module RProgram = struct
                 parameters
                 |> List.combine function_decl.rparameters
                 |> List.map
-                     (fun
-                       ((_, type_decl), ({ rktype; rexpression = _ } as te)) ->
+                     (fun ((_, type_decl), ({ rktype; rexpression = _ } as te))
+                     ->
                        (* let () = Printf.printf "te: %s\n\n" (Asttypprint.string_of_typed_expression te) in *)
                        let _ =
                          Function.is_type_compatible_hashgen maped_type rktype
