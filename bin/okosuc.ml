@@ -97,8 +97,8 @@ let run cmd =
     | Error e ->
         failwith @@ Printf.sprintf "unsported file %s" e
   in
-  let () = KosuFrontendAlt.register_exn () in
 
+  (* let () = KosuFrontendAlt.register_exn () in *)
   let kosu_program =
     match KosuFrontendAlt.Parsing.kosu_program kosu_files with
     | Ok kosu_program ->

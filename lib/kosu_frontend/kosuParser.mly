@@ -569,10 +569,17 @@ kosu_pattern:
             assoc_patterns
         }
     }
-    |  module_resolver=module_resolver struct_name=located(Identifier) DOT pfields=bracketed(
-        trailing_separated_list(SEMICOLON, 
-            splitted(located(Identifier), EQUAL, located(kosu_pattern))
+    |  module_resolver=module_resolver struct_name=located(Identifier) pfields=bracketed(
+        trailing_separated_list(COMMA, 
+            i=located(Identifier) p=option(preceded(EQUAL, located(kosu_pattern))) {i, p}
         )) {
+            let pfields = List.map (fun (identifier, pattern) -> 
+                let p = match pattern with
+                    | Some p -> p
+                    | None -> Position.map_use (fun id -> PIdentifier id ) identifier
+                in
+                identifier, p
+            ) pfields in
             PRecord {
                 module_resolver;
                 struct_name;

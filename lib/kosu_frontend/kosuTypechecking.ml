@@ -661,11 +661,153 @@ and typeof_pattern scrutinee_type kosu_env
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       (indentifiers, (kosu_env, ty_pattern))
   | PCase { module_resolver; enum_name; variant; assoc_patterns } ->
-      let () = ignore (module_resolver, enum_name, variant, assoc_patterns) in
-      failwith "PCASES"
+      let module PIB = PatternIdentifierBound in
+      let name = Option.map Position.value enum_name in
+      let module_loc, enum_decl =
+        match
+          KosuEnv.find_enum_declaration module_resolver name variant kosu_env
+        with
+        | Some l ->
+            l
+        | None ->
+            failwith "No module found"
+      in
+      let enum_decl, enum_ty =
+        KosuUtil.Enum.substitution_fresh ~fresh:Ty.fresh_variable_type
+          module_loc enum_decl
+      in
+      let enum_associated_type =
+        match KosuUtil.Enum.assoc_types variant.value enum_decl with
+        | Some assoc_types ->
+            assoc_types
+        | None ->
+            failwith "No variant name"
+      in
+      let assoc_types_exprs =
+        match List.combine enum_associated_type assoc_patterns with
+        | combined ->
+            combined
+        | exception _ ->
+            failwith "Wrong field arrity for enum"
+      in
+      let env, bound_typed =
+        List.fold_left_map
+          (fun kosu_env (enum_type, enum_pattern) ->
+            let fresh_ty = fresh_variable_type () in
+            let bound, (env, ty) =
+              typeof_pattern fresh_ty kosu_env enum_pattern
+            in
+            let env =
+              KosuEnv.add_typing_constraint ~lhs:fresh_ty ~rhs:ty enum_pattern
+                env
+            in
+            let env =
+              KosuEnv.add_typing_constraint ~lhs:enum_type ~rhs:fresh_ty
+                enum_pattern env
+            in
+            let kosu_env = KosuEnv.merge_constraint env kosu_env in
+            (kosu_env, (bound, ty))
+          )
+          kosu_env assoc_types_exprs
+      in
+      let bound_variable, _ = List.split bound_typed in
+      let indentifier_set =
+        List.fold_left
+          (fun set t_bounds_ty ->
+            let comming = PIB.of_list t_bounds_ty in
+            let intersection = PIB.inter comming set in
+            let () =
+              match PIB.is_empty intersection with
+              | true ->
+                  ()
+              | false ->
+                  raise @@ pattern_already_bound_identifier @@ List.map fst
+                  @@ PIB.elements intersection
+            in
+            PIB.union comming set
+          )
+          PIB.empty bound_variable
+      in
+      let indentifiers = PIB.elements indentifier_set in
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      (indentifiers, (kosu_env, enum_ty))
   | PRecord { module_resolver; struct_name; pfields } ->
-      let () = ignore (module_resolver, struct_name, pfields) in
-      failwith ""
+      let module PIB = PatternIdentifierBound in
+      let module_resolver, struct_decl =
+        match
+          KosuEnv.find_struct_declaration
+            (module_resolver, struct_name)
+            kosu_env
+        with
+        | Some decl ->
+            decl
+        | None ->
+            failwith "No struct found"
+      in
+      let struct_decl, struct_ty =
+        KosuUtil.Struct.substitution_fresh ~fresh:Ty.fresh_variable_type
+          module_resolver struct_decl
+      in
+      let combined_fields =
+        match List.combine struct_decl.fields pfields with
+        | combined ->
+            combined
+        | exception _ ->
+            failwith "Wrong field arrity"
+      in
+      let env, bound_variable =
+        List.fold_left_map
+          (fun kosu_env
+               ((struct_name, struct_type), (pattern_name, pattern_pattern)) ->
+            let () =
+              match struct_name = pattern_name.value with
+              | true ->
+                  ()
+              | false ->
+                  failwith "Struct pattern init not matching name"
+            in
+            let fresh_ty = fresh_variable_type () in
+            let bound, (env, ty) =
+              typeof_pattern fresh_ty kosu_env pattern_pattern
+            in
+            let env =
+              KosuEnv.add_typing_constraint ~lhs:fresh_ty ~rhs:ty
+                pattern_pattern env
+            in
+            let env =
+              KosuEnv.add_typing_constraint ~lhs:fresh_ty ~rhs:struct_type
+                pattern_pattern env
+            in
+            let kosu_env = KosuEnv.merge_constraint env kosu_env in
+            (kosu_env, bound)
+          )
+          kosu_env combined_fields
+      in
+      let indentifier_set =
+        List.fold_left
+          (fun set t_bounds_ty ->
+            let () =
+              Printf.printf "comming [%s]\n"
+              @@ String.concat ", "
+              @@ List.map (fun (s, _) -> s.value) t_bounds_ty
+            in
+            let comming = PIB.of_list t_bounds_ty in
+            let intersection = PIB.inter comming set in
+            let () =
+              match PIB.is_empty intersection with
+              | true ->
+                  ()
+              | false ->
+                  raise @@ pattern_already_bound_identifier @@ List.map fst
+                  @@ PIB.elements intersection
+            in
+            PIB.union comming set
+          )
+          PIB.empty bound_variable
+      in
+      let indentifiers = PIB.elements indentifier_set in
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      (indentifiers, (kosu_env, struct_ty))
   | POr patterns ->
       let module PIB = PatternIdentifierBound in
       let fresh_ty = fresh_variable_type () in
