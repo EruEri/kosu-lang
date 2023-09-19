@@ -26,7 +26,7 @@ module ModuleResolver = struct
 
   let empty_module = ModuleResolverLoc []
 
-  let of_filename name =
+  let of_filename_raw name =
     (* Should be reversed since file are stacked in reverse order*)
     let rec split s =
       let root_dir = "." in
@@ -42,7 +42,9 @@ module ModuleResolver = struct
           basename :: split dirname
     in
     let modules = List.rev @@ split name in
-    ModuleResolver_ modules
+    modules
+
+  let of_filename name = ModuleResolver_ (of_filename_raw name)
 
   let to_unlocated = function
     | ModuleResolverLoc l ->
@@ -602,6 +604,9 @@ end
 module Expression = struct end
 
 module Module = struct
+  let filename_of_module s =
+    s |> List.map Position.value |> String.concat Filename.dir_sep
+
   let constant_decls kosu_module =
     let open KosuAst in
     kosu_module
@@ -719,10 +724,15 @@ end
 module Program = struct
   let find_module_opt (KosuBaseAst.ModuleResolverLoc modules) kosu_program =
     let open KosuAst in
-    let module_name = Position.filename_of_module modules in
+    let module_name = Module.filename_of_module modules in
     kosu_program
     |> List.find_map (fun { filename; kosu_module } ->
-           match filename = module_name with
+           let module_filename =
+             Module.filename_of_module
+             @@ List.map Position.dummy_located
+             @@ ModuleResolver.of_filename_raw filename
+           in
+           match module_filename = module_name with
            | true ->
                Some kosu_module
            | false ->

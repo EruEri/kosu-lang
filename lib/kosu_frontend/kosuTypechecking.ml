@@ -108,7 +108,10 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
             let ty =
               match KosuEnv.try_solve ty kosu_env with
               | Some ty ->
-                  (* let () = Printf.printf "field found = %s\n" (KosuPrint.string_of_kosu_type ty) in  *)
+                  let () =
+                    Printf.printf "field found = %s\n"
+                      (KosuPrint.string_of_kosu_type ty)
+                  in
                   KosuEnv.find_struct_declaration_type ty kosu_env
               | None ->
                   failwith "After solve not goot type"
@@ -530,7 +533,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
           )
           kosu_env patterns
       in
-      (kosu_env, scrutinee_type)
+      (kosu_env, fresh_variable_ty)
   | EAnonFunction { kind; parameters; body } ->
       let () = ignore (kind, parameters, body) in
       failwith "TODO: EAnonFunction"

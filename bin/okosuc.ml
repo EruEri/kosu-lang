@@ -106,7 +106,7 @@ let run cmd =
     | Error e ->
         raise @@ KosuFrontendAlt.Error.analytics_error e
   in
-  let _ =
+  let () =
     match KosuFrontendAlt.Validation.validate kosu_program with
     | Ok () ->
         ()

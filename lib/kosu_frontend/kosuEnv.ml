@@ -136,7 +136,7 @@ let add_module kosu_module kosu_env =
 (**
   [add_variable ?check const identifier kosu_type kosu_env] extends the variable environment [kosu_env] by the binding of [identifier] with the type [kosu_type]
 
-  if [check], the function will raise [KosuError.IdentifierAlreadyBound] with [identifier] already exist in [kosu_env]
+  if [check], the function will raise [KosuError.IdentifierAlreadyBound] if [identifier] already exist in [kosu_env]
 
   @raise KosuRawErr(IdentifierAlreadyBound)
 *)
@@ -172,17 +172,8 @@ let resolve_module kosu_module kosu_env =
        )
        kosu_env.program
 
-let find_module_opt (KosuBaseAst.ModuleResolverLoc modules) kosu_env =
-  let open KosuAst in
-  let module_name = Position.filename_of_module modules in
-  kosu_env.program
-  |> List.find_map (fun { filename; kosu_module } ->
-         match filename = module_name with
-         | true ->
-             Some kosu_module
-         | false ->
-             None
-     )
+let find_module_opt module_resolver kosu_env =
+  KosuUtil.Program.find_module_opt module_resolver kosu_env.program
 
 (** 
   [free_ty_variable bound acc ty kosu_env] returns all the type variable within [ty] as [acc] which 
@@ -248,7 +239,7 @@ let free_ty_variable =
 
 (**
     [find_declaration ~fmodule ~ffilter module_resolver kosu_env] try to find a
-    declaration kind specified by [fmodule] and sort the elements by applying [ffilter] 
+    declaration kind specified by [fmodule] and filter the elements by applying [ffilter] 
     to the return of [fmodule]
     If [module_resolver] is empty, the function will try to find the declaration in the opened modules of [kosu_env]
     If the module doesn't exist or no identifier matching is found, return [None].

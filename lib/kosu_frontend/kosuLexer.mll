@@ -26,11 +26,11 @@
     [
         ("as", AS); ("array", ARRAY); ("const", CONST); ("cases", CASES);
         ("closure", CLOSURE); ("discard", DISCARD); ("enum", ENUM); 
-        ("external", EXTERNAL); ("eq", CMP_EQUAL); ("fn", FUNCTION);
-        ("false", FALSE); ("gt", CMP_GREATER); ("lt", CMP_GREATER);
-        ("match", MATCH); ("mut", MUT); ("nullmutptr", NULLMUTPTR); 
-        ("nullptr", NULLPTR); ("struct", STRUCT); ("syscall", SYSCALL); 
-        ("of", OF); ("open", OPEN); ("opaque", OPAQUE); ("true", TRUE);  
+        ("external", EXTERNAL); ("eq", CMP_EQUAL); ("else", ELSE); 
+        ("fn", FUNCTION); ("false", FALSE); ("gt", CMP_GREATER); 
+        ("lt", CMP_GREATER); ("match", MATCH); ("mut", MUT); 
+        ("nullmutptr", NULLMUTPTR); ("nullptr", NULLPTR); ("struct", STRUCT); 
+        ("syscall", SYSCALL); ("of", OF); ("open", OPEN); ("opaque", OPAQUE); ("true", TRUE);  
         ("type", TYPE); ("sizeof", SIZEOF); ("if", IF); ("var", VAR);
         ("while", WHILE)
 
