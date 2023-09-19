@@ -98,7 +98,7 @@ let run cmd =
         failwith @@ Printf.sprintf "unsported file %s" e
   in
 
-  (* let () = KosuFrontendAlt.register_exn () in *)
+  let () = KosuFrontendAlt.register_exn () in
   let kosu_program =
     match KosuFrontendAlt.Parsing.kosu_program kosu_files with
     | Ok kosu_program ->
@@ -106,7 +106,13 @@ let run cmd =
     | Error e ->
         raise @@ KosuFrontendAlt.Error.analytics_error e
   in
-  let _ = KosuFrontendAlt.Validation.validate kosu_program in
+  let _ =
+    match KosuFrontendAlt.Validation.validate kosu_program with
+    | Ok () ->
+        ()
+    | Error e ->
+        raise @@ KosuFrontendAlt.Error.kosu_error e
+  in
   ()
 
 let eval () = run |> kosuc |> Cmd.eval ~catch:true

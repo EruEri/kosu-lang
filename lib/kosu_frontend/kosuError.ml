@@ -48,6 +48,7 @@ exception KosuRawErr of kosu_error
 exception KosuErr of string * kosu_error
 exception KosuLexerError of kosu_lexer_error
 
+let kosu_error (f, e) = KosuErr (f, e)
 let kosu_raw_error e = KosuRawErr e
 let kosu_lexer_error e = KosuLexerError e
 let analytics_error e = kosu_raw_error @@ AnalyticsError e
