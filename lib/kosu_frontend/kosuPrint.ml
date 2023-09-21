@@ -251,6 +251,9 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       in
       let sloc = string_of_located_error s in
       sfile @@ sloc @@ sprintf "Unbound Module : %s" s.value
+  | UnboundIdentifier i ->
+      let sloc = string_of_located_error i in
+      sfile @@ sloc @@ sprintf "Unbound idenfier : %s" i.value
   | IdentifierAlreadyBound identifier ->
       let sloc = string_of_located_error identifier in
       sfile @@ sloc

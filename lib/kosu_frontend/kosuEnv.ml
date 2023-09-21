@@ -70,6 +70,9 @@ let add_bound_poly_vars poly_vars kosu_env =
         kosu_env.env_bound_ty_vars;
   }
 
+let replace_bound_poly_vars poly_vars kosu_env =
+  { kosu_env with env_bound_ty_vars = KosuTypeVariableSet.of_list poly_vars }
+
 let current_module kosu_env =
   let rec last = function [] -> None | t :: [] -> Some t | _ :: q -> last q in
   match last kosu_env.opened_modules with
@@ -176,19 +179,18 @@ let find_module_opt module_resolver kosu_env =
   KosuUtil.Program.find_module_opt module_resolver kosu_env.program
 
 (** 
-  [free_ty_variable bound acc ty kosu_env] returns all the type variable within [ty] as [acc] which 
-  aren't bound to an existing type variable in [kosu_env] and in [bound]
+  [free_ty_variable acc ty kosu_env] returns all the type variable within [ty] as [acc] which 
+  aren't bound to an existing type variable in [kosu_env]
 *)
-let rec free_ty_variable bound acc ty kosu_env =
+let rec free_ty_variable acc ty kosu_env =
   let open KosuType.Ty in
   match ty with
   | TyPolymorphic variable ->
-      let condition =
+      let is_bound =
         KosuTypeVariableSet.mem variable kosu_env.env_bound_ty_vars
-        && (not @@ KosuTypeVariableSet.mem variable bound)
       in
       let acc =
-        match condition with
+        match is_bound with
         | true ->
             acc
         | false ->
@@ -199,27 +201,24 @@ let rec free_ty_variable bound acc ty kosu_env =
   | TyClosure schema
   (* Should captured variabe be in the compuation ? *)
   | TyInnerClosureId (ClosureType { id = _; env = _; schema }) ->
-      let bound =
-        KosuTypeVariableSet.add_seq (List.to_seq schema.poly_vars) bound
-      in
+      let kosu_env = add_bound_poly_vars schema.poly_vars kosu_env in
+
       let acc =
         List.fold_left
-          (fun acc ty -> free_ty_variable bound acc ty kosu_env)
+          (fun acc ty -> free_ty_variable acc ty kosu_env)
           acc schema.parameters_type
       in
-      let acc = free_ty_variable bound acc schema.return_type kosu_env in
+      let acc = free_ty_variable acc schema.return_type kosu_env in
       acc
   | TyIdentifier { parametrics_type = tys; module_resolver = _; name = _ }
   | TyTuple tys ->
       let acc =
-        List.fold_left
-          (fun acc ty -> free_ty_variable bound acc ty kosu_env)
-          acc tys
+        List.fold_left (fun acc ty -> free_ty_variable acc ty kosu_env) acc tys
       in
       acc
   | TyPointer { pointee_type = ktype; pointer_state = _ }
   | TyArray { ktype; size = _ } ->
-      free_ty_variable bound acc ktype kosu_env
+      free_ty_variable acc ktype kosu_env
   | TyInteger _
   | TyOpaque _
   | TyFloat _
@@ -234,8 +233,13 @@ let rec free_ty_variable bound acc ty kosu_env =
   [free_ty_variable ty kosu_env] returns all the type variable within [ty] which 
   aren't bound to an existing type variable in [kosu_env]
 *)
-let free_ty_variable =
-  free_ty_variable KosuTypeVariableSet.empty KosuTypeVariableSet.empty
+let free_ty_variable = free_ty_variable KosuTypeVariableSet.empty
+
+(**
+    [is_ty_variable_bound ty kosu_env] checks if type variable [ty] is bound in [kosu_env]
+*)
+let is_ty_variable_bound ty kosu_env =
+  KosuTypeVariableSet.mem ty kosu_env.env_bound_ty_vars
 
 (**
     [find_declaration ~fmodule ~ffilter module_resolver kosu_env] try to find a
@@ -378,3 +382,22 @@ let try_solve ty_var kosu_env =
           first elts_types
       in
       ty
+
+let find_or_try_solve f ty kosu_env =
+  match f ty with
+  | None ->
+      None
+  | Some (Either.Left t) ->
+      Some t
+  | Some (Either.Right p) -> (
+      match try_solve p kosu_env with
+      | Some t -> (
+          match f t with
+          | None | Some (Either.Right _) ->
+              None
+          | Some (Either.Left t) ->
+              Some t
+        )
+      | None ->
+          None
+    )

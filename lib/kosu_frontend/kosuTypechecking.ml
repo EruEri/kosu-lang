@@ -167,10 +167,13 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       let env, ty = typeof kosu_env index_expr in
-      let () =
+      let kosu_env =
         match ty with
         | TyInteger _ ->
-            ()
+            kosu_env
+        | TyPolymorphic _ ->
+            KosuEnv.add_typing_constraint ~lhs:ty ~rhs:(Ty.TyInteger None)
+              index_expr kosu_env
         | _ ->
             failwith "Arrayy subscript with on integer type"
       in
@@ -178,14 +181,22 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       (kosu_env, ty_elt)
   | ETupleAccess { first_expr; index } ->
       let env, ty = typeof kosu_env first_expr in
-      let ty_elts =
-        match ty with
-        | TyTuple elts ->
-            elts
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      let try_expect_tuple = function
+        | Ty.TyTuple tes ->
+            Option.some @@ Either.left tes
+        | Ty.TyPolymorphic p ->
+            Option.some @@ Either.right p
         | _ ->
             failwith "Tuple access of no tuple type"
       in
-      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      let ty_elts =
+        match KosuEnv.find_or_try_solve try_expect_tuple ty kosu_env with
+        | Some t ->
+            t
+        | None ->
+            failwith "Cannot specialie type"
+      in
       let ty =
         match List.nth_opt ty_elts (Int64.to_int index.value) with
         | Some ty ->
@@ -567,8 +578,91 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
       in
       kosu_env
   | SAffection { is_deref; lvalue; expression } ->
-      let () = ignore (is_deref, lvalue, expression) in
-      failwith "Affectation"
+      let find_identifier_type t env =
+        match t with
+        | Ty.TyIdentifier _ as t ->
+            t
+        | TyPolymorphic p ->
+            let ty =
+              match KosuEnv.try_solve p env with
+              | Some (TyIdentifier _ as t) ->
+                  t
+              | Some _ | None ->
+                  failwith "Not identifier type: after solving"
+            in
+            ty
+        | _ ->
+            failwith "Not ideintifiet type"
+      in
+      let env, ty = typeof kosu_env expression in
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      let (KosuLvalue { variable; fields }) = lvalue in
+      let variable_info =
+        match KosuEnv.assoc_type_opt variable.value kosu_env with
+        | Some t ->
+            t
+        | None ->
+            raise @@ KosuError.unbound_identifier variable
+      in
+      let () =
+        match variable_info.is_const with
+        | true when not is_deref ->
+            failwith "Reassign const"
+        | false | true ->
+            ()
+      in
+      let kosu_env =
+        match fields with
+        | [] ->
+            let expected_type =
+              let t = Ty.fresh_variable_type () in
+              match is_deref with
+              | true ->
+                  Ty.TyPointer { pointer_state = Mutable; pointee_type = t }
+              | false ->
+                  t
+            in
+            kosu_env
+            |> KosuEnv.add_typing_constraint ~lhs:variable_info.kosu_type
+                 ~rhs:expected_type expression
+            |> KosuEnv.add_typing_constraint ~lhs:variable_info.kosu_type
+                 ~rhs:ty variable
+        | t :: q ->
+            let struct_type =
+              match is_deref with
+              | false ->
+                  let struct_type =
+                    find_identifier_type variable_info.kosu_type kosu_env
+                  in
+                  struct_type
+              | true ->
+                  let try_expect_mutable_pointer kosu_type =
+                    match kosu_type with
+                    | Ty.TyPointer { pointer_state = Mutable; pointee_type } ->
+                        Option.some @@ Either.left pointee_type
+                    | Ty.TyPolymorphic p ->
+                        Option.some @@ Either.right p
+                    | Ty.TyPointer { pointer_state = Const; pointee_type = _ }
+                      ->
+                        failwith "Cannot deref pointer type"
+                    | _ ->
+                        failwith "Not pointer type"
+                  in
+                  let base_ty =
+                    match
+                      KosuEnv.find_or_try_solve try_expect_mutable_pointer
+                        variable_info.kosu_type kosu_env
+                    with
+                    | Some t ->
+                        t
+                    | None ->
+                        failwith "Cannot specialiste type"
+                  in
+                  find_identifier_type base_ty kosu_env
+            in
+            failwith ""
+      in
+      kosu_env
   | SDiscard expression ->
       let env, _ = typeof kosu_env expression in
       KosuEnv.merge_constraint env kosu_env

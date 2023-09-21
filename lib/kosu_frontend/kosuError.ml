@@ -42,6 +42,7 @@ type kosu_error =
   | PatternAlreadyBoundIdentifier of string Position.location list
   | PatternIdentifierNotBoundEveryTime of string Position.location list
   | UnboundModule of KosuBaseAst.module_resolver_loc
+  | UnboundIdentifier of string Position.location
   | IdentifierAlreadyBound of string Position.location
 
 exception KosuRawErr of kosu_error
@@ -62,4 +63,5 @@ let pattern_identifier_not_bound e =
   kosu_raw_error @@ PatternIdentifierNotBoundEveryTime e
 
 let unbound_module e = kosu_raw_error @@ UnboundModule e
+let unbound_identifier e = kosu_raw_error @@ UnboundIdentifier e
 let identifier_already_bound e = kosu_raw_error @@ IdentifierAlreadyBound e

@@ -44,6 +44,13 @@ let validate_kosu_node kosu_program current_module = function
           )
           kosu_env kosu_function_decl.parameters
       in
+      let kosu_env =
+        KosuEnv.add_bound_poly_vars
+          (List.map KosuUtil.Ty.of_tyloc_polymorphic
+             kosu_function_decl.poly_vars
+          )
+          kosu_env
+      in
       let* env, ty =
         match KosuTypechecking.typeof kosu_env kosu_function_decl.body with
         | res ->
