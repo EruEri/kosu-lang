@@ -404,12 +404,28 @@ let find_or_try_solve f ty kosu_env =
 
 let rec resolve_field_type fields struct_type kosu_env =
   let ( let* ) = Result.bind in
+  let try_solve_identifier = function
+    | KosuType.Ty.TyIdentifier _ as t ->
+        Option.some @@ Either.left t
+    | KosuType.Ty.TyPolymorphic p ->
+        Option.some @@ Either.right p
+    | _ ->
+        failwith "Not a struct type"
+  in
+  let struct_type =
+    match find_or_try_solve try_solve_identifier struct_type kosu_env with
+    | Some t ->
+        t
+    | None ->
+        failwith "Cannot specialiste type"
+  in
   let* module_resolver, struct_decl =
     match find_struct_declaration_type struct_type kosu_env with
     | Some tuple ->
         Ok tuple
     | None ->
-        Result.error @@ KosuError.no_struct_decl_for_type (failwith "")
+        Result.error @@ KosuError.no_struct_decl_for_type
+        @@ Position.dummy_located struct_type
   in
   let parametrics_type = KosuUtil.Ty.parametrics_type struct_type in
   let* struct_decl_specialised, _ =

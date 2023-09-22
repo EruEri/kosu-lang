@@ -148,7 +148,7 @@ rule token = parse
 | (number as n) (integer_sigdness as sign) (integer_size as size) {
     let open KosuUtil.IntegerInfo in
     let open KosuUtil.TyLoc in
-    let signdess = if sign = 'u' then signed else unsigned in
+    let signdess = if sign = 'u' then unsigned else signed in
     let info = match size with
     | "8" ->  sized (signdess, isize_8 )
     | "16" -> sized (signdess, isize_16 )
