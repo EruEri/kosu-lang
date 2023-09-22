@@ -309,7 +309,7 @@ let find_enum_declaration module_resolver enum_name variant kosu_env =
     ~ffilter module_resolver kosu_env
 
 (**
-    [find_struct_declaration_type ty kosu_env] try to find a struct declaration for type [ty] in [kosu_env]
+    [find_struct_declaration_type ty kosu_env] tries to find a struct declaration for type [ty] in [kosu_env]
 *)
 let find_struct_declaration_type (ty : KosuType.Ty.kosu_type) kosu_env =
   match ty with
@@ -401,3 +401,41 @@ let find_or_try_solve f ty kosu_env =
       | None ->
           None
     )
+
+let rec resolve_field_type fields struct_type kosu_env =
+  let ( let* ) = Result.bind in
+  let* module_resolver, struct_decl =
+    match find_struct_declaration_type struct_type kosu_env with
+    | Some tuple ->
+        Ok tuple
+    | None ->
+        Result.error @@ KosuError.no_struct_decl_for_type (failwith "")
+  in
+  let parametrics_type = KosuUtil.Ty.parametrics_type struct_type in
+  let* struct_decl_specialised, _ =
+    match
+      KosuUtil.Struct.substitution module_resolver parametrics_type struct_decl
+    with
+    | Some couple ->
+        Ok couple
+    | None ->
+        failwith "Wrong arity"
+  in
+  let field_type f str =
+    str
+    |> KosuUtil.Struct.field f.Position.value
+    |> Option.to_result
+         ~none:
+           (KosuError.field_not_in_struct
+              (KosuUtil.Struct.to_unlocated struct_decl)
+              f
+           )
+  in
+  match fields with
+  | [] ->
+      failwith "Shound be reached"
+  | t :: [] ->
+      field_type t struct_decl_specialised
+  | t :: q ->
+      let* field_type = field_type t struct_decl_specialised in
+      resolve_field_type q field_type kosu_env

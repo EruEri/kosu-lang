@@ -627,7 +627,7 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
                  ~rhs:expected_type expression
             |> KosuEnv.add_typing_constraint ~lhs:variable_info.kosu_type
                  ~rhs:ty variable
-        | t :: q ->
+        | _ :: _ ->
             let struct_type =
               match is_deref with
               | false ->
@@ -660,7 +660,15 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
                   in
                   find_identifier_type base_ty kosu_env
             in
-            failwith ""
+            let ty_field =
+              match KosuEnv.resolve_field_type fields struct_type kosu_env with
+              | Ok t ->
+                  t
+              | Error e ->
+                  raise e
+            in
+            KosuEnv.add_typing_constraint ~lhs:ty_field ~rhs:ty expression
+              kosu_env
       in
       kosu_env
   | SDiscard expression ->

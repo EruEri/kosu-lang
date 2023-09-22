@@ -258,3 +258,13 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       let sloc = string_of_located_error identifier in
       sfile @@ sloc
       @@ sprintf "Identifier \"%s\" is already defined" identifier.value
+  | NoFieldInStruct { struct_decl; field } ->
+      let sloc = string_of_located_error field in
+      sloc @@ sfile
+      @@ sprintf "Struct \"%s\" doesnt' have a field \"%s\""
+           struct_decl.struct_name field.value
+  | NoStructDeclFoundForType ty ->
+      let sloc = string_of_located_error ty in
+      sloc @@ sfile
+      @@ sprintf "Type %s isn't the type of a struct"
+      @@ string_of_kosu_type @@ value ty

@@ -44,6 +44,11 @@ type kosu_error =
   | UnboundModule of KosuBaseAst.module_resolver_loc
   | UnboundIdentifier of string Position.location
   | IdentifierAlreadyBound of string Position.location
+  | NoFieldInStruct of {
+      struct_decl : KosuAst.kosu_raw_struct_decl;
+      field : string Position.location;
+    }
+  | NoStructDeclFoundForType of KosuType.Ty.kosu_type Position.location
 
 exception KosuRawErr of kosu_error
 exception KosuErr of string * kosu_error
@@ -65,3 +70,8 @@ let pattern_identifier_not_bound e =
 let unbound_module e = kosu_raw_error @@ UnboundModule e
 let unbound_identifier e = kosu_raw_error @@ UnboundIdentifier e
 let identifier_already_bound e = kosu_raw_error @@ IdentifierAlreadyBound e
+
+let field_not_in_struct struct_decl field =
+  kosu_raw_error @@ NoFieldInStruct { struct_decl; field }
+
+let no_struct_decl_for_type t = kosu_raw_error @@ NoStructDeclFoundForType t
