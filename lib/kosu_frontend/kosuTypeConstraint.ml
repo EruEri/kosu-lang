@@ -415,91 +415,97 @@ let reduce lhs rhs =
   let some = Option.some in
   let left = Either.left in
   let right = Either.right in
-  match (lhs, rhs) with
-  | TyPolymorphic (PolymorphicVar _ as p), ty
-  | ty, TyPolymorphic (PolymorphicVar _ as p) ->
-      (* Should check if p appears in ty*)
-      some @@ left (p, ty)
-  | ( TyIdentifier
-        { module_resolver = lmr; parametrics_type = lpt; name = lname },
-      TyIdentifier
-        { module_resolver = rmr; parametrics_type = rpt; name = rname } ) ->
-      let* _ = match lmr = rmr with true -> Some lmr | false -> None in
-      let* _ = match lname = rname with true -> Some lname | false -> None in
-      let* _ =
-        match Util.Ulist.are_same_length lpt rpt with
-        | true ->
-            Some ()
-        | false ->
-            None
-      in
-      some @@ right @@ List.combine lpt rpt
-  | TyIdentifier _, _ ->
-      None
-  | ( TyPointer { pointer_state = lstate; pointee_type = ltype },
-      TyPointer { pointer_state = rstate; pointee_type = rtype } ) ->
-      let* _ =
-        match lstate = rstate with true -> Some lstate | false -> None
-      in
-      some @@ right @@ ((ltype, rtype) :: [])
-  | TyPointer _, _ ->
-      failwith ""
-  | TyInteger _, TyInteger _ ->
-      rhs |> restrict ~with_ty:lhs |> Option.map @@ fun _ -> right []
-  | TyInteger _, _ ->
-      None
-  | TyFloat _, TyFloat _ ->
-      rhs |> restrict ~with_ty:lhs |> Option.map @@ fun _ -> right []
-  | TyFloat _, _ ->
-      None
-  | ( TyFunctionPtr { poly_vars = _; parameters_type = lpt; return_type = lrt },
-      TyFunctionPtr { poly_vars = _; parameters_type = rpt; return_type = rrt }
-    )
-  | ( TyClosure { poly_vars = _; parameters_type = lpt; return_type = lrt },
-      TyClosure { poly_vars = _; parameters_type = rpt; return_type = rrt } ) ->
-      let* () =
-        match Util.Ulist.are_same_length lpt rpt with
-        | true ->
-            Some ()
-        | false ->
-            None
-      in
-      let param_constraints = List.combine lpt rpt in
-      let fn_constrains = (lrt, rrt) :: param_constraints in
-      some @@ right fn_constrains
-  | (TyFunctionPtr _ | TyClosure _), _ ->
-      None
-  | TyInnerClosureId linner, TyInnerClosureId rinner ->
-      (* How to handle id ... *)
-      let () = ignore (linner, rinner) in
-      failwith ""
-  | TyInnerClosureId _, _ ->
-      None
-  | ( TyArray { ktype = ltype; size = lsize },
-      TyArray { ktype = rtype; size = rsize } ) ->
-      let* () = match lsize = rsize with true -> Some () | false -> None in
-      some @@ right @@ ((ltype, rtype) :: [])
-  | TyArray _, _ ->
-      None
-  | TyTuple lttes, TyTuple rttes ->
-      let* () =
-        match Util.Ulist.are_same_length lttes rttes with
-        | true ->
-            Some ()
-        | false ->
-            None
-      in
-      some @@ right @@ List.combine lttes rttes
-  | TyTuple _, _ ->
-      None
-  | ( TyOpaque { module_resolver = lmr; name = lname },
-      TyOpaque { module_resolver = rmr; name = rname } ) ->
-      let* () = match lmr = rmr with true -> Some () | false -> None in
-      let* () = match lname = rname with true -> Some () | false -> None in
-      some @@ right []
-  | TyOpaque _, _ ->
-      None
-  (* Remains type than can be check trivially *)
-  | ((TyStringLit | TyOrdered | TyChar | TyBool | TyUnit) as l), r ->
-      let res = match l = r with true -> some @@ right [] | false -> None in
-      res
+  if lhs = rhs then
+    some @@ right @@ []
+  else
+    match (lhs, rhs) with
+    | TyPolymorphic (PolymorphicVar _ as p), ty
+    | ty, TyPolymorphic (PolymorphicVar _ as p) ->
+        (* Should check if p appears in ty*)
+        some @@ left (p, ty)
+    | ( TyIdentifier
+          { module_resolver = lmr; parametrics_type = lpt; name = lname },
+        TyIdentifier
+          { module_resolver = rmr; parametrics_type = rpt; name = rname } ) ->
+        let* _ = match lmr = rmr with true -> Some lmr | false -> None in
+        let* _ =
+          match lname = rname with true -> Some lname | false -> None
+        in
+        let* _ =
+          match Util.Ulist.are_same_length lpt rpt with
+          | true ->
+              Some ()
+          | false ->
+              None
+        in
+        some @@ right @@ List.combine lpt rpt
+    | TyIdentifier _, _ ->
+        None
+    | ( TyPointer { pointer_state = lstate; pointee_type = ltype },
+        TyPointer { pointer_state = rstate; pointee_type = rtype } ) ->
+        let* _ =
+          match lstate = rstate with true -> Some lstate | false -> None
+        in
+        some @@ right @@ ((ltype, rtype) :: [])
+    | TyPointer _, _ ->
+        failwith ""
+    | TyInteger _, TyInteger _ ->
+        rhs |> restrict ~with_ty:lhs |> Option.map @@ fun _ -> right []
+    | TyInteger _, _ ->
+        None
+    | TyFloat _, TyFloat _ ->
+        rhs |> restrict ~with_ty:lhs |> Option.map @@ fun _ -> right []
+    | TyFloat _, _ ->
+        None
+    | ( TyFunctionPtr { poly_vars = _; parameters_type = lpt; return_type = lrt },
+        TyFunctionPtr
+          { poly_vars = _; parameters_type = rpt; return_type = rrt } )
+    | ( TyClosure { poly_vars = _; parameters_type = lpt; return_type = lrt },
+        TyClosure { poly_vars = _; parameters_type = rpt; return_type = rrt } )
+      ->
+        let* () =
+          match Util.Ulist.are_same_length lpt rpt with
+          | true ->
+              Some ()
+          | false ->
+              None
+        in
+        let param_constraints = List.combine lpt rpt in
+        let fn_constrains = (lrt, rrt) :: param_constraints in
+        some @@ right fn_constrains
+    | (TyFunctionPtr _ | TyClosure _), _ ->
+        None
+    | TyInnerClosureId linner, TyInnerClosureId rinner ->
+        (* How to handle id ... *)
+        let () = ignore (linner, rinner) in
+        failwith ""
+    | TyInnerClosureId _, _ ->
+        None
+    | ( TyArray { ktype = ltype; size = lsize },
+        TyArray { ktype = rtype; size = rsize } ) ->
+        let* () = match lsize = rsize with true -> Some () | false -> None in
+        some @@ right @@ ((ltype, rtype) :: [])
+    | TyArray _, _ ->
+        None
+    | TyTuple lttes, TyTuple rttes ->
+        let* () =
+          match Util.Ulist.are_same_length lttes rttes with
+          | true ->
+              Some ()
+          | false ->
+              None
+        in
+        some @@ right @@ List.combine lttes rttes
+    | TyTuple _, _ ->
+        None
+    | ( TyOpaque { module_resolver = lmr; name = lname },
+        TyOpaque { module_resolver = rmr; name = rname } ) ->
+        let* () = match lmr = rmr with true -> Some () | false -> None in
+        let* () = match lname = rname with true -> Some () | false -> None in
+        some @@ right []
+    | TyOpaque _, _ ->
+        None
+    (* Remains type than can be check trivially *)
+    | ((TyStringLit | TyOrdered | TyChar | TyBool | TyUnit) as l), r ->
+        let res = match l = r with true -> some @@ right [] | false -> None in
+        res

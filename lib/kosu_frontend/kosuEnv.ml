@@ -492,21 +492,15 @@ let rec resolve_field_type fields struct_type kosu_env =
       resolve_field_type q field_type kosu_env
 
 let rec solve solutions eqs =
-  let () =
-    Printf.printf "Cardinal = %u\n" @@ KosuTypeConstraintSet.cardinal eqs
-  in
   match KosuTypeConstraintSet.choose_opt eqs with
   | None ->
       solutions
   | Some equation ->
       let eqs = KosuTypeConstraintSet.remove equation eqs in
-      let () =
-        Printf.printf "Cardinal = %u\n" @@ KosuTypeConstraintSet.cardinal eqs
-      in
       let solutions, eqs =
         match KosuTypeConstraint.reduce equation.clhs equation.crhs with
         | Some (Left (p, ty)) ->
-            let _eq_appears, _ =
+            let eq_appears, eq_others =
               KosuTypeConstraintSet.partition
                 (fun constr ->
                   Option.is_some
@@ -515,30 +509,28 @@ let rec solve solutions eqs =
                 )
                 eqs
             in
-            (* let ty_fold =
-                 match try_solve_set p eq_appears with
-                 | Some fty ->
-                   fty
-                 | None ->
-                     ty
-               in
-               let ty =
-                 match KosuTypeConstraint.restrict ~with_ty:ty ty_fold with
-                 | Some t ->
-                     t
-                 | None ->
-                     failwith "Error fold type"
-               in *)
+            let ty_fold =
+              match try_solve_set p eq_appears with
+              | Some ty_f ->
+                  ty_f
+              | None ->
+                  ty
+            in
+            let ty =
+              match KosuTypeConstraint.restrict ~with_ty:ty ty_fold with
+              | Some t ->
+                  t
+              | None ->
+                  failwith "Error fold type"
+            in
             let solutions = KosuTypingSolution.add p ty solutions in
             let eqs =
-              KosuTypeConstraintSet.map (KosuTypeConstraint.substitute p ty) eqs
+              KosuTypeConstraintSet.map
+                (KosuTypeConstraint.substitute p ty)
+                eq_others
             in
             (solutions, eqs)
         | Some (Right new_constrains) ->
-            let () =
-              Printf.printf "new consttaints cardinal = %u\n"
-              @@ List.length new_constrains
-            in
             let new_constrains_set =
               KosuTypeConstraintSet.of_list
               @@ List.map
