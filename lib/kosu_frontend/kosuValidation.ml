@@ -64,7 +64,16 @@ let validate_kosu_node kosu_program current_module = function
           ~lhs:(KosuUtil.Ty.of_tyloc' kosu_function_decl.return_type)
           ~rhs:ty kosu_function_decl.body kosu_env
       in
-      let _solutions = KosuEnv.solve kosu_env in
+      let solutions = KosuEnv.solve kosu_env in
+      let () =
+        KosuEnv.KosuTypingSolution.iter
+          (fun key value ->
+            Printf.printf "-> %s = %s\n"
+              (KosuPrint.string_of_polymorphic_var key)
+              (KosuPrint.string_of_kosu_type value)
+          )
+          solutions
+      in
       ok
   | NSyscall _ ->
       ok

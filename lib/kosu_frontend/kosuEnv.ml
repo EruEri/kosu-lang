@@ -343,6 +343,14 @@ let find_callable_declaration module_resolver identifier kosu_env =
     ~ffilter:(fun _ -> true)
     module_resolver kosu_env
 
+let equations_set ty_var set =
+  KosuTypeConstraintSet.filter
+    (fun { clhs; crhs; position = _ } ->
+      let ty_var = KosuType.Ty.TyPolymorphic ty_var in
+      clhs = ty_var || crhs = ty_var
+    )
+    set
+
 (**
   [equations ty_var kosu_env] filters the equations collected in [kosu_env] by
   equation where [ty_vars] appears
@@ -354,6 +362,28 @@ let equations ty_var kosu_env =
       clhs = ty_var || crhs = ty_var
     )
     kosu_env.env_tying_constraint
+
+let try_solve_set ty_var set =
+  let eqs = KosuTypeConstraintSet.elements @@ equations_set ty_var set in
+  match eqs with
+  | [] ->
+      None
+  | constra :: constraints ->
+      let ty_ty_vars = KosuType.Ty.TyPolymorphic ty_var in
+      let first = Option.get @@ KosuTypeConstraint.other ty_ty_vars constra in
+      let elts_types =
+        List.map
+          (fun t -> Option.get @@ KosuTypeConstraint.other ty_ty_vars t)
+          constraints
+      in
+      let ty =
+        Util.Ulist.fold_some
+          (fun ty_acc elt_ty ->
+            KosuTypeConstraint.restrict ~with_ty:elt_ty ty_acc
+          )
+          first elts_types
+      in
+      ty
 
 (**
   [try_solve ty_var kosu_env] try to solve the equations collected in [kosu_env] where
@@ -462,25 +492,66 @@ let rec resolve_field_type fields struct_type kosu_env =
       resolve_field_type q field_type kosu_env
 
 let rec solve solutions eqs =
+  let () =
+    Printf.printf "Cardinal = %u\n" @@ KosuTypeConstraintSet.cardinal eqs
+  in
   match KosuTypeConstraintSet.choose_opt eqs with
   | None ->
       solutions
   | Some equation ->
       let eqs = KosuTypeConstraintSet.remove equation eqs in
+      let () =
+        Printf.printf "Cardinal = %u\n" @@ KosuTypeConstraintSet.cardinal eqs
+      in
       let solutions, eqs =
         match KosuTypeConstraint.reduce equation.clhs equation.crhs with
         | Some (Left (p, ty)) ->
+            let _eq_appears, _ =
+              KosuTypeConstraintSet.partition
+                (fun constr ->
+                  Option.is_some
+                  @@ KosuTypeConstraint.other (KosuType.Ty.TyPolymorphic p)
+                       constr
+                )
+                eqs
+            in
+            (* let ty_fold =
+                 match try_solve_set p eq_appears with
+                 | Some fty ->
+                   fty
+                 | None ->
+                     ty
+               in
+               let ty =
+                 match KosuTypeConstraint.restrict ~with_ty:ty ty_fold with
+                 | Some t ->
+                     t
+                 | None ->
+                     failwith "Error fold type"
+               in *)
             let solutions = KosuTypingSolution.add p ty solutions in
             let eqs =
               KosuTypeConstraintSet.map (KosuTypeConstraint.substitute p ty) eqs
             in
             (solutions, eqs)
         | Some (Right new_constrains) ->
+            let () =
+              Printf.printf "new consttaints cardinal = %u\n"
+              @@ List.length new_constrains
+            in
             let new_constrains_set =
               KosuTypeConstraintSet.of_list
               @@ List.map
                    (fun (clhs, crhs) ->
-                     KosuType.Ty.{ clhs; crhs; position = equation.position }
+                     let c =
+                       KosuType.Ty.{ clhs; crhs; position = equation.position }
+                     in
+                     let () =
+                       Printf.printf "l = %s, r = %s\n"
+                         (KosuPrint.string_of_kosu_type clhs)
+                         (KosuPrint.string_of_kosu_type crhs)
+                     in
+                     c
                    )
                    new_constrains
             in
@@ -489,7 +560,7 @@ let rec solve solutions eqs =
         | None ->
             raise @@ KosuError.typing_error equation
       in
-      let () = Printf.printf "Cardinal = %u\n" @@ KosuTypeConstraintSet.cardinal eqs in
+
       solve solutions eqs
 
 let solve kosu_env =

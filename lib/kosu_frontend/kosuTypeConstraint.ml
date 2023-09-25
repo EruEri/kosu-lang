@@ -18,7 +18,7 @@
 type t = KosuType.Ty.kosu_type_constraint
 
 let compare (lhs : t) (rhs : t) =
-  match compare lhs.clhs rhs.clhs with 0 -> compare lhs.clhs rhs.crhs | n -> n
+  match compare lhs.clhs rhs.clhs with 0 -> compare lhs.crhs rhs.crhs | n -> n
 
 module KosuTypingSolution = Map.Make (struct
   type t = KosuType.Ty.kosu_type_polymorphic
