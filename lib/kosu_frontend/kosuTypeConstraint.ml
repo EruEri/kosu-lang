@@ -20,6 +20,12 @@ type t = KosuType.Ty.kosu_type_constraint
 let compare (lhs : t) (rhs : t) =
   match compare lhs.clhs rhs.clhs with 0 -> compare lhs.clhs rhs.crhs | n -> n
 
+module KosuTypingSolution = Map.Make (struct
+  type t = KosuType.Ty.kosu_type_polymorphic
+
+  let compare = Stdlib.compare
+end)
+
 (**
     [other ty equation] returns the other side of [ty] in the equation [equation].
     Returns [None] if [ty] isn't part of [equation] 
@@ -395,3 +401,54 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
       None
   | (TyUnit as ty), TyUnit ->
       Some ty
+
+let rec reduce lhs rhs =
+  let open KosuType.Ty in
+  let ( let* ) = Option.bind in
+  let some = Option.some in
+  match (lhs, rhs) with
+  | TyPolymorphic (PolymorphicVar _ as p), ty
+  | ty, TyPolymorphic (PolymorphicVar _ as p) ->
+      (* Should check if p appears in ty*)
+      some @@ KosuTypingSolution.singleton p ty
+  | ( TyIdentifier
+        { module_resolver = lmr; parametrics_type = lpt; name = lname },
+      TyIdentifier
+        { module_resolver = rmr; parametrics_type = rpt; name = rname } ) ->
+      let* _ = match lmr = rmr with true -> Some lmr | false -> None in
+      let* _ = match lname = rname with true -> Some lname | false -> None in
+      let* _ =
+        match Util.Ulist.are_same_length lpt rpt with
+        | true ->
+            Some ()
+        | false ->
+            None
+      in
+      let parametrics_type = List.combine lpt rpt in
+      let* parametrics_type =
+        Util.Ulist.map_some (fun (lhs, rhs) -> reduce lhs rhs) parametrics_type
+      in
+      let set =
+        List.fold_left
+          (KosuTypingSolution.union
+          @@ fun _ ltype rtype ->
+          match restrict ~with_ty:ltype rtype with
+          | Some t ->
+              Some t
+          | None ->
+              failwith "Unrestrction parametic fails"
+          )
+          KosuTypingSolution.empty parametrics_type
+      in
+
+      some @@ set
+  | TyIdentifier _, _ ->
+      None
+  | ( TyPointer { pointer_state = lstate; pointee_type = ltype },
+      TyPointer { pointer_state = rstate; pointee_type = rtype } ) ->
+      let* _ =
+        match lstate = rstate with true -> Some lstate | false -> None
+      in
+      reduce ltype rtype
+  | _, _ ->
+      failwith ""

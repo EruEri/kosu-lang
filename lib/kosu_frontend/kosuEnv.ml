@@ -42,6 +42,7 @@ module KosuVariableInfo = struct
 end
 
 module KosuVariableInfoSet = Set.Make (KosuVariableInfo)
+module KosuTypingSolution = KosuTypeConstraint.KosuTypingSolution
 
 type kyo_tying_env = KosuVariableInfo.t list
 
@@ -402,6 +403,10 @@ let find_or_try_solve f ty kosu_env =
           None
     )
 
+(**
+  [resolve_field_type fields struct_type kosu_env] tries to find the type for [fields] with 
+  [struct_type] being the type of the struct declaration
+*)
 let rec resolve_field_type fields struct_type kosu_env =
   let ( let* ) = Result.bind in
   let try_solve_identifier = function
@@ -455,3 +460,11 @@ let rec resolve_field_type fields struct_type kosu_env =
   | t :: q ->
       let* field_type = field_type t struct_decl_specialised in
       resolve_field_type q field_type kosu_env
+
+let rec solve solution eqs =
+  match KosuTypeConstraintSet.max_elt_opt eqs with
+  | None ->
+      solution
+  | Some equation ->
+      let _eqs = KosuTypeConstraintSet.remove equation eqs in
+      failwith ""

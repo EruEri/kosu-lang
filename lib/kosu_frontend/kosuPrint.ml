@@ -268,3 +268,11 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       sloc @@ sfile
       @@ sprintf "Type %s isn't the type of a struct"
       @@ string_of_kosu_type @@ value ty
+  | TypingError { expected; found; position = p } ->
+      let sloc =
+        string_of_located_error Position.{ value = (); position = p }
+      in
+      sloc @@ sfile
+      @@ sprintf "Incompatible type : Expected \"%s\", Found \"%s\""
+           (string_of_kosu_type expected)
+           (string_of_kosu_type found)

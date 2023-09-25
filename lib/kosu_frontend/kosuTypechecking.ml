@@ -96,29 +96,25 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       (kosu_env, KosuUtil.(Ty.of_tyloc TyLoc.usize))
   | EFieldAccess { first_expr; field = sfield } ->
       (* instanciante todo*)
-      let env, typeof = typeof kosu_env first_expr in
+      let env, ty_expr = typeof kosu_env first_expr in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
-      let struct_decl_opt =
-        match typeof with
-        | TyIdentifier { module_resolver = _; parametrics_type = _; name = _ }
-          as ty ->
-            (* let () = Printf.printf "direct found = %s\n" (KosuPrint.string_of_kosu_type ty) in  *)
-            KosuEnv.find_struct_declaration_type ty kosu_env
-        | TyPolymorphic ty ->
-            let ty =
-              match KosuEnv.try_solve ty kosu_env with
-              | Some ty ->
-                  let () =
-                    Printf.printf "field found = %s\n"
-                      (KosuPrint.string_of_kosu_type ty)
-                  in
-                  KosuEnv.find_struct_declaration_type ty kosu_env
-              | None ->
-                  failwith "After solve not goot type"
-            in
-            ty
+      let try_find_ty = function
+        | Ty.TyIdentifier _ as ty ->
+            Option.some @@ Either.left ty
+        | Ty.TyPolymorphic p ->
+            Option.some @@ Either.right p
         | _ ->
-            failwith "Field access of not idenfiier type"
+            failwith "Fiead access of not identifier typee"
+      in
+      let ty_solve =
+        match KosuEnv.find_or_try_solve try_find_ty ty_expr kosu_env with
+        | Some t ->
+            t
+        | None ->
+            failwith "cannot get type identifier after solving"
+      in
+      let struct_decl_opt =
+        KosuEnv.find_struct_declaration_type ty_solve kosu_env
       in
       let module_resolver, struct_decl =
         match struct_decl_opt with
@@ -127,7 +123,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | None ->
             failwith "No struct decl found"
       in
-      let pametrics_type = KosuUtil.Ty.parametrics_type typeof in
+      let pametrics_type = KosuUtil.Ty.parametrics_type ty_expr in
       let struct_decl =
         match
           KosuUtil.Struct.substitution module_resolver pametrics_type
