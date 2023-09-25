@@ -49,11 +49,7 @@ type kosu_error =
       field : string Position.location;
     }
   | NoStructDeclFoundForType of KosuType.Ty.kosu_type Position.location
-  | TypingError of {
-      expected : KosuType.Ty.kosu_type;
-      found : KosuType.Ty.kosu_type;
-      position : Position.position;
-    }
+  | TypingError of KosuType.Ty.kosu_type_constraint
 
 exception KosuRawErr of kosu_error
 exception KosuErr of string * kosu_error
@@ -80,6 +76,4 @@ let field_not_in_struct struct_decl field =
   kosu_raw_error @@ NoFieldInStruct { struct_decl; field }
 
 let no_struct_decl_for_type t = kosu_raw_error @@ NoStructDeclFoundForType t
-
-let typing_error expected found position =
-  kosu_raw_error @@ TypingError { expected; found; position }
+let typing_error consts = kosu_raw_error @@ TypingError consts

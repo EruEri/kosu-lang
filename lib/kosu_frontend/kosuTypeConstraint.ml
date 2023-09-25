@@ -38,6 +38,13 @@ let other ty (equation : t) =
       match ty = equation.crhs with true -> Some equation.clhs | false -> None
     )
 
+let substitute ty_var by (equation : t) =
+  {
+    equation with
+    clhs = KosuUtil.Ty.ty_substitution [] [ (ty_var, by) ] equation.clhs;
+    crhs = KosuUtil.Ty.ty_substitution [] [ (ty_var, by) ] equation.crhs;
+  }
+
 let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
     =
   let open KosuType.Ty in
@@ -402,15 +409,17 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
   | (TyUnit as ty), TyUnit ->
       Some ty
 
-let rec reduce lhs rhs =
+let reduce lhs rhs =
   let open KosuType.Ty in
   let ( let* ) = Option.bind in
   let some = Option.some in
+  let left = Either.left in
+  let right = Either.right in
   match (lhs, rhs) with
   | TyPolymorphic (PolymorphicVar _ as p), ty
   | ty, TyPolymorphic (PolymorphicVar _ as p) ->
       (* Should check if p appears in ty*)
-      some @@ KosuTypingSolution.singleton p ty
+      some @@ left (p, ty)
   | ( TyIdentifier
         { module_resolver = lmr; parametrics_type = lpt; name = lname },
       TyIdentifier
@@ -424,24 +433,7 @@ let rec reduce lhs rhs =
         | false ->
             None
       in
-      let parametrics_type = List.combine lpt rpt in
-      let* parametrics_type =
-        Util.Ulist.map_some (fun (lhs, rhs) -> reduce lhs rhs) parametrics_type
-      in
-      let set =
-        List.fold_left
-          (KosuTypingSolution.union
-          @@ fun _ ltype rtype ->
-          match restrict ~with_ty:ltype rtype with
-          | Some t ->
-              Some t
-          | None ->
-              failwith "Unrestrction parametic fails"
-          )
-          KosuTypingSolution.empty parametrics_type
-      in
-
-      some @@ set
+      some @@ right @@ List.combine lpt rpt
   | TyIdentifier _, _ ->
       None
   | ( TyPointer { pointer_state = lstate; pointee_type = ltype },
@@ -449,6 +441,65 @@ let rec reduce lhs rhs =
       let* _ =
         match lstate = rstate with true -> Some lstate | false -> None
       in
-      reduce ltype rtype
-  | _, _ ->
+      some @@ right @@ ((ltype, rtype) :: [])
+  | TyPointer _, _ ->
       failwith ""
+  | TyInteger _, TyInteger _ ->
+      rhs |> restrict ~with_ty:lhs |> Option.map @@ fun _ -> right []
+  | TyInteger _, _ ->
+      None
+  | TyFloat _, TyFloat _ ->
+      rhs |> restrict ~with_ty:lhs |> Option.map @@ fun _ -> right []
+  | TyFloat _, _ ->
+      None
+  | ( TyFunctionPtr { poly_vars = _; parameters_type = lpt; return_type = lrt },
+      TyFunctionPtr { poly_vars = _; parameters_type = rpt; return_type = rrt }
+    )
+  | ( TyClosure { poly_vars = _; parameters_type = lpt; return_type = lrt },
+      TyClosure { poly_vars = _; parameters_type = rpt; return_type = rrt } ) ->
+      let* () =
+        match Util.Ulist.are_same_length lpt rpt with
+        | true ->
+            Some ()
+        | false ->
+            None
+      in
+      let param_constraints = List.combine lpt rpt in
+      let fn_constrains = (lrt, rrt) :: param_constraints in
+      some @@ right fn_constrains
+  | (TyFunctionPtr _ | TyClosure _), _ ->
+      None
+  | TyInnerClosureId linner, TyInnerClosureId rinner ->
+      (* How to handle id ... *)
+      let () = ignore (linner, rinner) in
+      failwith ""
+  | TyInnerClosureId _, _ ->
+      None
+  | ( TyArray { ktype = ltype; size = lsize },
+      TyArray { ktype = rtype; size = rsize } ) ->
+      let* () = match lsize = rsize with true -> Some () | false -> None in
+      some @@ right @@ ((ltype, rtype) :: [])
+  | TyArray _, _ ->
+      None
+  | TyTuple lttes, TyTuple rttes ->
+      let* () =
+        match Util.Ulist.are_same_length lttes rttes with
+        | true ->
+            Some ()
+        | false ->
+            None
+      in
+      some @@ right @@ List.combine lttes rttes
+  | TyTuple _, _ ->
+      None
+  | ( TyOpaque { module_resolver = lmr; name = lname },
+      TyOpaque { module_resolver = rmr; name = rname } ) ->
+      let* () = match lmr = rmr with true -> Some () | false -> None in
+      let* () = match lname = rname with true -> Some () | false -> None in
+      some @@ right []
+  | TyOpaque _, _ ->
+      None
+  (* Remains type than can be check trivially *)
+  | ((TyStringLit | TyOrdered | TyChar | TyBool | TyUnit) as l), r ->
+      let res = match l = r with true -> some @@ right [] | false -> None in
+      res

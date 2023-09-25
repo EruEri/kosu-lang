@@ -461,10 +461,36 @@ let rec resolve_field_type fields struct_type kosu_env =
       let* field_type = field_type t struct_decl_specialised in
       resolve_field_type q field_type kosu_env
 
-let rec solve solution eqs =
-  match KosuTypeConstraintSet.max_elt_opt eqs with
+let rec solve solutions eqs =
+  match KosuTypeConstraintSet.choose_opt eqs with
   | None ->
-      solution
+      solutions
   | Some equation ->
-      let _eqs = KosuTypeConstraintSet.remove equation eqs in
-      failwith ""
+      let eqs = KosuTypeConstraintSet.remove equation eqs in
+      let solutions, eqs =
+        match KosuTypeConstraint.reduce equation.clhs equation.crhs with
+        | Some (Left (p, ty)) ->
+            let solutions = KosuTypingSolution.add p ty solutions in
+            let eqs =
+              KosuTypeConstraintSet.map (KosuTypeConstraint.substitute p ty) eqs
+            in
+            (solutions, eqs)
+        | Some (Right new_constrains) ->
+            let new_constrains_set =
+              KosuTypeConstraintSet.of_list
+              @@ List.map
+                   (fun (clhs, crhs) ->
+                     KosuType.Ty.{ clhs; crhs; position = equation.position }
+                   )
+                   new_constrains
+            in
+            let eqs = KosuTypeConstraintSet.union new_constrains_set eqs in
+            (solutions, eqs)
+        | None ->
+            raise @@ KosuError.typing_error equation
+      in
+      let () = Printf.printf "Cardinal = %u\n" @@ KosuTypeConstraintSet.cardinal eqs in
+      solve solutions eqs
+
+let solve kosu_env =
+  solve KosuTypingSolution.empty kosu_env.env_tying_constraint

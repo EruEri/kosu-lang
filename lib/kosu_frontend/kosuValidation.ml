@@ -59,11 +59,12 @@ let validate_kosu_node kosu_program current_module = function
             Error e
       in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
-      let _kosu_env =
+      let kosu_env =
         KosuEnv.add_typing_constraint
           ~lhs:(KosuUtil.Ty.of_tyloc' kosu_function_decl.return_type)
           ~rhs:ty kosu_function_decl.body kosu_env
       in
+      let _solutions = KosuEnv.solve kosu_env in
       ok
   | NSyscall _ ->
       ok
