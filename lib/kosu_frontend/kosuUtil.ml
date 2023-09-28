@@ -259,6 +259,31 @@ module Ty = struct
     | TyBool ->
         []
 
+  (**
+      [is_number_unknwon_size ty] returns if the size of the numerical type [integer] or [float]
+      aren't fully infered
+  *)
+  let is_number_unknwon_size = function
+    | Ty.TyFloat None | Ty.TyInteger None ->
+        true
+    | Ty.TyIdentifier _
+    | TyPolymorphic _
+    | TyInteger (Some _)
+    | TyFloat (Some _)
+    | TyFunctionPtr _
+    | TyClosure _
+    | TyOpaque _
+    | TyOrdered
+    | TyChar
+    | TyStringLit
+    | TyUnit
+    | TyPointer _
+    | TyInnerClosureId _
+    | TyArray _
+    | TyTuple _
+    | TyBool ->
+        false
+
   let rec of_tyloc' tyloc = of_tyloc @@ value tyloc
 
   and of_tyloc : KosuType.TyLoc.kosu_loctype -> KosuType.Ty.kosu_type = function

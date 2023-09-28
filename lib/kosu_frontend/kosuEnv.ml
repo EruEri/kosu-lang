@@ -556,4 +556,48 @@ let rec solve solutions eqs =
       solve solutions eqs
 
 let solve kosu_env =
-  solve KosuTypingSolution.empty kosu_env.env_tying_constraint
+  let solutions =
+    solve KosuTypingSolution.empty kosu_env.env_tying_constraint
+  in
+  let not_fully_infered_num =
+    KosuTypingSolution.fold
+      (fun key ty acc ->
+        match KosuUtil.Ty.is_number_unknwon_size ty with
+        | true ->
+            key :: acc
+        | false ->
+            acc
+      )
+      solutions []
+  in
+  let transform_ty unknwon_tys sols = function
+    | KosuType.Ty.TyPolymorphic p as ty ->
+        let r =
+          match List.mem p unknwon_tys with
+          | true ->
+              ty
+          | false ->
+              (* With the use case we known that the variable exist *)
+              sols |> KosuTypingSolution.find_opt p |> Option.value ~default:ty
+        in
+        r
+    | ty ->
+        ty
+  in
+
+  let constrains =
+    KosuTypeConstraintSet.map
+      (fun const ->
+        let clhs = transform_ty not_fully_infered_num solutions const.clhs in
+        let crhs = transform_ty not_fully_infered_num solutions const.crhs in
+        { const with clhs; crhs }
+      )
+      kosu_env.env_tying_constraint
+  in
+  let solutions2 = solve KosuTypingSolution.empty constrains in
+  let solutions =
+    KosuTypingSolution.union
+      (fun _ lhs rhs -> KosuTypeConstraint.restrict ~with_ty:lhs rhs)
+      solutions solutions2
+  in
+  solutions
