@@ -30,3 +30,11 @@
  (libraries kosuCli)
  (flags
   (:standard -g)))
+
+(executable
+ (public_name okosuc)
+ (modules okosuc)
+ (name okosuc)
+ (libraries cmdliner kosuFrontendAlt cliCommon)
+ (flags
+  (:standard -g)))
