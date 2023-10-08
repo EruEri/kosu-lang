@@ -1,7 +1,14 @@
 # Changelog
 
 ## **[Unrealeased]**
+- [Road 0.5: base](https://github.com/EruEri/kosu-lang/pull/77):
+    - Rewrite ast:
+        - Error message todo
+    - Rewrite typechecking:
+        - Todo: Add Test
+    
 - [Remove Kosu virtual machine](https://github.com/EruEri/kosu-lang/pull/76)
+
 
 
 ## **0.4.0**
