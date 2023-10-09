@@ -9,6 +9,18 @@ DUNE=dune
 
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 COMMIT_HASH=$(shell git describe --always --dirty --abbrev=7)
+# lowercase name
+OS_NAME=$(shell uname -s | tr A-Z a-z)
+OS_ARCH=$(shell uname -m)
+OS_DYNLIB_EXE=$(shell \
+	if [ "$$(uname)" = "Darwin" ]; then \
+		echo .dylib; \
+	else \
+		echo .so; \
+	fi \
+)
+
+# TODO linker option
 
 .PHONY: test
 

@@ -21,6 +21,12 @@
  (action
   (system "sh -e commit_hash.sh")))
 
+(executable
+ (name configure)
+ (modules configure)
+ (libraries cmdliner))
+
 (library
  (name cliCommon)
+ (modules cliCommon kosuHash)
  (libraries cmdliner kosuRepl kosuFrontend dune-build-info))
