@@ -20,7 +20,7 @@
 (using menhir 2.0)
 
 (name kosu_lang)
-(version "0.4.0-next")
+(version "0.4.0")
 
 (cram enable)
 

@@ -41,19 +41,26 @@ endif
 all: kosuc kosu kosu_runtime
 
 
+okosuc:
+	[ ! -d "$(OUTPUT)" ] && mkdir -p $(OUTPUT) || true
+	$(DUNE) build lib/commandline/cliCommon/configure.exe 
+	make kosuConfig
+	$(DUNE) build bin/$@.exe
+	cp -f _build/default/bin/$@.exe $(OUTPUT)/$@
+
 kosuc:
 	[ ! -d "$(OUTPUT)" ] && mkdir -p $(OUTPUT) || true
 	$(DUNE) build lib/commandline/cliCommon/configure.exe
 	make kosuConfig
 	$(DUNE) build bin/$@.exe
-	cp -f _build/default/bin/kosuc.exe $(OUTPUT)/$@
+	cp -f _build/default/bin/$@.exe $(OUTPUT)/$@
 
 kosu:
 	[ ! -d "$(OUTPUT)" ] && mkdir -p $(OUTPUT) || true
 	$(DUNE) build lib/commandline/cliCommon/configure.exe
 	make kosuConfig
 	$(DUNE) build bin/$@.exe
-	cp -f _build/default/bin/kosu.exe $(OUTPUT)/$@
+	cp -f _build/default/bin/$@.exe $(OUTPUT)/$@
 
 kosuConfig:
 	_build/default/lib/commandline/cliCommon/configure.exe -a $(OS_ARCH) -o $(OS_NAME) --cc $(OS_CC) --os-extension $(OS_DYNLIB_EXE) -b $(BRANCH) \
