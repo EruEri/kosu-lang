@@ -41,7 +41,7 @@
 %token <string> INFIX_DIV
 %token <string> INFIX_DOLLAR
 %token <string> INFIX_PERCENT
-%token <string> INFIX_TILDE
+%token <string> PREFIX_TILDE
 %token <string> PREFIX_EXCLA
 %token <string> PREFIX_QUESTIONMARK
 %token STAR MINUS PIPE MINUS_SUP
@@ -128,10 +128,10 @@
     | INFIX_MULT
     | INFIX_DIV
     | INFIX_DOLLAR
-    | INFIX_PERCENT
-    | INFIX_TILDE { $1 }
+    | INFIX_PERCENT { $1 }
 
 %inline prefix_operator:
+    | PREFIX_TILDE
     | PREFIX_EXCLA
     | PREFIX_QUESTIONMARK { $1 }
 
