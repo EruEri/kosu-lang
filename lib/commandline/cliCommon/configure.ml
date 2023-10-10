@@ -22,7 +22,9 @@ let name = "configure"
 type t = {
   arch : string;
   os : string;
-  hash : string;
+  os_extension : string;
+  cc : string;
+  commit_hash : string;
   branch : string;
   headers : string;
   core_path : string;
@@ -39,11 +41,14 @@ let arch_term =
 let os_term =
   Arg.(required & opt (some string) None & info [ "o"; "os" ] ~doc:"Os Target")
 
-let commit_term =
+let cc_term =
+  Arg.(required & opt (some string) None & info [ "cc" ] ~doc:"C compiler")
+
+let os_extension_term =
   Arg.(
     required
     & opt (some string) None
-    & info [ "h"; "hash" ] ~doc:"Compilation commit hash"
+    & info [ "os-extension" ] ~doc:"Os Extension"
   )
 
 let branch_term =
@@ -51,6 +56,13 @@ let branch_term =
     required
     & opt (some string) None
     & info [ "b"; "branch" ] ~doc:"Compilation branch name"
+  )
+
+let commit_hash_term =
+  Arg.(
+    required
+    & opt (some string) None
+    & info [ "hash" ] ~doc:"Compilation hash commit"
   )
 
 let headers_term =
@@ -73,3 +85,65 @@ let runtime_term =
     & opt (some string) None
     & info [ "r"; "runtime" ] ~doc:"Kosu runtime library location"
   )
+
+let cmd_term run =
+  let combine arch os os_extension cc commit_hash branch headers core_path
+      runtime_path =
+    run
+    @@ {
+         arch;
+         os;
+         os_extension;
+         cc;
+         commit_hash;
+         branch;
+         headers;
+         core_path;
+         runtime_path;
+       }
+  in
+  Term.(
+    const combine $ arch_term $ os_term $ os_extension_term $ cc_term
+    $ commit_hash_term $ branch_term $ headers_term $ core_term $ runtime_term
+  )
+
+let doc = "Configure kosu compilation option"
+
+let configure run =
+  let info = Cmd.info ~doc name in
+  Cmd.v info (cmd_term run)
+
+let run cmd =
+  let {
+    arch;
+    os;
+    os_extension;
+    cc;
+    commit_hash;
+    branch;
+    headers;
+    core_path;
+    runtime_path;
+  } =
+    cmd
+  in
+  let () =
+    Printf.printf
+      {| 
+      let kosu_target_arch = %s
+      let kosu_target_os = %s
+      let kosu_target_os_extentsion = %s
+      let kosu_target_cc = %s 
+      let kosu_target_hash = %s
+      let kosu_target_branch = %s
+      let kosu_target_headers = %s
+      let kosu_target_core_path = %s
+      let kosu_target_runtime_path = %s
+
+    |}
+      arch os os_extension cc commit_hash branch headers core_path runtime_path
+  in
+  ()
+
+let eval = Cmd.eval @@ configure @@ run
+let () = exit eval
