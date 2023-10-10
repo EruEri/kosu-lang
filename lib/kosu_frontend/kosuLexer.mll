@@ -72,8 +72,8 @@ let blank   = [' ' '\009' '\012']
 
 let whitespace = [' ' '\t' '\r' '\n']+
 
-let infix_symbol = ['|' '=' '<' '>' '^' '&' '+' '-' '*' '/' '$' '%' '~']
-let prefix_symbol = [ '!' '?']
+let infix_symbol = ['|' '=' '<' '>' '^' '&' '+' '-' '*' '/' '$' '%']
+let prefix_symbol = [ '!' '?' '~']
 let operator_symbol = ['|' '=' '<' '>' '^' '&' '+' '-' '*' '/' '$' '%' '~' '!' '?']
 let not_identifier = [^ 'a'-'z']
 
@@ -191,7 +191,7 @@ rule token = parse
     | '/' -> INFIX_DIV all
     | '$' -> INFIX_DOLLAR all
     | '%' -> INFIX_PERCENT all
-    | '~' -> INFIX_TILDE all
+  
     | _ -> failwith "Unreachable: no other infix characters"
 }
 | (prefix_symbol as i) (operator_symbol* as os) as all {
@@ -199,6 +199,7 @@ rule token = parse
     match i with
     | '!' -> PREFIX_EXCLA all
     | '?' -> PREFIX_QUESTIONMARK all
+    | '~' -> PREFIX_TILDE all
     | _ -> failwith "Unreachable: no other prefix characters"
 }
 | constante as s {
