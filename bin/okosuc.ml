@@ -81,7 +81,7 @@ let kosuc_man =
 
 let kosuc run =
   let info =
-    Cmd.info ~doc:kosuc_doc ~man:kosuc_man ~version:CliCommon.version name
+    Cmd.info ~doc:kosuc_doc ~man:kosuc_man ~version:CliCommon.fversion name
   in
   Cmd.v info (cmd_term run)
 

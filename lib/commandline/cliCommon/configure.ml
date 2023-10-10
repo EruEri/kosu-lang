@@ -146,12 +146,12 @@ let run cmd =
   let s_linker_option =
     linker_options
     |> List.map @@ Printf.sprintf "\"%s\""
-    |> String.concat ", " |> Printf.sprintf "[%s]"
+    |> String.concat "; " |> Printf.sprintf "[%s]"
   in
   let s_linker_raw_args =
     linker_raw_args
     |> List.map @@ Printf.sprintf "\"%s\""
-    |> String.concat ", " |> Printf.sprintf "[%s]"
+    |> String.concat "; " |> Printf.sprintf "[%s]"
   in
   let () =
     Printf.printf

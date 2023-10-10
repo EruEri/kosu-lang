@@ -23,7 +23,7 @@ OS_DYNLIB_EXE=$(shell \
 		echo .so; \
 	fi \
 )
-OS_CC=$(shell which cc)
+OS_CC=cc
 OS_AR=$(shell which ar)
 KOSU_VERSION=$(cat kosu_lang.opam | grep ^version | awk '{print $2}')
 LINKER_OPTS=""

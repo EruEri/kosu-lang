@@ -16,11 +16,43 @@
 (**********************************************************************************************)
 
 type architecture = Arm64 | X86_64
-type os = Macos | Linux | FreeBSD
+type os = Darwin | Linux | FreeBSD
 type suppoted_file = SF_Kosu | SF_C | SF_Object | SF_Assembly
 
 let extension_list =
   [ (SF_C, ".c"); (SF_Object, ".o"); (SF_Kosu, ".kosu"); (SF_Assembly, ".s") ]
+
+let config_term =
+  Cmdliner.Arg.(
+    value & flag
+    & info [ "config" ] ~doc:"Prints a summary of kosu configuration"
+  )
+
+let version_raw =
+  match Build_info.V1.version () with
+  | None ->
+      "n/a"
+  | Some v ->
+      Build_info.V1.Version.to_string v
+
+let kosu_config_print () =
+  let () =
+    Printf.printf
+      "version = %s\n\
+       target_arch = %s\n\
+       target_os = %s\n\
+       standard_library: %s\n\
+       headers = %s\n\
+       c_compiler = %s\n\
+       linker_options = %s\n\
+       dyn_lib_extension = %s\n"
+      version_raw KosuConfig.kosu_target_arch KosuConfig.kosu_target_os
+      KosuConfig.kosu_target_core_path KosuConfig.kosu_target_headers
+      KosuConfig.kosu_target_cc
+      (String.concat " " KosuConfig.kosu_target_linker_option)
+      KosuConfig.kosu_target_os_extentsion
+  in
+  ()
 
 let rev_extension_list =
   let swap (a, b) = (b, a) in
@@ -56,23 +88,17 @@ let input_file files =
       e
 
 let architecture_enum = [ ("arm64", Arm64); ("x86_64", X86_64) ]
-let os_enum = [ ("freebsd", FreeBSD); ("linux", Linux); ("macos", Macos) ]
+let os_enum = [ ("freebsd", FreeBSD); ("linux", Linux); ("darwin", Darwin) ]
+let default_os = List.assoc_opt KosuConfig.kosu_target_os os_enum
+
+let default_architecture =
+  List.assoc_opt KosuConfig.kosu_target_arch architecture_enum
+
 let commit_hash () = KosuHash.commit_hash
 
-let version =
-  let commit_hash =
-    () |> commit_hash
-    |> Option.map (Printf.sprintf "[%s]")
-    |> Option.value ~default:""
-  in
-  let v =
-    match Build_info.V1.version () with
-    | None ->
-        "n/a"
-    | Some v ->
-        Build_info.V1.Version.to_string v
-  in
-  Printf.sprintf "%s %s" v commit_hash
+let fversion =
+  Printf.sprintf "%s [%s %s]" version_raw KosuConfig.kosu_target_branch
+    KosuConfig.kosu_target_hash
 
 let std_global_variable = "KOSU_STD_PATH"
 let architecture_global_variable = "KOSU_TARGET_ARCH"

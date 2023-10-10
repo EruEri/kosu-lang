@@ -44,9 +44,10 @@ module Cli = struct
   let c_compiler = "cc"
 
   type cmd = {
-    architecture : architecture;
-    os : os;
+    architecture : architecture option;
+    os : os option;
     check_only : bool;
+    config : bool;
     f_allow_generic_in_variadic : bool;
     no_std : bool;
     is_target_asm : bool;
@@ -71,7 +72,7 @@ module Cli = struct
 
   let target_archi_term =
     Arg.(
-      required
+      value
       & opt (some & enum architecture_enum) None
       & info
           ~docv:(string_of_enum architecture_enum)
@@ -95,7 +96,7 @@ module Cli = struct
 
   let os_target_term =
     Arg.(
-      required
+      value
       & opt (some & enum os_enum) None
       & info ~docv:(string_of_enum os_enum)
           ~env:
@@ -194,18 +195,20 @@ module Cli = struct
 
   let files_term =
     Arg.(
-      non_empty
+      value
       & pos_all Arg.non_dir_file []
       & info [] ~docv:"FILES" ~doc:"Compiler Input files"
     )
 
   let cmd_term run =
-    let combine architecture os check_only f_allow_generic_in_variadic no_std
-        verbose cc is_target_asm output pkg_configs cclib frameworks files =
+    let combine architecture os check_only config f_allow_generic_in_variadic
+        no_std verbose cc is_target_asm output pkg_configs cclib frameworks
+        files =
       run
       @@ {
            architecture;
            f_allow_generic_in_variadic;
+           config;
            check_only;
            os;
            no_std;
@@ -221,9 +224,9 @@ module Cli = struct
     in
     Term.(
       const combine $ target_archi_term $ os_target_term $ check_only_term
-      $ f_allow_generic_in_variadic_term $ no_std_term $ verbose_term $ cc_term
-      $ target_asm_term $ output_term $ pkg_config_term $ cclib_term
-      $ framework_term $ files_term
+      $ CliCommon.config_term $ f_allow_generic_in_variadic_term $ no_std_term
+      $ verbose_term $ cc_term $ target_asm_term $ output_term $ pkg_config_term
+      $ cclib_term $ framework_term $ files_term
     )
 
   let kosuc_doc = "The Kosu compiler"
@@ -274,7 +277,7 @@ module Cli = struct
 
   let kosuc run =
     let info =
-      Cmd.info ~doc:kosuc_doc ~man:kosuc_man ~version:CliCommon.version name
+      Cmd.info ~doc:kosuc_doc ~man:kosuc_man ~version:CliCommon.fversion name
     in
     Cmd.v info (cmd_term run)
 
@@ -282,6 +285,7 @@ module Cli = struct
     let {
       architecture;
       os;
+      config;
       check_only;
       f_allow_generic_in_variadic;
       no_std;
@@ -296,88 +300,117 @@ module Cli = struct
     } =
       cmd
     in
-
-    let ( `KosuFile kosu_files,
-          `CFile c_files,
-          `ObjFile object_files,
-          `AssemblyFile assembly_files ) =
-      match CliCommon.input_file files with
-      | Ok e ->
-          e
-      | Error e ->
-          failwith @@ Printf.sprintf "unsported file %s" e
-    in
-
-    let std_file = fetch_std_file ~no_std () in
-
-    let kosu_files = kosu_files @ std_file in
-
-    let module ValidationRule : KosuFrontend.KosuValidationRule = struct end in
-    let module TypeCheckerRule : KosuFrontend.TypeCheckerRule = struct
-      let allow_generics_in_variadic = f_allow_generic_in_variadic
-    end in
-    let module Compilation_Files : KosuFrontend.Compilation_Files = struct
-      let std_global_variable = std_global_variable
-    end in
-    let module KosuFront =
-      KosuFrontend.Make (Compilation_Files) (ValidationRule) (TypeCheckerRule)
-    in
-    let module Asttyconvert = KosuIrTyped.Asttyconvert.Make (TypeCheckerRule) in
-    let module Codegen =
-      ( val match (architecture, os) with
-            | X86_64, (FreeBSD | Linux) ->
-                (module LinuxX86)
-            | X86_64, Macos ->
-                (module Mac0SX86)
-            | Arm64, Macos ->
-                (module MacOSAarch64)
-            | Arm64, (FreeBSD | Linux) ->
-                (module FreeBSDAarch64)
-          : KosuBackend.Codegen.S
-        )
-    in
-    let module LinkerOption =
-      ( val match os with
-            | FreeBSD ->
-                (module LdSpec.FreeBSDLdSpec)
-            | Linux ->
-                (module LdSpec.LinuxLdSpec)
-            | Macos ->
-                (module LdSpec.MacOSLdSpec)
-          : KosuBackend.Compil.LinkerOption
-        )
-    in
-    let module Compiler = KosuBackend.Compil.Make (Codegen) (LinkerOption) in
-    let () = KosuFront.Registerexn.register_kosu_error () in
-
-    let ast_module = KosuFront.ast_modules kosu_files in
-    let typed_program =
-      match Asttyconvert.from_program ast_module with
-      | typed_program ->
-          typed_program
-      | exception KosuFrontend.Ast.Error.Ast_error e ->
-          let () =
-            e |> KosuFront.Pprinterr.string_of_ast_error |> print_endline
+    let () =
+      match () with
+      | _ when config ->
+          let () = CliCommon.kosu_config_print () in
+          ()
+      | _ when files = [] ->
+          ()
+      | () ->
+          let ( `KosuFile kosu_files,
+                `CFile c_files,
+                `ObjFile object_files,
+                `AssemblyFile assembly_files ) =
+            match CliCommon.input_file files with
+            | Ok e ->
+                e
+            | Error e ->
+                failwith @@ Printf.sprintf "unsported file %s" e
           in
-          failwith "Error while typing ast: Shouldn't append"
-    in
 
-    let () = match check_only with true -> exit 0 | false -> () in
+          let std_file = fetch_std_file ~no_std () in
 
-    let tac_program =
-      KosuIrTAC.Asttacconv.tac_program_of_rprogram typed_program
-    in
-    let _code =
-      match is_target_asm with
-      | true ->
-          Compiler.generate_asm_only tac_program ()
-      | false ->
-          let args =
-            KosuBackend.Compil.{ c_files; assembly_files; object_files }
+          let kosu_files = kosu_files @ std_file in
+
+          let architecture =
+            match architecture with
+            | None ->
+                Option.value CliCommon.default_architecture
+                  ~default:CliCommon.X86_64
+            | Some a ->
+                a
           in
-          let compilation = Compiler.compilation ~cc in
-          compilation ~outfile:output ~frameworks ~debug:true ~args ~cclib
-            ~verbose ~pkg_config_names:pkg_configs tac_program
+
+          let os =
+            match os with
+            | None ->
+                Option.value CliCommon.default_os ~default:CliCommon.Linux
+            | Some a ->
+                a
+          in
+
+          let module ValidationRule : KosuFrontend.KosuValidationRule = struct end in
+          let module TypeCheckerRule : KosuFrontend.TypeCheckerRule = struct
+            let allow_generics_in_variadic = f_allow_generic_in_variadic
+          end in
+          let module Compilation_Files : KosuFrontend.Compilation_Files = struct
+            let std_global_variable = std_global_variable
+          end in
+          let module KosuFront =
+            KosuFrontend.Make (Compilation_Files) (ValidationRule)
+              (TypeCheckerRule)
+          in
+          let module Asttyconvert =
+            KosuIrTyped.Asttyconvert.Make (TypeCheckerRule) in
+          let module Codegen =
+            ( val match (architecture, os) with
+                  | X86_64, (FreeBSD | Linux) ->
+                      (module LinuxX86)
+                  | X86_64, Darwin ->
+                      (module Mac0SX86)
+                  | Arm64, Darwin ->
+                      (module MacOSAarch64)
+                  | Arm64, (FreeBSD | Linux) ->
+                      (module FreeBSDAarch64)
+                : KosuBackend.Codegen.S
+              )
+          in
+          let module LinkerOption =
+            ( val match os with
+                  | FreeBSD ->
+                      (module LdSpec.FreeBSDLdSpec)
+                  | Linux ->
+                      (module LdSpec.LinuxLdSpec)
+                  | Darwin ->
+                      (module LdSpec.MacOSLdSpec)
+                : KosuBackend.Compil.LinkerOption
+              )
+          in
+          let module Compiler = KosuBackend.Compil.Make (Codegen) (LinkerOption)
+          in
+          let () = KosuFront.Registerexn.register_kosu_error () in
+
+          let ast_module = KosuFront.ast_modules kosu_files in
+          let typed_program =
+            match Asttyconvert.from_program ast_module with
+            | typed_program ->
+                typed_program
+            | exception KosuFrontend.Ast.Error.Ast_error e ->
+                let () =
+                  e |> KosuFront.Pprinterr.string_of_ast_error |> print_endline
+                in
+                failwith "Error while typing ast: Shouldn't append"
+          in
+
+          let () = match check_only with true -> exit 0 | false -> () in
+
+          let tac_program =
+            KosuIrTAC.Asttacconv.tac_program_of_rprogram typed_program
+          in
+          let _code =
+            match is_target_asm with
+            | true ->
+                Compiler.generate_asm_only tac_program ()
+            | false ->
+                let args =
+                  KosuBackend.Compil.{ c_files; assembly_files; object_files }
+                in
+                let compilation = Compiler.compilation ~cc in
+                compilation ~outfile:output ~frameworks ~debug:true ~args ~cclib
+                  ~verbose ~pkg_config_names:pkg_configs tac_program
+          in
+          ()
     in
     ()
 

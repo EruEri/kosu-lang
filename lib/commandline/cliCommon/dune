@@ -28,5 +28,5 @@
 
 (library
  (name cliCommon)
- (modules cliCommon kosuHash)
+ (modules cliCommon kosuHash kosuConfig)
  (libraries cmdliner kosuRepl kosuFrontend dune-build-info))
