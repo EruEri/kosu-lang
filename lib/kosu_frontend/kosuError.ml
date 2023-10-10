@@ -50,6 +50,7 @@ type kosu_error =
     }
   | NoStructDeclFoundForType of KosuType.Ty.kosu_type Position.location
   | TypingError of KosuType.Ty.kosu_type_constraint
+  | UnsupportedFile of string
 
 exception KosuRawErr of kosu_error
 exception KosuErr of string * kosu_error
@@ -77,3 +78,4 @@ let field_not_in_struct struct_decl field =
 
 let no_struct_decl_for_type t = kosu_raw_error @@ NoStructDeclFoundForType t
 let typing_error consts = kosu_raw_error @@ TypingError consts
+let unsupported_file f = kosu_raw_error @@ UnsupportedFile f

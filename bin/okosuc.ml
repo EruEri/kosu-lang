@@ -23,7 +23,7 @@ type cmd = { config : bool; files : string list }
 
 let files_term =
   Arg.(
-    non_empty
+    value
     & pos_all Arg.non_dir_file []
     & info [] ~docv:"FILES" ~doc:"Compiler Input files"
   )
@@ -102,7 +102,7 @@ let run cmd =
           | Ok e ->
               e
           | Error e ->
-              failwith @@ Printf.sprintf "unsported file %s" e
+              raise @@ KosuFrontendAlt.Error.unsupported_file e
         in
 
         let () = KosuFrontendAlt.register_exn () in
