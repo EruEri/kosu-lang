@@ -24,6 +24,8 @@ type t = {
   os : string;
   os_extension : string;
   cc : string;
+  linker_options : string list;
+  linker_raw_args : string list;
   commit_hash : string;
   branch : string;
   headers : string;
@@ -50,6 +52,15 @@ let os_extension_term =
     & opt (some string) None
     & info [ "os-extension" ] ~doc:"Os Extension"
   )
+
+let _assembler_term =
+  Arg.(required & opt (some string) None & info [ "as" ] ~doc:"Assembler used")
+
+let linker_options_term =
+  Arg.(value & opt (list string) [] & info [ "lo" ] ~doc:"Linker options")
+
+let linker_raw_args_term =
+  Arg.(value & opt (list string) [] & info [ "lar" ] ~doc:"Linker raw args")
 
 let branch_term =
   Arg.(
@@ -87,14 +98,16 @@ let runtime_term =
   )
 
 let cmd_term run =
-  let combine arch os os_extension cc commit_hash branch headers core_path
-      runtime_path =
+  let combine arch os os_extension cc linker_options linker_raw_args commit_hash
+      branch headers core_path runtime_path =
     run
     @@ {
          arch;
          os;
          os_extension;
          cc;
+         linker_options;
+         linker_raw_args;
          commit_hash;
          branch;
          headers;
@@ -104,7 +117,8 @@ let cmd_term run =
   in
   Term.(
     const combine $ arch_term $ os_term $ os_extension_term $ cc_term
-    $ commit_hash_term $ branch_term $ headers_term $ core_term $ runtime_term
+    $ linker_options_term $ linker_raw_args_term $ commit_hash_term
+    $ branch_term $ headers_term $ core_term $ runtime_term
   )
 
 let doc = "Configure kosu compilation option"
@@ -119,6 +133,8 @@ let run cmd =
     os;
     os_extension;
     cc;
+    linker_options;
+    linker_raw_args;
     commit_hash;
     branch;
     headers;
@@ -127,21 +143,33 @@ let run cmd =
   } =
     cmd
   in
+  let s_linker_option =
+    linker_options
+    |> List.map @@ Printf.sprintf "\"%s\""
+    |> String.concat ", " |> Printf.sprintf "[%s]"
+  in
+  let s_linker_raw_args =
+    linker_raw_args
+    |> List.map @@ Printf.sprintf "\"%s\""
+    |> String.concat ", " |> Printf.sprintf "[%s]"
+  in
   let () =
     Printf.printf
       {| 
-      let kosu_target_arch = %s
-      let kosu_target_os = %s
-      let kosu_target_os_extentsion = %s
-      let kosu_target_cc = %s 
-      let kosu_target_hash = %s
-      let kosu_target_branch = %s
-      let kosu_target_headers = %s
-      let kosu_target_core_path = %s
-      let kosu_target_runtime_path = %s
-
+let kosu_target_arch = "%s"
+let kosu_target_os = "%s"
+let kosu_target_os_extentsion = "%s"
+let kosu_target_cc = "%s" 
+let kosu_target_hash = "%s"
+let kosu_target_branch = "%s"
+let kosu_target_headers = "%s"
+let kosu_target_core_path = "%s"
+let kosu_target_runtime_path = "%s"
+let kosu_target_linker_option = %s
+let kosu_target_linker_args = %s
     |}
       arch os os_extension cc commit_hash branch headers core_path runtime_path
+      s_linker_option s_linker_raw_args
   in
   ()
 
