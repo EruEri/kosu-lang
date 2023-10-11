@@ -47,7 +47,7 @@ let kosu_config_print () =
        linker_options = %s\n\
        dyn_lib_extension = %s\n"
       version_raw KosuConfig.kosu_target_arch KosuConfig.kosu_target_os
-      KosuConfig.kosu_target_core_path KosuConfig.kosu_target_headers
+      KosuConfig.kosu_target_std_path KosuConfig.kosu_target_headers
       KosuConfig.kosu_target_cc
       (String.concat " " KosuConfig.kosu_target_linker_option)
       KosuConfig.kosu_target_os_extentsion

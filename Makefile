@@ -1,64 +1,38 @@
-INSTALL_DIR=/usr/local
-INSTALL_BIN_DIR=$(INSTALL_DIR)/bin
-INSTALL_LIB_DIR=$(INSTALL_DIR)/lib
-INSTALL_HEADER_DIR=$(INSTALL_DIR)/include/kosu
-INSTALL_MAN_DIR=$(INSTALL_DIR)/share/man
-INSTALL_STD_DIR=$(INSTALL_DIR)/share/kosu/std
 DUNE=dune
-
 OUTPUT=output
 LIBNAME=libkosu.a
 
+CONFIG=kosu_config.mk
+
 KOSU_RUNTIME_OBJ=$(OUTPUT)/u8.o $(OUTPUT)/s8.o
 
-BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
-COMMIT_HASH=$(shell git describe --always --dirty --abbrev=7)
-# lowercase name
-OS_NAME=$(shell uname -s | tr A-Z a-z)
-OS_ARCH=$(shell uname -m)
-OS_DYNLIB_EXE=$(shell \
-	if [ "$$(uname)" = "Darwin" ]; then \
-		echo .dylib; \
-	else \
-		echo .so; \
-	fi \
-)
-OS_CC=cc
-OS_AR=$(shell which ar)
-KOSU_VERSION=$(cat kosu_lang.opam | grep ^version | awk '{print $2}')
-LINKER_OPTS=""
-LINKER_ARGS=""
-ifeq ($(OS_NAME), darwin)
-	LINKER_OPTS="syslibroot \`xcrun --sdk macosx --show-sdk-path\`","lSystem"
-else ifeq ($(OS_NAME), freebsd)
-	LINKER_OPTS="lc","dynamic-linker /libexec/ld-elf.so.1","L/usr/lib"
-	LINKER_ARGS="/lib64/crt1.o", "/lib64/crti.o", "/lib64/crtn.o"
-else ifeq ($(OS_NAME), linux)
-	LINKER_OPTS="lc","dynamic-linker /lib64/ld-linux-x86-64.so.2","L/usr/lib L/lib64"
-	LINKER_ARGS="/usr/lib/crt1.o","/usr/lib/crti.o","/usr/lib/crtbegin.o","/usr/lib/crtend.o","/usr/lib/crtn.o"
+all: kosuc kosu kosu_runtime man
+
+configure:
+	dune build lib/configure/configure.exe
+	ln -sf _build/default/lib/configure/configure.exe configure
+
+
+ifneq ($(shell test -f "$(CONFIG)"), 0)
+	$(shell touch $(CONFIG))
+else
+	include kosu_config.mk
 endif
 
-all: kosuc kosu kosu_runtime man
 
 
 okosuc:
 	mkdir -p $(OUTPUT)
-	$(DUNE) build lib/commandline/cliCommon/configure.exe 
-	make kosuConfig
 	$(DUNE) build bin/$@.exe
 	cp -f _build/default/bin/$@.exe $(OUTPUT)/$@
 
 kosuc:
 	mkdir -p $(OUTPUT) 
-	$(DUNE) build lib/commandline/cliCommon/configure.exe
-	make kosuConfig
 	$(DUNE) build bin/$@.exe
 	cp -f _build/default/bin/$@.exe $(OUTPUT)/$@
 
 kosu:
 	mkdir -p $(OUTPUT)
-	$(DUNE) build lib/commandline/cliCommon/configure.exe
-	make kosuConfig
 	$(DUNE) build bin/$@.exe
 	cp -f _build/default/bin/$@.exe $(OUTPUT)/$@
 

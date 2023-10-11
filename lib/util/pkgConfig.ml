@@ -117,7 +117,7 @@ let of_command ~verbose ?(cflags = false) ?(clibs = true) ~libname () =
   let process_status = Unix.close_process_in in_channel in
   match process_status with
   | WEXITED code when code = 0 ->
-      content |> parse
+      parse content
   | WEXITED code | WSIGNALED code | WSTOPPED code ->
       let () = prerr_endline content in
       exit code
