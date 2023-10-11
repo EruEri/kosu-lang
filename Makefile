@@ -3,6 +3,7 @@ OUTPUT=output
 LIBNAME=libkosu.a
 OS_AR=$(shell which ar)
 OS_CC=$(shell which cc)
+MAKE=make
 
 CONFIG=kosu_config.mk
 
@@ -75,7 +76,7 @@ kosuConfig:
 
 kosu_runtime:
 		[ ! -d "$(OUTPUT)" ] && mkdir -p $(OUTPUT) || true
-		make $(LIBNAME)
+		$(MAKE) $(LIBNAME)
 
 $(LIBNAME): $(KOSU_RUNTIME_OBJ)
 	$(OS_AR) rcs $(OUTPUT)/$(LIBNAME) $^
