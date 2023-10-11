@@ -1,6 +1,8 @@
 DUNE=dune
 OUTPUT=output
 LIBNAME=libkosu.a
+OS_AR=$(shell which ar)
+OS_CC=$(shell which cc)
 
 CONFIG=kosu_config.mk
 

@@ -97,7 +97,10 @@ fn main() s32 {
 ```bash
   $ opam install dune cmdliner menhir
   $ cd kosu-lang
-  $ dune build
+  $ make configure
+  $ ./configure
+  $ make
+  $ make install
 ```
 
 Once build, the following programs are generated:
