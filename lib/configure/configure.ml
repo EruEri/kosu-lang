@@ -107,27 +107,52 @@ let arch_term =
   Arg.(
     value
     & opt (some string) None
-    & info [ "a"; "arch" ] ~doc:"architecture Target"
+    & info [ "a"; "arch" ] ~absent:"uname -m" ~docv:"architecture Target"
+        ~doc:"Indicate which architecture kosuc should target"
   )
 
 let os_term =
-  Arg.(value & opt (some string) None & info [ "o"; "os" ] ~doc:"Os Target")
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "o"; "os" ] ~absent:"uname -s (lowercased)" ~docv:"OS_Target"
+        ~doc:"Indicate which os kosuc should target"
+  )
 
 let cc_term =
-  Arg.(value & opt (some string) None & info [ "cc" ] ~doc:"C compiler")
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "cc" ] ~absent:"cc" ~docv:"C compiler"
+        ~doc:"Indicate which C compiler kosuc should invoke when needed"
+  )
 
 let install_dir_term =
+  let default = Some default_install in
   Arg.(
     required
-    & opt (some string) (Some default_install)
-    & info [ "i"; "install-dir" ] ~doc:"Compiler install directory"
+    & opt ~vopt:default (some string) default
+    & info [ "i"; "install-dir" ]
+        ~doc:"Indicate the root directory of the kosu install"
   )
 
 let linker_options_term =
-  Arg.(value & opt (list string) [] & info [ "lo" ] ~doc:"Linker options")
+  Arg.(
+    value
+    & opt (list string) []
+    & info [ "lo" ] ~docv:"Linker options"
+        ~doc:"Indicate which linker option kosuc should invoke when compiling"
+  )
 
 let linker_raw_args_term =
-  Arg.(value & opt (list string) [] & info [ "lar" ] ~doc:"Linker raw args")
+  Arg.(
+    value
+    & opt (list string) []
+    & info [ "lar" ] ~docv:"Linker raw args"
+        ~doc:
+          "Indicate which arguments kosuc should give to the linker when \
+           compiling"
+  )
 
 let cmd_term run =
   let combine arch os cc linker_options linker_raw_args install_dir =

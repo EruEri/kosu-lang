@@ -110,8 +110,8 @@ fn main() s32 {
   $ cd kosu-lang
   $ gmake configure
   $ ./configure
-  $ gmake
-  $ gmake MAKE=gmake install
+  $ gmake MAKE=gmake
+  $ gmake install
 ```
 
 Once build, the following programs are generated:

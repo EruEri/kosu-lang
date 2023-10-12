@@ -12,14 +12,14 @@ KOSU_RUNTIME_OBJ=$(OUTPUT)/u8.o $(OUTPUT)/s8.o
 all: kosuc kosu kosu_runtime man
 
 configure:
-	dune build lib/configure/configure.exe
-	ln -sf _build/default/lib/configure/configure.exe configure
+	dune build lib/configure/$@.exe
+	ln -sf _build/default/lib/configure/$@.exe configure
 
 
-ifneq ($(shell test -f "$(CONFIG)"), 0)
-	$(shell touch $(CONFIG))
+ifeq ($(shell test -f "$(CONFIG)"), 0)
+	include kosu_config.mk 
 else
-	include kosu_config.mk
+	$(shell touch $(CONFIG))
 endif
 
 
@@ -96,7 +96,7 @@ san:
 	dune build --profile san
 
 clean:
-	[ -d "$(OUTPUT)" ] && rm -rf output || true
+	test -d "$(OUTPUT)" && rm -rf $(OUTPUT)
 	dune clean
 
 # install:
