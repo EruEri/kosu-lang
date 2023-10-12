@@ -4,8 +4,9 @@ LIBNAME=libkosu.a
 OS_AR=$(shell which ar)
 OS_CC=$(shell which cc)
 MAKE=make
-
 CONFIG=kosu_config.mk
+
+-include $(CONFIG)
 
 KOSU_RUNTIME_OBJ=$(OUTPUT)/u8.o $(OUTPUT)/s8.o
 
@@ -16,9 +17,7 @@ configure:
 	ln -sf _build/default/lib/configure/$@.exe configure
 
 
-ifeq ($(shell test -f "$(CONFIG)"), 0)
-	include kosu_config.mk 
-else
+ifneq ($(shell test -f "$(CONFIG)"), 0)
 	$(shell touch $(CONFIG))
 endif
 
@@ -40,11 +39,11 @@ kosu:
 	cp -f _build/default/bin/$@.exe $(OUTPUT)/$@
 
 install:
-	mkdir -p "$(DESTDIR)$(INSTALL_BIN_DIR)"
-	mkdir -p "$(DESTDIR)$(INSTALL_LIB_DIR)"
-	mkdir -p "$(DESTDIR)$(INSTALL_HEADER_DIR)"
-	mkdir -p "$(DESTDIR)$(INSTALL_MAN_DIR)"
-	mkdir -p "$(DESTDIR)$(INSTALL_STD_DIR)"
+	mkdir -p $(DESTDIR)$(INSTALL_BIN_DIR)
+	mkdir -p $(DESTDIR)$(INSTALL_LIB_DIR)
+	mkdir -p $(DESTDIR)$(INSTALL_HEADER_DIR)
+	mkdir -p $(DESTDIR)$(INSTALL_MAN_DIR)
+	mkdir -p $(DESTDIR)$(INSTALL_STD_DIR)
 	cp -f "$(OUTPUT)/kosuc" $(DESTDIR)$(INSTALL_BIN_DIR)
 	cp -f "$(OUTPUT)/kosu" $(DESTDIR)$(INSTALL_BIN_DIR)
 	cp -f "$(OUTPUT)/$(LIBNAME)" $(DESTDIR)$(INSTALL_LIB_DIR)
@@ -96,7 +95,9 @@ san:
 	dune build --profile san
 
 clean:
-	test -d "$(OUTPUT)" && rm -rf $(OUTPUT)
+	test -d "$(OUTPUT)" && rm -rf $(OUTPUT) || true
+	test -f configure && rm configure || true
+	test -f $(CONFIG) && rm $(CONFIG) || true
 	dune clean
 
 # install:
