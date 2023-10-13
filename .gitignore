@@ -5,3 +5,7 @@ size
 hello*
 .vscode
 a.out
+output/
+kosu_config.mk
+configure
+!configure/

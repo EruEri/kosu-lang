@@ -1,0 +1,8 @@
+external `+`(x: u8, y: u8) u8   = "kosu_u8_add"
+external `-`(x: u8, y: u8) u8   = "kosu_u8_sub"
+external `*`(x: u8, y: u8) u8   = "kosu_u8_mult"
+external `/`(x: u8, y: u8) u8   = "kosu_u8_div"
+external `%`(x: u8, y: u8) u8   = "kosu_u8_mod"
+external `<<`(x: u8, y: u8) u8  = "kosu_u8_shiftleft"
+external `>>`(x: u8, y: u8) u8  = "kosu_u8_shiftright"
+external !(x: u8) = "kosu_u8_not"

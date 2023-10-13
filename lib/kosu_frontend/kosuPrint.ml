@@ -275,3 +275,5 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       sloc @@ sfile
       @@ sprintf "Incompatible type : Expected \"%s\", Found \"%s\""
            (string_of_kosu_type clhs) (string_of_kosu_type crhs)
+  | UnsupportedFile f ->
+      sprintf "Unknown file kind : %s" f

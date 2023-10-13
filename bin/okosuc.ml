@@ -18,20 +18,19 @@
 open Cmdliner
 
 let name = "okosuc"
-let _c_compiler = "cc"
 
-type cmd = { files : string list }
+type cmd = { config : bool; files : string list }
 
 let files_term =
   Arg.(
-    non_empty
+    value
     & pos_all Arg.non_dir_file []
     & info [] ~docv:"FILES" ~doc:"Compiler Input files"
   )
 
 let cmd_term run =
-  let combine files = run @@ { files } in
-  Term.(const combine $ files_term)
+  let combine config files = run @@ { config; files } in
+  Term.(const combine $ CliCommon.config_term $ files_term)
 
 let kosuc_doc = "The Kosu compiler"
 
@@ -81,37 +80,47 @@ let kosuc_man =
 
 let kosuc run =
   let info =
-    Cmd.info ~doc:kosuc_doc ~man:kosuc_man ~version:CliCommon.version name
+    Cmd.info ~doc:kosuc_doc ~man:kosuc_man ~version:CliCommon.fversion name
   in
   Cmd.v info (cmd_term run)
 
 let run cmd =
-  let { files } = cmd in
-  let ( `KosuFile kosu_files,
-        `CFile _c_files,
-        `ObjFile _object_files,
-        `AssemblyFile _assembly_files ) =
-    match CliCommon.input_file files with
-    | Ok e ->
-        e
-    | Error e ->
-        failwith @@ Printf.sprintf "unsported file %s" e
-  in
-
-  let () = KosuFrontendAlt.register_exn () in
-  let kosu_program =
-    match KosuFrontendAlt.Parsing.kosu_program kosu_files with
-    | Ok kosu_program ->
-        kosu_program
-    | Error e ->
-        raise @@ KosuFrontendAlt.Error.analytics_error e
-  in
+  let { files; config } = cmd in
   let () =
-    match KosuFrontendAlt.Validation.validate kosu_program with
-    | Ok () ->
+    match () with
+    | _ when config ->
+        let () = CliCommon.kosu_config_print () in
         ()
-    | Error e ->
-        raise @@ KosuFrontendAlt.Error.kosu_error e
+    | _ when files = [] ->
+        ()
+    | () ->
+        let ( `KosuFile kosu_files,
+              `CFile _c_files,
+              `ObjFile _object_files,
+              `AssemblyFile _assembly_files ) =
+          match CliCommon.input_file files with
+          | Ok e ->
+              e
+          | Error e ->
+              raise @@ KosuFrontendAlt.Error.unsupported_file e
+        in
+
+        let () = KosuFrontendAlt.register_exn () in
+        let kosu_program =
+          match KosuFrontendAlt.Parsing.kosu_program kosu_files with
+          | Ok kosu_program ->
+              kosu_program
+          | Error e ->
+              raise @@ KosuFrontendAlt.Error.analytics_error e
+        in
+        let () =
+          match KosuFrontendAlt.Validation.validate kosu_program with
+          | Ok () ->
+              ()
+          | Error e ->
+              raise @@ KosuFrontendAlt.Error.kosu_error e
+        in
+        ()
   in
   ()
 
