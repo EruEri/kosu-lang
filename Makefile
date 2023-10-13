@@ -1,6 +1,5 @@
 DUNE=dune
 OUTPUT=output
-LIBNAME=libkosu.a
 OS_AR=$(shell which ar)
 OS_CC=$(shell which cc)
 MAKE=make
@@ -46,7 +45,7 @@ install:
 	mkdir -p $(DESTDIR)$(INSTALL_STD_DIR)
 	cp -f "$(OUTPUT)/kosuc" $(DESTDIR)$(INSTALL_BIN_DIR)
 	cp -f "$(OUTPUT)/kosu" $(DESTDIR)$(INSTALL_BIN_DIR)
-	cp -f "$(OUTPUT)/$(LIBNAME)" $(DESTDIR)$(INSTALL_LIB_DIR)
+	cp -f "$(OUTPUT)/libkosu.$(KOSU_VERSION).a" $(DESTDIR)$(INSTALL_LIB_DIR)
 	cp -rf src/runtime/include/* $(INSTALL_HEADER_DIR)/
 	cp -rf $(OUTPUT)/man/* "$(DESTDIR)$(INSTALL_MAN_DIR)"
 	cp -rf src/std/* "$(DESTDIR)$(INSTALL_STD_DIR)"
@@ -54,7 +53,7 @@ install:
 uninstall:
 	rm -f $(DESTDIR)$(INSTALL_BIN_DIR)/kosuc
 	rm -f $(DESTDIR)$(INSTALL_BIN_DIR)/kosu
-	rm -f $(DESTDIR)$(INSTALL_LIB_DIR)/$(LIBNAME)
+	rm -f $(DESTDIR)$(INSTALL_LIB_DIR)/libkosu.$(KOSU_VERSION).a
 	rm -rf $(INSTALL_HEADER_DIR)
 	rm -r $(DESTDIR)$(INSTALL_MAN_DIR)/kosu*.1
 	rm -r $(DESTDIR)$(INSTALL_STD_DIR)
@@ -68,17 +67,13 @@ man: kosuc kosu
 
 
 kosuConfig:
-	_build/default/lib/commandline/cliCommon/configure.exe -a $(OS_ARCH) -o $(OS_NAME) --cc $(OS_CC) --os-extension $(OS_DYNLIB_EXE) -b $(BRANCH) \
-		--hash $(COMMIT_HASH) -H $(INSTALL_HEADER_DIR) -c $(INSTALL_STD_DIR) -r $(INSTALL_LIB_DIR) --lo $(LINKER_OPTS) --lar $(LINKER_ARGS)\
-		> lib/commandline/cliCommon/kosuConfig.ml
+	_build/default/lib/commandline/cliCommon/configure.exe \
+	> lib/commandline/cliCommon/kosuConfig.ml
 
 
-kosu_runtime:
-		[ ! -d "$(OUTPUT)" ] && mkdir -p $(OUTPUT) || true
-		$(MAKE) $(LIBNAME)
-
-$(LIBNAME): $(KOSU_RUNTIME_OBJ)
-	$(OS_AR) rcs $(OUTPUT)/$(LIBNAME) $^
+kosu_runtime: $(KOSU_RUNTIME_OBJ)
+	mkdir -p $(OUTPUT)
+	$(OS_AR) rcs $(OUTPUT)/libkosu.$(KOSU_VERSION).a $^
 
 
 $(OUTPUT)/%.o: src/runtime/src/%.c

@@ -34,7 +34,7 @@ let shell command =
   let process_status = Unix.close_process_in in_channel in
   match process_status with
   | WEXITED code when code = 0 ->
-      content
+      String.trim content
   | WEXITED code | WSIGNALED code | WSTOPPED code ->
       let () = prerr_endline content in
       exit code
@@ -48,7 +48,7 @@ let shell_dynlib os () =
   match String.lowercase_ascii os with "darwin" -> ".dylib" | _ -> ".so"
 
 let kosu_version () =
-  shell "cat kosu_lang.opam | grep ^version | awk '{print $2}'"
+  shell "cat kosu_lang.opam | grep ^version | awk '{print $2}' | sed 's/\"//g'"
 
 let make_variable install () =
   Out_channel.with_open_bin kosu_config
@@ -219,8 +219,8 @@ let kosu_target_std_path = "%s"
 let kosu_target_runtime_path = "%s"
 let kosu_target_linker_option = %s
 let kosu_target_linker_args = %s
-let kosu_version = %s
-    |}
+let kosu_version = "%s"
+|}
       arch os os_extension cc commit_hash branch headers std_path runtime_path
       s_linker_option s_linker_raw_args (kosu_version ())
   in
