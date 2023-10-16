@@ -68,7 +68,7 @@ let rec parse lexbuf (checkpoint : KosuAst.kosu_module I.checkpoint) =
 
 let rec kosu_program ~acc = function
   | [] ->
-      Result.ok @@ List.rev acc
+      Result.ok @@ KosuUtil.Program.explicit_module_type @@ List.rev acc
   | kosu_file :: q ->
       let ( let* ) = Result.bind in
       let* kosu_module =
@@ -79,4 +79,8 @@ let rec kosu_program ~acc = function
       in
       kosu_program ~acc:(KosuAst.{ filename = kosu_file; kosu_module } :: acc) q
 
+(**
+    [kosu_program kosu_file] parses [kosu_file] and creates [kosu_program],
+    This function also explicit the module with [KosuUtil.Program.explicit_module_type]
+*)
 let kosu_program = kosu_program ~acc:[]

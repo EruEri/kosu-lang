@@ -167,6 +167,65 @@ module TyLoc = struct
 
   and tyloc_substitution_map bound assoc_types =
     Position.map_use @@ fun ty -> tyloc_substitution bound assoc_types ty
+
+  let rec explicit_module_type' current_module tyloc =
+    Position.map (explicit_module_type current_module) tyloc
+
+  and explicit_module_type current_module : kosu_loctype -> kosu_loctype =
+    function
+    | TyLocIdentifier { module_resolver; parametrics_type; name } ->
+        let module_resolver =
+          match module_resolver with
+          | KosuAst.ModuleResolverLoc [] ->
+              current_module
+          | KosuAst.ModuleResolverLoc (_ :: _) as m ->
+              m
+        in
+        let parametrics_type =
+          List.map (explicit_module_type' current_module) parametrics_type
+        in
+        TyLocIdentifier { module_resolver; parametrics_type; name }
+    | TyLocPolymorphic _ as e ->
+        e
+    | TyLocPointer { pointer_state; pointee_type } ->
+        let pointee_type = explicit_module_type' current_module pointee_type in
+        TyLocPointer { pointer_state; pointee_type }
+    | TyLocInteger _ as ti ->
+        ti
+    | TyLocFloat _ as fi ->
+        fi
+    | TyLocFunctionPtr schema ->
+        let schema = explicit_module_type_schema current_module schema in
+        TyLocFunctionPtr schema
+    | TyLocClosure schema ->
+        let schema = explicit_module_type_schema current_module schema in
+        TyLocClosure schema
+    | TyLocArray { ktype; size } ->
+        let ktype = explicit_module_type' current_module ktype in
+        TyLocArray { ktype; size }
+    | TyLocTuple ttes ->
+        let ttes = List.map (explicit_module_type' current_module) ttes in
+        TyLocTuple ttes
+    | TyLocOpaque { module_resolver; name } ->
+        let module_resolver =
+          match module_resolver with
+          | KosuAst.ModuleResolverLoc [] ->
+              current_module
+          | KosuAst.ModuleResolverLoc (_ :: _) as m ->
+              m
+        in
+        TyLocOpaque { module_resolver; name }
+    | (TyLocOrdered | TyLocStringLit | TyLocChar | TyLocBool | TyLocUnit) as e
+      ->
+        e
+
+  and explicit_module_type_schema current_module = function
+    | { poly_vars; parameters_type; return_type } ->
+        let parameters_type =
+          List.map (explicit_module_type' current_module) parameters_type
+        in
+        let return_type = explicit_module_type' current_module return_type in
+        { poly_vars; parameters_type; return_type }
 end
 
 module Ty = struct
@@ -626,7 +685,300 @@ module Pattern = struct
         pattern :: []
 end
 
-module Expression = struct end
+module Expression = struct
+  let explicit_module current_module = function
+    | KosuAst.ModuleResolverLoc [] ->
+        current_module
+    | KosuAst.ModuleResolverLoc (_ :: _) as m ->
+        m
+
+  let rec explicit_module_type' current_module exprloc =
+    Position.map (explicit_module_type current_module) exprloc
+
+  and explicit_module_type current_module :
+      KosuAst.kosu_expression -> KosuAst.kosu_expression = function
+    | ( EEmpty
+      | ETrue
+      | EFalse
+      | ENullptr
+      | ECmpLess
+      | ECmpEqual
+      | ECmpGreater
+      | EStringl _
+      | EChar _
+      | EInteger _
+      | EFloat _ ) as e ->
+        e
+    | ESizeof either ->
+        let either =
+          match either with
+          | Either.Left ty ->
+              Either.left @@ TyLoc.explicit_module_type' current_module ty
+          | Either.Right expr ->
+              Either.right @@ explicit_module_type' current_module expr
+        in
+        ESizeof either
+    | EFieldAccess { first_expr; field } ->
+        let first_expr = explicit_module_type' current_module first_expr in
+        EFieldAccess { first_expr; field }
+    | EArrayAccess { array_expr; index_expr } ->
+        let array_expr = explicit_module_type' current_module array_expr in
+        let index_expr = explicit_module_type' current_module index_expr in
+        EArrayAccess { array_expr; index_expr }
+    | ETupleAccess { first_expr; index } ->
+        let first_expr = explicit_module_type' current_module first_expr in
+        ETupleAccess { first_expr; index }
+    | EConstIdentifier { module_resolver; identifier } ->
+        let module_resolver = explicit_module current_module module_resolver in
+        EConstIdentifier { module_resolver; identifier }
+    (* Idenfier doesn need to remap module *)
+    | EIdentifier { module_resolver = _; id = _ } as e ->
+        e
+    | EStruct { module_resolver; struct_name; fields } ->
+        let module_resolver = explicit_module current_module module_resolver in
+        let fields =
+          List.map
+            (fun (s, expr) ->
+              let expr = explicit_module_type' current_module expr in
+              (s, expr)
+            )
+            fields
+        in
+        EStruct { module_resolver; struct_name; fields }
+    | EEnum { module_resolver; enum_name; variant; assoc_exprs } ->
+        let module_resolver = explicit_module current_module module_resolver in
+        let assoc_exprs =
+          List.map (explicit_module_type' current_module) assoc_exprs
+        in
+        EEnum { module_resolver; enum_name; variant; assoc_exprs }
+    | EBlock block ->
+        EBlock (explicit_module_type_block current_module block)
+    | EDeref expr ->
+        EDeref (explicit_module_type' current_module expr)
+    | ETuple exprs ->
+        let exprs = List.map (explicit_module_type' current_module) exprs in
+        ETuple exprs
+    | EArray exprs ->
+        let exprs = List.map (explicit_module_type' current_module) exprs in
+        EArray exprs
+    | EBuiltinFunctionCall { fn_name; parameters } ->
+        let parameters =
+          List.map (explicit_module_type' current_module) parameters
+        in
+        EBuiltinFunctionCall { fn_name; parameters }
+    (* Kosuenv already resolve function module*)
+    | EFunctionCall { module_resolver; generics_resolver; fn_name; parameters }
+      ->
+        let parameters =
+          List.map (explicit_module_type' current_module) parameters
+        in
+        EFunctionCall
+          { module_resolver; generics_resolver; fn_name; parameters }
+    | EWhile { condition_expr; body } ->
+        let condition_expr =
+          explicit_module_type' current_module condition_expr
+        in
+        let body = explicit_module_type_block current_module body in
+        EWhile { condition_expr; body }
+    | ECases { cases; else_body } ->
+        let cases =
+          List.map
+            (fun (expr, body) ->
+              let expr = explicit_module_type' current_module expr in
+              let body = explicit_module_type_block current_module body in
+              (expr, body)
+            )
+            cases
+        in
+        let else_body = explicit_module_type_block current_module else_body in
+        ECases { cases; else_body }
+    | EAnonFunction { kind; parameters; body } ->
+        let parameters =
+          List.map
+            (fun (p : KosuAst.kosu_function_parameters) ->
+              let kosu_type =
+                TyLoc.explicit_module_type' current_module p.kosu_type
+              in
+              { p with kosu_type }
+            )
+            parameters
+        in
+        let body = explicit_module_type_block current_module body in
+        EAnonFunction { kind; parameters; body }
+    | EMatch { expression; patterns } ->
+        let expression = explicit_module_type' current_module expression in
+        let patterns =
+          List.map
+            (fun (pattern, body) ->
+              let pattern =
+                explicit_module_type_pattern' current_module pattern
+              in
+              let body = explicit_module_type_block current_module body in
+              (pattern, body)
+            )
+            patterns
+        in
+        EMatch { expression; patterns }
+
+  and explicit_module_type_block current_module = function
+    | { kosu_stmts; kosu_expr } ->
+        let kosu_stmts =
+          List.map (explicit_module_type_statement' current_module) kosu_stmts
+        in
+        let kosu_expr = explicit_module_type' current_module kosu_expr in
+        { kosu_stmts; kosu_expr }
+
+  and explicit_module_type_pattern' current_module pattern_loc =
+    Position.map (explicit_module_type_pattern current_module) pattern_loc
+
+  and explicit_module_type_pattern current_module = function
+    | ( PTrue
+      | PFalse
+      | PEmpty
+      | PCmpLess
+      | PCmpEqual
+      | PCmpGreater
+      | PNullptr
+      | PWildcard
+      | PFloat _
+      | PChar _
+      | PInteger _
+      | PIdentifier _ ) as e ->
+        e
+    | PTuple patterns ->
+        let patterns =
+          List.map (explicit_module_type_pattern' current_module) patterns
+        in
+        PTuple patterns
+    | POr patterns ->
+        let patterns =
+          List.map (explicit_module_type_pattern' current_module) patterns
+        in
+        POr patterns
+    | PCase { module_resolver; enum_name; variant; assoc_patterns } ->
+        let module_resolver = explicit_module current_module module_resolver in
+        let assoc_patterns =
+          List.map (explicit_module_type_pattern' current_module) assoc_patterns
+        in
+        PCase { module_resolver; enum_name; variant; assoc_patterns }
+    | PRecord { module_resolver; struct_name; pfields } ->
+        let module_resolver = explicit_module current_module module_resolver in
+        let pfields =
+          List.map
+            (fun (n, pattern) ->
+              let pattern =
+                explicit_module_type_pattern' current_module pattern
+              in
+              (n, pattern)
+            )
+            pfields
+        in
+        PRecord { module_resolver; struct_name; pfields }
+    | PAs { pas_pattern; pas_bound } ->
+        let pas_pattern =
+          explicit_module_type_pattern' current_module pas_pattern
+        in
+        PAs { pas_pattern; pas_bound }
+
+  and explicit_module_type_statement' current_module =
+    Position.map @@ explicit_module_type_statement current_module
+
+  and explicit_module_type_statement current_module = function
+    | SDeclaration { is_const; pattern; explicit_type; expression } ->
+        let pattern = explicit_module_type_pattern' current_module pattern in
+        let explicit_type =
+          Option.map (TyLoc.explicit_module_type' current_module) explicit_type
+        in
+        let expression = explicit_module_type' current_module expression in
+        SDeclaration { is_const; pattern; explicit_type; expression }
+    | SAffection { is_deref; lvalue; expression } ->
+        let expression = explicit_module_type' current_module expression in
+        SAffection { is_deref; lvalue; expression }
+    | SDiscard expresssion ->
+        let expression = explicit_module_type' current_module expresssion in
+        SDiscard expression
+    | SOpen _ as so ->
+        so
+end
+
+module Node = struct
+  let explicit_module_type current_module _program :
+      KosuAst.kosu_module_node -> KosuAst.kosu_module_node = function
+    | KosuAst.NExternFunc external_decl ->
+        let parameters =
+          List.map
+            (TyLoc.explicit_module_type' current_module)
+            external_decl.parameters
+        in
+        let return_type =
+          TyLoc.explicit_module_type' current_module external_decl.return_type
+        in
+        NExternFunc { external_decl with parameters; return_type }
+    | NFunction kosu_function ->
+        let parameters =
+          List.map
+            (fun (p : KosuAst.kosu_function_parameters) ->
+              let kosu_type =
+                TyLoc.explicit_module_type' current_module p.kosu_type
+              in
+              { p with kosu_type }
+            )
+            kosu_function.parameters
+        in
+        let return_type =
+          TyLoc.explicit_module_type' current_module kosu_function.return_type
+        in
+        let body =
+          Expression.explicit_module_type' current_module kosu_function.body
+        in
+        NFunction { kosu_function with parameters; return_type; body }
+    | NSyscall kosu_syscall_decl ->
+        let parameters =
+          List.map
+            (TyLoc.explicit_module_type' current_module)
+            kosu_syscall_decl.parameters
+        in
+        let return_type =
+          TyLoc.explicit_module_type' current_module
+            kosu_syscall_decl.return_type
+        in
+        NSyscall { kosu_syscall_decl with parameters; return_type }
+    | NStruct kosu_struct_decl ->
+        let fields =
+          List.map
+            (fun (s, types) ->
+              let types = TyLoc.explicit_module_type' current_module types in
+              (s, types)
+            )
+            kosu_struct_decl.fields
+        in
+        NStruct { kosu_struct_decl with fields }
+    | NConst const_decl ->
+        let explicit_type =
+          TyLoc.explicit_module_type' current_module const_decl.explicit_type
+        in
+        let c_value =
+          Expression.explicit_module_type' current_module const_decl.c_value
+        in
+        NConst { const_decl with explicit_type; c_value }
+    | NEnum enum_decl ->
+        let tag_type =
+          TyLoc.explicit_module_type' current_module enum_decl.tag_type
+        in
+        let variants =
+          List.map
+            (fun (s, types) ->
+              let types =
+                List.map (TyLoc.explicit_module_type' current_module) types
+              in
+              (s, types)
+            )
+            enum_decl.variants
+        in
+        NEnum { enum_decl with tag_type; variants }
+    | NOpaque _ as no ->
+        no
+end
 
 module Module = struct
   let filename_of_module s =
@@ -744,6 +1096,9 @@ module Module = struct
       | NSyscall _ ->
           None
       )
+
+  let explicit_module_type current_module program kosu_module =
+    List.map (Node.explicit_module_type current_module program) kosu_module
 end
 
 module Program = struct
@@ -797,4 +1152,20 @@ module Program = struct
     | TyTuple _
     | TyBool ->
         None
+
+  (**
+
+  *)
+  let explicit_module_type program =
+    List.map
+      (fun KosuAst.{ filename; kosu_module } ->
+        let current_module =
+          ModuleResolver.dummy_located @@ ModuleResolver.of_filename filename
+        in
+        let kosu_module =
+          Module.explicit_module_type current_module program kosu_module
+        in
+        KosuAst.{ filename; kosu_module }
+      )
+      program
 end
