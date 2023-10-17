@@ -43,6 +43,10 @@ type kosu_error =
   | PatternIdentifierNotBoundEveryTime of string Position.location list
   | UnboundModule of KosuBaseAst.module_resolver_loc
   | UnboundIdentifier of string Position.location
+  | UnboundConstante of {
+      module_resolver : KosuAst.module_resolver_loc;
+      identifier : string Position.location;
+    }
   | IdentifierAlreadyBound of string Position.location
   | NoFieldInStruct of {
       struct_decl : KosuAst.kosu_raw_struct_decl;
@@ -50,6 +54,13 @@ type kosu_error =
     }
   | NoStructDeclFoundForType of KosuType.Ty.kosu_type Position.location
   | TypingError of KosuType.Ty.kosu_type_constraint
+  | NonStructTypeExpression of Position.position
+  | NonTupleAccess of Position.position
+  | NonArrayAccess of Position.position
+  | CannotInferType of Position.position
+  | CannotFindStructDecl of KosuType.Ty.kosu_type Position.location
+  | ArraySubscribeNotInteger of Position.position
+  | TupleIndexOutBound of { expect : int; found : int64 Position.location }
   | UnsupportedFile of string
 
 exception KosuRawErr of kosu_error
@@ -71,6 +82,10 @@ let pattern_identifier_not_bound e =
 
 let unbound_module e = kosu_raw_error @@ UnboundModule e
 let unbound_identifier e = kosu_raw_error @@ UnboundIdentifier e
+
+let unbound_constante module_resolver identifier =
+  kosu_raw_error @@ UnboundConstante { module_resolver; identifier }
+
 let identifier_already_bound e = kosu_raw_error @@ IdentifierAlreadyBound e
 
 let field_not_in_struct struct_decl field =
@@ -78,4 +93,14 @@ let field_not_in_struct struct_decl field =
 
 let no_struct_decl_for_type t = kosu_raw_error @@ NoStructDeclFoundForType t
 let typing_error consts = kosu_raw_error @@ TypingError consts
+let non_struct_type p = kosu_raw_error @@ NonStructTypeExpression p
+let non_tuple_access p = kosu_raw_error @@ NonTupleAccess p
+let non_array_access p = kosu_raw_error @@ NonArrayAccess p
+let cannot_infer_type p = kosu_raw_error @@ CannotInferType p
+let cannot_find_struct_decl p = kosu_raw_error @@ CannotFindStructDecl p
+let array_subscribe_not_integer p = kosu_raw_error @@ ArraySubscribeNotInteger p
+
+let index_out_of_bounds expect found =
+  kosu_raw_error @@ TupleIndexOutBound { expect; found }
+
 let unsupported_file f = kosu_raw_error @@ UnsupportedFile f

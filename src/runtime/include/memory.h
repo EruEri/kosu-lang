@@ -21,6 +21,35 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
+
+typedef struct kosu_pointer kosu_pointer_t;
+typedef struct kosu_frame kosu_frame_t;
+
+
+typedef enum kosu_gc_color {
+    KOSU_GC_NONE,
+    KOSU_GC_VISITED
+} kosu_gc_color_t;
+
+struct kosu_pointer {
+    char* m_base;
+    size_t m_type_size;
+    size_t m_nb_alloc;
+    kosu_gc_color_t m_color; 
+    kosu_pointer_t* m_previous;
+};
+
+struct kosu_frame {
+    void** m_root;
+    size_t m_frame_size;
+    kosu_frame_t* m_previous;
+};
+
+
+void kosu_push_frame(void** frame, size_t);
+void kosu_pop_frame();
+
 
 void* kosu_alloc(uint64_t);
 void* kosu_alloc_array(uint64_t, size_t);

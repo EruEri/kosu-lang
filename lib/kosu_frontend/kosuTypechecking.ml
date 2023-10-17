@@ -104,14 +104,14 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | Ty.TyPolymorphic p ->
             Option.some @@ Either.right p
         | _ ->
-            failwith "Fiead access of not identifier typee"
+            raise @@ non_struct_type first_expr.position
       in
       let ty_solve =
         match KosuEnv.find_or_try_solve try_find_ty ty_expr kosu_env with
         | Some t ->
             t
         | None ->
-            failwith "cannot get type identifier after solving"
+            raise @@ cannot_infer_type first_expr.position
       in
       let struct_decl_opt =
         KosuEnv.find_struct_declaration_type ty_solve kosu_env
@@ -121,7 +121,8 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | Some t ->
             t
         | None ->
-            failwith "No struct decl found"
+            raise @@ cannot_find_struct_decl
+            @@ Position.map (fun _ -> ty_solve) first_expr
       in
       let pametrics_type = KosuUtil.Ty.parametrics_type ty_expr in
       let struct_decl =
@@ -139,7 +140,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | Some ty ->
             ty
         | None ->
-            failwith "No field with this name"
+            raise @@ field_not_in_struct struct_decl sfield
       in
       (kosu_env, ty)
   | EArrayAccess { array_expr; index_expr } ->
@@ -159,7 +160,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
             in
             ty
         | _ ->
-            failwith "Array access of no array type"
+            raise @@ non_array_access array_expr.position
       in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       let env, ty = typeof kosu_env index_expr in
@@ -171,7 +172,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
             KosuEnv.add_typing_constraint ~lhs:ty ~rhs:(Ty.TyInteger None)
               index_expr kosu_env
         | _ ->
-            failwith "Arrayy subscript with on integer type"
+            raise @@ array_subscribe_not_integer index_expr.position
       in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       (kosu_env, ty_elt)
@@ -184,21 +185,21 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | Ty.TyPolymorphic p ->
             Option.some @@ Either.right p
         | _ ->
-            failwith "Tuple access of no tuple type"
+            raise @@ non_tuple_access first_expr.position
       in
       let ty_elts =
         match KosuEnv.find_or_try_solve try_expect_tuple ty kosu_env with
         | Some t ->
             t
         | None ->
-            failwith "Cannot specialie type"
+            raise @@ cannot_infer_type first_expr.position
       in
       let ty =
         match List.nth_opt ty_elts (Int64.to_int index.value) with
         | Some ty ->
             ty
         | None ->
-            failwith "Tuple out of bound index"
+            raise @@ index_out_of_bounds (List.length ty_elts) index
       in
       (kosu_env, ty)
   | EConstIdentifier { module_resolver; identifier } ->
@@ -209,7 +210,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | Some decl ->
             decl
         | None ->
-            raise @@ failwith "NO const found"
+            raise @@ unbound_constante module_resolver identifier
       in
       let ty = KosuUtil.Ty.of_tyloc' const_decl.explicit_type in
       (kosu_env, ty)

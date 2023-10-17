@@ -48,6 +48,13 @@ let string_of_module_resolver : KosuBaseAst.module_resolver -> string = function
   | ModuleResolver_ (_ :: _ as l) ->
       l |> String.concat "::" |> Printf.sprintf "%s."
 
+let string_of_module_resolver_loc : KosuBaseAst.module_resolver_loc -> string =
+  function
+  | ModuleResolverLoc [] ->
+      String.empty
+  | ModuleResolverLoc (_ :: _ as l) ->
+      l |> List.map Position.value |> String.concat "::" |> Printf.sprintf "%s."
+
 let string_of_pointee_state : KosuAst.pointer_state -> string = function
   | Const ->
       "const"
@@ -275,5 +282,50 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       sloc @@ sfile
       @@ sprintf "Incompatible type : Expected \"%s\", Found \"%s\""
            (string_of_kosu_type clhs) (string_of_kosu_type crhs)
+  | NonStructTypeExpression p ->
+      let sloc =
+        string_of_located_error Position.{ value = (); position = p }
+      in
+      sloc @@ sfile @@ sprintf "This expressions is not an struct type"
+  | NonTupleAccess p ->
+      let sloc =
+        string_of_located_error Position.{ value = (); position = p }
+      in
+      sloc @@ sfile @@ sprintf "This expressions is not a tuple"
+  | NonArrayAccess p ->
+      let sloc =
+        string_of_located_error Position.{ value = (); position = p }
+      in
+      sloc @@ sfile @@ sprintf "This expressions is not a array"
+  | CannotInferType p ->
+      let sloc =
+        string_of_located_error Position.{ value = (); position = p }
+      in
+      sloc @@ sfile @@ sprintf "Cannot infer the type of this expression"
+  | CannotFindStructDecl kosu_type ->
+      let sloc = string_of_located_error kosu_type in
+      sloc @@ sfile
+      @@ sprintf "No struct declaration associated this the type : %s"
+      @@ string_of_kosu_type @@ Position.value kosu_type
+  | ArraySubscribeNotInteger p ->
+      let sloc =
+        string_of_located_error Position.{ value = (); position = p }
+      in
+      sloc @@ sfile
+      @@ sprintf
+           "This expression is not an integer; It's can not be used as array \
+            subscribe"
+  | TupleIndexOutBound { expect; found } ->
+      let sloc = string_of_located_error found in
+      sloc @@ sfile
+      @@ sprintf
+           "This expression is a tuple (arity %u) but of try to access %Lu"
+           expect found.value
+  | UnboundConstante { module_resolver; identifier } ->
+      let sloc = string_of_located_error identifier in
+      sloc @@ sfile
+      @@ sprintf "Unbound Constante : %s%s"
+           (string_of_module_resolver_loc module_resolver)
+           identifier.value
   | UnsupportedFile f ->
       sprintf "Unknown file kind : %s" f
