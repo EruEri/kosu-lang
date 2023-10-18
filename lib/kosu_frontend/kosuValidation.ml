@@ -20,6 +20,23 @@ open KosuAst
 let ok = Ok ()
 let ( let* ) = Result.bind
 
+module Duplicated = struct
+  let types name = 
+    List.filter_map @@ function
+      | NOpaque {name = oname} as opaque when oname.Position.value = name -> Option.some @@ `opaque opaque
+      | NOpaque _ -> None
+      | NStruct {struct_name; _} as ostruct when struct_name.value = name -> Option.some @@ `strust ostruct
+      | NStruct _ -> None
+      | NEnum {enum_name; _} as oenum when enum_name.value = name -> Option.some @@ `enum oenum
+      | NEnum _ -> None
+      | NConst _
+      | NExternFunc _ 
+      | NFunction _
+      | NSyscall _ -> None
+
+
+end
+
 let validate_kosu_node kosu_program current_module = function
   | NOpaque _ ->
       ok

@@ -26,7 +26,7 @@ type kosu_function_parameters = {
   is_var : bool;
   name : string location;
   kosu_type : TyLoc.kosu_loctype location;
-}
+}                                                                                                            
 
 type kosu_anon_function_kind = KAClosure | KAFunctionPointer
 
