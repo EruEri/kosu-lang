@@ -321,6 +321,9 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       @@ sprintf
            "This expression is a tuple (arity %u) but of try to access %Lu"
            expect found.value
+  | ConstNonStaticExpression expr ->
+      let sloc = string_of_located_error expr in
+      sloc @@ sfile @@ sprintf "This expression cannot be none at compile time"
   | UnboundConstante { module_resolver; identifier } ->
       let sloc = string_of_located_error identifier in
       sloc @@ sfile

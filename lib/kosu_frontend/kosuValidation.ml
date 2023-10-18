@@ -21,20 +21,37 @@ let ok = Ok ()
 let ( let* ) = Result.bind
 
 module Duplicated = struct
-  let types name = 
-    List.filter_map @@ function
-      | NOpaque {name = oname} as opaque when oname.Position.value = name -> Option.some @@ `opaque opaque
-      | NOpaque _ -> None
-      | NStruct {struct_name; _} as ostruct when struct_name.value = name -> Option.some @@ `strust ostruct
-      | NStruct _ -> None
-      | NEnum {enum_name; _} as oenum when enum_name.value = name -> Option.some @@ `enum oenum
-      | NEnum _ -> None
-      | NConst _
-      | NExternFunc _ 
-      | NFunction _
-      | NSyscall _ -> None
+  module S = Set.Make (String)
 
+  let types name =
+    List.filter_map
+    @@ function
+    | NOpaque ({ name = oname } as opaque) when oname.Position.value = name ->
+        Option.some @@ `opaque opaque
+    | NOpaque _ ->
+        None
+    | NStruct ({ struct_name; _ } as ostruct) when struct_name.value = name ->
+        Option.some @@ `strust ostruct
+    | NStruct _ ->
+        None
+    | NEnum ({ enum_name; _ } as oenum) when enum_name.value = name ->
+        Option.some @@ `enum oenum
+    | NEnum _ ->
+        None
+    | NConst _ | NExternFunc _ | NFunction _ | NSyscall _ ->
+        None
 
+  let types_names =
+    List.fold_left
+      (fun acc -> function
+        | NOpaque { name; _ }
+        | NStruct { struct_name = name; _ }
+        | NEnum { enum_name = name; _ } ->
+            S.add name.value acc
+        | NConst _ | NExternFunc _ | NFunction _ | NSyscall _ ->
+            acc
+      )
+      S.empty
 end
 
 let validate_kosu_node kosu_program current_module = function
@@ -98,7 +115,36 @@ let validate_kosu_node kosu_program current_module = function
       ok
   | NEnum _ ->
       ok
-  | NConst _ ->
+  | NConst const_decl ->
+      let kosu_env = KosuEnv.create current_module kosu_program in
+
+      let* env, ty =
+        match KosuTypechecking.typeof kosu_env const_decl.c_value with
+        | res ->
+            Ok res
+        | exception KosuError.KosuRawErr e ->
+            Error e
+      in
+      let kosu_env = KosuEnv.merge_constraint env kosu_env in
+      let kosu_env =
+        KosuEnv.add_typing_constraint
+          ~lhs:(KosuUtil.Ty.of_tyloc' const_decl.explicit_type)
+          ~rhs:ty const_decl.explicit_type kosu_env
+      in
+      let solutions = KosuEnv.solve kosu_env in
+      let () =
+        KosuEnv.KosuTypingSolution.iter
+          (fun key value ->
+            Printf.printf "-> %s = %s\n"
+              (KosuPrint.string_of_polymorphic_var key)
+              (KosuPrint.string_of_kosu_type value)
+          )
+          solutions
+      in
+      let* () =
+        Result.map_error (fun n -> KosuError.ConstNonStaticExpression n)
+        @@ KosuStaticExpression.is_static_expression const_decl.c_value
+      in
       ok
 
 let validate_kosu_module kosu_program kosu_modules =

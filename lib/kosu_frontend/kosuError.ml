@@ -61,6 +61,7 @@ type kosu_error =
   | CannotFindStructDecl of KosuType.Ty.kosu_type Position.location
   | ArraySubscribeNotInteger of Position.position
   | TupleIndexOutBound of { expect : int; found : int64 Position.location }
+  | ConstNonStaticExpression of KosuAst.kosu_expression Position.location
   | UnsupportedFile of string
 
 exception KosuRawErr of kosu_error
@@ -99,6 +100,7 @@ let non_array_access p = kosu_raw_error @@ NonArrayAccess p
 let cannot_infer_type p = kosu_raw_error @@ CannotInferType p
 let cannot_find_struct_decl p = kosu_raw_error @@ CannotFindStructDecl p
 let array_subscribe_not_integer p = kosu_raw_error @@ ArraySubscribeNotInteger p
+let const_non_static_expression n = kosu_raw_error @@ ConstNonStaticExpression n
 
 let index_out_of_bounds expect found =
   kosu_raw_error @@ TupleIndexOutBound { expect; found }
