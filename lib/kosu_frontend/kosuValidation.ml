@@ -21,37 +21,65 @@ let ok = Ok ()
 let ( let* ) = Result.bind
 
 module Duplicated = struct
-  module S = Set.Make (String)
-
-  let types name =
+  let types_name =
     List.filter_map
     @@ function
-    | NOpaque ({ name = oname } as opaque) when oname.Position.value = name ->
-        Option.some @@ `opaque opaque
-    | NOpaque _ ->
-        None
-    | NStruct ({ struct_name; _ } as ostruct) when struct_name.value = name ->
-        Option.some @@ `strust ostruct
-    | NStruct _ ->
-        None
-    | NEnum ({ enum_name; _ } as oenum) when enum_name.value = name ->
-        Option.some @@ `enum oenum
-    | NEnum _ ->
-        None
-    | NConst _ | NExternFunc _ | NFunction _ | NSyscall _ ->
+    | NOpaque { name }
+    | NStruct { struct_name = name; _ }
+    | NEnum { enum_name = name; _ } ->
+        Some name
+    | NExternFunc _ | NFunction _ | NSyscall _ | NConst _ ->
         None
 
-  let types_names =
-    List.fold_left
-      (fun acc -> function
-        | NOpaque { name; _ }
-        | NStruct { struct_name = name; _ }
-        | NEnum { enum_name = name; _ } ->
-            S.add name.value acc
-        | NConst _ | NExternFunc _ | NFunction _ | NSyscall _ ->
-            acc
+  (**
+    [kosu_type name kosu_module] lists all of the kosu type declarations (enum, struct, opaque) in [kosu_module] with the name [name]
+  *)
+  let kosu_type name =
+    List.filter_map
+    @@ fun kosu_node ->
+    match kosu_node with
+    | NOpaque opaque ->
+        let r =
+          match opaque.name.value = name with
+          | true ->
+              Option.some @@ `NOpaque opaque
+          | false ->
+              None
+        in
+        r
+    | NStruct kosu_struct ->
+        let r =
+          match kosu_struct.struct_name.value = name with
+          | true ->
+              Option.some @@ `NStruct kosu_struct
+          | false ->
+              None
+        in
+        r
+    | NEnum kosu_enum ->
+        let r =
+          match kosu_enum.enum_name.value = name with
+          | true ->
+              Option.some @@ `NEnum kosu_enum
+          | false ->
+              None
+        in
+        r
+    | NExternFunc _ | NFunction _ | NSyscall _ | NConst _ ->
+        None
+
+  let kosu_type kosu_module =
+    let names = types_name kosu_module in
+    Util.Ulist.fold_ok
+      (fun () name ->
+        match kosu_type name kosu_module with
+        | [] | _ :: [] ->
+            Ok ()
+        | list ->
+            Result.error @@ KosuError.ConfictingTypeDeclaration list
       )
-      S.empty
+      ()
+      (List.map Position.value names)
 end
 
 let validate_kosu_node kosu_program current_module = function

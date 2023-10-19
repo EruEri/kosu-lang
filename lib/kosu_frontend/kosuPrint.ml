@@ -330,5 +330,23 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       @@ sprintf "Unbound Constante : %s%s"
            (string_of_module_resolver_loc module_resolver)
            identifier.value
+  | ConfictingTypeDeclaration list ->
+      let open KosuAst in
+      let name =
+        list
+        |> List.map (function
+             | `NEnum decl ->
+                 string_of_located_error decl.enum_name
+                 @@ Printf.sprintf "enum %s" decl.enum_name.value
+             | `NOpaque opaque ->
+                 string_of_located_error opaque.name
+                 @@ Printf.sprintf "opaque type %s" opaque.name.value
+             | `NStruct str ->
+                 string_of_located_error str.struct_name
+                 @@ Printf.sprintf "struct %s" str.struct_name.value
+             )
+        |> String.concat "\n\t"
+      in
+      sfile @@ Printf.sprintf "Conflicting type declaration:\n\t%s" name
   | UnsupportedFile f ->
       sprintf "Unknown file kind : %s" f
