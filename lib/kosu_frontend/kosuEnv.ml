@@ -496,10 +496,21 @@ let rec solve solutions eqs =
   | None ->
       solutions
   | Some equation ->
+      let () =
+        Printf.printf "eq = %s\n"
+          (let f KosuType.Ty.{ clhs; crhs; _ } =
+             Printf.sprintf "%s == %s\n"
+               (KosuPrint.string_of_kosu_type clhs)
+               (KosuPrint.string_of_kosu_type crhs)
+           in
+           f equation
+          )
+      in
       let eqs = KosuTypeConstraintSet.remove equation eqs in
       let solutions, eqs =
         match KosuTypeConstraint.reduce equation.clhs equation.crhs with
         | Some (Left (p, ty)) ->
+            let () = Printf.printf "some left \n" in
             let eq_appears, eq_others =
               KosuTypeConstraintSet.partition
                 (fun constr ->
@@ -523,6 +534,7 @@ let rec solve solutions eqs =
               | None ->
                   failwith "Error fold type"
             in
+
             let solutions = KosuTypingSolution.add p ty solutions in
             let eqs =
               KosuTypeConstraintSet.map
@@ -595,9 +607,24 @@ let solve kosu_env =
       kosu_env.env_tying_constraint
   in
   let solutions2 = solve KosuTypingSolution.empty constrains in
+
+  (* let f = (fun key value -> Printf.printf "%s ---> %s\n" (KosuPrint.string_of_polymorphic_var key) (KosuPrint.string_of_kosu_type value)) in
+     let () = Printf.printf "-----\n\n" in
+     let () = KosuTypingSolution.iter f solutions in
+     let () = Printf.printf "Second sol \n%!" in
+     let () = KosuTypingSolution.iter f solutions2 in *)
   let solutions =
     KosuTypingSolution.union
-      (fun _ lhs rhs -> KosuTypeConstraint.restrict ~with_ty:lhs rhs)
+      (fun _ lhs rhs ->
+        match KosuTypeConstraint.restrict ~with_ty:lhs rhs with
+        | Some _ as t ->
+            t
+        | None ->
+            failwith
+            @@ Printf.sprintf "incompatible %s %s"
+                 (KosuPrint.string_of_kosu_type lhs)
+                 (KosuPrint.string_of_kosu_type rhs)
+      )
       solutions solutions2
   in
   solutions

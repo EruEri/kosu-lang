@@ -343,6 +343,20 @@ module Ty = struct
     | TyBool ->
         false
 
+  (**
+      [are_number_compatible lhs rhs] compares if number information is compatible.
+        - [are_number_compatible Some None] returns [true]
+        - [are_number_compatible None Some] returns [true]
+        - [are_number_compatible None None] returns [true]
+        - [are_number_compatible (Some l) (Some r)] returns [l = r]
+  *)
+  let are_number_compatible lhs rhs =
+    match (lhs, rhs) with
+    | None, (Some _ | None) | Some _, None ->
+        true
+    | Some lhs, Some rhs ->
+        lhs = rhs
+
   let rec of_tyloc' tyloc = of_tyloc @@ value tyloc
 
   and of_tyloc : KosuType.TyLoc.kosu_loctype -> KosuType.Ty.kosu_type = function

@@ -145,29 +145,42 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
       | TyUnit ),
       TyPointer _ ) ->
       None
-  | TyInteger lhs, TyInteger rhs ->
-      let integer_info =
+  | (TyInteger lhs as tmp), TyInteger rhs ->
+      let res =
         match (lhs, rhs) with
         | None, info | info, None ->
-            info
-        | (Some (Worded lhs) as info), Some (Worded rhs) ->
-            let* info =
-              match lhs = rhs with true -> Some info | false -> None
-            in
-            info
-        | (Some (Sized (lsign, lsize)) as info), Some (Sized (rsign, rsize)) ->
-            let* info =
-              match lsign = rsign && lsize = rsize with
-              | true ->
-                  Some info
-              | false ->
-                  None
-            in
-            info
-        | Some (Worded _), Some (Sized _) | Some (Sized _), Some (Worded _) ->
-            None
+            Option.some @@ TyInteger info
+        | _, _ -> (
+            match KosuUtil.Ty.are_number_compatible lhs rhs with
+            | true ->
+                Some tmp
+            | false ->
+                None
+          )
       in
-      return @@ TyInteger integer_info
+      res
+      (* let res =
+           match (lhs, rhs) with
+           | None, info | info, None ->
+               Option.some @@ TyInteger info
+           | (Some (Worded lhs) as info), Some (Worded rhs) ->
+               let* info =
+                 match lhs = rhs with true -> Some info | false -> None
+               in
+               Option.some @@ TyInteger info
+           | (Some (Sized (lsign, lsize)) as info), Some (Sized (rsign, rsize)) ->
+               let* info =
+                 match lsign = rsign && lsize = rsize with
+                 | true ->
+                   Option.some @@ TyInteger info
+                 | false ->
+                     None
+               in
+                (Some info)
+           | Some (Worded _), Some (Sized _) | Some (Sized _), Some (Worded _) ->
+               None
+         in
+           res *)
   | ( TyInteger _,
       ( TyFloat _
       | TyFunctionPtr _
@@ -449,12 +462,26 @@ let reduce lhs rhs =
         some @@ right @@ ((ltype, rtype) :: [])
     | TyPointer _, _ ->
         failwith ""
-    | TyInteger _, TyInteger _ ->
-        rhs |> restrict ~with_ty:lhs |> Option.map @@ fun _ -> right []
+    | TyInteger linfo, TyInteger rinfo ->
+        let res =
+          match KosuUtil.Ty.are_number_compatible linfo rinfo with
+          | false ->
+              None
+          | true ->
+              rhs |> restrict ~with_ty:lhs |> Option.map @@ fun _ -> right []
+        in
+        res
     | TyInteger _, _ ->
         None
-    | TyFloat _, TyFloat _ ->
-        rhs |> restrict ~with_ty:lhs |> Option.map @@ fun _ -> right []
+    | TyFloat linfo, TyFloat rinfo ->
+        let res =
+          match KosuUtil.Ty.are_number_compatible linfo rinfo with
+          | false ->
+              None
+          | true ->
+              rhs |> restrict ~with_ty:lhs |> Option.map @@ fun _ -> right []
+        in
+        res
     | TyFloat _, _ ->
         None
     | ( TyFunctionPtr { poly_vars = _; parameters_type = lpt; return_type = lrt },
