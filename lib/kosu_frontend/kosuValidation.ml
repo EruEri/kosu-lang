@@ -190,5 +190,7 @@ let validate kosu_program =
           ok
       | Error e ->
           Error (filename, e)
+      | exception KosuError.KosuRawErr e ->
+          Error (filename, e)
     )
     () kosu_program

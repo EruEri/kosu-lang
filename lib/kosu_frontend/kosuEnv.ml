@@ -492,36 +492,26 @@ let rec resolve_field_type fields struct_type kosu_env =
       resolve_field_type q field_type kosu_env
 
 let rec solve solutions eqs =
-  let () = print_endline "--------------\n" in
-  let () =
-    KosuTypeConstraintSet.iter
-      (fun { clhs; crhs; _ } ->
-        Printf.printf "equation : %s == %s\n%!"
-          (KosuPrint.string_of_kosu_type clhs)
-          (KosuPrint.string_of_kosu_type crhs)
-      )
-      eqs
-  in
-  let () = print_endline "--------------\n" in
+  (* let () = print_endline "--------------\n" in
+     let () =
+       KosuTypeConstraintSet.iter
+         (fun { clhs; crhs; _ } ->
+           Printf.printf "equation : %s == %s\n%!"
+             (KosuPrint.string_of_kosu_type clhs)
+             (KosuPrint.string_of_kosu_type crhs)
+         )
+         eqs
+     in
+     let () = print_endline "--------------\n" in *)
   match KosuTypeConstraintSet.choose_opt eqs with
   | None ->
       solutions
   | Some equation ->
-      let () =
-        Printf.printf "eq = %s\n"
-          (let f KosuType.Ty.{ clhs; crhs; _ } =
-             Printf.sprintf "%s == %s\n"
-               (KosuPrint.string_of_kosu_type clhs)
-               (KosuPrint.string_of_kosu_type crhs)
-           in
-           f equation
-          )
-      in
       let eqs = KosuTypeConstraintSet.remove equation eqs in
       let solutions, eqs =
         match KosuTypeConstraint.reduce equation.clhs equation.crhs with
         | Some (Left (p, ty)) ->
-            let eq_appears, _eq_others =
+            let _eq_appears, _eq_others =
               KosuTypeConstraintSet.partition
                 (fun constr ->
                   Option.is_some
@@ -530,21 +520,21 @@ let rec solve solutions eqs =
                 )
                 eqs
             in
-            let ty_fold =
-              match try_solve_set p eq_appears with
-              | Some ty_f ->
-                  ty_f
-              | None ->
-                  ty
-            in
-            let ty =
-              match KosuTypeConstraint.restrict ~with_ty:ty ty_fold with
-              | Some t ->
-                  t
-              | None ->
-                  raise @@ KosuError.typing_error
-                  @@ { equation with clhs = ty_fold; crhs = ty }
-            in
+            (* let ty_fold =
+                 match try_solve_set p eq_appears with
+                 | Some ty_f ->
+                     ty_f
+                 | None ->
+                     ty
+               in
+               let ty =
+                 match KosuTypeConstraint.restrict ~with_ty:ty ty_fold with
+                 | Some t ->
+                     t
+                 | None ->
+                     raise @@ KosuError.typing_error
+                     @@ { equation with clhs = ty_fold; crhs = ty }
+               in *)
             let ty =
               match KosuTypingSolution.find_opt p solutions with
               | None ->
@@ -555,10 +545,8 @@ let rec solve solutions eqs =
                     | Some t ->
                         t
                     | None ->
-                        failwith
-                        @@ Printf.sprintf "%s != %s"
-                             (KosuPrint.string_of_kosu_type exist)
-                             (KosuPrint.string_of_kosu_type ty)
+                        raise @@ KosuError.typing_error
+                        @@ { equation with clhs = ty; crhs = exist }
                   in
                   r
             in
