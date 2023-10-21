@@ -208,18 +208,20 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
       | TyUnit ),
       TyInteger _ ) ->
       None
-  | TyFloat linfo, TyFloat rinfo ->
-      let info =
-        match (linfo, rinfo) with
+  | (TyFloat lhs as tmp), TyFloat rhs ->
+      let res =
+        match (lhs, rhs) with
         | None, info | info, None ->
-            info
-        | Some lhs, Some rhs ->
-            let* fsize =
-              match lhs = rhs with true -> Some lhs | false -> None
-            in
-            Some fsize
+            Option.some @@ TyFloat info
+        | _, _ -> (
+            match KosuUtil.Ty.are_number_compatible lhs rhs with
+            | true ->
+                Some tmp
+            | false ->
+                None
+          )
       in
-      return @@ TyFloat info
+      res
   | ( TyFloat _,
       ( TyFunctionPtr _
       | TyClosure _

@@ -542,7 +542,8 @@ let rec solve solutions eqs =
               | Some t ->
                   t
               | None ->
-                  failwith "Error fold type"
+                  raise @@ KosuError.typing_error
+                  @@ { equation with clhs = ty_fold; crhs = ty }
             in
             let ty =
               match KosuTypingSolution.find_opt p solutions with
