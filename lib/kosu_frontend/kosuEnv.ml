@@ -110,8 +110,8 @@ let add_typing_constraint ~lhs ~rhs (location : 'a Position.location) env =
   let constr =
     KosuType.Ty.{ clhs = lhs; crhs = rhs; position = location.position }
   in
-  let skt = KosuPrint.string_of_kosu_type in
-  let () = Printf.fprintf stdout "eq : %s == %s \n%!" (skt lhs) (skt rhs) in
+  (* let skt = KosuPrint.string_of_kosu_type in
+     let () = Printf.fprintf stdout "eq : %s == %s \n%!" (skt lhs) (skt rhs) in *)
   {
     env with
     env_tying_constraint =
@@ -492,6 +492,17 @@ let rec resolve_field_type fields struct_type kosu_env =
       resolve_field_type q field_type kosu_env
 
 let rec solve solutions eqs =
+  let () = print_endline "--------------\n" in
+  let () =
+    KosuTypeConstraintSet.iter
+      (fun { clhs; crhs; _ } ->
+        Printf.printf "equation : %s == %s\n%!"
+          (KosuPrint.string_of_kosu_type clhs)
+          (KosuPrint.string_of_kosu_type crhs)
+      )
+      eqs
+  in
+  let () = print_endline "--------------\n" in
   match KosuTypeConstraintSet.choose_opt eqs with
   | None ->
       solutions
@@ -510,8 +521,7 @@ let rec solve solutions eqs =
       let solutions, eqs =
         match KosuTypeConstraint.reduce equation.clhs equation.crhs with
         | Some (Left (p, ty)) ->
-            let () = Printf.printf "some left \n" in
-            let eq_appears, eq_others =
+            let eq_appears, _eq_others =
               KosuTypeConstraintSet.partition
                 (fun constr ->
                   Option.is_some
@@ -534,12 +544,26 @@ let rec solve solutions eqs =
               | None ->
                   failwith "Error fold type"
             in
-
+            let ty =
+              match KosuTypingSolution.find_opt p solutions with
+              | None ->
+                  ty
+              | Some exist ->
+                  let r =
+                    match KosuTypeConstraint.restrict ~with_ty:ty exist with
+                    | Some t ->
+                        t
+                    | None ->
+                        failwith
+                        @@ Printf.sprintf "%s != %s"
+                             (KosuPrint.string_of_kosu_type exist)
+                             (KosuPrint.string_of_kosu_type ty)
+                  in
+                  r
+            in
             let solutions = KosuTypingSolution.add p ty solutions in
             let eqs =
-              KosuTypeConstraintSet.map
-                (KosuTypeConstraint.substitute p ty)
-                eq_others
+              KosuTypeConstraintSet.map (KosuTypeConstraint.substitute p ty) eqs
             in
             (solutions, eqs)
         | Some (Right new_constrains) ->
