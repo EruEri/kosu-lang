@@ -21,6 +21,14 @@ module KosuTypeVariableSet = Set.Make (struct
   let compare = Stdlib.compare
 end)
 
+module KosuTypeVariableLocSet = Set.Make (struct
+  type t = KosuType.TyLoc.kosu_loctype_polymorphic
+
+  let compare (KosuType.TyLoc.PolymorphicVarLoc lhs)
+      (KosuType.TyLoc.PolymorphicVarLoc rhs) =
+    String.compare lhs.value rhs.value
+end)
+
 module ModuleResolver = struct
   open KosuAst
 
@@ -173,6 +181,61 @@ module TyLoc = struct
 
   and tyloc_substitution_map bound assoc_types =
     Position.map_use @@ fun ty -> tyloc_substitution bound assoc_types ty
+
+  (**
+    [polymorphic_vars acc kosuloc_type] accumules all polymorphics variables present within [kosuloc_type],
+    in [acc]
+  *)
+  let rec polymorphic_vars bound acc kosuloc_type =
+    let open KosuType.TyLoc in
+    match kosuloc_type with
+    | TyLocPolymorphic poly ->
+        let r =
+          match KosuTypeVariableLocSet.mem poly bound with
+          | true ->
+              acc
+          | false ->
+              KosuTypeVariableLocSet.add poly acc
+        in
+        r
+    | TyLocIdentifier { module_resolver = _; parametrics_type = ttes; name = _ }
+    | TyLocTuple ttes ->
+        let set = List.map (polymorphic_vars' bound acc) ttes in
+        List.fold_left KosuTypeVariableLocSet.union KosuTypeVariableLocSet.empty
+          set
+    | TyLocFunctionPtr schema | TyLocClosure schema ->
+        polymorphic_vars_of_schema bound acc schema
+    | TyLocOpaque _ ->
+        acc
+    | TyLocPointer { pointer_state = _; pointee_type = kt }
+    | TyLocArray { ktype = kt; size = _ } ->
+        polymorphic_vars' bound acc kt
+    | TyLocInteger _ ->
+        acc
+    | TyLocFloat _ ->
+        acc
+    | TyLocStringLit ->
+        acc
+    | TyLocChar ->
+        acc
+    | TyLocBool ->
+        acc
+    | TyLocUnit ->
+        acc
+    | TyLocOrdered ->
+        acc
+
+  and polymorphic_vars' bound acc loc_type =
+    polymorphic_vars bound acc @@ Position.value loc_type
+
+  and polymorphic_vars_of_schema bound acc = function
+    | { poly_vars; parameters_type; return_type } ->
+        let locale_bound = KosuTypeVariableLocSet.of_list poly_vars in
+        let bound = KosuTypeVariableLocSet.union bound locale_bound in
+
+        let set = List.map (polymorphic_vars' bound acc) parameters_type in
+        let singleton = polymorphic_vars' bound acc return_type in
+        List.fold_left KosuTypeVariableLocSet.union singleton set
 
   let rec explicit_module_type' current_module tyloc =
     Position.map (explicit_module_type current_module) tyloc

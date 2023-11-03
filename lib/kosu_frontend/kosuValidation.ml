@@ -20,6 +20,14 @@ open KosuAst
 let ok = Ok ()
 let ( let* ) = Result.bind
 
+module StringLoc = Set.Make (struct
+  type t = string Position.location
+
+  let compare lhs rhs =
+    let open Position in
+    String.compare lhs.value rhs.value
+end)
+
 module Duplicated = struct
   let types_name =
     List.filter_map
@@ -90,6 +98,18 @@ let validate_kosu_node kosu_program current_module = function
   | NFunction kosu_function_decl ->
       let () =
         Printf.printf "Fuction %s\n%!" kosu_function_decl.fn_name.value
+      in
+
+      let* _ =
+        Util.Ulist.fold_ok
+          (fun set (elt : KosuAst.kosu_function_parameters) ->
+            match StringLoc.find_opt elt.name set with
+            | None ->
+                Result.ok @@ StringLoc.add elt.name set
+            | Some _ ->
+                failwith "Parameters already exist"
+          )
+          StringLoc.empty kosu_function_decl.parameters
       in
       (* Check that poly vars in type are bound in the fields *)
       (* Check function unitity in the module *)
