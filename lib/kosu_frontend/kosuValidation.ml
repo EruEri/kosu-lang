@@ -90,16 +90,19 @@ module Duplicated = struct
       (List.map Position.value names)
 end
 
-let validate_kosu_node kosu_program current_module = function
+let validate_kosu_node kosu_program current_module =
+  let module KTVLS = KosuUtil.KosuTypeVariableLocSet in
+  function
   | NOpaque _ ->
       ok
-  | NExternFunc _ ->
+  | NExternFunc _kosu_external_decl ->
       ok
   | NFunction kosu_function_decl ->
       let () =
         Printf.printf "Fuction %s\n%!" kosu_function_decl.fn_name.value
       in
 
+      (* chech that argumenst name is unique *)
       let* _ =
         Util.Ulist.fold_ok
           (fun set (elt : KosuAst.kosu_function_parameters) ->
@@ -111,10 +114,31 @@ let validate_kosu_node kosu_program current_module = function
           )
           StringLoc.empty kosu_function_decl.parameters
       in
+
       (* Check that poly vars in type are bound in the fields *)
+      let for_all_vars = KTVLS.of_list kosu_function_decl.poly_vars in
+      let for_all_vars_in_types =
+        List.fold_left KTVLS.union KTVLS.empty
+        @@ List.map
+             (fun elt ->
+               KosuUtil.TyLoc.polymorphic_vars' KTVLS.empty KTVLS.empty
+                 elt.kosu_type
+             )
+             kosu_function_decl.parameters
+      in
+      let diff = KTVLS.diff for_all_vars_in_types for_all_vars in
+
+      let* () =
+        match KTVLS.is_empty diff with
+        | true ->
+            Ok ()
+        | false ->
+            failwith "some variable arent bound"
+      in
+
       (* Check function unitity in the module *)
       (* chach that each type exit *)
-      (* chech that argumenst name is unique *)
+
       (* Check typeching *)
       let kosu_env = KosuEnv.create current_module kosu_program in
       let kosu_env =
