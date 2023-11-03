@@ -15,6 +15,12 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
+module KosuTypeVariableSet = Set.Make (struct
+  type t = KosuType.Ty.kosu_type_polymorphic
+
+  let compare = Stdlib.compare
+end)
+
 module ModuleResolver = struct
   open KosuAst
 
@@ -518,7 +524,7 @@ module Ty = struct
     | TyBool
     | TyUnit
     | TyIdentifier { module_resolver = ModuleResolver_ _; _ }
-    | TyPolymorphic (PolymorphicVar _)
+    | TyPolymorphic (PolymorphicVar _ | CompilerPolymorphicVar _)
     | TyPointer _
     | TyInteger _
     | TyFloat _

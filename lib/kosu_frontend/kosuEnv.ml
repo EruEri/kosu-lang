@@ -17,12 +17,7 @@
 
 module KosuTypeConstraint = KosuTypeConstraint
 module KosuTypeConstraintSet = Set.Make (KosuTypeConstraint)
-
-module KosuTypeVariableSet = Set.Make (struct
-  type t = KosuType.Ty.kosu_type_polymorphic
-
-  let compare = Stdlib.compare
-end)
+module KosuTypeVariableSet = KosuUtil.KosuTypeVariableSet
 
 module KosuVariableInfo = struct
   type kosu_variable_info = {

@@ -51,8 +51,8 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
   let ( let* ) = Option.bind in
   let return = Option.some in
   match (with_ty, ty) with
-  | TyPolymorphic (PolymorphicVar _), ty | ty, TyPolymorphic (PolymorphicVar _)
-    ->
+  | TyPolymorphic (PolymorphicVar _ | CompilerPolymorphicVar _), ty
+  | ty, TyPolymorphic (PolymorphicVar _ | CompilerPolymorphicVar _) ->
       Some ty
   | ( TyIdentifier
         { module_resolver = lmr; parametrics_type = lpt; name = lname },
@@ -78,36 +78,7 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
           parametrics_type
       in
       return @@ TyIdentifier { module_resolver; parametrics_type; name }
-  | ( TyIdentifier _,
-      ( TyPointer _
-      | TyInteger _
-      | TyFloat _
-      | TyFunctionPtr _
-      | TyClosure _
-      | TyInnerClosureId _
-      | TyArray _
-      | TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ) )
-  | ( ( TyPointer _
-      | TyInteger _
-      | TyFloat _
-      | TyFunctionPtr _
-      | TyClosure _
-      | TyInnerClosureId _
-      | TyArray _
-      | TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ),
-      TyIdentifier _ ) ->
+  | TyIdentifier _, _ ->
       None
   | ( TyPointer { pointer_state = lstate; pointee_type = ltype },
       TyPointer { pointer_state = rstate; pointee_type = rtype } ) ->
@@ -116,34 +87,7 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
       in
       let* pointee_type = restrict ~with_ty:ltype rtype in
       return @@ TyPointer { pointer_state; pointee_type }
-  | ( TyPointer _,
-      ( TyInteger _
-      | TyFloat _
-      | TyFunctionPtr _
-      | TyClosure _
-      | TyInnerClosureId _
-      | TyArray _
-      | TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ) )
-  | ( ( TyInteger _
-      | TyFloat _
-      | TyFunctionPtr _
-      | TyClosure _
-      | TyInnerClosureId _
-      | TyArray _
-      | TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ),
-      TyPointer _ ) ->
+  | TyPointer _, _ ->
       None
   | (TyInteger lhs as tmp), TyInteger rhs ->
       let res =
@@ -159,54 +103,7 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
           )
       in
       res
-      (* let res =
-           match (lhs, rhs) with
-           | None, info | info, None ->
-               Option.some @@ TyInteger info
-           | (Some (Worded lhs) as info), Some (Worded rhs) ->
-               let* info =
-                 match lhs = rhs with true -> Some info | false -> None
-               in
-               Option.some @@ TyInteger info
-           | (Some (Sized (lsign, lsize)) as info), Some (Sized (rsign, rsize)) ->
-               let* info =
-                 match lsign = rsign && lsize = rsize with
-                 | true ->
-                   Option.some @@ TyInteger info
-                 | false ->
-                     None
-               in
-                (Some info)
-           | Some (Worded _), Some (Sized _) | Some (Sized _), Some (Worded _) ->
-               None
-         in
-           res *)
-  | ( TyInteger _,
-      ( TyFloat _
-      | TyFunctionPtr _
-      | TyClosure _
-      | TyInnerClosureId _
-      | TyArray _
-      | TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ) )
-  | ( ( TyFloat _
-      | TyFunctionPtr _
-      | TyClosure _
-      | TyInnerClosureId _
-      | TyArray _
-      | TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ),
-      TyInteger _ ) ->
+  | TyInteger _, _ ->
       None
   | (TyFloat lhs as tmp), TyFloat rhs ->
       let res =
@@ -222,30 +119,7 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
           )
       in
       res
-  | ( TyFloat _,
-      ( TyFunctionPtr _
-      | TyClosure _
-      | TyInnerClosureId _
-      | TyArray _
-      | TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ) )
-  | ( ( TyFunctionPtr _
-      | TyClosure _
-      | TyInnerClosureId _
-      | TyArray _
-      | TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ),
-      TyFloat _ ) ->
+  | TyFloat _, _ ->
       None
   | ( TyFunctionPtr { poly_vars = _; parameters_type = lpt; return_type = lrt },
       TyFunctionPtr { poly_vars; parameters_type = rpt; return_type = rrt } ) ->
@@ -265,28 +139,7 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
       let* return_type = restrict ~with_ty:lrt rrt in
 
       return @@ TyFunctionPtr { poly_vars; parameters_type; return_type }
-  | ( TyFunctionPtr _,
-      ( TyClosure _
-      | TyInnerClosureId _
-      | TyArray _
-      | TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ) )
-  | ( ( TyClosure _
-      | TyInnerClosureId _
-      | TyArray _
-      | TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ),
-      TyFunctionPtr _ ) ->
+  | TyFunctionPtr _, _ ->
       None
   | ( TyClosure { poly_vars = _; parameters_type = lpt; return_type = lrt },
       TyClosure { poly_vars; parameters_type = rpt; return_type = rrt } ) ->
@@ -306,49 +159,13 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
       let* return_type = restrict ~with_ty:lrt rrt in
 
       return @@ TyClosure { poly_vars; parameters_type; return_type }
-  | ( TyClosure _,
-      ( TyInnerClosureId _
-      | TyArray _
-      | TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ) )
-  | ( ( TyInnerClosureId _
-      | TyArray _
-      | TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ),
-      TyClosure _ ) ->
+  | TyClosure _, _ ->
       None
   | TyInnerClosureId linner, TyInnerClosureId rinner ->
       (* How to handle id ... *)
       let () = ignore (linner, rinner) in
       failwith ""
-  | ( TyInnerClosureId _,
-      ( TyArray _
-      | TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ) )
-  | ( ( TyArray _
-      | TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ),
-      TyInnerClosureId _ ) ->
+  | TyInnerClosureId _, _ ->
       None
   | ( TyArray { ktype = ltype; size = lsize },
       TyArray { ktype = rtype; size = rsize } ) ->
@@ -357,22 +174,7 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
       in
       let* ktype = restrict ~with_ty:ltype rtype in
       return @@ TyArray { ktype; size }
-  | ( TyArray _,
-      ( TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ) )
-  | ( ( TyTuple _
-      | TyOpaque _
-      | TyOrdered
-      | TyStringLit
-      | TyChar
-      | TyBool
-      | TyUnit ),
-      TyArray _ ) ->
+  | TyArray _, _ ->
       None
   | TyTuple lttes, TyTuple rttes ->
       let* () =
@@ -387,9 +189,7 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
         Util.Ulist.map_some (fun (lhs, rhs) -> restrict ~with_ty:lhs rhs) ttes
       in
       return @@ TyTuple ttes
-  | TyTuple _, (TyOpaque _ | TyOrdered | TyStringLit | TyChar | TyBool | TyUnit)
-  | (TyOpaque _ | TyOrdered | TyStringLit | TyChar | TyBool | TyUnit), TyTuple _
-    ->
+  | TyTuple _, _ ->
       None
   | ( TyOpaque { module_resolver = lmr; name = lname },
       TyOpaque { module_resolver = rmr; name = rname } ) ->
@@ -400,29 +200,28 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
         match lname = rname with true -> Some lname | false -> None
       in
       return @@ TyOpaque { module_resolver; name }
-  | TyOpaque _, (TyOrdered | TyStringLit | TyChar | TyBool | TyUnit)
-  | (TyOrdered | TyStringLit | TyChar | TyBool | TyUnit), TyOpaque _ ->
+  | TyOpaque _, _ ->
       None
   | (TyOrdered as ty), TyOrdered ->
       return ty
-  | TyOrdered, (TyStringLit | TyChar | TyBool | TyUnit)
-  | (TyStringLit | TyChar | TyBool | TyUnit), TyOrdered ->
+  | TyOrdered, _ ->
       None
   | (TyStringLit as ty), TyStringLit ->
       return ty
-  | TyStringLit, (TyChar | TyBool | TyUnit)
-  | (TyChar | TyBool | TyUnit), TyStringLit ->
+  | TyStringLit, _ ->
       None
   | (TyChar as ty), TyChar ->
       return ty
-  | TyChar, (TyBool | TyUnit) | (TyBool | TyUnit), TyChar ->
+  | TyChar, _ ->
       None
   | (TyBool as ty), TyBool ->
       return ty
-  | TyBool, TyUnit | TyUnit, TyBool ->
+  | TyBool, _ ->
       None
   | (TyUnit as ty), TyUnit ->
       Some ty
+  | TyUnit, _ ->
+      None
 
 let reduce lhs rhs =
   let open KosuType.Ty in
@@ -434,8 +233,8 @@ let reduce lhs rhs =
     some @@ right @@ []
   else
     match (lhs, rhs) with
-    | TyPolymorphic (PolymorphicVar _ as p), ty
-    | ty, TyPolymorphic (PolymorphicVar _ as p) ->
+    | TyPolymorphic ((PolymorphicVar _ | CompilerPolymorphicVar _) as p), ty
+    | ty, TyPolymorphic ((PolymorphicVar _ | CompilerPolymorphicVar _) as p) ->
         (* Should check if p appears in ty*)
         some @@ left (p, ty)
     | ( TyIdentifier

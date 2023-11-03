@@ -58,7 +58,9 @@ module TyLoc = struct
 end
 
 module Ty = struct
-  type kosu_type_polymorphic = PolymorphicVar of string
+  type kosu_type_polymorphic =
+    | PolymorphicVar of string
+    | CompilerPolymorphicVar of string
 
   type kosu_function_schema = {
     poly_vars : kosu_type_polymorphic list;
@@ -121,10 +123,10 @@ module Ty = struct
     let n = fresh_variable reset () in
     match kind with
     | KosuTy ->
-        TyPolymorphic (PolymorphicVar n)
+        TyPolymorphic (CompilerPolymorphicVar n)
     | KosuTyLoc ->
         TyLoc.(TyLocPolymorphic (PolymorphicVarLoc (Position.dummy_located n)))
 
   let fresh_variable_type = fresh_variable_type_gadt ~kind:KosuTy
-  let fresh_variable_typeloc = fresh_variable_type_gadt ~kind:KosuTyLoc
+  (* let fresh_variable_typeloc = fresh_variable_type_gadt ~kind:KosuTyLoc *)
 end

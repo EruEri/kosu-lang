@@ -134,6 +134,8 @@ let rec string_of_kosu_type : KosuType.Ty.kosu_type -> string = function
 and string_of_polymorphic_var = function
   | PolymorphicVar s ->
       Printf.sprintf "'%s" s
+  | CompilerPolymorphicVar s ->
+      Printf.sprintf "''%s" s
 
 and string_of_closure_type = function
   | ClosureType { id; schema; env } ->

@@ -410,7 +410,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | TyBool
         | TyUnit
         | TyIdentifier { module_resolver = ModuleResolver_ _; _ }
-        | TyPolymorphic (PolymorphicVar _)
+        | TyPolymorphic (PolymorphicVar _ | CompilerPolymorphicVar _)
         | TyPointer _
         | TyInteger _
         | TyFloat _
