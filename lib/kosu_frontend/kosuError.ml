@@ -174,3 +174,16 @@ module Exn = struct
   let duplicated_param_name function_location lhs rhs =
     kosu_raw_error @@ Raw.duplicated_param_name function_location lhs rhs
 end
+
+module Message = struct
+  type t = kosu_error
+
+  let default_severity : t -> Asai.Diagnostic.severity = function
+    | _ ->
+        Asai.Diagnostic.Error
+
+  let short_code : t -> string = function _ -> "no code"
+end
+
+module Reporter = Asai.Reporter.Make (Message)
+module Term = Asai.Tty.Make (Message)

@@ -35,5 +35,6 @@ module Error = struct
       )
 end
 
+module Reporter = KosuReport
 module Print = KosuPrint
 module Validation = KosuValidation

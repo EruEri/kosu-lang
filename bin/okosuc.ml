@@ -85,6 +85,9 @@ let kosuc run =
   Cmd.v info (cmd_term run)
 
 let run cmd =
+  KosuFrontendAlt.Error.Reporter.run ~emit:KosuFrontendAlt.Error.Term.display
+    ~fatal:KosuFrontendAlt.Error.Term.display
+  @@ fun () ->
   let { files; config } = cmd in
   let () =
     match () with
@@ -117,12 +120,14 @@ let run cmd =
           match KosuFrontendAlt.Validation.validate kosu_program with
           | Ok () ->
               ()
-          | Error e ->
-              raise @@ KosuFrontendAlt.Error.Exn.kosu_error e
+          | Error (file, error) ->
+              let () = KosuFrontendAlt.Reporter.fatalf file error in
+              failwith ""
+          (* raise @@ KosuFrontendAlt.Error.Exn.kosu_error e *)
         in
         ()
   in
   ()
 
-let eval () = run |> kosuc |> Cmd.eval ~catch:true
+let eval () = run |> kosuc |> Cmd.eval ~catch:false
 let () = exit @@ eval ()

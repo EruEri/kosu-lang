@@ -497,7 +497,7 @@ module Ty = struct
             assoc_types
         in
         (* The variable needs to be bound in order to be substitutate *)
-        let is_bound = List.exists (( <> ) variable) bound in
+        let is_bound = List.exists (( = ) variable) bound in
         let ty =
           match (assoc_type, is_bound) with
           | Some ty, true ->
