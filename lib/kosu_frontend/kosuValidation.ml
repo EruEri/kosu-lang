@@ -130,6 +130,10 @@ module KosuFunction = struct
   let check_boundness_variable_type kosu_function_decl =
     let module KTVLS = KosuUtil.KosuTypeVariableLocSet in
     let for_all_vars = KTVLS.of_list kosu_function_decl.poly_vars in
+    let for_all_vars_return =
+      KosuUtil.TyLoc.polymorphic_vars' KTVLS.empty KTVLS.empty
+        kosu_function_decl.return_type
+    in
     let for_all_vars_in_types =
       List.fold_left KTVLS.union KTVLS.empty
       @@ List.map
@@ -138,6 +142,9 @@ module KosuFunction = struct
                elt.kosu_type
            )
            kosu_function_decl.parameters
+    in
+    let for_all_vars_in_types =
+      KTVLS.union for_all_vars_in_types for_all_vars_return
     in
     let diff = KTVLS.diff for_all_vars_in_types for_all_vars in
     match KTVLS.is_empty diff with
@@ -155,6 +162,37 @@ module KosuFunction = struct
         ok
     | list ->
         err @@ KosuError.Raw.conflicting_callable_declaration list
+
+  let check_type_existence current_module kosu_program
+      (kosu_function_decl : KosuAst.kosu_function_decl) =
+    let* () =
+      Util.Ulist.fold_ok
+        (fun () { kosu_type; is_var = _; name = _ } ->
+          match
+            KosuUtil.Program.type_decl
+              (KosuUtil.Ty.of_tyloc' kosu_type)
+              ~current_module kosu_program
+          with
+          | None | Some (_ :: []) ->
+              ok
+          | Some [] ->
+              failwith "Not found"
+          | Some (_ :: _) ->
+              failwith "Duplicated types decl"
+        )
+        () kosu_function_decl.parameters
+    in
+    match
+      KosuUtil.Program.type_decl
+        (KosuUtil.Ty.of_tyloc' kosu_function_decl.return_type)
+        ~current_module kosu_program
+    with
+    | None | Some (_ :: []) ->
+        ok
+    | Some [] ->
+        failwith "Not found"
+    | Some (_ :: _) ->
+        failwith "Duplicated types decl"
 
   let typecheck current_module kosu_program
       (kosu_function_decl : KosuAst.kosu_function_decl) =
@@ -221,9 +259,11 @@ let validate_kosu_node kosu_program current_module = function
         KosuFunction.check_duplicated_callable_identifier current_module
           kosu_function_decl
       in
-
       (* chach that each type exit *)
-
+      let* () =
+        KosuFunction.check_type_existence current_module kosu_program
+          kosu_function_decl
+      in
       (* Check typeching *)
       let* () =
         KosuFunction.typecheck current_module kosu_program kosu_function_decl

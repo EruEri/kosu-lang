@@ -1207,7 +1207,7 @@ module Program = struct
     [`enum`] or [`struct`] for the type [kosu_type] in [kosu_program]
     return [None] if [kosu_type] is not a [TyIdentifier]
   *)
-  let type_decl kosu_type ~curent_module kosu_program =
+  let type_decl kosu_type ~current_module kosu_program =
     let open KosuType in
     match kosu_type with
     | Ty.TyIdentifier { module_resolver; parametrics_type = _; name } ->
@@ -1216,7 +1216,7 @@ module Program = struct
             (ModuleResolver.dummy_located module_resolver)
             kosu_program
         in
-        let kosu_module = Option.value ~default:curent_module kosu_module in
+        let kosu_module = Option.value ~default:current_module kosu_module in
         let decls = Module.type_decl_from_name name kosu_module in
         Some decls
     | TyPolymorphic _
