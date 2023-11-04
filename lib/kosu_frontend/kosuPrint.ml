@@ -361,3 +361,10 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
              string_of_located_error s @@ sprintf "'%s" s.value
            )
            l
+  | DuplicatedParametersName { function_location; lhs; rhs } ->
+      let lhs = string_of_located_error lhs @@ lhs.value in
+      let rhs = string_of_located_error rhs @@ rhs.value in
+      let sloc = string_of_located_error function_location in
+      sloc @@ sfile
+      @@ sprintf "function \"%s\" duplicated paramater identifier\n\t%s\n\t%s"
+           function_location.value lhs rhs

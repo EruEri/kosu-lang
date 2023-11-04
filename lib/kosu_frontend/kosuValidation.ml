@@ -90,6 +90,8 @@ module Duplicated = struct
       (List.map Position.value names)
 end
 
+module KosuFunction = struct end
+
 let validate_kosu_node kosu_program current_module =
   let module KTVLS = KosuUtil.KosuTypeVariableLocSet in
   function
@@ -109,8 +111,10 @@ let validate_kosu_node kosu_program current_module =
             match StringLoc.find_opt elt.name set with
             | None ->
                 Result.ok @@ StringLoc.add elt.name set
-            | Some _ ->
-                failwith "Parameters already exist"
+            | Some exist ->
+                Result.error
+                @@ KosuError.Raw.duplicated_param_name
+                     kosu_function_decl.fn_name exist elt.name
           )
           StringLoc.empty kosu_function_decl.parameters
       in
@@ -133,7 +137,8 @@ let validate_kosu_node kosu_program current_module =
         | true ->
             Ok ()
         | false ->
-            Result.error @@ KosuError.VariableTypeNotBound (KTVLS.elements diff)
+            Result.error
+            @@ KosuError.Raw.variable_type_not_bound (KTVLS.elements diff)
       in
 
       (* Check function unitity in the module *)

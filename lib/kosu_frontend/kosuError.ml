@@ -69,12 +69,17 @@ type kosu_error =
       list
   | UnsupportedFile of string
   | VariableTypeNotBound of KosuType.TyLoc.kosu_loctype_polymorphic list
+  | DuplicatedParametersName of {
+      function_location : string Position.location;
+      lhs : string Position.location;
+      rhs : string Position.location;
+    }
 
 exception KosuRawErr of kosu_error
 exception KosuErr of string * kosu_error
 exception KosuLexerError of kosu_lexer_error
 
-module Type = struct
+module Raw = struct
   let analytics_error e = AnalyticsError e
   let sizeof_polytype p = SizeofPolymorphicType p
   let deref_non_pointer e = DerefNonPointerType e
@@ -104,6 +109,9 @@ module Type = struct
   let index_out_of_bounds expect found = TupleIndexOutBound { expect; found }
   let unsupported_file f = UnsupportedFile f
   let variable_type_not_bound l = VariableTypeNotBound l
+
+  let duplicated_param_name function_location lhs rhs =
+    DuplicatedParametersName { function_location; lhs; rhs }
 end
 
 module Exn = struct
@@ -153,4 +161,7 @@ module Exn = struct
 
   let unsupported_file f = kosu_raw_error @@ UnsupportedFile f
   let variable_type_not_bound l = kosu_raw_error @@ VariableTypeNotBound l
+
+  let duplicated_param_name function_location lhs rhs =
+    kosu_raw_error @@ Raw.duplicated_param_name function_location lhs rhs
 end
