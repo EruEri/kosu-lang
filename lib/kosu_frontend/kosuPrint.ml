@@ -352,3 +352,12 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       sfile @@ Printf.sprintf "Conflicting type declaration:\n\t%s" name
   | UnsupportedFile f ->
       sprintf "Unknown file kind : %s" f
+  | VariableTypeNotBound l ->
+      sfile
+      @@ sprintf "The following type variable aren't bound:\n\t%s"
+      @@ String.concat "\n\t"
+      @@ List.map
+           (fun (KosuType.TyLoc.PolymorphicVarLoc s) ->
+             string_of_located_error s @@ sprintf "'%s" s.value
+           )
+           l

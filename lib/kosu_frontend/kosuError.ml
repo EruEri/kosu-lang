@@ -68,49 +68,89 @@ type kosu_error =
       | `NStruct of KosuAst.kosu_struct_decl ]
       list
   | UnsupportedFile of string
+  | VariableTypeNotBound of KosuType.TyLoc.kosu_loctype_polymorphic list
 
 exception KosuRawErr of kosu_error
 exception KosuErr of string * kosu_error
 exception KosuLexerError of kosu_lexer_error
 
-let kosu_error (f, e) = KosuErr (f, e)
-let kosu_raw_error e = KosuRawErr e
-let kosu_lexer_error e = KosuLexerError e
-let analytics_error e = kosu_raw_error @@ AnalyticsError e
-let sizeof_polytype p = kosu_raw_error @@ SizeofPolymorphicType p
-let deref_non_pointer e = kosu_raw_error @@ DerefNonPointerType e
+module Type = struct
+  let analytics_error e = AnalyticsError e
+  let sizeof_polytype p = SizeofPolymorphicType p
+  let deref_non_pointer e = DerefNonPointerType e
+  let pattern_already_bound_identifier e = PatternAlreadyBoundIdentifier e
+  let pattern_identifier_not_bound e = PatternIdentifierNotBoundEveryTime e
+  let unbound_module e = UnboundModule e
+  let unbound_identifier e = UnboundIdentifier e
 
-let pattern_already_bound_identifier e =
-  kosu_raw_error @@ PatternAlreadyBoundIdentifier e
+  let unbound_constante module_resolver identifier =
+    UnboundConstante { module_resolver; identifier }
 
-let pattern_identifier_not_bound e =
-  kosu_raw_error @@ PatternIdentifierNotBoundEveryTime e
+  let identifier_already_bound e = IdentifierAlreadyBound e
 
-let unbound_module e = kosu_raw_error @@ UnboundModule e
-let unbound_identifier e = kosu_raw_error @@ UnboundIdentifier e
+  let field_not_in_struct struct_decl field =
+    NoFieldInStruct { struct_decl; field }
 
-let unbound_constante module_resolver identifier =
-  kosu_raw_error @@ UnboundConstante { module_resolver; identifier }
+  let no_struct_decl_for_type t = NoStructDeclFoundForType t
+  let typing_error consts = TypingError consts
+  let non_struct_type p = NonStructTypeExpression p
+  let non_tuple_access p = NonTupleAccess p
+  let non_array_access p = NonArrayAccess p
+  let cannot_infer_type p = CannotInferType p
+  let cannot_find_struct_decl p = CannotFindStructDecl p
+  let array_subscribe_not_integer p = ArraySubscribeNotInteger p
+  let const_non_static_expression n = ConstNonStaticExpression n
+  let conflicting_type_declaration s = ConfictingTypeDeclaration s
+  let index_out_of_bounds expect found = TupleIndexOutBound { expect; found }
+  let unsupported_file f = UnsupportedFile f
+  let variable_type_not_bound l = VariableTypeNotBound l
+end
 
-let identifier_already_bound e = kosu_raw_error @@ IdentifierAlreadyBound e
+module Exn = struct
+  let kosu_error (f, e) = KosuErr (f, e)
+  let kosu_raw_error e = KosuRawErr e
+  let kosu_lexer_error e = KosuLexerError e
+  let analytics_error e = kosu_raw_error @@ AnalyticsError e
+  let sizeof_polytype p = kosu_raw_error @@ SizeofPolymorphicType p
+  let deref_non_pointer e = kosu_raw_error @@ DerefNonPointerType e
 
-let field_not_in_struct struct_decl field =
-  kosu_raw_error @@ NoFieldInStruct { struct_decl; field }
+  let pattern_already_bound_identifier e =
+    kosu_raw_error @@ PatternAlreadyBoundIdentifier e
 
-let no_struct_decl_for_type t = kosu_raw_error @@ NoStructDeclFoundForType t
-let typing_error consts = kosu_raw_error @@ TypingError consts
-let non_struct_type p = kosu_raw_error @@ NonStructTypeExpression p
-let non_tuple_access p = kosu_raw_error @@ NonTupleAccess p
-let non_array_access p = kosu_raw_error @@ NonArrayAccess p
-let cannot_infer_type p = kosu_raw_error @@ CannotInferType p
-let cannot_find_struct_decl p = kosu_raw_error @@ CannotFindStructDecl p
-let array_subscribe_not_integer p = kosu_raw_error @@ ArraySubscribeNotInteger p
-let const_non_static_expression n = kosu_raw_error @@ ConstNonStaticExpression n
+  let pattern_identifier_not_bound e =
+    kosu_raw_error @@ PatternIdentifierNotBoundEveryTime e
 
-let conflicting_type_declaration s =
-  kosu_raw_error @@ ConfictingTypeDeclaration s
+  let unbound_module e = kosu_raw_error @@ UnboundModule e
+  let unbound_identifier e = kosu_raw_error @@ UnboundIdentifier e
 
-let index_out_of_bounds expect found =
-  kosu_raw_error @@ TupleIndexOutBound { expect; found }
+  let unbound_constante module_resolver identifier =
+    kosu_raw_error @@ UnboundConstante { module_resolver; identifier }
 
-let unsupported_file f = kosu_raw_error @@ UnsupportedFile f
+  let identifier_already_bound e = kosu_raw_error @@ IdentifierAlreadyBound e
+
+  let field_not_in_struct struct_decl field =
+    kosu_raw_error @@ NoFieldInStruct { struct_decl; field }
+
+  let no_struct_decl_for_type t = kosu_raw_error @@ NoStructDeclFoundForType t
+  let typing_error consts = kosu_raw_error @@ TypingError consts
+  let non_struct_type p = kosu_raw_error @@ NonStructTypeExpression p
+  let non_tuple_access p = kosu_raw_error @@ NonTupleAccess p
+  let non_array_access p = kosu_raw_error @@ NonArrayAccess p
+  let cannot_infer_type p = kosu_raw_error @@ CannotInferType p
+  let cannot_find_struct_decl p = kosu_raw_error @@ CannotFindStructDecl p
+
+  let array_subscribe_not_integer p =
+    kosu_raw_error @@ ArraySubscribeNotInteger p
+
+  let const_non_static_expression n =
+    kosu_raw_error @@ ConstNonStaticExpression n
+
+  let conflicting_type_declaration s =
+    kosu_raw_error @@ ConfictingTypeDeclaration s
+
+  let index_out_of_bounds expect found =
+    kosu_raw_error @@ TupleIndexOutBound { expect; found }
+
+  let unsupported_file f = kosu_raw_error @@ UnsupportedFile f
+  let variable_type_not_bound l = kosu_raw_error @@ VariableTypeNotBound l
+end

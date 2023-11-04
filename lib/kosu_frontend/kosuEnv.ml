@@ -144,7 +144,7 @@ let add_variable ?(check = true) is_const identifier kosu_type kosu_env =
   let () =
     match check with
     | true when exist ->
-        raise @@ KosuError.identifier_already_bound identifier
+        raise @@ KosuError.Exn.identifier_already_bound identifier
     | true | false ->
         ()
   in
@@ -454,7 +454,7 @@ let rec resolve_field_type fields struct_type kosu_env =
     | Some tuple ->
         Ok tuple
     | None ->
-        Result.error @@ KosuError.no_struct_decl_for_type
+        Result.error @@ KosuError.Exn.no_struct_decl_for_type
         @@ Position.dummy_located struct_type
   in
   let parametrics_type = KosuUtil.Ty.parametrics_type struct_type in
@@ -472,7 +472,7 @@ let rec resolve_field_type fields struct_type kosu_env =
     |> KosuUtil.Struct.field f.Position.value
     |> Option.to_result
          ~none:
-           (KosuError.field_not_in_struct
+           (KosuError.Exn.field_not_in_struct
               (KosuUtil.Struct.to_unlocated struct_decl)
               f
            )
@@ -540,7 +540,7 @@ let rec solve solutions eqs =
                     | Some t ->
                         t
                     | None ->
-                        raise @@ KosuError.typing_error
+                        raise @@ KosuError.Exn.typing_error
                         @@ { equation with clhs = ty; crhs = exist }
                   in
                   r
@@ -570,7 +570,7 @@ let rec solve solutions eqs =
             let eqs = KosuTypeConstraintSet.union new_constrains_set eqs in
             (solutions, eqs)
         | None ->
-            raise @@ KosuError.typing_error equation
+            raise @@ KosuError.Exn.typing_error equation
       in
 
       solve solutions eqs

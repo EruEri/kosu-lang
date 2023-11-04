@@ -114,7 +114,7 @@ rule token = parse
     let code = int_of_string s_number in
     let char = match Char.chr code with
     | code -> code
-    | exception Invalid_argument _ -> raise @@ kosu_lexer_error @@ CharOutOfRange { value = code; position = current_position lexbuf} 
+    | exception Invalid_argument _ -> raise @@ KosuError.Exn.kosu_lexer_error @@ CharOutOfRange { value = code; position = current_position lexbuf} 
     in
     CharLitteral char
 }
@@ -214,7 +214,7 @@ rule token = parse
     with Not_found -> Identifier s
 }
 | _ as c { 
-    raise @@ kosu_lexer_error
+    raise @@ KosuError.Exn.kosu_lexer_error
     @@ ForbiddenChar { value = c; position = current_position lexbuf}
 }
 | eof { EOF }
@@ -224,14 +224,14 @@ and built_in_function = parse
     Builtin s
 }
 | _ as lit {
-    raise @@ kosu_lexer_error
+    raise @@ KosuError.Exn.kosu_lexer_error
     @@ InvalidLitteralBuiltinFunction {
         value = lit;
         position = current_position lexbuf
     }
 }
 | eof {  
-    raise @@ kosu_lexer_error
+    raise @@ KosuError.Exn.kosu_lexer_error
     @@ NotFinishedBuiltinFunction (current_position lexbuf)
 }
 
@@ -257,7 +257,7 @@ and read_string buffer = parse
             value = lexeme lexbuf
         }
     in
-    raise @@ kosu_lexer_error @@ le  
+    raise @@ KosuError.Exn.kosu_lexer_error @@ le  
 }
 
 | _ as c { 
@@ -285,5 +285,5 @@ and multiple_line_comment = parse
 }
 | _ { multiple_line_comment lexbuf }
 | eof {
-    raise @@ kosu_lexer_error @@ UnclosedComment (current_position lexbuf)
+    raise @@ KosuError.Exn.kosu_lexer_error @@ UnclosedComment (current_position lexbuf)
 }

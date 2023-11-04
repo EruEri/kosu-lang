@@ -133,7 +133,7 @@ let validate_kosu_node kosu_program current_module =
         | true ->
             Ok ()
         | false ->
-            failwith "some variable arent bound"
+            Result.error @@ KosuError.VariableTypeNotBound (KTVLS.elements diff)
       in
 
       (* Check function unitity in the module *)

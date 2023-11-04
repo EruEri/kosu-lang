@@ -17,7 +17,7 @@
 
 open KosuAst
 open KosuType
-open KosuError
+open KosuError.Exn
 open Position
 
 module PatternIdentifierBound = Set.Make (struct
@@ -599,7 +599,7 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
         | Some t ->
             t
         | None ->
-            raise @@ KosuError.unbound_identifier variable
+            raise @@ KosuError.Exn.unbound_identifier variable
       in
       let () =
         match variable_info.is_const with

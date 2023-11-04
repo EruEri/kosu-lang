@@ -102,7 +102,7 @@ let run cmd =
           | Ok e ->
               e
           | Error e ->
-              raise @@ KosuFrontendAlt.Error.unsupported_file e
+              raise @@ KosuFrontendAlt.Error.Exn.unsupported_file e
         in
 
         let () = KosuFrontendAlt.Error.register_exn () in
@@ -111,14 +111,14 @@ let run cmd =
           | Ok kosu_program ->
               kosu_program
           | Error e ->
-              raise @@ KosuFrontendAlt.Error.analytics_error e
+              raise @@ KosuFrontendAlt.Error.Exn.analytics_error e
         in
         let () =
           match KosuFrontendAlt.Validation.validate kosu_program with
           | Ok () ->
               ()
           | Error e ->
-              raise @@ KosuFrontendAlt.Error.kosu_error e
+              raise @@ KosuFrontendAlt.Error.Exn.kosu_error e
         in
         ()
   in
