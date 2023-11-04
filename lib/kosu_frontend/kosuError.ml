@@ -67,6 +67,11 @@ type kosu_error =
       | `NOpaque of KosuAst.kosu_opaque_decl
       | `NStruct of KosuAst.kosu_struct_decl ]
       list
+  | ConfictingCallableDeclaration of
+      [ `External of KosuAst.kosu_external_func_decl
+      | `KosuFunction of KosuAst.kosu_function_decl
+      | `Syscall of KosuAst.kosu_syscall_decl ]
+      list
   | UnsupportedFile of string
   | VariableTypeNotBound of KosuType.TyLoc.kosu_loctype_polymorphic list
   | DuplicatedParametersName of {
@@ -106,6 +111,7 @@ module Raw = struct
   let array_subscribe_not_integer p = ArraySubscribeNotInteger p
   let const_non_static_expression n = ConstNonStaticExpression n
   let conflicting_type_declaration s = ConfictingTypeDeclaration s
+  let conflicting_callable_declaration s = ConfictingCallableDeclaration s
   let index_out_of_bounds expect found = TupleIndexOutBound { expect; found }
   let unsupported_file f = UnsupportedFile f
   let variable_type_not_bound l = VariableTypeNotBound l
@@ -155,6 +161,9 @@ module Exn = struct
 
   let conflicting_type_declaration s =
     kosu_raw_error @@ ConfictingTypeDeclaration s
+
+  let conflicting_callable_declaration s =
+    kosu_raw_error @@ Raw.conflicting_callable_declaration s
 
   let index_out_of_bounds expect found =
     kosu_raw_error @@ TupleIndexOutBound { expect; found }

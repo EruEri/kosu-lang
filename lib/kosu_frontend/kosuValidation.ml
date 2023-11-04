@@ -18,6 +18,7 @@
 open KosuAst
 
 let ok = Ok ()
+let err = Result.error
 let ( let* ) = Result.bind
 
 module StringLoc = Set.Make (struct
@@ -76,6 +77,27 @@ module Duplicated = struct
     | NExternFunc _ | NFunction _ | NSyscall _ | NConst _ ->
         None
 
+  let kosu_callable name =
+    List.filter_map
+    @@ function
+    | NExternFunc external_decl ->
+        if external_decl.sig_name.value = name then
+          Option.some @@ `External external_decl
+        else
+          None
+    | NFunction kosu_function_decl ->
+        if kosu_function_decl.fn_name.value = name then
+          Option.some @@ `KosuFunction kosu_function_decl
+        else
+          None
+    | NSyscall syscall_decl ->
+        if syscall_decl.syscall_name.value = name then
+          Option.some @@ `Syscall syscall_decl
+        else
+          None
+    | NConst _ | NEnum _ | NOpaque _ | NStruct _ ->
+        None
+
   let kosu_type kosu_module =
     let names = types_name kosu_module in
     Util.Ulist.fold_ok
@@ -90,11 +112,96 @@ module Duplicated = struct
       (List.map Position.value names)
 end
 
-module KosuFunction = struct end
+module KosuFunction = struct
+  let check_duplicated_parameters kosu_function_decl =
+    Result.map (fun _ -> ())
+    @@ Util.Ulist.fold_ok
+         (fun set (elt : KosuAst.kosu_function_parameters) ->
+           match StringLoc.find_opt elt.name set with
+           | None ->
+               Result.ok @@ StringLoc.add elt.name set
+           | Some exist ->
+               Result.error
+               @@ KosuError.Raw.duplicated_param_name kosu_function_decl.fn_name
+                    exist elt.name
+         )
+         StringLoc.empty kosu_function_decl.parameters
 
-let validate_kosu_node kosu_program current_module =
-  let module KTVLS = KosuUtil.KosuTypeVariableLocSet in
-  function
+  let check_boundness_variable_type kosu_function_decl =
+    let module KTVLS = KosuUtil.KosuTypeVariableLocSet in
+    let for_all_vars = KTVLS.of_list kosu_function_decl.poly_vars in
+    let for_all_vars_in_types =
+      List.fold_left KTVLS.union KTVLS.empty
+      @@ List.map
+           (fun elt ->
+             KosuUtil.TyLoc.polymorphic_vars' KTVLS.empty KTVLS.empty
+               elt.kosu_type
+           )
+           kosu_function_decl.parameters
+    in
+    let diff = KTVLS.diff for_all_vars_in_types for_all_vars in
+    match KTVLS.is_empty diff with
+    | true ->
+        Ok ()
+    | false ->
+        Result.error
+        @@ KosuError.Raw.variable_type_not_bound (KTVLS.elements diff)
+
+  let check_duplicated_callable_identifier current_module kosu_function_decl =
+    match
+      Duplicated.kosu_callable kosu_function_decl.fn_name.value current_module
+    with
+    | [] | _ :: [] ->
+        ok
+    | list ->
+        err @@ KosuError.Raw.conflicting_callable_declaration list
+
+  let typecheck current_module kosu_program
+      (kosu_function_decl : KosuAst.kosu_function_decl) =
+    let kosu_env = KosuEnv.create current_module kosu_program in
+    let kosu_env =
+      List.fold_left
+        (fun kosu_env variable_info ->
+          KosuEnv.add_variable (not variable_info.is_var) variable_info.name
+            (KosuUtil.Ty.of_tyloc' variable_info.kosu_type)
+            kosu_env
+        )
+        kosu_env kosu_function_decl.parameters
+    in
+    let kosu_env =
+      KosuEnv.add_bound_poly_vars
+        (List.map KosuUtil.Ty.of_tyloc_polymorphic kosu_function_decl.poly_vars)
+        kosu_env
+    in
+    let* env, ty =
+      match KosuTypechecking.typeof kosu_env kosu_function_decl.body with
+      | res ->
+          Ok res
+      | exception KosuError.KosuRawErr e ->
+          Error e
+    in
+    let kosu_env = KosuEnv.merge_constraint env kosu_env in
+    let kosu_env =
+      KosuEnv.add_typing_constraint
+        ~lhs:(KosuUtil.Ty.of_tyloc' kosu_function_decl.return_type)
+        ~rhs:ty kosu_function_decl.body kosu_env
+    in
+    let solutions = KosuEnv.solve kosu_env in
+    let () =
+      KosuEnv.KosuTypingSolution.iter
+        (fun key value ->
+          Printf.printf "-> %s = %s\n"
+            (KosuPrint.string_of_polymorphic_var key)
+            (KosuPrint.string_of_kosu_type value)
+        )
+        solutions
+    in
+    (* TODO: Check that a for all variable is not equal to an concrete type*)
+    (* ie: 'a = s32 shound be an error *)
+    ok
+end
+
+let validate_kosu_node kosu_program current_module = function
   | NOpaque _ ->
       ok
   | NExternFunc _kosu_external_decl ->
@@ -103,87 +210,23 @@ let validate_kosu_node kosu_program current_module =
       let () =
         Printf.printf "Fuction %s\n%!" kosu_function_decl.fn_name.value
       in
-
-      (* chech that argumenst name is unique *)
-      let* _ =
-        Util.Ulist.fold_ok
-          (fun set (elt : KosuAst.kosu_function_parameters) ->
-            match StringLoc.find_opt elt.name set with
-            | None ->
-                Result.ok @@ StringLoc.add elt.name set
-            | Some exist ->
-                Result.error
-                @@ KosuError.Raw.duplicated_param_name
-                     kosu_function_decl.fn_name exist elt.name
-          )
-          StringLoc.empty kosu_function_decl.parameters
-      in
+      (* chech that arguments name is unique *)
+      let* () = KosuFunction.check_duplicated_parameters kosu_function_decl in
 
       (* Check that poly vars in type are bound in the fields *)
-      let for_all_vars = KTVLS.of_list kosu_function_decl.poly_vars in
-      let for_all_vars_in_types =
-        List.fold_left KTVLS.union KTVLS.empty
-        @@ List.map
-             (fun elt ->
-               KosuUtil.TyLoc.polymorphic_vars' KTVLS.empty KTVLS.empty
-                 elt.kosu_type
-             )
-             kosu_function_decl.parameters
-      in
-      let diff = KTVLS.diff for_all_vars_in_types for_all_vars in
-
-      let* () =
-        match KTVLS.is_empty diff with
-        | true ->
-            Ok ()
-        | false ->
-            Result.error
-            @@ KosuError.Raw.variable_type_not_bound (KTVLS.elements diff)
-      in
+      let* () = KosuFunction.check_boundness_variable_type kosu_function_decl in
 
       (* Check function unitity in the module *)
+      let* () =
+        KosuFunction.check_duplicated_callable_identifier current_module
+          kosu_function_decl
+      in
+
       (* chach that each type exit *)
 
       (* Check typeching *)
-      let kosu_env = KosuEnv.create current_module kosu_program in
-      let kosu_env =
-        List.fold_left
-          (fun kosu_env variable_info ->
-            KosuEnv.add_variable (not variable_info.is_var) variable_info.name
-              (KosuUtil.Ty.of_tyloc' variable_info.kosu_type)
-              kosu_env
-          )
-          kosu_env kosu_function_decl.parameters
-      in
-      let kosu_env =
-        KosuEnv.add_bound_poly_vars
-          (List.map KosuUtil.Ty.of_tyloc_polymorphic
-             kosu_function_decl.poly_vars
-          )
-          kosu_env
-      in
-      let* env, ty =
-        match KosuTypechecking.typeof kosu_env kosu_function_decl.body with
-        | res ->
-            Ok res
-        | exception KosuError.KosuRawErr e ->
-            Error e
-      in
-      let kosu_env = KosuEnv.merge_constraint env kosu_env in
-      let kosu_env =
-        KosuEnv.add_typing_constraint
-          ~lhs:(KosuUtil.Ty.of_tyloc' kosu_function_decl.return_type)
-          ~rhs:ty kosu_function_decl.body kosu_env
-      in
-      let solutions = KosuEnv.solve kosu_env in
-      let () =
-        KosuEnv.KosuTypingSolution.iter
-          (fun key value ->
-            Printf.printf "-> %s = %s\n"
-              (KosuPrint.string_of_polymorphic_var key)
-              (KosuPrint.string_of_kosu_type value)
-          )
-          solutions
+      let* () =
+        KosuFunction.typecheck current_module kosu_program kosu_function_decl
       in
       ok
   | NSyscall _ ->

@@ -350,6 +350,25 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
         |> String.concat "\n\t"
       in
       sfile @@ Printf.sprintf "Conflicting type declaration:\n\t%s" name
+  | ConfictingCallableDeclaration list ->
+      let open KosuAst in
+      let name =
+        list
+        |> List.map (function
+             | `Syscall decl ->
+                 string_of_located_error decl.syscall_name
+                 @@ Printf.sprintf "syscall \"%s\"" decl.syscall_name.value
+             | `KosuFunction decl ->
+                 string_of_located_error decl.fn_name
+                 @@ Printf.sprintf "function \"%s\"" decl.fn_name.value
+             | `External decl ->
+                 string_of_located_error decl.sig_name
+                 @@ Printf.sprintf "external function \"%s\""
+                      decl.sig_name.value
+             )
+        |> String.concat "\n\t"
+      in
+      sfile @@ Printf.sprintf "Conflicting callable declaration:\n\t%s" name
   | UnsupportedFile f ->
       sprintf "Unknown file kind : %s" f
   | VariableTypeNotBound l ->
