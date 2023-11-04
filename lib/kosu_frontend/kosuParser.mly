@@ -193,7 +193,7 @@ kosu_module_node:
 kosu_external_func_decl:
     | EXTERNAL sig_name=loc_var_identifier 
         parameters=parenthesis(
-            trailing_separated_list(
+            separated_list(
                 COMMA, typed_parameter_loc(c_type)
             )
         )
