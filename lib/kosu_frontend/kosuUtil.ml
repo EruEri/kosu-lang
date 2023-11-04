@@ -480,7 +480,7 @@ module Ty = struct
         { poly_vars; parameters_type; return_type }
 
   (**
-    [tyloc_substitution bound assoc_types ty] replace the type variable occurences in [ty] 
+    [tyloc_substitution bound assoc_types ty] replaces the type variable occurences in [ty] 
     by there value associated in [assoc_types] and not in [bound]
 
     [bound] is useful for function signature where type variable can be bound to the function signature
@@ -497,7 +497,7 @@ module Ty = struct
             assoc_types
         in
         (* The variable needs to be bound in order to be substitutate *)
-        let is_bound = List.exists (( = ) variable) bound in
+        let is_bound = List.exists (( <> ) variable) bound in
         let ty =
           match (assoc_type, is_bound) with
           | Some ty, true ->

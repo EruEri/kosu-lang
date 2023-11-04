@@ -106,7 +106,7 @@ module Duplicated = struct
         | [] | _ :: [] ->
             Ok ()
         | list ->
-            Result.error @@ KosuError.ConfictingTypeDeclaration list
+            Result.error @@ KosuError.Raw.conflicting_type_declaration list
       )
       ()
       (List.map Position.value names)
@@ -239,10 +239,73 @@ module KosuFunction = struct
     ok
 end
 
+module ExternFunction = struct
+  let check_boundness_variable_type external_function =
+    let module KTVLS = KosuUtil.KosuTypeVariableLocSet in
+    let for_all_vars_return =
+      KosuUtil.TyLoc.polymorphic_vars' KTVLS.empty KTVLS.empty
+        external_function.return_type
+    in
+    let for_all_vars_in_types =
+      List.fold_left KTVLS.union KTVLS.empty
+      @@ List.map
+           (KosuUtil.TyLoc.polymorphic_vars' KTVLS.empty KTVLS.empty)
+           external_function.parameters
+    in
+    let for_all_vars_in_types =
+      KTVLS.union for_all_vars_in_types for_all_vars_return
+    in
+    match KTVLS.is_empty for_all_vars_in_types with
+    | true ->
+        Ok ()
+    | false ->
+        Result.error
+        @@ KosuError.Raw.variable_type_not_bound
+             (KTVLS.elements for_all_vars_in_types)
+
+  let check_type_existence current_module kosu_program
+      (kosu_external_decl : KosuAst.kosu_external_func_decl) =
+    let* () =
+      Util.Ulist.fold_ok
+        (fun () kosu_type ->
+          match
+            KosuUtil.Program.type_decl
+              (KosuUtil.Ty.of_tyloc' kosu_type)
+              ~current_module kosu_program
+          with
+          | None | Some (_ :: []) ->
+              ok
+          | Some [] ->
+              failwith "Not found"
+          | Some (_ :: _) ->
+              failwith "Duplicated types decl"
+        )
+        () kosu_external_decl.parameters
+    in
+    match
+      KosuUtil.Program.type_decl
+        (KosuUtil.Ty.of_tyloc' kosu_external_decl.return_type)
+        ~current_module kosu_program
+    with
+    | None | Some (_ :: []) ->
+        ok
+    | Some [] ->
+        failwith "Not found"
+    | Some (_ :: _) ->
+        failwith "Duplicated types decl"
+end
+
 let validate_kosu_node kosu_program current_module = function
   | NOpaque _ ->
       ok
-  | NExternFunc _kosu_external_decl ->
+  | NExternFunc kosu_external_decl ->
+      let* () =
+        ExternFunction.check_type_existence current_module kosu_program
+          kosu_external_decl
+      in
+      let* () =
+        ExternFunction.check_boundness_variable_type kosu_external_decl
+      in
       ok
   | NFunction kosu_function_decl ->
       let () =
@@ -302,7 +365,7 @@ let validate_kosu_node kosu_program current_module = function
           solutions
       in
       let* () =
-        Result.map_error (fun n -> KosuError.ConstNonStaticExpression n)
+        Result.map_error KosuError.Raw.const_non_static_expression
         @@ KosuStaticExpression.is_static_expression const_decl.c_value
       in
       ok
