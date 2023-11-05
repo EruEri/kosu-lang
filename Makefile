@@ -9,7 +9,7 @@ CONFIG=kosu_config.mk
 
 KOSU_RUNTIME_OBJ=$(OUTPUT)/u8.o $(OUTPUT)/s8.o
 
-all: kosuc kosu kosu_runtime man
+all: kosuc okosuc kosu kosu_runtime man
 
 configure: 
 	dune build lib/configure/configure.exe
@@ -45,6 +45,7 @@ install:
 	mkdir -p $(DESTDIR)$(INSTALL_STD_DIR)
 	cp -f "$(OUTPUT)/kosuc" $(DESTDIR)$(INSTALL_BIN_DIR)
 	cp -f "$(OUTPUT)/kosu" $(DESTDIR)$(INSTALL_BIN_DIR)
+	cp -f $(OUTPUT)/okosuc $(DESTDIR)$(INSTALL_BIN_DIR)
 	cp -f "$(OUTPUT)/libkosu.$(KOSU_VERSION).a" $(DESTDIR)$(INSTALL_LIB_DIR)
 	cp -rf src/runtime/include/* $(INSTALL_HEADER_DIR)/
 	cp -rf $(OUTPUT)/man/*.1 "$(DESTDIR)$(INSTALL_MAN_DIR)/man1"
@@ -53,13 +54,15 @@ install:
 uninstall:
 	rm -f $(DESTDIR)$(INSTALL_BIN_DIR)/kosuc
 	rm -f $(DESTDIR)$(INSTALL_BIN_DIR)/kosu
+	rm -f $(DESTDIR)$(INSTALL_BIN_DIR)/okosuc
 	rm -f $(DESTDIR)$(INSTALL_LIB_DIR)/libkosu.$(KOSU_VERSION).a
 	rm -rf $(INSTALL_HEADER_DIR)
-	rm -r $(DESTDIR)$(INSTALL_MAN_DIR)/kosu*.1
+	rm -r $(DESTDIR)$(INSTALL_MAN_DIR)/*kosu*.1
 	rm -r $(DESTDIR)$(INSTALL_STD_DIR)
 
-man: kosuc kosu
+man: kosuc kosu okosuc
 	mkdir -p $(OUTPUT)/man
+	_build/default/bin/okosuc.exe --help=groff > $(OUTPUT)/man/okosuc.1
 	_build/default/bin/kosuc.exe --help=groff > $(OUTPUT)/man/kosuc.1
 	_build/default/bin/kosu.exe --help=groff > $(OUTPUT)/man/kosu.1
 	_build/default/bin/kosu.exe cfg --help=groff > $(OUTPUT)/man/kosu-cfg.1
