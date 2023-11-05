@@ -18,11 +18,11 @@ depends: [
   "odoc" {with-doc}
 ]
 build: [
-  ["make" "configure"]
-  ["./configure" "-i" "%{prefix}%"]
+  [make "configure"]
+  ["./configure" "-i" prefix]
   ["dune" "subst"] {dev}
-  ["make"]
-  ["make okosuc"]
+  [make MAKE=make]
+  [make "okosuc"]
   # [
   #   "dune"
   #   "build"
@@ -34,8 +34,5 @@ build: [
   #   "@runtest" {with-test}
   #   "@doc" {with-doc}
   # ]
-]
-install: [
-  ["make" install]
 ]
 dev-repo: "git+https://github.com/EruEri/kosu-lang.git"
