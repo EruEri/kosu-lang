@@ -105,16 +105,15 @@ let kosuc run =
 
 let run cmd =
   let { files; config } = cmd in
-  let () =
+  let _kosu_program =
     match () with
     | _ when config ->
         let () = CliCommon.kosu_config_print () in
-        ()
+        exit KosuFrontendAlt.ExitCode.success
     | _ when files = [] ->
-        ()
+        exit KosuFrontendAlt.ExitCode.success
     | () ->
-        let _kosu_program = KosuFrontendAlt.parse files in
-        ()
+        KosuFrontendAlt.parse files
   in
   ()
 

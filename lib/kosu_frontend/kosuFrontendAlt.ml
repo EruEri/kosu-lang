@@ -16,6 +16,7 @@
 (**********************************************************************************************)
 
 module ExitCode = struct
+  let success = 0
   let validation_error = 2
   let syntax_lexer_error = 3
   let unsported_file = 4
