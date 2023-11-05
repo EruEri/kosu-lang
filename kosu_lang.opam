@@ -28,15 +28,9 @@ build: [
     "--stddir" "%{prefix}%/lib/%{name}%/std"
     ]
   ["dune" "subst"]
-  [
-    "dune"
-    "build"
-    "-p"
-    name
-    "-j"
-    jobs
-    "@install"
-    "@runtest" {with-test}
-    "@doc" {with-doc}
-  ]
+  [make "MAKE=%{make}%"]
+]
+
+install: [
+  [make "install"]
 ]
