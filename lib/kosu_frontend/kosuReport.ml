@@ -90,7 +90,7 @@ let kosu_error_range ?file = function
 
 let kosu_error_formatted = function
   | s ->
-      String.escaped @@ KosuPrint.Formatted.string_of_kosu_error s
+      KosuPrint.Formatted.string_of_kosu_error s
 
 let emitf ?file kosu_error =
   let f =
@@ -113,4 +113,4 @@ let emitf ?file kosu_error =
         KosuError.Reporter.emitf ?loc:None ~backtrace
   in
 
-  f kosu_error "%s" (kosu_error_formatted kosu_error)
+  f kosu_error "%t" (Asai.Diagnostic.text @@ kosu_error_formatted kosu_error)

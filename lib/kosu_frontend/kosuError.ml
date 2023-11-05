@@ -181,7 +181,7 @@ module Message = struct
     | _ ->
         Asai.Diagnostic.Error
 
-  let short_code : t -> string = function _ -> "no code"
+  let short_code : t -> string = function _ -> String.empty
 end
 
 module Reporter = Asai.Reporter.Make (Message)

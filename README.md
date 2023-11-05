@@ -97,7 +97,7 @@ fn main() s32 {
 
 - GNU make as make
 ```bash
-  $ opam install dune cmdliner menhir
+  $ opam install dune cmdliner menhir asai
   $ cd kosu-lang
   $ make configure
   $ ./configure
@@ -106,7 +106,7 @@ fn main() s32 {
 ```
 - GNU make as gmake (example: FreeBSD)
 ```bash
-  $ opam install dune cmdliner menhir
+  $ opam install dune cmdliner menhir asai
   $ cd kosu-lang
   $ gmake configure
   $ ./configure

@@ -400,7 +400,7 @@ module Formatted = struct
     | ForbiddenChar char ->
         sprintf "Forbidden character : %c" char.value
     | InvalidLitteralBuiltinFunction char ->
-        sprintf ": Invalid Litteral For Builtin Function: %c" char.value
+        sprintf "Invalid Litteral For Builtin Function: %c" char.value
     | NotFinishedBuiltinFunction _ ->
         "Builtin function not finished"
 
@@ -409,11 +409,10 @@ module Formatted = struct
     let state =
       state
       |> Option.map (sprintf "Error in state \"%d\"")
-      |> Option.value ~default:""
+      |> Option.value ~default:String.empty
     in
-    String.escaped
-    @@ sprintf "Unexpected \"%s\"\nSyntax Error : %s%s" current_lexeme message
-         state
+    Printf.sprintf "Unexpected \"%s\"\nSyntax Error : %s%s" current_lexeme
+      message state
 
   let string_of_analytics_error : KosuError.kosu_analytics_error -> string =
     function
@@ -423,8 +422,6 @@ module Formatted = struct
         string_of_kosu_syntax_error e
 
   let string_of_kosu_error : KosuError.kosu_error -> string = function
-    (* | LexerError kosu_lexer_error ->
-        string_of_kosu_lexer_error kosu_lexer_error *)
     | AnalyticsError (_, kae) ->
         string_of_analytics_error kae
     | SizeofPolymorphicType _ ->
