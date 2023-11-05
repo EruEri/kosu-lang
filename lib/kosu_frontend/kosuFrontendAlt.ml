@@ -15,99 +15,98 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-(* module Ast = KosuAst
-   module Env = KosuEnv
-   module TypeChecking = KosuTypechecking
-   module Type = KosuType
-   module Parsing = KosuParsing
+module ExitCode = struct
+  let validation_error = 2
+  let syntax_lexer_error = 3
+  let unsported_file = 4
+  let fatal_error = 5
+end
 
-   module Error = struct
-     include KosuError
-
-     let register_exn () =
-       Printexc.register_printer (function
-         | KosuError.KosuRawErr kosu ->
-             Option.some @@ KosuPrint.string_of_kosu_error String.empty kosu
-         | KosuError.KosuErr (filename, kosu) ->
-             Option.some @@ KosuPrint.string_of_kosu_error filename kosu
-         | _ ->
-             None
-         )
-   end
-
-   module Reporter = KosuReport
-   module Print = KosuPrint
-   module Validation = KosuValidation *)
-
-type suppoted_file = SF_Kosu | SF_C | SF_Object | SF_Assembly
+type suppoted_file = SF_Kosu | SF_C | SF_Object | SF_Assembly | SF_Archive
 
 let extension_list =
-  [ (SF_C, ".c"); (SF_Object, ".o"); (SF_Kosu, ".kosu"); (SF_Assembly, ".s") ]
+  [
+    (SF_C, ".c");
+    (SF_Object, ".o");
+    (SF_Kosu, ".kosu");
+    (SF_Assembly, ".s");
+    (SF_Archive, ".a");
+  ]
 
 let rev_extension_list =
   let swap (a, b) = (b, a) in
   List.map swap extension_list
 
-let rec input_file ~kosu ~c ~co ~assembly = function
+let rec input_file ~kosu ~c ~co ~assembly ~arc = function
   | [] ->
-      Ok (List.rev kosu, List.rev c, List.rev co, List.rev assembly)
+      Ok
+        (List.rev kosu, List.rev c, List.rev co, List.rev assembly, List.rev arc)
   | t :: q ->
       let ( let* ) = Result.bind in
       let filekind = List.assoc_opt (Filename.extension t) rev_extension_list in
       let* kind =
         match filekind with None -> Error t | Some kind -> Ok kind
       in
-      let kosu, c, co, assembly =
+      let kosu, c, co, assembly, arc =
         match kind with
         | SF_C ->
-            (kosu, t :: c, co, assembly)
+            (kosu, t :: c, co, assembly, arc)
         | SF_Object ->
-            (kosu, c, t :: co, assembly)
+            (kosu, c, t :: co, assembly, arc)
         | SF_Kosu ->
-            (t :: kosu, c, co, assembly)
+            (t :: kosu, c, co, assembly, arc)
         | SF_Assembly ->
-            (kosu, c, co, t :: assembly)
+            (kosu, c, co, t :: assembly, arc)
+        | SF_Archive ->
+            (kosu, c, co, assembly, t :: arc)
       in
-      input_file ~kosu ~c ~co ~assembly q
+      input_file ~kosu ~c ~co ~assembly ~arc q
 
 let input_file files =
-  match input_file ~kosu:[] ~c:[] ~co:[] ~assembly:[] files with
-  | Ok (kosu, c, co, assembly) ->
-      Ok (`KosuFile kosu, `CFile c, `ObjFile co, `AssemblyFile assembly)
+  match input_file ~kosu:[] ~c:[] ~co:[] ~assembly:[] ~arc:[] files with
+  | Ok (kosu, c, co, assembly, arc) ->
+      Ok
+        ( `KosuFile kosu,
+          `CFile c,
+          `ObjFile co,
+          `AssemblyFile assembly,
+          `ArchiveFile arc
+        )
   | Error _ as e ->
       e
 
 let parse files =
   KosuError.Reporter.run ~emit:KosuError.Term.display ~fatal:(fun kosu_dig ->
       let () = KosuError.Term.display kosu_dig in
-      exit 5
+      exit ExitCode.fatal_error
   )
   @@ fun () ->
   let ( `KosuFile kosu_files,
         `CFile _c_files,
         `ObjFile _object_files,
-        `AssemblyFile _assembly_files ) =
+        `AssemblyFile _assembly_files,
+        `ArchiveFile _arc ) =
     match input_file files with
     | Ok e ->
         e
     | Error e ->
-        let () = KosuReport.fatalf @@ KosuError.Raw.unsupported_file e in
-        exit 2
+        let () = KosuReport.emitf @@ KosuError.Raw.unsupported_file e in
+        exit ExitCode.unsported_file
   in
   let kosu_program =
     match KosuParsing.kosu_program kosu_files with
     | Ok kosu_program ->
         kosu_program
     | Error e ->
-        let () = KosuReport.fatalf @@ KosuError.Raw.analytics_error e in
-        exit 3
+        let () = KosuReport.emitf @@ KosuError.Raw.analytics_error e in
+        exit ExitCode.syntax_lexer_error
   in
   let () =
     match KosuValidation.validate kosu_program with
     | Ok () ->
         ()
     | Error (file, error) ->
-        let () = KosuReport.fatalf ~file error in
-        exit 4
+        let () = KosuReport.emitf ~file error in
+        exit ExitCode.validation_error
   in
   kosu_program

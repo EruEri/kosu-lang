@@ -54,11 +54,14 @@ let kosuc_man =
        $(b,as)(1)\n\
       \      and linked to the program";
     `P
+      "Files ending with .a are treated as archive files to be passed to the \
+       linker";
+    `P
       "Files ending with .o are treated as object files to be passed to the \
        linker.";
     `P
-      "If --cc flag is set, files ending with .c, .s or .o are passed as it is \
-       to $(b,cc)(1)";
+      "If --cc flag is set, files ending with .c, .s, .a or .o are passed as \
+       it is to $(b,cc)(1)";
     `S Manpage.s_environment;
     `I
       ( Printf.sprintf "$(b,%s)" "DUMMY",
@@ -78,9 +81,25 @@ let kosuc_man =
     `P "Kosuc is distributed under the GNU GPL-3.0";
   ]
 
+let code_descriptions =
+  [
+    (KosuFrontendAlt.ExitCode.validation_error, "on ast error");
+    (KosuFrontendAlt.ExitCode.syntax_lexer_error, "on syntax error");
+    (KosuFrontendAlt.ExitCode.unsported_file, "on unsupported file input");
+    (KosuFrontendAlt.ExitCode.fatal_error, "on fatal error");
+  ]
+
+let exits =
+  List.map
+    (fun (code, description) -> Cmd.Exit.info ~doc:description code)
+    code_descriptions
+
+let exits = Cmd.Exit.defaults @ exits
+
 let kosuc run =
   let info =
-    Cmd.info ~doc:kosuc_doc ~man:kosuc_man ~version:CliCommon.fversion name
+    Cmd.info ~exits ~doc:kosuc_doc ~man:kosuc_man ~version:CliCommon.fversion
+      name
   in
   Cmd.v info (cmd_term run)
 

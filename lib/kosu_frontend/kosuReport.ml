@@ -92,7 +92,7 @@ let kosu_error_formatted = function
   | s ->
       String.escaped @@ KosuPrint.Formatted.string_of_kosu_error s
 
-let fatalf ?file kosu_error =
+let emitf ?file kosu_error =
   let f =
     match kosu_error_range ?file kosu_error with
     | None ->
