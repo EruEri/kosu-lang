@@ -20,4 +20,4 @@
  (enabled_if
   (= %{profile} san))
  (modules sanCommon asmAst namingConvention cfgBase)
- (libraries util sanTyped kosuRegisterAllocator))
+ (libraries sanUtil sanTyped kosuRegisterAllocator))

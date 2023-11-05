@@ -20,7 +20,7 @@ open SanTyped.SanTyAst
 open SanAarchCore.AsmProgram
 open SanAarchCore.Location
 open SanAarchCore.Register
-open Util
+open SanUtil
 
 module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
   module Pp = SanAarchPprint.Make (AsmSpec)
@@ -260,7 +260,7 @@ module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
         let return_type = rvalue.san_type in
         let params_reg_count = List.length (Register.arguments_register ()) in
         let register_parameters, stack_parameters =
-          ty_fncall.parameters |> List.mapi Util.couple
+          ty_fncall.parameters |> List.mapi SanUtil.couple
           |> List.partition_map (fun (i, value) ->
                  if i < params_reg_count then
                    Either.left value
@@ -271,7 +271,7 @@ module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
 
         let register_parameters_instructions =
           () |> Register.arguments_register
-          |> Util.combine_safe register_parameters
+          |> SanUtil.combine_safe register_parameters
           |> List.map (fun (atom, raw_register) ->
                  let target_reg =
                    Register.according_register raw_register atom.atom_type

@@ -18,6 +18,6 @@
 (executable
  (name san)
  (public_name san)
- (libraries kosu_register_allocator sanLang)
+ (libraries kosuRegisterAllocator sanLang)
  (enabled_if
   (= %{profile} san)))

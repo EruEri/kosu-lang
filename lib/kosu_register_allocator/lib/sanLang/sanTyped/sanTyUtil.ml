@@ -16,7 +16,7 @@
 (**********************************************************************************************)
 
 open SanTyAst
-open Util
+open SanUtil
 
 module Module = struct
   let post_incr ref =

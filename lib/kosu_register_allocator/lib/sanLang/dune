@@ -19,4 +19,4 @@
  (name sanLang)
  (enabled_if
   (= %{profile} san))
- (libraries kosu_register_allocator sanCli sanFrontend sanTyped))
+ (libraries kosuRegisterAllocator sanCli sanFrontend sanTyped))

@@ -16,7 +16,7 @@
 ;**********************************************************************************************;
 
 (library
- (name util)
+ (name sanUtil)
  (enabled_if
   (= %{profile} san))
- (modules util))
+ (modules sanUtil))

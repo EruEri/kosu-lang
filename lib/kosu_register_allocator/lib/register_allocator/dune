@@ -23,7 +23,6 @@
 ;**********************************************************************************************;
 
 (library
- (public_name kosu_register_allocator)
  (name kosuRegisterAllocator)
  (modules cfg kosuRegisterAllocator util graph livenessInfo constraint)
  (private_modules util livenessInfo constraint))
