@@ -95,11 +95,7 @@ let default_architecture =
   List.assoc_opt KosuConfig.kosu_target_arch architecture_enum
 
 let commit_hash () = KosuHash.commit_hash
-
-let fversion =
-  Printf.sprintf "%s [%s %s]" version_raw KosuConfig.kosu_target_branch
-    KosuConfig.kosu_target_hash
-
+let fversion = Printf.sprintf "%s [%s]" version_raw KosuConfig.kosu_target_hash
 let std_global_variable = "KOSU_STD_PATH"
 let architecture_global_variable = "KOSU_TARGET_ARCH"
 let os_global_variable = "KOSU_TARGET_OS"
