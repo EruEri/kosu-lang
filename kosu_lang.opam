@@ -19,24 +19,19 @@ depends: [
 ]
 build: [
   [make "configure"]
-  ["./configure" "-i" prefix]
+  ["./configure" 
+    "--prefix" prefix 
+    "--mandir" "%{prefix}%/man" 
+    "--libdir" "%{prefix}%/lib/kosu/lib"
+    "--includedir" "%{prefix}%/lib/kosu/include"
+    "--stddir" "%{prefix}%/lib/kosu/std"
+    ]
   ["dune" "subst"] {dev}
   [make "MAKE=%{make}%"]
   [make "okosuc"]
-  # [
-  #   "dune"
-  #   "build"
-  #   "-p"
-  #   name
-  #   "-j"
-  #   jobs
-  #   "@install"
-  #   "@runtest" {with-test}
-  #   "@doc" {with-doc}
-  # ]
 ]
-
-install: [
+instal: [
   [make "install"]
 ]
+
 dev-repo: "git+https://github.com/EruEri/kosu-lang.git"

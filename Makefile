@@ -11,8 +11,8 @@ KOSU_RUNTIME_OBJ=$(OUTPUT)/u8.o $(OUTPUT)/s8.o
 
 all: kosuc kosu kosu_runtime man
 
-configure:
-	dune build lib/configure/$@.exe
+configure: 
+	dune build lib/configure/configure.exe
 	ln -sf _build/default/lib/configure/$@.exe configure
 
 
