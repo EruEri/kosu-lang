@@ -35,4 +35,8 @@ build: [
   #   "@doc" {with-doc}
   # ]
 ]
+
+install: [
+  [make "install"]
+]
 dev-repo: "git+https://github.com/EruEri/kosu-lang.git"
