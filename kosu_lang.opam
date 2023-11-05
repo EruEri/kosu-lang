@@ -15,21 +15,27 @@ depends: [
   "dune" {>= "3.2"}
   "menhir"
   "cmdliner" {>= "1.1.0"}
-  "unix"
   "odoc" {with-doc}
 ]
 build: [
+  ["make" "configure"]
+  ["./configure" "-i" "%{prefix}%"]
   ["dune" "subst"] {dev}
-  [
-    "dune"
-    "build"
-    "-p"
-    name
-    "-j"
-    jobs
-    "@install"
-    "@runtest" {with-test}
-    "@doc" {with-doc}
-  ]
+  ["make"]
+  ["make okosuc"]
+  # [
+  #   "dune"
+  #   "build"
+  #   "-p"
+  #   name
+  #   "-j"
+  #   jobs
+  #   "@install"
+  #   "@runtest" {with-test}
+  #   "@doc" {with-doc}
+  # ]
+]
+install: [
+  ["make" install]
 ]
 dev-repo: "git+https://github.com/EruEri/kosu-lang.git"

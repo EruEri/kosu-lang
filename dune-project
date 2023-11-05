@@ -41,7 +41,7 @@
  (name kosu_lang)
  (synopsis "A programming language project")
  (description "A low level programming language with some higher level features")
- (depends (ocaml (>= "5.0")) asai dune menhir (cmdliner (>= "1.1.0")) unix)
+ (depends (ocaml (>= "5.0")) asai dune menhir (cmdliner (>= "1.1.0")))
 )
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
