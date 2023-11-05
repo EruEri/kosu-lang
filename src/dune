@@ -1,0 +1,10 @@
+(install
+ (section lib)
+ (files
+  (glob_files_rec std/*.kosu)))
+
+(install
+ (section lib)
+ (files
+  (glob_files_rec
+   (runtime/include/*.h with_prefix include/))))

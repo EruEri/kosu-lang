@@ -27,10 +27,17 @@ build: [
     "--stddir" "%{prefix}%/lib/kosu/std"
     ]
   ["dune" "subst"] {dev}
-  [make "MAKE=%{make}%"]
-]
-install: [
-  [make "install"]
+  [
+    "dune"
+    "build"
+    "-p"
+    name
+    "-j"
+    jobs
+    "@install"
+    "@runtest" {with-test}
+    "@doc" {with-doc}
+  ]
 ]
 
 dev-repo: "git+https://github.com/EruEri/kosu-lang.git"
