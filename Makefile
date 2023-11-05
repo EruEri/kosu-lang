@@ -22,19 +22,19 @@ endif
 
 
 
-okosuc:
-	mkdir -p $(OUTPUT)
+okosuc :
 	$(DUNE) build bin/$@.exe
-	cp -f _build/default/bin/$@.exe $(OUTPUT)/$@
+	mkdir -p $(OUTPUT)
+	cp -f _build/default/bin/okosuc.exe $(OUTPUT)/$@
 
 kosuc:
-	mkdir -p $(OUTPUT) 
 	$(DUNE) build bin/$@.exe
+	mkdir -p $(OUTPUT) 
 	cp -f _build/default/bin/$@.exe $(OUTPUT)/$@
 
 kosu:
-	mkdir -p $(OUTPUT)
 	$(DUNE) build bin/$@.exe
+	mkdir -p $(OUTPUT)
 	cp -f _build/default/bin/$@.exe $(OUTPUT)/$@
 
 install:

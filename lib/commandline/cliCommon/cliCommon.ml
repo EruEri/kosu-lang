@@ -28,12 +28,12 @@ let config_term =
     & info [ "config" ] ~doc:"Prints a summary of kosu configuration"
   )
 
-let version_raw =
-  match Build_info.V1.version () with
-  | None ->
-      "n/a"
-  | Some v ->
-      Build_info.V1.Version.to_string v
+let version_raw = KosuConfig.kosu_version
+(* match Build_info.V1.version () with
+   | None ->
+       "n/a"
+   | Some v ->
+       Build_info.V1.Version.to_string v *)
 
 let kosu_config_print () =
   let () =
