@@ -31,18 +31,7 @@ build: [
     "dune"
     "build"
     "-p"
-    "kosu_register_allocator"
-    "-j"
-    jobs
-    "@install"
-    "@runtest" {with-test}
-    "@doc" {with-doc}
-  ]
-  [
-    "dune"
-    "build"
-    "-p"
-    "kosu_lang"
+    name
     "-j"
     jobs
     "@install"
