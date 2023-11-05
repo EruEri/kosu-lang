@@ -19,6 +19,17 @@
 
 (data_only_dirs runtime)
 
+
+(rule
+ (deps (source_tree runtime))
+ (targets version.txt)
+
+  (action 
+   (with-stdout-to %{targets} 
+  (run sh runtime/version.sh %{project_root}))
+  )
+ )
+
 (rule
  (targets libkosu.a)
  (deps
@@ -45,4 +56,4 @@
 (install
  (section lib)
  (files
-  (libkosu.a as lib/libkosu.%{version:kosu_lang}.a)))
+  (libkosu.a as lib/libkosu.%{read:version.txt}.a)))
