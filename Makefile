@@ -41,13 +41,13 @@ install:
 	mkdir -p $(DESTDIR)$(INSTALL_BIN_DIR)
 	mkdir -p $(DESTDIR)$(INSTALL_LIB_DIR)
 	mkdir -p $(DESTDIR)$(INSTALL_HEADER_DIR)
-	mkdir -p $(DESTDIR)$(INSTALL_MAN_DIR)
+	mkdir -p $(DESTDIR)$(INSTALL_MAN_DIR)/man1
 	mkdir -p $(DESTDIR)$(INSTALL_STD_DIR)
 	cp -f "$(OUTPUT)/kosuc" $(DESTDIR)$(INSTALL_BIN_DIR)
 	cp -f "$(OUTPUT)/kosu" $(DESTDIR)$(INSTALL_BIN_DIR)
 	cp -f "$(OUTPUT)/libkosu.$(KOSU_VERSION).a" $(DESTDIR)$(INSTALL_LIB_DIR)
 	cp -rf src/runtime/include/* $(INSTALL_HEADER_DIR)/
-	cp -rf $(OUTPUT)/man/* "$(DESTDIR)$(INSTALL_MAN_DIR)"
+	cp -rf $(OUTPUT)/man/*.1 "$(DESTDIR)$(INSTALL_MAN_DIR)/man1"
 	cp -rf src/std/* "$(DESTDIR)$(INSTALL_STD_DIR)"
 
 uninstall:

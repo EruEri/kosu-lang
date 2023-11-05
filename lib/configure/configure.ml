@@ -19,14 +19,14 @@ open Cmdliner
 
 let name = "configure"
 let kosu_config = "kosu_config.mk"
-let kosu_config_ml = "lib/commandline/cliCommon/kosuConfig.ml"
-let default_install = "/usr/local"
-let ( / ) = Printf.sprintf "%s/%s"
+let ( / ) = Filename.concat
+let kosu_config_ml = "lib" / "commandline" / "cliCommon" / "kosuConfig.ml"
+let default_install = "/usr" / "local"
 let install_bin install = install / "bin"
 let install_lib install = install / "lib"
 let install_headers install = install / "include"
-let install_man install = install / "share/man"
-let install_std install = install / "share/kosu/std"
+let install_man install = install / "share" / "man"
+let install_std install = install / "share" / "kosu" / "std"
 
 let shell command =
   let in_channel = Unix.open_process_in command in
