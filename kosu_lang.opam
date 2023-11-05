@@ -22,9 +22,9 @@ build: [
   ["./configure" 
     "--prefix" prefix 
     "--mandir" "%{prefix}%/man" 
-    "--libdir" "%{prefix}%/lib/kosu/lib"
-    "--includedir" "%{prefix}%/lib/kosu/include"
-    "--stddir" "%{prefix}%/lib/kosu/std"
+    "--libdir" "%{prefix}%/lib/%{name}%/lib"
+    "--includedir" "%{prefix}%/lib/%{name}%/include"
+    "--stddir" "%{prefix}%/lib/%{name}%/std"
     ]
   ["dune" "subst"] {dev}
   [
