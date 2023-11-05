@@ -45,4 +45,4 @@
 (install
  (section lib)
  (files
-  (libkosu.a as lib/libkosu.%{version:kosu_lang}%.a)))
+  (libkosu.a as lib/libkosu.%{version:kosu_lang}.a)))

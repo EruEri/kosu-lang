@@ -11,12 +11,13 @@ homepage: "https://github.com/EruEri/kosu-lang"
 bug-reports: "https://github.com/EruEri/kosu-lang/issues"
 depends: [
   "ocaml" {>= "5.0"}
-  "asai"  {>= "0.2.0"}
+  "asai" {>= "0.2.0"}
   "dune" {>= "3.11"}
   "menhir"
   "cmdliner" {>= "1.1.0"}
   "odoc" {with-doc}
 ]
+dev-repo: "git+https://github.com/EruEri/kosu-lang.git"
 build: [
   [make "configure"]
   ["./configure" 
@@ -39,5 +40,3 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-
-dev-repo: "git+https://github.com/EruEri/kosu-lang.git"

@@ -20,11 +20,11 @@
 (using menhir 2.0)
 
 (name kosu_lang)
-(version "0.4.0")
+(version 0.4.0)
 
 (cram enable)
 
-(generate_opam_files false)
+(generate_opam_files true)
 
 (source
  (github EruEri/kosu-lang))
