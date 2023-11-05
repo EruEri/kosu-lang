@@ -94,7 +94,7 @@ fn main() s32 {
 
 ## How to build 
 
-
+### With Make
 - GNU make as make
 ```bash
   $ opam install dune cmdliner menhir asai
@@ -112,6 +112,13 @@ fn main() s32 {
   $ ./configure
   $ gmake MAKE=gmake
   $ gmake install
+```
+
+### With Opam
+```bash
+  $ opam install dune cmdliner menhir asai
+  $ cd kosu-lang
+  $ opam install .
 ```
 
 Once build, the following programs are generated:
