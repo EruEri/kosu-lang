@@ -221,9 +221,9 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
  fun filename ->
   let sfile = string_of_file_error filename in
   function
-  | LexerError kosu_lexer_error ->
-      string_of_kosu_lexer_error filename kosu_lexer_error
-  | AnalyticsError kae ->
+  (* | LexerError kosu_lexer_error ->
+      string_of_kosu_lexer_error filename kosu_lexer_error *)
+  | AnalyticsError (_, kae) ->
       string_of_analytics_error filename kae
   | SizeofPolymorphicType _ ->
       "Dummy eerror"
@@ -423,9 +423,9 @@ module Formatted = struct
         string_of_kosu_syntax_error e
 
   let string_of_kosu_error : KosuError.kosu_error -> string = function
-    | LexerError kosu_lexer_error ->
-        string_of_kosu_lexer_error kosu_lexer_error
-    | AnalyticsError kae ->
+    (* | LexerError kosu_lexer_error ->
+        string_of_kosu_lexer_error kosu_lexer_error *)
+    | AnalyticsError (_, kae) ->
         string_of_analytics_error kae
     | SizeofPolymorphicType _ ->
         "Dummy eerror"

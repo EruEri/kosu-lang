@@ -85,9 +85,6 @@ let kosuc run =
   Cmd.v info (cmd_term run)
 
 let run cmd =
-  KosuFrontendAlt.Error.Reporter.run ~emit:KosuFrontendAlt.Error.Term.display
-    ~fatal:KosuFrontendAlt.Error.Term.display
-  @@ fun () ->
   let { files; config } = cmd in
   let () =
     match () with
@@ -97,34 +94,7 @@ let run cmd =
     | _ when files = [] ->
         ()
     | () ->
-        let ( `KosuFile kosu_files,
-              `CFile _c_files,
-              `ObjFile _object_files,
-              `AssemblyFile _assembly_files ) =
-          match CliCommon.input_file files with
-          | Ok e ->
-              e
-          | Error e ->
-              raise @@ KosuFrontendAlt.Error.Exn.unsupported_file e
-        in
-
-        let () = KosuFrontendAlt.Error.register_exn () in
-        let kosu_program =
-          match KosuFrontendAlt.Parsing.kosu_program kosu_files with
-          | Ok kosu_program ->
-              kosu_program
-          | Error e ->
-              raise @@ KosuFrontendAlt.Error.Exn.analytics_error e
-        in
-        let () =
-          match KosuFrontendAlt.Validation.validate kosu_program with
-          | Ok () ->
-              ()
-          | Error (file, error) ->
-              let () = KosuFrontendAlt.Reporter.fatalf file error in
-              failwith ""
-          (* raise @@ KosuFrontendAlt.Error.Exn.kosu_error e *)
-        in
+        let _kosu_program = KosuFrontendAlt.parse files in
         ()
   in
   ()

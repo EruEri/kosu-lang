@@ -22,24 +22,24 @@ let none = Option.none
 let some_left e = some @@ Either.left e
 let some_right e = some @@ Either.right e
 
-let kosu_lexer_error_range file = function
+let kosu_lexer_error_range ?file = function
   | KosuError.UnexpectedEscapedChar { value = _; position }
   | UnclosedComment position
   | CharOutOfRange { value = _; position }
   | ForbiddenChar { value = _; position }
   | InvalidLitteralBuiltinFunction { value = _; position }
   | NotFinishedBuiltinFunction position ->
-      to_asai_range file position
+      to_asai_range ?file position
 
-let kosu_syntax_error_range file = function
+let kosu_syntax_error_range ?file = function
   | KosuError.{ position; _ } ->
-      to_asai_range file position
+      to_asai_range ?file position
 
-let kosu_error_range file = function
-  | KosuError.LexerError e | AnalyticsError (KosuAnalysLexerError e) ->
-      some_left @@ kosu_lexer_error_range file e
-  | AnalyticsError (KosuAnalysSyntaxError e) ->
-      some_left @@ kosu_syntax_error_range file e
+let kosu_error_range ?file = function
+  | KosuError.AnalyticsError (file, KosuAnalysLexerError e) ->
+      some_left @@ kosu_lexer_error_range ~file e
+  | AnalyticsError (file, KosuAnalysSyntaxError e) ->
+      some_left @@ kosu_syntax_error_range ~file e
   | DerefNonPointerType { value = _; position }
   | UnboundIdentifier { value = _; position }
   | IdentifierAlreadyBound { value = _; position }
@@ -56,29 +56,29 @@ let kosu_error_range file = function
       { identifier = { value = _; position }; module_resolver = _ }
   | NoFieldInStruct { field = { value = _; position }; struct_decl = _ }
   | TypingError { position; _ } ->
-      some_left @@ to_asai_range file position
+      some_left @@ to_asai_range ?file position
   | PatternAlreadyBoundIdentifier patterns
   | PatternIdentifierNotBoundEveryTime patterns ->
       some_right @@ Bwd.Bwd.of_list
-      @@ List.map (Position.to_loctext file) patterns
+      @@ List.map (Position.to_loctext ?file) patterns
   | ConfictingCallableDeclaration list ->
       some_right @@ Bwd.Bwd.of_list
       @@ List.map
            (let open KosuAst in
             function
             | `External decl ->
-                Position.to_loctext file decl.sig_name
+                Position.to_loctext ?file decl.sig_name
             | `KosuFunction decl ->
-                Position.to_loctext file decl.fn_name
+                Position.to_loctext ?file decl.fn_name
             | `Syscall decl ->
-                Position.to_loctext file decl.syscall_name
+                Position.to_loctext ?file decl.syscall_name
            )
            list
   | VariableTypeNotBound vars ->
       some_right @@ Bwd.Bwd.of_list
       @@ List.map
            (fun (KosuType.TyLoc.PolymorphicVarLoc s) ->
-             Position.to_loctext file s
+             Position.to_loctext ?file s
            )
            vars
   | UnboundModule _
@@ -92,9 +92,9 @@ let kosu_error_formatted = function
   | s ->
       String.escaped @@ KosuPrint.Formatted.string_of_kosu_error s
 
-let fatalf file kosu_error =
+let fatalf ?file kosu_error =
   let f =
-    match kosu_error_range file kosu_error with
+    match kosu_error_range ?file kosu_error with
     | None ->
         KosuError.Reporter.emitf ?loc:None ?backtrace:None
     | Some (Either.Left loc) ->
