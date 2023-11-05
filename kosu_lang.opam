@@ -21,7 +21,7 @@ build: [
   [make "configure"]
   ["./configure" "-i" prefix]
   ["dune" "subst"] {dev}
-  [make MAKE=make]
+  [make "MAKE=%{make}%"]
   [make "okosuc"]
   # [
   #   "dune"
