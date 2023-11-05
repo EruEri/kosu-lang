@@ -28,9 +28,8 @@ build: [
     ]
   ["dune" "subst"] {dev}
   [make "MAKE=%{make}%"]
-  [make "okosuc"]
 ]
-instal: [
+install: [
   [make "install"]
 ]
 
