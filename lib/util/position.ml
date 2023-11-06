@@ -1,7 +1,7 @@
 (**********************************************************************************************)
 (*                                                                                            *)
 (* This file is part of Kosu                                                                  *)
-(* Copyright (C) 2022 Yves Ndiaye                                                             *)
+(* Copyright (C) 2023 Yves Ndiaye                                                             *)
 (*                                                                                            *)
 (* Kosu is free software: you can redistribute it and/or modify it under the terms            *)
 (* of the GNU General Public License as published by the Free Software Foundation,            *)
@@ -15,49 +15,30 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module Args = Args
-module Occurence = Occurence
-module Io = Io
-module PkgConfig = PkgConfig
-module Checksum = Checksum
-module Ulist = Ulist
-module Position = Position
+type position = {
+  start_position : Lexing.position;
+  end_position : Lexing.position;
+}
 
-type stringlit_label = SLit of string
-type floatlit_label = FLit of string
-type coordinate = { line : int; column : int }
+type 'a location = { value : 'a; position : position }
 
-let couple a b = (a, b)
+let map f location = { location with value = f location.value }
+let map_use f location = { value = f location; position = location.position }
+let value { value; _ } = value
+let values list = List.map value list
+let position { position; _ } = position
 
-let is_what_file ~extension filename =
-  filename |> Filename.extension |> ( = ) extension
+let located_value start_position end_position value =
+  { value; position = { start_position; end_position } }
 
-let is_object_file = is_what_file ~extension:".o"
+let current_position lexbuf =
+  let open Lexing in
+  { start_position = lexbuf.lex_start_p; end_position = lexbuf.lex_curr_p }
 
-let is_asm_file filename =
-  filename |> Filename.extension |> String.lowercase_ascii |> ( = ) ".s"
+let dummy = Lexing.{ start_position = dummy_pos; end_position = dummy_pos }
+let dummy_located value = { value; position = dummy }
 
-let rec string_of_chars_aux count result char =
-  if count <= 0 then
-    result
-  else
-    string_of_chars_aux (count - 1) (Printf.sprintf "%c%s" char result) char
-
-let string_of_chars count = string_of_chars_aux count ""
-
-let string_of_module_path path =
-  if path = String.empty then
-    String.empty
-  else
-    Printf.sprintf "%s::" path
-
-let dummy_generic_map generic_names parametrics_types =
-  let list_len = parametrics_types |> List.length in
-  let dummy_list = List.init list_len (fun _ -> ()) in
-  let dummy_parametrics = List.combine dummy_list parametrics_types in
-  let generics_mapped = List.combine generic_names dummy_parametrics in
-  Hashtbl.of_seq (generics_mapped |> List.to_seq)
-
-module Operator = struct
-  let ( >? ) o v = Option.value ~default:v o
-end
+let line_column_of_position p =
+  let line_number = p.Lexing.pos_lnum in
+  let column = p.Lexing.pos_cnum - p.Lexing.pos_bol + 1 in
+  (line_number, column)

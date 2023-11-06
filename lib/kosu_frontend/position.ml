@@ -15,33 +15,7 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-type position = {
-  start_position : Lexing.position;
-  end_position : Lexing.position;
-}
-
-type 'a location = { value : 'a; position : position }
-
-let map f location = { location with value = f location.value }
-let map_use f location = { value = f location; position = location.position }
-let value { value; _ } = value
-let values list = List.map value list
-let position { position; _ } = position
-
-let located_value start_position end_position value =
-  { value; position = { start_position; end_position } }
-
-let current_position lexbuf =
-  let open Lexing in
-  { start_position = lexbuf.lex_start_p; end_position = lexbuf.lex_curr_p }
-
-let dummy = Lexing.{ start_position = dummy_pos; end_position = dummy_pos }
-let dummy_located value = { value; position = dummy }
-
-let line_column_of_position p =
-  let line_number = p.Lexing.pos_lnum in
-  let column = p.Lexing.pos_cnum - p.Lexing.pos_bol + 1 in
-  (line_number, column)
+include Util.Position
 
 let to_asai_range ?file position =
   (* let () = Printf.eprintf "%s\n%!" position.start_position.pos_fname in *)

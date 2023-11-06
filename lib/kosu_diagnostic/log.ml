@@ -1,7 +1,7 @@
 (**********************************************************************************************)
 (*                                                                                            *)
 (* This file is part of Kosu                                                                  *)
-(* Copyright (C) 2022 Yves Ndiaye                                                             *)
+(* Copyright (C) 2023 Yves Ndiaye                                                             *)
 (*                                                                                            *)
 (* Kosu is free software: you can redistribute it and/or modify it under the terms            *)
 (* of the GNU General Public License as published by the Free Software Foundation,            *)
@@ -15,49 +15,45 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module Args = Args
-module Occurence = Occurence
-module Io = Io
-module PkgConfig = PkgConfig
-module Checksum = Checksum
-module Ulist = Ulist
-module Position = Position
+let ascii_reset = "\u{001B}[0m"
+let ( $ ) str fs s = str @@ fs s
 
-type stringlit_label = SLit of string
-type floatlit_label = FLit of string
-type coordinate = { line : int; column : int }
+let sprintf ?color ?(bold = false) ?(underline = false) input =
+  let m = Option.is_some color || bold || underline in
+  let s =
+    match m with
+    | true ->
+        Printf.sprintf "\u{001B}%s"
+    | false ->
+        Printf.sprintf "%s"
+  in
+  let s =
+    match color with
+    | None ->
+        s
+    | Some color ->
+        s $ Printf.sprintf ";%u%s" (Severity.fg color)
+  in
+  let s = match bold with true -> s $ Printf.sprintf ";%u%s" 1 | false -> s in
+  let s =
+    match underline with true -> s $ Printf.sprintf ";%u%s" 4 | false -> s
+  in
 
-let couple a b = (a, b)
+  let s = match m with true -> s $ Printf.sprintf "m%s" | false -> s in
+  s @@ Printf.sprintf "%s%s" input ascii_reset
 
-let is_what_file ~extension filename =
-  filename |> Filename.extension |> ( = ) extension
-
-let is_object_file = is_what_file ~extension:".o"
-
-let is_asm_file filename =
-  filename |> Filename.extension |> String.lowercase_ascii |> ( = ) ".s"
-
-let rec string_of_chars_aux count result char =
-  if count <= 0 then
-    result
-  else
-    string_of_chars_aux (count - 1) (Printf.sprintf "%c%s" char result) char
-
-let string_of_chars count = string_of_chars_aux count ""
-
-let string_of_module_path path =
-  if path = String.empty then
-    String.empty
-  else
-    Printf.sprintf "%s::" path
-
-let dummy_generic_map generic_names parametrics_types =
-  let list_len = parametrics_types |> List.length in
-  let dummy_list = List.init list_len (fun _ -> ()) in
-  let dummy_parametrics = List.combine dummy_list parametrics_types in
-  let generics_mapped = List.combine generic_names dummy_parametrics in
-  Hashtbl.of_seq (generics_mapped |> List.to_seq)
-
-module Operator = struct
-  let ( >? ) o v = Option.value ~default:v o
-end
+let emit ?(_message = fun _ -> String.empty) file (loc : Util.Position.position)
+    _default _kind _fwhat _what =
+  let lines =
+    String.split_on_char '\n'
+    @@ In_channel.with_open_bin file (fun ic -> Util.Io.read_file ic ())
+  in
+  let _lines =
+    List.filteri
+      (fun i _ ->
+        let i = i + 1 in
+        loc.start_position.pos_lnum = i || loc.end_position.pos_lnum = i
+      )
+      lines
+  in
+  failwith ""
