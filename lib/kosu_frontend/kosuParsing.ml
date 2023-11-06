@@ -28,43 +28,47 @@ let error_info env =
         ("invalid syntax (no specific message for this eror)", None)
     )
 
-let rec parse lexbuf (checkpoint : KosuAst.kosu_module I.checkpoint) =
+let rec parse file lexbuf (checkpoint : KosuAst.kosu_module I.checkpoint) =
   match checkpoint with
   | I.InputNeeded _env -> (
       try
         let token = KosuLexer.token lexbuf in
         let startp = lexbuf.lex_start_p and endp = lexbuf.lex_curr_p in
         let checkpoint = I.offer checkpoint (token, startp, endp) in
-        parse lexbuf checkpoint
+        parse file lexbuf checkpoint
       with
       | KosuError.KosuLexerError e ->
-          Result.Error (KosuError.KosuAnalysLexerError e)
+          Result.Error (file, KosuError.KosuAnalysLexerError e)
       | _ ->
           failwith "Uncatched Lexer Error"
     )
   | I.Shifting _ | I.AboutToReduce _ ->
       let checkpoint = I.resume checkpoint in
-      parse lexbuf checkpoint
+      parse file lexbuf checkpoint
   | I.HandlingError env ->
       let position = Position.current_position lexbuf in
       let current_lexeme = Lexing.lexeme lexbuf in
       let err, state = error_info env in
       Result.error
-      @@ KosuError.KosuAnalysSyntaxError
-           { position; current_lexeme; message = err; state }
+      @@ ( file,
+           KosuError.KosuAnalysSyntaxError
+             { position; current_lexeme; message = err; state }
+         )
   | I.Accepted v ->
       Ok v
   | I.Rejected ->
       let position = Position.current_position lexbuf in
       let current_lexeme = Lexing.lexeme lexbuf in
       Result.error
-      @@ KosuError.KosuAnalysSyntaxError
-           {
-             position;
-             current_lexeme;
-             message = "Parser reject the input";
-             state = None;
-           }
+      @@ ( file,
+           KosuError.KosuAnalysSyntaxError
+             {
+               position;
+               current_lexeme;
+               message = "Parser reject the input";
+               state = None;
+             }
+         )
 
 let rec kosu_program ~acc = function
   | [] ->
@@ -74,7 +78,8 @@ let rec kosu_program ~acc = function
       let* kosu_module =
         In_channel.with_open_bin kosu_file (fun ic ->
             let lexbuf = Lexing.from_channel ic in
-            parse lexbuf @@ KosuParser.Incremental.kosu_module lexbuf.lex_curr_p
+            parse kosu_file lexbuf
+            @@ KosuParser.Incremental.kosu_module lexbuf.lex_curr_p
         )
       in
       kosu_program ~acc:(KosuAst.{ filename = kosu_file; kosu_module } :: acc) q

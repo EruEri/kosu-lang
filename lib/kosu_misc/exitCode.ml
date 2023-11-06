@@ -15,7 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module Parsing = KosuParsing
-module Report = KosuReport
-module Error = KosuError
-module Validation = KosuValidation
+let success = 0
+let validation_error = 2
+let syntax_lexer_error = 3
+let unsported_file = 4
+let fatal_error = 5

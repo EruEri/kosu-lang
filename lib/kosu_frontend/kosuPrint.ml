@@ -221,9 +221,9 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
  fun filename ->
   let sfile = string_of_file_error filename in
   function
-  | LexerError kosu_lexer_error ->
-      string_of_kosu_lexer_error filename kosu_lexer_error
-  | AnalyticsError kae ->
+  (* | LexerError kosu_lexer_error ->
+      string_of_kosu_lexer_error filename kosu_lexer_error *)
+  | AnalyticsError (_, kae) ->
       string_of_analytics_error filename kae
   | SizeofPolymorphicType _ ->
       "Dummy eerror"
@@ -387,3 +387,108 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       sloc @@ sfile
       @@ sprintf "function \"%s\" duplicated paramater identifier\n\t%s\n\t%s"
            function_location.value lhs rhs
+
+module Formatted = struct
+  let string_of_kosu_lexer_error : KosuError.kosu_lexer_error -> string =
+    function
+    | UnexpectedEscapedChar s ->
+        sprintf "Unexpected Escaped character: %s" s.value
+    | UnclosedComment _ ->
+        "Comments not terminated"
+    | CharOutOfRange int ->
+        sprintf "Ascii value '%u' is not in [0-255]" int.value
+    | ForbiddenChar char ->
+        sprintf "Forbidden character : %c" char.value
+    | InvalidLitteralBuiltinFunction char ->
+        sprintf "Invalid Litteral For Builtin Function: %c" char.value
+    | NotFinishedBuiltinFunction _ ->
+        "Builtin function not finished"
+
+  let string_of_kosu_syntax_error : KosuError.kosu_syntax_error -> string =
+   fun { position = _; current_lexeme; message; state } ->
+    let state =
+      state
+      |> Option.map (sprintf "Error in state \"%d\"")
+      |> Option.value ~default:String.empty
+    in
+    Printf.sprintf "Unexpected \"%s\"\nSyntax Error : %s%s" current_lexeme
+      message state
+
+  let string_of_analytics_error : KosuError.kosu_analytics_error -> string =
+    function
+    | KosuAnalysLexerError e ->
+        string_of_kosu_lexer_error e
+    | KosuAnalysSyntaxError e ->
+        string_of_kosu_syntax_error e
+
+  let string_of_kosu_error : KosuError.kosu_error -> string = function
+    | AnalyticsError (_, kae) ->
+        string_of_analytics_error kae
+    | SizeofPolymorphicType _ ->
+        "Dummy eerror"
+    | DerefNonPointerType kosu_type ->
+        sprintf
+          "This expression has the type \"%s\" which is not a pointer. \
+           Therefore, it can't be deferenced"
+          (string_of_kosu_type kosu_type.value)
+    | PatternAlreadyBoundIdentifier _ ->
+        String.escaped @@ sprintf "The following identifiers are already bound"
+    | PatternIdentifierNotBoundEveryTime _ ->
+        sprintf "The following identifiers aren't bound in each patterns"
+    | UnboundModule module_resolver ->
+        let s : string location =
+          match module_resolver with
+          | ModuleResolverLoc [] ->
+              Position.dummy_located "Empty module doesnt exist"
+          | ModuleResolverLoc (_ :: _) as _modules ->
+              failwith ""
+        in
+        sprintf "Unbound Module : %s" s.value
+    | UnboundIdentifier i ->
+        sprintf "Unbound identifier : %s" i.value
+    | IdentifierAlreadyBound identifier ->
+        sprintf {| Identifier %s is already defined |} identifier.value
+    | NoFieldInStruct { struct_decl; field } ->
+        sprintf "Struct \"%s\" doesnt' have a field \"%s\""
+          struct_decl.struct_name field.value
+    | NoStructDeclFoundForType ty ->
+        sprintf "Type %s isn't the type of a struct"
+        @@ string_of_kosu_type @@ value ty
+    | TypingError { clhs; crhs; position = _ } ->
+        sprintf "Incompatible type : Expected \"%s\", Found \"%s\""
+          (string_of_kosu_type clhs) (string_of_kosu_type crhs)
+    | NonStructTypeExpression _ ->
+        sprintf "This expressions is not an struct type"
+    | NonTupleAccess _ ->
+        sprintf "This expressions is not a tuple"
+    | NonArrayAccess _ ->
+        sprintf "This expressions is not a array"
+    | CannotInferType _ ->
+        sprintf "Cannot infer the type of this expression"
+    | CannotFindStructDecl kosu_type ->
+        sprintf "No struct declaration associated this the type : %s"
+        @@ string_of_kosu_type @@ Position.value kosu_type
+    | ArraySubscribeNotInteger _ ->
+        sprintf
+          "This expression is not an integer; It's can not be used as array \
+           subscribe"
+    | TupleIndexOutBound { expect; found } ->
+        sprintf "This expression is a tuple (arity %u) but of try to access %Lu"
+          expect found.value
+    | ConstNonStaticExpression _ ->
+        sprintf "This expression cannot be none at compile time"
+    | UnboundConstante { module_resolver; identifier } ->
+        sprintf "Unbound Constante : %s%s"
+          (string_of_module_resolver_loc module_resolver)
+          identifier.value
+    | ConfictingTypeDeclaration _ ->
+        Printf.sprintf "Conflicting type declarations"
+    | ConfictingCallableDeclaration _ ->
+        Printf.sprintf "Conflicting callable declarations"
+    | UnsupportedFile f ->
+        sprintf "Unknown file kind : %s" f
+    | VariableTypeNotBound _ ->
+        sprintf "The following type variable aren't bound"
+    | DuplicatedParametersName { function_location = _; lhs = _; rhs = _ } ->
+        sprintf "Duplicated paramater identifiers"
+end

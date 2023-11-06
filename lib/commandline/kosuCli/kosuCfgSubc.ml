@@ -83,7 +83,7 @@ let target_arch_term =
                "If this environment variable is present, the architecture \
                 register set doesn't need to be explicitly set. See option \
                 $(b, --arch)"
-             architecture_global_variable
+             Variable.architecture_global_variable
           )
         ~doc:"architecture register set" [ "arch" ]
   )

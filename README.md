@@ -94,10 +94,10 @@ fn main() s32 {
 
 ## How to build 
 
-
+### With Make
 - GNU make as make
 ```bash
-  $ opam install dune cmdliner menhir
+  $ opam install dune cmdliner menhir asai
   $ cd kosu-lang
   $ make configure
   $ ./configure
@@ -106,12 +106,19 @@ fn main() s32 {
 ```
 - GNU make as gmake (example: FreeBSD)
 ```bash
-  $ opam install dune cmdliner menhir
+  $ opam install dune cmdliner menhir asai
   $ cd kosu-lang
   $ gmake configure
   $ ./configure
   $ gmake MAKE=gmake
   $ gmake install
+```
+
+### With Opam
+```bash
+  $ opam install dune cmdliner menhir asai
+  $ cd kosu-lang
+  $ opam install .
 ```
 
 Once build, the following programs are generated:

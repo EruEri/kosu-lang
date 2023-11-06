@@ -20,4 +20,4 @@
  (enabled_if
   (= %{profile} san))
  (modules sanTyAst sanTyConv sanTyped sanTyPprint sanTyUtil)
- (libraries sanFrontend util))
+ (libraries sanFrontend sanUtil))

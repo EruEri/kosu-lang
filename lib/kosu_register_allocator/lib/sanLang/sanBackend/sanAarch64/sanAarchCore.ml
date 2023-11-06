@@ -746,7 +746,7 @@ module FrameManager = struct
   let frame_descriptor (function_decl : SanTyped.SanTyAst.ty_san_function) =
     let parameter_count = List.length (Register.arguments_register ()) in
     let register_parameters, stack_parameters =
-      function_decl.parameters |> List.mapi Util.couple
+      function_decl.parameters |> List.mapi SanUtil.couple
       |> List.partition_map (fun (index, variable) ->
              if index < parameter_count then
                Either.left variable
@@ -758,7 +758,7 @@ module FrameManager = struct
     let colored_graph =
       GreedyColoration.coloration
         ~parameters:
-          (Util.combine_safe register_parameters
+          (SanUtil.combine_safe register_parameters
              (Register.arguments_register ())
           )
         ~available_color:Register.available_register cfg
@@ -796,7 +796,7 @@ module FrameManager = struct
     let stack_variable_types = List.map snd stack_variable in
 
     let variable_map =
-      stack_variable |> List.mapi Util.couple
+      stack_variable |> List.mapi SanUtil.couple
       |> List.fold_left
            (fun (acc_address, acc_map) (index, variable) ->
              let offset =
@@ -835,7 +835,7 @@ module FrameManager = struct
 
     let parameter_count = List.length (Register.arguments_register ()) in
     let register_parameters, _stack_parameters =
-      function_decl.parameters |> List.mapi Util.couple
+      function_decl.parameters |> List.mapi SanUtil.couple
       |> List.partition_map (fun (index, variable) ->
              if index < parameter_count then
                Either.left variable
@@ -846,7 +846,7 @@ module FrameManager = struct
 
     let store_parameters_value =
       register_parameters
-      |> Util.combine_safe (Register.arguments_register ())
+      |> SanUtil.combine_safe (Register.arguments_register ())
       |> List.filter_map (fun (register, variable) ->
              match location_of variable fd with
              | LocAddr address ->

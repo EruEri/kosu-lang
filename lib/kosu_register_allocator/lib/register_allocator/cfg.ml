@@ -251,8 +251,8 @@ module Make (CfgS : CfgS) :
   type basic_block_end = BBe_if of bbe_if | Bbe_return of CfgS.atom
 
   type constraints = {
-    parameters_constr : (variable * int) list list;
-    return_constraint : variable list;
+    _parameters_constr : (variable * int) list list;
+    _return_constraint : variable list;
   }
 
   module Basic = struct

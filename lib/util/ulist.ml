@@ -26,6 +26,7 @@ let rec index_of_aux f index = function
 
 let index_of f = index_of_aux f 0
 let head_opt = function [] -> None | t :: _ -> Some t
+let hd_tl = function [] -> (None, []) | t :: q -> (Some t, q)
 
 let rec duplicate_aux hashmap list =
   match list with

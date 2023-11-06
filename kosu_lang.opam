@@ -10,25 +10,27 @@ license: "GPL-3.0"
 homepage: "https://github.com/EruEri/kosu-lang"
 bug-reports: "https://github.com/EruEri/kosu-lang/issues"
 depends: [
-  "ocaml" {>= "4.13"}
-  "dune" {>= "3.2"}
+  "ocaml" {>= "5.0"}
+  "asai" {>= "0.2.0"}
+  "dune" {>= "3.3"}
   "menhir"
   "cmdliner" {>= "1.1.0"}
-  "unix"
   "odoc" {with-doc}
 ]
-build: [
-  ["dune" "subst"] {dev}
-  [
-    "dune"
-    "build"
-    "-p"
-    name
-    "-j"
-    jobs
-    "@install"
-    "@runtest" {with-test}
-    "@doc" {with-doc}
-  ]
-]
 dev-repo: "git+https://github.com/EruEri/kosu-lang.git"
+build: [
+  [make "configure"]
+  ["./configure" 
+    "--prefix" prefix 
+    "--mandir" "%{prefix}%/man" 
+    "--libdir" "%{prefix}%/lib/%{name}%/lib"
+    "--includedir" "%{prefix}%/lib/%{name}%/include"
+    "--stddir" "%{prefix}%/lib/%{name}%/std"
+    ]
+  ["dune" "subst"]
+  [make "MAKE=%{make}%"]
+]
+
+install: [
+  [make "install"]
+]

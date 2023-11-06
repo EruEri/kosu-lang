@@ -35,8 +35,7 @@ type kosu_analytics_error =
   | KosuAnalysSyntaxError of kosu_syntax_error
 
 type kosu_error =
-  | LexerError of kosu_lexer_error
-  | AnalyticsError of kosu_analytics_error
+  | AnalyticsError of (string * kosu_analytics_error)
   | SizeofPolymorphicType of Position.position
   | DerefNonPointerType of KosuType.Ty.kosu_type Position.location
   | PatternAlreadyBoundIdentifier of string Position.location list
@@ -174,3 +173,16 @@ module Exn = struct
   let duplicated_param_name function_location lhs rhs =
     kosu_raw_error @@ Raw.duplicated_param_name function_location lhs rhs
 end
+
+module Message = struct
+  type t = kosu_error
+
+  let default_severity : t -> Asai.Diagnostic.severity = function
+    | _ ->
+        Asai.Diagnostic.Error
+
+  let short_code : t -> string = function _ -> String.empty
+end
+
+module Reporter = Asai.Reporter.Make (Message)
+module Term = Asai.Tty.Make (Message)

@@ -42,3 +42,16 @@ let line_column_of_position p =
   let line_number = p.Lexing.pos_lnum in
   let column = p.Lexing.pos_cnum - p.Lexing.pos_bol + 1 in
   (line_number, column)
+
+let to_asai_range ?file position =
+  (* let () = Printf.eprintf "%s\n%!" position.start_position.pos_fname in *)
+  let source = Option.map (fun s -> `File s) file in
+  Asai.Range.of_lex_range ?source
+    (position.start_position, position.end_position)
+
+let to_asai_range_loc ?file e = to_asai_range ?file e.position
+
+let to_loctext ?file value =
+  let loc = to_asai_range_loc ?file value in
+  let text = Asai.Diagnostic.loctext ~loc value.value in
+  text

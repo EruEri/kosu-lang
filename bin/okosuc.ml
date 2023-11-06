@@ -54,11 +54,14 @@ let kosuc_man =
        $(b,as)(1)\n\
       \      and linked to the program";
     `P
+      "Files ending with .a are treated as archive files to be passed to the \
+       linker";
+    `P
       "Files ending with .o are treated as object files to be passed to the \
        linker.";
     `P
-      "If --cc flag is set, files ending with .c, .s or .o are passed as it is \
-       to $(b,cc)(1)";
+      "If --cc flag is set, files ending with .c, .s, .a or .o are passed as \
+       it is to $(b,cc)(1)";
     `S Manpage.s_environment;
     `I
       ( Printf.sprintf "$(b,%s)" "DUMMY",
@@ -78,51 +81,89 @@ let kosuc_man =
     `P "Kosuc is distributed under the GNU GPL-3.0";
   ]
 
+let code_descriptions =
+  [
+    (KosuMisc.ExitCode.validation_error, "on ast error");
+    (KosuMisc.ExitCode.syntax_lexer_error, "on syntax error");
+    (KosuMisc.ExitCode.unsported_file, "on unsupported file input");
+    (KosuMisc.ExitCode.fatal_error, "on fatal error");
+  ]
+
+let exits =
+  List.map
+    (fun (code, description) -> Cmd.Exit.info ~doc:description code)
+    code_descriptions
+
+let exits = Cmd.Exit.defaults @ exits
+
 let kosuc run =
   let info =
-    Cmd.info ~doc:kosuc_doc ~man:kosuc_man ~version:CliCommon.fversion name
+    Cmd.info ~exits ~doc:kosuc_doc ~man:kosuc_man ~version:CliCommon.fversion
+      name
   in
   Cmd.v info (cmd_term run)
 
-let run cmd =
-  let { files; config } = cmd in
+let report_run =
+  KosuFrontendAlt.Report.run ~emit:KosuFrontendAlt.Error.Term.display
+    ~fatal:(fun kosu_dig ->
+      let () = KosuFrontendAlt.Error.Term.display kosu_dig in
+      exit KosuMisc.ExitCode.fatal_error
+  )
+
+let parse_to_ast files =
+  let ( ( `KosuFile kosu_files,
+          `CFile _c_files,
+          `ObjFile _object_files,
+          `AssemblyFile _assembly_files,
+          `ArchiveFile _arc
+        ) as t
+      ) =
+    match KosuMisc.HandledFile.input_file files with
+    | Ok e ->
+        e
+    | Error e ->
+        let () =
+          KosuFrontendAlt.Report.emitf
+          @@ KosuFrontendAlt.Error.Raw.unsupported_file e
+        in
+        exit KosuMisc.ExitCode.unsported_file
+  in
+  let kosu_program =
+    match KosuFrontendAlt.Parsing.kosu_program kosu_files with
+    | Ok kosu_program ->
+        kosu_program
+    | Error e ->
+        let () =
+          KosuFrontendAlt.Report.emitf
+          @@ KosuFrontendAlt.Error.Raw.analytics_error e
+        in
+        exit KosuMisc.ExitCode.syntax_lexer_error
+  in
   let () =
+    match KosuFrontendAlt.Validation.validate kosu_program with
+    | Ok () ->
+        ()
+    | Error (file, error) ->
+        let () = KosuFrontendAlt.Report.emitf ~file error in
+        exit KosuMisc.ExitCode.validation_error
+  in
+  (t, kosu_program)
+
+let run cmd =
+  report_run
+  @@ fun () ->
+  let { files; config } = cmd in
+  let _kosu_program =
     match () with
     | _ when config ->
         let () = CliCommon.kosu_config_print () in
-        ()
+        exit KosuMisc.ExitCode.success
     | _ when files = [] ->
-        ()
+        exit KosuMisc.ExitCode.success
     | () ->
-        let ( `KosuFile kosu_files,
-              `CFile _c_files,
-              `ObjFile _object_files,
-              `AssemblyFile _assembly_files ) =
-          match CliCommon.input_file files with
-          | Ok e ->
-              e
-          | Error e ->
-              raise @@ KosuFrontendAlt.Error.Exn.unsupported_file e
-        in
-
-        let () = KosuFrontendAlt.Error.register_exn () in
-        let kosu_program =
-          match KosuFrontendAlt.Parsing.kosu_program kosu_files with
-          | Ok kosu_program ->
-              kosu_program
-          | Error e ->
-              raise @@ KosuFrontendAlt.Error.Exn.analytics_error e
-        in
-        let () =
-          match KosuFrontendAlt.Validation.validate kosu_program with
-          | Ok () ->
-              ()
-          | Error e ->
-              raise @@ KosuFrontendAlt.Error.Exn.kosu_error e
-        in
-        ()
+        parse_to_ast files
   in
   ()
 
-let eval () = run |> kosuc |> Cmd.eval ~catch:true
+let eval () = run |> kosuc |> Cmd.eval ~catch:false
 let () = exit @@ eval ()

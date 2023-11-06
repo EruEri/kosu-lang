@@ -21,7 +21,7 @@ module Make (AsmSpec : SanAarchSpecification.Aarch64AsmSpecification) = struct
   module Conv = SanAarchConv.Make (AsmSpec)
 
   let compile_s ~outfile santyped =
-    let open Util in
+    let open SanUtil in
     let litterals : AsmProgram.litterals =
       { str_lit_map = SanTyped.collect_string_litteral_module santyped () }
     in

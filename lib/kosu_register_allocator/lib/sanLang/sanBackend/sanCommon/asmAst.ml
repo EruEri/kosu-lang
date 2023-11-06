@@ -20,7 +20,7 @@ module type InstructionLine = sig
 end
 
 module Make (InstructionLine : InstructionLine) = struct
-  type litterals = { str_lit_map : (string, Util.stringlit_label) Hashtbl.t }
+  type litterals = { str_lit_map : (string, SanUtil.stringlit_label) Hashtbl.t }
   type asmline = InstructionLine.asmline
   type asm_function_decl = { asm_name : string; asm_body : asmline list }
 

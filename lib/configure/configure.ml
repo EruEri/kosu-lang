@@ -19,14 +19,14 @@ open Cmdliner
 
 let name = "configure"
 let kosu_config = "kosu_config.mk"
-let kosu_config_ml = "lib/commandline/cliCommon/kosuConfig.ml"
-let default_install = "/usr/local"
-let ( / ) = Printf.sprintf "%s/%s"
+let ( / ) = Filename.concat
+let kosu_config_ml = "lib" / "commandline" / "cliCommon" / "kosuConfig.ml"
+let default_install = "/usr" / "local"
 let install_bin install = install / "bin"
 let install_lib install = install / "lib"
-let install_headers install = install / "include/kosu"
-let install_man install = install / "share/man"
-let install_std install = install / "share/kosu/std"
+let install_headers install = install / "include"
+let install_man install = install / "share" / "man"
+let install_std install = install / "share" / "kosu" / "std"
 
 let shell command =
   let in_channel = Unix.open_process_in command in
@@ -50,17 +50,15 @@ let shell_dynlib os () =
 let kosu_version () =
   shell "cat kosu_lang.opam | grep ^version | awk '{print $2}' | sed 's/\"//g'"
 
-let make_variable install () =
+let make_variable ~prefix ~bindir ~includedir ~stddir ~mandir ~libdir () =
   Out_channel.with_open_bin kosu_config
   @@ fun oc ->
-  let () = Printf.fprintf oc "INSTALL_DIR=%s\n" install in
-  let () = Printf.fprintf oc "INSTALL_BIN_DIR=%s\n" @@ install_bin install in
-  let () = Printf.fprintf oc "INSTALL_LIB_DIR=%s\n" @@ install_lib install in
-  let () =
-    Printf.fprintf oc "INSTALL_HEADER_DIR=%s\n" @@ install_headers install
-  in
-  let () = Printf.fprintf oc "INSTALL_MAN_DIR=%s\n" @@ install_man install in
-  let () = Printf.fprintf oc "INSTALL_STD_DIR=%s\n" @@ install_std install in
+  let () = Printf.fprintf oc "INSTALL_DIR=%s\n" prefix in
+  let () = Printf.fprintf oc "INSTALL_BIN_DIR=%s\n" bindir in
+  let () = Printf.fprintf oc "INSTALL_LIB_DIR=%s\n" libdir in
+  let () = Printf.fprintf oc "INSTALL_HEADER_DIR=%s\n" includedir in
+  let () = Printf.fprintf oc "INSTALL_MAN_DIR=%s\n" mandir in
+  let () = Printf.fprintf oc "INSTALL_STD_DIR=%s\n" stddir in
   let () = Printf.fprintf oc "KOSU_VERSION=%s\n" @@ kosu_version () in
   ()
 
@@ -100,7 +98,12 @@ type t = {
   cc : string option;
   linker_options : string list;
   linker_raw_args : string list;
-  install_dir : string;
+  prefix : string;
+  bindir : string;
+  libdir : string;
+  includedir : string;
+  mandir : string;
+  stddir : string;
 }
 
 let arch_term =
@@ -127,15 +130,6 @@ let cc_term =
         ~doc:"Indicate which C compiler kosuc should invoke when needed"
   )
 
-let install_dir_term =
-  let default = Some default_install in
-  Arg.(
-    required
-    & opt ~vopt:default (some string) default
-    & info [ "i"; "install-dir" ]
-        ~doc:"Indicate the root directory of the kosu install"
-  )
-
 let linker_options_term =
   Arg.(
     value
@@ -154,13 +148,87 @@ let linker_raw_args_term =
            compiling"
   )
 
+let term_prefix =
+  let default = Some default_install in
+  Arg.(
+    required
+    & opt ~vopt:default (some string) default
+    & info [ "prefix" ] ~doc:"Indicate the root directory of the kosu install"
+  )
+
+let term_bindir =
+  let default = install_bin "--prefix" in
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "bindir" ] ~absent:default
+        ~doc:"Indicate the root directory of binary"
+  )
+
+let term_libdir =
+  let default = install_lib "--prefix" in
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "libdir" ] ~absent:default
+        ~doc:"Indicate the root directory of library"
+  )
+
+let term_includedir =
+  let absent = install_headers "--prefix" in
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "includedir" ] ~absent
+        ~doc:"Indicate the root directory of headers"
+  )
+
+let term_mandir =
+  let absent = install_man "--prefix" in
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "mandir" ] ~absent ~doc:"Indicate the root directory of man page"
+  )
+
+let term_stddir =
+  let absent = install_std "--prefix" in
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "stddir" ] ~absent
+        ~doc:"Indicate the root directory of the standard library"
+  )
+
 let cmd_term run =
-  let combine arch os cc linker_options linker_raw_args install_dir =
-    run @@ { arch; os; cc; linker_options; linker_raw_args; install_dir }
+  let combine arch os cc linker_options linker_raw_args prefix bindir libdir
+      includedir mandir stddir =
+    let bindir = Option.value ~default:(install_bin prefix) bindir in
+    let libdir = Option.value ~default:(install_lib prefix) libdir in
+    let includedir =
+      Option.value ~default:(install_headers prefix) includedir
+    in
+    let mandir = Option.value ~default:(install_man prefix) mandir in
+    let stddir = Option.value ~default:(install_std prefix) stddir in
+    run
+    @@ {
+         arch;
+         os;
+         cc;
+         linker_options;
+         linker_raw_args;
+         prefix;
+         bindir;
+         libdir;
+         includedir;
+         mandir;
+         stddir;
+       }
   in
   Term.(
     const combine $ arch_term $ os_term $ cc_term $ linker_options_term
-    $ linker_raw_args_term $ install_dir_term
+    $ linker_raw_args_term $ term_prefix $ term_bindir $ term_libdir
+    $ term_includedir $ term_mandir $ term_stddir
   )
 
 let doc = "Configure kosu compilation option"
@@ -170,16 +238,27 @@ let configure run =
   Cmd.v info (cmd_term run)
 
 let run cmd =
-  let { arch; os; cc; linker_options; linker_raw_args; install_dir } = cmd in
+  let {
+    arch;
+    os;
+    cc;
+    linker_options;
+    linker_raw_args;
+    bindir;
+    libdir;
+    mandir;
+    stddir;
+    includedir;
+    prefix;
+  } =
+    cmd
+  in
   let arch = Option.value ~default:(shell_arch ()) arch in
   let os = Option.value ~default:(shell_uname ()) os in
   let os_extension = shell_dynlib os () in
   let cc = Option.value ~default:"cc" cc in
   let commit_hash = shell_commit_hash () in
   let branch = shell_branch () in
-  let headers = install_headers install_dir in
-  let std_path = install_std install_dir in
-  let runtime_path = install_lib install_dir in
 
   let linker_options =
     match linker_options with
@@ -221,11 +300,13 @@ let kosu_target_linker_option = %s
 let kosu_target_linker_args = %s
 let kosu_version = "%s"
 |}
-      arch os os_extension cc commit_hash branch headers std_path runtime_path
+      arch os os_extension cc commit_hash branch includedir stddir libdir
       s_linker_option s_linker_raw_args (kosu_version ())
   in
 
-  let () = make_variable install_dir () in
+  let () =
+    make_variable ~prefix ~libdir ~includedir ~mandir ~stddir ~bindir ()
+  in
   ()
 
 let eval = Cmd.eval @@ configure @@ run

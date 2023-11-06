@@ -1,9 +1,7 @@
-(lang dune 3.3)
-
 ;**********************************************************************************************;
 ;*                                                                                            *;
 ;* This file is part of Kosu                                                                  *;
-;* Copyright (C) 2022 Yves Ndiaye                                                             *;
+;* Copyright (C) 2023 Yves Ndiaye                                                             *;
 ;*                                                                                            *;
 ;* Kosu is free software: you can redistribute it and/or modify it under the terms            *;
 ;* of the GNU General Public License as published by the Free Software Foundation,            *;
@@ -17,31 +15,45 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
-(using menhir 2.0)
+(include_subdirs no)
 
-(name kosu_lang)
-(version 0.4.0)
+(data_only_dirs runtime)
 
-(cram enable)
 
-(generate_opam_files true)
+(rule
+ (deps (source_tree runtime))
+ (targets version.txt)
 
-(source
- (github EruEri/kosu-lang))
+  (action 
+   (with-stdout-to %{targets} 
+  (run sh runtime/version.sh %{project_root}))
+  )
+ )
 
-(authors "EruEri")
+(rule
+ (targets libkosu.a)
+ (deps
+  (source_tree runtime))
+ (action
+  (no-infer
+   (progn
+    (chdir
+     runtime
+     (run sh build.sh))
+    (copy runtime/libkosu.a libkosu.a)))))
 
-(maintainers "EruEri")
+(install
+ (section lib)
+ (files
+  (glob_files_rec std/*.kosu)))
 
-(license GPL-3.0)
+(install
+ (section lib)
+ (files
+  (glob_files_rec
+   (runtime/include/*.h with_prefix include/))))
 
-; (documentation https://url/to/documentation)
-
-(package
- (name kosu_lang)
- (synopsis "A programming language project")
- (description "A low level programming language with some higher level features")
- (depends (ocaml (>= "5.0")) (asai (>= "0.2.0")) dune menhir (cmdliner (>= "1.1.0")))
-)
-
-; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
+(install
+ (section lib)
+ (files
+  (libkosu.a as lib/libkosu.%{read:version.txt}.a)))

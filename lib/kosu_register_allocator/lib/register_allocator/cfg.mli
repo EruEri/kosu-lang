@@ -239,10 +239,10 @@ module Make (CfgS : CfgS) :
 
 module MakePprint
     (CfgS : CfgS)
-    (Pp : CfgPprintSig
-            with type variable = CfgS.variable
-             and type atom = CfgS.atom
-             and type rvalue = CfgS.rvalue) :
+    (_ : CfgPprintSig
+           with type variable = CfgS.variable
+            and type atom = CfgS.atom
+            and type rvalue = CfgS.rvalue) :
   SP
     with type variable = CfgS.variable
      and type atom = CfgS.atom

@@ -1,0 +1,16 @@
+build: [
+  [make "configure"]
+  ["./configure" 
+    "--prefix" prefix 
+    "--mandir" "%{prefix}%/man" 
+    "--libdir" "%{prefix}%/lib/%{name}%/lib"
+    "--includedir" "%{prefix}%/lib/%{name}%/include"
+    "--stddir" "%{prefix}%/lib/%{name}%/std"
+    ]
+  ["dune" "subst"]
+  [make "MAKE=%{make}%"]
+]
+
+install: [
+  [make "install"]
+]
