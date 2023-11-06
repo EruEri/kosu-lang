@@ -15,7 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module Parsing = KosuParsing
-module Report = KosuReport
-module Error = KosuError
-module Validation = KosuValidation
+let std_global_variable = "KOSU_STD_PATH"
+let architecture_global_variable = "KOSU_TARGET_ARCH"
+let os_global_variable = "KOSU_TARGET_OS"

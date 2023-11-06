@@ -92,6 +92,8 @@ let kosu_error_formatted = function
   | s ->
       KosuPrint.Formatted.string_of_kosu_error s
 
+let run = KosuError.Reporter.run
+
 let emitf ?file kosu_error =
   let f =
     match kosu_error_range ?file kosu_error with

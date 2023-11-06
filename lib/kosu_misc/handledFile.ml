@@ -15,7 +15,55 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module Parsing = KosuParsing
-module Report = KosuReport
-module Error = KosuError
-module Validation = KosuValidation
+type suppoted_file = SF_Kosu | SF_C | SF_Object | SF_Assembly | SF_Archive
+
+let extension_list =
+  [
+    (SF_C, ".c");
+    (SF_Object, ".o");
+    (SF_Kosu, ".kosu");
+    (SF_Assembly, ".s");
+    (SF_Archive, ".a");
+  ]
+
+let rev_extension_list =
+  let swap (a, b) = (b, a) in
+  List.map swap extension_list
+
+let rec input_file ~kosu ~c ~co ~assembly ~arc = function
+  | [] ->
+      Ok
+        (List.rev kosu, List.rev c, List.rev co, List.rev assembly, List.rev arc)
+  | t :: q ->
+      let ( let* ) = Result.bind in
+      let filekind = List.assoc_opt (Filename.extension t) rev_extension_list in
+      let* kind =
+        match filekind with None -> Error t | Some kind -> Ok kind
+      in
+      let kosu, c, co, assembly, arc =
+        match kind with
+        | SF_C ->
+            (kosu, t :: c, co, assembly, arc)
+        | SF_Object ->
+            (kosu, c, t :: co, assembly, arc)
+        | SF_Kosu ->
+            (t :: kosu, c, co, assembly, arc)
+        | SF_Assembly ->
+            (kosu, c, co, t :: assembly, arc)
+        | SF_Archive ->
+            (kosu, c, co, assembly, t :: arc)
+      in
+      input_file ~kosu ~c ~co ~assembly ~arc q
+
+let input_file files =
+  match input_file ~kosu:[] ~c:[] ~co:[] ~assembly:[] ~arc:[] files with
+  | Ok (kosu, c, co, assembly, arc) ->
+      Ok
+        ( `KosuFile kosu,
+          `CFile c,
+          `ObjFile co,
+          `AssemblyFile assembly,
+          `ArchiveFile arc
+        )
+  | Error _ as e ->
+      e

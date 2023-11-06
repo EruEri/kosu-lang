@@ -82,7 +82,7 @@ module Cli = struct
                  "If this environment variable is present, the architecture \
                   compilation target doesn't need to be explicitly set. See \
                   option $(b, --arch)"
-               architecture_global_variable
+               Variable.architecture_global_variable
             )
           ~doc:"architecture compilation target" [ "arch" ]
     )
@@ -105,7 +105,7 @@ module Cli = struct
                  "If this environment variable is present, the os compilation \
                   target doesn't need to be explicitly set. See option $(b, \
                   --os)"
-               os_global_variable
+               Variable.os_global_variable
             )
           ~doc:"Os compilation target" [ "os" ]
     )
@@ -258,7 +258,7 @@ module Cli = struct
          is to $(b,cc)(1)";
       `S Manpage.s_environment;
       `I
-        ( Printf.sprintf "$(b,%s)" std_global_variable,
+        ( Printf.sprintf "$(b,%s)" Variable.std_global_variable,
           "If this environment variable is present, kosu files inside the \
            folder are recessively included in the compilation except if \
            --no-std is present"
@@ -345,7 +345,7 @@ module Cli = struct
             let allow_generics_in_variadic = f_allow_generic_in_variadic
           end in
           let module Compilation_Files : KosuFrontend.Compilation_Files = struct
-            let std_global_variable = std_global_variable
+            let std_global_variable = Variable.std_global_variable
           end in
           let module KosuFront =
             KosuFrontend.Make (Compilation_Files) (ValidationRule)

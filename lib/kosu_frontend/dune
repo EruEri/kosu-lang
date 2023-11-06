@@ -90,4 +90,4 @@
 
 (library
  (name kosuFrontendAlt)
- (libraries menhirLib asai util))
+ (libraries menhirLib asai util kosuMisc))

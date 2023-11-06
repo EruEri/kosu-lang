@@ -83,10 +83,10 @@ let kosuc_man =
 
 let code_descriptions =
   [
-    (KosuFrontendAlt.ExitCode.validation_error, "on ast error");
-    (KosuFrontendAlt.ExitCode.syntax_lexer_error, "on syntax error");
-    (KosuFrontendAlt.ExitCode.unsported_file, "on unsupported file input");
-    (KosuFrontendAlt.ExitCode.fatal_error, "on fatal error");
+    (KosuMisc.ExitCode.validation_error, "on ast error");
+    (KosuMisc.ExitCode.syntax_lexer_error, "on syntax error");
+    (KosuMisc.ExitCode.unsported_file, "on unsupported file input");
+    (KosuMisc.ExitCode.fatal_error, "on fatal error");
   ]
 
 let exits =
@@ -103,17 +103,65 @@ let kosuc run =
   in
   Cmd.v info (cmd_term run)
 
+let report_run =
+  KosuFrontendAlt.Report.run ~emit:KosuFrontendAlt.Error.Term.display
+    ~fatal:(fun kosu_dig ->
+      let () = KosuFrontendAlt.Error.Term.display kosu_dig in
+      exit KosuMisc.ExitCode.fatal_error
+  )
+
+let parse_to_ast files =
+  let ( ( `KosuFile kosu_files,
+          `CFile _c_files,
+          `ObjFile _object_files,
+          `AssemblyFile _assembly_files,
+          `ArchiveFile _arc
+        ) as t
+      ) =
+    match KosuMisc.HandledFile.input_file files with
+    | Ok e ->
+        e
+    | Error e ->
+        let () =
+          KosuFrontendAlt.Report.emitf
+          @@ KosuFrontendAlt.Error.Raw.unsupported_file e
+        in
+        exit KosuMisc.ExitCode.unsported_file
+  in
+  let kosu_program =
+    match KosuFrontendAlt.Parsing.kosu_program kosu_files with
+    | Ok kosu_program ->
+        kosu_program
+    | Error e ->
+        let () =
+          KosuFrontendAlt.Report.emitf
+          @@ KosuFrontendAlt.Error.Raw.analytics_error e
+        in
+        exit KosuMisc.ExitCode.syntax_lexer_error
+  in
+  let () =
+    match KosuFrontendAlt.Validation.validate kosu_program with
+    | Ok () ->
+        ()
+    | Error (file, error) ->
+        let () = KosuFrontendAlt.Report.emitf ~file error in
+        exit KosuMisc.ExitCode.validation_error
+  in
+  (t, kosu_program)
+
 let run cmd =
+  report_run
+  @@ fun () ->
   let { files; config } = cmd in
   let _kosu_program =
     match () with
     | _ when config ->
         let () = CliCommon.kosu_config_print () in
-        exit KosuFrontendAlt.ExitCode.success
+        exit KosuMisc.ExitCode.success
     | _ when files = [] ->
-        exit KosuFrontendAlt.ExitCode.success
+        exit KosuMisc.ExitCode.success
     | () ->
-        KosuFrontendAlt.parse files
+        parse_to_ast files
   in
   ()
 

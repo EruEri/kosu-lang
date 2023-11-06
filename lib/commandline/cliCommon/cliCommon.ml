@@ -15,6 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
+module Variable = Variable
+
 type architecture = Arm64 | X86_64
 type os = Darwin | Linux | FreeBSD
 type suppoted_file = SF_Kosu | SF_C | SF_Object | SF_Assembly
@@ -94,12 +96,8 @@ let default_os = List.assoc_opt KosuConfig.kosu_target_os os_enum
 let default_architecture =
   List.assoc_opt KosuConfig.kosu_target_arch architecture_enum
 
-let commit_hash () = KosuHash.commit_hash
 let fversion = Printf.sprintf "%s [%s]" version_raw KosuConfig.kosu_target_hash
-let std_global_variable = "KOSU_STD_PATH"
-let architecture_global_variable = "KOSU_TARGET_ARCH"
-let os_global_variable = "KOSU_TARGET_OS"
-let std_path = Sys.getenv_opt std_global_variable
+let std_path = Sys.getenv_opt Variable.std_global_variable
 let is_kosu_file file = file |> Filename.extension |> ( = ) ".kosu"
 
 let string_of_enum ?(splitter = "|") ?(quoted = false) enum =
@@ -144,7 +142,7 @@ module DefaultFront = struct
   end
 
   module Compilation_Files : KosuFrontend.Compilation_Files = struct
-    let std_global_variable = std_global_variable
+    let std_global_variable = Variable.std_global_variable
   end
 
   module KosuFront =

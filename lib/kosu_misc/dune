@@ -1,7 +1,7 @@
 ;**********************************************************************************************;
 ;*                                                                                            *;
 ;* This file is part of Kosu                                                                  *;
-;* Copyright (C) 2022 Yves Ndiaye                                                             *;
+;* Copyright (C) 2023 Yves Ndiaye                                                             *;
 ;*                                                                                            *;
 ;* Kosu is free software: you can redistribute it and/or modify it under the terms            *;
 ;* of the GNU General Public License as published by the Free Software Foundation,            *;
@@ -15,26 +15,6 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
-(executable
- (public_name kosuc)
- (name kosuc)
- (modules kosuc)
- (libraries kosucCli)
- (flags
-  (:standard -g)))
-
-(executable
- (public_name kosu)
- (modules kosu)
- (name kosu)
- (libraries kosuCli)
- (flags
-  (:standard -g)))
-
-(executable
- (public_name okosuc)
- (modules okosuc)
- (name okosuc)
- (libraries cmdliner kosuFrontendAlt cliCommon kosuMisc)
- (flags
-  (:standard -g)))
+(library
+ (name kosuMisc)
+ (libraries))

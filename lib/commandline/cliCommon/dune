@@ -15,13 +15,7 @@
 ;*                                                                                            *;
 ;**********************************************************************************************;
 
-(rule
- (target kosuHash.ml)
- (deps commit_hash.sh)
- (action
-  (system "sh -e commit_hash.sh")))
-
 (library
  (name cliCommon)
- (modules cliCommon kosuHash kosuConfig)
+ (modules cliCommon kosuConfig variable)
  (libraries cmdliner kosuRepl kosuFrontend dune-build-info))
