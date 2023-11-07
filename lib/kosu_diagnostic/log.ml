@@ -45,14 +45,14 @@ let sprintf ?color ?(bold = false) ?(underline = false) input =
 let same_line (loc : Util.Position.position) =
   loc.start_position.pos_lnum = loc.end_position.pos_lnum
 
-let one_line ?(to_end = `range) ?(prefix = String.empty) ?color ?(bold = false)
+let one_line ?(range = `range) ?(prefix = String.empty) ?color ?(bold = false)
     ?(underline = false) loc line =
   let open Util.Position in
   let _start_line, start_column = line_column_of_position loc.start_position in
   let _end_line, end_column = line_column_of_position loc.end_position in
   let slen = String.length line in
   let start, s, s_end =
-    match to_end with
+    match range with
     | `range ->
         let start = String.sub line 0 start_column in
         let s = String.sub line start_column (end_column - start_column) in
@@ -90,11 +90,11 @@ let multiple_line ?(prefix = fun _ -> String.empty) ?color ?(bold = false)
       let f =
         match i with
         | 0 ->
-            one_line ~to_end:`start_to_full
+            one_line ~range:`start_to_full
         | n when n = len - 1 ->
-            one_line ~to_end:`start_to_end
+            one_line ~range:`start_to_end
         | _ ->
-            one_line ~to_end:`full
+            one_line ~range:`full
       in
       f ~prefix ?color ~bold ~underline loc line
     )
@@ -135,7 +135,7 @@ let pos_format ?(std = stdout) ?prefix severity loc file =
           Option.map (fun f -> f loc.start_position.pos_lnum) prefix
         in
         let s =
-          one_line ?prefix ~to_end:`range ~color:(Severity.color severity)
+          one_line ?prefix ~range:`range ~color:(Severity.color severity)
             ~underline:true loc (List.hd lines)
         in
         Printf.fprintf std "%s\n" s

@@ -103,13 +103,6 @@ let kosuc run =
   in
   Cmd.v info (cmd_term run)
 
-let _report_run =
-  KosuFrontendAlt.Report.run ~emit:KosuFrontendAlt.Error.Term.display
-    ~fatal:(fun kosu_dig ->
-      let () = KosuFrontendAlt.Error.Term.display kosu_dig in
-      exit KosuMisc.ExitCode.fatal_error
-  )
-
 let prefix = Printf.sprintf "%u|  "
 
 let message kosu_error str_loc =
@@ -144,11 +137,13 @@ let parse_to_ast files =
     | Error c ->
         let file, _ = c in
         let kosu_err = KosuFrontendAlt.Error.Raw.analytics_error c in
+        let log_file =
+          KosuDiagnostic.Log.log_file file kosu_err
+            KosuFrontendAlt.Error.Function.to_position
+        in
         let () =
           KosuDiagnostic.Log.emit ~prefix ~message:(message kosu_err)
-            KosuDiagnostic.Severity.Error
-          @@ KosuDiagnostic.Log.log_file file kosu_err
-               KosuFrontendAlt.Error.Function.to_position
+            KosuDiagnostic.Severity.Error log_file
         in
         exit KosuMisc.ExitCode.syntax_lexer_error
   in

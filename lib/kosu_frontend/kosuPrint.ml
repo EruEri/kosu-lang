@@ -39,8 +39,15 @@ let string_of_position_error { start_position; end_position } =
     Printf.sprintf "Lines %d-%d, Characters %d-%d" start_position_line
       end_position_line start_position_column end_position_column
 
-let string_of_located_error a b =
-  Printf.sprintf "%s : %s" (string_of_position_error a.position) b
+let string_of_located_error ?(new_line = false) a b =
+  Printf.sprintf "%s :%s %s"
+    (string_of_position_error a.position)
+    ( if new_line then
+        "\n"
+      else
+        String.empty
+    )
+    b
 
 let string_of_module_resolver : KosuBaseAst.module_resolver -> string = function
   | ModuleResolver_ [] ->
@@ -269,66 +276,66 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       @@ sprintf "Identifier \"%s\" is already defined" identifier.value
   | NoFieldInStruct { struct_decl; field } ->
       let sloc = string_of_located_error field in
-      sloc @@ sfile
+      sfile @@ sloc
       @@ sprintf "Struct \"%s\" doesnt' have a field \"%s\""
            struct_decl.struct_name field.value
   | NoStructDeclFoundForType ty ->
       let sloc = string_of_located_error ty in
-      sloc @@ sfile
+      sfile @@ sloc
       @@ sprintf "Type %s isn't the type of a struct"
       @@ string_of_kosu_type @@ value ty
   | TypingError { clhs; crhs; position = p } ->
       let sloc =
         string_of_located_error Position.{ value = (); position = p }
       in
-      sloc @@ sfile
+      sfile @@ sloc
       @@ sprintf "Incompatible type : Expected \"%s\", Found \"%s\""
            (string_of_kosu_type clhs) (string_of_kosu_type crhs)
   | NonStructTypeExpression p ->
       let sloc =
         string_of_located_error Position.{ value = (); position = p }
       in
-      sloc @@ sfile @@ sprintf "This expressions is not an struct type"
+      sfile @@ sloc @@ sprintf "This expressions is not an struct type"
   | NonTupleAccess p ->
       let sloc =
         string_of_located_error Position.{ value = (); position = p }
       in
-      sloc @@ sfile @@ sprintf "This expressions is not a tuple"
+      sfile @@ sloc @@ sprintf "This expressions is not a tuple"
   | NonArrayAccess p ->
       let sloc =
         string_of_located_error Position.{ value = (); position = p }
       in
-      sloc @@ sfile @@ sprintf "This expressions is not a array"
+      sfile @@ sloc @@ sprintf "This expressions is not a array"
   | CannotInferType p ->
       let sloc =
         string_of_located_error Position.{ value = (); position = p }
       in
-      sloc @@ sfile @@ sprintf "Cannot infer the type of this expression"
+      sfile @@ sloc @@ sprintf "Cannot infer the type of this expression"
   | CannotFindStructDecl kosu_type ->
       let sloc = string_of_located_error kosu_type in
-      sloc @@ sfile
+      sfile @@ sloc
       @@ sprintf "No struct declaration associated this the type : %s"
       @@ string_of_kosu_type @@ Position.value kosu_type
   | ArraySubscribeNotInteger p ->
       let sloc =
         string_of_located_error Position.{ value = (); position = p }
       in
-      sloc @@ sfile
+      sfile @@ sloc
       @@ sprintf
            "This expression is not an integer; It's can not be used as array \
             subscribe"
   | TupleIndexOutBound { expect; found } ->
       let sloc = string_of_located_error found in
-      sloc @@ sfile
+      sfile @@ sloc
       @@ sprintf
            "This expression is a tuple (arity %u) but of try to access %Lu"
            expect found.value
   | ConstNonStaticExpression expr ->
       let sloc = string_of_located_error expr in
-      sloc @@ sfile @@ sprintf "This expression cannot be none at compile time"
+      sfile @@ sloc @@ sprintf "This expression cannot be none at compile time"
   | UnboundConstante { module_resolver; identifier } ->
       let sloc = string_of_located_error identifier in
-      sloc @@ sfile
+      sfile @@ sloc
       @@ sprintf "Unbound Constante : %s%s"
            (string_of_module_resolver_loc module_resolver)
            identifier.value
@@ -384,7 +391,7 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       let lhs = string_of_located_error lhs @@ lhs.value in
       let rhs = string_of_located_error rhs @@ rhs.value in
       let sloc = string_of_located_error function_location in
-      sloc @@ sfile
+      sfile @@ sloc
       @@ sprintf "function \"%s\" duplicated paramater identifier\n\t%s\n\t%s"
            function_location.value lhs rhs
 

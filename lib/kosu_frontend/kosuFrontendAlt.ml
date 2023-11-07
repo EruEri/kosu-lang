@@ -16,7 +16,6 @@
 (**********************************************************************************************)
 
 module Parsing = KosuParsing
-module Report = KosuReport
 module Error = KosuError
 module Validation = KosuValidation
 module Print = KosuPrint
