@@ -35,6 +35,6 @@
  (public_name okosuc)
  (modules okosuc)
  (name okosuc)
- (libraries cmdliner kosuFrontendAlt cliCommon kosuMisc)
+ (libraries cmdliner kosuFrontendAlt cliCommon kosuMisc kosuDiagnostic)
  (flags
   (:standard -g)))

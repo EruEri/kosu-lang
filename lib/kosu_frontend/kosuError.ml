@@ -174,6 +174,75 @@ module Exn = struct
     kosu_raw_error @@ Raw.duplicated_param_name function_location lhs rhs
 end
 
+module Function = struct
+  let kosu_lexer_error_range = function
+    | UnexpectedEscapedChar { value = _; position }
+    | UnclosedComment position
+    | CharOutOfRange { value = _; position }
+    | ForbiddenChar { value = _; position }
+    | InvalidLitteralBuiltinFunction { value = _; position }
+    | NotFinishedBuiltinFunction position ->
+        position
+
+  let kosu_syntax_error_range = function
+    | { position; state = _; _ } ->
+        position
+
+  let to_position =
+    let some = Option.some in
+    let some_left e = some @@ Either.left e in
+    let some_right e = some @@ Either.right e in
+    function
+    | AnalyticsError (_, KosuAnalysLexerError e) ->
+        some_left @@ kosu_lexer_error_range e
+    | AnalyticsError (_, KosuAnalysSyntaxError e) ->
+        some_left @@ kosu_syntax_error_range e
+    | DerefNonPointerType { value = _; position }
+    | UnboundIdentifier { value = _; position }
+    | IdentifierAlreadyBound { value = _; position }
+    | NoStructDeclFoundForType { value = _; position }
+    | CannotFindStructDecl { value = _; position }
+    | ConstNonStaticExpression { position; value = _ }
+    | NonStructTypeExpression position
+    | NonTupleAccess position
+    | NonArrayAccess position
+    | CannotInferType position
+    | ArraySubscribeNotInteger position
+    | TupleIndexOutBound { expect = _; found = { value = _; position } }
+    | UnboundConstante
+        { identifier = { value = _; position }; module_resolver = _ }
+    | NoFieldInStruct { field = { value = _; position }; struct_decl = _ }
+    | TypingError { position; _ } ->
+        some_left @@ position
+    | PatternAlreadyBoundIdentifier patterns
+    | PatternIdentifierNotBoundEveryTime patterns ->
+        some_right @@ List.map Position.position patterns
+    | ConfictingCallableDeclaration list ->
+        some_right
+        @@ List.map
+             (let open KosuAst in
+              function
+              | `External decl ->
+                  decl.sig_name.position
+              | `KosuFunction decl ->
+                  decl.fn_name.position
+              | `Syscall decl ->
+                  decl.syscall_name.position
+             )
+             list
+    | VariableTypeNotBound vars ->
+        some_right
+        @@ List.map
+             (fun (KosuType.TyLoc.PolymorphicVarLoc s) -> Position.position s)
+             vars
+    | UnboundModule _
+    | ConfictingTypeDeclaration _
+    | UnsupportedFile _
+    | SizeofPolymorphicType _
+    | DuplicatedParametersName _ ->
+        None
+end
+
 module Message = struct
   type t = kosu_error
 

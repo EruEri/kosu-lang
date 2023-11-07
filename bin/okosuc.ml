@@ -103,12 +103,20 @@ let kosuc run =
   in
   Cmd.v info (cmd_term run)
 
-let report_run =
+let _report_run =
   KosuFrontendAlt.Report.run ~emit:KosuFrontendAlt.Error.Term.display
     ~fatal:(fun kosu_dig ->
       let () = KosuFrontendAlt.Error.Term.display kosu_dig in
       exit KosuMisc.ExitCode.fatal_error
   )
+
+let prefix = Printf.sprintf "%u|\t"
+
+let message kosu_error str_loc =
+  let file, _ = str_loc in
+  KosuFrontendAlt.Print.string_of_kosu_error file kosu_error
+
+let smessage = Fun.id
 
 let parse_to_ast files =
   let ( ( `KosuFile kosu_files,
@@ -123,8 +131,9 @@ let parse_to_ast files =
         e
     | Error e ->
         let () =
-          KosuFrontendAlt.Report.emitf
-          @@ KosuFrontendAlt.Error.Raw.unsupported_file e
+          KosuDiagnostic.Log.emit ~prefix ~message:smessage
+            KosuDiagnostic.Severity.Error
+          @@ KosuDiagnostic.Log.log_string e
         in
         exit KosuMisc.ExitCode.unsported_file
   in
@@ -132,10 +141,14 @@ let parse_to_ast files =
     match KosuFrontendAlt.Parsing.kosu_program kosu_files with
     | Ok kosu_program ->
         kosu_program
-    | Error e ->
+    | Error c ->
+        let file, _ = c in
+        let kosu_err = KosuFrontendAlt.Error.Raw.analytics_error c in
         let () =
-          KosuFrontendAlt.Report.emitf
-          @@ KosuFrontendAlt.Error.Raw.analytics_error e
+          KosuDiagnostic.Log.emit ~prefix ~message:(message kosu_err)
+            KosuDiagnostic.Severity.Error
+          @@ KosuDiagnostic.Log.log_file file kosu_err
+               KosuFrontendAlt.Error.Function.to_position
         in
         exit KosuMisc.ExitCode.syntax_lexer_error
   in
@@ -144,14 +157,17 @@ let parse_to_ast files =
     | Ok () ->
         ()
     | Error (file, error) ->
-        let () = KosuFrontendAlt.Report.emitf ~file error in
+        let () =
+          KosuDiagnostic.Log.emit ~prefix ~message:(message error)
+            KosuDiagnostic.Severity.Error
+          @@ KosuDiagnostic.Log.log_file file error
+               KosuFrontendAlt.Error.Function.to_position
+        in
         exit KosuMisc.ExitCode.validation_error
   in
   (t, kosu_program)
 
 let run cmd =
-  report_run
-  @@ fun () ->
   let { files; config } = cmd in
   let _kosu_program =
     match () with
