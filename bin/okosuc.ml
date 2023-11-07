@@ -110,7 +110,7 @@ let _report_run =
       exit KosuMisc.ExitCode.fatal_error
   )
 
-let prefix = Printf.sprintf "%u|\t"
+let prefix = Printf.sprintf "%u|  "
 
 let message kosu_error str_loc =
   let file, _ = str_loc in

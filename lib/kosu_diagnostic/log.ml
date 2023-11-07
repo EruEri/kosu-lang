@@ -23,7 +23,7 @@ let sprintf ?color ?(bold = false) ?(underline = false) input =
   let s =
     match m with
     | true ->
-        Printf.sprintf "\u{001B}%s"
+        Printf.sprintf "\u{001B}[%s"
     | false ->
         Printf.sprintf "%s"
   in
@@ -47,20 +47,38 @@ let same_line (loc : Util.Position.position) =
 
 let one_line ?(to_end = `range) ?(prefix = String.empty) ?color ?(bold = false)
     ?(underline = false) loc line =
-  let s =
+  let open Util.Position in
+  let _start_line, start_column = line_column_of_position loc.start_position in
+  let _end_line, end_column = line_column_of_position loc.end_position in
+  let slen = String.length line in
+  let start, s, s_end =
     match to_end with
     | `range ->
-        String.sub line loc.Util.Position.start_position.pos_cnum
-          (loc.end_position.pos_cnum - loc.start_position.pos_cnum)
+        let start = String.sub line 0 start_column in
+        let s = String.sub line start_column (end_column - start_column) in
+
+        let s_end = String.sub line end_column (slen - end_column) in
+        (start, s, s_end)
     | `start_to_end ->
-        String.sub line 0 loc.end_position.pos_cnum
+        let start = String.empty in
+        let s = String.sub line 0 end_column in
+        let s_end = String.sub line end_column (slen - end_column) in
+        (start, s, s_end)
     | `start_to_full ->
-        String.sub line loc.start_position.pos_cnum
-          (String.length line - loc.start_position.pos_cnum)
+        let start = String.sub line 0 start_column in
+        let s =
+          String.sub line start_column (String.length line - start_column)
+        in
+        let s_end = String.empty in
+        (start, s, s_end)
     | `full ->
-        line
+        let start = String.empty in
+        let s_end = String.empty in
+        (start, line, s_end)
   in
-  Printf.sprintf "%s%s" prefix @@ sprintf ?color ~bold ~underline s
+  Printf.sprintf "%s %s%s%s" prefix start
+    (sprintf ?color ~bold ~underline s)
+    s_end
 
 let multiple_line ?(prefix = fun _ -> String.empty) ?color ?(bold = false)
     ?(underline = false) loc lines =
@@ -105,7 +123,7 @@ let pos_format ?(std = stdout) ?prefix severity loc file =
     List.filteri
       (fun i _ ->
         let i = i + 1 in
-        loc.start_position.pos_lnum = i || loc.end_position.pos_lnum = i
+        loc.start_position.pos_lnum <= i && loc.end_position.pos_lnum >= i
       )
       lines
   in
@@ -120,7 +138,7 @@ let pos_format ?(std = stdout) ?prefix severity loc file =
           one_line ?prefix ~to_end:`range ~color:(Severity.color severity)
             ~underline:true loc (List.hd lines)
         in
-        Printf.fprintf std "%s" s
+        Printf.fprintf std "%s\n" s
     | false ->
         let lines =
           multiple_line ?prefix ~color:(Severity.color severity) ~underline:true
@@ -154,7 +172,7 @@ let emit :
       let message =
         match message with None -> fun _ -> String.empty | Some f -> f
       in
-      let () = Printf.fprintf std "%s" (message arg) in
+      let () = Printf.fprintf std "%s\n" (message arg) in
       let () =
         match pos with
         | None ->

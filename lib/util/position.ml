@@ -40,5 +40,5 @@ let dummy_located value = { value; position = dummy }
 
 let line_column_of_position p =
   let line_number = p.Lexing.pos_lnum in
-  let column = p.Lexing.pos_cnum - p.Lexing.pos_bol + 1 in
+  let column = p.Lexing.pos_cnum - p.Lexing.pos_bol in
   (line_number, column)
