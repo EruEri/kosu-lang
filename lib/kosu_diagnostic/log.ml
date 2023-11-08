@@ -16,7 +16,7 @@
 (**********************************************************************************************)
 
 let ascii_reset = "\u{001B}[0m"
-let ( $ ) str fs s = str @@ fs s
+let ( $ ) f g s = f @@ g s
 
 let sprintf ?color ?(bold = false) ?(underline = false) input =
   let m = Option.is_some color || bold || underline in
@@ -45,8 +45,8 @@ let sprintf ?color ?(bold = false) ?(underline = false) input =
 let same_line (loc : Util.Position.position) =
   loc.start_position.pos_lnum = loc.end_position.pos_lnum
 
-let one_line ?(range = `range) ?(prefix = String.empty) ?color ?(bold = false)
-    ?(underline = false) loc line =
+let report_line ?color ?(range = `range) ?(pline = String.empty) ?bold
+    ?underline loc line =
   let open Util.Position in
   let _start_line, start_column = line_column_of_position loc.start_position in
   let _end_line, end_column = line_column_of_position loc.end_position in
@@ -76,44 +76,33 @@ let one_line ?(range = `range) ?(prefix = String.empty) ?color ?(bold = false)
         let s_end = String.empty in
         (start, line, s_end)
   in
-  Printf.sprintf "%s %s%s%s" prefix start
-    (sprintf ?color ~bold ~underline s)
+  Printf.sprintf "%s %s%s%s" pline start
+    (sprintf ?color ?bold ?underline s)
     s_end
 
-let multiple_line ?(prefix = fun _ -> String.empty) ?color ?(bold = false)
-    ?(underline = false) loc lines =
+let multiple_line ?pline ?color ?(bold = false) ?(underline = false) loc lines =
   let open Util.Position in
   let len = List.length lines in
   List.mapi
     (fun i line ->
-      let prefix = prefix (loc.start_position.pos_lnum + i) in
+      let pline =
+        Option.value ~default:String.empty
+        @@ Option.map (fun f -> f @@ (loc.start_position.pos_lnum + i)) pline
+      in
       let f =
         match i with
         | 0 ->
-            one_line ~range:`start_to_full
+            report_line ~range:`start_to_full
         | n when n = len - 1 ->
-            one_line ~range:`start_to_end
+            report_line ~range:`start_to_end
         | _ ->
-            one_line ~range:`full
+            report_line ~range:`full
       in
-      f ~prefix ?color ~bold ~underline loc line
+      f ~pline ?color ~bold ~underline loc line
     )
     lines
 
-type 'b t =
-  | LogFile :
-      string
-      * 'b
-      * ('b ->
-        (Util.Position.position, Util.Position.position list) Either.t option
-        )
-      -> (string * 'b) t
-  | LogString : string -> string t
-
-let log_file file elt fn = LogFile (file, elt, fn)
-let log_string s = LogString s
-
-let pos_format ?(std = stdout) ?prefix severity loc file =
+let report_file ?severity ?bold ?underline ~std pline loc file =
   let open Util.Position in
   let lines =
     String.split_on_char '\n'
@@ -127,62 +116,19 @@ let pos_format ?(std = stdout) ?prefix severity loc file =
       )
       lines
   in
-  (* let () = Printf.fprintf std "%s" (message (file, loc)) in *)
+  let color = Option.map Severity.color severity in
   let () =
     match same_line loc with
     | true ->
-        let prefix =
-          Option.map (fun f -> f loc.start_position.pos_lnum) prefix
-        in
+        let pline = Option.map (fun f -> f loc.start_position.pos_lnum) pline in
+
         let s =
-          one_line ?prefix ~range:`range ~color:(Severity.color severity)
-            ~underline:true loc (List.hd lines)
+          report_line ?pline ~range:`range ?color ?underline loc
+          @@ List.hd lines
         in
         Printf.fprintf std "%s\n" s
     | false ->
-        let lines =
-          multiple_line ?prefix ~color:(Severity.color severity) ~underline:true
-            loc lines
-        in
+        let lines = multiple_line ?pline ?color ?underline ?bold loc lines in
         List.iter (fun line -> Printf.fprintf std "%s\n" line) lines
   in
   ()
-
-let emit :
-    type a.
-    ?std:out_channel ->
-    ?prefix:(int -> string) ->
-    ?message:(a -> string) ->
-    Severity.t ->
-    a t ->
-    unit =
- fun ?(std = stdout) ?prefix ?message severity string_or_file ->
-  match string_or_file with
-  | LogString string ->
-      let message =
-        match message with None -> fun _ -> String.empty | Some f -> f
-      in
-      let () = Printf.fprintf std "%s" @@ message string in
-      let s = sprintf ~color:(Severity.color severity) ~underline:true string in
-      let () = Printf.fprintf std "%s" s in
-      ()
-  | LogFile (file, elt, fn) ->
-      let arg = (file, elt) in
-      let pos = fn elt in
-      let message =
-        match message with None -> fun _ -> String.empty | Some f -> f
-      in
-      let () = Printf.fprintf std "%s\n" (message arg) in
-      let () =
-        match pos with
-        | None ->
-            ()
-        | Some (Either.Left pos) ->
-            pos_format ~std ?prefix severity pos file
-        | Some (Either.Right posses) ->
-            List.iter
-              (fun pos -> pos_format ~std ?prefix severity pos file)
-              posses
-      in
-
-      ()
