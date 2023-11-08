@@ -15,4 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-include Util.Position
+type t = Hint | Warning | Error
+type color = Blue | Red | Yellow
+
+let color = function Hint -> Blue | Warning -> Yellow | Error -> Red
+let fg = function Red -> 31 | Yellow -> 33 | Blue -> 34

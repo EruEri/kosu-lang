@@ -103,13 +103,6 @@ let kosuc run =
   in
   Cmd.v info (cmd_term run)
 
-let report_run =
-  KosuFrontendAlt.Report.run ~emit:KosuFrontendAlt.Error.Term.display
-    ~fatal:(fun kosu_dig ->
-      let () = KosuFrontendAlt.Error.Term.display kosu_dig in
-      exit KosuMisc.ExitCode.fatal_error
-  )
-
 let parse_to_ast files =
   let ( ( `KosuFile kosu_files,
           `CFile _c_files,
@@ -123,8 +116,8 @@ let parse_to_ast files =
         e
     | Error e ->
         let () =
-          KosuFrontendAlt.Report.emitf
-          @@ KosuFrontendAlt.Error.Raw.unsupported_file e
+          KosuFrontendAlt.Reporter.emit ~underline:true
+          @@ KosuFrontendAlt.Reporter.string e
         in
         exit KosuMisc.ExitCode.unsported_file
   in
@@ -132,10 +125,12 @@ let parse_to_ast files =
     match KosuFrontendAlt.Parsing.kosu_program kosu_files with
     | Ok kosu_program ->
         kosu_program
-    | Error e ->
+    | Error c ->
+        let file, _ = c in
+        let kosu_err = KosuFrontendAlt.Error.Raw.analytics_error c in
         let () =
-          KosuFrontendAlt.Report.emitf
-          @@ KosuFrontendAlt.Error.Raw.analytics_error e
+          KosuFrontendAlt.Reporter.emit ~underline:true
+          @@ KosuFrontendAlt.Reporter.file file kosu_err
         in
         exit KosuMisc.ExitCode.syntax_lexer_error
   in
@@ -144,14 +139,15 @@ let parse_to_ast files =
     | Ok () ->
         ()
     | Error (file, error) ->
-        let () = KosuFrontendAlt.Report.emitf ~file error in
+        let () =
+          KosuFrontendAlt.Reporter.emit ~underline:true
+          @@ KosuFrontendAlt.Reporter.file file error
+        in
         exit KosuMisc.ExitCode.validation_error
   in
   (t, kosu_program)
 
 let run cmd =
-  report_run
-  @@ fun () ->
   let { files; config } = cmd in
   let _kosu_program =
     match () with

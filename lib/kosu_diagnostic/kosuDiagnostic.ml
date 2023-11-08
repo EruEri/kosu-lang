@@ -15,4 +15,8 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-include Util.Position
+module Severity = Severity
+
+module type S = Report.S
+
+module Make = Report.Make

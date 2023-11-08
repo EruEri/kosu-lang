@@ -174,15 +174,65 @@ module Exn = struct
     kosu_raw_error @@ Raw.duplicated_param_name function_location lhs rhs
 end
 
-module Message = struct
-  type t = kosu_error
+module Function = struct
+  let kosu_lexer_error_range = function
+    | UnexpectedEscapedChar { value = _; position }
+    | UnclosedComment position
+    | CharOutOfRange { value = _; position }
+    | ForbiddenChar { value = _; position }
+    | InvalidLitteralBuiltinFunction { value = _; position }
+    | NotFinishedBuiltinFunction position ->
+        position
 
-  let default_severity : t -> Asai.Diagnostic.severity = function
-    | _ ->
-        Asai.Diagnostic.Error
+  let kosu_syntax_error_range = function
+    | { position; state = _; _ } ->
+        position
 
-  let short_code : t -> string = function _ -> String.empty
+  let to_position = function
+    | AnalyticsError (_, KosuAnalysLexerError e) ->
+        kosu_lexer_error_range e :: []
+    | AnalyticsError (_, KosuAnalysSyntaxError e) ->
+        kosu_syntax_error_range e :: []
+    | DerefNonPointerType { value = _; position }
+    | UnboundIdentifier { value = _; position }
+    | IdentifierAlreadyBound { value = _; position }
+    | NoStructDeclFoundForType { value = _; position }
+    | CannotFindStructDecl { value = _; position }
+    | ConstNonStaticExpression { position; value = _ }
+    | NonStructTypeExpression position
+    | NonTupleAccess position
+    | NonArrayAccess position
+    | CannotInferType position
+    | ArraySubscribeNotInteger position
+    | TupleIndexOutBound { expect = _; found = { value = _; position } }
+    | UnboundConstante
+        { identifier = { value = _; position }; module_resolver = _ }
+    | NoFieldInStruct { field = { value = _; position }; struct_decl = _ }
+    | TypingError { position; _ } ->
+        position :: []
+    | PatternAlreadyBoundIdentifier patterns
+    | PatternIdentifierNotBoundEveryTime patterns ->
+        List.map Position.position patterns
+    | ConfictingCallableDeclaration list ->
+        List.map
+          (let open KosuAst in
+           function
+           | `External decl ->
+               decl.sig_name.position
+           | `KosuFunction decl ->
+               decl.fn_name.position
+           | `Syscall decl ->
+               decl.syscall_name.position
+          )
+          list
+    | VariableTypeNotBound vars ->
+        List.map
+          (fun (KosuType.TyLoc.PolymorphicVarLoc s) -> Position.position s)
+          vars
+    | UnboundModule _
+    | ConfictingTypeDeclaration _
+    | UnsupportedFile _
+    | SizeofPolymorphicType _
+    | DuplicatedParametersName _ ->
+        []
 end
-
-module Reporter = Asai.Reporter.Make (Message)
-module Term = Asai.Tty.Make (Message)

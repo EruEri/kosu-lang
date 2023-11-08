@@ -10,8 +10,7 @@ license: "GPL-3.0"
 homepage: "https://github.com/EruEri/kosu-lang"
 bug-reports: "https://github.com/EruEri/kosu-lang/issues"
 depends: [
-  "ocaml" {>= "5.0"}
-  "asai" {>= "0.2.0"}
+  "ocaml" {>= "4.13"}
   "dune" {>= "3.3"}
   "menhir"
   "cmdliner" {>= "1.1.0"}

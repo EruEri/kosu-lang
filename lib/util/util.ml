@@ -21,12 +21,12 @@ module Io = Io
 module PkgConfig = PkgConfig
 module Checksum = Checksum
 module Ulist = Ulist
+module Position = Position
 
 type stringlit_label = SLit of string
 type floatlit_label = FLit of string
 type coordinate = { line : int; column : int }
 
-let () = Callback.register "c_caml_list_length" List.length
 let couple a b = (a, b)
 
 let is_what_file ~extension filename =
@@ -46,8 +46,8 @@ let rec string_of_chars_aux count result char =
 let string_of_chars count = string_of_chars_aux count ""
 
 let string_of_module_path path =
-  if path = "" then
-    ""
+  if path = String.empty then
+    String.empty
   else
     Printf.sprintf "%s::" path
 

@@ -1,6 +1,8 @@
 # Changelog
 
 ## **[Unrealeased]**
+- [Diagnostic](https://github.com/EruEri/kosu-lang/pull/81):
+    - Compiler diagnostic without library
 - [Diagnostic + opam install](https://github.com/EruEri/kosu-lang/pull/80)
 - [Makefile install](https://github.com/EruEri/kosu-lang/pull/79)
 - [Road 0.5: base](https://github.com/EruEri/kosu-lang/pull/77):
