@@ -65,33 +65,44 @@ module Make (TS : S) = struct
               let severity = TS.severity e in
               List.iter
                 (fun pos ->
-                  Log.report_file ?severity ~std (Option.some TS.line) pos file
+                  Log.report_file ?underline ?severity ~std
+                    (Option.some TS.line) pos file
                 )
                 posses
         in
+        let ee = TS.error e in
+        let ew = TS.warning e in
+        let eh = TS.hint e in
         let () =
           Option.iter (fun s ->
               let e = Log.sprintf ~color:Severity.Red ?bold "Error" in
-              Printf.fprintf std "%s: %s\n" e s
+              Printf.fprintf std "\n%s: %s" e s
           )
-          @@ TS.error e
+          @@ ee
         in
 
         let () =
           Option.iter (fun s ->
               let e = Log.sprintf ~color:Severity.Yellow ?bold "Warning " in
-              Printf.fprintf std "%s: %s" e s
+              Printf.fprintf std "\n%s: %s" e s
           )
-          @@ TS.error e
+          @@ ew
         in
 
         let () =
           Option.iter (fun s ->
               let e = Log.sprintf ~color:Severity.Blue ?bold "Hint" in
-              Printf.fprintf std "%s: %s\n" e s
+              Printf.fprintf std "\n%s: %s" e s
           )
-          @@ TS.error e
+          @@ eh
         in
 
+        let () =
+          match Option.is_none ee && Option.is_none eh && Option.is_none ew with
+          | true ->
+              ()
+          | false ->
+              Printf.fprintf std "\n%!"
+        in
         ()
 end

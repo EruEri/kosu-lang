@@ -18,12 +18,23 @@
 module S : KosuDiagnostic.S with type t = KosuError.kosu_error = struct
   type t = KosuError.kosu_error
 
-  let loc _kosu_error = failwith ""
-  let prefix _filename _kosu_error = failwith ""
+  let loc = KosuError.Function.to_position
+
+  let prefix filename kosu_error =
+    let location = loc kosu_error in
+    let sfile = KosuPrint.string_of_file_error filename in
+
+    match location with
+    | position :: [] ->
+        let sloc = KosuPrint.string_of_located_error { value = (); position } in
+        sfile @@ sloc ":"
+    | [] | _ :: _ :: _ ->
+        sfile ":"
+
   let line = Printf.sprintf "%u|  "
-  let error _kosu_error = failwith ""
-  let hint _kosu_error = failwith ""
-  let warning _kosu_error = failwith ""
+  let error e = Option.some @@ KosuPrint.Formatted.string_of_kosu_error e
+  let hint _kosu_error = None
+  let warning _kosu_error = None
   let severity _ = Some KosuDiagnostic.Severity.Error
 end
 

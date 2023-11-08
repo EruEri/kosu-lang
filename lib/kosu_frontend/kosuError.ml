@@ -188,15 +188,11 @@ module Function = struct
     | { position; state = _; _ } ->
         position
 
-  let to_position =
-    let some = Option.some in
-    let some_left e = some @@ Either.left e in
-    let some_right e = some @@ Either.right e in
-    function
+  let to_position = function
     | AnalyticsError (_, KosuAnalysLexerError e) ->
-        some_left @@ kosu_lexer_error_range e
+        kosu_lexer_error_range e :: []
     | AnalyticsError (_, KosuAnalysSyntaxError e) ->
-        some_left @@ kosu_syntax_error_range e
+        kosu_syntax_error_range e :: []
     | DerefNonPointerType { value = _; position }
     | UnboundIdentifier { value = _; position }
     | IdentifierAlreadyBound { value = _; position }
@@ -213,32 +209,30 @@ module Function = struct
         { identifier = { value = _; position }; module_resolver = _ }
     | NoFieldInStruct { field = { value = _; position }; struct_decl = _ }
     | TypingError { position; _ } ->
-        some_left @@ position
+        position :: []
     | PatternAlreadyBoundIdentifier patterns
     | PatternIdentifierNotBoundEveryTime patterns ->
-        some_right @@ List.map Position.position patterns
+        List.map Position.position patterns
     | ConfictingCallableDeclaration list ->
-        some_right
-        @@ List.map
-             (let open KosuAst in
-              function
-              | `External decl ->
-                  decl.sig_name.position
-              | `KosuFunction decl ->
-                  decl.fn_name.position
-              | `Syscall decl ->
-                  decl.syscall_name.position
-             )
-             list
+        List.map
+          (let open KosuAst in
+           function
+           | `External decl ->
+               decl.sig_name.position
+           | `KosuFunction decl ->
+               decl.fn_name.position
+           | `Syscall decl ->
+               decl.syscall_name.position
+          )
+          list
     | VariableTypeNotBound vars ->
-        some_right
-        @@ List.map
-             (fun (KosuType.TyLoc.PolymorphicVarLoc s) -> Position.position s)
-             vars
+        List.map
+          (fun (KosuType.TyLoc.PolymorphicVarLoc s) -> Position.position s)
+          vars
     | UnboundModule _
     | ConfictingTypeDeclaration _
     | UnsupportedFile _
     | SizeofPolymorphicType _
     | DuplicatedParametersName _ ->
-        None
+        []
 end
