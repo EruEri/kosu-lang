@@ -18,4 +18,4 @@
 module Parsing = KosuParsing
 module Error = KosuError
 module Validation = KosuValidation
-module Print = KosuPrint
+module Reporter = KosuReport.Reporter

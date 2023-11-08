@@ -15,8 +15,16 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module Severity = Severity
+module S : KosuDiagnostic.S with type t = KosuError.kosu_error = struct
+  type t = KosuError.kosu_error
 
-module type S = Report.S
+  let loc _kosu_error = failwith ""
+  let prefix _filename _kosu_error = failwith ""
+  let line = Printf.sprintf "%u|  "
+  let error _kosu_error = failwith ""
+  let hint _kosu_error = failwith ""
+  let warning _kosu_error = failwith ""
+  let severity _ = Some KosuDiagnostic.Severity.Error
+end
 
-module Make = Report.Make
+module Reporter = KosuDiagnostic.Make (S)

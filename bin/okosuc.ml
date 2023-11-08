@@ -103,14 +103,6 @@ let kosuc run =
   in
   Cmd.v info (cmd_term run)
 
-let prefix = Printf.sprintf "%u|  "
-
-let message kosu_error str_loc =
-  let file, _ = str_loc in
-  KosuFrontendAlt.Print.string_of_kosu_error file kosu_error
-
-let smessage = Fun.id
-
 let parse_to_ast files =
   let ( ( `KosuFile kosu_files,
           `CFile _c_files,
@@ -124,9 +116,8 @@ let parse_to_ast files =
         e
     | Error e ->
         let () =
-          KosuDiagnostic.Log.emit ~prefix ~message:smessage
-            KosuDiagnostic.Severity.Error
-          @@ KosuDiagnostic.Log.log_string e
+          KosuFrontendAlt.Reporter.emit ~underline:true
+          @@ KosuFrontendAlt.Reporter.string e
         in
         exit KosuMisc.ExitCode.unsported_file
   in
@@ -137,13 +128,9 @@ let parse_to_ast files =
     | Error c ->
         let file, _ = c in
         let kosu_err = KosuFrontendAlt.Error.Raw.analytics_error c in
-        let log_file =
-          KosuDiagnostic.Log.log_file file kosu_err
-            KosuFrontendAlt.Error.Function.to_position
-        in
         let () =
-          KosuDiagnostic.Log.emit ~prefix ~message:(message kosu_err)
-            KosuDiagnostic.Severity.Error log_file
+          KosuFrontendAlt.Reporter.emit ~underline:true
+          @@ KosuFrontendAlt.Reporter.file file kosu_err
         in
         exit KosuMisc.ExitCode.syntax_lexer_error
   in
@@ -153,10 +140,8 @@ let parse_to_ast files =
         ()
     | Error (file, error) ->
         let () =
-          KosuDiagnostic.Log.emit ~prefix ~message:(message error)
-            KosuDiagnostic.Severity.Error
-          @@ KosuDiagnostic.Log.log_file file error
-               KosuFrontendAlt.Error.Function.to_position
+          KosuFrontendAlt.Reporter.emit ~underline:true
+          @@ KosuFrontendAlt.Reporter.file file error
         in
         exit KosuMisc.ExitCode.validation_error
   in
