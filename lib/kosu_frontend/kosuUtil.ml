@@ -597,8 +597,7 @@ module Ty = struct
         None
 
   let ty_of_callable : KosuAst.kosu_callable_decl -> Ty.kosu_type = function
-    | CdExternalFunction { parameters; return_type; _ }
-    | CdSyscall { parameters; return_type; _ } ->
+    | CdExternalFunction { parameters; return_type; _ } ->
         let poly_vars = [] in
         let parameters_type = List.map of_tyloc' parameters in
         let return_type = of_tyloc' return_type in
@@ -1015,17 +1014,6 @@ module Node = struct
           Expression.explicit_module_type' current_module kosu_function.body
         in
         NFunction { kosu_function with parameters; return_type; body }
-    | NSyscall kosu_syscall_decl ->
-        let parameters =
-          List.map
-            (TyLoc.explicit_module_type' current_module)
-            kosu_syscall_decl.parameters
-        in
-        let return_type =
-          TyLoc.explicit_module_type' current_module
-            kosu_syscall_decl.return_type
-        in
-        NSyscall { kosu_syscall_decl with parameters; return_type }
     | NStruct kosu_struct_decl ->
         let fields =
           List.map
@@ -1073,12 +1061,7 @@ module Module = struct
     |> List.filter_map (function
          | NConst kosu_const_decl ->
              Some kosu_const_decl
-         | NExternFunc _
-         | NEnum _
-         | NFunction _
-         | NSyscall _
-         | NStruct _
-         | NOpaque _ ->
+         | NExternFunc _ | NEnum _ | NFunction _ | NStruct _ | NOpaque _ ->
              None
          )
 
@@ -1088,12 +1071,7 @@ module Module = struct
     |> List.filter_map (function
          | NEnum kosu_enum_decl ->
              Some kosu_enum_decl
-         | NExternFunc _
-         | NConst _
-         | NFunction _
-         | NSyscall _
-         | NStruct _
-         | NOpaque _ ->
+         | NExternFunc _ | NConst _ | NFunction _ | NStruct _ | NOpaque _ ->
              None
          )
 
@@ -1103,12 +1081,7 @@ module Module = struct
     |> List.filter_map (function
          | NStruct kosu_struct_decl ->
              Some kosu_struct_decl
-         | NExternFunc _
-         | NConst _
-         | NFunction _
-         | NSyscall _
-         | NEnum _
-         | NOpaque _ ->
+         | NExternFunc _ | NConst _ | NFunction _ | NEnum _ | NOpaque _ ->
              None
          )
 
@@ -1117,19 +1090,11 @@ module Module = struct
     List.filter_map (function
       | NFunction ({ fn_name; _ } as fn_decl) when fn_name.value = name ->
           Option.some @@ CdKosuFuntion fn_decl
-      | NSyscall ({ syscall_name; _ } as sys_decl)
-        when syscall_name.value = name ->
-          Option.some @@ CdSyscall sys_decl
       | NExternFunc ({ sig_name; _ } as external_decl)
         when sig_name.value = name ->
           Option.some @@ CdExternalFunction external_decl
-      | NEnum _
-      | NConst _
-      | NOpaque _
-      | NStruct _
-      | NExternFunc _
-      | NFunction _
-      | NSyscall _ ->
+      | NEnum _ | NConst _ | NOpaque _ | NStruct _ | NExternFunc _ | NFunction _
+        ->
           None
       )
 
@@ -1141,13 +1106,8 @@ module Module = struct
       | NStruct ({ struct_name; _ } as strucT_decl)
         when struct_name.value = name ->
           Option.some @@ DStruct strucT_decl
-      | NEnum _
-      | NStruct _
-      | NConst _
-      | NOpaque _
-      | NFunction _
-      | NExternFunc _
-      | NSyscall _ ->
+      | NEnum _ | NStruct _ | NConst _ | NOpaque _ | NFunction _ | NExternFunc _
+        ->
           None
       )
 
@@ -1171,12 +1131,7 @@ module Module = struct
                 None
           in
           Some enum_decl
-      | NStruct _
-      | NConst _
-      | NOpaque _
-      | NFunction _
-      | NExternFunc _
-      | NSyscall _ ->
+      | NStruct _ | NConst _ | NOpaque _ | NFunction _ | NExternFunc _ ->
           None
       )
 

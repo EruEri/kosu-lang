@@ -196,7 +196,7 @@ type kosu_function_decl = {
   body : kosu_expression location;
 }
 
-type kosu_syscall_decl = {
+type _kosu_syscall_decl = {
   syscall_name : string location;
   parameters : TyLoc.kosu_loctype location list;
   return_type : TyLoc.kosu_loctype location;
@@ -223,12 +223,10 @@ type kosu_type_decl = DStruct of kosu_struct_decl | DEnum of kosu_enum_decl
 type kosu_callable_decl =
   | CdExternalFunction of kosu_external_func_decl
   | CdKosuFuntion of kosu_function_decl
-  | CdSyscall of kosu_syscall_decl
 
 type kosu_module_node =
   | NExternFunc of kosu_external_func_decl
   | NFunction of kosu_function_decl
-  | NSyscall of kosu_syscall_decl
   | NStruct of kosu_struct_decl
   | NEnum of kosu_enum_decl
   | NConst of kosu_const_decl

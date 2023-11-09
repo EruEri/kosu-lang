@@ -66,11 +66,7 @@ type kosu_error =
       | `NOpaque of KosuAst.kosu_opaque_decl
       | `NStruct of KosuAst.kosu_struct_decl ]
       list
-  | ConfictingCallableDeclaration of
-      [ `External of KosuAst.kosu_external_func_decl
-      | `KosuFunction of KosuAst.kosu_function_decl
-      | `Syscall of KosuAst.kosu_syscall_decl ]
-      list
+  | ConfictingCallableDeclaration of KosuAst.kosu_callable_decl list
   | UnsupportedFile of string
   | VariableTypeNotBound of KosuType.TyLoc.kosu_loctype_polymorphic list
   | DuplicatedParametersName of {
@@ -226,12 +222,10 @@ module Function = struct
         List.map
           (let open KosuAst in
            function
-           | `External decl ->
+           | CdExternalFunction decl ->
                decl.sig_name.position
-           | `KosuFunction decl ->
+           | CdKosuFuntion decl ->
                decl.fn_name.position
-           | `Syscall decl ->
-               decl.syscall_name.position
           )
           list
     | VariableTypeNotBound vars ->

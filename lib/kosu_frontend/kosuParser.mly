@@ -64,7 +64,7 @@
 %left INFIX_AMPERSAND
 %left PIPE
 %left INFIX_CARET
-%left INFIX_EQUAL INFIX_TILDE
+%left INFIX_EQUAL
 %left INFIX_INF INFIX_SUP
 %left INFIX_PLUS INFIX_MINUS MINUS
 %left STAR INFIX_MULT INFIX_DIV INFIX_PERCENT
@@ -179,7 +179,6 @@ kosu_module:
 kosu_module_node:
     | kosu_external_func_decl { NExternFunc $1 }
     | kosu_function_decl { NFunction $1 }
-    | kosu_syscall_decl { NSyscall $1 }
     | kosu_opaque_decl { NOpaque $1 }
     | kosu_const_decl { NConst $1 }
     | kosu_enum_decl { NEnum $1 }
@@ -209,16 +208,16 @@ kosu_external_func_decl:
      }
 ;;
 
-kosu_syscall_decl:
-    | SYSCALL syscall_name=located(Identifier) parameters=parenthesis(separated_list(COMMA, typed_parameter_loc(c_type))) return_type=located(c_type) EQUAL opcode=located(IntegerLitteral)
-    {
-        {
-            syscall_name;
-            parameters;
-            return_type;
-            opcode = Position.map (fun (_, value) -> value ) opcode
-        }
-    }
+// kosu_syscall_decl:
+//     | SYSCALL syscall_name=located(Identifier) parameters=parenthesis(separated_list(COMMA, typed_parameter_loc(c_type))) return_type=located(c_type) EQUAL opcode=located(IntegerLitteral)
+//     {
+//         {
+//             syscall_name;
+//             parameters;
+//             return_type;
+//             opcode = Position.map (fun (_, value) -> value ) opcode
+//         }
+//     }
 
 
 

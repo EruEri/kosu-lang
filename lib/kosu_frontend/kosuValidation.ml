@@ -37,7 +37,7 @@ module Duplicated = struct
     | NStruct { struct_name = name; _ }
     | NEnum { enum_name = name; _ } ->
         Some name
-    | NExternFunc _ | NFunction _ | NSyscall _ | NConst _ ->
+    | NExternFunc _ | NFunction _ | NConst _ ->
         None
 
   (**
@@ -74,7 +74,7 @@ module Duplicated = struct
               None
         in
         r
-    | NExternFunc _ | NFunction _ | NSyscall _ | NConst _ ->
+    | NExternFunc _ | NFunction _ | NConst _ ->
         None
 
   let kosu_callable name =
@@ -82,17 +82,12 @@ module Duplicated = struct
     @@ function
     | NExternFunc external_decl ->
         if external_decl.sig_name.value = name then
-          Option.some @@ `External external_decl
+          Option.some @@ CdExternalFunction external_decl
         else
           None
     | NFunction kosu_function_decl ->
         if kosu_function_decl.fn_name.value = name then
-          Option.some @@ `KosuFunction kosu_function_decl
-        else
-          None
-    | NSyscall syscall_decl ->
-        if syscall_decl.syscall_name.value = name then
-          Option.some @@ `Syscall syscall_decl
+          Option.some @@ CdKosuFuntion kosu_function_decl
         else
           None
     | NConst _ | NEnum _ | NOpaque _ | NStruct _ ->
@@ -289,7 +284,7 @@ let validate_kosu_node kosu_program current_module = function
       ok
   | NFunction kosu_function_decl ->
       let () =
-        Printf.printf "Fuction %s\n%!" kosu_function_decl.fn_name.value
+        Printf.printf "Function %s\n%!" kosu_function_decl.fn_name.value
       in
       (* chech that arguments name is unique *)
       let* () = KosuFunction.check_duplicated_parameters kosu_function_decl in
@@ -311,8 +306,6 @@ let validate_kosu_node kosu_program current_module = function
       let* () =
         KosuFunction.typecheck current_module kosu_program kosu_function_decl
       in
-      ok
-  | NSyscall _ ->
       ok
   | NStruct _ ->
       ok
