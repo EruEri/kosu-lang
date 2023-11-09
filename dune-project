@@ -19,7 +19,7 @@
 
 (using menhir 2.0)
 
-(name kosu_lang)
+(name kosu-lang)
 (version 0.4.0)
 
 (cram enable)
@@ -38,7 +38,7 @@
 ; (documentation https://url/to/documentation)
 
 (package
- (name kosu_lang)
+ (name kosu-lang)
  (synopsis "A programming language project")
  (description "A low level programming language with some higher level features")
  (depends (ocaml (>= "4.13")) dune menhir (cmdliner (>= "1.1.0")))
