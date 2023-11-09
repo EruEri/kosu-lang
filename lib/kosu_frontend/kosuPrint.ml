@@ -394,6 +394,12 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       sfile @@ sloc
       @@ sprintf "function \"%s\" duplicated paramater identifier\n\t%s\n\t%s"
            function_location.value lhs rhs
+  | TypeDeclarationNotFound kosu_type ->
+      let sloc = string_of_located_error kosu_type in
+      sfile @@ sloc
+      @@ sprintf "Cannot find type \"%s\""
+      @@ string_of_kosu_type
+      @@ KosuUtil.Ty.of_tyloc' kosu_type
 
 module Formatted = struct
   let string_of_kosu_lexer_error : KosuError.kosu_lexer_error -> string =
@@ -498,4 +504,7 @@ module Formatted = struct
         sprintf "The following type variable aren't bound"
     | DuplicatedParametersName { function_location = _; lhs = _; rhs = _ } ->
         sprintf "Duplicated paramater identifiers"
+    | TypeDeclarationNotFound kosu_type ->
+        sprintf "Cannot find type \"%s\""
+        @@ string_of_kosu_type (KosuUtil.Ty.of_tyloc' kosu_type)
 end

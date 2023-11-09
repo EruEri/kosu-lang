@@ -78,6 +78,7 @@ type kosu_error =
       lhs : string Position.location;
       rhs : string Position.location;
     }
+  | TypeDeclarationNotFound of KosuType.TyLoc.kosu_loctype Position.location
 
 exception KosuRawErr of kosu_error
 exception KosuErr of string * kosu_error
@@ -114,12 +115,15 @@ module Raw = struct
   let index_out_of_bounds expect found = TupleIndexOutBound { expect; found }
   let unsupported_file f = UnsupportedFile f
   let variable_type_not_bound l = VariableTypeNotBound l
+  let type_declaration_not_found e = TypeDeclarationNotFound e
 
   let duplicated_param_name function_location lhs rhs =
     DuplicatedParametersName { function_location; lhs; rhs }
 end
 
 module Exn = struct
+  open Util.Operator
+
   let kosu_error (f, e) = KosuErr (f, e)
   let kosu_raw_error e = KosuRawErr e
   let kosu_lexer_error e = KosuLexerError e
@@ -170,6 +174,9 @@ module Exn = struct
   let unsupported_file f = kosu_raw_error @@ UnsupportedFile f
   let variable_type_not_bound l = kosu_raw_error @@ VariableTypeNotBound l
 
+  let type_declaration_not_found =
+    kosu_raw_error $ Raw.type_declaration_not_found
+
   let duplicated_param_name function_location lhs rhs =
     kosu_raw_error @@ Raw.duplicated_param_name function_location lhs rhs
 end
@@ -205,9 +212,11 @@ module Function = struct
     | CannotInferType position
     | ArraySubscribeNotInteger position
     | TupleIndexOutBound { expect = _; found = { value = _; position } }
+    | SizeofPolymorphicType position
     | UnboundConstante
         { identifier = { value = _; position }; module_resolver = _ }
     | NoFieldInStruct { field = { value = _; position }; struct_decl = _ }
+    | TypeDeclarationNotFound { value = _; position }
     | TypingError { position; _ } ->
         position :: []
     | PatternAlreadyBoundIdentifier patterns
@@ -229,10 +238,8 @@ module Function = struct
         List.map
           (fun (KosuType.TyLoc.PolymorphicVarLoc s) -> Position.position s)
           vars
-    | UnboundModule _
-    | ConfictingTypeDeclaration _
-    | UnsupportedFile _
-    | SizeofPolymorphicType _
-    | DuplicatedParametersName _ ->
+    | DuplicatedParametersName { rhs; lhs; _ } ->
+        [ rhs.position; lhs.position ]
+    | UnboundModule _ | ConfictingTypeDeclaration _ | UnsupportedFile _ ->
         []
 end

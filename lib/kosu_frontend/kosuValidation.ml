@@ -112,6 +112,26 @@ module Duplicated = struct
       (List.map Position.value names)
 end
 
+module Common = struct
+  let check_type_existence current_module kosu_program kosu_type =
+    match
+      KosuUtil.Program.type_decl
+        (KosuUtil.Ty.of_tyloc' kosu_type)
+        ~current_module kosu_program
+    with
+    | None | Some (_ :: []) ->
+        ok
+    | Some [] ->
+        err @@ KosuError.Raw.type_declaration_not_found kosu_type
+    | Some list ->
+        let list =
+          List.map
+            (function DEnum e -> `NEnum e | DStruct s -> `NStruct s)
+            list
+        in
+        err @@ KosuError.Raw.conflicting_type_declaration list
+end
+
 module KosuFunction = struct
   let check_duplicated_parameters kosu_function_decl =
     Result.map (fun _ -> ())
@@ -168,31 +188,12 @@ module KosuFunction = struct
     let* () =
       Util.Ulist.fold_ok
         (fun () { kosu_type; is_var = _; name = _ } ->
-          match
-            KosuUtil.Program.type_decl
-              (KosuUtil.Ty.of_tyloc' kosu_type)
-              ~current_module kosu_program
-          with
-          | None | Some (_ :: []) ->
-              ok
-          | Some [] ->
-              failwith "Not found"
-          | Some (_ :: _) ->
-              failwith "Duplicated types decl"
+          Common.check_type_existence current_module kosu_program kosu_type
         )
         () kosu_function_decl.parameters
     in
-    match
-      KosuUtil.Program.type_decl
-        (KosuUtil.Ty.of_tyloc' kosu_function_decl.return_type)
-        ~current_module kosu_program
-    with
-    | None | Some (_ :: []) ->
-        ok
-    | Some [] ->
-        failwith "Not found"
-    | Some (_ :: _) ->
-        failwith "Duplicated types decl"
+    Common.check_type_existence current_module kosu_program
+      kosu_function_decl.return_type
 
   let typecheck current_module kosu_program
       (kosu_function_decl : KosuAst.kosu_function_decl) =
@@ -267,32 +268,11 @@ module ExternFunction = struct
       (kosu_external_decl : KosuAst.kosu_external_func_decl) =
     let* () =
       Util.Ulist.fold_ok
-        (fun () kosu_type ->
-          match
-            KosuUtil.Program.type_decl
-              (KosuUtil.Ty.of_tyloc' kosu_type)
-              ~current_module kosu_program
-          with
-          | None | Some (_ :: []) ->
-              ok
-          | Some [] ->
-              failwith "Not found"
-          | Some (_ :: _) ->
-              failwith "Duplicated types decl"
-        )
+        (fun () -> Common.check_type_existence current_module kosu_program)
         () kosu_external_decl.parameters
     in
-    match
-      KosuUtil.Program.type_decl
-        (KosuUtil.Ty.of_tyloc' kosu_external_decl.return_type)
-        ~current_module kosu_program
-    with
-    | None | Some (_ :: []) ->
-        ok
-    | Some [] ->
-        failwith "Not found"
-    | Some (_ :: _) ->
-        failwith "Duplicated types decl"
+    Common.check_type_existence current_module kosu_program
+      kosu_external_decl.return_type
 end
 
 let validate_kosu_node kosu_program current_module = function
