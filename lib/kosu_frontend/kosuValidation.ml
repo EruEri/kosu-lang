@@ -93,18 +93,18 @@ module Duplicated = struct
     | NConst _ | NEnum _ | NOpaque _ | NStruct _ ->
         None
 
-  let kosu_type kosu_module =
-    let names = types_name kosu_module in
-    Util.Ulist.fold_ok
-      (fun () name ->
-        match kosu_type name kosu_module with
-        | [] | _ :: [] ->
-            Ok ()
-        | list ->
-            Result.error @@ KosuError.Raw.conflicting_type_declaration list
-      )
-      ()
-      (List.map Position.value names)
+  (* let kosu_type kosu_module =
+     let names = types_name kosu_module in
+     Util.Ulist.fold_ok
+       (fun () name ->
+         match kosu_type name kosu_module with
+         | [] | _ :: [] ->
+             Ok ()
+         | list ->
+             Result.error @@ KosuError.Raw.conflicting_type_declaration list
+       )
+       ()
+       (List.map Position.value names) *)
 end
 
 module Common = struct
@@ -258,6 +258,30 @@ module Struct = struct
         Common.check_type_existence current_module kosu_program kosu_type
       )
       () kosu_struct_decl.fields
+
+  let check_type_duplicated current_module
+      (kosu_struct_decl : KosuAst.kosu_struct_decl) =
+    match
+      Duplicated.kosu_type kosu_struct_decl.struct_name.value current_module
+    with
+    | [] | _ :: [] ->
+        ok
+    | _ :: _ :: _ as list ->
+        err @@ KosuError.Raw.conflicting_type_declaration list
+
+  let check_duplicated_fields (kosu_struct_decl : KosuAst.kosu_struct_decl) =
+    Result.map (fun _ -> ())
+    @@ Util.Ulist.fold_ok
+         (fun set (name, _) ->
+           match StringLoc.find_opt name set with
+           | None ->
+               Result.ok @@ StringLoc.add name set
+           | Some exist ->
+               err
+               @@ KosuError.Raw.duplicated_fiels kosu_struct_decl.struct_name
+                    exist name
+         )
+         StringLoc.empty kosu_struct_decl.fields
 end
 
 let validate_kosu_node kosu_program current_module = function
@@ -297,7 +321,14 @@ let validate_kosu_node kosu_program current_module = function
         KosuFunction.typecheck current_module kosu_program kosu_function_decl
       in
       ok
-  | NStruct _ ->
+  | NStruct kosu_struct ->
+      let* () = Struct.check_type_duplicated current_module kosu_struct in
+
+      let* () =
+        Struct.check_type_existence current_module kosu_program kosu_struct
+      in
+
+      let* () = Struct.check_duplicated_fields kosu_struct in
       ok
   | NEnum _ ->
       ok

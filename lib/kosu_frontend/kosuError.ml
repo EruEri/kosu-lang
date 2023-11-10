@@ -74,6 +74,11 @@ type kosu_error =
       lhs : string Position.location;
       rhs : string Position.location;
     }
+  | DuplicatedFieldName of {
+      type_name : string Position.location;
+      lhs : string Position.location;
+      rhs : string Position.location;
+    }
   | TypeDeclarationNotFound of KosuType.TyLoc.kosu_loctype Position.location
 
 exception KosuRawErr of kosu_error
@@ -115,6 +120,9 @@ module Raw = struct
 
   let duplicated_param_name function_location lhs rhs =
     DuplicatedParametersName { function_location; lhs; rhs }
+
+  let duplicated_fiels type_name lhs rhs =
+    DuplicatedFieldName { type_name; rhs; lhs }
 end
 
 module Exn = struct
@@ -232,7 +240,8 @@ module Function = struct
         List.map
           (fun (KosuType.TyLoc.PolymorphicVarLoc s) -> Position.position s)
           vars
-    | DuplicatedParametersName { rhs; lhs; _ } ->
+    | DuplicatedParametersName { rhs; lhs; _ }
+    | DuplicatedFieldName { lhs; rhs; _ } ->
         [ rhs.position; lhs.position ]
     | UnboundModule _ | ConfictingTypeDeclaration _ | UnsupportedFile _ ->
         []
