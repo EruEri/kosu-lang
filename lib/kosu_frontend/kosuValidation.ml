@@ -125,6 +125,24 @@ module Common = struct
             list
         in
         err @@ KosuError.Raw.conflicting_type_declaration list
+
+  let check_boundness_variable_type
+      (bound : KosuType.TyLoc.kosu_loctype_polymorphic list) kosu_type =
+    let module KTVLS = KosuUtil.KosuTypeVariableLocSet in
+    let for_all_vars = KTVLS.of_list bound in
+    let for_all_vars_in_types =
+      KosuUtil.TyLoc.polymorphic_vars' KTVLS.empty KTVLS.empty kosu_type
+    in
+    let diff = KTVLS.diff for_all_vars_in_types for_all_vars in
+    match KTVLS.is_empty diff with
+    | true ->
+        Ok ()
+    | false ->
+        Result.error
+        @@ KosuError.Raw.variable_type_not_bound (KTVLS.elements diff)
+
+  let check_boundness_variable_types bound types =
+    Util.Ulist.fold_ok (fun () -> check_boundness_variable_type bound) () types
 end
 
 module KosuFunction = struct
@@ -142,32 +160,13 @@ module KosuFunction = struct
          )
          StringLoc.empty kosu_function_decl.parameters
 
-  let check_boundness_variable_type kosu_function_decl =
-    let module KTVLS = KosuUtil.KosuTypeVariableLocSet in
-    let for_all_vars = KTVLS.of_list kosu_function_decl.poly_vars in
-    let for_all_vars_return =
-      KosuUtil.TyLoc.polymorphic_vars' KTVLS.empty KTVLS.empty
-        kosu_function_decl.return_type
+  let check_boundness_variable_type
+      (kosu_function_decl : KosuAst.kosu_function_decl) =
+    let types =
+      List.map (fun { kosu_type; _ } -> kosu_type) kosu_function_decl.parameters
     in
-    let for_all_vars_in_types =
-      List.fold_left KTVLS.union KTVLS.empty
-      @@ List.map
-           (fun elt ->
-             KosuUtil.TyLoc.polymorphic_vars' KTVLS.empty KTVLS.empty
-               elt.kosu_type
-           )
-           kosu_function_decl.parameters
-    in
-    let for_all_vars_in_types =
-      KTVLS.union for_all_vars_in_types for_all_vars_return
-    in
-    let diff = KTVLS.diff for_all_vars_in_types for_all_vars in
-    match KTVLS.is_empty diff with
-    | true ->
-        Ok ()
-    | false ->
-        Result.error
-        @@ KosuError.Raw.variable_type_not_bound (KTVLS.elements diff)
+    let types = kosu_function_decl.return_type :: types in
+    Common.check_boundness_variable_types kosu_function_decl.poly_vars types
 
   let check_duplicated_callable_identifier current_module kosu_function_decl =
     match
@@ -237,27 +236,8 @@ end
 
 module ExternFunction = struct
   let check_boundness_variable_type external_function =
-    let module KTVLS = KosuUtil.KosuTypeVariableLocSet in
-    let for_all_vars_return =
-      KosuUtil.TyLoc.polymorphic_vars' KTVLS.empty KTVLS.empty
-        external_function.return_type
-    in
-    let for_all_vars_in_types =
-      List.fold_left KTVLS.union KTVLS.empty
-      @@ List.map
-           (KosuUtil.TyLoc.polymorphic_vars' KTVLS.empty KTVLS.empty)
-           external_function.parameters
-    in
-    let for_all_vars_in_types =
-      KTVLS.union for_all_vars_in_types for_all_vars_return
-    in
-    match KTVLS.is_empty for_all_vars_in_types with
-    | true ->
-        Ok ()
-    | false ->
-        Result.error
-        @@ KosuError.Raw.variable_type_not_bound
-             (KTVLS.elements for_all_vars_in_types)
+    let types = external_function.return_type :: external_function.parameters in
+    Common.check_boundness_variable_types [] types
 
   let check_type_existence current_module kosu_program
       (kosu_external_decl : KosuAst.kosu_external_func_decl) =
@@ -268,6 +248,16 @@ module ExternFunction = struct
     in
     Common.check_type_existence current_module kosu_program
       kosu_external_decl.return_type
+end
+
+module Struct = struct
+  let check_type_existence current_module kosu_program
+      (kosu_struct_decl : KosuAst.kosu_struct_decl) =
+    Util.Ulist.fold_ok
+      (fun () (_, kosu_type) ->
+        Common.check_type_existence current_module kosu_program kosu_type
+      )
+      () kosu_struct_decl.fields
 end
 
 let validate_kosu_node kosu_program current_module = function
