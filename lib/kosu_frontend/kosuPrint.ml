@@ -284,13 +284,14 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       sfile @@ sloc
       @@ sprintf "Type %s isn't the type of a struct"
       @@ string_of_kosu_type @@ value ty
-  | TypingError { clhs; crhs; position = p } ->
+  | TypingError { cexpected; cfound; position = p } ->
       let sloc =
         string_of_located_error Position.{ value = (); position = p }
       in
       sfile @@ sloc
       @@ sprintf "Incompatible type : Expected \"%s\", Found \"%s\""
-           (string_of_kosu_type clhs) (string_of_kosu_type crhs)
+           (string_of_kosu_type cexpected)
+           (string_of_kosu_type cfound)
   | NonStructTypeExpression p ->
       let sloc =
         string_of_located_error Position.{ value = (); position = p }
@@ -471,9 +472,10 @@ module Formatted = struct
     | NoStructDeclFoundForType ty ->
         sprintf "Type %s isn't the type of a struct"
         @@ string_of_kosu_type @@ value ty
-    | TypingError { clhs; crhs; position = _ } ->
+    | TypingError { cexpected; cfound; position = _ } ->
         sprintf "Incompatible type : Expected \"%s\", Found \"%s\""
-          (string_of_kosu_type clhs) (string_of_kosu_type crhs)
+          (string_of_kosu_type cexpected)
+          (string_of_kosu_type cfound)
     | NonStructTypeExpression _ ->
         sprintf "This expressions is not an struct type"
     | NonTupleAccess _ ->

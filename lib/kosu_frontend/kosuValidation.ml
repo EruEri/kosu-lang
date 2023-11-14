@@ -216,8 +216,8 @@ module KosuFunction = struct
     let kosu_env = KosuEnv.merge_constraint env kosu_env in
     let kosu_env =
       KosuEnv.add_typing_constraint
-        ~lhs:(KosuUtil.Ty.of_tyloc' kosu_function_decl.return_type)
-        ~rhs:ty kosu_function_decl.body kosu_env
+        ~cexpected:(KosuUtil.Ty.of_tyloc' kosu_function_decl.return_type)
+        ~cfound:ty kosu_function_decl.body kosu_env
     in
     let solutions = KosuEnv.solve kosu_env in
     let () =
@@ -345,8 +345,8 @@ let validate_kosu_node kosu_program current_module = function
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       let kosu_env =
         KosuEnv.add_typing_constraint
-          ~lhs:(KosuUtil.Ty.of_tyloc' const_decl.explicit_type)
-          ~rhs:ty const_decl.explicit_type kosu_env
+          ~cexpected:(KosuUtil.Ty.of_tyloc' const_decl.explicit_type)
+          ~cfound:ty const_decl.explicit_type kosu_env
       in
       let solutions = KosuEnv.solve kosu_env in
       let () =

@@ -101,9 +101,10 @@ let merge_variable_disjoint env1 env2 =
   let set = KosuVariableInfoSet.union env2set diff in
   { env2 with env_variable = KosuVariableInfoSet.elements set }
 
-let add_typing_constraint ~lhs ~rhs (location : 'a Position.location) env =
+let add_typing_constraint ~cexpected ~cfound (location : 'a Position.location)
+    env =
   let constr =
-    KosuType.Ty.{ clhs = lhs; crhs = rhs; position = location.position }
+    KosuType.Ty.{ cexpected; cfound; position = location.position }
   in
   (* let skt = KosuPrint.string_of_kosu_type in
      let () = Printf.fprintf stdout "eq : %s == %s \n%!" (skt lhs) (skt rhs) in *)
@@ -340,9 +341,9 @@ let find_callable_declaration module_resolver identifier kosu_env =
 
 let equations_set ty_var set =
   KosuTypeConstraintSet.filter
-    (fun { clhs; crhs; position = _ } ->
+    (fun { cexpected; cfound; position = _ } ->
       let ty_var = KosuType.Ty.TyPolymorphic ty_var in
-      clhs = ty_var || crhs = ty_var
+      cexpected = ty_var || cfound = ty_var
     )
     set
 
@@ -352,9 +353,9 @@ let equations_set ty_var set =
 *)
 let equations ty_var kosu_env =
   KosuTypeConstraintSet.filter
-    (fun { clhs; crhs; position = _ } ->
+    (fun { cexpected; cfound; position = _ } ->
       let ty_var = KosuType.Ty.TyPolymorphic ty_var in
-      clhs = ty_var || crhs = ty_var
+      cexpected = ty_var || cfound = ty_var
     )
     kosu_env.env_tying_constraint
 
@@ -490,10 +491,10 @@ let rec solve solutions eqs =
   (* let () = print_endline "--------------\n" in
      let () =
        KosuTypeConstraintSet.iter
-         (fun { clhs; crhs; _ } ->
+         (fun { cexpected; cfound; _ } ->
            Printf.printf "equation : %s == %s\n%!"
-             (KosuPrint.string_of_kosu_type clhs)
-             (KosuPrint.string_of_kosu_type crhs)
+             (KosuPrint.string_of_kosu_type cexpected)
+             (KosuPrint.string_of_kosu_type cfound)
          )
          eqs
      in
@@ -504,7 +505,7 @@ let rec solve solutions eqs =
   | Some equation ->
       let eqs = KosuTypeConstraintSet.remove equation eqs in
       let solutions, eqs =
-        match KosuTypeConstraint.reduce equation.clhs equation.crhs with
+        match KosuTypeConstraint.reduce equation.cexpected equation.cfound with
         | Some (Left (p, ty)) ->
             let _eq_appears, _eq_others =
               KosuTypeConstraintSet.partition
@@ -528,7 +529,7 @@ let rec solve solutions eqs =
                      t
                  | None ->
                      raise @@ KosuError.typing_error
-                     @@ { equation with clhs = ty_fold; crhs = ty }
+                     @@ { equation with cexpected = ty_fold; cfound = ty }
                in *)
             let ty =
               match KosuTypingSolution.find_opt p solutions with
@@ -541,7 +542,7 @@ let rec solve solutions eqs =
                         t
                     | None ->
                         raise @@ KosuError.Exn.typing_error
-                        @@ { equation with clhs = ty; crhs = exist }
+                        @@ { equation with cexpected = exist; cfound = ty }
                   in
                   r
             in
@@ -554,14 +555,15 @@ let rec solve solutions eqs =
             let new_constrains_set =
               KosuTypeConstraintSet.of_list
               @@ List.map
-                   (fun (clhs, crhs) ->
+                   (fun (cexpected, cfound) ->
                      let c =
-                       KosuType.Ty.{ clhs; crhs; position = equation.position }
+                       KosuType.Ty.
+                         { cexpected; cfound; position = equation.position }
                      in
                      let () =
                        Printf.printf "l = %s, r = %s\n"
-                         (KosuPrint.string_of_kosu_type clhs)
-                         (KosuPrint.string_of_kosu_type crhs)
+                         (KosuPrint.string_of_kosu_type cexpected)
+                         (KosuPrint.string_of_kosu_type cfound)
                      in
                      c
                    )
@@ -608,9 +610,13 @@ let solve kosu_env =
   let constrains =
     KosuTypeConstraintSet.map
       (fun const ->
-        let clhs = transform_ty not_fully_infered_num solutions const.clhs in
-        let crhs = transform_ty not_fully_infered_num solutions const.crhs in
-        { const with clhs; crhs }
+        let cexpected =
+          transform_ty not_fully_infered_num solutions const.cexpected
+        in
+        let cfound =
+          transform_ty not_fully_infered_num solutions const.cfound
+        in
+        { const with cexpected; cfound }
       )
       kosu_env.env_tying_constraint
   in

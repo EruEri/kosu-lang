@@ -100,8 +100,8 @@ module Ty = struct
     | TyUnit
 
   type kosu_type_constraint = {
-    clhs : kosu_type;
-    crhs : kosu_type;
+    cexpected : kosu_type;
+    cfound : kosu_type;
     position : Position.position;
   }
 

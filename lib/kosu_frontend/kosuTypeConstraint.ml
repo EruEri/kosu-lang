@@ -18,7 +18,11 @@
 type t = KosuType.Ty.kosu_type_constraint
 
 let compare (lhs : t) (rhs : t) =
-  match compare lhs.clhs rhs.clhs with 0 -> compare lhs.crhs rhs.crhs | n -> n
+  match compare lhs.cexpected rhs.cexpected with
+  | 0 ->
+      compare lhs.cfound rhs.cfound
+  | n ->
+      n
 
 module KosuTypingSolution = Map.Make (struct
   type t = KosuType.Ty.kosu_type_polymorphic
@@ -31,18 +35,23 @@ end)
     Returns [None] if [ty] isn't part of [equation] 
 *)
 let other ty (equation : t) =
-  match ty = equation.clhs with
+  match ty = equation.cexpected with
   | true ->
-      Some equation.crhs
+      Some equation.cfound
   | false -> (
-      match ty = equation.crhs with true -> Some equation.clhs | false -> None
+      match ty = equation.cfound with
+      | true ->
+          Some equation.cexpected
+      | false ->
+          None
     )
 
 let substitute ty_var by (equation : t) =
   {
     equation with
-    clhs = KosuUtil.Ty.ty_substitution [] [ (ty_var, by) ] equation.clhs;
-    crhs = KosuUtil.Ty.ty_substitution [] [ (ty_var, by) ] equation.crhs;
+    cexpected =
+      KosuUtil.Ty.ty_substitution [] [ (ty_var, by) ] equation.cexpected;
+    cfound = KosuUtil.Ty.ty_substitution [] [ (ty_var, by) ] equation.cfound;
   }
 
 let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
