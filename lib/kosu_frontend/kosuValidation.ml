@@ -360,7 +360,7 @@ let validate_kosu_node kosu_program current_module = function
       in
       let* () =
         Result.map_error KosuError.Raw.const_non_static_expression
-        @@ KosuStaticExpression.is_static_expression const_decl.c_value
+        @@ KosuExpression.is_static_expression const_decl.c_value
       in
       ok
 

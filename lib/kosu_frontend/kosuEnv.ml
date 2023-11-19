@@ -101,11 +101,8 @@ let merge_variable_disjoint env1 env2 =
   let set = KosuVariableInfoSet.union env2set diff in
   { env2 with env_variable = KosuVariableInfoSet.elements set }
 
-let add_typing_constraint ~cexpected ~cfound (location : 'a Position.location)
-    env =
-  let constr =
-    KosuType.Ty.{ cexpected; cfound; position = location.position }
-  in
+let add_typing_constraint_position ~cexpected ~cfound position env =
+  let constr = KosuType.Ty.{ cexpected; cfound; position } in
   (* let skt = KosuPrint.string_of_kosu_type in
      let () = Printf.fprintf stdout "eq : %s == %s \n%!" (skt lhs) (skt rhs) in *)
   {
@@ -113,6 +110,9 @@ let add_typing_constraint ~cexpected ~cfound (location : 'a Position.location)
     env_tying_constraint =
       KosuTypeConstraintSet.add constr env.env_tying_constraint;
   }
+
+let add_typing_constraint ~cexpected ~cfound (location : 'a Position.location) =
+  add_typing_constraint_position ~cexpected ~cfound location.position
 
 (** 
   [assoc_type_opt name kosu_env] returns the type associated with the identifier [name] in the variable environment [kosu_env].

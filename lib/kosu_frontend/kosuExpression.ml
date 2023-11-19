@@ -89,3 +89,44 @@ let rec is_static_expression :
   | EMatch _
   | EAnonFunction _ ->
       err expr
+
+(**
+    [last_expression expr] returns the last expression of mono block expression such as
+    [KosuAst.EBlock _] or [KosuAst.EWhile _] or [expr] if others
+*)
+let rec last_expression expr =
+  let open Position in
+  let open KosuAst in
+  match expr.value with
+  | EBlock block ->
+      last_expression block.kosu_expr
+  | EWhile { body; _ } ->
+      last_expression body.kosu_expr
+  | EEmpty
+  | ETrue
+  | EFalse
+  | ENullptr
+  | ECmpLess
+  | ECmpEqual
+  | ECmpGreater
+  | EStringl _
+  | EChar _
+  | EInteger _
+  | EFloat _
+  | ESizeof _
+  | EFieldAccess _
+  | EArrayAccess _
+  | ETupleAccess _
+  | EConstIdentifier _
+  | EIdentifier _
+  | EStruct _
+  | EEnum _
+  | EDeref _
+  | ETuple _
+  | EArray _
+  | EBuiltinFunctionCall _
+  | EFunctionCall _
+  | ECases _
+  | EMatch _
+  | EAnonFunction _ ->
+      expr
