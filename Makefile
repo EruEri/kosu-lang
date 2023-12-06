@@ -2,7 +2,6 @@ DUNE=dune
 OUTPUT=output
 OS_AR=$(shell which ar)
 OS_CC=$(shell which cc)
-MAKE=make
 CONFIG=kosu_config.mk
 
 -include $(CONFIG)
@@ -11,16 +10,13 @@ KOSU_RUNTIME_OBJ=$(OUTPUT)/u8.o $(OUTPUT)/s8.o
 
 all: kosuc okosuc kosu kosu_runtime man
 
-configure: 
+configure: lib/configure/configure.ml
 	dune build lib/configure/configure.exe
-	ln -sf _build/default/lib/configure/$@.exe configure
-
+	ln -sf _build/default/lib/configure/configure.exe configure
 
 ifneq ($(shell test -f "$(CONFIG)"), 0)
 	$(shell touch $(CONFIG))
 endif
-
-
 
 okosuc :
 	$(DUNE) build bin/$@.exe

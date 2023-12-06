@@ -48,7 +48,7 @@ let shell_dynlib os () =
   match String.lowercase_ascii os with "darwin" -> ".dylib" | _ -> ".so"
 
 let kosu_version () =
-  shell "cat kosu_lang.opam | grep ^version | awk '{print $2}' | sed 's/\"//g'"
+  shell "cat kosu-lang.opam | grep ^version | awk '{print $2}' | sed 's/\"//g'"
 
 let make_variable ~prefix ~bindir ~includedir ~stddir ~mandir ~libdir () =
   Out_channel.with_open_bin kosu_config
