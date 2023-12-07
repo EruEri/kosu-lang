@@ -1191,6 +1191,13 @@ module Program = struct
     | TyBool ->
         None
 
+  let module_resolver_of_module kosu_module kosu_program = 
+    let filename = Option.get @@ List.find_map (fun KosuAst.{filename; kosu_module = module_target} ->
+      (* Can use == since module are unique *)
+      if module_target == kosu_module then Some filename else None
+    ) kosu_program in 
+    ModuleResolver.of_filename filename
+
   (**
 
   *)
