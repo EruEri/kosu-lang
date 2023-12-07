@@ -27,7 +27,7 @@ build: [
     "--stddir" "%{prefix}%/lib/%{name}%/std"
     ]
   ["dune" "subst"]
-  [make "MAKE=%{make}%"]
+  [make]
 ]
 
 install: [

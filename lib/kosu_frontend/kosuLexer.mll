@@ -164,7 +164,10 @@ rule token = parse
 }
 | '\"' {
     let buffer = Buffer.create 17 in
-    read_string buffer lexbuf
+    let current = Lexing.lexeme_start_p lexbuf in
+    let s = read_string buffer lexbuf in
+    let () = lexbuf.lex_start_p <- current in
+    StringLitteral s
 }
 | (infix_symbol as i) (operator_symbol* as os) as all {
     match i with
@@ -236,7 +239,7 @@ and built_in_function = parse
 }
 
 and read_string buffer = parse
-| '"' { StringLitteral (Buffer.contents buffer) }
+| '"' { (Buffer.contents buffer) }
 | (hexa_char as s) {
     let s_len = String.length s in
     let s_number = String.sub s 1 (s_len - 1) in
