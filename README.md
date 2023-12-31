@@ -47,11 +47,10 @@ Full rewirte
 
 ## Example
 ```
+const EXIT_SUCCESS : s32 = 0
 
-const EXIT_SUCCESS = 0;
-
-enum option(wrapper) {
-  some(wrapper),
+enum option('wrapper) {
+  some('wrapper),
   none
 }
 
@@ -60,24 +59,29 @@ struct point {
   y: u8
 }
 
-external malloc(_: u64) anyptr;
+external puts(format: stringl) s32 = "puts"
 
-external print(format: stringl; ...) s32 = "printf";
+external kosu_u32_add(a: u32, b: u32) u32 = "kosu_u32_add"
+external kosu_u32_sub(a: u32, b: u32) u32 = "kosu_u32_sub"
+external kosu_u32_eq (a: u32, b: u32) bool = "kosu_u32_eq"
 
 
-fn default<t>(option: option(t), default: t) t {
-    $ switch (option) {
-        .none => { $ default }
-        .some(x) => { $ x }
+fn 'a . default(option: option('a), def: 'a) 'a =
+    match option {
+        | .none -> { def }
+        | .some(x) -> { x }
     }
-}
+
 
 // Single line comment
-fn fibonacci(n: u32) u32 {
-  $ cases {
-  of n == 0u32 => { $ 0u32 }
-  of n == 1u32 => { $ 1u32 }
-  else { $ fibonacci(n - 1u32) + fibonacci(n - 2u32) }
+fn fibonacci(n: u32) u32 = {
+  var `+` = kosu_u32_add;
+  var `-` = kosu_u32_sub;
+  var `==` = kosu_u32_eq;
+  cases {
+    of n == 0 -> { 0 }
+    of `==`(n, 1) -> { 1 }
+    else { fibonacci(n - 1) + fibonacci(n - 2) }
   }
 }
 
@@ -86,9 +90,9 @@ fn main() s32 {
     Multiple lines comment
   */
   const message_opt = .some("Hello world");
-  const message = message_opt |> default("Never");
-  discard print("%s\n", message);
-  $ EXIT_SUCCESS
+  const message =  default(message_opt, "Never");
+  discard puts(message);
+  0
 }
 ```
 
@@ -110,7 +114,7 @@ fn main() s32 {
   $ cd kosu-lang
   $ gmake configure
   $ ./configure
-  $ gmake MAKE=gmake
+  $ gmake
   $ gmake install
 ```
 

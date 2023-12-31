@@ -236,7 +236,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
               | Some { kosu_type; is_const = _; identifier = _ } ->
                   kosu_type
               | None ->
-                  failwith "No identifier found"
+                  failwith @@ Printf.sprintf "No identifier found: %s" @@ id.value
             in
             typeof
       in
@@ -395,7 +395,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
               | Some { kosu_type; is_const = _; identifier = _ } ->
                   kosu_type
               | None ->
-                  failwith "No identifier found"
+                failwith @@ Printf.sprintf "No identifier found callable: %s" @@ fn_name.value
             in
             typeof
       in
