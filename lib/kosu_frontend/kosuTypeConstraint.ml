@@ -46,6 +46,14 @@ let other ty (equation : t) =
           None
     )
 
+let is_compiler_var_only_and_dif (equation : t) =
+  match (equation.cexpected, equation.cfound) with
+  | ( KosuType.Ty.TyPolymorphic (CompilerPolymorphicVar lhs),
+      KosuType.Ty.TyPolymorphic (CompilerPolymorphicVar rhs) ) ->
+      lhs <> rhs
+  | _, _ ->
+      false
+
 let substitute ty_var by (equation : t) =
   {
     equation with

@@ -496,16 +496,17 @@ module Ty = struct
             )
             assoc_types
         in
+        Option.value ~default:t assoc_type
         (* The variable needs to be bound in order to be substitutate *)
-        let is_bound = List.exists (( = ) variable) bound in
-        let ty =
-          match (assoc_type, is_bound) with
-          | Some ty, true ->
-              ty
-          | Some _, false | None, (true | false) ->
-              t
-        in
-        ty
+        (* let is_bound = List.exists (( = ) variable) bound in
+           let ty =
+             match (assoc_type, is_bound) with
+             | Some ty, true ->
+                 ty
+             | Some _, false | None, (true | false) ->
+                 t
+           in
+           ty *)
     | TyIdentifier { module_resolver; parametrics_type; name } ->
         TyIdentifier
           {
@@ -1191,11 +1192,19 @@ module Program = struct
     | TyBool ->
         None
 
-  let module_resolver_of_module kosu_module kosu_program = 
-    let filename = Option.get @@ List.find_map (fun KosuAst.{filename; kosu_module = module_target} ->
-      (* Can use == since module are unique *)
-      if module_target == kosu_module then Some filename else None
-    ) kosu_program in 
+  let module_resolver_of_module kosu_module kosu_program =
+    let filename =
+      Option.get
+      @@ List.find_map
+           (fun KosuAst.{ filename; kosu_module = module_target } ->
+             (* Can use == since module are unique *)
+             if module_target == kosu_module then
+               Some filename
+             else
+               None
+           )
+           kosu_program
+    in
     ModuleResolver.of_filename filename
 
   (**

@@ -108,21 +108,30 @@ module Duplicated = struct
 end
 
 module Type = struct
+  let rec is_cyclic_struct current_module kosu_program kosu_struct =
+    let module_res =
+      KosuUtil.Program.module_resolver_of_module current_module kosu_program
+    in
+    let _raw_struct, _ty =
+      KosuUtil.Struct.substitution_fresh ~fresh:KosuType.Ty.fresh_variable_type
+        module_res kosu_struct
+    in
+    failwith ""
 
-  let rec is_cyclic_struct current_module kosu_program kosu_struct = 
-    let module_res = KosuUtil.Program.module_resolver_of_module current_module kosu_program in
-    let (raw_struct, ty) = KosuUtil.Struct.substitution_fresh ~fresh:KosuType.Ty.fresh_variable_type module_res kosu_struct in
+  and is_cyclic_enum current_module kosu_program kosu_enum =
+    let () = ignore (current_module, kosu_program, kosu_enum) in
     failwith ""
-  and is_cyclic_enum current_module kosu_program kosu_enum = 
-    failwith ""
-  and is_cyclic current_module kosu_program type_decl =  
+
+  and is_cyclic current_module kosu_program type_decl =
     match type_decl with
-    | DStruct kosu_struct -> is_cyclic_struct current_module kosu_program kosu_struct
-    | DEnum kosu_enum -> is_cyclic_enum current_module kosu_program kosu_enum
-  and does_type_appears current_module kosu_program base target = 
-    match target with
-    | _ -> failwith ""
+    | DStruct kosu_struct ->
+        is_cyclic_struct current_module kosu_program kosu_struct
+    | DEnum kosu_enum ->
+        is_cyclic_enum current_module kosu_program kosu_enum
 
+  and does_type_appears current_module kosu_program base target =
+    let () = ignore (current_module, kosu_program, base) in
+    match target with _ -> failwith ""
 end
 
 module Common = struct
