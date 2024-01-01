@@ -114,15 +114,26 @@ module Type = struct
       raw_struct.fields
 
   and is_cyclic_enum current_module kosu_program kosu_enum =
-    let () = ignore (current_module, kosu_program, kosu_enum) in
-    failwith ""
+    let module_res =
+      KosuUtil.Program.module_resolver_of_module current_module kosu_program
+    in
+    is_cyclic_raw_enum ~visited:[] current_module kosu_program
+    @@ KosuUtil.Enum.substitution_fresh ~fresh:KosuType.Ty.fresh_variable_type
+         module_res kosu_enum
 
   and is_cyclic_raw_enum ~visited current_module kosu_program
       (raw_enum, struct_type) =
-    let () =
-      ignore (visited, current_module, kosu_program, raw_enum, struct_type)
-    in
-    failwith ""
+    List.exists
+      (fun (_, assoc_type) ->
+        List.exists
+          (fun kt ->
+            let visited = struct_type :: visited in
+            does_type_appears ~visited current_module kosu_program struct_type
+              kt
+          )
+          assoc_type
+      )
+      raw_enum.variants
   (* and is_cyclic current_module kosu_program type_decl =
      match type_decl with
      | DStruct kosu_struct ->
@@ -442,7 +453,14 @@ let validate_kosu_node kosu_program current_module = function
             @@ DStruct kosu_struct
       in
       ok
-  | NEnum _ ->
+  | NEnum enum ->
+      let* () =
+        match Type.is_cyclic_enum current_module kosu_program enum with
+        | false ->
+            Ok ()
+        | true ->
+            Result.error @@ KosuError.Raw.cyclic_type_declaration @@ DEnum enum
+      in
       ok
   | NConst const_decl ->
       let kosu_env = KosuEnv.create current_module kosu_program in
