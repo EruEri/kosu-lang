@@ -487,6 +487,40 @@ let rec resolve_field_type fields struct_type kosu_env =
       let* field_type = field_type t struct_decl_specialised in
       resolve_field_type q field_type kosu_env
 
+let constraint_solution p ty equation solutions eqs =
+  let eq_appears, _ =
+    KosuTypeConstraintSet.partition
+      (fun constr ->
+        Option.is_some
+        @@ KosuTypeConstraint.other (KosuType.Ty.TyPolymorphic p) constr
+      )
+      eqs
+  in
+  let ty_fold =
+    match try_solve_set p eq_appears with Some ty_f -> ty_f | None -> ty
+  in
+  let ty =
+    match KosuTypeConstraint.restrict ~with_ty:ty ty_fold with
+    | Some t ->
+        t
+    | None ->
+        raise @@ KosuError.Exn.typing_error
+        @@ { equation with cexpected = ty_fold; cfound = ty }
+  in
+  match KosuTypingSolution.find_opt p solutions with
+  | None ->
+      ty
+  | Some exist ->
+      let r =
+        match KosuTypeConstraint.restrict ~with_ty:ty exist with
+        | Some t ->
+            t
+        | None ->
+            raise @@ KosuError.Exn.typing_error
+            @@ { equation with cexpected = exist; cfound = ty }
+      in
+      r
+
 let rec solve solutions eqs =
   (* let () = print_endline "--------------\n" in
      let () =
@@ -503,48 +537,20 @@ let rec solve solutions eqs =
   | None ->
       solutions
   | Some equation ->
+      let () =
+        Printf.printf "Try soluting ...\nlhs = %s, rhs = %s\n\n"
+          (KosuPrint.string_of_kosu_type equation.cfound)
+          (KosuPrint.string_of_kosu_type equation.cexpected)
+      in
       let eqs = KosuTypeConstraintSet.remove equation eqs in
       let solutions, eqs =
         match KosuTypeConstraint.reduce equation.cexpected equation.cfound with
         | Some (Left (p, ty)) ->
-            let _eq_appears, _eq_others =
-              KosuTypeConstraintSet.partition
-                (fun constr ->
-                  Option.is_some
-                  @@ KosuTypeConstraint.other (KosuType.Ty.TyPolymorphic p)
-                       constr
-                )
-                eqs
-            in
-            (* let ty_fold =
-                 match try_solve_set p eq_appears with
-                 | Some ty_f ->
-                     ty_f
-                 | None ->
-                     ty
-               in
-               let ty =
-                 match KosuTypeConstraint.restrict ~with_ty:ty ty_fold with
-                 | Some t ->
-                     t
-                 | None ->
-                     raise @@ KosuError.typing_error
-                     @@ { equation with cexpected = ty_fold; cfound = ty }
-               in *)
-            let ty =
-              match KosuTypingSolution.find_opt p solutions with
-              | None ->
-                  ty
-              | Some exist ->
-                  let r =
-                    match KosuTypeConstraint.restrict ~with_ty:ty exist with
-                    | Some t ->
-                        t
-                    | None ->
-                        raise @@ KosuError.Exn.typing_error
-                        @@ { equation with cexpected = exist; cfound = ty }
-                  in
-                  r
+            let ty = constraint_solution p ty equation solutions eqs in
+            let () =
+              Printf.printf "solution = %s == %s\n\n%!"
+                (KosuPrint.string_of_polymorphic_var p)
+                (KosuPrint.string_of_kosu_type ty)
             in
             let solutions = KosuTypingSolution.add p ty solutions in
             let eqs =
@@ -552,6 +558,20 @@ let rec solve solutions eqs =
             in
             (solutions, eqs)
         | Some (Right new_constrains) ->
+            let () =
+              match new_constrains with
+              | [] ->
+                  Printf.printf "No new constraints\n"
+              | _ :: _ ->
+                  let () = Printf.printf "New constraints\n" in
+                  List.iter
+                    (fun (expect, found) ->
+                      Printf.printf "equation = %s == %s\n\n%!"
+                        (KosuPrint.string_of_kosu_type expect)
+                        (KosuPrint.string_of_kosu_type found)
+                    )
+                    new_constrains
+            in
             let new_constrains_set =
               KosuTypeConstraintSet.of_list
               @@ List.map
@@ -559,11 +579,6 @@ let rec solve solutions eqs =
                      let c =
                        KosuType.Ty.
                          { cexpected; cfound; position = equation.position }
-                     in
-                     let () =
-                       Printf.printf "l = %s, r = %s\n"
-                         (KosuPrint.string_of_kosu_type cexpected)
-                         (KosuPrint.string_of_kosu_type cfound)
                      in
                      c
                    )

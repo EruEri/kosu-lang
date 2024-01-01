@@ -229,14 +229,14 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
               | true ->
                   KosuEnv.assoc_type_opt id.value kosu_env
               | false ->
-                  failwith "Nothing found"
+                  raise @@ KosuError.Exn.unbound_identifier id
             in
             let typeof =
               match opt with
               | Some { kosu_type; is_const = _; identifier = _ } ->
                   kosu_type
               | None ->
-                  failwith "No identifier found"
+                  raise @@ KosuError.Exn.unbound_identifier id
             in
             typeof
       in
@@ -395,7 +395,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
               | Some { kosu_type; is_const = _; identifier = _ } ->
                   kosu_type
               | None ->
-                  failwith "No identifier found"
+                  raise @@ KosuError.Exn.unbound_identifier fn_name
             in
             typeof
       in

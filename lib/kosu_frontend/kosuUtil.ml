@@ -496,16 +496,17 @@ module Ty = struct
             )
             assoc_types
         in
+        Option.value ~default:t assoc_type
         (* The variable needs to be bound in order to be substitutate *)
-        let is_bound = List.exists (( = ) variable) bound in
-        let ty =
-          match (assoc_type, is_bound) with
-          | Some ty, true ->
-              ty
-          | Some _, false | None, (true | false) ->
-              t
-        in
-        ty
+        (* let is_bound = List.exists (( = ) variable) bound in
+           let ty =
+             match (assoc_type, is_bound) with
+             | Some ty, true ->
+                 ty
+             | Some _, false | None, (true | false) ->
+                 t
+           in
+           ty *)
     | TyIdentifier { module_resolver; parametrics_type; name } ->
         TyIdentifier
           {
