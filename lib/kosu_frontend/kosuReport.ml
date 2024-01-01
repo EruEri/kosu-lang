@@ -27,9 +27,9 @@ module S : KosuDiagnostic.S with type t = KosuError.kosu_error = struct
     match location with
     | position :: [] ->
         let sloc = KosuPrint.string_of_located_error { value = (); position } in
-        sfile @@ sloc ":"
+        sfile @@ sloc String.empty
     | [] | _ :: _ :: _ ->
-        sfile ":"
+        sfile String.empty
 
   let line = Printf.sprintf "%u|  "
   let error e = Option.some @@ KosuPrint.Formatted.string_of_kosu_error e

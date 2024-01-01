@@ -99,13 +99,17 @@ module Type = struct
     let module_res =
       KosuUtil.Program.module_resolver_of_module current_module kosu_program
     in
-    let raw_struct, struct_type =
-      KosuUtil.Struct.substitution_fresh ~fresh:KosuType.Ty.fresh_variable_type
-        module_res kosu_struct
-    in
+    is_cyclic_raw_struct ~visited:[] current_module kosu_program
+    @@ KosuUtil.Struct.substitution_fresh ~fresh:KosuType.Ty.fresh_variable_type
+         module_res kosu_struct
+
+  and is_cyclic_raw_struct ~visited current_module kosu_program
+      (raw_struct, struct_type) =
     List.exists
       (fun (_field, kosu_type) ->
-        does_type_appears current_module kosu_program struct_type kosu_type
+        let visited = struct_type :: visited in
+        does_type_appears ~visited current_module kosu_program struct_type
+          kosu_type
       )
       raw_struct.fields
 
@@ -113,16 +117,34 @@ module Type = struct
     let () = ignore (current_module, kosu_program, kosu_enum) in
     failwith ""
 
-  and is_cyclic current_module kosu_program type_decl =
-    match type_decl with
-    | DStruct kosu_struct ->
-        is_cyclic_struct current_module kosu_program kosu_struct
-    | DEnum kosu_enum ->
-        is_cyclic_enum current_module kosu_program kosu_enum
+  and is_cyclic_raw_enum ~visited current_module kosu_program
+      (raw_enum, struct_type) =
+    let () =
+      ignore (visited, current_module, kosu_program, raw_enum, struct_type)
+    in
+    failwith ""
+  (* and is_cyclic current_module kosu_program type_decl =
+     match type_decl with
+     | DStruct kosu_struct ->
+         is_cyclic_struct current_module kosu_program kosu_struct
+     | DEnum kosu_enum ->
+         is_cyclic_enum current_module kosu_program kosu_enum *)
 
-  and does_type_appears current_module kosu_program base target =
+  and does_type_appears ~visited current_module kosu_program base target =
+    let () =
+      Printf.eprintf "Visited = [%s]\n"
+      @@ String.concat ", "
+      @@ List.map KosuPrint.string_of_kosu_type visited
+    in
+    let () =
+      Printf.eprintf "base = %s\ntarget = %s\n"
+        (KosuPrint.string_of_kosu_type base)
+        (KosuPrint.string_of_kosu_type target)
+    in
+    List.mem target visited
+    ||
     match target with
-    | TyIdentifier { module_resolver; parametrics_type = _; name } ->
+    | TyIdentifier { module_resolver; parametrics_type; name } ->
         let eq_type =
           match base with
           | TyIdentifier
@@ -146,11 +168,32 @@ module Type = struct
           | Some (_ :: _) ->
               failwith "Multiple type declaration"
         in
-        eq_type || is_cyclic current_module kosu_program type_decl
+        let ic () =
+          match type_decl with
+          | DStruct struct_decl ->
+              let raw_decl_x_type =
+                Option.get
+                @@ KosuUtil.Struct.substitution module_resolver parametrics_type
+                     struct_decl
+              in
+              is_cyclic_raw_struct ~visited current_module kosu_program
+                raw_decl_x_type
+          | DEnum enum_decl ->
+              let raw_decl_x_type =
+                Option.get
+                @@ KosuUtil.Enum.substitution module_resolver parametrics_type
+                     enum_decl
+              in
+              is_cyclic_raw_enum ~visited current_module kosu_program
+                raw_decl_x_type
+        in
+        eq_type || ic ()
     | TyTuple types ->
-        List.exists (does_type_appears current_module kosu_program base) types
+        List.exists
+          (does_type_appears ~visited current_module kosu_program base)
+          types
     | TyArray { ktype; size = _ } ->
-        does_type_appears current_module kosu_program base ktype
+        does_type_appears ~visited current_module kosu_program base ktype
     | TyPolymorphic _
     | TyPointer _
     | TyInteger _
