@@ -79,6 +79,7 @@ type kosu_error =
       lhs : string Position.location;
       rhs : string Position.location;
     }
+  | CyclicTypeDeclaration of KosuAst.kosu_type_decl
   | TypeDeclarationNotFound of KosuType.TyLoc.kosu_loctype Position.location
 
 exception KosuRawErr of kosu_error
@@ -123,6 +124,8 @@ module Raw = struct
 
   let duplicated_fiels type_name lhs rhs =
     DuplicatedFieldName { type_name; rhs; lhs }
+
+  let cyclic_type_declaration e = CyclicTypeDeclaration e
 end
 
 module Exn = struct
@@ -183,6 +186,9 @@ module Exn = struct
 
   let duplicated_param_name function_location lhs rhs =
     kosu_raw_error @@ Raw.duplicated_param_name function_location lhs rhs
+
+  let cyclic_type_declaration e =
+    kosu_raw_error @@ Raw.cyclic_type_declaration e
 end
 
 module Function = struct
@@ -223,6 +229,15 @@ module Function = struct
     | TypeDeclarationNotFound { value = _; position }
     | TypingError { position; _ } ->
         position :: []
+    | CyclicTypeDeclaration s ->
+        let p =
+          match s with
+          | DEnum { enum_name; _ } ->
+              enum_name.position
+          | DStruct { struct_name; _ } ->
+              struct_name.position
+        in
+        [ p ]
     | PatternAlreadyBoundIdentifier patterns
     | PatternIdentifierNotBoundEveryTime patterns ->
         List.map Position.position patterns

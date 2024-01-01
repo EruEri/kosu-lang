@@ -92,37 +92,79 @@ module Duplicated = struct
           None
     | NConst _ | NEnum _ | NOpaque _ | NStruct _ ->
         None
-
-  (* let kosu_type kosu_module =
-     let names = types_name kosu_module in
-     Util.Ulist.fold_ok
-       (fun () name ->
-         match kosu_type name kosu_module with
-         | [] | _ :: [] ->
-             Ok ()
-         | list ->
-             Result.error @@ KosuError.Raw.conflicting_type_declaration list
-       )
-       ()
-       (List.map Position.value names) *)
 end
 
 module Type = struct
+  let rec is_cyclic_struct current_module kosu_program kosu_struct =
+    let module_res =
+      KosuUtil.Program.module_resolver_of_module current_module kosu_program
+    in
+    let raw_struct, struct_type =
+      KosuUtil.Struct.substitution_fresh ~fresh:KosuType.Ty.fresh_variable_type
+        module_res kosu_struct
+    in
+    List.exists
+      (fun (_field, kosu_type) ->
+        does_type_appears current_module kosu_program struct_type kosu_type
+      )
+      raw_struct.fields
 
-  let rec is_cyclic_struct current_module kosu_program kosu_struct = 
-    let module_res = KosuUtil.Program.module_resolver_of_module current_module kosu_program in
-    let (raw_struct, ty) = KosuUtil.Struct.substitution_fresh ~fresh:KosuType.Ty.fresh_variable_type module_res kosu_struct in
+  and is_cyclic_enum current_module kosu_program kosu_enum =
+    let () = ignore (current_module, kosu_program, kosu_enum) in
     failwith ""
-  and is_cyclic_enum current_module kosu_program kosu_enum = 
-    failwith ""
-  and is_cyclic current_module kosu_program type_decl =  
+
+  and is_cyclic current_module kosu_program type_decl =
     match type_decl with
-    | DStruct kosu_struct -> is_cyclic_struct current_module kosu_program kosu_struct
-    | DEnum kosu_enum -> is_cyclic_enum current_module kosu_program kosu_enum
-  and does_type_appears current_module kosu_program base target = 
-    match target with
-    | _ -> failwith ""
+    | DStruct kosu_struct ->
+        is_cyclic_struct current_module kosu_program kosu_struct
+    | DEnum kosu_enum ->
+        is_cyclic_enum current_module kosu_program kosu_enum
 
+  and does_type_appears current_module kosu_program base target =
+    match target with
+    | TyIdentifier { module_resolver; parametrics_type = _; name } ->
+        let eq_type =
+          match base with
+          | TyIdentifier
+              { module_resolver = bmr; parametrics_type = _bpt; name = bname }
+            ->
+              module_resolver = bmr && bname = name
+          | _ ->
+              false
+        in
+        let type_decl =
+          KosuUtil.Program.type_decl ~current_module target kosu_program
+        in
+        let type_decl =
+          match type_decl with
+          | None ->
+              failwith "To type decl"
+          | Some [] ->
+              failwith "No type decl"
+          | Some (t :: []) ->
+              t
+          | Some (_ :: _) ->
+              failwith "Multiple type declaration"
+        in
+        eq_type || is_cyclic current_module kosu_program type_decl
+    | TyTuple types ->
+        List.exists (does_type_appears current_module kosu_program base) types
+    | TyArray { ktype; size = _ } ->
+        does_type_appears current_module kosu_program base ktype
+    | TyPolymorphic _
+    | TyPointer _
+    | TyInteger _
+    | TyFloat _
+    | TyFunctionPtr _
+    | TyClosure _
+    | TyInnerClosureId _
+    | TyOpaque _
+    | TyOrdered
+    | TyStringLit
+    | TyChar
+    | TyBool
+    | TyUnit ->
+        false
 end
 
 module Common = struct
@@ -347,6 +389,15 @@ let validate_kosu_node kosu_program current_module = function
       in
 
       let* () = Struct.check_duplicated_fields kosu_struct in
+
+      let* () =
+        match Type.is_cyclic_struct current_module kosu_program kosu_struct with
+        | false ->
+            Ok ()
+        | true ->
+            Result.error @@ KosuError.Raw.cyclic_type_declaration
+            @@ DStruct kosu_struct
+      in
       ok
   | NEnum _ ->
       ok

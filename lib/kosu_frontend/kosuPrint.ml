@@ -405,6 +405,17 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       @@ sprintf "Cannot find type \"%s\""
       @@ string_of_kosu_type
       @@ KosuUtil.Ty.of_tyloc' kosu_type
+  | CyclicTypeDeclaration type_decl ->
+      let string_kind, name =
+        match type_decl with
+        | DEnum { enum_name; _ } ->
+            ("enum", enum_name)
+        | DStruct { struct_name; _ } ->
+            ("struct", struct_name)
+      in
+      let sloc = string_of_located_error name in
+      sfile @@ sloc
+      @@ sprintf "%s \"%s\" has a cyclic declaration" string_kind name.value
 
 module Formatted = struct
   let string_of_kosu_lexer_error : KosuError.kosu_lexer_error -> string =
@@ -515,4 +526,12 @@ module Formatted = struct
     | TypeDeclarationNotFound kosu_type ->
         sprintf "Cannot find type \"%s\""
         @@ string_of_kosu_type (KosuUtil.Ty.of_tyloc' kosu_type)
+    | CyclicTypeDeclaration s -> (
+        match s with
+        | DEnum { enum_name; _ } ->
+            sprintf "enum \"%s\" has a cyclic declaration" @@ enum_name.value
+        | DStruct { struct_name; _ } ->
+            sprintf "struct \"%s\" has a cyclic declaration"
+            @@ struct_name.value
+      )
 end

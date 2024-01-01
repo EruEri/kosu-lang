@@ -1162,7 +1162,7 @@ module Program = struct
     [`enum`] or [`struct`] for the type [kosu_type] in [kosu_program]
     return [None] if [kosu_type] is not a [TyIdentifier]
   *)
-  let type_decl kosu_type ~current_module kosu_program =
+  let type_decl ~current_module kosu_type kosu_program =
     let open KosuType in
     match kosu_type with
     | Ty.TyIdentifier { module_resolver; parametrics_type = _; name } ->
@@ -1191,11 +1191,19 @@ module Program = struct
     | TyBool ->
         None
 
-  let module_resolver_of_module kosu_module kosu_program = 
-    let filename = Option.get @@ List.find_map (fun KosuAst.{filename; kosu_module = module_target} ->
-      (* Can use == since module are unique *)
-      if module_target == kosu_module then Some filename else None
-    ) kosu_program in 
+  let module_resolver_of_module kosu_module kosu_program =
+    let filename =
+      Option.get
+      @@ List.find_map
+           (fun KosuAst.{ filename; kosu_module = module_target } ->
+             (* Can use == since module are unique *)
+             if module_target == kosu_module then
+               Some filename
+             else
+               None
+           )
+           kosu_program
+    in
     ModuleResolver.of_filename filename
 
   (**
