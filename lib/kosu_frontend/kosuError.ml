@@ -79,6 +79,11 @@ type kosu_error =
       lhs : string Position.location;
       rhs : string Position.location;
     }
+  | DuplicatedEnumVariant of {
+      enum_name : string Position.location;
+      lhs : string Position.location;
+      rhs : string Position.location;
+    }
   | CyclicTypeDeclaration of KosuAst.kosu_type_decl
   | TypeDeclarationNotFound of KosuType.TyLoc.kosu_loctype Position.location
 
@@ -124,6 +129,9 @@ module Raw = struct
 
   let duplicated_fiels type_name lhs rhs =
     DuplicatedFieldName { type_name; rhs; lhs }
+
+  let duplicated_variants enum_name lhs rhs =
+    DuplicatedEnumVariant { enum_name; rhs; lhs }
 
   let cyclic_type_declaration e = CyclicTypeDeclaration e
 end
@@ -186,6 +194,9 @@ module Exn = struct
 
   let duplicated_param_name function_location lhs rhs =
     kosu_raw_error @@ Raw.duplicated_param_name function_location lhs rhs
+
+  let duplicated_enum_name enum_name lhs rhs =
+    kosu_raw_error @@ Raw.duplicated_variants enum_name lhs rhs
 
   let cyclic_type_declaration e =
     kosu_raw_error @@ Raw.cyclic_type_declaration e
@@ -255,6 +266,7 @@ module Function = struct
         List.map
           (fun (KosuType.TyLoc.PolymorphicVarLoc s) -> Position.position s)
           vars
+    | DuplicatedEnumVariant { rhs; lhs; _ }
     | DuplicatedParametersName { rhs; lhs; _ }
     | DuplicatedFieldName { lhs; rhs; _ } ->
         [ rhs.position; lhs.position ]

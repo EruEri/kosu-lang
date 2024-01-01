@@ -392,6 +392,13 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       sfile @@ sloc
       @@ sprintf "function \"%s\" duplicated paramater identifier\n\t%s\n\t%s"
            function_location.value lhs rhs
+  | DuplicatedEnumVariant { enum_name; lhs; rhs } ->
+      let lhs = string_of_located_error lhs @@ lhs.value in
+      let rhs = string_of_located_error rhs @@ rhs.value in
+      let sloc = string_of_located_error enum_name in
+      sfile @@ sloc
+      @@ sprintf "enum \"%s\" duplicated variant identifier\n\t%s\n\t%s"
+           enum_name.value lhs rhs
   | DuplicatedFieldName { type_name; lhs; rhs } ->
       let lhs = string_of_located_error lhs @@ lhs.value in
       let rhs = string_of_located_error rhs @@ rhs.value in
@@ -522,7 +529,9 @@ module Formatted = struct
     | DuplicatedParametersName { function_location = _; lhs = _; rhs = _ } ->
         sprintf "Duplicated paramater identifiers"
     | DuplicatedFieldName { type_name = _; lhs = _; rhs = _ } ->
-        sprintf "Duplicated paramater identifiers"
+        sprintf "Duplicated field identifiers"
+    | DuplicatedEnumVariant { enum_name = _; lhs = _; rhs = _ } ->
+        sprintf "Duplicated variant identifiers"
     | TypeDeclarationNotFound kosu_type ->
         sprintf "Cannot find type \"%s\""
         @@ string_of_kosu_type (KosuUtil.Ty.of_tyloc' kosu_type)

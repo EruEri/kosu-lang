@@ -398,6 +398,42 @@ module Struct = struct
          StringLoc.empty kosu_struct_decl.fields
 end
 
+module Enum = struct
+  let check_type_existence current_module kosu_program
+      (kosu_enum_decl : KosuAst.kosu_enum_decl) =
+    Util.Ulist.fold_ok
+      (fun () (_, assoc_types) ->
+        Util.Ulist.fold_ok
+          (fun () -> Common.check_type_existence current_module kosu_program)
+          () assoc_types
+      )
+      () kosu_enum_decl.variants
+
+  let check_type_duplicated current_module
+      (kosu_enum_decl : KosuAst.kosu_enum_decl) =
+    match
+      Duplicated.kosu_type kosu_enum_decl.enum_name.value current_module
+    with
+    | [] | _ :: [] ->
+        ok
+    | _ :: _ :: _ as list ->
+        err @@ KosuError.Raw.conflicting_type_declaration list
+
+  let check_duplicated_variant (kosu_enum_decl : KosuAst.kosu_enum_decl) =
+    Result.map (fun _ -> ())
+    @@ Util.Ulist.fold_ok
+         (fun set (name, _) ->
+           match StringLoc.find_opt name set with
+           | None ->
+               Result.ok @@ StringLoc.add name set
+           | Some exist ->
+               err
+               @@ KosuError.Raw.duplicated_fiels kosu_enum_decl.enum_name exist
+                    name
+         )
+         StringLoc.empty kosu_enum_decl.variants
+end
+
 let validate_kosu_node kosu_program current_module = function
   | NOpaque _ ->
       ok
@@ -454,6 +490,12 @@ let validate_kosu_node kosu_program current_module = function
       in
       ok
   | NEnum enum ->
+      let* () = Enum.check_type_existence current_module kosu_program enum in
+
+      let* () = Enum.check_type_duplicated current_module enum in
+
+      let* () = Enum.check_duplicated_variant enum in
+
       let* () =
         match Type.is_cyclic_enum current_module kosu_program enum with
         | false ->
