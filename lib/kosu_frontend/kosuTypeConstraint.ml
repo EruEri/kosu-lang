@@ -259,10 +259,17 @@ let reduce lhs rhs =
     some @@ right @@ []
   else
     match (lhs, rhs) with
-    | TyPolymorphic ((PolymorphicVar _ | CompilerPolymorphicVar _) as p), ty
-    | ty, TyPolymorphic ((PolymorphicVar _ | CompilerPolymorphicVar _) as p) ->
-        (* Should check if p appears in ty*)
+    | TyPolymorphic (CompilerPolymorphicVar _ as p), ty
+    | ty, TyPolymorphic (CompilerPolymorphicVar _ as p) ->
         some @@ left (p, ty)
+    | (TyPolymorphic (PolymorphicVar _) as p), ty
+    | ty, (TyPolymorphic (PolymorphicVar _) as p) ->
+        (* If it 'a . 'a : *)
+        (* It can only equal to self *)
+        if p = ty then
+          some @@ right @@ []
+        else
+          None
     | ( TyIdentifier
           { module_resolver = lmr; parametrics_type = lpt; name = lname },
         TyIdentifier
