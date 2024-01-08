@@ -60,6 +60,8 @@
 %token DOUBLECOLON COLON
 %token EOF
 
+
+%right MINUS_SUP
 %left INFIX_PIPE PIPE_SUP
 %left INFIX_AMPERSAND
 %left PIPE
@@ -280,7 +282,7 @@ kosu_function_decl:
     | FUNCTION 
         poly_vars=loption(terminated(separated_nonempty_list(COMMA, loc_poly_vars), DOT))
         fn_name=loc_var_identifier
-        parameters=parenthesis(separated_list(COMMA, kosu_function_parameters))
+        parameters=parenthesis(separated_list(COMMA, kosu_function_parameter))
         return_type=located(kosu_type)
         body=kosu_function_block 
         {
@@ -294,13 +296,29 @@ kosu_function_decl:
         }
 
 
-%inline kosu_function_parameters:
+%inline kosu_function_parameter:
     | is_var=boption(VAR) name=loc_var_identifier COLON kosu_type=located(kosu_type) {
         {
             is_var;
             name;
             kosu_type
         }
+    }
+
+%inline kosu_anon_parameter:
+    | ais_var=boption(VAR) aname=loc_var_identifier COLON akosu_type=option(located(kosu_type)) {
+        {
+            ais_var;
+            aname;
+            akosu_type
+        }
+    }
+
+%inline kosu_anon_parameters:
+    | parenthesis(separated_list(COMMA, kosu_anon_parameter)) 
+    | separated_list(COMMA, kosu_anon_parameter) 
+    {
+        $1
     }
 
 kosu_function_block:
@@ -425,11 +443,11 @@ kosu_expression:
     | first_expr=located(kosu_expression) PIPE_SUP kosu_function_call {
         let module_resolver, fn_name, generics_resolver, parameters = $3 in
         let parameters = first_expr :: parameters in
-                EFunctionCall {
-            module_resolver;
-            generics_resolver;
-            fn_name;
-            parameters
+            EFunctionCall {
+                module_resolver;
+                generics_resolver;
+                fn_name;
+                parameters
         }
     }
     | first_expr=located(kosu_expression) DOT field=located(Identifier) {
@@ -522,9 +540,9 @@ kosu_expression:
         }
     }
     | kind=anon_function_kind 
-        parameters=separated_list(COMMA, kosu_function_parameters)
+        parameters=kosu_anon_parameters
         MINUS_SUP
-        body=kosu_block {
+        body=located(kosu_expression) {
             EAnonFunction {
                 kind;
                 parameters;

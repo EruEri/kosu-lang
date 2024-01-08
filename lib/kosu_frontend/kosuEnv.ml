@@ -536,17 +536,17 @@ let constraint_solution p ty equation solutions eqs =
       r
 
 let rec solve solutions eqs =
-  let () = print_endline "--------------Constraint\n" in
-  let () =
-    KosuTypeConstraintSet.iter
-      (fun { cexpected; cfound; _ } ->
-        Printf.printf "equation : %s == %s\n%!"
-          (KosuPrint.string_of_kosu_type cexpected)
-          (KosuPrint.string_of_kosu_type cfound)
-      )
-      eqs
-  in
-  let () = print_endline "--------------\n" in
+  (* let () = print_endline "--------------Constraint\n" in
+     let () =
+       KosuTypeConstraintSet.iter
+         (fun { cexpected; cfound; _ } ->
+           Printf.printf "equation : %s == %s\n%!"
+             (KosuPrint.string_of_kosu_type cexpected)
+             (KosuPrint.string_of_kosu_type cfound)
+         )
+         eqs
+     in
+     let () = print_endline "--------------\n" in *)
   match KosuTypeConstraintSet.choose_opt eqs with
   | None ->
       solutions

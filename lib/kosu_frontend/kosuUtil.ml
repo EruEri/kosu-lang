@@ -866,15 +866,17 @@ module Expression = struct
     | EAnonFunction { kind; parameters; body } ->
         let parameters =
           List.map
-            (fun (p : KosuAst.kosu_function_parameters) ->
-              let kosu_type =
-                TyLoc.explicit_module_type' current_module p.kosu_type
+            (fun (p : KosuAst.kosu_anon_parameters) ->
+              let akosu_type =
+                Option.map
+                  (TyLoc.explicit_module_type' current_module)
+                  p.akosu_type
               in
-              { p with kosu_type }
+              { p with akosu_type }
             )
             parameters
         in
-        let body = explicit_module_type_block current_module body in
+        let body = explicit_module_type' current_module body in
         EAnonFunction { kind; parameters; body }
     | EMatch { expression; patterns } ->
         let expression = explicit_module_type' current_module expression in

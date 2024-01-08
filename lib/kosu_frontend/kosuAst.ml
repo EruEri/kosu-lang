@@ -28,6 +28,12 @@ type kosu_function_parameters = {
   kosu_type : TyLoc.kosu_loctype location;
 }
 
+type kosu_anon_parameters = {
+  ais_var : bool;
+  aname : string location;
+  akosu_type : TyLoc.kosu_loctype location option;
+}
+
 type kosu_anon_function_kind = KAClosure | KAFunctionPointer
 
 type kosu_statement =
@@ -144,8 +150,8 @@ and kosu_expression =
     }
   | EAnonFunction of {
       kind : kosu_anon_function_kind;
-      parameters : kosu_function_parameters list;
-      body : kosu_block;
+      parameters : kosu_anon_parameters list;
+      body : kosu_expression location;
     }
 
 and kosu_block = {
