@@ -315,7 +315,6 @@ module Ty = struct
     | TyStringLit
     | TyUnit
     | TyPointer _
-    | TyInnerClosureId _
     | TyArray _
     | TyTuple _
     | TyBool ->
@@ -335,7 +334,6 @@ module Ty = struct
     | TyStringLit
     | TyUnit
     | TyPointer _
-    | TyInnerClosureId _
     | TyArray _
     | TyTuple _
     | TyBool ->
@@ -344,13 +342,10 @@ module Ty = struct
   let rec contains_polymorphic : KosuType.Ty.kosu_type -> bool = function
     | TyPolymorphic _ ->
         true
-    | TyFunctionPtr schema
-    | TyClosure schema
-    (* Should captured variabe be in the compuation ? *)
-    | TyInnerClosureId (ClosureType { id = _; env = _; schema }) ->
-        let lhs = List.exists contains_polymorphic schema.parameters_type in
+    | TyFunctionPtr schema | TyClosure schema ->
+        let lhs () = List.exists contains_polymorphic schema.parameters_type in
         let rhs = contains_polymorphic schema.return_type in
-        lhs || rhs
+        rhs || lhs ()
     | TyIdentifier { parametrics_type = tys; module_resolver = _; name = _ }
     | TyTuple tys ->
         List.exists contains_polymorphic tys
@@ -381,7 +376,6 @@ module Ty = struct
     | TyStringLit
     | TyUnit
     | TyPointer _
-    | TyInnerClosureId _
     | TyArray _
     | TyTuple _
     | TyBool ->
@@ -406,7 +400,6 @@ module Ty = struct
     | TyStringLit
     | TyUnit
     | TyPointer _
-    | TyInnerClosureId _
     | TyArray _
     | TyTuple _
     | TyBool ->
@@ -524,9 +517,6 @@ module Ty = struct
     | TyPointer { pointer_state; pointee_type } ->
         let pointee_type = ty_substitution bound assoc_types pointee_type in
         TyPointer { pointer_state; pointee_type }
-    | TyInnerClosureId (ClosureType { id = _; schema = _; env = _ } as ct) ->
-        let closure_type = ty_substitution_closure_type assoc_types ct in
-        TyInnerClosureId closure_type
     | TyArray { ktype; size } ->
         let ktype = ty_substitution bound assoc_types ktype in
         TyArray { ktype; size }
@@ -552,35 +542,33 @@ module Ty = struct
         let return_type = ty_substitution bound assoc_type return_type in
         { e with parameters_type; return_type }
 
-  and ty_substitution_closure_type assoc_type = function
-    | ClosureType
-        ( {
-            id = _;
-            schema = { poly_vars; parameters_type; return_type } as aschema;
-            env;
-          } as e
-        ) ->
-        let bound = poly_vars in
-        let parameters_type =
-          List.map (ty_substitution bound assoc_type) parameters_type
-        in
-        let return_type = ty_substitution bound assoc_type return_type in
-        let schema = { aschema with parameters_type; return_type } in
-        let env =
-          List.map
-            (fun (name, ty) ->
-              let ty = ty_substitution bound assoc_type ty in
-              (name, ty)
-            )
-            env
-        in
-        ClosureType { e with schema; env }
+  (* and ty_substitution_closure_type assoc_type = function
+     | ClosureType
+         ( {
+             id = _;
+             schema = { poly_vars; parameters_type; return_type } as aschema;
+             env;
+           } as e
+         ) ->
+         let bound = poly_vars in
+         let parameters_type =
+           List.map (ty_substitution bound assoc_type) parameters_type
+         in
+         let return_type = ty_substitution bound assoc_type return_type in
+         let schema = { aschema with parameters_type; return_type } in
+         let env =
+           List.map
+             (fun (name, ty) ->
+               let ty = ty_substitution bound assoc_type ty in
+               (name, ty)
+             )
+             env
+         in
+         ClosureType { e with schema; env } *)
 
   let return_type : KosuType.Ty.kosu_type -> KosuType.Ty.kosu_type option =
     function
-    | TyFunctionPtr schema
-    | TyClosure schema
-    | TyInnerClosureId (ClosureType { schema; _ }) ->
+    | TyFunctionPtr schema | TyClosure schema ->
         Some schema.return_type
     | TyOrdered
     | TyStringLit
@@ -1186,7 +1174,6 @@ module Program = struct
     | TyStringLit
     | TyUnit
     | TyPointer _
-    | TyInnerClosureId _
     | TyArray _
     | TyTuple _
     | TyBool ->

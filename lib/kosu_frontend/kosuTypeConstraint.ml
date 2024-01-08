@@ -193,12 +193,6 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
       return @@ TyClosure { poly_vars; parameters_type; return_type }
   | TyClosure _, _ ->
       None
-  | TyInnerClosureId linner, TyInnerClosureId rinner ->
-      (* How to handle id ... *)
-      let () = ignore (linner, rinner) in
-      failwith ""
-  | TyInnerClosureId _, _ ->
-      None
   | ( TyArray { ktype = ltype; size = lsize },
       TyArray { ktype = rtype; size = rsize } ) ->
       let* size =
@@ -334,12 +328,6 @@ let reduce lhs rhs =
         let fn_constrains = (lrt, rrt) :: param_constraints in
         some @@ right fn_constrains
     | (TyFunctionPtr _ | TyClosure _), _ ->
-        None
-    | TyInnerClosureId linner, TyInnerClosureId rinner ->
-        (* How to handle id ... *)
-        let () = ignore (linner, rinner) in
-        failwith ""
-    | TyInnerClosureId _, _ ->
         None
     | ( TyArray { ktype = ltype; size = lsize },
         TyArray { ktype = rtype; size = rsize } ) ->

@@ -89,7 +89,7 @@ module Ty = struct
     (* This closure type is used by the user in function signature*)
     | TyClosure of kosu_function_schema
     (* Used by the typecker to give an unique id to the closure *)
-    | TyInnerClosureId of kosu_inner_closure_type
+    (* | TyInnerClosureId of kosu_inner_closure_type *)
     | TyArray of { ktype : kosu_type; size : int64 }
     | TyTuple of kosu_type list
     | TyOpaque of { module_resolver : module_resolver; name : string }

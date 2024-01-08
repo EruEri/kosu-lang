@@ -211,7 +211,6 @@ module Type = struct
     | TyFloat _
     | TyFunctionPtr _
     | TyClosure _
-    | TyInnerClosureId _
     | TyOpaque _
     | TyOrdered
     | TyStringLit

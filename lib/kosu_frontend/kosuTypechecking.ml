@@ -370,9 +370,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
 
       let schema, _ =
         match t with
-        | ( TyFunctionPtr schema
-          | TyClosure schema
-          | TyInnerClosureId (ClosureType { schema; _ }) ) as ty ->
+        | (TyFunctionPtr schema | TyClosure schema) as ty ->
             (schema, ty)
         | TyOrdered
         | TyStringLit

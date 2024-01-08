@@ -195,9 +195,7 @@ let rec free_ty_variable acc ty kosu_env =
       in
       acc
   | TyFunctionPtr schema
-  | TyClosure schema
-  (* Should captured variabe be in the compuation ? *)
-  | TyInnerClosureId (ClosureType { id = _; env = _; schema }) ->
+  | TyClosure schema (* Should captured variabe be in the compuation ? *) ->
       let kosu_env = add_bound_poly_vars schema.poly_vars kosu_env in
 
       let acc =
@@ -322,7 +320,6 @@ let find_struct_declaration_type (ty : KosuType.Ty.kosu_type) kosu_env =
   | TyFloat _
   | TyFunctionPtr _
   | TyClosure _
-  | TyInnerClosureId _
   | TyArray _
   | TyTuple _
   | TyOpaque _

@@ -118,8 +118,6 @@ let rec string_of_kosu_type : KosuType.Ty.kosu_type -> string = function
       sprintf "fn %s" @@ string_of_schema schema
   | TyClosure schema ->
       sprintf "closure %s" @@ string_of_schema schema
-  | TyInnerClosureId closure_type ->
-      string_of_closure_type closure_type
   | TyArray { ktype; size } ->
       sprintf "array(%s : %Lu)" (string_of_kosu_type ktype) size
   | TyTuple ttes ->
@@ -144,17 +142,17 @@ and string_of_polymorphic_var = function
   | CompilerPolymorphicVar s ->
       Printf.sprintf "''%s" s
 
-and string_of_closure_type = function
-  | ClosureType { id; schema; env } ->
-      let schema = string_of_schema schema in
-      let senv =
-        env
-        |> List.map (fun (s, ty) ->
-               sprintf "%s : %s" s @@ string_of_kosu_type ty
-           )
-        |> String.concat ", "
-      in
-      sprintf "%s : %s with { %s }" id schema senv
+(* and string_of_closure_type = function
+   | ClosureType { id; schema; env } ->
+       let schema = string_of_schema schema in
+       let senv =
+         env
+         |> List.map (fun (s, ty) ->
+                sprintf "%s : %s" s @@ string_of_kosu_type ty
+            )
+         |> String.concat ", "
+       in
+       sprintf "%s : %s with { %s }" id schema senv *)
 
 and string_of_schema = function
   | { poly_vars; parameters_type; return_type } ->
