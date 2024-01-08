@@ -419,6 +419,74 @@ module Ty = struct
     | Some lhs, Some rhs ->
         lhs = rhs
 
+  let to_quantified_ty_vars = function
+    | Ty.CompilerPolymorphicVar s ->
+        Ty.PolymorphicVar s
+    | Ty.PolymorphicVar _ as e ->
+        e
+
+  let rec generalize : Ty.kosu_type -> Ty.kosu_type = function
+    | TyPolymorphic p ->
+        TyPolymorphic (to_quantified_ty_vars p)
+    | TyFunctionPtr schema ->
+        let return_type = generalize schema.return_type in
+        let parameters_type = List.map generalize schema.parameters_type in
+        let poly_vars = schema.poly_vars in
+        TyFunctionPtr { return_type; poly_vars; parameters_type }
+    | TyClosure schema ->
+        let return_type = generalize schema.return_type in
+        let parameters_type = List.map generalize schema.parameters_type in
+        let poly_vars = schema.poly_vars in
+        TyClosure { return_type; poly_vars; parameters_type }
+    | TyPointer { pointee_type; pointer_state } ->
+        let pointee_type = generalize pointee_type in
+        TyPointer { pointee_type; pointer_state }
+    | TyArray { size; ktype } ->
+        let ktype = generalize ktype in
+        TyArray { size; ktype }
+    | TyTuple ttys ->
+        TyTuple (List.map generalize ttys)
+    | ( TyIdentifier _
+      | TyInteger _
+      | TyOpaque _
+      | TyFloat _
+      | TyOrdered
+      | TyChar
+      | TyStringLit
+      | TyUnit
+      | TyBool ) as t ->
+        t
+
+  let rec quantified_ty_vars bound acc ty =
+    let open Ty in
+    match ty with
+    | Ty.TyPolymorphic variable ->
+        if List.mem variable bound then
+          acc
+        else
+          KosuTypeVariableSet.add variable acc
+    | TyTuple ttes
+    | TyIdentifier { module_resolver = _; parametrics_type = ttes; name = _ } ->
+        List.fold_left (quantified_ty_vars bound) acc ttes
+    | TyFunctionPtr schema | TyClosure schema ->
+        let bound = schema.poly_vars @ bound in
+        let acc =
+          List.fold_left (quantified_ty_vars bound) acc schema.parameters_type
+        in
+        quantified_ty_vars bound acc schema.return_type
+    | TyPointer { pointer_state = _; pointee_type = ty }
+    | TyArray { ktype = ty; size = _ } ->
+        quantified_ty_vars bound acc ty
+    | TyBool
+    | TyUnit
+    | TyFloat _
+    | TyOrdered
+    | TyChar
+    | TyStringLit
+    | TyOpaque { module_resolver = _; name = _ }
+    | TyInteger _ ->
+        acc
+
   let rec of_tyloc' tyloc = of_tyloc @@ value tyloc
 
   and of_tyloc : KosuType.TyLoc.kosu_loctype -> KosuType.Ty.kosu_type = function

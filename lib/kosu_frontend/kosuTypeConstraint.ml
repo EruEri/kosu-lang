@@ -61,14 +61,6 @@ let other ty (equation : t) =
           None
     )
 
-let is_compiler_var_only_and_dif (equation : t) =
-  match (equation.cexpected, equation.cfound) with
-  | ( KosuType.Ty.TyPolymorphic (CompilerPolymorphicVar lhs),
-      KosuType.Ty.TyPolymorphic (CompilerPolymorphicVar rhs) ) ->
-      lhs <> rhs
-  | _, _ ->
-      false
-
 let substitute ty_var by (equation : t) =
   {
     equation with
@@ -364,3 +356,25 @@ let reduce lhs rhs =
     | ((TyStringLit | TyOrdered | TyChar | TyBool | TyUnit) as l), r ->
         let res = match l = r with true -> some @@ right [] | false -> None in
         res
+
+let to_schema solution parameters return_type =
+  let module KTS = KosuTypingSolution in
+  let map_type t =
+    match t with
+    | KosuType.Ty.TyPolymorphic p ->
+        KosuUtil.Ty.generalize @@ Option.value ~default:t
+        @@ KTS.find_opt p solution
+    | t ->
+        t
+  in
+  let parameters_type = List.map map_type parameters in
+  let return_type = map_type return_type in
+  let poly_vars =
+    KosuUtil.Ty.quantified_ty_vars [] KosuUtil.KosuTypeVariableSet.empty
+      return_type
+  in
+  let poly_vars =
+    List.fold_left (KosuUtil.Ty.quantified_ty_vars []) poly_vars parameters_type
+  in
+  let poly_vars = KosuUtil.KosuTypeVariableSet.elements poly_vars in
+  KosuType.Ty.{ poly_vars; return_type; parameters_type }

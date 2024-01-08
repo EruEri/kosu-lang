@@ -19,32 +19,35 @@ module KosuTypeConstraint = KosuTypeConstraint
 module KosuTypeConstraintSet = Set.Make (KosuTypeConstraint)
 module KosuTypeVariableSet = KosuUtil.KosuTypeVariableSet
 
-module KosuVariableInfo = struct
-  type kosu_variable_info = {
-    is_const : bool;
-    identifier : string Position.location;
-    kosu_type : KosuType.Ty.kosu_type;
-  }
-
-  type t = kosu_variable_info
+module KosuEnvVars = Map.Make (struct
+  type t = string Position.location
 
   (*
      This compare is only use in [merge_variable_disjoint]
      which difference variable only by there identifier
   *)
-  let compare (lhs : t) (rhs : t) =
-    String.compare lhs.identifier.value rhs.identifier.value
-end
+  let compare (lhs : t) (rhs : t) = String.compare lhs.value rhs.value
+end)
 
-module KosuVariableInfoSet = Set.Make (KosuVariableInfo)
 module KosuTypingSolution = KosuTypeConstraint.KosuTypingSolution
 
-type kyo_tying_env = KosuVariableInfo.t list
+type kosu_variable_info_min = {
+  mis_const : bool;
+  mkosu_type : KosuType.Ty.kosu_type;
+}
+
+type kosu_variable_info = {
+  is_const : bool;
+  identifier : string Position.location;
+  kosu_type : KosuType.Ty.kosu_type;
+}
+
+type kosu_tying_env = kosu_variable_info_min KosuEnvVars.t
 
 type kosu_env = {
   program : KosuAst.kosu_program;
   opened_modules : KosuAst.kosu_module list;
-  env_variable : kyo_tying_env;
+  env_variables : kosu_variable_info_min KosuEnvVars.t;
   env_tying_constraint : KosuTypeConstraintSet.t;
   env_bound_ty_vars : KosuTypeVariableSet.t;
 }
@@ -53,7 +56,7 @@ let create current_module program =
   {
     program;
     opened_modules = current_module :: [];
-    env_variable = [];
+    env_variables = KosuEnvVars.empty;
     env_tying_constraint = KosuTypeConstraintSet.empty;
     env_bound_ty_vars = KosuTypeVariableSet.empty;
   }
@@ -68,6 +71,41 @@ let add_bound_poly_vars poly_vars kosu_env =
 
 let replace_bound_poly_vars poly_vars kosu_env =
   { kosu_env with env_bound_ty_vars = KosuTypeVariableSet.of_list poly_vars }
+
+(**
+  [replace_env_variables variables kosu_env] returns [kosu_env] but replaces all the variable environment by [variables]
+*)
+let replace_env_variables variables kosu_env =
+  let variables =
+    List.map
+      (fun (identifier, const, kosu_type) ->
+        (identifier, { mis_const = const; mkosu_type = kosu_type })
+      )
+      variables
+  in
+  let env_variables = KosuEnvVars.of_list variables in
+  { kosu_env with env_variables }
+
+(**
+  [rebind_env_variables variables kosu_env]
+*)
+let rebind_env_variables variables kosu_env =
+  let variables =
+    List.map
+      (fun (identifier, const, kosu_type) ->
+        (identifier, { mis_const = const; mkosu_type = kosu_type })
+      )
+      variables
+  in
+  let env_variables =
+    List.fold_left
+      (fun acc (identifier, _) -> KosuEnvVars.remove identifier acc)
+      kosu_env.env_variables variables
+  in
+  let env_variables =
+    KosuEnvVars.add_seq (List.to_seq variables) env_variables
+  in
+  { kosu_env with env_variables }
 
 let current_module kosu_env =
   let rec last = function [] -> None | t :: [] -> Some t | _ :: q -> last q in
@@ -87,20 +125,6 @@ let merge_constraint rhs lhs =
         rhs.env_tying_constraint;
   }
 
-(**
-  [merge_variable_disjoint env1 env2] adds the variable present in 
-  [env1] which aren't in [env2]. 
-
-  In case of variable having the same name in [env1] and [env2], the identifier kept
-  is within [env2]
-*)
-let merge_variable_disjoint env1 env2 =
-  let env1set = KosuVariableInfoSet.of_list env1.env_variable in
-  let env2set = KosuVariableInfoSet.of_list env2.env_variable in
-  let diff = KosuVariableInfoSet.diff env1set env2set in
-  let set = KosuVariableInfoSet.union env2set diff in
-  { env2 with env_variable = KosuVariableInfoSet.elements set }
-
 let add_typing_constraint_position ~cexpected ~cfound position env =
   let constr = KosuType.Ty.{ cexpected; cfound; position } in
   (* let skt = KosuPrint.string_of_kosu_type in
@@ -119,10 +143,15 @@ let add_typing_constraint ~cexpected ~cfound (location : 'a Position.location) =
   Returns [None] if [name] doesn't exist in [kosu_env]
 *)
 let assoc_type_opt name kosu_env =
-  let open KosuVariableInfo in
-  List.find_opt
-    (fun { identifier; _ } -> identifier.value = name)
-    kosu_env.env_variable
+  let open Position in
+  kosu_env.env_variables |> KosuEnvVars.bindings
+  |> List.find_map
+       (fun (identifier, { mis_const = is_const; mkosu_type = kosu_type }) ->
+         if identifier.value = name then
+           Some { identifier; is_const; kosu_type }
+         else
+           None
+     )
 
 (** [mem name kosu_env] checks if the identifier [name] exists in the variable environment [kosu_env]*)
 let mem name kosu_env = Option.is_some @@ assoc_type_opt name kosu_env
@@ -141,7 +170,8 @@ let add_module kosu_module kosu_env =
   @raise KosuRawErr(IdentifierAlreadyBound)
 *)
 let add_variable ?(check = true) is_const identifier kosu_type kosu_env =
-  let exist = mem identifier.Position.value kosu_env in
+  let info = { mis_const = is_const; mkosu_type = kosu_type } in
+  let exist = KosuEnvVars.mem identifier kosu_env.env_variables in
   let () =
     match check with
     | true when exist ->
@@ -149,10 +179,8 @@ let add_variable ?(check = true) is_const identifier kosu_type kosu_env =
     | true | false ->
         ()
   in
-  {
-    kosu_env with
-    env_variable = { is_const; identifier; kosu_type } :: kosu_env.env_variable;
-  }
+  let env_variables = KosuEnvVars.add identifier info kosu_env.env_variables in
+  { kosu_env with env_variables }
 
 let modules kosu_env = kosu_env.opened_modules
 

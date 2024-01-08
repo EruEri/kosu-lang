@@ -513,8 +513,60 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       in
       (kosu_env, fresh_variable_ty)
   | EAnonFunction { kind; parameters; body } ->
-      let () = ignore (kind, parameters, body) in
-      failwith "TODO: EAnonFunction"
+      let variables, ty_variables =
+        List.split
+        @@ List.map
+             (fun { aname = identifier; akosu_type; ais_var = is_var } ->
+               let kosu_type =
+                 match akosu_type with
+                 | Some t ->
+                     KosuUtil.Ty.of_tyloc' t
+                 | None ->
+                     KosuType.Ty.fresh_variable_type ()
+               in
+               ((identifier, not is_var, kosu_type), kosu_type)
+             )
+             parameters
+      in
+      let closure_env = KosuEnv.replace_env_variables variables kosu_env in
+      let free_variables =
+        free_variable_expression ~closure_env ~scope_env:kosu_env body
+      in
+
+      let closure_kosu_env = KosuEnv.rebind_env_variables variables kosu_env in
+      let clo_env, ty_clo_ret = typeof closure_kosu_env body in
+
+      let closure_solution = KosuEnv.solve closure_kosu_env in
+
+      let closure_scheama =
+        KosuTypeConstraint.to_schema closure_solution ty_variables ty_clo_ret
+      in
+
+      let kosu_env = KosuEnv.merge_constraint clo_env kosu_env in
+
+      let () = print_endline "Captured variable [START]" in
+      let () =
+        CapturedIdentifier.iter
+          (fun (name, ty) ->
+            Printf.printf "name = %s, ty: %s\n" name.value
+            @@ KosuPrint.string_of_kosu_type ty
+          )
+          free_variables
+      in
+      let () = print_endline "Captured variable [END]" in
+
+      let ty =
+        match kind with
+        | KAClosure ->
+            Ty.TyClosure closure_scheama
+        | KAFunctionPointer
+          when not @@ CapturedIdentifier.is_empty free_variables ->
+            failwith "Function pointer cannot capture variable"
+        | KAFunctionPointer ->
+            Ty.TyFunctionPtr closure_scheama
+      in
+
+      (kosu_env, ty)
 
 and typeof_block kosu_env block =
   let kosu_env = List.fold_left typeof_statement kosu_env block.kosu_stmts in
@@ -959,8 +1011,7 @@ and typeof_pattern scrutinee_type kosu_env
       (bound, (kosu_env, ty))
 
 and free_variable_expression ~closure_env ~scope_env (expression : _ location) =
-  let of_variable_info
-      KosuEnv.KosuVariableInfo.{ identifier; kosu_type; is_const = _ } =
+  let of_variable_info KosuEnv.{ identifier; kosu_type; is_const = _ } =
     (identifier, kosu_type)
   in
   (* capture should handle the resolve of identifier without module resolver *)

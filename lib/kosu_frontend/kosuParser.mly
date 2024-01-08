@@ -306,7 +306,7 @@ kosu_function_decl:
     }
 
 %inline kosu_anon_parameter:
-    | ais_var=boption(VAR) aname=loc_var_identifier COLON akosu_type=option(located(kosu_type)) {
+    | ais_var=boption(VAR) aname=loc_var_identifier akosu_type=option(preceded(COLON, located(kosu_type))) {
         {
             ais_var;
             aname;
