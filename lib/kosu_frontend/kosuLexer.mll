@@ -182,6 +182,8 @@ rule token = parse
     | '/' when all = "//" -> single_line_comment lexbuf
     | '/' when all = "/*" ->
         multiple_line_comment lexbuf
+    | '|' when all = "|>" -> 
+        PIPE_SUP
     | '|' -> INFIX_PIPE all
     | '&' -> INFIX_AMPERSAND all
     | '=' -> INFIX_EQUAL all

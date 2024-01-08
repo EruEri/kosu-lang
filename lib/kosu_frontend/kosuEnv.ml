@@ -546,7 +546,7 @@ let rec solve solutions eqs =
       let solutions, eqs =
         match KosuTypeConstraint.reduce equation.cexpected equation.cfound with
         | Some (Left (p, ty)) ->
-            let ty = constraint_solution p ty equation solutions eqs in
+            (* let ty = constraint_solution p ty equation solutions eqs in *)
             let () =
               Printf.printf "solution = %s == %s\n\n%!"
                 (KosuPrint.string_of_polymorphic_var p)

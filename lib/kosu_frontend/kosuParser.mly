@@ -44,7 +44,7 @@
 %token <string> PREFIX_TILDE
 %token <string> PREFIX_EXCLA
 %token <string> PREFIX_QUESTIONMARK
-%token STAR MINUS PIPE MINUS_SUP
+%token STAR MINUS PIPE MINUS_SUP PIPE_SUP
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token CROISILLION
 %token SEMICOLON 
@@ -60,7 +60,7 @@
 %token DOUBLECOLON COLON
 %token EOF
 
-%left INFIX_PIPE
+%left INFIX_PIPE PIPE_SUP
 %left INFIX_AMPERSAND
 %left PIPE
 %left INFIX_CARET
@@ -349,6 +349,14 @@ kosu_block_base:
         }
     }
 
+%inline kosu_function_call:
+    | module_resolver=module_resolver 
+        fn_name=loc_var_identifier 
+        generics_resolver=option(delimited(LSQBRACE, trailing_separated_list(COMMA, located(kosu_type)), RSQBRACE))
+        parameters=parenthesis(separated_list(COMMA, located(kosu_expression))) {
+            (module_resolver, fn_name, generics_resolver, parameters)
+        }
+
 kosu_expression:
     | TRUE { ETrue }
     | FALSE { EFalse }
@@ -387,10 +395,8 @@ kosu_expression:
             parameters
         }
     }
-    | module_resolver=module_resolver 
-        fn_name=loc_var_identifier 
-        generics_resolver=option(delimited(LSQBRACE, trailing_separated_list(COMMA, located(kosu_type)), RSQBRACE))
-        parameters=parenthesis(separated_list(COMMA, located(kosu_expression))) {
+    | kosu_function_call {
+        let module_resolver, fn_name, generics_resolver, parameters = $1 in
         EFunctionCall {
             module_resolver;
             generics_resolver;
@@ -414,6 +420,16 @@ kosu_expression:
         EIdentifier {
             module_resolver;
             id
+        }
+    }
+    | first_expr=located(kosu_expression) PIPE_SUP kosu_function_call {
+        let module_resolver, fn_name, generics_resolver, parameters = $3 in
+        let parameters = first_expr :: parameters in
+                EFunctionCall {
+            module_resolver;
+            generics_resolver;
+            fn_name;
+            parameters
         }
     }
     | first_expr=located(kosu_expression) DOT field=located(Identifier) {

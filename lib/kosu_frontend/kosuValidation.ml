@@ -396,6 +396,10 @@ module Struct = struct
                     exist name
          )
          StringLoc.empty kosu_struct_decl.fields
+
+  let check_boundness_variable_type (struct_decl : KosuAst.kosu_struct_decl) =
+    let types = List.map snd struct_decl.fields in
+    Common.check_boundness_variable_types struct_decl.poly_vars types
 end
 
 module Enum = struct
@@ -432,6 +436,10 @@ module Enum = struct
                     name
          )
          StringLoc.empty kosu_enum_decl.variants
+
+  let check_boundness_variable_type (enum_decl : KosuAst.kosu_enum_decl) =
+    let types = List.concat_map snd enum_decl.variants in
+    Common.check_boundness_variable_types enum_decl.poly_vars types
 end
 
 let validate_kosu_node kosu_program current_module = function
@@ -474,6 +482,8 @@ let validate_kosu_node kosu_program current_module = function
   | NStruct kosu_struct ->
       let* () = Struct.check_type_duplicated current_module kosu_struct in
 
+      let* () = Struct.check_boundness_variable_type kosu_struct in
+
       let* () =
         Struct.check_type_existence current_module kosu_program kosu_struct
       in
@@ -491,6 +501,8 @@ let validate_kosu_node kosu_program current_module = function
       ok
   | NEnum enum ->
       let* () = Enum.check_type_existence current_module kosu_program enum in
+
+      let* () = Enum.check_boundness_variable_type enum in
 
       let* () = Enum.check_type_duplicated current_module enum in
 
