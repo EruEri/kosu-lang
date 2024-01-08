@@ -339,6 +339,23 @@ let find_callable_declaration module_resolver identifier kosu_env =
     ~ffilter:(fun _ -> true)
     module_resolver kosu_env
 
+(**
+  [find_identifier module_resolver identifier kosu_env] tries to find [identifier] 
+  in the current variable environment. If [identifier] doesn't exist in this [environment], 
+  [find_identifier] tries to find an callable across modules with [module_resolver]
+*)
+let find_identifier module_resolver identifier kosu_env =
+  match assoc_type_opt identifier kosu_env with
+  | Some { kosu_type; is_const = _; identifier = _ } ->
+      Some kosu_type
+  | None -> (
+      match find_callable_declaration module_resolver identifier kosu_env with
+      | Some (_, callable) ->
+          Option.some @@ KosuUtil.Ty.ty_of_callable callable
+      | None ->
+          None
+    )
+
 let equations_set ty_var set =
   KosuTypeConstraintSet.filter
     (fun { cexpected; cfound; position = _ } ->

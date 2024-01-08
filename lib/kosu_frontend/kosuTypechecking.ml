@@ -217,30 +217,14 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       let ty = KosuUtil.Ty.of_tyloc' const_decl.explicit_type in
       (kosu_env, ty)
   | EIdentifier { module_resolver; id } ->
+      let t = KosuEnv.find_identifier module_resolver id.value kosu_env in
       let t =
-        match
-          KosuEnv.find_callable_declaration module_resolver id.value kosu_env
-        with
-        | Some (_, decl) ->
-            KosuUtil.Ty.ty_of_callable decl
+        match t with
+        | Some t ->
+            t
         | None ->
-            let opt =
-              match KosuUtil.ModuleResolver.is_empty module_resolver with
-              | true ->
-                  KosuEnv.assoc_type_opt id.value kosu_env
-              | false ->
-                  raise @@ KosuError.Exn.unbound_identifier id
-            in
-            let typeof =
-              match opt with
-              | Some { kosu_type; is_const = _; identifier = _ } ->
-                  kosu_type
-              | None ->
-                  raise @@ KosuError.Exn.unbound_identifier id
-            in
-            typeof
+            raise @@ KosuError.Exn.unbound_identifier id
       in
-
       (kosu_env, t)
   | EStruct { module_resolver; struct_name; fields } ->
       let module_resolver, struct_decl =
@@ -375,29 +359,13 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       let () = ignore (fn_name, parameters) in
       failwith "TODO: Ebuiling duntion"
   | EFunctionCall { module_resolver; generics_resolver; fn_name; parameters } ->
+      let t = KosuEnv.find_identifier module_resolver fn_name.value kosu_env in
       let t =
-        match
-          KosuEnv.find_callable_declaration module_resolver fn_name.value
-            kosu_env
-        with
-        | Some (_, decl) ->
-            KosuUtil.Ty.ty_of_callable decl
+        match t with
+        | Some t ->
+            t
         | None ->
-            let opt =
-              match KosuUtil.ModuleResolver.is_empty module_resolver with
-              | true ->
-                  KosuEnv.assoc_type_opt fn_name.value kosu_env
-              | false ->
-                  failwith "Nothing found"
-            in
-            let typeof =
-              match opt with
-              | Some { kosu_type; is_const = _; identifier = _ } ->
-                  kosu_type
-              | None ->
-                  raise @@ KosuError.Exn.unbound_identifier fn_name
-            in
-            typeof
+            raise @@ KosuError.Exn.unbound_identifier fn_name
       in
 
       let schema, _ =
