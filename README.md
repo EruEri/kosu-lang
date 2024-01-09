@@ -4,46 +4,6 @@ Kosu is (or will be at least I hope) a statically-typed, expression-oriented lan
 
 The philosophy of Kosu is to have as control over memory as C (manual memory management, pointers) while having some higher features like generics or sum type.
 
-## Roadmap (For now)
-- [x] Lexer
-- [x] Parser
-- [x] Better syntax error handling
-- [x] Better logic error handling
-- [x] Ast
-- [x] Type checking the Ast
-- [x] Annote the Ast with type
-- [x] Create an intermediate representation using the 3 adress code method 
-- [x] Generate basic Arm64 assembly for MacOs
-- [x] Generate basic x86_64 assembly
-- [x] Fix Syntax issues
-- [x] Add while loop
-- [x] Fix Immediate encoding on arm64
-- [x] Implement Float for both architecture
-- [x] Implement Operator overload
-
-== Version 0.1.0 == 
-
-- [ ] Write a register allocator throught graph-coloring method
-- [x] Integer/Float size inference
-- [ ] Add anonymous function
-- [x] Add array Literral
-- [x] Fix stack base function parameters on arm64/x86_64
-- [ ] Improve c compatibily ABI
-
-== Version 0.5.0 == 
-
-Full rewirte
-
-- New ast
-  - change syntax : (removal of $)
-  - new type
-  - proper support for closure and function pointer 
-- New typechecking algorithm ( kind of hindley milner algorithm)
-- Remove kosu virtual machine:
-  - Remove libffi dependance
-- ... etc
-
-
 
 ## Example
 ```
@@ -125,7 +85,7 @@ fn main() s32 {
   $ opam install .
 ```
 
-Once build, the following programs are generated:
+<!-- Once build, the following programs are generated:
 
 | command     | description |
 | ----        | ------
@@ -160,5 +120,5 @@ $ ./example
 ## Other
 - You can see more detail about:
   - in [Readme.md](/doc/Readme.md)
-  - in [test](/test/files/)
+  - in [test](/test/files/) -->
 
