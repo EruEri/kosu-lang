@@ -460,11 +460,13 @@ module Ty = struct
   let rec quantified_ty_vars bound acc ty =
     let open Ty in
     match ty with
-    | Ty.TyPolymorphic variable ->
+    | Ty.TyPolymorphic (PolymorphicVar _ as variable) ->
         if List.mem variable bound then
           acc
         else
           KosuTypeVariableSet.add variable acc
+    | Ty.TyPolymorphic (CompilerPolymorphicVar _) ->
+        acc
     | TyTuple ttes
     | TyIdentifier { module_resolver = _; parametrics_type = ttes; name = _ } ->
         List.fold_left (quantified_ty_vars bound) acc ttes

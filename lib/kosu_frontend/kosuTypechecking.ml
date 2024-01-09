@@ -538,11 +538,14 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
 
       let closure_solution = KosuEnv.solve closure_kosu_env in
 
-      let closure_scheama =
-        KosuTypeConstraint.to_schema closure_solution ty_variables ty_clo_ret
-      in
-
       let kosu_env = KosuEnv.merge_constraint clo_env kosu_env in
+
+      let constraints = KosuEnv.equations kosu_env in
+
+      let closure_scheama =
+        KosuTypeConstraint.to_schema constraints closure_solution ty_variables
+          ty_clo_ret
+      in
 
       let () = print_endline "Captured variable [START]" in
       let () =

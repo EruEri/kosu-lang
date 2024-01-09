@@ -45,6 +45,9 @@ module KosuTypingSolution = Map.Make (struct
   let compare = Stdlib.compare
 end)
 
+let mem ty (constr : KosuType.Ty.kosu_type_constraint) =
+  constr.cfound = ty || constr.cexpected = ty
+
 (**
     [other ty equation] returns the other side of [ty] in the equation [equation].
     Returns [None] if [ty] isn't part of [equation] 
@@ -357,13 +360,20 @@ let reduce lhs rhs =
         let res = match l = r with true -> some @@ right [] | false -> None in
         res
 
-let to_schema solution parameters return_type =
+let to_schema equations solutions parameters return_type =
   let module KTS = KosuTypingSolution in
+  let equations : KosuType.Ty.kosu_type_constraint list = equations in
   let map_type t =
     match t with
     | KosuType.Ty.TyPolymorphic p ->
-        KosuUtil.Ty.generalize @@ Option.value ~default:t
-        @@ KTS.find_opt p solution
+        let t = match KTS.find_opt p solutions with Some t -> t | None -> t in
+        let t =
+          if List.exists (mem t) equations then
+            t
+          else
+            KosuUtil.Ty.generalize t
+        in
+        t
     | t ->
         t
   in

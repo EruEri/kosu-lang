@@ -125,6 +125,9 @@ let merge_constraint rhs lhs =
         rhs.env_tying_constraint;
   }
 
+let equations kosu_env =
+  KosuTypeConstraintSet.elements kosu_env.env_tying_constraint
+
 let add_typing_constraint_position ~cexpected ~cfound position env =
   let constr = KosuType.Ty.{ cexpected; cfound; position } in
   (* let skt = KosuPrint.string_of_kosu_type in
@@ -390,10 +393,10 @@ let equations_set ty_var set =
     set
 
 (**
-  [equations ty_var kosu_env] filters the equations collected in [kosu_env] by
+  [filter_equations ty_var kosu_env] filters the equations collected in [kosu_env] by
   equation where [ty_vars] appears
 *)
-let equations ty_var kosu_env =
+let filter_equations ty_var kosu_env =
   KosuTypeConstraintSet.filter
     (fun { cexpected; cfound; position = _ } ->
       let ty_var = KosuType.Ty.TyPolymorphic ty_var in
@@ -431,7 +434,9 @@ let try_solve_set ty_var set =
   @raise something (tbd) where the equations don't have a solution
 *)
 let try_solve ty_var kosu_env =
-  let eqs = KosuTypeConstraintSet.elements @@ equations ty_var kosu_env in
+  let eqs =
+    KosuTypeConstraintSet.elements @@ filter_equations ty_var kosu_env
+  in
   match eqs with
   | [] ->
       None
