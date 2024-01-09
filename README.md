@@ -1,5 +1,9 @@
 # Kosu
 
+## Information
+
+I'm currently working on a full rewrite of the compiler in the branch [next](https://github.com/EruEri/kosu-lang/tree/next)
+
 Kosu is (or will be at least I hope) a statically-typed, expression-oriented language.
 
 The philosophy of Kosu is to have as control over memory as C (manual memory management, pointers) while having some higher features like generics or sum type.
