@@ -4,6 +4,18 @@ Kosu is (or will be at least I hope) a statically-typed, expression-oriented lan
 
 The philosophy of Kosu is to have as control over memory as C (manual memory management, pointers) while having some higher features like generics or sum type.
 
+## Objectives
+
+I would like to work on some compiler techniques:
+- Hindley-Milner type inference  
+- Pattern matching exhaustiveness 
+- Some compiler optimizations
+- Compilation of closures
+
+I will also change the compilation target. 
+Currently (kosu < 0.5), the compilation target is the assembly, which is architecture and OS specific. 
+So the new compilation target will be the C.
+
 
 ## Example
 ```
@@ -61,7 +73,7 @@ fn main() s32 {
 ### With Make
 - GNU make as make
 ```bash
-  $ opam install dune cmdliner menhir asai
+  $ opam install dune cmdliner menhir
   $ cd kosu-lang
   $ make configure
   $ ./configure
@@ -70,7 +82,7 @@ fn main() s32 {
 ```
 - GNU make as gmake (example: FreeBSD)
 ```bash
-  $ opam install dune cmdliner menhir asai
+  $ opam install dune cmdliner menhir
   $ cd kosu-lang
   $ gmake configure
   $ ./configure
@@ -80,7 +92,7 @@ fn main() s32 {
 
 ### With Opam
 ```bash
-  $ opam install dune cmdliner menhir asai
+  $ opam install dune cmdliner menhir
   $ cd kosu-lang
   $ opam install .
 ```
