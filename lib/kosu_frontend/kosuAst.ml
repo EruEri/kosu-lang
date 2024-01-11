@@ -83,10 +83,10 @@ and kosu_expression =
   | EEmpty
   | ETrue
   | EFalse
-  | ENullptr
   | ECmpLess
   | ECmpEqual
   | ECmpGreater
+  | ENullptr of { is_const : bool }
   | EStringl of string
   | EChar of char
   | EInteger of { integer_info : integer_info option; ivalue : int64 }

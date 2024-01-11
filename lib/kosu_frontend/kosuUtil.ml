@@ -841,7 +841,7 @@ module Expression = struct
     | ( EEmpty
       | ETrue
       | EFalse
-      | ENullptr
+      | ENullptr _
       | ECmpLess
       | ECmpEqual
       | ECmpGreater

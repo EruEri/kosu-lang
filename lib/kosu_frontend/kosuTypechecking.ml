@@ -38,9 +38,15 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       (kosu_env, TyBool)
   | ECmpLess | ECmpEqual | ECmpGreater ->
       (kosu_env, TyOrdered)
-  | ENullptr ->
+  | ENullptr { is_const } ->
+      let pointer_state =
+        if is_const then
+          Const
+        else
+          Mutable
+      in
       let fresh_type = Ty.fresh_variable_type () in
-      (kosu_env, TyPointer { pointee_type = fresh_type; pointer_state = Const })
+      (kosu_env, TyPointer { pointee_type = fresh_type; pointer_state })
   | EStringl _ ->
       (kosu_env, TyStringLit)
   | EChar _ ->
@@ -1043,7 +1049,7 @@ and free_variable_expression ~closure_env ~scope_env (expression : _ location) =
   | EEmpty
   | ETrue
   | EFalse
-  | ENullptr
+  | ENullptr _
   | ECmpLess
   | ECmpEqual
   | ECmpGreater

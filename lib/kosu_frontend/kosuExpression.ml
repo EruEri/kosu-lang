@@ -29,7 +29,7 @@ let rec is_static_expression :
   | EEmpty
   | ETrue
   | EFalse
-  | ENullptr
+  | ENullptr _
   | ECmpLess
   | ECmpEqual
   | ECmpGreater
@@ -105,7 +105,7 @@ let rec last_expression expr =
   | EEmpty
   | ETrue
   | EFalse
-  | ENullptr
+  | ENullptr _
   | ECmpLess
   | ECmpEqual
   | ECmpGreater

@@ -378,7 +378,8 @@ kosu_block_base:
 kosu_expression:
     | TRUE { ETrue }
     | FALSE { EFalse }
-    | NULLPTR { ENullptr }
+    | NULLMUTPTR { ENullptr {is_const = false}}
+    | NULLPTR { ENullptr {is_const = true} }
     | CMP_LESS { ECmpLess }
     | CMP_EQUAL { ECmpEqual }
     | CMP_GREATER { ECmpGreater }
