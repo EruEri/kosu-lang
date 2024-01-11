@@ -188,6 +188,9 @@ let string_of_kosu_lexer_error : string -> KosuError.kosu_lexer_error -> string
   | UnclosedComment position ->
       let sloc = string_of_position_error position in
       sfile @@ sprintf "%s : Comments not terminated" sloc
+  | UnclosedString position ->
+      let sloc = string_of_position_error position in
+      sfile @@ sprintf "%s : String litteral is not closed" sloc
   | CharOutOfRange int ->
       let sloc = string_of_located_error int in
       sfile @@ sloc @@ sprintf "Ascii value '%u' is not in [0-255]" int.value
@@ -429,6 +432,8 @@ module Formatted = struct
         sprintf "Unexpected Escaped character: %s" s.value
     | UnclosedComment _ ->
         "Comments not terminated"
+    | UnclosedString _ ->
+        "string litteral is not closed"
     | CharOutOfRange int ->
         sprintf "Ascii value '%u' is not in [0-255]" int.value
     | ForbiddenChar char ->

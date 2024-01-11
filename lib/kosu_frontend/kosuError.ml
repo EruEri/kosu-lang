@@ -18,6 +18,7 @@
 type kosu_lexer_error =
   | UnexpectedEscapedChar of string Position.location
   | UnclosedComment of Position.position
+  | UnclosedString of Position.position
   | CharOutOfRange of int Position.location
   | ForbiddenChar of char Position.location
   | InvalidLitteralBuiltinFunction of char Position.location
@@ -206,6 +207,7 @@ module Function = struct
   let kosu_lexer_error_range = function
     | UnexpectedEscapedChar { value = _; position }
     | UnclosedComment position
+    | UnclosedString position
     | CharOutOfRange { value = _; position }
     | ForbiddenChar { value = _; position }
     | InvalidLitteralBuiltinFunction { value = _; position }

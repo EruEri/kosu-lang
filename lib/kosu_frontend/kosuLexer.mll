@@ -273,6 +273,10 @@ and read_string buffer = parse
         let () = Buffer.add_char buffer c in
         read_string buffer lexbuf 
 }
+| eof { 
+    let e = UnclosedString (current_position lexbuf) in
+    raise @@ KosuError.Exn.kosu_lexer_error e
+}
 
 and single_line_comment = parse
 | newline {  
