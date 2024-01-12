@@ -1037,7 +1037,7 @@ and free_variable_expression ~closure_env ~scope_env (expression : _ location) =
     | None, Some scope_info ->
         CapturedIdentifier.singleton @@ of_variable_info identifier scope_info
     | None, None ->
-        failwith @@ "Undefine identifier " ^ identifier.value
+        raise @@ KosuError.Exn.unbound_identifier identifier
   in
   match expression.value with
   | EIdentifier { module_resolver; id } ->
@@ -1105,14 +1105,107 @@ and free_variable_expression ~closure_env ~scope_env (expression : _ location) =
           CapturedIdentifier.union s set
         )
         CapturedIdentifier.empty exprs
-  | EBlock _ ->
-      failwith ""
+  | EBlock kosu_block ->
+      free_variable_block ~captured:CapturedIdentifier.empty ~closure_env
+        ~scope_env kosu_block
   | EAnonFunction { parameters; body; kind = _ } ->
-      let () = ignore (parameters, body) in
-      failwith "Anon function todo"
-  | EWhile _ ->
-      failwith "TODO WHILE"
-  | ECases _ ->
-      failwith "ECASES"
+      let variables, _ =
+        List.split
+        @@ List.map
+             (fun { aname = identifier; akosu_type; ais_var = is_var } ->
+               let kosu_type =
+                 match akosu_type with
+                 | Some t ->
+                     KosuUtil.Ty.of_tyloc' t
+                 | None ->
+                     KosuType.Ty.fresh_variable_type ()
+               in
+               ((identifier, not is_var, kosu_type), kosu_type)
+             )
+             parameters
+      in
+      let scope_env = KosuEnv.merge_variables scope_env closure_env in
+      let closure_env = KosuEnv.replace_env_variables variables closure_env in
+      free_variable_expression ~closure_env ~scope_env body
+  | EWhile { condition_expr; body } ->
+      let captured_expr =
+        free_variable_expression ~closure_env ~scope_env condition_expr
+      in
+      let captured_body =
+        free_variable_block ~captured:CapturedIdentifier.empty ~closure_env
+          ~scope_env body
+      in
+      CapturedIdentifier.union captured_expr captured_body
+  | ECases { cases; else_body } ->
+      let captured =
+        List.fold_left
+          (fun captured (expr, body) ->
+            let captured_expr =
+              free_variable_expression ~closure_env ~scope_env expr
+            in
+            let captured_body =
+              free_variable_block ~captured:CapturedIdentifier.empty
+                ~closure_env ~scope_env body
+            in
+            let s = CapturedIdentifier.union captured_expr captured_body in
+            CapturedIdentifier.union captured s
+          )
+          CapturedIdentifier.empty cases
+      in
+      free_variable_block ~captured ~closure_env ~scope_env else_body
   | EMatch _ ->
       failwith ""
+
+and free_variable_block ~captured ~closure_env ~scope_env block =
+  let { kosu_stmts; kosu_expr } = block in
+  let closure_env, captured =
+    List.fold_left
+      (fun (env, set) stmt ->
+        let env, nset =
+          free_variable_statement ~closure_env:env ~scope_env stmt
+        in
+        let set = CapturedIdentifier.union set nset in
+        (env, set)
+      )
+      (closure_env, captured) kosu_stmts
+  in
+  let captured_expr =
+    free_variable_expression ~closure_env ~scope_env kosu_expr
+  in
+  let captured = CapturedIdentifier.union captured captured_expr in
+  captured
+
+and free_variable_statement ~closure_env ~scope_env statement =
+  match statement.value with
+  | SDeclaration { is_const; pattern; explicit_type; expression } ->
+      let frees = free_variable_expression ~closure_env ~scope_env expression in
+      let ty =
+        Option.value ~default:(Ty.fresh_variable_type ())
+        @@ Option.map KosuUtil.Ty.of_tyloc' explicit_type
+      in
+      (* Maybe merge closure_env and scope_env *)
+      let pvariables, _ = typeof_pattern ty closure_env pattern in
+      let closure_env =
+        List.fold_left
+          (fun kosu_env (id, ty) -> KosuEnv.add_variable is_const id ty kosu_env)
+          closure_env pvariables
+      in
+      (closure_env, frees)
+  | SDiscard expression | SAffection { expression; _ } ->
+      let captured =
+        free_variable_expression ~closure_env ~scope_env expression
+      in
+      (closure_env, captured)
+  | SOpen { module_resolver } ->
+      let env_module_merged =
+        KosuEnv.merge_opened_module scope_env closure_env
+      in
+      let kosu_module =
+        match KosuEnv.find_module_opt module_resolver env_module_merged with
+        | Some kosu_module ->
+            kosu_module
+        | None ->
+            raise @@ unbound_module module_resolver
+      in
+      let closure_env = KosuEnv.add_module kosu_module closure_env in
+      (closure_env, CapturedIdentifier.empty)

@@ -107,6 +107,20 @@ let rebind_env_variables variables kosu_env =
   in
   { kosu_env with env_variables }
 
+(**
+    [merge_variables lenv renv] returns [renv] but merges the variable from 
+    [lenv] and [renv]. if a variable [v] is bound the [lenv] and [renv], it's the 
+    [renv] version that it's kept
+*)
+let merge_variables lhs rhs =
+  {
+    rhs with
+    env_variables =
+      KosuEnvVars.union
+        (fun _ _ rhs -> Some rhs)
+        lhs.env_variables rhs.env_variables;
+  }
+
 let current_module kosu_env =
   let rec last = function [] -> None | t :: [] -> Some t | _ :: q -> last q in
   match last kosu_env.opened_modules with
@@ -114,7 +128,7 @@ let current_module kosu_env =
       kosu_module
   | None ->
       failwith
-        "Should not append since: the first env of kosu module is the current \
+        "Should not happen since: the first env of kosu module is the current \
          module"
 
 let merge_constraint rhs lhs =
@@ -124,6 +138,9 @@ let merge_constraint rhs lhs =
       KosuTypeConstraintSet.union lhs.env_tying_constraint
         rhs.env_tying_constraint;
   }
+
+let merge_opened_module lhs rhs =
+  { rhs with opened_modules = rhs.opened_modules @ lhs.opened_modules }
 
 let equations kosu_env =
   KosuTypeConstraintSet.elements kosu_env.env_tying_constraint
