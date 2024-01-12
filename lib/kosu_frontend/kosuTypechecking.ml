@@ -1023,7 +1023,8 @@ and typeof_pattern scrutinee_type kosu_env
       (bound, (kosu_env, ty))
 
 and free_variable_expression ~closure_env ~scope_env (expression : _ location) =
-  let of_variable_info KosuEnv.{ identifier; kosu_type; is_const = _ } =
+  let of_variable_info identifier
+      KosuEnv.{ identifier = _; kosu_type; is_const = _ } =
     (identifier, kosu_type)
   in
   (* capture should handle the resolve of identifier without module resolver *)
@@ -1034,7 +1035,7 @@ and free_variable_expression ~closure_env ~scope_env (expression : _ location) =
     | Some _, (Some _ | None) ->
         CapturedIdentifier.empty
     | None, Some scope_info ->
-        CapturedIdentifier.singleton @@ of_variable_info scope_info
+        CapturedIdentifier.singleton @@ of_variable_info identifier scope_info
     | None, None ->
         failwith @@ "Undefine identifier " ^ identifier.value
   in

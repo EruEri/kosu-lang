@@ -36,7 +36,7 @@ module S : KosuDiagnostic.S with type t = KosuError.kosu_error = struct
 
   let hint : t -> string option = function
     | CapturedVariableForFunctionPointer _ ->
-        Option.some @@ "maybe considere use \"closure\" instead of \"fn\""
+        Option.some @@ "Maybe considere use \"closure\" instead of \"fn\""
     | _ ->
         None
 
