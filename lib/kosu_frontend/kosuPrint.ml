@@ -258,6 +258,18 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       sfile
       @@ sprintf "The following identifiers aren't bound in each pattern : \n%s"
            s
+  | CapturedVariableForFunctionPointer variables ->
+      let s =
+        variables
+        |> List.map (fun s -> string_of_located_error s s.value)
+        |> String.concat "\n"
+      in
+      sfile
+      @@ sprintf
+           "The following variable are captured by the fonction, which is not \
+            allowed for function pointer : \n\
+            %s"
+           s
   | UnboundModule module_resolver ->
       let s : string location =
         match module_resolver with
@@ -525,6 +537,8 @@ module Formatted = struct
         Printf.sprintf "Conflicting type declarations"
     | ConfictingCallableDeclaration _ ->
         Printf.sprintf "Conflicting callable declarations"
+    | CapturedVariableForFunctionPointer _ ->
+        "Function pointeur cannot capture variables"
     | UnsupportedFile f ->
         sprintf "Unknown file kind : %s" f
     | VariableTypeNotBound _ ->

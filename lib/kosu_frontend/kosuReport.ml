@@ -33,7 +33,13 @@ module S : KosuDiagnostic.S with type t = KosuError.kosu_error = struct
 
   let line = Printf.sprintf "%u|  "
   let error e = Option.some @@ KosuPrint.Formatted.string_of_kosu_error e
-  let hint _kosu_error = None
+
+  let hint : t -> string option = function
+    | CapturedVariableForFunctionPointer _ ->
+        Option.some @@ "maybe considere use \"closure\" instead of \"fn\""
+    | _ ->
+        None
+
   let warning _kosu_error = None
   let severity _ = Some KosuDiagnostic.Severity.Error
 end

@@ -570,7 +570,10 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
             Ty.TyClosure closure_scheama
         | KAFunctionPointer
           when not @@ CapturedIdentifier.is_empty free_variables ->
-            failwith "Function pointer cannot capture variable"
+            let variables =
+              free_variables |> CapturedIdentifier.elements |> List.map fst
+            in
+            raise @@ KosuError.Exn.captured_variables_for_fnptr variables
         | KAFunctionPointer ->
             Ty.TyFunctionPtr closure_scheama
       in

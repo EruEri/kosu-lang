@@ -70,6 +70,7 @@ type kosu_error =
   | ConfictingCallableDeclaration of KosuAst.kosu_callable_decl list
   | UnsupportedFile of string
   | VariableTypeNotBound of KosuType.TyLoc.kosu_loctype_polymorphic list
+  | CapturedVariableForFunctionPointer of string Position.location list
   | DuplicatedParametersName of {
       function_location : string Position.location;
       lhs : string Position.location;
@@ -135,6 +136,7 @@ module Raw = struct
     DuplicatedEnumVariant { enum_name; rhs; lhs }
 
   let cyclic_type_declaration e = CyclicTypeDeclaration e
+  let captured_variables_for_fnptr s = CapturedVariableForFunctionPointer s
 end
 
 module Exn = struct
@@ -201,6 +203,9 @@ module Exn = struct
 
   let cyclic_type_declaration e =
     kosu_raw_error @@ Raw.cyclic_type_declaration e
+
+  let captured_variables_for_fnptr e =
+    kosu_raw_error @@ Raw.captured_variables_for_fnptr e
 end
 
 module Function = struct
@@ -272,6 +277,8 @@ module Function = struct
     | DuplicatedParametersName { rhs; lhs; _ }
     | DuplicatedFieldName { lhs; rhs; _ } ->
         [ rhs.position; lhs.position ]
+    | CapturedVariableForFunctionPointer variables ->
+        List.map Position.position variables
     | UnboundModule _ | ConfictingTypeDeclaration _ | UnsupportedFile _ ->
         []
 end
