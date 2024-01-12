@@ -30,7 +30,7 @@
         ("fn", FUNCTION); ("false", FALSE); ("gt", CMP_GREATER); 
         ("lt", CMP_GREATER); ("match", MATCH); ("mut", MUT); 
         ("nullmutptr", NULLMUTPTR); ("nullptr", NULLPTR); ("struct", STRUCT); 
-        ("syscall", SYSCALL); ("of", OF); ("open", OPEN); ("opaque", OPAQUE); ("true", TRUE);  
+        ("of", OF); ("open", OPEN); ("opaque", OPAQUE); ("true", TRUE);  
         ("type", TYPE); ("sizeof", SIZEOF); ("if", IF); ("var", VAR);
         ("while", WHILE)
 
