@@ -142,16 +142,16 @@ module Type = struct
          is_cyclic_enum current_module kosu_program kosu_enum *)
 
   and does_type_appears ~visited current_module kosu_program base target =
-    let () =
-      Printf.eprintf "Visited = [%s]\n"
-      @@ String.concat ", "
-      @@ List.map KosuPrint.string_of_kosu_type visited
-    in
-    let () =
-      Printf.eprintf "base = %s\ntarget = %s\n"
-        (KosuPrint.string_of_kosu_type base)
-        (KosuPrint.string_of_kosu_type target)
-    in
+    (* let () =
+         Printf.eprintf "Visited = [%s]\n"
+         @@ String.concat ", "
+         @@ List.map KosuPrint.string_of_kosu_type visited
+       in
+       let () =
+         Printf.eprintf "base = %s\ntarget = %s\n"
+           (KosuPrint.string_of_kosu_type base)
+           (KosuPrint.string_of_kosu_type target)
+       in *)
     List.mem target visited
     ||
     match target with

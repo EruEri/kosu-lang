@@ -534,9 +534,16 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
              )
              parameters
       in
-      let closure_env = KosuEnv.replace_env_variables variables kosu_env in
-      let free_variables =
-        free_variable_expression ~closure_env ~scope_env:kosu_env body
+      let closure_env = KosuEnv.rebind_env_variables variables kosu_env in
+      let clo_variables = variables_expression closure_env body in
+      let clo_free_variables =
+        CapturedIdentifier.filter
+          (fun (identifier, _) ->
+            List.exists
+              (fun (clo_arg, _, _) -> clo_arg.value <> identifier.value)
+              variables
+          )
+          clo_variables
       in
 
       let closure_kosu_env = KosuEnv.rebind_env_variables variables kosu_env in
@@ -560,7 +567,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
             Printf.printf "name = %s, ty: %s\n" name.value
             @@ KosuPrint.string_of_kosu_type ty
           )
-          free_variables
+          clo_free_variables
       in
       let () = print_endline "Captured variable [END]" in
 
@@ -569,9 +576,9 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | KAClosure ->
             Ty.TyClosure closure_scheama
         | KAFunctionPointer
-          when not @@ CapturedIdentifier.is_empty free_variables ->
+          when not @@ CapturedIdentifier.is_empty clo_free_variables ->
             let variables =
-              free_variables |> CapturedIdentifier.elements |> List.map fst
+              clo_free_variables |> CapturedIdentifier.elements |> List.map fst
             in
             raise @@ KosuError.Exn.captured_variables_for_fnptr variables
         | KAFunctionPointer ->
@@ -1022,7 +1029,10 @@ and typeof_pattern scrutinee_type kosu_env
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       (bound, (kosu_env, ty))
 
-and free_variable_expression ~closure_env ~scope_env (expression : _ location) =
+(**
+  [variables_expression closure_env expression] returns all the variables used in [expression]
+*)
+and variables_expression closure_env (expression : _ location) =
   let of_variable_info identifier
       KosuEnv.{ identifier = _; kosu_type; is_const = _ } =
     (identifier, kosu_type)
@@ -1030,13 +1040,10 @@ and free_variable_expression ~closure_env ~scope_env (expression : _ location) =
   (* capture should handle the resolve of identifier without module resolver *)
   let capture (identifier : _ location) =
     let in_clo_env = KosuEnv.assoc_type_opt identifier.value closure_env in
-    let in_scope_env = KosuEnv.assoc_type_opt identifier.value scope_env in
-    match (in_clo_env, in_scope_env) with
-    | Some _, (Some _ | None) ->
-        CapturedIdentifier.empty
-    | None, Some scope_info ->
+    match in_clo_env with
+    | Some scope_info ->
         CapturedIdentifier.singleton @@ of_variable_info identifier scope_info
-    | None, None ->
+    | None ->
         raise @@ KosuError.Exn.unbound_identifier identifier
   in
   match expression.value with
@@ -1069,21 +1076,21 @@ and free_variable_expression ~closure_env ~scope_env (expression : _ location) =
         | Either.Left _ ->
             CapturedIdentifier.empty
         | Either.Right expr ->
-            free_variable_expression ~closure_env ~scope_env expr
+            variables_expression closure_env expr
       in
       captured
   | EFieldAccess { first_expr; field = _ }
   | ETupleAccess { first_expr; index = _ }
   | EDeref first_expr ->
-      free_variable_expression ~closure_env ~scope_env first_expr
+      variables_expression closure_env first_expr
   | EArrayAccess { array_expr; index_expr } ->
-      let set = free_variable_expression ~closure_env ~scope_env array_expr in
-      let set2 = free_variable_expression ~closure_env ~scope_env index_expr in
+      let set = variables_expression closure_env array_expr in
+      let set2 = variables_expression closure_env index_expr in
       CapturedIdentifier.union set set2
   | EStruct { module_resolver = _; struct_name = _; fields } ->
       List.fold_left
         (fun set (_, expr) ->
-          let s = free_variable_expression ~closure_env ~scope_env expr in
+          let s = variables_expression closure_env expr in
           CapturedIdentifier.union s set
         )
         CapturedIdentifier.empty fields
@@ -1101,13 +1108,12 @@ and free_variable_expression ~closure_env ~scope_env (expression : _ location) =
       } ->
       List.fold_left
         (fun set expr ->
-          let s = free_variable_expression ~closure_env ~scope_env expr in
+          let s = variables_expression closure_env expr in
           CapturedIdentifier.union s set
         )
         CapturedIdentifier.empty exprs
   | EBlock kosu_block ->
-      free_variable_block ~captured:CapturedIdentifier.empty ~closure_env
-        ~scope_env kosu_block
+      variables_block ~captured:CapturedIdentifier.empty closure_env kosu_block
   | EAnonFunction { parameters; body; kind = _ } ->
       let variables, _ =
         List.split
@@ -1124,61 +1130,61 @@ and free_variable_expression ~closure_env ~scope_env (expression : _ location) =
              )
              parameters
       in
-      let scope_env = KosuEnv.merge_variables scope_env closure_env in
-      let closure_env = KosuEnv.replace_env_variables variables closure_env in
-      free_variable_expression ~closure_env ~scope_env body
-  | EWhile { condition_expr; body } ->
-      let captured_expr =
-        free_variable_expression ~closure_env ~scope_env condition_expr
+      let closure_env = KosuEnv.rebind_env_variables variables closure_env in
+      let clo_variables = variables_expression closure_env body in
+      let clo_free_variables =
+        CapturedIdentifier.filter
+          (fun (identifier, _) ->
+            List.exists
+              (fun (clo_arg, _, _) -> clo_arg.value <> identifier.value)
+              variables
+          )
+          clo_variables
       in
+      clo_free_variables
+  | EWhile { condition_expr; body } ->
+      let captured_expr = variables_expression closure_env condition_expr in
       let captured_body =
-        free_variable_block ~captured:CapturedIdentifier.empty ~closure_env
-          ~scope_env body
+        variables_block ~captured:CapturedIdentifier.empty closure_env body
       in
       CapturedIdentifier.union captured_expr captured_body
   | ECases { cases; else_body } ->
       let captured =
         List.fold_left
           (fun captured (expr, body) ->
-            let captured_expr =
-              free_variable_expression ~closure_env ~scope_env expr
-            in
+            let captured_expr = variables_expression closure_env expr in
             let captured_body =
-              free_variable_block ~captured:CapturedIdentifier.empty
-                ~closure_env ~scope_env body
+              variables_block ~captured:CapturedIdentifier.empty closure_env
+                body
             in
             let s = CapturedIdentifier.union captured_expr captured_body in
             CapturedIdentifier.union captured s
           )
           CapturedIdentifier.empty cases
       in
-      free_variable_block ~captured ~closure_env ~scope_env else_body
+      variables_block ~captured closure_env else_body
   | EMatch _ ->
       failwith ""
 
-and free_variable_block ~captured ~closure_env ~scope_env block =
+and variables_block ~captured closure_env block =
   let { kosu_stmts; kosu_expr } = block in
   let closure_env, captured =
     List.fold_left
       (fun (env, set) stmt ->
-        let env, nset =
-          free_variable_statement ~closure_env:env ~scope_env stmt
-        in
+        let env, nset = variables_statement env stmt in
         let set = CapturedIdentifier.union set nset in
         (env, set)
       )
       (closure_env, captured) kosu_stmts
   in
-  let captured_expr =
-    free_variable_expression ~closure_env ~scope_env kosu_expr
-  in
+  let captured_expr = variables_expression closure_env kosu_expr in
   let captured = CapturedIdentifier.union captured captured_expr in
   captured
 
-and free_variable_statement ~closure_env ~scope_env statement =
+and variables_statement closure_env statement =
   match statement.value with
   | SDeclaration { is_const; pattern; explicit_type; expression } ->
-      let frees = free_variable_expression ~closure_env ~scope_env expression in
+      let frees = variables_expression closure_env expression in
       let ty =
         Option.value ~default:(Ty.fresh_variable_type ())
         @@ Option.map KosuUtil.Ty.of_tyloc' explicit_type
@@ -1192,16 +1198,11 @@ and free_variable_statement ~closure_env ~scope_env statement =
       in
       (closure_env, frees)
   | SDiscard expression | SAffection { expression; _ } ->
-      let captured =
-        free_variable_expression ~closure_env ~scope_env expression
-      in
+      let captured = variables_expression closure_env expression in
       (closure_env, captured)
   | SOpen { module_resolver } ->
-      let env_module_merged =
-        KosuEnv.merge_opened_module scope_env closure_env
-      in
       let kosu_module =
-        match KosuEnv.find_module_opt module_resolver env_module_merged with
+        match KosuEnv.find_module_opt module_resolver closure_env with
         | Some kosu_module ->
             kosu_module
         | None ->
