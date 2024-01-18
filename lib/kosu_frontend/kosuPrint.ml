@@ -283,6 +283,29 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
   | UnboundIdentifier i ->
       let sloc = string_of_located_error i in
       sfile @@ sloc @@ sprintf "Unbound idenfier : %s" i.value
+  | UnboundEnum { module_resolver; enum_name; variant } ->
+      let sloc =
+        string_of_located_error @@ Option.value ~default:variant enum_name
+      in
+      let smodule = string_of_module_resolver_loc module_resolver in
+      let message =
+        match enum_name with
+        | Some name ->
+            sprintf {|Unbound enum with variant : %s.%s.%s|} smodule name.value
+              variant.value
+        | None ->
+            sprintf {|Unbound enum variant : %s..%s|} smodule variant.value
+      in
+      sfile @@ sloc @@ message
+  | UnboundStruct { module_resolver; struct_name } ->
+      let sloc = string_of_located_error struct_name in
+      let smodule = string_of_module_resolver_loc module_resolver in
+      sfile @@ sloc @@ sprintf "Unbound struct %s.%s" smodule struct_name.value
+  | StructInitWrongField { expected; found } ->
+      let sloc = string_of_located_error found in
+      sfile @@ sloc
+      @@ sprintf {|Struct Initialization: Expected "%s", found "%s"|} expected
+           found.value
   | IdentifierAlreadyBound identifier ->
       let sloc = string_of_located_error identifier in
       sfile @@ sloc
@@ -495,6 +518,23 @@ module Formatted = struct
               failwith ""
         in
         sprintf "Unbound Module : %s" s.value
+    | StructInitWrongField { expected; found } ->
+        sprintf {|Struct Initialization: Expected "%s", found "%s"|} expected
+          found.value
+    | UnboundEnum { module_resolver; enum_name; variant } ->
+        let smodule = string_of_module_resolver_loc module_resolver in
+        let message =
+          match enum_name with
+          | Some name ->
+              sprintf {|Unbound enum with variant : %s.%s.%s|} smodule
+                name.value variant.value
+          | None ->
+              sprintf {|Unbound enum variant : %s..%s|} smodule variant.value
+        in
+        message
+    | UnboundStruct { module_resolver; struct_name } ->
+        let smodule = string_of_module_resolver_loc module_resolver in
+        sprintf "Unbound struct %s.%s" smodule struct_name.value
     | UnboundIdentifier i ->
         sprintf "Unbound identifier : %s" i.value
     | IdentifierAlreadyBound identifier ->

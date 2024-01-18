@@ -47,10 +47,23 @@ type kosu_error =
       module_resolver : KosuAst.module_resolver_loc;
       identifier : string Position.location;
     }
+  | UnboundStruct of {
+      module_resolver : KosuAst.module_resolver_loc;
+      struct_name : string Position.location;
+    }
+  | UnboundEnum of {
+      module_resolver : KosuAst.module_resolver_loc;
+      enum_name : string Position.location option;
+      variant : string Position.location;
+    }
   | IdentifierAlreadyBound of string Position.location
   | NoFieldInStruct of {
       struct_decl : KosuAst.kosu_raw_struct_decl;
       field : string Position.location;
+    }
+  | StructInitWrongField of {
+      expected : string;
+      found : string Position.location;
     }
   | NoStructDeclFoundForType of KosuType.Ty.kosu_type Position.location
   | TypingError of KosuType.Ty.kosu_type_constraint
@@ -105,10 +118,19 @@ module Raw = struct
   let unbound_constante module_resolver identifier =
     UnboundConstante { module_resolver; identifier }
 
+  let unbound_struct module_resolver struct_name =
+    UnboundStruct { module_resolver; struct_name }
+
+  let unbound_enum module_resolver enum_name variant =
+    UnboundEnum { module_resolver; enum_name; variant }
+
   let identifier_already_bound e = IdentifierAlreadyBound e
 
   let field_not_in_struct struct_decl field =
     NoFieldInStruct { struct_decl; field }
+
+  let struct_init_wrong_field expected found =
+    StructInitWrongField { expected; found }
 
   let no_struct_decl_for_type t = NoStructDeclFoundForType t
   let typing_error consts = TypingError consts
@@ -157,6 +179,15 @@ module Exn = struct
 
   let unbound_module e = kosu_raw_error @@ UnboundModule e
   let unbound_identifier e = kosu_raw_error @@ UnboundIdentifier e
+
+  let unbound_struct module_resolver struct_name =
+    kosu_raw_error @@ Raw.unbound_struct module_resolver struct_name
+
+  let unbound_enum module_resolver enum_name variant =
+    kosu_raw_error @@ Raw.unbound_enum module_resolver enum_name variant
+
+  let struct_init_wrong_field expected found =
+    kosu_raw_error @@ Raw.struct_init_wrong_field expected found
 
   let unbound_constante module_resolver identifier =
     kosu_raw_error @@ UnboundConstante { module_resolver; identifier }
@@ -243,7 +274,9 @@ module Function = struct
     | SizeofPolymorphicType position
     | UnboundConstante
         { identifier = { value = _; position }; module_resolver = _ }
+    | UnboundStruct { struct_name = { position; value = _ }; _ }
     | NoFieldInStruct { field = { value = _; position }; struct_decl = _ }
+    | StructInitWrongField { found = { position; value = _ }; expected = _ }
     | TypeDeclarationNotFound { value = _; position }
     | TypingError { position; _ } ->
         position :: []
@@ -255,6 +288,9 @@ module Function = struct
           | DStruct { struct_name; _ } ->
               struct_name.position
         in
+        [ p ]
+    | UnboundEnum { enum_name; variant; _ } ->
+        let p = Position.position @@ Option.value ~default:variant enum_name in
         [ p ]
     | PatternAlreadyBoundIdentifier patterns
     | PatternIdentifierNotBoundEveryTime patterns ->

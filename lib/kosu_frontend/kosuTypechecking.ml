@@ -164,7 +164,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
                   (* let () = Printf.printf "field found = %s\n" (KosuPrint.string_of_kosu_type ty) in  *)
                   ty
               | None ->
-                  failwith "After solve not goot type"
+                  raise @@ cannot_infer_type array_expr.position
             in
             ty
         | _ ->
@@ -242,7 +242,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | Some decl ->
             decl
         | None ->
-            failwith "No struct found"
+            raise @@ unbound_struct module_resolver struct_name
       in
       let struct_decl, ty =
         KosuUtil.Struct.substitution_fresh ~fresh:Ty.fresh_variable_type
@@ -264,7 +264,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
               | true ->
                   ()
               | false ->
-                  failwith "Struct init not matching name"
+                  raise @@ struct_init_wrong_field struct_name expr_name
             in
             let env, ty = typeof kosu_env expr_expr in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
@@ -277,17 +277,17 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
           kosu_env combined_fields
       in
       (kosu_env, ty)
-  | EEnum { module_resolver; enum_name; variant; assoc_exprs } ->
+  | EEnum { module_resolver = re; enum_name; variant; assoc_exprs } ->
       let module_resolver, enum_decl =
         match
-          KosuEnv.find_enum_declaration module_resolver
+          KosuEnv.find_enum_declaration re
             (Option.map Position.value enum_name)
             variant kosu_env
         with
         | Some t ->
             t
         | None ->
-            failwith "Cannot find the enum declaration"
+            raise @@ unbound_enum re enum_name variant
       in
       let enum_decl, ty =
         KosuUtil.Enum.substitution_fresh ~fresh:Ty.fresh_variable_type
@@ -298,7 +298,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | Some assoc_types ->
             assoc_types
         | None ->
-            failwith "No variant name"
+            raise @@ unbound_enum re enum_name variant
       in
       let assoc_types_exprs =
         match List.combine enum_associated_type assoc_exprs with
@@ -325,14 +325,22 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       typeof_block kosu_env block
   | EDeref expr ->
       let kosu_env, ty = typeof kosu_env expr in
-      let pointee_type =
-        match ty with
-        | TyPointer { pointee_type; pointer_state = _ } ->
-            pointee_type
-        | _ ->
-            failwith "Should be pointer type"
+      let try_find_ty = function
+        | Ty.TyPointer { pointee_type; pointer_state = _ } ->
+            Option.some @@ Either.left pointee_type
+        | Ty.TyPolymorphic p ->
+            Option.some @@ Either.right p
+        | ty ->
+            raise @@ deref_non_pointer @@ Position.map (fun _ -> ty) expr
       in
-      (kosu_env, pointee_type)
+      let ty_solve =
+        match KosuEnv.find_or_try_solve try_find_ty ty kosu_env with
+        | Some t ->
+            t
+        | None ->
+            raise @@ cannot_infer_type expr.position
+      in
+      (kosu_env, ty_solve)
   | ETuple exprs ->
       let kosu_env, types =
         List.fold_left_map
