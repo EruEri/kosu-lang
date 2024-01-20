@@ -416,9 +416,9 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
             raise @@ callable_wrong_arity fn_name expected found
       in
 
-      let fresh_variables =
-        List.map (fun _ -> Ty.fresh_variable_type ()) schema.poly_vars
-      in
+      let fresh _ = Ty.fresh_variable_type () in
+
+      let fresh_variables = List.map fresh schema.poly_vars in
       let assoc_poly_fresh = List.combine schema.poly_vars fresh_variables in
       let kosu_env =
         match generics_resolver with
@@ -449,6 +449,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         List.fold_left
           (fun kosu_env (sig_ty, expr) ->
             let env, ty = typeof kosu_env expr in
+            let ty = KosuUtil.Ty.ty_instanciate ~fresh ty in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
             KosuEnv.add_typing_constraint ~cexpected:sig_ty ~cfound:ty expr
               kosu_env

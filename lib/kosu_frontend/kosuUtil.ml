@@ -612,29 +612,37 @@ module Ty = struct
         let return_type = ty_substitution bound assoc_type return_type in
         { e with parameters_type; return_type }
 
-  (* and ty_substitution_closure_type assoc_type = function
-     | ClosureType
-         ( {
-             id = _;
-             schema = { poly_vars; parameters_type; return_type } as aschema;
-             env;
-           } as e
-         ) ->
-         let bound = poly_vars in
-         let parameters_type =
-           List.map (ty_substitution bound assoc_type) parameters_type
-         in
-         let return_type = ty_substitution bound assoc_type return_type in
-         let schema = { aschema with parameters_type; return_type } in
-         let env =
-           List.map
-             (fun (name, ty) ->
-               let ty = ty_substitution bound assoc_type ty in
-               (name, ty)
-             )
-             env
-         in
-         ClosureType { e with schema; env } *)
+  let schema_instanciate ~fresh (schema : Ty.kosu_function_schema) =
+    let fresh_variables = List.map (fun _ -> fresh ()) schema.poly_vars in
+    let assoc_poly_fresh = List.combine schema.poly_vars fresh_variables in
+    let schema = ty_substitution_schema assoc_poly_fresh schema in
+    { schema with poly_vars = [] }
+
+  (**
+    [ty_instanciate ~fresh ty] instanciates callable type schema [Ty.TyFunctionPtr] 
+    and [Ty.TyClosure] by substituing quantified types by types created by [fresh]
+*)
+  let ty_instanciate ~fresh = function
+    | Ty.TyFunctionPtr schema ->
+        let schema = schema_instanciate ~fresh schema in
+        Ty.TyFunctionPtr schema
+    | TyClosure schema ->
+        let schema = schema_instanciate ~fresh schema in
+        Ty.TyClosure schema
+    | ( TyOrdered
+      | TyStringLit
+      | TyChar
+      | TyBool
+      | TyUnit
+      | TyIdentifier { module_resolver = ModuleResolver_ _; _ }
+      | TyPolymorphic (PolymorphicVar _ | CompilerPolymorphicVar _)
+      | TyPointer _
+      | TyInteger _
+      | TyFloat _
+      | TyArray _
+      | TyTuple _
+      | TyOpaque { module_resolver = ModuleResolver_ _; _ } ) as t ->
+        t
 
   let return_type : KosuType.Ty.kosu_type -> KosuType.Ty.kosu_type option =
     function
@@ -660,7 +668,6 @@ module Ty = struct
         let poly_vars = [] in
         let parameters_type = List.map of_tyloc' parameters in
         let return_type = of_tyloc' return_type in
-        (* Think about are syscall call are function pointer*)
         TyFunctionPtr { poly_vars; parameters_type; return_type }
     | CdKosuFuntion { poly_vars; parameters; return_type; _ } ->
         let poly_vars = List.map of_tyloc_polymorphic poly_vars in

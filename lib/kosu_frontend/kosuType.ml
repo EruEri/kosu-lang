@@ -68,13 +68,6 @@ module Ty = struct
     return_type : kosu_type;
   }
 
-  and kosu_inner_closure_type =
-    | ClosureType of {
-        id : string;
-        schema : kosu_function_schema;
-        env : (string * kosu_type) list;
-      }
-
   and kosu_type =
     | TyIdentifier of {
         module_resolver : module_resolver;
