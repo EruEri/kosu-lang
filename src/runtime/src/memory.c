@@ -21,87 +21,28 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
+#include "gc.h"
 
-#define nil NULL
-
-kosu_pointer_t* KOSU_POINTERS = nil;
-kosu_frame_t* KOSU_FRAME_STACK = nil;
-
-void kosu_alloc_error() {
-    // TODO: free alloc allocated memory
-    printf("Kosu Error alloc\n");
-    exit(1);
+int kosu_init() {
+    GC_INIT();
+    return 0;
 }
 
+int kosu_finalise() {
+    return 0;
+}
 
-void kosu_push_frame(void** frame, size_t variable_size) {
-    kosu_frame_t* kosu_frame = malloc(sizeof(kosu_frame_t));
-    if (!kosu_frame) {
-        kosu_alloc_error();
+void* kosu_alloc(size_t size) {
+    void* ptr = GC_malloc(size);
+    if (ptr == NULL) {
+        exit(6);
     }
-
-    kosu_frame->m_root = frame;
-    kosu_frame->m_frame_size = variable_size;
-    kosu_frame->m_previous = KOSU_FRAME_STACK;
-    KOSU_FRAME_STACK = kosu_frame;
+    return ptr;
 }
 
-void kosu_pop_frame() {
-    if (!KOSU_FRAME_STACK) {
-        return;
-    }
-    KOSU_FRAME_STACK = KOSU_FRAME_STACK->m_previous;
-}
-
-
-void* kosu_alloc(uint64_t size) {
-    return kosu_alloc_array(size, 1);
-}
-
-void* kosu_alloc_array(uint64_t size, size_t nb_elt) {
-    void* alloc = malloc(size * nb_elt);
-    if (!alloc) {
-        kosu_alloc_error();
-    }
-    kosu_pointer_t* kosu_pointer = malloc(sizeof(kosu_pointer_t));
-    if (kosu_pointer) { kosu_alloc_error();}
-
-    kosu_pointer->m_nb_alloc = nb_elt;
-    kosu_pointer->m_base = alloc;
-    kosu_pointer->m_nb_alloc = nb_elt;
-    kosu_pointer->m_previous = KOSU_POINTERS;
-    kosu_pointer->m_color = KOSU_GC_NONE;
-    KOSU_POINTERS = kosu_pointer;
-    return alloc;
-}
-
-bool is_kosu_pointer(void* ptr) {
-    kosu_pointer_t* root = KOSU_POINTERS;
-    while (root) {
-        if (root->m_base == ptr) return true;
-        root = root->m_previous;
-    }
-    return false;
-}
-
-kosu_pointer_t* kosu_find_pointer(void* pointer) {
-    kosu_pointer_t* root = KOSU_POINTERS;
-    while (root) {
-        
-    }
-    return NULL;
-}
-
-void kosu_gc_mark_frame(kosu_frame_t* frame) {    
-    for (size_t start = 0; start < frame->m_frame_size; start += 1) {
-        void** root = frame->m_root + start;
-    }
-}
-
-
-void kosu_gc_mark() {
-    kosu_frame_t* root = KOSU_FRAME_STACK;
-    while (root) {
-
-    }
+void* kosu_alloc_set(const void* expr, size_t size) {
+    void* ptr = kosu_alloc(size);
+    memcpy(ptr, expr, size);
+    return ptr;
 }

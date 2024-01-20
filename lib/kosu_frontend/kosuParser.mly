@@ -44,7 +44,7 @@
 %token <string> PREFIX_TILDE
 %token <string> PREFIX_EXCLA
 %token <string> PREFIX_QUESTIONMARK
-%token STAR MINUS PIPE MINUS_SUP PIPE_SUP
+%token STAR MINUS PIPE MINUS_SUP
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token CROISILLION
 %token SEMICOLON 
@@ -61,8 +61,8 @@
 %token EOF
 
 
-%right MINUS_SUP
-%left INFIX_PIPE PIPE_SUP
+%left MINUS_SUP
+%left INFIX_PIPE 
 %left INFIX_AMPERSAND
 %left PIPE
 %left INFIX_CARET
@@ -441,7 +441,7 @@ kosu_expression:
             id
         }
     }
-    | first_expr=located(kosu_expression) PIPE_SUP kosu_function_call {
+    | first_expr=located(kosu_expression) MINUS_SUP kosu_function_call {
         let module_resolver, fn_name, generics_resolver, parameters = $3 in
         let parameters = first_expr :: parameters in
             EFunctionCall {
