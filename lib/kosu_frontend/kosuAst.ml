@@ -218,16 +218,6 @@ type kosu_external_func_decl = {
 }
 
 type kosu_builtin_function =
-  | Tos8
-  | Tou8
-  | Tos16
-  | Tou16
-  | Tos32
-  | Tou32
-  | Tof32
-  | Tos64
-  | Tou64
-  | Tof64
   | StringLen
   | StringlPtr
   | ArrayPtr

@@ -301,6 +301,15 @@ module Ty = struct
   open Position
   open KosuType
 
+  let s8 = Ty.TyInteger (Some (Sized (Signed, I8)))
+  let u8 = Ty.TyInteger (Some (Sized (Unsigned, I8)))
+  let s32 = Ty.TyInteger (Some (Sized (Signed, I32)))
+  let usize = Ty.TyInteger (Some (Worded Unsigned))
+  let ssize = Ty.TyInteger (Some (Worded Signed))
+  let stringl = Ty.TyStringLit
+  let ptr_const ty = Ty.TyPointer { pointer_state = Const; pointee_type = ty }
+  let ptr_mut ty = Ty.TyPointer { pointer_state = Mutable; pointee_type = ty }
+
   let is_integer : KosuType.Ty.kosu_type -> bool = function
     | Ty.TyInteger _ ->
         true
@@ -1054,29 +1063,31 @@ end
 module Builtin = struct
   type kosu_builtin_function = KosuAst.kosu_builtin_function
 
+  let to_string =
+    let open KosuAst in
+    function
+    | StringLen ->
+        "stringlen"
+    | StringlPtr ->
+        "stringlptr"
+    | ArrayPtr ->
+        "arrayptr"
+    | ArrayLen ->
+        "arraylen"
+    | Tagof ->
+        "tagof"
+    | Exit ->
+        "exit"
+    | Alloc { const = true } ->
+        "alloc"
+    | Alloc { const = false } ->
+        "allocmut"
+    | Ralloc ->
+        "ralloc"
+
   let of_string_opt =
     let open KosuAst in
     function
-    | "tos8" ->
-        Option.some @@ Tos8
-    | "tou8" ->
-        Option.some @@ Tou8
-    | "tos16" ->
-        Option.some @@ Tos16
-    | "tou16" ->
-        Option.some @@ Tou16
-    | "tof32" ->
-        Option.some @@ Tos32
-    | "tos32" ->
-        Option.some @@ Tos32
-    | "tou32" ->
-        Option.some @@ Tou32
-    | "tos64" ->
-        Option.some @@ Tos64
-    | "tou64" ->
-        Option.some @@ Tou64
-    | "tof64" ->
-        Option.some @@ Tof64
     | "tagof" ->
         Option.some @@ Tagof
     | "arraylen" ->
@@ -1101,23 +1112,7 @@ module Builtin = struct
   let arity =
     let open KosuAst in
     function
-    | Tos8
-    | Tou8
-    | Tos16
-    | Tou16
-    | Tos32
-    | Tou32
-    | Tof32
-    | Tos64
-    | Tou64
-    | Tof64
-    | StringLen
-    | StringlPtr
-    | ArrayPtr
-    | ArrayLen
-    | Tagof
-    | Exit
-    | Alloc _ ->
+    | StringLen | StringlPtr | ArrayPtr | ArrayLen | Tagof | Exit | Alloc _ ->
         1
     | Ralloc ->
         2

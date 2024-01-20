@@ -375,13 +375,17 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       (kosu_env, TyArray { size = Int64.of_int length; ktype = fresh_variable })
   | EBuiltinFunctionCall { fn_name; parameters } ->
       let builtin_function =
-        match KosuUtil.Builtin.of_string_opt fn_name.value with
-        | Some f ->
-            f
-        | None ->
-            raise @@ unbound_builtin_function fn_name
+        Position.map_use
+          (fun fn_name ->
+            match KosuUtil.Builtin.of_string_opt fn_name.value with
+            | Some f ->
+                f
+            | None ->
+                raise @@ unbound_builtin_function fn_name
+          )
+          fn_name
       in
-      let expected_arity = KosuUtil.Builtin.arity builtin_function in
+      let expected_arity = KosuUtil.Builtin.arity builtin_function.value in
       let args_count = List.length parameters in
       let () =
         if expected_arity <> args_count then
@@ -389,7 +393,7 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
           @@ KosuError.Exn.callable_wrong_arity fn_name expected_arity
                args_count
       in
-      failwith "TODO: Ebuiling duntion"
+      typeof_builin_functions kosu_env builtin_function parameters
   | EFunctionCall { module_resolver; generics_resolver; fn_name; parameters } ->
       let t = KosuEnv.find_identifier module_resolver fn_name.value kosu_env in
       let t =
@@ -1058,6 +1062,89 @@ and typeof_pattern scrutinee_type kosu_env
       in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       (bound, (kosu_env, ty))
+
+and typeof_builin_functions_args kosu_env builtin expected args return =
+  let fn_name = Position.map KosuUtil.Builtin.to_string builtin in
+  let arity = KosuUtil.Builtin.arity builtin.value in
+  let args =
+    match List.combine expected args with
+    | e ->
+        e
+    | exception _ ->
+        raise
+        @@ KosuError.Exn.callable_wrong_arity fn_name arity (List.length args)
+  in
+  let kosu_env, targs =
+    List.fold_left_map
+      (fun kosu_env (expected, expr) ->
+        let env, ty = typeof kosu_env expr in
+        let kosu_env = KosuEnv.merge_constraint env kosu_env in
+        let cexpected = expected ty in
+        let kosu_env =
+          KosuEnv.add_typing_constraint ~cexpected ~cfound:ty expr kosu_env
+        in
+        (kosu_env, cexpected)
+      )
+      kosu_env args
+  in
+
+  let return_type = return targs in
+
+  (kosu_env, return_type)
+
+and typeof_builin_functions kosu_env builtin args =
+  let expected, return =
+    match builtin.value with
+    | StringLen ->
+        let expected = [ (fun _ -> KosuUtil.Ty.stringl) ] in
+        let return_type _ = KosuUtil.Ty.usize in
+        (expected, return_type)
+    | StringlPtr ->
+        let expected = [ (fun _ -> KosuUtil.Ty.stringl) ] in
+        let return_type _ = KosuUtil.Ty.(ptr_const s8) in
+        (expected, return_type)
+    | ArrayPtr ->
+        let _ = [] in
+        failwith ""
+    | ArrayLen | Tagof ->
+        failwith ""
+    | Exit ->
+        let expected = [ (fun _ -> KosuUtil.Ty.s32) ] in
+        let return_type _ = Ty.fresh_variable_type () in
+        (expected, return_type)
+    | Alloc { const } ->
+        let pointer_state =
+          if const then
+            Const
+          else
+            Mutable
+        in
+        let expected = [ Fun.id ] in
+        let return_type args =
+          let pointee_type = List.hd args in
+          Ty.TyPointer { pointer_state; pointee_type }
+        in
+        (expected, return_type)
+    | Ralloc ->
+        let expected0 = function
+          | Ty.TyPointer _ as ty ->
+              ty
+          | _ ->
+              failwith "Expected pointer"
+        in
+        let expected1 _ = KosuUtil.Ty.usize in
+        let expected = [ expected0; expected1 ] in
+        let return_type args =
+          let ty = List.hd args in
+          match ty with
+          | Ty.TyPointer { pointer_state = _; pointee_type } ->
+              KosuUtil.Ty.ptr_mut pointee_type
+          | _ ->
+              failwith "Expected pointer"
+        in
+        (expected, return_type)
+  in
+  typeof_builin_functions_args kosu_env builtin expected args return
 
 (**
   [variables_expression closure_env expression] returns all the variables used in [expression]
