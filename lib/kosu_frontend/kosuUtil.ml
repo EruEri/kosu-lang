@@ -1051,6 +1051,78 @@ module Expression = struct
         so
 end
 
+module Builtin = struct
+  type kosu_builtin_function = KosuAst.kosu_builtin_function
+
+  let of_string_opt =
+    let open KosuAst in
+    function
+    | "tos8" ->
+        Option.some @@ Tos8
+    | "tou8" ->
+        Option.some @@ Tou8
+    | "tos16" ->
+        Option.some @@ Tos16
+    | "tou16" ->
+        Option.some @@ Tou16
+    | "tof32" ->
+        Option.some @@ Tos32
+    | "tos32" ->
+        Option.some @@ Tos32
+    | "tou32" ->
+        Option.some @@ Tou32
+    | "tos64" ->
+        Option.some @@ Tos64
+    | "tou64" ->
+        Option.some @@ Tou64
+    | "tof64" ->
+        Option.some @@ Tof64
+    | "tagof" ->
+        Option.some @@ Tagof
+    | "arraylen" ->
+        Option.some @@ ArrayLen
+    | "arrayptr" ->
+        Option.some @@ ArrayPtr
+    | "stringlptr" ->
+        Option.some @@ StringlPtr
+    | "stringlen" ->
+        Option.some @@ StringLen
+    | "alloc" ->
+        Option.some @@ Alloc { const = true }
+    | "allocmut" ->
+        Option.some @@ Alloc { const = false }
+    | "ralloc" ->
+        Option.some @@ Ralloc
+    | "exit" ->
+        Option.some @@ Exit
+    | _ ->
+        None
+
+  let arity =
+    let open KosuAst in
+    function
+    | Tos8
+    | Tou8
+    | Tos16
+    | Tou16
+    | Tos32
+    | Tou32
+    | Tof32
+    | Tos64
+    | Tou64
+    | Tof64
+    | StringLen
+    | StringlPtr
+    | ArrayPtr
+    | ArrayLen
+    | Tagof
+    | Exit
+    | Alloc _ ->
+        1
+    | Ralloc ->
+        2
+end
+
 module Node = struct
   let explicit_module_type current_module _program :
       KosuAst.kosu_module_node -> KosuAst.kosu_module_node = function

@@ -43,6 +43,7 @@ type kosu_error =
   | PatternIdentifierNotBoundEveryTime of string Position.location list
   | UnboundModule of KosuBaseAst.module_resolver_loc
   | UnboundIdentifier of string Position.location
+  | UnboundBuiltinFunction of string Position.location
   | UnboundConstante of {
       module_resolver : KosuAst.module_resolver_loc;
       identifier : string Position.location;
@@ -147,6 +148,7 @@ module Raw = struct
   let struct_init_wrong_field expected found =
     StructInitWrongField { expected; found }
 
+  let unbound_builtin_function name = UnboundBuiltinFunction name
   let no_struct_decl_for_type t = NoStructDeclFoundForType t
   let typing_error consts = TypingError consts
   let non_struct_type p = NonStructTypeExpression p
@@ -201,6 +203,7 @@ module Exn = struct
   let pattern_identifier_not_bound e =
     kosu_raw_error @@ PatternIdentifierNotBoundEveryTime e
 
+  let unbound_builtin_function = kosu_raw_error $ Raw.unbound_builtin_function
   let unbound_module e = kosu_raw_error @@ UnboundModule e
   let unbound_identifier e = kosu_raw_error @@ UnboundIdentifier e
 
@@ -310,6 +313,7 @@ module Function = struct
     | ArraySubscribeNotInteger position
     | TupleIndexOutBound { expect = _; found = { value = _; position } }
     | SizeofPolymorphicType position
+    | UnboundBuiltinFunction { position; value = _ }
     | UnboundConstante
         { identifier = { value = _; position }; module_resolver = _ }
     | UnboundStruct { struct_name = { position; value = _ }; _ }

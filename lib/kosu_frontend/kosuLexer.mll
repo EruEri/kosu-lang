@@ -101,6 +101,9 @@ rule token = parse
 | '\'' (lower_identifier as s) { 
     PolymorphicVar s
 }
+| "@" (identifiant as s) {
+    Builtin s
+}
 | '\'' (hexa_char as s) '\'' {
     let s_len = String.length s in
     let s_number = String.sub s 1 (s_len - 1) in
@@ -221,23 +224,6 @@ rule token = parse
     @@ ForbiddenChar { value = c; position = current_position lexbuf}
 }
 | eof { EOF }
-
-and built_in_function = parse
-| identifiant as s {
-    Builtin s
-}
-| _ as lit {
-    raise @@ KosuError.Exn.kosu_lexer_error
-    @@ InvalidLitteralBuiltinFunction {
-        value = lit;
-        position = current_position lexbuf
-    }
-}
-| eof {  
-    raise @@ KosuError.Exn.kosu_lexer_error
-    @@ NotFinishedBuiltinFunction (current_position lexbuf)
-}
-
 and read_string buffer = parse
 | '"' { (Buffer.contents buffer) }
 | (hexa_char as s) {

@@ -374,7 +374,21 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
       in
       (kosu_env, TyArray { size = Int64.of_int length; ktype = fresh_variable })
   | EBuiltinFunctionCall { fn_name; parameters } ->
-      let () = ignore (fn_name, parameters) in
+      let builtin_function =
+        match KosuUtil.Builtin.of_string_opt fn_name.value with
+        | Some f ->
+            f
+        | None ->
+            raise @@ unbound_builtin_function fn_name
+      in
+      let expected_arity = KosuUtil.Builtin.arity builtin_function in
+      let args_count = List.length parameters in
+      let () =
+        if expected_arity <> args_count then
+          raise
+          @@ KosuError.Exn.callable_wrong_arity fn_name expected_arity
+               args_count
+      in
       failwith "TODO: Ebuiling duntion"
   | EFunctionCall { module_resolver; generics_resolver; fn_name; parameters } ->
       let t = KosuEnv.find_identifier module_resolver fn_name.value kosu_env in

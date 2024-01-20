@@ -282,7 +282,10 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       sfile @@ sloc @@ sprintf "Unbound Module : %s" s.value
   | UnboundIdentifier i ->
       let sloc = string_of_located_error i in
-      sfile @@ sloc @@ sprintf "Unbound idenfier : %s" i.value
+      sfile @@ sloc @@ sprintf "Unbound identifier : %s" i.value
+  | UnboundBuiltinFunction name ->
+      let sloc = string_of_located_error name in
+      sfile @@ sloc @@ sprintf "Unbound builtin function : %s" name.value
   | UnboundEnum { module_resolver; enum_name; variant } ->
       let sloc =
         string_of_located_error @@ Option.value ~default:variant enum_name
@@ -516,6 +519,8 @@ module Formatted = struct
         string_of_analytics_error kae
     | SizeofPolymorphicType _ ->
         "Dummy eerror"
+    | UnboundBuiltinFunction name ->
+        sprintf {|Unbound builtin function = "%s"|} name.value
     | DerefNonPointerType kosu_type ->
         sprintf
           "This expression has the type \"%s\" which is not a pointer. \

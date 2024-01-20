@@ -217,6 +217,26 @@ type kosu_external_func_decl = {
   c_name : string option;
 }
 
+type kosu_builtin_function =
+  | Tos8
+  | Tou8
+  | Tos16
+  | Tou16
+  | Tos32
+  | Tou32
+  | Tof32
+  | Tos64
+  | Tou64
+  | Tof64
+  | StringLen
+  | StringlPtr
+  | ArrayPtr
+  | ArrayLen
+  | Tagof
+  | Exit
+  | Alloc of { const : bool }
+  | Ralloc
+
 type kosu_const_decl = {
   const_name : string location;
   explicit_type : TyLoc.kosu_loctype location;
