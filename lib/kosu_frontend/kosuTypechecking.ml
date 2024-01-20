@@ -253,7 +253,9 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | combined ->
             combined
         | exception _ ->
-            failwith "Wrong field arrity"
+            let expected = List.length struct_decl.fields in
+            let found = List.length fields in
+            raise @@ struct_wrong_arity struct_name expected found
       in
 
       let kosu_env =
@@ -305,7 +307,9 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | combined ->
             combined
         | exception _ ->
-            failwith "Wrong field arrity for enum"
+            let expected = List.length enum_associated_type in
+            let found = List.length assoc_exprs in
+            raise @@ enum_variant_wrong_arity variant expected found
       in
       let kosu_env =
         List.fold_left
@@ -407,7 +411,9 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         | true ->
             ()
         | false ->
-            failwith "Not same length for callable"
+            let expected = List.length schema.parameters_type in
+            let found = List.length parameters in
+            raise @@ callable_wrong_arity fn_name expected found
       in
 
       let fresh_variables =
@@ -639,7 +645,7 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
             in
             ty
         | _ ->
-            failwith "Not ideintifiet type"
+            failwith "Not identifier type"
       in
       let env, ty = typeof kosu_env expression in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
@@ -703,7 +709,8 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
                     | Some t ->
                         t
                     | None ->
-                        failwith "Cannot specialiste type"
+                        raise
+                        @@ cannot_infer_type variable_info.identifier.position
                   in
                   find_identifier_type base_ty kosu_env
             in
@@ -742,20 +749,16 @@ and typeof_pattern scrutinee_type kosu_env
   match pattern.value with
   | PEmpty ->
       let ty = Ty.TyUnit in
-      (* let kosu_env = KosuEnv.add_typing_constraint ~lhs:strutinee_type ~rhs:ty pattern kosu_env in *)
       ([], (kosu_env, ty))
   | PTrue | PFalse ->
       let ty = Ty.TyBool in
-      (* let kosu_env = KosuEnv.add_typing_constraint ~lhs:strutinee_type ~rhs:ty pattern kosu_env in *)
       ([], (kosu_env, ty))
   | PCmpLess | PCmpEqual | PCmpGreater ->
       let ty = TyOrdered in
-      (* let kosu_env = KosuEnv.add_typing_constraint ~lhs:strutinee_type ~rhs:ty pattern kosu_env in *)
       ([], (kosu_env, ty))
   | PNullptr ->
       let fresh_ty = fresh_variable_type () in
       let ty = TyPointer { pointer_state = Const; pointee_type = fresh_ty } in
-      (* let kosu_env = KosuEnv.add_typing_constraint ~lhs:strutinee_type ~rhs:ty pattern kosu_env in *)
       ([], (kosu_env, ty))
   | PWildcard ->
       ([], (kosu_env, scrutinee_type))
@@ -823,7 +826,7 @@ and typeof_pattern scrutinee_type kosu_env
         | Some l ->
             l
         | None ->
-            failwith "No module found"
+            raise @@ unbound_enum module_resolver enum_name variant
       in
       let enum_decl, enum_ty =
         KosuUtil.Enum.substitution_fresh ~fresh:Ty.fresh_variable_type
@@ -834,14 +837,16 @@ and typeof_pattern scrutinee_type kosu_env
         | Some assoc_types ->
             assoc_types
         | None ->
-            failwith "No variant name"
+            raise @@ unbound_enum module_resolver enum_name variant
       in
       let assoc_types_exprs =
         match List.combine enum_associated_type assoc_patterns with
         | combined ->
             combined
         | exception _ ->
-            failwith "Wrong field arrity for enum"
+            let expected = List.length enum_associated_type in
+            let found = List.length assoc_patterns in
+            raise @@ enum_variant_wrong_arity variant expected found
       in
       let env, bound_typed =
         List.fold_left_map
@@ -895,7 +900,7 @@ and typeof_pattern scrutinee_type kosu_env
         | Some decl ->
             decl
         | None ->
-            failwith "No struct found"
+            raise @@ unbound_struct module_resolver struct_name
       in
       let struct_decl, struct_ty =
         KosuUtil.Struct.substitution_fresh ~fresh:Ty.fresh_variable_type
@@ -906,7 +911,9 @@ and typeof_pattern scrutinee_type kosu_env
         | combined ->
             combined
         | exception _ ->
-            failwith "Wrong field arrity"
+            let expected = List.length struct_decl.fields in
+            let found = List.length pfields in
+            raise @@ struct_wrong_arity struct_name expected found
       in
       let env, bound_variable =
         List.fold_left_map
@@ -917,7 +924,7 @@ and typeof_pattern scrutinee_type kosu_env
               | true ->
                   ()
               | false ->
-                  failwith "Struct pattern init not matching name"
+                  raise @@ struct_init_wrong_field struct_name pattern_name
             in
             let fresh_ty = fresh_variable_type () in
             let bound, (env, ty) =

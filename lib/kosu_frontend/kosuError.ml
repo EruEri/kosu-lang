@@ -99,6 +99,21 @@ type kosu_error =
       lhs : string Position.location;
       rhs : string Position.location;
     }
+  | WrongArityCallable of {
+      callable : string Position.location;
+      expected : int;
+      found : int;
+    }
+  | EnumVariantWrongArity of {
+      variant : string Position.location;
+      expected : int;
+      found : int;
+    }
+  | StructFieldWrongArity of {
+      struct_name : string Position.location;
+      expected : int;
+      found : int;
+    }
   | CyclicTypeDeclaration of KosuAst.kosu_type_decl
   | TypeDeclarationNotFound of KosuType.TyLoc.kosu_loctype Position.location
 
@@ -156,6 +171,15 @@ module Raw = struct
 
   let duplicated_variants enum_name lhs rhs =
     DuplicatedEnumVariant { enum_name; rhs; lhs }
+
+  let callable_wrong_arity callable expected found =
+    WrongArityCallable { callable; expected; found }
+
+  let enum_variant_wrong_arity variant expected found =
+    EnumVariantWrongArity { variant; expected; found }
+
+  let struct_wrong_arity struct_name expected found =
+    StructFieldWrongArity { struct_name; expected; found }
 
   let cyclic_type_declaration e = CyclicTypeDeclaration e
   let captured_variables_for_fnptr s = CapturedVariableForFunctionPointer s
@@ -221,10 +245,21 @@ module Exn = struct
     kosu_raw_error @@ TupleIndexOutBound { expect; found }
 
   let unsupported_file f = kosu_raw_error @@ UnsupportedFile f
-  let variable_type_not_bound l = kosu_raw_error @@ VariableTypeNotBound l
+
+  let variable_type_not_bound l =
+    kosu_raw_error @@ Raw.variable_type_not_bound l
 
   let type_declaration_not_found =
     kosu_raw_error $ Raw.type_declaration_not_found
+
+  let enum_variant_wrong_arity variant expected found =
+    kosu_raw_error @@ Raw.enum_variant_wrong_arity variant expected found
+
+  let callable_wrong_arity callable expected found =
+    kosu_raw_error @@ Raw.callable_wrong_arity callable expected found
+
+  let struct_wrong_arity struct_name expected found =
+    kosu_raw_error @@ Raw.struct_wrong_arity struct_name expected found
 
   let duplicated_param_name function_location lhs rhs =
     kosu_raw_error @@ Raw.duplicated_param_name function_location lhs rhs
@@ -259,6 +294,9 @@ module Function = struct
         kosu_lexer_error_range e :: []
     | AnalyticsError (_, KosuAnalysSyntaxError e) ->
         kosu_syntax_error_range e :: []
+    | StructFieldWrongArity { struct_name = { position; value = _ }; _ }
+    | EnumVariantWrongArity { variant = { position; value = _ }; _ }
+    | WrongArityCallable { callable = { position; value = _ }; _ }
     | DerefNonPointerType { value = _; position }
     | UnboundIdentifier { value = _; position }
     | IdentifierAlreadyBound { value = _; position }

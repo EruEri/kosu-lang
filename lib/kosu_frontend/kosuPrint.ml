@@ -448,6 +448,22 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       @@ sprintf "Cannot find type \"%s\""
       @@ string_of_kosu_type
       @@ KosuUtil.Ty.of_tyloc' kosu_type
+  | WrongArityCallable { callable; expected; found } ->
+      let sloc = string_of_located_error callable in
+      sfile @@ sloc
+      @@ sprintf {|"%s" expectes %u arguments but %u were provided |}
+           callable.value expected found
+  | EnumVariantWrongArity { variant; expected; found } ->
+      let sloc = string_of_located_error variant in
+      sfile @@ sloc
+      @@ sprintf
+           {|"%s" expectes %u associated expressions but %u were provided |}
+           variant.value expected found
+  | StructFieldWrongArity { struct_name; expected; found } ->
+      let sloc = string_of_located_error struct_name in
+      sfile @@ sloc
+      @@ sprintf {|"%s" expectes %u fields but %u were provided |}
+           struct_name.value expected found
   | CyclicTypeDeclaration type_decl ->
       let string_kind, name =
         match type_decl with
@@ -549,6 +565,16 @@ module Formatted = struct
         sprintf "Incompatible type : Expected \"%s\", Found \"%s\""
           (string_of_kosu_type cexpected)
           (string_of_kosu_type cfound)
+    | EnumVariantWrongArity { variant; expected; found } ->
+        sprintf
+          {|"%s" expectes %u associated expressions but %u were provided |}
+          variant.value expected found
+    | WrongArityCallable { callable; expected; found } ->
+        sprintf {|"%s" expectes %u arguments but %u were provided |}
+          callable.value expected found
+    | StructFieldWrongArity { struct_name; expected; found } ->
+        sprintf {|"%s" expectes %u fields but %u were provided |}
+          struct_name.value expected found
     | NonStructTypeExpression _ ->
         sprintf "This expressions is not an struct type"
     | NonTupleAccess _ ->
