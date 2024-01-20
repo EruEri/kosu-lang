@@ -41,6 +41,10 @@ type kosu_error =
   | DerefNonPointerType of KosuType.Ty.kosu_type Position.location
   | PatternAlreadyBoundIdentifier of string Position.location list
   | PatternIdentifierNotBoundEveryTime of string Position.location list
+  | ConstantReasign of {
+      declaration : string Position.location;
+      reassign : string Position.location;
+    }
   | UnboundModule of KosuBaseAst.module_resolver_loc
   | UnboundIdentifier of string Position.location
   | UnboundBuiltinFunction of string Position.location
@@ -67,6 +71,10 @@ type kosu_error =
       found : string Position.location;
     }
   | NoStructDeclFoundForType of KosuType.Ty.kosu_type Position.location
+  | ExpectedPointer of {
+      state : KosuAst.pointer_state option;
+      found : KosuType.Ty.kosu_type Position.location;
+    }
   | TypingError of KosuType.Ty.kosu_type_constraint
   | NonStructTypeExpression of Position.position
   | NonTupleAccess of Position.position
@@ -105,6 +113,11 @@ type kosu_error =
       expected : int;
       found : int;
     }
+  | GenericsResolverWrongArity of {
+      fn_name : string Position.location;
+      expected : int;
+      found : int;
+    }
   | EnumVariantWrongArity of {
       variant : string Position.location;
       expected : int;
@@ -140,7 +153,11 @@ module Raw = struct
   let unbound_enum module_resolver enum_name variant =
     UnboundEnum { module_resolver; enum_name; variant }
 
+  let constant_reasign declaration reassign =
+    ConstantReasign { declaration; reassign }
+
   let identifier_already_bound e = IdentifierAlreadyBound e
+  let expected_pointer state found = ExpectedPointer { state; found }
 
   let field_not_in_struct struct_decl field =
     NoFieldInStruct { struct_decl; field }
@@ -167,6 +184,9 @@ module Raw = struct
 
   let duplicated_param_name function_location lhs rhs =
     DuplicatedParametersName { function_location; lhs; rhs }
+
+  let generics_resolver_wrong_arity fn_name expected found =
+    GenericsResolverWrongArity { fn_name; expected; found }
 
   let duplicated_fiels type_name lhs rhs =
     DuplicatedFieldName { type_name; rhs; lhs }
@@ -216,10 +236,16 @@ module Exn = struct
   let struct_init_wrong_field expected found =
     kosu_raw_error @@ Raw.struct_init_wrong_field expected found
 
+  let generics_resolver_wrong_arity fn_name expected found =
+    kosu_raw_error @@ Raw.generics_resolver_wrong_arity fn_name expected found
+
   let unbound_constante module_resolver identifier =
     kosu_raw_error @@ UnboundConstante { module_resolver; identifier }
 
   let identifier_already_bound e = kosu_raw_error @@ IdentifierAlreadyBound e
+
+  let expected_pointer state found =
+    kosu_raw_error @@ Raw.expected_pointer state found
 
   let field_not_in_struct struct_decl field =
     kosu_raw_error @@ NoFieldInStruct { struct_decl; field }
@@ -251,6 +277,9 @@ module Exn = struct
 
   let variable_type_not_bound l =
     kosu_raw_error @@ Raw.variable_type_not_bound l
+
+  let constant_reasign declaration reassign =
+    kosu_raw_error @@ Raw.constant_reasign declaration reassign
 
   let type_declaration_not_found =
     kosu_raw_error $ Raw.type_declaration_not_found
@@ -297,8 +326,10 @@ module Function = struct
         kosu_lexer_error_range e :: []
     | AnalyticsError (_, KosuAnalysSyntaxError e) ->
         kosu_syntax_error_range e :: []
+    | ExpectedPointer { found = { position; value = _ }; state = _ }
     | StructFieldWrongArity { struct_name = { position; value = _ }; _ }
     | EnumVariantWrongArity { variant = { position; value = _ }; _ }
+    | GenericsResolverWrongArity { fn_name = { position; value = _ }; _ }
     | WrongArityCallable { callable = { position; value = _ }; _ }
     | DerefNonPointerType { value = _; position }
     | UnboundIdentifier { value = _; position }
@@ -351,10 +382,11 @@ module Function = struct
         List.map
           (fun (KosuType.TyLoc.PolymorphicVarLoc s) -> Position.position s)
           vars
+    | ConstantReasign { declaration = lhs; reassign = rhs }
     | DuplicatedEnumVariant { rhs; lhs; _ }
     | DuplicatedParametersName { rhs; lhs; _ }
     | DuplicatedFieldName { lhs; rhs; _ } ->
-        [ rhs.position; lhs.position ]
+        [ lhs.position; rhs.position ]
     | CapturedVariableForFunctionPointer variables ->
         List.map Position.position variables
     | UnboundModule _ | ConfictingTypeDeclaration _ | UnsupportedFile _ ->

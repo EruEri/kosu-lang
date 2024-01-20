@@ -446,7 +446,9 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
             let () =
               match Util.Ulist.are_same_length tyes schema.poly_vars with
               | false ->
-                  failwith "Unwrong generic explit size"
+                  let expected = List.length schema.poly_vars in
+                  let found = List.length tyes in
+                  raise @@ generics_resolver_wrong_arity fn_name expected found
               | true ->
                   ()
             in
@@ -679,7 +681,7 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
       let () =
         match variable_info.is_const with
         | true when not is_deref ->
-            failwith "Reassign const"
+            raise @@ constant_reasign variable_info.identifier variable
         | false | true ->
             ()
       in
@@ -708,21 +710,26 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
                   in
                   struct_type
               | true ->
-                  let try_expect_mutable_pointer kosu_type =
+                  let try_expect_mutable_pointer position kosu_type =
                     match kosu_type with
                     | Ty.TyPointer { pointer_state = Mutable; pointee_type } ->
                         Option.some @@ Either.left pointee_type
                     | Ty.TyPolymorphic p ->
                         Option.some @@ Either.right p
                     | Ty.TyPointer { pointer_state = Const; pointee_type = _ }
-                      ->
-                        failwith "Cannot deref pointer type"
-                    | _ ->
-                        failwith "Not pointer type"
+                      as ty ->
+                        let located = Position.create position ty in
+                        raise @@ expected_pointer (Some Mutable) located
+                    | ty ->
+                        let located = Position.create position ty in
+                        raise @@ expected_pointer (Some Mutable) located
                   in
                   let base_ty =
                     match
-                      KosuEnv.find_or_try_solve try_expect_mutable_pointer
+                      KosuEnv.find_or_try_solve
+                        (try_expect_mutable_pointer
+                           variable_info.identifier.position
+                        )
                         variable_info.kosu_type kosu_env
                     with
                     | Some t ->
@@ -1079,9 +1086,12 @@ and typeof_builin_functions_args kosu_env builtin expected args return =
       (fun kosu_env (expected, expr) ->
         let env, ty = typeof kosu_env expr in
         let kosu_env = KosuEnv.merge_constraint env kosu_env in
-        let cexpected = expected ty in
+        let cexpected =
+          Position.map_use (fun expr -> expected expr.position ty) expr
+        in
         let kosu_env =
-          KosuEnv.add_typing_constraint ~cexpected ~cfound:ty expr kosu_env
+          KosuEnv.add_typing_constraint ~cexpected:cexpected.value ~cfound:ty
+            expr kosu_env
         in
         (kosu_env, cexpected)
       )
@@ -1096,11 +1106,13 @@ and typeof_builin_functions kosu_env builtin args =
   let expected, return =
     match builtin.value with
     | StringLen ->
-        let expected = [ (fun _ -> KosuUtil.Ty.stringl) ] in
+        let expected0 _ _ = KosuUtil.Ty.stringl in
+        let expected = [ expected0 ] in
         let return_type _ = KosuUtil.Ty.usize in
         (expected, return_type)
     | StringlPtr ->
-        let expected = [ (fun _ -> KosuUtil.Ty.stringl) ] in
+        let expected0 _ _ = KosuUtil.Ty.stringl in
+        let expected = [ expected0 ] in
         let return_type _ = KosuUtil.Ty.(ptr_const s8) in
         (expected, return_type)
     | ArrayPtr ->
@@ -1109,7 +1121,8 @@ and typeof_builin_functions kosu_env builtin args =
     | ArrayLen | Tagof ->
         failwith ""
     | Exit ->
-        let expected = [ (fun _ -> KosuUtil.Ty.s32) ] in
+        let expected0 _ _ = KosuUtil.Ty.s32 in
+        let expected = [ expected0 ] in
         let return_type _ = Ty.fresh_variable_type () in
         (expected, return_type)
     | Alloc { const } ->
@@ -1119,28 +1132,29 @@ and typeof_builin_functions kosu_env builtin args =
           else
             Mutable
         in
-        let expected = [ Fun.id ] in
+        let expected0 _ = Fun.id in
+        let expected = [ expected0 ] in
         let return_type args =
           let pointee_type = List.hd args in
-          Ty.TyPointer { pointer_state; pointee_type }
+          Ty.TyPointer { pointer_state; pointee_type = pointee_type.value }
         in
         (expected, return_type)
     | Ralloc ->
-        let expected0 = function
+        let expected0 position = function
           | Ty.TyPointer _ as ty ->
               ty
-          | _ ->
-              failwith "Expected pointer"
+          | ty ->
+              raise @@ expected_pointer None (Position.create position ty)
         in
-        let expected1 _ = KosuUtil.Ty.usize in
+        let expected1 _ _ = KosuUtil.Ty.usize in
         let expected = [ expected0; expected1 ] in
         let return_type args =
           let ty = List.hd args in
-          match ty with
+          match ty.value with
           | Ty.TyPointer { pointer_state = _; pointee_type } ->
               KosuUtil.Ty.ptr_mut pointee_type
           | _ ->
-              failwith "Expected pointer"
+              raise @@ expected_pointer None ty
         in
         (expected, return_type)
   in

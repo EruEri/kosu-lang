@@ -313,6 +313,10 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       let sloc = string_of_located_error identifier in
       sfile @@ sloc
       @@ sprintf "Identifier \"%s\" is already defined" identifier.value
+  | ConstantReasign { declaration = _; reassign = identifier } ->
+      let sloc = string_of_located_error identifier in
+      sfile @@ sloc
+      @@ sprintf {| Identifier "%s" was declared as const |} identifier.value
   | NoFieldInStruct { struct_decl; field } ->
       let sloc = string_of_located_error field in
       sfile @@ sloc
@@ -331,6 +335,20 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       @@ sprintf "Incompatible type : Expected \"%s\", Found \"%s\""
            (string_of_kosu_type cexpected)
            (string_of_kosu_type cfound)
+  | ExpectedPointer { state; found } ->
+      let sloc = string_of_located_error found in
+      let sstate =
+        match state with
+        | Some Mutable ->
+            "mutable"
+        | Some Const ->
+            "constant"
+        | None ->
+            "any kind of"
+      in
+      sfile @@ sloc
+      @@ sprintf "Incompatible type : Expected %s pointer, Found \"%s\"" sstate
+      @@ string_of_kosu_type found.value
   | NonStructTypeExpression p ->
       let sloc =
         string_of_located_error Position.{ value = (); position = p }
@@ -456,6 +474,11 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       sfile @@ sloc
       @@ sprintf {|"%s" expectes %u arguments but %u were provided |}
            callable.value expected found
+  | GenericsResolverWrongArity { fn_name; expected; found } ->
+      let sloc = string_of_located_error fn_name in
+      sfile @@ sloc
+      @@ sprintf {|"%s" expectes %u generic types but %u were provided |}
+           fn_name.value expected found
   | EnumVariantWrongArity { variant; expected; found } ->
       let sloc = string_of_located_error variant in
       sfile @@ sloc
@@ -560,6 +583,8 @@ module Formatted = struct
         sprintf "Unbound identifier : %s" i.value
     | IdentifierAlreadyBound identifier ->
         sprintf {| Identifier %s is already defined |} identifier.value
+    | ConstantReasign { declaration = _; reassign = identifier } ->
+        sprintf {| Identifier "%s" was declared as const |} identifier.value
     | NoFieldInStruct { struct_decl; field } ->
         sprintf "Struct \"%s\" doesnt' have a field \"%s\""
           struct_decl.struct_name field.value
@@ -570,6 +595,18 @@ module Formatted = struct
         sprintf "Incompatible type : Expected \"%s\", Found \"%s\""
           (string_of_kosu_type cexpected)
           (string_of_kosu_type cfound)
+    | ExpectedPointer { state; found } ->
+        let sstate =
+          match state with
+          | Some Mutable ->
+              "mutable"
+          | Some Const ->
+              "constant"
+          | None ->
+              "any kind of"
+        in
+        sprintf "Incompatible type : Expected %s pointer, Found \"%s\"" sstate
+        @@ string_of_kosu_type found.value
     | EnumVariantWrongArity { variant; expected; found } ->
         sprintf
           {|"%s" expectes %u associated expressions but %u were provided |}
@@ -577,6 +614,9 @@ module Formatted = struct
     | WrongArityCallable { callable; expected; found } ->
         sprintf {|"%s" expectes %u arguments but %u were provided |}
           callable.value expected found
+    | GenericsResolverWrongArity { fn_name; expected; found } ->
+        sprintf {|"%s" expectes %u generic types but %u were provided |}
+          fn_name.value expected found
     | StructFieldWrongArity { struct_name; expected; found } ->
         sprintf {|"%s" expectes %u fields but %u were provided |}
           struct_name.value expected found
