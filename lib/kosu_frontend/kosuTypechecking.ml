@@ -408,20 +408,21 @@ let rec typeof (kosu_env : KosuEnv.kosu_env)
         match t with
         | (TyFunctionPtr schema | TyClosure schema) as ty ->
             (schema, ty)
-        | TyOrdered
-        | TyStringLit
-        | TyChar
-        | TyBool
-        | TyUnit
-        | TyIdentifier { module_resolver = ModuleResolver_ _; _ }
-        | TyPolymorphic (PolymorphicVar _ | CompilerPolymorphicVar _)
-        | TyPointer _
-        | TyInteger _
-        | TyFloat _
-        | TyArray _
-        | TyTuple _
-        | TyOpaque { module_resolver = ModuleResolver_ _; _ } ->
-            failwith "Not a callable type"
+        | TyPolymorphic (PolymorphicVar _ | CompilerPolymorphicVar _) ->
+            raise @@ cannot_infer_type fn_name.position
+        | ( TyOrdered
+          | TyStringLit
+          | TyChar
+          | TyBool
+          | TyUnit
+          | TyIdentifier { module_resolver = ModuleResolver_ _; _ }
+          | TyPointer _
+          | TyInteger _
+          | TyFloat _
+          | TyArray _
+          | TyTuple _
+          | TyOpaque { module_resolver = ModuleResolver_ _; _ } ) as ty ->
+            raise @@ not_callable_type @@ Position.map (fun _ -> ty) fn_name
       in
 
       let () =

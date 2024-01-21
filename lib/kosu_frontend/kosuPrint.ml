@@ -235,6 +235,12 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       string_of_analytics_error filename kae
   | SizeofPolymorphicType _ ->
       "Dummy eerror"
+  | NotCallableType ty ->
+      let sloc = string_of_located_error ty in
+      sfile @@ sloc
+      @@ sprintf
+           "This expression has the type \"%s\" which is not a callable type"
+      @@ string_of_kosu_type ty.value
   | DerefNonPointerType kosu_type ->
       let sloc = string_of_located_error kosu_type in
       sfile @@ sloc
@@ -593,6 +599,10 @@ module Formatted = struct
     | NoFieldInStruct { struct_decl; field } ->
         sprintf "Struct \"%s\" doesnt' have a field \"%s\""
           struct_decl.struct_name field.value
+    | NotCallableType ty ->
+        sprintf
+          "This expression has the type \"%s\" which is not a callable type"
+        @@ string_of_kosu_type ty.value
     | NoStructDeclFoundForType ty ->
         sprintf "Type %s isn't the type of a struct"
         @@ string_of_kosu_type @@ value ty

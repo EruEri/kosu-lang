@@ -129,6 +129,7 @@ type kosu_error =
       expected : int;
       found : int;
     }
+  | NotCallableType of KosuType.Ty.kosu_type Position.location
   | CyclicTypeDeclaration of KosuAst.kosu_type_decl
   | TypeDeclarationNotFound of KosuType.TyLoc.kosu_loctype Position.location
 
@@ -157,6 +158,7 @@ module Raw = struct
   let constant_reasign declaration reassign =
     ConstantReasign { declaration; reassign }
 
+  let not_callable_type ty = NotCallableType ty
   let identifier_already_bound e = IdentifierAlreadyBound e
   let expected_pointer state found = ExpectedPointer { state; found }
   let expected_array found = ExpectedArray { found }
@@ -215,19 +217,19 @@ module Exn = struct
   let kosu_error (f, e) = KosuErr (f, e)
   let kosu_raw_error e = KosuRawErr e
   let kosu_lexer_error e = KosuLexerError e
-  let analytics_error e = kosu_raw_error @@ AnalyticsError e
+  let analytics_error e = kosu_raw_error @@ Raw.analytics_error e
   let sizeof_polytype p = kosu_raw_error @@ SizeofPolymorphicType p
-  let deref_non_pointer e = kosu_raw_error @@ DerefNonPointerType e
+  let deref_non_pointer e = kosu_raw_error @@ Raw.deref_non_pointer e
 
   let pattern_already_bound_identifier e =
-    kosu_raw_error @@ PatternAlreadyBoundIdentifier e
+    kosu_raw_error @@ Raw.pattern_already_bound_identifier e
 
   let pattern_identifier_not_bound e =
-    kosu_raw_error @@ PatternIdentifierNotBoundEveryTime e
+    kosu_raw_error @@ Raw.pattern_identifier_not_bound e
 
   let unbound_builtin_function = kosu_raw_error $ Raw.unbound_builtin_function
-  let unbound_module e = kosu_raw_error @@ UnboundModule e
-  let unbound_identifier e = kosu_raw_error @@ UnboundIdentifier e
+  let unbound_module e = kosu_raw_error @@ Raw.unbound_module e
+  let unbound_identifier e = kosu_raw_error @@ Raw.unbound_identifier e
 
   let unbound_struct module_resolver struct_name =
     kosu_raw_error @@ Raw.unbound_struct module_resolver struct_name
@@ -242,9 +244,10 @@ module Exn = struct
     kosu_raw_error @@ Raw.generics_resolver_wrong_arity fn_name expected found
 
   let unbound_constante module_resolver identifier =
-    kosu_raw_error @@ UnboundConstante { module_resolver; identifier }
+    kosu_raw_error @@ Raw.unbound_constante module_resolver identifier
 
-  let identifier_already_bound e = kosu_raw_error @@ IdentifierAlreadyBound e
+  let identifier_already_bound e =
+    kosu_raw_error @@ Raw.identifier_already_bound e
 
   let expected_pointer state found =
     kosu_raw_error @@ Raw.expected_pointer state found
@@ -252,32 +255,37 @@ module Exn = struct
   let expected_array found = kosu_raw_error @@ Raw.expected_array found
 
   let field_not_in_struct struct_decl field =
-    kosu_raw_error @@ NoFieldInStruct { struct_decl; field }
+    kosu_raw_error @@ Raw.field_not_in_struct struct_decl field
 
-  let no_struct_decl_for_type t = kosu_raw_error @@ NoStructDeclFoundForType t
-  let typing_error consts = kosu_raw_error @@ TypingError consts
-  let non_struct_type p = kosu_raw_error @@ NonStructTypeExpression p
-  let non_tuple_access p = kosu_raw_error @@ NonTupleAccess p
-  let non_array_access p = kosu_raw_error @@ NonArrayAccess p
-  let cannot_infer_type p = kosu_raw_error @@ CannotInferType p
-  let cannot_find_struct_decl p = kosu_raw_error @@ CannotFindStructDecl p
+  let no_struct_decl_for_type t =
+    kosu_raw_error @@ Raw.no_struct_decl_for_type t
+
+  let typing_error consts = kosu_raw_error @@ Raw.typing_error consts
+  let non_struct_type p = kosu_raw_error @@ Raw.non_struct_type p
+  let non_tuple_access p = kosu_raw_error @@ Raw.non_tuple_access p
+  let non_array_access p = kosu_raw_error @@ Raw.non_array_access p
+  let cannot_infer_type p = kosu_raw_error @@ Raw.cannot_infer_type p
+
+  let cannot_find_struct_decl p =
+    kosu_raw_error @@ Raw.cannot_find_struct_decl p
 
   let array_subscribe_not_integer p =
-    kosu_raw_error @@ ArraySubscribeNotInteger p
+    kosu_raw_error @@ Raw.array_subscribe_not_integer p
 
   let const_non_static_expression n =
-    kosu_raw_error @@ ConstNonStaticExpression n
+    kosu_raw_error @@ Raw.const_non_static_expression n
 
   let conflicting_type_declaration s =
-    kosu_raw_error @@ ConfictingTypeDeclaration s
+    kosu_raw_error @@ Raw.conflicting_type_declaration s
 
   let conflicting_callable_declaration s =
     kosu_raw_error @@ Raw.conflicting_callable_declaration s
 
   let index_out_of_bounds expect found =
-    kosu_raw_error @@ TupleIndexOutBound { expect; found }
+    kosu_raw_error @@ Raw.index_out_of_bounds expect found
 
-  let unsupported_file f = kosu_raw_error @@ UnsupportedFile f
+  let not_callable_type ty = kosu_raw_error @@ Raw.not_callable_type ty
+  let unsupported_file f = kosu_raw_error @@ Raw.unsupported_file f
 
   let variable_type_not_bound l =
     kosu_raw_error @@ Raw.variable_type_not_bound l
@@ -330,6 +338,7 @@ module Function = struct
         kosu_lexer_error_range e :: []
     | AnalyticsError (_, KosuAnalysSyntaxError e) ->
         kosu_syntax_error_range e :: []
+    | NotCallableType { position; value = _ }
     | ExpectedArray { found = { position; value = _ } }
     | ExpectedPointer { found = { position; value = _ }; state = _ }
     | StructFieldWrongArity { struct_name = { position; value = _ }; _ }
