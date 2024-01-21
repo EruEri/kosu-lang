@@ -15,6 +15,9 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
+let () = Printexc.record_backtrace true
+let () = Printexc.print_backtrace stderr
+
 open Cmdliner
 
 let name = "okosuc"

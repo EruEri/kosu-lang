@@ -290,7 +290,7 @@ let reduce lhs rhs =
         in
         some @@ right @@ ((ltype, rtype) :: [])
     | TyPointer _, _ ->
-        failwith ""
+        None
     | TyInteger linfo, TyInteger rinfo ->
         let res =
           match KosuUtil.Ty.are_number_compatible linfo rinfo with

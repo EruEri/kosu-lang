@@ -75,6 +75,7 @@ type kosu_error =
       state : KosuAst.pointer_state option;
       found : KosuType.Ty.kosu_type Position.location;
     }
+  | ExpectedArray of { found : KosuType.Ty.kosu_type Position.location }
   | TypingError of KosuType.Ty.kosu_type_constraint
   | NonStructTypeExpression of Position.position
   | NonTupleAccess of Position.position
@@ -158,6 +159,7 @@ module Raw = struct
 
   let identifier_already_bound e = IdentifierAlreadyBound e
   let expected_pointer state found = ExpectedPointer { state; found }
+  let expected_array found = ExpectedArray { found }
 
   let field_not_in_struct struct_decl field =
     NoFieldInStruct { struct_decl; field }
@@ -247,6 +249,8 @@ module Exn = struct
   let expected_pointer state found =
     kosu_raw_error @@ Raw.expected_pointer state found
 
+  let expected_array found = kosu_raw_error @@ Raw.expected_array found
+
   let field_not_in_struct struct_decl field =
     kosu_raw_error @@ NoFieldInStruct { struct_decl; field }
 
@@ -326,6 +330,7 @@ module Function = struct
         kosu_lexer_error_range e :: []
     | AnalyticsError (_, KosuAnalysSyntaxError e) ->
         kosu_syntax_error_range e :: []
+    | ExpectedArray { found = { position; value = _ } }
     | ExpectedPointer { found = { position; value = _ }; state = _ }
     | StructFieldWrongArity { struct_name = { position; value = _ }; _ }
     | EnumVariantWrongArity { variant = { position; value = _ }; _ }

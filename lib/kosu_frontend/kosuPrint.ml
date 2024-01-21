@@ -349,6 +349,11 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       sfile @@ sloc
       @@ sprintf "Incompatible type : Expected %s pointer, Found \"%s\"" sstate
       @@ string_of_kosu_type found.value
+  | ExpectedArray { found } ->
+      let sloc = string_of_located_error found in
+      sfile @@ sloc
+      @@ sprintf "Incompatible type : Expected array, Found \"%s\""
+      @@ string_of_kosu_type found.value
   | NonStructTypeExpression p ->
       let sloc =
         string_of_located_error Position.{ value = (); position = p }
@@ -606,6 +611,9 @@ module Formatted = struct
               "any kind of"
         in
         sprintf "Incompatible type : Expected %s pointer, Found \"%s\"" sstate
+        @@ string_of_kosu_type found.value
+    | ExpectedArray { found } ->
+        sprintf "Incompatible type : Expected array, Found \"%s\""
         @@ string_of_kosu_type found.value
     | EnumVariantWrongArity { variant; expected; found } ->
         sprintf

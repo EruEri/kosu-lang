@@ -1105,6 +1105,14 @@ and typeof_builin_functions_args kosu_env builtin expected args return =
   (kosu_env, return_type)
 
 and typeof_builin_functions kosu_env builtin args =
+  let farray_solve position = function
+    | Ty.TyArray { ktype; size } ->
+        Option.some @@ Either.left @@ (size, ktype)
+    | TyPolymorphic e ->
+        Option.some @@ Either.right e
+    | ty ->
+        raise @@ expected_array @@ Position.create position ty
+  in
   let expected, return =
     match builtin.value with
     | StringLen ->
@@ -1119,47 +1127,39 @@ and typeof_builin_functions kosu_env builtin args =
         (expected, return_type)
     | ArrayPtr ->
         let expected0 position ty =
-          match ty with
-          | Ty.TyArray _ ->
+          match
+            KosuEnv.find_or_try_solve (farray_solve position) ty kosu_env
+          with
+          | Some _ ->
               ty
-          | TyPolymorphic _ ->
+          | None ->
               raise @@ cannot_infer_type position
-          | _ ->
-              failwith "Not array type"
         in
         let expect = [ expected0 ] in
         let return_type args =
-          let ty = List.hd args in
-          match ty.value with
-          | Ty.TyArray { ktype; size = _ } ->
+          let { value = ty; position } = List.hd args in
+          match
+            KosuEnv.find_or_try_solve (farray_solve position) ty kosu_env
+          with
+          | Some (_, ktype) ->
               KosuUtil.Ty.ptr_mut ktype
-          | TyPolymorphic _ ->
-              raise @@ cannot_infer_type ty.position
-          | _ ->
-              failwith "Not array type"
+          | None ->
+              raise @@ cannot_infer_type position
         in
         (expect, return_type)
     | ArrayLen ->
         let expected0 position ty =
-          match ty with
-          | Ty.TyArray _ ->
+          match
+            KosuEnv.find_or_try_solve (farray_solve position) ty kosu_env
+          with
+          | Some _ ->
               ty
-          | TyPolymorphic _ ->
+          | None ->
               raise @@ cannot_infer_type position
-          | _ ->
-              failwith "Not array type"
         in
         let expect = [ expected0 ] in
-        let return_type args =
-          let ty = List.hd args in
-          match ty.value with
-          | Ty.TyArray { ktype = _; size = _ } ->
-              KosuUtil.Ty.usize
-          | TyPolymorphic _ ->
-              raise @@ cannot_infer_type ty.position
-          | _ ->
-              failwith "Not array type"
-        in
+        (* match KosuEnv.find_or_try_solve (farray_solve ty.position) ty.value kosu_env with *)
+        let return_type _ = KosuUtil.Ty.usize in
         (expect, return_type)
     | Tagof ->
         failwith ""
