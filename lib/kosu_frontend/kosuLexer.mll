@@ -188,6 +188,7 @@ rule token = parse
     | '|' -> INFIX_PIPE all
     | '&' -> INFIX_AMPERSAND all
     | '=' -> INFIX_EQUAL all
+    | '<' when all = "<-" -> INF_MINUS
     | '<' -> INFIX_INF all 
     | '>' -> INFIX_SUP all
     | '^' -> INFIX_CARET all

@@ -44,7 +44,7 @@
 %token <string> PREFIX_TILDE
 %token <string> PREFIX_EXCLA
 %token <string> PREFIX_QUESTIONMARK
-%token STAR MINUS PIPE MINUS_SUP
+%token STAR MINUS PIPE MINUS_SUP INF_MINUS
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token CROISILLION
 %token SEMICOLON 
@@ -339,7 +339,7 @@ kosu_statement_base:
         expression=preceded(EQUAL, located(kosu_expression)) {
         SDeclaration {is_const; pattern; explicit_type; expression}
     }
-    | MUT is_deref=boption(STAR) lvalue=kosu_lvalue expression=preceded(EQUAL, located(kosu_expression)) {
+    | MUT is_deref=boption(STAR) lvalue=kosu_lvalue expression=preceded(INF_MINUS, located(kosu_expression)) {
         SAffection {
             is_deref;
             lvalue;
