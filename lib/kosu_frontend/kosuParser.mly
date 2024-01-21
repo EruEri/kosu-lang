@@ -405,6 +405,15 @@ kosu_expression:
     | kosu_block {
         EBlock $1
     }
+    | sqrbracketed(trailing_separated_list(COMMA, located(kosu_expression))) {
+        EArray $1
+    }
+    | sqrbracketed(splitted(located(IntegerLitteral), COLON, located(kosu_expression))) {
+        let size, expr = $1 in
+        let _, size = size.value in
+        let exprs = List.init (Int64.to_int size) (fun _ -> expr) in
+        EArray exprs
+    }
     | lhs=located(kosu_expression) fn_name=located(infix_operator) rhs=located(kosu_expression) {
         let parameters = lhs::rhs::[] in
         EFunctionCall {
@@ -455,6 +464,12 @@ kosu_expression:
         EFieldAccess {
             first_expr;
             field
+        }
+    }
+    | array_expr=located(kosu_expression) DOT index_expr=sqrbracketed(located(kosu_expression)) {
+        EArrayAccess {
+            array_expr;
+            index_expr
         }
     }
     | module_resolver=module_resolver struct_name=located(Identifier) COLON fields=bracketed(

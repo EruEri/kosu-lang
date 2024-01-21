@@ -1118,9 +1118,50 @@ and typeof_builin_functions kosu_env builtin args =
         let return_type _ = KosuUtil.Ty.(ptr_const s8) in
         (expected, return_type)
     | ArrayPtr ->
-        let _ = [] in
-        failwith ""
-    | ArrayLen | Tagof ->
+        let expected0 position ty =
+          match ty with
+          | Ty.TyArray _ ->
+              ty
+          | TyPolymorphic _ ->
+              raise @@ cannot_infer_type position
+          | _ ->
+              failwith "Not array type"
+        in
+        let expect = [ expected0 ] in
+        let return_type args =
+          let ty = List.hd args in
+          match ty.value with
+          | Ty.TyArray { ktype; size = _ } ->
+              KosuUtil.Ty.ptr_mut ktype
+          | TyPolymorphic _ ->
+              raise @@ cannot_infer_type ty.position
+          | _ ->
+              failwith "Not array type"
+        in
+        (expect, return_type)
+    | ArrayLen ->
+        let expected0 position ty =
+          match ty with
+          | Ty.TyArray _ ->
+              ty
+          | TyPolymorphic _ ->
+              raise @@ cannot_infer_type position
+          | _ ->
+              failwith "Not array type"
+        in
+        let expect = [ expected0 ] in
+        let return_type args =
+          let ty = List.hd args in
+          match ty.value with
+          | Ty.TyArray { ktype = _; size = _ } ->
+              KosuUtil.Ty.usize
+          | TyPolymorphic _ ->
+              raise @@ cannot_infer_type ty.position
+          | _ ->
+              failwith "Not array type"
+        in
+        (expect, return_type)
+    | Tagof ->
         failwith ""
     | Exit ->
         let expected0 _ _ = KosuUtil.Ty.s32 in
