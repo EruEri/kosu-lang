@@ -222,7 +222,6 @@ type kosu_builtin_function =
   | StringlPtr
   | ArrayPtr
   | ArrayLen
-  | Tagof
   | Exit
   | Alloc of { const : bool }
   | Ralloc

@@ -1074,8 +1074,6 @@ module Builtin = struct
         "arrayptr"
     | ArrayLen ->
         "arraylen"
-    | Tagof ->
-        "tagof"
     | Exit ->
         "exit"
     | Alloc { const = true } ->
@@ -1088,8 +1086,6 @@ module Builtin = struct
   let of_string_opt =
     let open KosuAst in
     function
-    | "tagof" ->
-        Option.some @@ Tagof
     | "arraylen" ->
         Option.some @@ ArrayLen
     | "arrayptr" ->
@@ -1112,7 +1108,7 @@ module Builtin = struct
   let arity =
     let open KosuAst in
     function
-    | StringLen | StringlPtr | ArrayPtr | ArrayLen | Tagof | Exit | Alloc _ ->
+    | StringLen | StringlPtr | ArrayPtr | ArrayLen | Exit | Alloc _ ->
         1
     | Ralloc ->
         2

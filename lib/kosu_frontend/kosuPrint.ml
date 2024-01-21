@@ -323,6 +323,13 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
       let sloc = string_of_located_error identifier in
       sfile @@ sloc
       @@ sprintf {| Identifier "%s" was declared as const |} identifier.value
+  | ReassignNoStructTypeField
+      { declaration = _; declaration_type; reassign = identifier } ->
+      let sloc = string_of_located_error identifier in
+      sfile @@ sloc
+      @@ sprintf {|Identifier "%s" has the type %s which is not a struct type|}
+           identifier.value
+      @@ string_of_kosu_type declaration_type
   | NoFieldInStruct { struct_decl; field } ->
       let sloc = string_of_located_error field in
       sfile @@ sloc
@@ -596,6 +603,11 @@ module Formatted = struct
         sprintf {| Identifier %s is already defined |} identifier.value
     | ConstantReasign { declaration = _; reassign = identifier } ->
         sprintf {| Identifier "%s" was declared as const |} identifier.value
+    | ReassignNoStructTypeField
+        { declaration = _; declaration_type; reassign = identifier } ->
+        sprintf {|Identifier "%s" has the type %s which is not a struct type|}
+          identifier.value
+        @@ string_of_kosu_type declaration_type
     | NoFieldInStruct { struct_decl; field } ->
         sprintf "Struct \"%s\" doesnt' have a field \"%s\""
           struct_decl.struct_name field.value

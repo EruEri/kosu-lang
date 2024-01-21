@@ -655,7 +655,7 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
       in
       kosu_env
   | SAffection { is_deref; lvalue; expression } ->
-      let find_identifier_type t env =
+      let find_identifier_type declaration_position reassign_position t env =
         match t with
         | Ty.TyIdentifier _ as t ->
             t
@@ -664,12 +664,18 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
               match KosuEnv.try_solve p env with
               | Some (TyIdentifier _ as t) ->
                   t
-              | Some _ | None ->
-                  failwith "Not identifier type: after solving"
+              | Some (TyPolymorphic _) | None ->
+                  raise @@ cannot_infer_type declaration_position.position
+              | Some ty ->
+                  raise
+                  @@ reassign_no_struct_type_field declaration_position ty
+                       reassign_position
             in
             ty
-        | _ ->
-            failwith "Not identifier type"
+        | ty ->
+            raise
+            @@ reassign_no_struct_type_field declaration_position ty
+                 reassign_position
       in
       let env, ty = typeof kosu_env expression in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
@@ -709,7 +715,8 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
               match is_deref with
               | false ->
                   let struct_type =
-                    find_identifier_type variable_info.kosu_type kosu_env
+                    find_identifier_type variable_info.identifier variable
+                      variable_info.kosu_type kosu_env
                   in
                   struct_type
               | true ->
@@ -741,7 +748,8 @@ and typeof_statement kosu_env (statement : KosuAst.kosu_statement location) =
                         raise
                         @@ cannot_infer_type variable_info.identifier.position
                   in
-                  find_identifier_type base_ty kosu_env
+                  find_identifier_type variable_info.identifier variable base_ty
+                    kosu_env
             in
             let ty_field =
               match KosuEnv.resolve_field_type fields struct_type kosu_env with
@@ -1162,8 +1170,6 @@ and typeof_builin_functions kosu_env builtin args =
         (* match KosuEnv.find_or_try_solve (farray_solve ty.position) ty.value kosu_env with *)
         let return_type _ = KosuUtil.Ty.usize in
         (expect, return_type)
-    | Tagof ->
-        failwith ""
     | Exit ->
         let expected0 _ _ = KosuUtil.Ty.s32 in
         let expected = [ expected0 ] in

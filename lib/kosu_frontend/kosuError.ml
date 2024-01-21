@@ -41,6 +41,11 @@ type kosu_error =
   | DerefNonPointerType of KosuType.Ty.kosu_type Position.location
   | PatternAlreadyBoundIdentifier of string Position.location list
   | PatternIdentifierNotBoundEveryTime of string Position.location list
+  | ReassignNoStructTypeField of {
+      declaration : string Position.location;
+      declaration_type : KosuType.Ty.kosu_type;
+      reassign : string Position.location;
+    }
   | ConstantReasign of {
       declaration : string Position.location;
       reassign : string Position.location;
@@ -158,6 +163,9 @@ module Raw = struct
   let constant_reasign declaration reassign =
     ConstantReasign { declaration; reassign }
 
+  let reassign_no_struct_type_field declaration declaration_type reassign =
+    ReassignNoStructTypeField { declaration; declaration_type; reassign }
+
   let not_callable_type ty = NotCallableType ty
   let identifier_already_bound e = IdentifierAlreadyBound e
   let expected_pointer state found = ExpectedPointer { state; found }
@@ -259,6 +267,10 @@ module Exn = struct
 
   let no_struct_decl_for_type t =
     kosu_raw_error @@ Raw.no_struct_decl_for_type t
+
+  let reassign_no_struct_type_field declaration declaration_type reassign =
+    kosu_raw_error
+    @@ Raw.reassign_no_struct_type_field declaration declaration_type reassign
 
   let typing_error consts = kosu_raw_error @@ Raw.typing_error consts
   let non_struct_type p = kosu_raw_error @@ Raw.non_struct_type p
@@ -397,6 +409,8 @@ module Function = struct
           (fun (KosuType.TyLoc.PolymorphicVarLoc s) -> Position.position s)
           vars
     | ConstantReasign { declaration = lhs; reassign = rhs }
+    | ReassignNoStructTypeField
+        { declaration = lhs; reassign = rhs; declaration_type = _ }
     | DuplicatedEnumVariant { rhs; lhs; _ }
     | DuplicatedParametersName { rhs; lhs; _ }
     | DuplicatedFieldName { lhs; rhs; _ } ->
