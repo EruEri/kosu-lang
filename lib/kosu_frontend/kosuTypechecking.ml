@@ -1294,8 +1294,27 @@ and variables_expression closure_env (expression : _ location) =
           CapturedIdentifier.empty cases
       in
       variables_block ~captured closure_env else_body
-  | EMatch _ ->
-      failwith ""
+  | EMatch { expression; patterns } ->
+      let variables_exprs = variables_expression closure_env expression in
+      List.fold_left
+        (fun captured (pattern, block) ->
+          let scrutine = Ty.fresh_variable_type () in
+          let bound, (_, _) = typeof_pattern scrutine closure_env pattern in
+          let variables =
+            List.map
+              (fun (id, ty) ->
+                let is_const = true in
+                (id, is_const, ty)
+              )
+              bound
+          in
+          let closure_env =
+            KosuEnv.rebind_env_variables variables closure_env
+          in
+          let captured_block = variables_block ~captured closure_env block in
+          captured_block
+        )
+        variables_exprs patterns
 
 and variables_block ~captured closure_env block =
   let { kosu_stmts; kosu_expr } = block in
