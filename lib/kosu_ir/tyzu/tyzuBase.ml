@@ -1,7 +1,7 @@
 (**********************************************************************************************)
 (*                                                                                            *)
 (* This file is part of Kosu                                                                  *)
-(* Copyright (C) 2023 Yves Ndiaye                                                             *)
+(* Copyright (C) 2024 Yves Ndiaye                                                             *)
 (*                                                                                            *)
 (* Kosu is free software: you can redistribute it and/or modify it under the terms            *)
 (* of the GNU General Public License as published by the Free Software Foundation,            *)
@@ -15,8 +15,9 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module Parsing = KosuParsing
-module Error = KosuError
-module Validation = KosuValidation
-module Reporter = KosuReport.Reporter
-module Base = KosuBaseAst
+type signedness = KosuFrontendAlt.Base.signedness
+type isize = KosuFrontendAlt.Base.isize
+type fsize = KosuFrontendAlt.Base.fsize
+type pointer_state = KosuFrontendAlt.Base.pointer_state
+type module_resolver = ModuleResolver of string list
+type integer_info = KosuFrontendAlt.Base.integer_info

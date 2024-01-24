@@ -597,7 +597,7 @@ let rec solve solutions eqs =
          eqs
      in
      let () = print_endline "--------------\n" in *)
-  match KosuTypeConstraintSet.choose_opt eqs with
+  match KosuTypeConstraintSet.max_elt_opt eqs with
   | None ->
       solutions
   | Some equation ->
