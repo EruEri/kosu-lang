@@ -25,7 +25,7 @@ type tyzu_lvalue =
   Wrap kosu_function_parameters and kosu_anon_parameters
   since in tyzu everything is typed
 *)
-type tyzu_function_parameters = {
+type tyzu_function_parameter = {
   is_var : bool;
   name : string;
   tyzu_type : tyzu_type;
@@ -129,7 +129,7 @@ and tyzu_expression =
       parameters : tyzu_expression typed list;
     }
   | EWhile of { condition_expr : tyzu_expression typed; body : tyzu_block }
-  (* If expression will be a syntaxique sugar of ecases *)
+  (* If expression will be a syntaxic sugar of ecases *)
   | ECases of {
       cases : (tyzu_expression typed * tyzu_block) list;
       else_body : tyzu_block;
@@ -140,7 +140,7 @@ and tyzu_expression =
     }
   | EAnonFunction of {
       kind : tyzu_anon_function_kind;
-      parameters : tyzu_function_parameters list;
+      parameters : tyzu_function_parameter list;
       body : tyzu_expression typed;
     }
 
@@ -148,3 +148,48 @@ and tyzu_block = {
   tyzu_stmts : tyzu_statement list;
   tyzu_expr : tyzu_expression typed;
 }
+
+type tyzu_struct_decl = {
+  struct_name : string;
+  poly_vars : tyzu_variable_polymorphic list;
+  fields : (string * tyzu_type) list;
+}
+
+type tyzu_enum_decl = {
+  enum_name : string;
+  poly_vars : tyzu_variable_polymorphic list;
+  tag_type : integer_info;
+  variants : (string * tyzu_type list) list;
+}
+
+type tyzu_function_decl = {
+  fn_name : string;
+  poly_vars : tyzu_variable_polymorphic list;
+  parameters : tyzu_function_parameter list;
+  return_type : tyzu_type;
+  body : tyzu_expression typed;
+}
+
+type tyzu_const_decl = {
+  const_name : string;
+  explicit_type : tyzu_type;
+  c_expression : tyzu_expression typed;
+}
+
+type tyzu_opaque_decl = { name : string }
+
+(* forbid variadic function *)
+type tyzu_external_func_decl = {
+  sig_name : string;
+  parameters : tyzu_type list;
+  return_type : tyzu_type;
+  c_name : string option;
+}
+
+type tyzu_module_node =
+  | NExternFunc of tyzu_external_func_decl
+  | NFunction of tyzu_function_decl
+  | NStruct of tyzu_struct_decl
+  | NEnum of tyzu_enum_decl
+  | NConst of tyzu_const_decl
+  | NOpaque of tyzu_opaque_decl
