@@ -20,3 +20,6 @@ module Error = KosuError
 module Validation = KosuValidation
 module Reporter = KosuReport.Reporter
 module Base = KosuBaseAst
+module Ast = KosuAst
+module Env = KosuEnv
+module Type = KosuType

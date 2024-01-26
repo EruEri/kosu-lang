@@ -193,3 +193,7 @@ type tyzu_module_node =
   | NEnum of tyzu_enum_decl
   | NConst of tyzu_const_decl
   | NOpaque of tyzu_opaque_decl
+
+type tyzu_module = tyzu_module_node list
+type tyzu_named_module = { filename : string; tyzu_module : tyzu_module }
+type tyzu_program = tyzu_named_module list
