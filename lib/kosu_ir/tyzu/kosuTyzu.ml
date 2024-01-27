@@ -15,47 +15,81 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-
-let of_kosu_type : KosuFrontendAlt.Type.Ty.kosu_type -> TyzuType.tyzu_type = function
-  | KosuFrontendAlt.Type.Ty.TyIdentifier {module_resolver; parametrics_type; name} -> 
-    failwith ""
-    | TyPolymorphic _ -> failwith ""
-    | TyPointer _ -> failwith ""
-    | TyInteger integer -> 
+let of_kosu_type : KosuFrontendAlt.Type.Ty.kosu_type -> TyzuType.tyzu_type =
+  function
+  | KosuFrontendAlt.Type.Ty.TyIdentifier
+      { module_resolver; parametrics_type; name } ->
+      failwith ""
+  | TyPolymorphic _ ->
+      failwith ""
+  | TyPointer _ ->
+      failwith ""
+  | TyInteger integer ->
       let integer = Option.value ~default:(failwith "") integer in
       TyzuInteger integer
-    | TyFloat _ -> failwith ""
-    | TyFunctionPtr _ -> failwith ""
-    | TyClosure _ -> failwith ""
-    | TyArray _ -> failwith ""
-    | TyTuple _ -> failwith ""
-    | TyOpaque _ -> failwith ""
-    | TyOrdered -> TyzuOrdered
-    | TyStringLit -> TyzuStringLit
-    | TyChar -> TyzuChar
-    | TyBool -> TyzuBool
-    | TyUnit -> TyzuUnit
+  | TyFloat _ ->
+      failwith ""
+  | TyFunctionPtr _ ->
+      failwith ""
+  | TyClosure _ ->
+      failwith ""
+  | TyArray _ ->
+      failwith ""
+  | TyTuple _ ->
+      failwith ""
+  | TyOpaque _ ->
+      failwith ""
+  | TyOrdered ->
+      TyzuOrdered
+  | TyStringLit ->
+      TyzuStringLit
+  | TyChar ->
+      TyzuChar
+  | TyBool ->
+      TyzuBool
+  | TyUnit ->
+      TyzuUnit
 
-let of_external_decl kosu_program current_module external_func_decl = 
-  let KosuFrontendAlt.Ast.{sig_name; parameters; return_type; c_name} = external_func_decl in
-
+let of_external_decl _kosu_program _current_module external_func_decl =
+  let ( $ ) = Util.Operator.( $ ) in
+  let KosuFrontendAlt.Ast.
+        {
+          sig_name = { value = sig_name; position = _ };
+          parameters;
+          return_type;
+          c_name;
+        } =
+    external_func_decl
+  in
+  let return_type =
+    of_kosu_type (KosuFrontendAlt.Util.Ty.of_tyloc' return_type)
+  in
+  let parameters =
+    List.map (of_kosu_type $ KosuFrontendAlt.Util.Ty.of_tyloc') parameters
+  in
+  TyzuAst.{ sig_name; parameters; return_type; c_name }
 
 let of_module_node kosu_program current_module = function
-  | KosuFrontendAlt.Ast.NExternFunc e -> failwith ""
-  | NFunction _ -> failwith ""
-  | NStruct _ -> failwith ""
-  | NEnum _ -> failwith ""
-  | NConst _ -> failwith ""
-  | NOpaque _ -> failwith ""
+  | KosuFrontendAlt.Ast.NExternFunc e ->
+      TyzuAst.NExternFunc (of_external_decl kosu_program current_module e)
+  | NFunction _ ->
+      failwith ""
+  | NStruct _ ->
+      failwith ""
+  | NEnum _ ->
+      failwith ""
+  | NConst _ ->
+      failwith ""
+  | NOpaque _ ->
+      failwith ""
 
-let of_module kosu_program kosu_module = 
+let of_module kosu_program kosu_module =
   List.map (of_module_node kosu_program kosu_module) kosu_module
 
-let of_named_module kosu_program kosu_named_module = 
-  let KosuFrontendAlt.Ast.{kosu_module; filename} = kosu_named_module in
+let of_named_module kosu_program kosu_named_module =
+  let KosuFrontendAlt.Ast.{ kosu_module; filename } = kosu_named_module in
   let tyzu_module = of_module kosu_program kosu_module in
-  TyzuAst.{tyzu_module; filename}
-
+  TyzuAst.{ tyzu_module; filename }
 
 let of_program kosu_program =
   List.map (of_named_module kosu_program) kosu_program

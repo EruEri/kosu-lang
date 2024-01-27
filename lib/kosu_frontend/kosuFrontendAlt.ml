@@ -23,3 +23,4 @@ module Base = KosuBaseAst
 module Ast = KosuAst
 module Env = KosuEnv
 module Type = KosuType
+module Util = KosuUtil
