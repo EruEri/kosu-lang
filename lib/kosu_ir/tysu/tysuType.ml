@@ -34,10 +34,10 @@ and tysu_type =
   | TysuPolymorphic of tysu_variable_polymorphic
   | TysuPointer of { pointer_state : pointer_state; pointee_type : tysu_type }
   | TysuInteger of integer_info
-  | TysuFloat of fsize option
+  | TysuFloat of fsize
   | TysuFunctionPtr of tysu_function_schema
   | TysuClosure of tysu_function_schema
-  | TysuArray of { ktype : tysu_type; size : int64 }
+  | TysuArray of { tysu_type : tysu_type; size : int64 }
   | TysuTuple of tysu_type list
   | TysuOpaque of { module_resolver : module_resolver; name : string }
   | TysuOrdered
