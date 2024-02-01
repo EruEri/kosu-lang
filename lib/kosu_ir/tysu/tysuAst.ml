@@ -15,42 +15,42 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-open TyzuBase
-open TyzuType
+open TysuBase
+open TysuType
 
-type tyzu_lvalue =
-  | TyzuLvalue of { variable : string typed; fields : string list }
+type tysu_lvalue =
+  | TysuLvalue of { variable : string typed; fields : string list }
 
 (*
   Wrap kosu_function_parameters and kosu_anon_parameters
-  since in tyzu everything is typed
+  since in tysu everything is typed
 *)
-type tyzu_function_parameter = {
+type tysu_function_parameter = {
   is_var : bool;
   name : string;
-  tyzu_type : tyzu_type;
+  tysu_type : tysu_type;
 }
 
 (*
   Analoge to kosu_anon_function_kind   
 *)
-type tyzu_anon_function_kind = TAClosure | TAFunctionPointer
+type tysu_anon_function_kind = TAClosure | TAFunctionPointer
 
-type tyzu_statement =
+type tysu_statement =
   | TsDecleration of {
       is_const : bool;
-      pattern : tyzu_pattern typed;
-      expression : tyzu_expression typed;
+      pattern : tysu_pattern typed;
+      expression : tysu_expression typed;
     }
   | SAffection of {
       is_deref : bool;
-      lvalue : tyzu_lvalue;
-      expression : tyzu_expression typed;
+      lvalue : tysu_lvalue;
+      expression : tysu_expression typed;
     }
-  | SDiscard of tyzu_expression typed
+  | SDiscard of tysu_expression typed
   | SOpen of { module_resolver : module_resolver }
 
-and tyzu_pattern =
+and tysu_pattern =
   | PTrue
   | PFalse
   | PEmpty
@@ -62,23 +62,23 @@ and tyzu_pattern =
   | PFloat of float
   | PChar of char
   | PIdentifier of string
-  | PTuple of tyzu_pattern typed list
+  | PTuple of tysu_pattern typed list
   | PInteger of int64
   | PCase of {
       module_resolver : module_resolver;
       enum_name : string option;
       variant : string;
-      assoc_patterns : tyzu_pattern typed list;
+      assoc_patterns : tysu_pattern typed list;
     }
   | PRecord of {
       module_resolver : module_resolver;
       struct_name : string;
-      pfields : (string * tyzu_pattern typed) list;
+      pfields : (string * tysu_pattern typed) list;
     }
-  | POr of tyzu_pattern typed list
-  | PAs of { pas_pattern : tyzu_pattern typed; pas_bound : string }
+  | POr of tysu_pattern typed list
+  | PAs of { pas_pattern : tysu_pattern typed; pas_bound : string }
 
-and tyzu_expression =
+and tysu_expression =
   | EEmpty
   | ETrue
   | EFalse
@@ -90,13 +90,13 @@ and tyzu_expression =
   | EChar of char
   | EInteger of { integer_info : integer_info; ivalue : int64 }
   | EFloat of { fsize : fsize; fvalue : float }
-  | ESizeof of tyzu_type
-  | EFieldAccess of { first_expr : tyzu_expression typed; field : string }
+  | ESizeof of tysu_type
+  | EFieldAccess of { first_expr : tysu_expression typed; field : string }
   | EArrayAccess of {
-      array_expr : tyzu_expression typed;
-      index_expr : tyzu_expression typed;
+      array_expr : tysu_expression typed;
+      index_expr : tysu_expression typed;
     }
-  | ETupleAccess of { first_expr : tyzu_expression typed; index : int64 }
+  | ETupleAccess of { first_expr : tysu_expression typed; index : int64 }
   | EConstIdentifier of {
       module_resolver : module_resolver;
       identifier : string;
@@ -105,95 +105,95 @@ and tyzu_expression =
   | EStruct of {
       module_resolver : module_resolver;
       struct_name : string;
-      fields : (string * tyzu_expression typed) list;
+      fields : (string * tysu_expression typed) list;
     }
   | EEnum of {
       module_resolver : module_resolver;
       enum_name : string option;
       variant : string;
-      assoc_exprs : tyzu_expression typed list;
+      assoc_exprs : tysu_expression typed list;
     }
-  | EBlock of tyzu_block
+  | EBlock of tysu_block
   (* * expr *)
-  | EDeref of tyzu_expression typed
-  | ETuple of tyzu_expression typed list
-  | EArray of tyzu_expression typed list
+  | EDeref of tysu_expression typed
+  | ETuple of tysu_expression typed list
+  | EArray of tysu_expression typed list
   | EBuiltinFunctionCall of {
       fn_name : string;
-      parameters : tyzu_expression typed list;
+      parameters : tysu_expression typed list;
     }
   | EFunctionCall of {
       module_resolver : module_resolver;
-      generics_resolver : tyzu_type list option;
+      generics_resolver : tysu_type list option;
       fn_name : string;
-      parameters : tyzu_expression typed list;
+      parameters : tysu_expression typed list;
     }
-  | EWhile of { condition_expr : tyzu_expression typed; body : tyzu_block }
+  | EWhile of { condition_expr : tysu_expression typed; body : tysu_block }
   (* If expression will be a syntaxic sugar of ecases *)
   | ECases of {
-      cases : (tyzu_expression typed * tyzu_block) list;
-      else_body : tyzu_block;
+      cases : (tysu_expression typed * tysu_block) list;
+      else_body : tysu_block;
     }
   | EMatch of {
-      expression : tyzu_expression typed;
-      patterns : (tyzu_pattern typed * tyzu_block) list;
+      expression : tysu_expression typed;
+      patterns : (tysu_pattern typed * tysu_block) list;
     }
   | EAnonFunction of {
-      kind : tyzu_anon_function_kind;
-      parameters : tyzu_function_parameter list;
-      body : tyzu_expression typed;
+      kind : tysu_anon_function_kind;
+      parameters : tysu_function_parameter list;
+      body : tysu_expression typed;
     }
 
-and tyzu_block = {
-  tyzu_stmts : tyzu_statement list;
-  tyzu_expr : tyzu_expression typed;
+and tysu_block = {
+  tysu_stmts : tysu_statement list;
+  tysu_expr : tysu_expression typed;
 }
 
-type tyzu_struct_decl = {
+type tysu_struct_decl = {
   struct_name : string;
-  poly_vars : tyzu_variable_polymorphic list;
-  fields : (string * tyzu_type) list;
+  poly_vars : tysu_variable_polymorphic list;
+  fields : (string * tysu_type) list;
 }
 
-type tyzu_enum_decl = {
+type tysu_enum_decl = {
   enum_name : string;
-  poly_vars : tyzu_variable_polymorphic list;
+  poly_vars : tysu_variable_polymorphic list;
   tag_type : integer_info;
-  variants : (string * tyzu_type list) list;
+  variants : (string * tysu_type list) list;
 }
 
-type tyzu_function_decl = {
+type tysu_function_decl = {
   fn_name : string;
-  poly_vars : tyzu_variable_polymorphic list;
-  parameters : tyzu_function_parameter list;
-  return_type : tyzu_type;
-  body : tyzu_expression typed;
+  poly_vars : tysu_variable_polymorphic list;
+  parameters : tysu_function_parameter list;
+  return_type : tysu_type;
+  body : tysu_expression typed;
 }
 
-type tyzu_const_decl = {
+type tysu_const_decl = {
   const_name : string;
-  explicit_type : tyzu_type;
-  c_expression : tyzu_expression typed;
+  explicit_type : tysu_type;
+  c_expression : tysu_expression typed;
 }
 
-type tyzu_opaque_decl = { name : string }
+type tysu_opaque_decl = { name : string }
 
 (* forbid variadic function *)
-type tyzu_external_func_decl = {
+type tysu_external_func_decl = {
   sig_name : string;
-  parameters : tyzu_type list;
-  return_type : tyzu_type;
+  parameters : tysu_type list;
+  return_type : tysu_type;
   c_name : string option;
 }
 
-type tyzu_module_node =
-  | NExternFunc of tyzu_external_func_decl
-  | NFunction of tyzu_function_decl
-  | NStruct of tyzu_struct_decl
-  | NEnum of tyzu_enum_decl
-  | NConst of tyzu_const_decl
-  | NOpaque of tyzu_opaque_decl
+type tysu_module_node =
+  | NExternFunc of tysu_external_func_decl
+  | NFunction of tysu_function_decl
+  | NStruct of tysu_struct_decl
+  | NEnum of tysu_enum_decl
+  | NConst of tysu_const_decl
+  | NOpaque of tysu_opaque_decl
 
-type tyzu_module = tyzu_module_node list
-type tyzu_named_module = { filename : string; tyzu_module : tyzu_module }
-type tyzu_program = tyzu_named_module list
+type tysu_module = tysu_module_node list
+type tysu_named_module = { filename : string; tysu_module : tysu_module }
+type tysu_program = tysu_named_module list

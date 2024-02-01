@@ -15,35 +15,35 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-open TyzuBase
+open TysuBase
 
-type tyzu_variable_polymorphic = ForAllVar of string
+type tysu_variable_polymorphic = ForAllVar of string
 
-type tyzu_function_schema = {
-  poly_vars : tyzu_variable_polymorphic list;
-  parameters_type : tyzu_type list;
-  return_type : tyzu_type;
+type tysu_function_schema = {
+  poly_vars : tysu_variable_polymorphic list;
+  parameters_type : tysu_type list;
+  return_type : tysu_type;
 }
 
-and tyzu_type =
-  | TyzuIdentifier of {
+and tysu_type =
+  | TysuIdentifier of {
       module_resolver : module_resolver;
-      parametrics_type : tyzu_type list;
+      parametrics_type : tysu_type list;
       name : string;
     }
-  | TyzuPolymorphic of tyzu_variable_polymorphic
-  | TyzuPointer of { pointer_state : pointer_state; pointee_type : tyzu_type }
-  | TyzuInteger of integer_info
-  | TyzuFloat of fsize option
-  | TyzuFunctionPtr of tyzu_function_schema
-  | TyzuClosure of tyzu_function_schema
-  | TyzuArray of { ktype : tyzu_type; size : int64 }
-  | TyzuTuple of tyzu_type list
-  | TyzuOpaque of { module_resolver : module_resolver; name : string }
-  | TyzuOrdered
-  | TyzuStringLit
-  | TyzuChar
-  | TyzuBool
-  | TyzuUnit
+  | TysuPolymorphic of tysu_variable_polymorphic
+  | TysuPointer of { pointer_state : pointer_state; pointee_type : tysu_type }
+  | TysuInteger of integer_info
+  | TysuFloat of fsize option
+  | TysuFunctionPtr of tysu_function_schema
+  | TysuClosure of tysu_function_schema
+  | TysuArray of { ktype : tysu_type; size : int64 }
+  | TysuTuple of tysu_type list
+  | TysuOpaque of { module_resolver : module_resolver; name : string }
+  | TysuOrdered
+  | TysuStringLit
+  | TysuChar
+  | TysuBool
+  | TysuUnit
 
-type 'a typed = { elememt : 'a; tysu_type : tyzu_type }
+type 'a typed = { elememt : 'a; tysu_type : tysu_type }

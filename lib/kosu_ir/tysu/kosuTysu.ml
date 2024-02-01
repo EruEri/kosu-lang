@@ -15,18 +15,25 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-let of_kosu_type : KosuFrontendAlt.Type.Ty.kosu_type -> TyzuType.tyzu_type =
+let of_module_resolver :
+    KosuFrontendAlt.Base.module_resolver -> TysuBase.module_resolver = function
+  | ModuleResolver_ modules ->
+      ModuleResolver modules
+
+let rec of_kosu_type : KosuFrontendAlt.Type.Ty.kosu_type -> TysuType.tysu_type =
   function
   | KosuFrontendAlt.Type.Ty.TyIdentifier
       { module_resolver; parametrics_type; name } ->
-      failwith ""
+      let parametrics_type = List.map of_kosu_type parametrics_type in
+      let module_resolver = of_module_resolver module_resolver in
+      TysuIdentifier { module_resolver; parametrics_type; name }
   | TyPolymorphic _ ->
       failwith ""
   | TyPointer _ ->
       failwith ""
   | TyInteger integer ->
       let integer = Option.value ~default:(failwith "") integer in
-      TyzuInteger integer
+      TysuInteger integer
   | TyFloat _ ->
       failwith ""
   | TyFunctionPtr _ ->
@@ -40,15 +47,15 @@ let of_kosu_type : KosuFrontendAlt.Type.Ty.kosu_type -> TyzuType.tyzu_type =
   | TyOpaque _ ->
       failwith ""
   | TyOrdered ->
-      TyzuOrdered
+      TysuOrdered
   | TyStringLit ->
-      TyzuStringLit
+      TysuStringLit
   | TyChar ->
-      TyzuChar
+      TysuChar
   | TyBool ->
-      TyzuBool
+      TysuBool
   | TyUnit ->
-      TyzuUnit
+      TysuUnit
 
 let of_external_decl _kosu_program _current_module external_func_decl =
   let ( $ ) = Util.Operator.( $ ) in
@@ -67,11 +74,11 @@ let of_external_decl _kosu_program _current_module external_func_decl =
   let parameters =
     List.map (of_kosu_type $ KosuFrontendAlt.Util.Ty.of_tyloc') parameters
   in
-  TyzuAst.{ sig_name; parameters; return_type; c_name }
+  TysuAst.{ sig_name; parameters; return_type; c_name }
 
 let of_module_node kosu_program current_module = function
   | KosuFrontendAlt.Ast.NExternFunc e ->
-      TyzuAst.NExternFunc (of_external_decl kosu_program current_module e)
+      TysuAst.NExternFunc (of_external_decl kosu_program current_module e)
   | NFunction _ ->
       failwith ""
   | NStruct _ ->
@@ -88,8 +95,8 @@ let of_module kosu_program kosu_module =
 
 let of_named_module kosu_program kosu_named_module =
   let KosuFrontendAlt.Ast.{ kosu_module; filename } = kosu_named_module in
-  let tyzu_module = of_module kosu_program kosu_module in
-  TyzuAst.{ tyzu_module; filename }
+  let tysu_module = of_module kosu_program kosu_module in
+  TysuAst.{ tysu_module; filename }
 
 let of_program kosu_program =
   List.map (of_named_module kosu_program) kosu_program
