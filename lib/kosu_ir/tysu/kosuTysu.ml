@@ -26,9 +26,7 @@ let of_polymorphic :
   | PolymorphicVar s ->
       TysuType.ForAllVar s
   | CompilerPolymorphicVar s ->
-      failwith
-      @@ Printf.sprintf
-           "[Kosu to Tyzu]: CompilerPolymorphic Variable found : \"%s\"" s
+      raise @@ TysuError.kosu_compiler_variable_found s
 
 let rec of_schema :
     KosuFrontendAlt.Type.Ty.kosu_function_schema ->
@@ -111,6 +109,65 @@ let of_opaque_decl _kosu_program _current_module opaque_decl =
   let KosuFrontendAlt.Ast.{ name } = opaque_decl in
   TysuAst.{ name = name.value }
 
+let of_enum_decl _kosu_program _current_module enum_decl =
+  let ( $ ) = Util.Operator.( $ ) in
+  let KosuFrontendAlt.Ast.{ enum_name; poly_vars; tag_type; variants } =
+    enum_decl
+  in
+  let raw_tag_type = KosuFrontendAlt.Util.Ty.of_tyloc' tag_type in
+  let poly_vars =
+    List.map
+      (of_polymorphic $ KosuFrontendAlt.Util.Ty.of_tyloc_polymorphic)
+      poly_vars
+  in
+  let enum_name = enum_name.value in
+  let tag_type =
+    match raw_tag_type with
+    | KosuFrontendAlt.Type.Ty.TyInteger integer ->
+        let default =
+          KosuFrontendAlt.Util.(IntegerInfo.sized @@ TyLoc.(signed, isize_32))
+        in
+        Option.value ~default integer
+    | _ ->
+        raise @@ TysuError.enum_not_integer_tag_size tag_type
+  in
+  let variants =
+    List.map
+      (fun (variant, assoc_types) ->
+        let variant = variant.Util.Position.value in
+        let assoc_types =
+          List.map
+            (of_kosu_type $ KosuFrontendAlt.Util.Ty.of_tyloc')
+            assoc_types
+        in
+        (variant, assoc_types)
+      )
+      variants
+  in
+  TysuAst.{ enum_name; poly_vars; tag_type; variants }
+
+let of_struct_decl _kosu_program _current_module struct_decl =
+  let ( $ ) = Util.Operator.( $ ) in
+  let KosuFrontendAlt.Ast.{ struct_name; poly_vars; fields } = struct_decl in
+  let struct_name = struct_name.value in
+  let poly_vars =
+    List.map
+      (of_polymorphic $ KosuFrontendAlt.Util.Ty.of_tyloc_polymorphic)
+      poly_vars
+  in
+  let fields =
+    List.map
+      (fun (name, kosu_type) ->
+        let tysu_type =
+          of_kosu_type @@ KosuFrontendAlt.Util.Ty.of_tyloc' kosu_type
+        in
+        let name = name.Util.Position.value in
+        (name, tysu_type)
+      )
+      fields
+  in
+  TysuAst.{ struct_name; poly_vars; fields }
+
 let of_module_node kosu_program current_module = function
   | KosuFrontendAlt.Ast.NExternFunc e ->
       TysuAst.NExternFunc (of_external_decl kosu_program current_module e)
@@ -118,10 +175,14 @@ let of_module_node kosu_program current_module = function
       TysuAst.NOpaque (of_opaque_decl kosu_program current_module opaque)
   | NFunction _ ->
       failwith ""
-  | NStruct _ ->
-      failwith ""
-  | NEnum _ ->
-      failwith ""
+  | NStruct struct_decl ->
+      let tysu_struct_decl =
+        of_struct_decl kosu_program current_module struct_decl
+      in
+      TysuAst.NStruct tysu_struct_decl
+  | NEnum enum ->
+      let tysu_enum_decl = of_enum_decl kosu_program current_module enum in
+      TysuAst.NEnum tysu_enum_decl
   | NConst _ ->
       failwith ""
 
