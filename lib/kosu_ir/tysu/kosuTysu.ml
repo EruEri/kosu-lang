@@ -169,11 +169,13 @@ let of_struct_decl _kosu_program _current_module struct_decl =
   TysuAst.{ struct_name; poly_vars; fields }
 
 let of_const_decl kosu_program current_module const_decl =
-  let KosuFrontendAlt.Ast.{ const_name; explicit_type; c_value } = const_decl in
-  let kosu_env = KosuFrontendAlt.Env.create current_module kosu_program in
+  let KosuFrontendAlt.Ast.{ const_name = _; explicit_type = _; c_value = _ } =
+    const_decl
+  in
+  let _kosu_env = KosuFrontendAlt.Env.create current_module kosu_program in
   failwith "TODO: "
 
-let of_function_decl kosu_program current_module fonction_decl =
+let of_function_decl _kosu_program _current_module _fonction_decl =
   failwith "TODO: "
 
 let of_module_node kosu_program current_module = function

@@ -348,6 +348,44 @@ module Ty = struct
     | TyBool ->
         false
 
+  let rec compiler_polymorphic_types :
+      KosuType.Ty.kosu_type -> KosuTypeVariableSet.t = function
+    | TyPolymorphic (CompilerPolymorphicVar _ as s) ->
+        KosuTypeVariableSet.singleton s
+    | TyPolymorphic (PolymorphicVar _) ->
+        KosuTypeVariableSet.empty
+    | TyFunctionPtr schema | TyClosure schema ->
+        let set =
+          List.fold_left
+            (fun set kosu_type ->
+              KosuTypeVariableSet.union set
+              @@ compiler_polymorphic_types kosu_type
+            )
+            KosuTypeVariableSet.empty schema.parameters_type
+        in
+        KosuTypeVariableSet.union set
+        @@ compiler_polymorphic_types schema.return_type
+    | TyIdentifier { parametrics_type = tys; module_resolver = _; name = _ }
+    | TyTuple tys ->
+        List.fold_left
+          (fun set kosu_type ->
+            KosuTypeVariableSet.union set
+            @@ compiler_polymorphic_types kosu_type
+          )
+          KosuTypeVariableSet.empty tys
+    | TyPointer { pointee_type = ktype; pointer_state = _ }
+    | TyArray { ktype; size = _ } ->
+        compiler_polymorphic_types ktype
+    | TyInteger _
+    | TyOpaque _
+    | TyFloat _
+    | TyOrdered
+    | TyChar
+    | TyStringLit
+    | TyUnit
+    | TyBool ->
+        KosuTypeVariableSet.empty
+
   let rec contains_polymorphic : KosuType.Ty.kosu_type -> bool = function
     | TyPolymorphic _ ->
         true

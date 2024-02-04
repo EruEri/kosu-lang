@@ -597,7 +597,7 @@ let rec solve solutions eqs =
          eqs
      in
      let () = print_endline "--------------\n" in *)
-  match KosuTypeConstraintSet.max_elt_opt eqs with
+  match KosuTypeConstraintSet.min_elt_opt eqs with
   | None ->
       solutions
   | Some equation ->
@@ -721,3 +721,25 @@ let solve kosu_env =
       solutions solutions2
   in
   solutions
+
+let solve kosu_env =
+  let associate compilers_variables solutions =
+    KosuTypeVariableSet.fold
+      (fun variable assocs ->
+        let solution = KosuTypingSolution.find variable solutions in
+        (variable, solution) :: assocs
+      )
+      compilers_variables []
+  in
+  let solutions = solve kosu_env in
+  let compilers_vars =
+    KosuTypingSolution.fold
+      (fun _ kosu_type vars ->
+        let compiler_vars = KosuUtil.Ty.compiler_polymorphic_types kosu_type in
+        KosuTypeVariableSet.union compiler_vars vars
+      )
+      solutions KosuTypeVariableSet.empty
+  in
+  let associations = associate compilers_vars solutions in
+
+  KosuTypingSolution.map (KosuUtil.Ty.ty_substitution [] associations) solutions
