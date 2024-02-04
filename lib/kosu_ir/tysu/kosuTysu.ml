@@ -168,13 +168,24 @@ let of_struct_decl _kosu_program _current_module struct_decl =
   in
   TysuAst.{ struct_name; poly_vars; fields }
 
+let of_const_decl kosu_program current_module const_decl =
+  let KosuFrontendAlt.Ast.{ const_name; explicit_type; c_value } = const_decl in
+  let kosu_env = KosuFrontendAlt.Env.create current_module kosu_program in
+  failwith "TODO: "
+
+let of_function_decl kosu_program current_module fonction_decl =
+  failwith "TODO: "
+
 let of_module_node kosu_program current_module = function
   | KosuFrontendAlt.Ast.NExternFunc e ->
       TysuAst.NExternFunc (of_external_decl kosu_program current_module e)
   | NOpaque opaque ->
       TysuAst.NOpaque (of_opaque_decl kosu_program current_module opaque)
-  | NFunction _ ->
-      failwith ""
+  | NFunction function_decl ->
+      let tysu_function =
+        of_function_decl kosu_program current_module function_decl
+      in
+      TysuAst.NFunction tysu_function
   | NStruct struct_decl ->
       let tysu_struct_decl =
         of_struct_decl kosu_program current_module struct_decl
@@ -183,8 +194,9 @@ let of_module_node kosu_program current_module = function
   | NEnum enum ->
       let tysu_enum_decl = of_enum_decl kosu_program current_module enum in
       TysuAst.NEnum tysu_enum_decl
-  | NConst _ ->
-      failwith ""
+  | NConst const ->
+      let tysu_const_decl = of_const_decl kosu_program current_module const in
+      TysuAst.NConst tysu_const_decl
 
 let of_module kosu_program kosu_module =
   List.map (of_module_node kosu_program kosu_module) kosu_module
