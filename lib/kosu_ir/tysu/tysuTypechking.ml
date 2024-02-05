@@ -15,23 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-(**********************************************************************************************)
-(*                                                                                            *)
-(* This file is part of Kosu                                                                  *)
-(* Copyright (C) 2023 Yves Ndiaye                                                             *)
-(*                                                                                            *)
-(* Kosu is free software: you can redistribute it and/or modify it under the terms            *)
-(* of the GNU General Public License as published by the Free Software Foundation,            *)
-(* either version 3 of the License, or (at your option) any later version.                    *)
-(*                                                                                            *)
-(* Kosu is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;          *)
-(* without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR           *)
-(* PURPOSE.  See the GNU General Public License for more details.                             *)
-(* You should have received a copy of the GNU General Public License along with Kosu.         *)
-(* If not, see <http://www.gnu.org/licenses/>.                                                *)
-(*                                                                                            *)
-(**********************************************************************************************)
-
 open Kosu.Ast
 open Kosu.Type
 open Kosu.Error.Exn
@@ -51,20 +34,35 @@ let rec typeof ~tyfresh solutions (kosu_env : Kosu.Env.kosu_env)
     (expr : Kosu.Ast.kosu_expression location) =
   match expr.value with
   | EEmpty ->
-      TysuUtil.Type.typed TysuAst.EEmpty @@ KosuTysuBase.of_kosu_type Ty.TyUnit
+      let koty = Ty.TyUnit in
+      let tyty = KosuTysuBase.Tysu.of_kosu_type koty in
+      let tysu = TysuUtil.Type.typed TysuAst.EEmpty tyty in
+      tysu
   | ETrue ->
-      TysuUtil.Type.typed TysuAst.ETrue @@ KosuTysuBase.of_kosu_type Ty.TyBool
+      let kosu_type = Ty.TyBool in
+      let tysu_type = KosuTysuBase.Tysu.of_kosu_type kosu_type in
+      let tysu = TysuUtil.Type.typed TysuAst.ETrue tysu_type in
+      tysu
   | EFalse ->
-      TysuUtil.Type.typed TysuAst.EFalse @@ KosuTysuBase.of_kosu_type Ty.TyBool
+      let kosu_type = Ty.TyBool in
+      let tysu_type = KosuTysuBase.Tysu.of_kosu_type kosu_type in
+      let tysu = TysuUtil.Type.typed TysuAst.EFalse tysu_type in
+      tysu
   | ECmpLess ->
-      TysuUtil.Type.typed TysuAst.ECmpLess
-      @@ KosuTysuBase.of_kosu_type Ty.TyOrdered
+      let kosu_type = Ty.TyOrdered in
+      let tysu_type = KosuTysuBase.Tysu.of_kosu_type kosu_type in
+      let tysu = TysuUtil.Type.typed TysuAst.ECmpLess tysu_type in
+      tysu
   | ECmpEqual ->
-      TysuUtil.Type.typed TysuAst.ECmpEqual
-      @@ KosuTysuBase.of_kosu_type Ty.TyOrdered
+      let kosu_type = Ty.TyOrdered in
+      let tysu_type = KosuTysuBase.Tysu.of_kosu_type kosu_type in
+      let tysu = TysuUtil.Type.typed TysuAst.ECmpEqual tysu_type in
+      tysu
   | ECmpGreater ->
-      TysuUtil.Type.typed TysuAst.ECmpGreater
-      @@ KosuTysuBase.of_kosu_type Ty.TyOrdered
+      let kosu_type = Ty.TyOrdered in
+      let tysu_type = KosuTysuBase.Tysu.of_kosu_type kosu_type in
+      let tysu = TysuUtil.Type.typed TysuAst.ECmpGreater tysu_type in
+      tysu
   | ENullptr { is_const } ->
       let pointer_state =
         if is_const then
@@ -74,16 +72,16 @@ let rec typeof ~tyfresh solutions (kosu_env : Kosu.Env.kosu_env)
       in
       let fresh_type = tyfresh () in
       let tysu_type =
-        KosuTysuBase.of_kosu_type_solved solutions expr.position fresh_type
+        KosuTysuBase.Tysu.of_kosu_type_solved solutions expr.position fresh_type
       in
       TysuUtil.Type.typed (TysuAst.ENullptr { is_const })
       @@ TysuPointer { pointee_type = tysu_type; pointer_state }
   | EStringl s ->
       TysuUtil.Type.typed (TysuAst.EStringl s)
-      @@ KosuTysuBase.of_kosu_type Ty.TyStringLit
+      @@ KosuTysuBase.Tysu.of_kosu_type Ty.TyStringLit
   | EChar c ->
       TysuUtil.Type.typed (TysuAst.EChar c)
-      @@ KosuTysuBase.of_kosu_type Ty.TyChar
+      @@ KosuTysuBase.Tysu.of_kosu_type Ty.TyChar
   | EInteger { integer_info; ivalue } ->
       let tysu_type =
         match integer_info with
@@ -91,7 +89,7 @@ let rec typeof ~tyfresh solutions (kosu_env : Kosu.Env.kosu_env)
             TysuType.TysuInteger integer_info
         | None ->
             let t = tyfresh () in
-            KosuTysuBase.of_kosu_type_solved solutions expr.position t
+            KosuTysuBase.Tysu.of_kosu_type_solved solutions expr.position t
       in
       TysuUtil.Type.typed (TysuAst.EInteger ivalue) tysu_type
   | EFloat { fsize; fvalue } ->
@@ -101,7 +99,7 @@ let rec typeof ~tyfresh solutions (kosu_env : Kosu.Env.kosu_env)
             TysuType.TysuFloat integer_info
         | None ->
             let t = tyfresh () in
-            KosuTysuBase.of_kosu_type_solved solutions expr.position t
+            KosuTysuBase.Tysu.of_kosu_type_solved solutions expr.position t
       in
       TysuUtil.Type.typed (TysuAst.EFloat fvalue) tysu_type
   | ESizeof either ->
@@ -110,7 +108,8 @@ let rec typeof ~tyfresh solutions (kosu_env : Kosu.Env.kosu_env)
         | Either.Left kosu_type ->
             let ty = Kosu.Util.Ty.of_tyloc' kosu_type in
             let tysu_type =
-              KosuTysuBase.of_kosu_type_solved solutions kosu_type.position ty
+              KosuTysuBase.Tysu.of_kosu_type_solved solutions kosu_type.position
+                ty
             in
             tysu_type
         | Either.Right rhs ->
@@ -120,88 +119,42 @@ let rec typeof ~tyfresh solutions (kosu_env : Kosu.Env.kosu_env)
             tysu_type
       in
       TysuUtil.Type.typed (TysuAst.ESizeof tysu_type)
-      @@ KosuTysuBase.of_kosu_type Kosu.Util.(Ty.of_tyloc TyLoc.usize)
+      @@ KosuTysuBase.Tysu.of_kosu_type Kosu.Util.(Ty.of_tyloc TyLoc.usize)
   | EFieldAccess { first_expr; field = sfield } ->
       (* instanciante todo*)
       let first_expression = typeof ~tyfresh solutions kosu_env first_expr in
-      let try_find_ty = function
-        | Ty.TyIdentifier _ as ty ->
-            Option.some @@ Either.left ty
-        | Ty.TyPolymorphic p ->
-            Option.some @@ Either.right p
-        | _ ->
-            raise @@ non_struct_type first_expr.position
-      in
-      let ty_solve =
-        match Kosu.Env.find_or_try_solve try_find_ty ty_expr kosu_env with
-        | Some t ->
-            t
-        | None ->
-            raise @@ cannot_infer_type first_expr.position
-      in
+      let ty_expr = KosuTysuBase.Kosu.of_tysu_type first_expression.tysu_type in
       let struct_decl_opt =
-        Kosu.Env.find_struct_declaration_type ty_solve kosu_env
+        Kosu.Env.find_struct_declaration_type ty_expr kosu_env
       in
-      let module_resolver, struct_decl =
-        match struct_decl_opt with
-        | Some t ->
-            t
-        | None ->
-            raise @@ cannot_find_struct_decl
-            @@ Position.map (fun _ -> ty_solve) first_expr
-      in
-      let pametrics_type = KosuUtil.Ty.parametrics_type ty_expr in
+      let module_resolver, struct_decl = Option.get struct_decl_opt in
+      let pametrics_type = Kosu.Util.Ty.parametrics_type ty_expr in
       let struct_decl =
-        match
-          KosuUtil.Struct.substitution module_resolver pametrics_type
-            struct_decl
-        with
-        | Some (raw_struct_decl, _) ->
-            raw_struct_decl
-        | None ->
-            failwith "Fail to substitute type"
+        fst @@ Option.get
+        @@ Kosu.Util.Struct.substitution module_resolver pametrics_type
+             struct_decl
       in
-      let ty =
-        match KosuUtil.Struct.field sfield.value struct_decl with
-        | Some ty ->
-            ty
-        | None ->
-            raise @@ field_not_in_struct struct_decl sfield
+      let ty = Option.get @@ Kosu.Util.Struct.field sfield.value struct_decl in
+      let tysu_type = KosuTysuBase.Tysu.of_kosu_type ty in
+      let tysu_expr =
+        TysuAst.EFieldAccess
+          { first_expr = first_expression; field = sfield.value }
       in
-      (kosu_env, ty)
+      let tysu_expr_typed = TysuUtil.Type.typed tysu_expr tysu_type in
+      tysu_expr_typed
   | EArrayAccess { array_expr; index_expr } ->
-      let env, ty = typeof ~tyfresh kosu_env array_expr in
-      let ty_elt =
-        match ty with
-        | TyArray { ktype; size = _ } ->
-            ktype
-        | TyPolymorphic ty ->
-            let ty =
-              match KosuEnv.try_solve ty kosu_env with
-              | Some ty ->
-                  (* let () = Printf.printf "field found = %s\n" (KosuPrint.string_of_kosu_type ty) in  *)
-                  ty
-              | None ->
-                  raise @@ cannot_infer_type array_expr.position
-            in
-            ty
+      let array_expr = typeof ~tyfresh solutions kosu_env array_expr in
+      let index_expr = typeof ~tyfresh solutions kosu_env index_expr in
+      let tysu_type =
+        match array_expr.tysu_type with
+        | TysuArray { tysu_type; _ } ->
+            tysu_type
         | _ ->
-            raise @@ non_array_access array_expr.position
+            failwith "Not array type"
       in
-      let kosu_env = KosuEnv.merge_constraint env kosu_env in
-      let env, ty = typeof ~tyfresh kosu_env index_expr in
-      let kosu_env =
-        match ty with
-        | TyInteger _ ->
-            kosu_env
-        | TyPolymorphic _ ->
-            KosuEnv.add_typing_constraint ~cfound:ty
-              ~cexpected:(Ty.TyInteger None) index_expr kosu_env
-        | _ ->
-            raise @@ array_subscribe_not_integer index_expr.position
-      in
-      let kosu_env = KosuEnv.merge_constraint env kosu_env in
-      (kosu_env, ty_elt)
+      let tysu_expr = TysuAst.EArrayAccess { array_expr; index_expr } in
+      let tysu_expr_typed = TysuUtil.Type.typed tysu_expr tysu_type in
+      tysu_expr_typed
   | ETupleAccess { first_expr; index } ->
       let env, ty = typeof ~tyfresh kosu_env first_expr in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in

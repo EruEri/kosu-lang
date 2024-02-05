@@ -15,7 +15,7 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-open KosuTysuBase
+open KosuTysuBase.Tysu
 
 (* let of_expression solution kosu_env expr =
    match expr.Util.Position.value with
