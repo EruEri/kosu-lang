@@ -15,71 +15,7 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-let of_module_resolver : Kosu.Base.module_resolver -> TysuBase.module_resolver =
-  function
-  | ModuleResolver_ modules ->
-      ModuleResolver modules
-
-let of_polymorphic :
-    Kosu.Type.Ty.kosu_type_polymorphic -> TysuType.tysu_variable_polymorphic =
-  function
-  | PolymorphicVar s ->
-      TysuType.ForAllVar s
-  | CompilerPolymorphicVar s ->
-      raise @@ TysuError.kosu_compiler_variable_found s
-
-let rec of_schema :
-    Kosu.Type.Ty.kosu_function_schema -> TysuType.tysu_function_schema =
- fun { poly_vars; parameters_type; return_type } ->
-  let poly_vars = List.map of_polymorphic poly_vars in
-  let parameters_type = List.map of_kosu_type parameters_type in
-  let return_type = of_kosu_type return_type in
-  { poly_vars; parameters_type; return_type }
-
-and of_kosu_type : Kosu.Type.Ty.kosu_type -> TysuType.tysu_type = function
-  | Kosu.Type.Ty.TyIdentifier { module_resolver; parametrics_type; name } ->
-      let parametrics_type = List.map of_kosu_type parametrics_type in
-      let module_resolver = of_module_resolver module_resolver in
-      TysuIdentifier { module_resolver; parametrics_type; name }
-  | TyPolymorphic variable ->
-      let variable = of_polymorphic variable in
-      TysuPolymorphic variable
-  | TyPointer { pointer_state; pointee_type } ->
-      let pointee_type = of_kosu_type pointee_type in
-      TysuPointer { pointer_state; pointee_type }
-  | TyInteger integer ->
-      let default = Kosu.Util.(IntegerInfo.sized @@ TyLoc.(signed, isize_32)) in
-      let integer = Option.value ~default integer in
-      TysuInteger integer
-  | TyFloat float_info ->
-      let default = Kosu.Base.F32 in
-      let float_info = Option.value ~default float_info in
-      TysuFloat float_info
-  | TyFunctionPtr schema ->
-      let schema = of_schema schema in
-      TysuFunctionPtr schema
-  | TyClosure schema ->
-      let schema = of_schema schema in
-      TysuClosure schema
-  | TyArray { ktype; size } ->
-      let tysu_type = of_kosu_type ktype in
-      TysuArray { tysu_type; size }
-  | TyTuple types ->
-      let types = List.map of_kosu_type types in
-      TysuTuple types
-  | TyOpaque { module_resolver; name } ->
-      let module_resolver = of_module_resolver module_resolver in
-      TysuOpaque { module_resolver; name }
-  | TyOrdered ->
-      TysuOrdered
-  | TyStringLit ->
-      TysuStringLit
-  | TyChar ->
-      TysuChar
-  | TyBool ->
-      TysuBool
-  | TyUnit ->
-      TysuUnit
+open KosuTysuBase
 
 (* let of_expression solution kosu_env expr =
    match expr.Util.Position.value with

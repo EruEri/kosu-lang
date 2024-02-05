@@ -88,8 +88,8 @@ and tysu_expression =
   | ENullptr of { is_const : bool }
   | EStringl of string
   | EChar of char
-  | EInteger of { integer_info : integer_info; ivalue : int64 }
-  | EFloat of { fsize : fsize; fvalue : float }
+  | EInteger of int64
+  | EFloat of float
   | ESizeof of tysu_type
   | EFieldAccess of { first_expr : tysu_expression typed; field : string }
   | EArrayAccess of {
