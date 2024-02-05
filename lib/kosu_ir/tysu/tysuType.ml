@@ -46,4 +46,4 @@ and tysu_type =
   | TysuBool
   | TysuUnit
 
-type 'a typed = { elememt : 'a; tysu_type : tysu_type }
+type 'a typed = { element : 'a; tysu_type : tysu_type }

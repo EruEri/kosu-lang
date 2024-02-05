@@ -1,7 +1,7 @@
 (**********************************************************************************************)
 (*                                                                                            *)
 (* This file is part of Kosu                                                                  *)
-(* Copyright (C) 2023 Yves Ndiaye                                                             *)
+(* Copyright (C) 2024 Yves Ndiaye                                                             *)
 (*                                                                                            *)
 (* Kosu is free software: you can redistribute it and/or modify it under the terms            *)
 (* of the GNU General Public License as published by the Free Software Foundation,            *)
@@ -15,13 +15,6 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-module Ast = KosuAst
-module Base = KosuBaseAst
-module Env = KosuEnv
-module Error = KosuError
-module Parsing = KosuParsing
-module Reporter = KosuReport.Reporter
-module Type = KosuType
-module Typechecking = KosuTypechecking
-module Util = KosuUtil
-module Validation = KosuValidation
+module Type = struct
+  let typed element tysu_type = TysuType.{ element; tysu_type }
+end

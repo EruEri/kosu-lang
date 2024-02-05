@@ -81,6 +81,11 @@ and of_kosu_type : Kosu.Type.Ty.kosu_type -> TysuType.tysu_type = function
   | TyUnit ->
       TysuUnit
 
+(* let of_expression solution kosu_env expr =
+   match expr.Util.Position.value with
+   | Kosu.Ast.EEmpty ->
+     let tysu_element = TysuUtil.Type. *)
+
 let of_external_decl _kosu_program _current_module external_func_decl =
   let ( $ ) = Util.Operator.( $ ) in
   let Kosu.Ast.
@@ -152,10 +157,16 @@ let of_struct_decl _kosu_program _current_module struct_decl =
   TysuAst.{ struct_name; poly_vars; fields }
 
 let of_const_decl kosu_program current_module const_decl =
-  let Kosu.Ast.{ const_name = _; explicit_type = _; c_value = _ } =
-    const_decl
+  let Kosu.Ast.{ const_name = _; explicit_type; c_value } = const_decl in
+  let empty = Kosu.Env.create current_module kosu_program in
+  let env, ty = Kosu.Typechecking.typeof empty c_value in
+  let kosu_env = Kosu.Env.merge_constraint env empty in
+  let kosu_env =
+    Kosu.Env.add_typing_constraint
+      ~cexpected:(Kosu.Util.Ty.of_tyloc' explicit_type)
+      ~cfound:ty explicit_type kosu_env
   in
-  let _kosu_env = Kosu.Env.create current_module kosu_program in
+  let _solutions = Kosu.Env.solve kosu_env in
   failwith "TODO: "
 
 let of_function_decl _kosu_program _current_module _fonction_decl =
