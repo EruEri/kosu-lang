@@ -616,6 +616,12 @@ let rec solve solutions eqs =
                 (KosuPrint.string_of_polymorphic_var p)
                 (KosuPrint.string_of_kosu_type ty)
             in
+
+            let solutions =
+              KosuTypingSolution.map
+                (KosuUtil.Ty.ty_substitution [] ((p, ty) :: []))
+                solutions
+            in
             let solutions = KosuTypingSolution.add p ty solutions in
             let eqs =
               KosuTypeConstraintSet.map (KosuTypeConstraint.substitute p ty) eqs
@@ -660,86 +666,87 @@ let solve kosu_env =
   let solutions =
     solve KosuTypingSolution.empty kosu_env.env_tying_constraint
   in
-  let not_fully_infered_num =
-    KosuTypingSolution.fold
-      (fun key ty acc ->
-        match KosuUtil.Ty.is_number_unknwon_size ty with
-        | true ->
-            key :: acc
-        | false ->
-            acc
-      )
-      solutions []
-  in
-  let transform_ty unknwon_tys sols = function
-    | KosuType.Ty.TyPolymorphic p as ty ->
-        let r =
-          match List.mem p unknwon_tys with
-          | true ->
-              ty
-          | false ->
-              (* With the use case we known that the variable exist *)
-              sols |> KosuTypingSolution.find_opt p |> Option.value ~default:ty
-        in
-        r
-    | ty ->
-        ty
-  in
-
-  let constrains =
-    KosuTypeConstraintSet.map
-      (fun const ->
-        let cexpected =
-          transform_ty not_fully_infered_num solutions const.cexpected
-        in
-        let cfound =
-          transform_ty not_fully_infered_num solutions const.cfound
-        in
-        { const with cexpected; cfound }
-      )
-      kosu_env.env_tying_constraint
-  in
-  let solutions2 = solve KosuTypingSolution.empty constrains in
-
-  (* let f = (fun key value -> Printf.printf "%s ---> %s\n" (KosuPrint.string_of_polymorphic_var key) (KosuPrint.string_of_kosu_type value)) in
-     let () = Printf.printf "-----\n\n" in
-     let () = KosuTypingSolution.iter f solutions in
-     let () = Printf.printf "Second sol \n%!" in
-     let () = KosuTypingSolution.iter f solutions2 in *)
-  let solutions =
-    KosuTypingSolution.union
-      (fun _ lhs rhs ->
-        match KosuTypeConstraint.restrict ~with_ty:lhs rhs with
-        | Some _ as t ->
-            t
-        | None ->
-            failwith
-            @@ Printf.sprintf "incompatible %s %s"
-                 (KosuPrint.string_of_kosu_type lhs)
-                 (KosuPrint.string_of_kosu_type rhs)
-      )
-      solutions solutions2
-  in
   solutions
+(* let not_fully_infered_num =
+     KosuTypingSolution.fold
+       (fun key ty acc ->
+         match KosuUtil.Ty.is_number_unknwon_size ty with
+         | true ->
+             key :: acc
+         | false ->
+             acc
+       )
+       solutions []
+   in
+   let transform_ty unknwon_tys sols = function
+     | KosuType.Ty.TyPolymorphic p as ty ->
+         let r =
+           match List.mem p unknwon_tys with
+           | true ->
+               ty
+           | false ->
+               (* With the use case we known that the variable exist *)
+               sols |> KosuTypingSolution.find_opt p |> Option.value ~default:ty
+         in
+         r
+     | ty ->
+         ty
+   in
 
-let solve kosu_env =
-  let associate compilers_variables solutions =
-    KosuTypeVariableSet.fold
-      (fun variable assocs ->
-        let solution = KosuTypingSolution.find variable solutions in
-        (variable, solution) :: assocs
-      )
-      compilers_variables []
-  in
-  let solutions = solve kosu_env in
-  let compilers_vars =
-    KosuTypingSolution.fold
-      (fun _ kosu_type vars ->
-        let compiler_vars = KosuUtil.Ty.compiler_polymorphic_types kosu_type in
-        KosuTypeVariableSet.union compiler_vars vars
-      )
-      solutions KosuTypeVariableSet.empty
-  in
-  let associations = associate compilers_vars solutions in
+   let constrains =
+     KosuTypeConstraintSet.map
+       (fun const ->
+         let cexpected =
+           transform_ty not_fully_infered_num solutions const.cexpected
+         in
+         let cfound =
+           transform_ty not_fully_infered_num solutions const.cfound
+         in
+         { const with cexpected; cfound }
+       )
+       kosu_env.env_tying_constraint
+   in
+   let solutions2 = solve KosuTypingSolution.empty constrains in
 
-  KosuTypingSolution.map (KosuUtil.Ty.ty_substitution [] associations) solutions
+   (* let f = (fun key value -> Printf.printf "%s ---> %s\n" (KosuPrint.string_of_polymorphic_var key) (KosuPrint.string_of_kosu_type value)) in
+      let () = Printf.printf "-----\n\n" in
+      let () = KosuTypingSolution.iter f solutions in
+      let () = Printf.printf "Second sol \n%!" in
+      let () = KosuTypingSolution.iter f solutions2 in *)
+   let solutions =
+     KosuTypingSolution.union
+       (fun _ lhs rhs ->
+         match KosuTypeConstraint.restrict ~with_ty:lhs rhs with
+         | Some _ as t ->
+             t
+         | None ->
+             failwith
+             @@ Printf.sprintf "incompatible %s %s"
+                  (KosuPrint.string_of_kosu_type lhs)
+                  (KosuPrint.string_of_kosu_type rhs)
+       )
+       solutions solutions2
+   in
+   solutions *)
+
+(* let solve kosu_env =
+   let associate compilers_variables solutions =
+     KosuTypeVariableSet.fold
+       (fun variable assocs ->
+         let solution = KosuTypingSolution.find variable solutions in
+         (variable, solution) :: assocs
+       )
+       compilers_variables []
+   in
+   let solutions = solve kosu_env in
+   let compilers_vars =
+     KosuTypingSolution.fold
+       (fun _ kosu_type vars ->
+         let compiler_vars = KosuUtil.Ty.compiler_polymorphic_types kosu_type in
+         KosuTypeVariableSet.union compiler_vars vars
+       )
+       solutions KosuTypeVariableSet.empty
+   in
+   let associations = associate compilers_vars solutions in
+
+   KosuTypingSolution.map (KosuUtil.Ty.ty_substitution [] associations) solutions *)
