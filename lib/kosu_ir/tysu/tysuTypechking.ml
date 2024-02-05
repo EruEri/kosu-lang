@@ -29,6 +29,9 @@ end)
 
 module CapturedIdentifier = PatternIdentifierBound
 
+let error file line message =
+  failwith @@ Printf.sprintf "File : %s, Line : %u: %s" file line message
+
 (* this function should do the same number of call to tyfresh than [KosuType] otherwise the compiler var name won't match *)
 let rec typeof ~tyfresh solutions (kosu_env : Kosu.Env.kosu_env)
     (expr : Kosu.Ast.kosu_expression location) =
@@ -150,63 +153,63 @@ let rec typeof ~tyfresh solutions (kosu_env : Kosu.Env.kosu_env)
         | TysuArray { tysu_type; _ } ->
             tysu_type
         | _ ->
-            failwith "Not array type"
+            error __FILE__ __LINE__ "EArray Access"
       in
       let tysu_expr = TysuAst.EArrayAccess { array_expr; index_expr } in
       let tysu_expr_typed = TysuUtil.Type.typed tysu_expr tysu_type in
       tysu_expr_typed
   | ETupleAccess { first_expr; index } ->
-      let env, ty = typeof ~tyfresh kosu_env first_expr in
-      let kosu_env = KosuEnv.merge_constraint env kosu_env in
-      let try_expect_tuple = function
-        | Ty.TyTuple tes ->
-            Option.some @@ Either.left tes
-        | Ty.TyPolymorphic p ->
-            Option.some @@ Either.right p
+      let first_expr = typeof ~tyfresh solutions kosu_env first_expr in
+      let tysu_type =
+        match first_expr.tysu_type with
+        | TysuTuple ttes ->
+            ttes
         | _ ->
-            raise @@ non_tuple_access first_expr.position
-      in
-      let ty_elts =
-        match KosuEnv.find_or_try_solve try_expect_tuple ty kosu_env with
-        | Some t ->
-            t
-        | None ->
-            raise @@ cannot_infer_type first_expr.position
+            error __FILE__ __LINE__ ""
       in
       let ty =
-        match List.nth_opt ty_elts (Int64.to_int index.value) with
-        | Some ty ->
-            ty
-        | None ->
-            raise @@ index_out_of_bounds (List.length ty_elts) index
+        Option.get @@ List.nth_opt tysu_type (Int64.to_int index.value)
       in
-      (kosu_env, ty)
+      let tysu_expr =
+        TysuAst.ETupleAccess { first_expr; index = index.value }
+      in
+      TysuUtil.Type.typed tysu_expr ty
   | EConstIdentifier { module_resolver; identifier } ->
-      let _module_resolver, const_decl =
-        match
-          KosuEnv.find_const_declaration (module_resolver, identifier) kosu_env
-        with
-        | Some decl ->
-            decl
-        | None ->
-            raise @@ unbound_constante module_resolver identifier
+      let _, const_decl =
+        Option.get
+        @@ Kosu.Env.find_const_declaration
+             (module_resolver, identifier)
+             kosu_env
       in
-      let ty = KosuUtil.Ty.of_tyloc' const_decl.explicit_type in
-      (kosu_env, ty)
+      let ty =
+        KosuTysuBase.Tysu.of_kosu_type
+        @@ Kosu.Util.Ty.of_tyloc' const_decl.explicit_type
+      in
+      let module_resolver =
+        KosuTysuBase.Tysu.of_module_resolver
+        @@ Kosu.Util.ModuleResolver.to_unlocated module_resolver
+      in
+      let identifier = identifier.value in
+      let tysu_expr =
+        TysuAst.EConstIdentifier { module_resolver; identifier }
+      in
+      TysuUtil.Type.typed tysu_expr ty
   | EIdentifier { module_resolver; id } ->
-      let t = KosuEnv.find_identifier module_resolver id.value kosu_env in
-      let t =
-        match t with
-        | Some t ->
-            t
-        | None ->
-            raise @@ KosuError.Exn.unbound_identifier id
+      let t = Kosu.Env.find_identifier module_resolver id.value kosu_env in
+      let ty = KosuTysuBase.Tysu.of_kosu_type @@ Option.get t in
+      let module_resolver =
+        KosuTysuBase.Tysu.of_module_resolver
+        @@ Kosu.Util.ModuleResolver.to_unlocated module_resolver
       in
-      (kosu_env, t)
+      let identifier = id.value in
+      let tysu_expr =
+        TysuAst.EIdentifier { module_resolver; id = identifier }
+      in
+      TysuUtil.Type.typed tysu_expr ty
   | EStruct { module_resolver; struct_name; fields } ->
       let module_resolver, struct_decl =
         match
-          KosuEnv.find_struct_declaration
+          Kosu.Env.find_struct_declaration
             (module_resolver, struct_name)
             kosu_env
         with
@@ -216,7 +219,7 @@ let rec typeof ~tyfresh solutions (kosu_env : Kosu.Env.kosu_env)
             raise @@ unbound_struct module_resolver struct_name
       in
       let struct_decl, ty =
-        KosuUtil.Struct.substitution_fresh ~fresh:tyfresh module_resolver
+        Kosu.Util.Struct.substitution_fresh ~fresh:tyfresh module_resolver
           struct_decl
       in
       let combined_fields =
