@@ -15,9 +15,9 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-type signedness = KosuFrontendAlt.Base.signedness
-type isize = KosuFrontendAlt.Base.isize
-type fsize = KosuFrontendAlt.Base.fsize
-type pointer_state = KosuFrontendAlt.Base.pointer_state
+type signedness = Kosu.Base.signedness
+type isize = Kosu.Base.isize
+type fsize = Kosu.Base.fsize
+type pointer_state = Kosu.Base.pointer_state
 type module_resolver = ModuleResolver of string list
-type integer_info = KosuFrontendAlt.Base.integer_info
+type integer_info = Kosu.Base.integer_info

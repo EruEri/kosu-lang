@@ -89,5 +89,5 @@
 ;    (run menhir --compile-errors %{deps}))))
 
 (library
- (name kosuFrontendAlt)
+ (name kosu)
  (libraries menhirLib util kosuMisc kosuDiagnostic))

@@ -118,33 +118,28 @@ let parse_to_ast files =
     | Ok e ->
         e
     | Error e ->
-        let () =
-          KosuFrontendAlt.Reporter.emit ~underline:true
-          @@ KosuFrontendAlt.Reporter.string e
-        in
+        let () = Kosu.Reporter.emit ~underline:true @@ Kosu.Reporter.string e in
         exit KosuMisc.ExitCode.unsported_file
   in
   let kosu_program =
-    match KosuFrontendAlt.Parsing.kosu_program kosu_files with
+    match Kosu.Parsing.kosu_program kosu_files with
     | Ok kosu_program ->
         kosu_program
     | Error c ->
         let file, _ = c in
-        let kosu_err = KosuFrontendAlt.Error.Raw.analytics_error c in
+        let kosu_err = Kosu.Error.Raw.analytics_error c in
         let () =
-          KosuFrontendAlt.Reporter.emit ~underline:true
-          @@ KosuFrontendAlt.Reporter.file file kosu_err
+          Kosu.Reporter.emit ~underline:true @@ Kosu.Reporter.file file kosu_err
         in
         exit KosuMisc.ExitCode.syntax_lexer_error
   in
   let () =
-    match KosuFrontendAlt.Validation.validate kosu_program with
+    match Kosu.Validation.validate kosu_program with
     | Ok () ->
         ()
     | Error (file, error) ->
         let () =
-          KosuFrontendAlt.Reporter.emit ~underline:true
-          @@ KosuFrontendAlt.Reporter.file file error
+          Kosu.Reporter.emit ~underline:true @@ Kosu.Reporter.file file error
         in
         exit KosuMisc.ExitCode.validation_error
   in

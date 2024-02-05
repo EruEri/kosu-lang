@@ -17,8 +17,7 @@
 
 type t =
   | KosuCompilerVariableFound of string
-  | EnumNotIntegerTagSize of
-      KosuFrontendAlt.Type.TyLoc.kosu_loctype Util.Position.location
+  | EnumNotIntegerTagSize of Kosu.Type.TyLoc.kosu_loctype Util.Position.location
 
 exception TysuError of t
 

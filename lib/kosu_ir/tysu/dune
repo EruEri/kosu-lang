@@ -17,4 +17,4 @@
 
 (library
  (name tysu)
- (libraries kosuFrontendAlt))
+ (libraries kosu))
