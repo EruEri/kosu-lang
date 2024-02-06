@@ -109,7 +109,7 @@ and tysu_expression =
     }
   | EEnum of {
       module_resolver : module_resolver;
-      enum_name : string option;
+      enum_name : string;
       variant : string;
       assoc_exprs : tysu_expression typed list;
     }
