@@ -125,7 +125,8 @@ and of_expression kosu_env solutions :
       let enum_name = enum_decl.enum_name.value in
       EEnum { module_resolver; enum_name; variant; assoc_exprs }
   | EBlock block ->
-      failwith ""
+      let _, tysu_block = of_kosu_block kosu_env solutions block in
+      EBlock tysu_block
   | EDeref expr ->
       let expression, _ = of_kosu_expression kosu_env solutions expr in
       EDeref expression
@@ -175,8 +176,8 @@ and of_expression kosu_env solutions :
       let condition_expr, _ =
         of_kosu_expression kosu_env solutions condition_expr
       in
-      let body = failwith "TODO_BLOCK" in
-      EWhile { condition_expr; body }
+      let _, tysu_block = of_kosu_block kosu_env solutions body in
+      EWhile { condition_expr; body = tysu_block }
   (* If expression will be a syntaxique sugar of ecases *)
   | ECases { cases; else_body } ->
       failwith ""
@@ -186,18 +187,64 @@ and of_expression kosu_env solutions :
   | EAnonFunction { kind; parameters; body } ->
       failwith ""
 
-and of_kosu_block kosu_env solutions blocks = failwith ""
+and of_kosu_block kosu_env solutions block =
+  let kosu_env, tysu_stmts =
+    List.fold_left_map (of_kosu_statement solutions) kosu_env block.kosu_stmts
+  in
+  let tysu_expr, kosu_env =
+    of_kosu_expression kosu_env solutions block.kosu_expr
+  in
+  (kosu_env, TysuAst.{ tysu_stmts; tysu_expr })
 
-and of_kosu_statement kosu_env solutions statement =
-  match statement.Util.Position.value with
-  | Kosu.Ast.SDeclaration { is_const; pattern; explicit_type; expression } ->
-      failwith ""
-  | SAffection { lvalue; expression } ->
-      failwith ""
+and of_kosu_statement solutions kosu_env statement =
+  match statement.value with
+  | SDeclaration { is_const; pattern; explicit_type = _; expression } ->
+      let tysu_expression, kosu_env =
+        of_kosu_expression kosu_env solutions expression
+      in
+      let bound, tysu_pattern = of_kosu_pattern kosu_env solutions pattern in
+      let kosu_env =
+        List.fold_left
+          (fun kosu_env (id, ty) ->
+            Kosu.Env.add_variable is_const id ty kosu_env
+          )
+          kosu_env bound
+      in
+      ( kosu_env,
+        SDeclaration
+          { is_const; pattern = tysu_pattern; expression = tysu_expression }
+      )
+  | SAffection { lvalue; expression; is_deref } ->
+      let (KosuLvalue { variable; fields }) = lvalue in
+      let tysu_expression, _ =
+        of_kosu_expression kosu_env solutions expression
+      in
+      let variable_info =
+        Option.get @@ Kosu.Env.assoc_type_opt variable.value kosu_env
+      in
+      let variable_tysu_type =
+        of_kosu_type_solved solutions variable_info.identifier.position
+          variable_info.kosu_type
+      in
+      let variable = TysuUtil.Type.typed variable.value variable_tysu_type in
+      let fields = Util.Position.values fields in
+      let lvalue = TysuAst.TysuLvalue { variable; fields } in
+      (kosu_env, SAffection { is_deref; lvalue; expression = tysu_expression })
   | SDiscard expression ->
-      failwith ""
+      let tysu_expression, _ =
+        of_kosu_expression kosu_env solutions expression
+      in
+      (kosu_env, SDiscard tysu_expression)
   | SOpen { module_resolver } ->
-      failwith ""
+      let kosu_module =
+        Option.get @@ Kosu.Env.find_module_opt module_resolver kosu_env
+      in
+      let module_resolver =
+        KosuTysuBase.Tysu.of_module_resolver
+        @@ Kosu.Util.ModuleResolver.to_unlocated module_resolver
+      in
+      let kosu_env = Kosu.Env.add_module kosu_module kosu_env in
+      (kosu_env, SOpen { module_resolver })
 
 and of_kosu_pattern kosu_env solutions kosu_pattern =
   let Kosu.Ast.{ kosu_pattern = pattern; pattern_associated = kosu_type } =
@@ -404,7 +451,7 @@ let of_struct_decl _kosu_program _current_module struct_decl =
   TysuAst.{ struct_name; poly_vars; fields }
 
 let of_const_decl kosu_program current_module const_decl =
-  let Kosu.Ast.{ const_name = _; explicit_type; c_value } = const_decl in
+  let Kosu.Ast.{ const_name; explicit_type; c_value } = const_decl in
   let empty = Kosu.Env.create current_module kosu_program in
   let (env, ty), kosu_expression = Kosu.Typechecking.typeof empty c_value in
   let kosu_env = Kosu.Env.merge_constraint env empty in
@@ -413,11 +460,68 @@ let of_const_decl kosu_program current_module const_decl =
       ~cexpected:(Kosu.Util.Ty.of_tyloc' explicit_type)
       ~cfound:ty explicit_type kosu_env
   in
-  let _solutions = Kosu.Env.solve kosu_env in
-  failwith "TODO: "
+  let solutions = Kosu.Env.solve kosu_env in
+  let kosu_env = Kosu.Env.create current_module kosu_program in
+  let c_expression, _ = of_kosu_expression kosu_env solutions kosu_expression in
+  let const_name = const_name.value in
+  let explicit_type =
+    KosuTysuBase.Tysu.of_kosu_type_solved solutions explicit_type.position
+    @@ Kosu.Util.Ty.of_tyloc' explicit_type
+  in
+  TysuAst.{ const_name; explicit_type; c_expression }
 
-let of_function_decl _kosu_program _current_module _fonction_decl =
-  failwith "TODO: "
+let of_function_decl kosu_program current_module fonction_decl =
+  let ( $ ) = Util.Operator.( $ ) in
+  let Kosu.Ast.{ fn_name; poly_vars; parameters; return_type; body } =
+    fonction_decl
+  in
+  let kosu_env = Kosu.Env.create current_module kosu_program in
+  let kosu_env =
+    List.fold_left
+      (fun kosu_env variable_info ->
+        let open Kosu.Ast in
+        Kosu.Env.add_variable (not variable_info.is_var) variable_info.name
+          (Kosu.Util.Ty.of_tyloc' variable_info.kosu_type)
+          kosu_env
+      )
+      kosu_env parameters
+  in
+  let kosu_env =
+    Kosu.Env.add_bound_poly_vars
+      (List.map Kosu.Util.Ty.of_tyloc_polymorphic poly_vars)
+      kosu_env
+  in
+  let (env, ty), kosu_expression = Kosu.Typechecking.typeof kosu_env body in
+  let kosu_env = Kosu.Env.merge_constraint env kosu_env in
+  let kosu_env =
+    Kosu.Env.add_typing_constraint
+      ~cexpected:(Kosu.Util.Ty.of_tyloc' return_type)
+      ~cfound:ty return_type kosu_env
+  in
+  let solutions = Kosu.Env.solve kosu_env in
+  let kosu_env = Kosu.Env.create current_module kosu_program in
+  let tysu_expression, _ =
+    of_kosu_expression kosu_env solutions kosu_expression
+  in
+  let poly_vars =
+    List.map (of_polymorphic $ Kosu.Util.Ty.of_tyloc_polymorphic) poly_vars
+  in
+  let fn_name = fn_name.value in
+  let of_kosu_ty ty =
+    of_kosu_type_solved solutions ty.Util.Position.position
+    @@ Kosu.Util.Ty.of_tyloc' ty
+  in
+  let return_type = of_kosu_ty return_type in
+  let parameters =
+    List.map
+      (fun Kosu.Ast.{ is_var; name; kosu_type } ->
+        let tysu_type = of_kosu_ty kosu_type in
+        TysuAst.{ is_var; name = name.value; tysu_type }
+      )
+      parameters
+  in
+  TysuAst.
+    { fn_name; poly_vars; parameters; return_type; body = tysu_expression }
 
 let of_module_node kosu_program current_module = function
   | Kosu.Ast.NExternFunc e ->

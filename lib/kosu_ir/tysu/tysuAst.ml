@@ -37,7 +37,7 @@ type tysu_function_parameter = {
 type tysu_anon_function_kind = TAClosure | TAFunctionPointer
 
 type tysu_statement =
-  | TsDecleration of {
+  | SDeclaration of {
       is_const : bool;
       pattern : tysu_pattern typed;
       expression : tysu_expression typed;
