@@ -15,118 +15,159 @@
 (*                                                                                            *)
 (**********************************************************************************************)
 
-(**
-    [is_static_expression expr] determines if an expression can be evaluated a compile time
-*)
-let rec is_static_expression :
-    KosuAst.kosu_expression Position.location ->
-    (unit, KosuAst.kosu_expression Position.location) Result.t =
- fun expr ->
-  let ( let* ) = Result.bind in
-  let ok = Ok () in
-  let err = Result.error in
-  match expr.value with
-  | EEmpty
-  | ETrue
-  | EFalse
-  | ENullptr _
-  | ECmpLess
-  | ECmpEqual
-  | ECmpGreater
-  | EStringl _
-  | EChar _
-  | EInteger _
-  | EConstIdentifier _
-  | EFloat _ ->
-      ok
-  | ESizeof either ->
-      let r =
-        match either with
-        | Either.Left _ ->
-            ok
-        | Right expr ->
-            is_static_expression expr
-      in
-      r
-  | EDeref first_expr
-  | EFieldAccess { first_expr; field = _ }
-  | ETupleAccess { first_expr; index = _ } ->
-      is_static_expression first_expr
-  | EArrayAccess { array_expr; index_expr } ->
-      let* () = is_static_expression array_expr in
-      is_static_expression index_expr
-  | EIdentifier { module_resolver; id = _ } ->
-      let r =
-        match module_resolver with
-        | ModuleResolverLoc [] ->
-            err expr
-        | ModuleResolverLoc (_ :: _) ->
-            ok
-      in
-      r
-  | EStruct { module_resolver = _; struct_name = _; fields } ->
-      Util.Ulist.fold_ok
-        (fun () (_, expr) -> is_static_expression expr)
-        () fields
-  | EEnum
-      { assoc_exprs = exprs; module_resolver = _; enum_name = _; variant = _ }
-  | ETuple exprs
-  | EArray exprs ->
-      Util.Ulist.fold_ok (fun () -> is_static_expression) () exprs
-  | EBlock kosu_block ->
-      let r =
-        match kosu_block with
-        | { kosu_stmts = []; kosu_expr } ->
-            is_static_expression kosu_expr
-        | { kosu_stmts = _ :: _; kosu_expr = _ } ->
-            err expr
-      in
-      r
-  | EBuiltinFunctionCall _
-  | EFunctionCall _
-  | EWhile _
-  | ECases _
-  | EMatch _
-  | EAnonFunction _ ->
-      err expr
+include KosuBaseAst
+open Position
+open KosuType
 
-(**
-    [last_expression expr] returns the last expression of mono block expression such as
-    [KosuAst.EBlock _] or [KosuAst.EWhile _] or [expr] if others
-*)
-let rec last_expression expr =
-  let open Position in
-  let open KosuAst in
-  match expr.value with
-  | EBlock block ->
-      last_expression block.kosu_expr
-  | EWhile { body; _ } ->
-      last_expression body.kosu_expr
+type kosu_lvalue =
+  | KosuLvalue of { variable : string location; fields : string location list }
+
+type kosu_function_parameters = {
+  is_var : bool;
+  name : string location;
+  kosu_type : TyLoc.kosu_loctype location;
+}
+
+type kosu_anon_parameters = {
+  ais_var : bool;
+  aname : string location;
+  akosu_type : TyLoc.kosu_loctype location option;
+}
+
+type kosu_anon_function_kind = KAClosure | KAFunctionPointer
+
+type 'a kosu_statement =
+  | SDeclaration of {
+      is_const : bool;
+      pattern : 'a kosu_pattern location;
+      explicit_type : TyLoc.kosu_loctype location option;
+      expression : 'a kosu_expression location;
+    }
+  | SAffection of {
+      is_deref : bool;
+      lvalue : kosu_lvalue;
+      expression : 'a kosu_expression location;
+    }
+  | SDiscard of 'a kosu_expression location
+  | SOpen of { module_resolver : module_resolver_loc }
+
+and 'a pattern =
+  | PTrue
+  | PFalse
+  | PEmpty
+  | PCmpLess
+  | PCmpEqual
+  | PCmpGreater
+  | PNullptr
+  | PWildcard
+  | PFloat of float location
+  | PChar of char location
+  | PIdentifier of string location
+  | PTuple of 'a kosu_pattern location list
+  | PInteger of { value : int64 location }
+  | PCase of {
+      module_resolver : module_resolver_loc;
+      enum_name : string location option;
+      variant : string location;
+      assoc_patterns : 'a kosu_pattern location list;
+    }
+  | PRecord of {
+      module_resolver : module_resolver_loc;
+      struct_name : string location;
+      pfields : (string location * 'a kosu_pattern location) list;
+    }
+  | POr of 'a kosu_pattern location list
+  | PAs of {
+      pas_pattern : 'a kosu_pattern location;
+      pas_bound : string location;
+    }
+
+and 'a kosu_pattern = { kosu_pattern : 'a pattern; pattern_associated : 'a }
+
+and 'a expression =
   | EEmpty
   | ETrue
   | EFalse
-  | ENullptr _
   | ECmpLess
   | ECmpEqual
   | ECmpGreater
-  | EStringl _
-  | EChar _
-  | EInteger _
-  | EFloat _
-  | ESizeof _
-  | EFieldAccess _
-  | EArrayAccess _
-  | ETupleAccess _
-  | EConstIdentifier _
-  | EIdentifier _
-  | EStruct _
-  | EEnum _
-  | EDeref _
-  | ETuple _
-  | EArray _
-  | EBuiltinFunctionCall _
-  | EFunctionCall _
-  | ECases _
-  | EMatch _
-  | EAnonFunction _ ->
-      expr
+  | ENullptr of { is_const : bool }
+  | EStringl of string
+  | EChar of char
+  | EInteger of { integer_info : integer_info option; ivalue : int64 }
+  | EFloat of { fsize : fsize option; fvalue : float }
+  | ESizeof of
+      (TyLoc.kosu_loctype location, 'a kosu_expression location) Either.t
+  | EFieldAccess of {
+      first_expr : 'a kosu_expression location;
+      field : string location;
+    }
+  | EArrayAccess of {
+      array_expr : 'a kosu_expression location;
+      index_expr : 'a kosu_expression location;
+    }
+  | ETupleAccess of {
+      first_expr : 'a kosu_expression location;
+      index : int64 location;
+    }
+  | EConstIdentifier of {
+      module_resolver : module_resolver_loc;
+      identifier : string location;
+    }
+  | EIdentifier of {
+      module_resolver : module_resolver_loc;
+      id : string location;
+    }
+  | EStruct of {
+      module_resolver : module_resolver_loc;
+      struct_name : string location;
+      fields : (string location * 'a kosu_expression location) list;
+    }
+  | EEnum of {
+      module_resolver : module_resolver_loc;
+      enum_name : string location option;
+      variant : string location;
+      assoc_exprs : 'a kosu_expression location list;
+    }
+  | EBlock of 'a kosu_block
+  | EDeref of 'a kosu_expression location
+  | ETuple of 'a kosu_expression location list
+  | EArray of 'a kosu_expression location list
+  | EBuiltinFunctionCall of {
+      fn_name : string location;
+      parameters : 'a kosu_expression location list;
+    }
+  | EFunctionCall of {
+      module_resolver : module_resolver_loc;
+      generics_resolver : TyLoc.kosu_loctype location list option;
+      fn_name : string location;
+      parameters : 'a kosu_expression location list;
+    }
+  | EWhile of {
+      condition_expr : 'a kosu_expression location;
+      body : 'a kosu_block;
+    }
+  (* If expression will be a syntaxique sugar of ecases *)
+  | ECases of {
+      cases : ('a kosu_expression location * 'a kosu_block) list;
+      else_body : 'a kosu_block;
+    }
+  | EMatch of {
+      expression : 'a kosu_expression location;
+      patterns : ('a kosu_pattern location * 'a kosu_block) list;
+    }
+  | EAnonFunction of {
+      kind : kosu_anon_function_kind;
+      parameters : kosu_anon_parameters list;
+      body : 'a kosu_expression location;
+    }
+
+and 'a kosu_block = {
+  kosu_stmts : 'a kosu_statement location list;
+  kosu_expr : 'a kosu_expression location;
+}
+
+and 'a kosu_expression = {
+  kosu_expression : 'a expression;
+  expression_associated : 'a;
+}

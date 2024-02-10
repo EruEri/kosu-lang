@@ -872,10 +872,10 @@ end
 module Pattern = struct
   open KosuAst
 
-  let rec flatten_por (pattern : kosu_pattern Position.location) =
-    match pattern.value with
+  let rec flatten_por (pattern : 'a kosu_pattern Position.location) =
+    match pattern.value.kosu_pattern with
     | POr patterns ->
-        patterns |> List.map flatten_por |> List.flatten
+        patterns |> List.concat_map flatten_por
     | _ ->
         pattern :: []
 end
@@ -888,10 +888,17 @@ module Expression = struct
         m
 
   let rec explicit_module_type' current_module exprloc =
-    Position.map (explicit_module_type current_module) exprloc
+    Position.map (explicit_module_type_kosu_expression current_module) exprloc
 
-  and explicit_module_type current_module :
-      KosuAst.kosu_expression -> KosuAst.kosu_expression = function
+  and explicit_module_type_kosu_expression current_module
+      KosuAst.{ kosu_expression; expression_associated } =
+    let kosu_expression =
+      explicit_module_type_expression current_module kosu_expression
+    in
+    KosuAst.{ kosu_expression; expression_associated }
+
+  and explicit_module_type_expression current_module :
+      'a KosuAst.expression -> 'a KosuAst.expression = function
     | ( EEmpty
       | ETrue
       | EFalse
@@ -1026,7 +1033,14 @@ module Expression = struct
         { kosu_stmts; kosu_expr }
 
   and explicit_module_type_pattern' current_module pattern_loc =
-    Position.map (explicit_module_type_pattern current_module) pattern_loc
+    Position.map (explicit_module_type_kosu_pattern current_module) pattern_loc
+
+  and explicit_module_type_kosu_pattern current_module
+      KosuAst.{ kosu_pattern; pattern_associated } =
+    let kosu_pattern =
+      explicit_module_type_pattern current_module kosu_pattern
+    in
+    KosuAst.{ kosu_pattern; pattern_associated }
 
   and explicit_module_type_pattern current_module = function
     | ( PTrue
@@ -1096,6 +1110,120 @@ module Expression = struct
         SDiscard expression
     | SOpen _ as so ->
         so
+
+  (**
+    [is_static_expression expr] determines if an expression can be evaluated a compile time
+*)
+  let rec is_static_expression :
+      'a KosuAst.kosu_expression Position.location ->
+      (unit, 'a KosuAst.kosu_expression Position.location) Result.t =
+   fun expr ->
+    let ( let* ) = Result.bind in
+    let ok = Ok () in
+    let err = Result.error in
+    match expr.value.kosu_expression with
+    | EEmpty
+    | ETrue
+    | EFalse
+    | ENullptr _
+    | ECmpLess
+    | ECmpEqual
+    | ECmpGreater
+    | EStringl _
+    | EChar _
+    | EInteger _
+    | EConstIdentifier _
+    | EFloat _ ->
+        ok
+    | ESizeof either ->
+        let r =
+          match either with
+          | Either.Left _ ->
+              ok
+          | Right expr ->
+              is_static_expression expr
+        in
+        r
+    | EDeref first_expr
+    | EFieldAccess { first_expr; field = _ }
+    | ETupleAccess { first_expr; index = _ } ->
+        is_static_expression first_expr
+    | EArrayAccess { array_expr; index_expr } ->
+        let* () = is_static_expression array_expr in
+        is_static_expression index_expr
+    | EIdentifier { module_resolver; id = _ } ->
+        let r =
+          match module_resolver with
+          | ModuleResolverLoc [] ->
+              err expr
+          | ModuleResolverLoc (_ :: _) ->
+              ok
+        in
+        r
+    | EStruct { module_resolver = _; struct_name = _; fields } ->
+        Util.Ulist.fold_ok
+          (fun () (_, expr) -> is_static_expression expr)
+          () fields
+    | EEnum
+        { assoc_exprs = exprs; module_resolver = _; enum_name = _; variant = _ }
+    | ETuple exprs
+    | EArray exprs ->
+        Util.Ulist.fold_ok (fun () -> is_static_expression) () exprs
+    | EBlock kosu_block ->
+        let r =
+          match kosu_block with
+          | { kosu_stmts = []; kosu_expr } ->
+              is_static_expression kosu_expr
+          | { kosu_stmts = _ :: _; kosu_expr = _ } ->
+              err expr
+        in
+        r
+    | EBuiltinFunctionCall _
+    | EFunctionCall _
+    | EWhile _
+    | ECases _
+    | EMatch _
+    | EAnonFunction _ ->
+        err expr
+
+  (** [last_expression expr] returns the last expression of mono block expression such as 
+  [KosuAst.EBlock _] or [KosuAst.EWhile _] or [expr] if others *)
+  let rec last_expression expr =
+    let open Position in
+    let open KosuAst in
+    match expr.value.kosu_expression with
+    | EBlock block ->
+        last_expression block.kosu_expr
+    | EWhile { body; _ } ->
+        last_expression body.kosu_expr
+    | EEmpty
+    | ETrue
+    | EFalse
+    | ENullptr _
+    | ECmpLess
+    | ECmpEqual
+    | ECmpGreater
+    | EStringl _
+    | EChar _
+    | EInteger _
+    | EFloat _
+    | ESizeof _
+    | EFieldAccess _
+    | EArrayAccess _
+    | ETupleAccess _
+    | EConstIdentifier _
+    | EIdentifier _
+    | EStruct _
+    | EEnum _
+    | EDeref _
+    | ETuple _
+    | EArray _
+    | EBuiltinFunctionCall _
+    | EFunctionCall _
+    | ECases _
+    | EMatch _
+    | EAnonFunction _ ->
+        expr
 end
 
 module Builtin = struct

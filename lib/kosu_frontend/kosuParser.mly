@@ -169,9 +169,14 @@
     | located(option(preceded(ELSE, kosu_block))) { 
         match $1.value with
         | Some body -> body
-        | None -> KosuAst.{
+        | None -> 
+        let kosu_expr = Position.map (fun _ -> 
+        
+            {kosu_expression = EEmpty; expression_associated = ()} 
+        ) $1 in 
+        KosuAst.{
             kosu_stmts = [];
-            kosu_expr = Position.map (fun _ -> EEmpty) $1
+            kosu_expr
         }
     }
 
@@ -326,7 +331,7 @@ kosu_function_block:
         $1
     }
     | located(kosu_block) {
-        Position.map (fun block -> EBlock block) $1
+        Position.map (fun block -> { kosu_expression =  EBlock block; expression_associated = () }) $1
     }
 
 kosu_statement:
@@ -376,6 +381,16 @@ kosu_block_base:
         }
 
 kosu_expression:
+    | expression { 
+        KosuAst.{
+            kosu_expression = $1;
+            expression_associated = ()
+        }
+    }
+
+
+
+expression:
     | TRUE { ETrue }
     | FALSE { EFalse }
     | NULLMUTPTR { ENullptr {is_const = false}}
@@ -482,10 +497,13 @@ kosu_expression:
         let fields = List.map (fun (id, expr_opt) -> 
             let expr = match expr_opt with
                 | Some expr -> expr
-                | None -> Position.map_use (fun id -> EIdentifier {
+                | None -> Position.map_use (fun id -> 
+                let kosu_expression = EIdentifier {
                     module_resolver = KosuUtil.ModuleResolver.empty_module;
                     id
-                } ) id
+                } in
+                {kosu_expression; expression_associated = ()}
+            ) id
             in
             id, expr
         ) fields in
@@ -568,7 +586,7 @@ kosu_expression:
     | parenthesis(separated_list(COMMA, located(kosu_expression))) {
         match $1 with
         | [] -> EEmpty
-        | t::[] -> t.value
+        | t::[] -> t.value.kosu_expression
         | _::_ as elts -> ETuple elts
     }
 
@@ -577,6 +595,14 @@ kosu_expression:
     | terminated(located(Identifier), DOUBLECOLON) { Some $1 }
 
 kosu_pattern:
+    | pattern {
+        KosuAst.{
+            kosu_pattern = $1;
+            pattern_associated = ()
+        }
+    }
+
+pattern:
     | TRUE { PTrue }
     | FALSE { PFalse }
     | EMPTY { PEmpty }
@@ -622,10 +648,10 @@ kosu_pattern:
         trailing_separated_list(COMMA, 
             i=located(Identifier) p=option(preceded(EQUAL, located(kosu_pattern))) {i, p}
         )) {
-            let pfields = List.map (fun (identifier, pattern) -> 
-                let p = match pattern with
+            let pfields = List.map (fun (identifier, kosu_pattern) -> 
+                let p = match kosu_pattern with
                     | Some p -> p
-                    | None -> Position.map_use (fun id -> PIdentifier id ) identifier
+                    | None -> Position.map_use (fun id -> { kosu_pattern =  PIdentifier id; pattern_associated = () } ) identifier
                 in
                 identifier, p
             ) pfields in
@@ -657,7 +683,7 @@ kosu_pattern:
     | parenthesis(separated_list(COMMA, located(kosu_pattern))) {
         match $1 with
         | [] -> PEmpty
-        | p::[] -> p.value
+        | p::[] -> p.value.kosu_pattern
         | list -> PTuple list
     }
 

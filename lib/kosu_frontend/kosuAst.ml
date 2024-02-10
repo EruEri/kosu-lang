@@ -36,22 +36,22 @@ type kosu_anon_parameters = {
 
 type kosu_anon_function_kind = KAClosure | KAFunctionPointer
 
-type kosu_statement =
+type 'a kosu_statement =
   | SDeclaration of {
       is_const : bool;
-      pattern : kosu_pattern location;
+      pattern : 'a kosu_pattern location;
       explicit_type : TyLoc.kosu_loctype location option;
-      expression : kosu_expression location;
+      expression : 'a kosu_expression location;
     }
   | SAffection of {
       is_deref : bool;
       lvalue : kosu_lvalue;
-      expression : kosu_expression location;
+      expression : 'a kosu_expression location;
     }
-  | SDiscard of kosu_expression location
+  | SDiscard of 'a kosu_expression location
   | SOpen of { module_resolver : module_resolver_loc }
 
-and kosu_pattern =
+and 'a pattern =
   | PTrue
   | PFalse
   | PEmpty
@@ -63,23 +63,28 @@ and kosu_pattern =
   | PFloat of float location
   | PChar of char location
   | PIdentifier of string location
-  | PTuple of kosu_pattern location list
+  | PTuple of 'a kosu_pattern location list
   | PInteger of { value : int64 location }
   | PCase of {
       module_resolver : module_resolver_loc;
       enum_name : string location option;
       variant : string location;
-      assoc_patterns : kosu_pattern location list;
+      assoc_patterns : 'a kosu_pattern location list;
     }
   | PRecord of {
       module_resolver : module_resolver_loc;
       struct_name : string location;
-      pfields : (string location * kosu_pattern location) list;
+      pfields : (string location * 'a kosu_pattern location) list;
     }
-  | POr of kosu_pattern location list
-  | PAs of { pas_pattern : kosu_pattern location; pas_bound : string location }
+  | POr of 'a kosu_pattern location list
+  | PAs of {
+      pas_pattern : 'a kosu_pattern location;
+      pas_bound : string location;
+    }
 
-and kosu_expression =
+and 'a kosu_pattern = { kosu_pattern : 'a pattern; pattern_associated : 'a }
+
+and 'a expression =
   | EEmpty
   | ETrue
   | EFalse
@@ -91,17 +96,18 @@ and kosu_expression =
   | EChar of char
   | EInteger of { integer_info : integer_info option; ivalue : int64 }
   | EFloat of { fsize : fsize option; fvalue : float }
-  | ESizeof of (TyLoc.kosu_loctype location, kosu_expression location) Either.t
+  | ESizeof of
+      (TyLoc.kosu_loctype location, 'a kosu_expression location) Either.t
   | EFieldAccess of {
-      first_expr : kosu_expression location;
+      first_expr : 'a kosu_expression location;
       field : string location;
     }
   | EArrayAccess of {
-      array_expr : kosu_expression location;
-      index_expr : kosu_expression location;
+      array_expr : 'a kosu_expression location;
+      index_expr : 'a kosu_expression location;
     }
   | ETupleAccess of {
-      first_expr : kosu_expression location;
+      first_expr : 'a kosu_expression location;
       index : int64 location;
     }
   | EConstIdentifier of {
@@ -115,48 +121,55 @@ and kosu_expression =
   | EStruct of {
       module_resolver : module_resolver_loc;
       struct_name : string location;
-      fields : (string location * kosu_expression location) list;
+      fields : (string location * 'a kosu_expression location) list;
     }
   | EEnum of {
       module_resolver : module_resolver_loc;
       enum_name : string location option;
       variant : string location;
-      assoc_exprs : kosu_expression location list;
+      assoc_exprs : 'a kosu_expression location list;
     }
-  | EBlock of kosu_block
-  (* * expr *)
-  | EDeref of kosu_expression location
-  | ETuple of kosu_expression location list
-  | EArray of kosu_expression location list
+  | EBlock of 'a kosu_block
+  | EDeref of 'a kosu_expression location
+  | ETuple of 'a kosu_expression location list
+  | EArray of 'a kosu_expression location list
   | EBuiltinFunctionCall of {
       fn_name : string location;
-      parameters : kosu_expression location list;
+      parameters : 'a kosu_expression location list;
     }
   | EFunctionCall of {
       module_resolver : module_resolver_loc;
       generics_resolver : TyLoc.kosu_loctype location list option;
       fn_name : string location;
-      parameters : kosu_expression location list;
+      parameters : 'a kosu_expression location list;
     }
-  | EWhile of { condition_expr : kosu_expression location; body : kosu_block }
+  | EWhile of {
+      condition_expr : 'a kosu_expression location;
+      body : 'a kosu_block;
+    }
   (* If expression will be a syntaxique sugar of ecases *)
   | ECases of {
-      cases : (kosu_expression location * kosu_block) list;
-      else_body : kosu_block;
+      cases : ('a kosu_expression location * 'a kosu_block) list;
+      else_body : 'a kosu_block;
     }
   | EMatch of {
-      expression : kosu_expression location;
-      patterns : (kosu_pattern location * kosu_block) list;
+      expression : 'a kosu_expression location;
+      patterns : ('a kosu_pattern location * 'a kosu_block) list;
     }
   | EAnonFunction of {
       kind : kosu_anon_function_kind;
       parameters : kosu_anon_parameters list;
-      body : kosu_expression location;
+      body : 'a kosu_expression location;
     }
 
-and kosu_block = {
-  kosu_stmts : kosu_statement location list;
-  kosu_expr : kosu_expression location;
+and 'a kosu_block = {
+  kosu_stmts : 'a kosu_statement location list;
+  kosu_expr : 'a kosu_expression location;
+}
+
+and 'a kosu_expression = {
+  kosu_expression : 'a expression;
+  expression_associated : 'a;
 }
 
 type kosu_raw_struct_decl = {
@@ -199,7 +212,7 @@ type kosu_function_decl = {
   parameters : kosu_function_parameters list;
   return_type : TyLoc.kosu_loctype location;
   (* if block will be transform into EBlock expression in parser *)
-  body : kosu_expression location;
+  body : unit kosu_expression location;
 }
 
 type _kosu_syscall_decl = {
@@ -229,7 +242,7 @@ type kosu_builtin_function =
 type kosu_const_decl = {
   const_name : string location;
   explicit_type : TyLoc.kosu_loctype location;
-  c_value : kosu_expression location;
+  c_value : unit kosu_expression location;
 }
 
 type kosu_opaque_decl = { name : string location }

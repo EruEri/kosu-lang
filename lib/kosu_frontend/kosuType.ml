@@ -92,6 +92,10 @@ module Ty = struct
     | TyBool
     | TyUnit
 
+  and 'a typed = { element : 'a; kosu_type : kosu_type }
+
+  let typed element kosu_type = { element; kosu_type }
+
   type kosu_type_constraint = {
     cexpected : kosu_type;
     cfound : kosu_type;

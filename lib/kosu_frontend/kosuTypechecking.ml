@@ -29,8 +29,15 @@ end)
 
 module CapturedIdentifier = PatternIdentifierBound
 
-let rec typeof ~tyfresh (kosu_env : KosuEnv.kosu_env)
-    (expr : KosuAst.kosu_expression location) =
+let rec typeof ~tyfresh kosu_env
+    (kosu_expression : unit KosuAst.kosu_expression location) =
+  typeof_expression ~tyfresh kosu_env
+  @@ Position.map
+       (fun { kosu_expression; _ } -> kosu_expression)
+       kosu_expression
+
+and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
+    (expr : unit KosuAst.expression location) =
   match expr.value with
   | EEmpty ->
       (kosu_env, Ty.TyUnit)
@@ -529,7 +536,7 @@ let rec typeof ~tyfresh (kosu_env : KosuEnv.kosu_env)
         List.fold_left
           (fun kosu_env (kosu_pattern, kosu_block) ->
             let bound, (env, pattern_ty) =
-              typeof_pattern ~tyfresh scrutinee_type kosu_env kosu_pattern
+              typeof_kosu_pattern ~tyfresh scrutinee_type kosu_env kosu_pattern
             in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
             let kosu_env =
@@ -634,7 +641,7 @@ and typeof_block ~tyfresh kosu_env block =
   typeof ~tyfresh kosu_env block.kosu_expr
 
 and typeof_statement ~tyfresh kosu_env
-    (statement : KosuAst.kosu_statement location) =
+    (statement : unit KosuAst.kosu_statement location) =
   match statement.value with
   | SDeclaration { is_const; pattern; explicit_type; expression } ->
       let env, ety = typeof ~tyfresh kosu_env expression in
@@ -648,7 +655,9 @@ and typeof_statement ~tyfresh kosu_env
         | None ->
             kosu_env
       in
-      let bounds, (env, ty) = typeof_pattern ~tyfresh ety kosu_env pattern in
+      let bounds, (env, ty) =
+        typeof_kosu_pattern ~tyfresh ety kosu_env pattern
+      in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       let kosu_env =
         KosuEnv.add_typing_constraint ~cfound:ty ~cexpected:ety pattern kosu_env
@@ -780,12 +789,16 @@ and typeof_statement ~tyfresh kosu_env
       in
       KosuEnv.add_module kosu_module kosu_env
 
+and typeof_kosu_pattern ~tyfresh scrutine_type kosu_env kosu_pattern =
+  typeof_pattern ~tyfresh scrutine_type kosu_env
+  @@ Position.map (fun { kosu_pattern; _ } -> kosu_pattern) kosu_pattern
+
 (**
     [typeof_pattern scrutinee_type kosu_env pattern] types the pattern [pattern] in the environment [kosu_env]
     with the scrutinee_type being [scrutinee_type]
 *)
 and typeof_pattern ~tyfresh scrutinee_type kosu_env
-    (pattern : KosuAst.kosu_pattern location) =
+    (pattern : unit KosuAst.pattern location) =
   (*Dont forget to raise if we try to bind an identifier to an existing variable in the*)
   let open KosuType.Ty in
   match pattern.value with
@@ -823,7 +836,7 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
           (fun kosu_env pattern ->
             let fresh_ty = tyfresh () in
             let bound, (env, ty) =
-              typeof_pattern ~tyfresh fresh_ty kosu_env pattern
+              typeof_kosu_pattern ~tyfresh fresh_ty kosu_env pattern
             in
             let env =
               KosuEnv.add_typing_constraint ~cexpected:fresh_ty ~cfound:ty
@@ -896,7 +909,7 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
           (fun kosu_env (enum_type, enum_pattern) ->
             let fresh_ty = tyfresh () in
             let bound, (env, ty) =
-              typeof_pattern ~tyfresh fresh_ty kosu_env enum_pattern
+              typeof_kosu_pattern ~tyfresh fresh_ty kosu_env enum_pattern
             in
             let env =
               KosuEnv.add_typing_constraint ~cexpected:fresh_ty ~cfound:ty
@@ -971,7 +984,7 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
             in
             let fresh_ty = tyfresh () in
             let bound, (env, ty) =
-              typeof_pattern ~tyfresh fresh_ty kosu_env pattern_pattern
+              typeof_kosu_pattern ~tyfresh fresh_ty kosu_env pattern_pattern
             in
             let env =
               KosuEnv.add_typing_constraint ~cexpected:fresh_ty ~cfound:ty
@@ -1018,7 +1031,7 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
         List.fold_left_map
           (fun kosu_env pattern ->
             let bound, (env, ty) =
-              typeof_pattern ~tyfresh fresh_ty kosu_env pattern
+              typeof_kosu_pattern ~tyfresh fresh_ty kosu_env pattern
             in
             let env =
               KosuEnv.add_typing_constraint ~cexpected:fresh_ty ~cfound:ty
@@ -1069,7 +1082,7 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
       (indentifiers, (kosu_env, scrutinee_type))
   | PAs { pas_pattern; pas_bound } ->
       let bound, (env, ty) =
-        typeof_pattern ~tyfresh scrutinee_type kosu_env pas_pattern
+        typeof_kosu_pattern ~tyfresh scrutinee_type kosu_env pas_pattern
       in
       let bound =
         match
@@ -1247,7 +1260,7 @@ and variables_expression ~tyfresh closure_env locals_variables
       | None ->
           raise @@ KosuError.Exn.unbound_identifier identifier
   in
-  match expression.value with
+  match expression.value.kosu_expression with
   | EIdentifier { module_resolver; id } ->
       let c =
         match KosuUtil.ModuleResolver.is_empty module_resolver with
@@ -1389,7 +1402,7 @@ and variables_expression ~tyfresh closure_env locals_variables
         (fun captured (pattern, block) ->
           let scrutine = tyfresh () in
           let bound, (_, _) =
-            typeof_pattern ~tyfresh scrutine closure_env pattern
+            typeof_kosu_pattern ~tyfresh scrutine closure_env pattern
           in
           let block_locals = CapturedIdentifier.of_list bound in
           let block_locals =
@@ -1442,7 +1455,7 @@ and variables_statement ~tyfresh closure_env locals_variables statement =
         @@ Option.map KosuUtil.Ty.of_tyloc' explicit_type
       in
       (* Maybe merge closure_env and scope_env *)
-      let pvariables, _ = typeof_pattern ~tyfresh ty closure_env pattern in
+      let pvariables, _ = typeof_kosu_pattern ~tyfresh ty closure_env pattern in
       let extend_locals = CapturedIdentifier.of_list pvariables in
       let locals_variables =
         CapturedIdentifier.union locals_variables extend_locals
@@ -1470,7 +1483,7 @@ and variables_statement ~tyfresh closure_env locals_variables statement =
       (closure_env, CapturedIdentifier.empty, locals_variables)
 
 let typeof (kosu_env : KosuEnv.kosu_env)
-    (expr : KosuAst.kosu_expression location) =
+    (expr : unit KosuAst.kosu_expression location) =
   let counter = ref 0 in
   let fresh () =
     let n = !counter in
