@@ -178,12 +178,41 @@ and of_expression kosu_env solutions :
       in
       let _, tysu_block = of_kosu_block kosu_env solutions body in
       EWhile { condition_expr; body = tysu_block }
-  (* If expression will be a syntaxique sugar of ecases *)
   | ECases { cases; else_body } ->
-      failwith ""
+      let _, else_body = of_kosu_block kosu_env solutions else_body in
+      let cases =
+        List.map
+          (fun (condition, block) ->
+            let tysu_condition, _ =
+              of_kosu_expression kosu_env solutions condition
+            in
+            let _, tysu_block = of_kosu_block kosu_env solutions block in
+            (tysu_condition, tysu_block)
+          )
+          cases
+      in
+      ECases { cases; else_body }
   | EMatch { expression; patterns } ->
       let expression, _ = of_kosu_expression kosu_env solutions expression in
-      failwith ""
+      let patterns =
+        List.map
+          (fun (pattern, body) ->
+            let bound, tysu_pattern =
+              of_kosu_pattern kosu_env solutions pattern
+            in
+            let kosu_block_env =
+              List.fold_left
+                (fun env (id, bound_ty) ->
+                  Kosu.Env.add_variable true id bound_ty env
+                )
+                kosu_env bound
+            in
+            let _, tysu_block = of_kosu_block kosu_block_env solutions body in
+            (tysu_pattern, tysu_block)
+          )
+          patterns
+      in
+      EMatch { expression; patterns }
   | EAnonFunction { kind; parameters; body } ->
       failwith ""
 
