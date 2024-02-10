@@ -186,10 +186,152 @@ and of_expression kosu_env solutions :
   | EAnonFunction { kind; parameters; body } ->
       failwith ""
 
-(* let of_expression solution kosu_env expr =
-   match expr.Util.Position.value with
-   | Kosu.Ast.EEmpty ->
-     let tysu_element = TysuUtil.Type. *)
+and of_kosu_block kosu_env solutions blocks = failwith ""
+
+and of_kosu_statement kosu_env solutions statement =
+  match statement.Util.Position.value with
+  | Kosu.Ast.SDeclaration { is_const; pattern; explicit_type; expression } ->
+      failwith ""
+  | SAffection { lvalue; expression } ->
+      failwith ""
+  | SDiscard expression ->
+      failwith ""
+  | SOpen { module_resolver } ->
+      failwith ""
+
+and of_kosu_pattern kosu_env solutions kosu_pattern =
+  let Kosu.Ast.{ kosu_pattern = pattern; pattern_associated = kosu_type } =
+    kosu_pattern.Util.Position.value
+  in
+  let tysu_type =
+    KosuTysuBase.Tysu.of_kosu_type_solved solutions kosu_pattern.position
+      kosu_type
+  in
+  let kosu_type = KosuTysuBase.Kosu.of_tysu_type tysu_type in
+  let bound, tysu_pattern = of_pattern kosu_type kosu_env solutions pattern in
+  let tysu_pattern_typed = TysuUtil.Type.typed tysu_pattern tysu_type in
+  (bound, tysu_pattern_typed)
+
+and of_pattern scrutine_type kosu_env solutions = function
+  | PEmpty ->
+      ([], TysuAst.PEmpty)
+  | PTrue ->
+      ([], PTrue)
+  | PFalse ->
+      ([], PFalse)
+  | PCmpLess ->
+      ([], PCmpLess)
+  | PCmpEqual ->
+      ([], PCmpEqual)
+  | PCmpGreater ->
+      ([], PCmpGreater)
+  | PNullptr ->
+      ([], PNullptr)
+  | PWildcard ->
+      ([], PWildcard)
+  | PFloat f ->
+      ([], PFloat f.value)
+  | PChar c ->
+      ([], PChar c.value)
+  | PInteger { value } ->
+      ([], PInteger value.value)
+  | PIdentifier identifier ->
+      let bound = [ (identifier, scrutine_type) ] in
+      (bound, PIdentifier identifier.value)
+  | PTuple patterns ->
+      let module PIB = Kosu.Typechecking.PatternIdentifierBound in
+      let tysu_patterns =
+        List.map (of_kosu_pattern kosu_env solutions) patterns
+      in
+      let bounds, kosu_patterns = List.split tysu_patterns in
+      let bounds =
+        PIB.elements
+        @@ List.fold_left
+             (fun set bounds -> PIB.add_seq (List.to_seq bounds) set)
+             PIB.empty bounds
+      in
+      (bounds, PTuple kosu_patterns)
+  | PCase { module_resolver; enum_name; variant; assoc_patterns } ->
+      let module PIB = Kosu.Typechecking.PatternIdentifierBound in
+      let name = Option.map Util.Position.value enum_name in
+      let module_loc, enum_decl =
+        Option.get
+        @@ Kosu.Env.find_enum_declaration module_resolver name variant kosu_env
+      in
+      let assoc_patterns =
+        List.map (of_kosu_pattern kosu_env solutions) assoc_patterns
+      in
+      let bounds, tysu_patterns = List.split assoc_patterns in
+      let bounds =
+        PIB.elements
+        @@ List.fold_left
+             (fun set bounds -> PIB.add_seq (List.to_seq bounds) set)
+             PIB.empty bounds
+      in
+      let module_resolver = KosuTysuBase.Tysu.of_module_resolver module_loc in
+      let enum_name = enum_decl.enum_name.value in
+      let variant = variant.value in
+      ( bounds,
+        PCase
+          {
+            module_resolver;
+            enum_name;
+            variant;
+            assoc_patterns = tysu_patterns;
+          }
+      )
+  | PRecord { module_resolver; struct_name; pfields } ->
+      let module PIB = Kosu.Typechecking.PatternIdentifierBound in
+      let module_resolver, struct_decl =
+        Option.get
+        @@ Kosu.Env.find_struct_declaration
+             (module_resolver, struct_name)
+             kosu_env
+      in
+      let bound_patterns =
+        List.map
+          (fun (field_name, kosu_pattern) ->
+            let open Util.Position in
+            let bound, tysu_pattern =
+              of_kosu_pattern kosu_env solutions kosu_pattern
+            in
+            (bound, (field_name.value, tysu_pattern))
+          )
+          pfields
+      in
+      let bounds, tysu_pfields = List.split bound_patterns in
+      let bounds =
+        PIB.elements
+        @@ List.fold_left
+             (fun set bounds -> PIB.add_seq (List.to_seq bounds) set)
+             PIB.empty bounds
+      in
+      let module_resolver =
+        KosuTysuBase.Tysu.of_module_resolver module_resolver
+      in
+      let struct_name = struct_decl.struct_name.value in
+      (bounds, PRecord { module_resolver; struct_name; pfields = tysu_pfields })
+  | POr patterns ->
+      let module PIB = Kosu.Typechecking.PatternIdentifierBound in
+      let tysu_patterns =
+        List.map (of_kosu_pattern kosu_env solutions) patterns
+      in
+      let bounds, kosu_patterns = List.split tysu_patterns in
+      let bounds =
+        PIB.elements
+        @@ List.fold_left
+             (fun set bounds -> PIB.add_seq (List.to_seq bounds) set)
+             PIB.empty bounds
+      in
+      (bounds, POr kosu_patterns)
+  | PAs { pas_pattern; pas_bound } ->
+      let module PIB = Kosu.Typechecking.PatternIdentifierBound in
+      let bounds, tysu_pattern =
+        of_kosu_pattern kosu_env solutions pas_pattern
+      in
+      let bounds = (pas_bound, scrutine_type) :: bounds in
+      let bounds = PIB.elements @@ PIB.of_list bounds in
+      (bounds, PAs { pas_pattern = tysu_pattern; pas_bound = pas_bound.value })
 
 let of_external_decl _kosu_program _current_module external_func_decl =
   let ( $ ) = Util.Operator.( $ ) in

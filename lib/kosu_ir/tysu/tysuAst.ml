@@ -66,7 +66,7 @@ and tysu_pattern =
   | PInteger of int64
   | PCase of {
       module_resolver : module_resolver;
-      enum_name : string option;
+      enum_name : string;
       variant : string;
       assoc_patterns : tysu_pattern typed list;
     }

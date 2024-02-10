@@ -30,7 +30,7 @@ end)
 module CapturedIdentifier = PatternIdentifierBound
 
 let rec typeof ~tyfresh kosu_env
-    (kosu_expression : unit KosuAst.kosu_expression location) =
+    (kosu_expression : _ KosuAst.kosu_expression location) =
   let ((_, ty) as ret), expression =
     typeof_expression ~tyfresh kosu_env
     @@ Position.map
@@ -45,7 +45,7 @@ let rec typeof ~tyfresh kosu_env
   (ret, kosu_expression)
 
 and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
-    (expr : unit KosuAst.expression location) :
+    (expr : _ KosuAst.expression location) :
     (KosuEnv.kosu_env * Ty.kosu_type) * Ty.kosu_type KosuAst.expression =
   match expr.value with
   | EEmpty ->
@@ -716,8 +716,7 @@ and typeof_statement ~tyfresh kosu_env statement =
   let stmt = Position.map (fun _ -> stmt) statement in
   (env, stmt)
 
-and typeof_statement' ~tyfresh kosu_env (statement : unit KosuAst.kosu_statement)
-    =
+and typeof_statement' ~tyfresh kosu_env (statement : _ KosuAst.kosu_statement) =
   match statement with
   | SDeclaration { is_const; pattern; explicit_type; expression } ->
       let (env, ety), ast_expression = typeof ~tyfresh kosu_env expression in
@@ -895,7 +894,7 @@ and typeof_kosu_pattern ~tyfresh scrutine_type kosu_env kosu_pattern =
     with the scrutinee_type being [scrutinee_type]
 *)
 and typeof_pattern ~tyfresh scrutinee_type kosu_env
-    (pattern : unit KosuAst.pattern location) =
+    (pattern : _ KosuAst.pattern location) =
   (*Dont forget to raise if we try to bind an identifier to an existing variable in the*)
   let open KosuType.Ty in
   match pattern.value with
