@@ -31,21 +31,30 @@ module CapturedIdentifier = PatternIdentifierBound
 
 let rec typeof ~tyfresh kosu_env
     (kosu_expression : unit KosuAst.kosu_expression location) =
-  typeof_expression ~tyfresh kosu_env
-  @@ Position.map
-       (fun { kosu_expression; _ } -> kosu_expression)
-       kosu_expression
+  let ((_, ty) as ret), expression =
+    typeof_expression ~tyfresh kosu_env
+    @@ Position.map
+         (fun { kosu_expression; _ } -> kosu_expression)
+         kosu_expression
+  in
+  let kosu_expression =
+    Position.map
+      (fun _ -> { kosu_expression = expression; expression_associated = ty })
+      kosu_expression
+  in
+  (ret, kosu_expression)
 
 and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
-    (expr : unit KosuAst.expression location) =
+    (expr : unit KosuAst.expression location) :
+    (KosuEnv.kosu_env * Ty.kosu_type) * Ty.kosu_type KosuAst.expression =
   match expr.value with
   | EEmpty ->
-      (kosu_env, Ty.TyUnit)
-  | ETrue | EFalse ->
-      (kosu_env, TyBool)
-  | ECmpLess | ECmpEqual | ECmpGreater ->
-      (kosu_env, TyOrdered)
-  | ENullptr { is_const } ->
+      ((kosu_env, Ty.TyUnit), EEmpty)
+  | (ETrue | EFalse) as expr ->
+      ((kosu_env, TyBool), expr)
+  | (ECmpLess | ECmpEqual | ECmpGreater) as expr ->
+      ((kosu_env, TyOrdered), expr)
+  | ENullptr { is_const } as expr ->
       let pointer_state =
         if is_const then
           Const
@@ -53,12 +62,12 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
           Mutable
       in
       let fresh_type = tyfresh () in
-      (kosu_env, TyPointer { pointee_type = fresh_type; pointer_state })
-  | EStringl _ ->
-      (kosu_env, TyStringLit)
-  | EChar _ ->
-      (kosu_env, TyChar)
-  | EInteger { integer_info; ivalue = _ } ->
+      ((kosu_env, TyPointer { pointee_type = fresh_type; pointer_state }), expr)
+  | EStringl _ as expr ->
+      ((kosu_env, TyStringLit), expr)
+  | EChar _ as expr ->
+      ((kosu_env, TyChar), expr)
+  | EInteger { integer_info; ivalue = _ } as expresion_bound ->
       let default = Ty.TyInteger integer_info in
       let tuples =
         match integer_info with
@@ -72,8 +81,8 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
             in
             (kosu_env, t)
       in
-      tuples
-  | EFloat { fsize; fvalue = _ } ->
+      (tuples, expresion_bound)
+  | EFloat { fsize; fvalue = _ } as expresion_bound ->
       let default = Ty.TyFloat fsize in
       let tuple =
         match fsize with
@@ -87,31 +96,25 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
             in
             (kosu_env, t)
       in
-      tuple
+      (tuple, expresion_bound)
   | ESizeof either ->
-      let kosu_env =
+      let kosu_env, ast =
         match either with
-        | Either.Left kosu_type ->
-            let ty = KosuUtil.Ty.of_tyloc' kosu_type in
-            let () =
-              match
-                KosuEnv.KosuTypeVariableSet.is_empty
-                @@ KosuEnv.free_ty_variable ty kosu_env
-              with
-              | false ->
-                  ()
-              | true ->
-                  raise @@ sizeof_polytype kosu_type.position
-            in
-            kosu_env
+        | Either.Left kosu_type as self ->
+            let _ = KosuUtil.Ty.of_tyloc' kosu_type in
+            (kosu_env, self)
         | Either.Right rhs ->
-            let ext_env, _ = typeof ~tyfresh kosu_env rhs in
-            KosuEnv.merge_constraint ext_env kosu_env
+            let (ext_env, _), ast = typeof ~tyfresh kosu_env rhs in
+            let ast = Either.Right ast in
+            let env = KosuEnv.merge_constraint ext_env kosu_env in
+            (env, ast)
       in
-      (kosu_env, KosuUtil.(Ty.of_tyloc TyLoc.usize))
+      let ast = ESizeof ast in
+      ((kosu_env, KosuUtil.(Ty.of_tyloc TyLoc.usize)), ast)
   | EFieldAccess { first_expr; field = sfield } ->
       (* instanciante todo*)
-      let env, ty_expr = typeof ~tyfresh kosu_env first_expr in
+      let (env, ty_expr), ast = typeof ~tyfresh kosu_env first_expr in
+      let ast = EFieldAccess { first_expr = ast; field = sfield } in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       let try_find_ty = function
         | Ty.TyIdentifier _ as ty ->
@@ -157,9 +160,9 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
         | None ->
             raise @@ field_not_in_struct struct_decl sfield
       in
-      (kosu_env, ty)
+      ((kosu_env, ty), ast)
   | EArrayAccess { array_expr; index_expr } ->
-      let env, ty = typeof ~tyfresh kosu_env array_expr in
+      let (env, ty), ast_array_expr = typeof ~tyfresh kosu_env array_expr in
       let ty_elt =
         match ty with
         | TyArray { ktype; size = _ } ->
@@ -178,7 +181,7 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
             raise @@ non_array_access array_expr.position
       in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
-      let env, ty = typeof ~tyfresh kosu_env index_expr in
+      let (env, ty), ast_index_expr = typeof ~tyfresh kosu_env index_expr in
       let kosu_env =
         match ty with
         | TyInteger _ ->
@@ -190,9 +193,14 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
             raise @@ array_subscribe_not_integer index_expr.position
       in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
-      (kosu_env, ty_elt)
+      let ast =
+        EArrayAccess
+          { array_expr = ast_array_expr; index_expr = ast_index_expr }
+      in
+      ((kosu_env, ty_elt), ast)
   | ETupleAccess { first_expr; index } ->
-      let env, ty = typeof ~tyfresh kosu_env first_expr in
+      let (env, ty), ast_first_expr = typeof ~tyfresh kosu_env first_expr in
+      let ast = ETupleAccess { first_expr = ast_first_expr; index } in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       let try_expect_tuple = function
         | Ty.TyTuple tes ->
@@ -216,8 +224,8 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
         | None ->
             raise @@ index_out_of_bounds (List.length ty_elts) index
       in
-      (kosu_env, ty)
-  | EConstIdentifier { module_resolver; identifier } ->
+      ((kosu_env, ty), ast)
+  | EConstIdentifier { module_resolver; identifier } as self ->
       let _module_resolver, const_decl =
         match
           KosuEnv.find_const_declaration (module_resolver, identifier) kosu_env
@@ -228,8 +236,8 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
             raise @@ unbound_constante module_resolver identifier
       in
       let ty = KosuUtil.Ty.of_tyloc' const_decl.explicit_type in
-      (kosu_env, ty)
-  | EIdentifier { module_resolver; id } ->
+      ((kosu_env, ty), self)
+  | EIdentifier { module_resolver; id } as self ->
       let t = KosuEnv.find_identifier module_resolver id.value kosu_env in
       let t =
         match t with
@@ -238,18 +246,18 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
         | None ->
             raise @@ KosuError.Exn.unbound_identifier id
       in
-      (kosu_env, t)
-  | EStruct { module_resolver; struct_name; fields } ->
+      ((kosu_env, t), self)
+  | EStruct { module_resolver = module_resolver_loc; struct_name; fields } ->
       let module_resolver, struct_decl =
         match
           KosuEnv.find_struct_declaration
-            (module_resolver, struct_name)
+            (module_resolver_loc, struct_name)
             kosu_env
         with
         | Some decl ->
             decl
         | None ->
-            raise @@ unbound_struct module_resolver struct_name
+            raise @@ unbound_struct module_resolver_loc struct_name
       in
       let struct_decl, ty =
         KosuUtil.Struct.substitution_fresh ~fresh:tyfresh module_resolver
@@ -265,8 +273,8 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
             raise @@ struct_wrong_arity struct_name expected found
       in
 
-      let kosu_env =
-        List.fold_left
+      let kosu_env, ast_fields =
+        List.fold_left_map
           (fun kosu_env ((struct_name, struct_type), (expr_name, expr_expr)) ->
             let () =
               match struct_name = expr_name.value with
@@ -275,17 +283,25 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
               | false ->
                   raise @@ struct_init_wrong_field struct_name expr_name
             in
-            let env, ty = typeof ~tyfresh kosu_env expr_expr in
+            let (env, ty), ast_expr = typeof ~tyfresh kosu_env expr_expr in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
             let kosu_env =
               KosuEnv.add_typing_constraint ~cfound:ty ~cexpected:struct_type
                 expr_expr kosu_env
             in
-            kosu_env
+            (kosu_env, (expr_name, ast_expr))
           )
           kosu_env combined_fields
       in
-      (kosu_env, ty)
+      let ast =
+        EStruct
+          {
+            module_resolver = module_resolver_loc;
+            struct_name;
+            fields = ast_fields;
+          }
+      in
+      ((kosu_env, ty), ast)
   | EEnum { module_resolver = re; enum_name; variant; assoc_exprs } ->
       let module_resolver, enum_decl =
         match
@@ -318,24 +334,36 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
             let found = List.length assoc_exprs in
             raise @@ enum_variant_wrong_arity variant expected found
       in
-      let kosu_env =
-        List.fold_left
+      let kosu_env, ast_assoc_exprs =
+        List.fold_left_map
           (fun kosu_env (enum_type, enum_expr) ->
-            let env, ty = typeof ~tyfresh kosu_env enum_expr in
+            let (env, ty), ast_expr = typeof ~tyfresh kosu_env enum_expr in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
             let kosu_env =
               KosuEnv.add_typing_constraint ~cfound:ty ~cexpected:enum_type
                 enum_expr kosu_env
             in
-            kosu_env
+            (kosu_env, ast_expr)
           )
           kosu_env assoc_types_exprs
       in
-      (kosu_env, ty)
+      let ast =
+        EEnum
+          {
+            module_resolver = re;
+            enum_name;
+            variant;
+            assoc_exprs = ast_assoc_exprs;
+          }
+      in
+      ((kosu_env, ty), ast)
   | EBlock block ->
-      typeof_block ~tyfresh kosu_env block
+      let ret, ast_block = typeof_block ~tyfresh kosu_env block in
+      let ast = EBlock ast_block in
+      (ret, ast)
   | EDeref expr ->
-      let kosu_env, ty = typeof ~tyfresh kosu_env expr in
+      let (kosu_env, ty), ast_expr = typeof ~tyfresh kosu_env expr in
+      let ast = EDeref ast_expr in
       let try_find_ty = function
         | Ty.TyPointer { pointee_type; pointer_state = _ } ->
             Option.some @@ Either.left pointee_type
@@ -351,35 +379,42 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
         | None ->
             raise @@ cannot_infer_type expr.position
       in
-      (kosu_env, ty_solve)
+      ((kosu_env, ty_solve), ast)
   | ETuple exprs ->
       let kosu_env, types =
         List.fold_left_map
           (fun kosu_env expr ->
-            let env, ty = typeof ~tyfresh kosu_env expr in
+            let (env, ty), ast_expr = typeof ~tyfresh kosu_env expr in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
-            (kosu_env, ty)
+            (kosu_env, (ty, ast_expr))
           )
           kosu_env exprs
       in
-      (kosu_env, TyTuple types)
+      let types, ast_exprs = List.split types in
+      let ast = ETuple ast_exprs in
+      let ty = Ty.TyTuple types in
+      ((kosu_env, ty), ast)
   | EArray exprs ->
       let fresh_variable = tyfresh () in
       let length = List.length exprs in
-      let kosu_env =
-        List.fold_left
+      let kosu_env, ast_exprs =
+        List.fold_left_map
           (fun kosu_env expr ->
-            let env, ty = typeof ~tyfresh kosu_env expr in
+            let (env, ty), ast_expr = typeof ~tyfresh kosu_env expr in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
             let kosu_env =
               KosuEnv.add_typing_constraint ~cexpected:fresh_variable ~cfound:ty
                 expr kosu_env
             in
-            kosu_env
+            (kosu_env, ast_expr)
           )
           kosu_env exprs
       in
-      (kosu_env, TyArray { size = Int64.of_int length; ktype = fresh_variable })
+      let ast = EArray ast_exprs in
+      let ty =
+        Ty.TyArray { size = Int64.of_int length; ktype = fresh_variable }
+      in
+      ((kosu_env, ty), ast)
   | EBuiltinFunctionCall { fn_name; parameters } ->
       let builtin_function =
         Position.map_use
@@ -400,7 +435,11 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
           @@ KosuError.Exn.callable_wrong_arity fn_name expected_arity
                args_count
       in
-      typeof_builin_functions ~tyfresh kosu_env builtin_function parameters
+      let ret, ast_exprs =
+        typeof_builin_functions ~tyfresh kosu_env builtin_function parameters
+      in
+      let ast = EBuiltinFunctionCall { fn_name; parameters = ast_exprs } in
+      (ret, ast)
   | EFunctionCall { module_resolver; generics_resolver; fn_name; parameters } ->
       let t = KosuEnv.find_identifier module_resolver fn_name.value kosu_env in
       let t =
@@ -473,69 +512,94 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
       let schema = KosuUtil.Ty.ty_substitution_schema assoc_poly_fresh schema in
 
       let parameters = List.combine schema.parameters_type parameters in
-      let kosu_env =
-        List.fold_left
+      let kosu_env, ast_exprs =
+        List.fold_left_map
           (fun kosu_env (sig_ty, expr) ->
-            let env, ty = typeof ~tyfresh kosu_env expr in
+            let (env, ty), ast_expr = typeof ~tyfresh kosu_env expr in
             let ty = KosuUtil.Ty.ty_instanciate ~fresh ty in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
-            KosuEnv.add_typing_constraint ~cexpected:sig_ty ~cfound:ty expr
-              kosu_env
+            ( KosuEnv.add_typing_constraint ~cexpected:sig_ty ~cfound:ty expr
+                kosu_env,
+              ast_expr
+            )
           )
           kosu_env parameters
       in
-
-      (kosu_env, schema.return_type)
+      let ast =
+        EFunctionCall
+          {
+            module_resolver;
+            generics_resolver;
+            fn_name;
+            parameters = ast_exprs;
+          }
+      in
+      ((kosu_env, schema.return_type), ast)
   | EWhile { condition_expr; body } ->
-      let env, ty = typeof ~tyfresh kosu_env condition_expr in
+      let (env, ty), ast_condition_expr =
+        typeof ~tyfresh kosu_env condition_expr
+      in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       let kosu_env =
         KosuEnv.add_typing_constraint ~cfound:ty ~cexpected:TyBool
           condition_expr kosu_env
       in
-      let env, body_ty = typeof_block ~tyfresh kosu_env body in
+      let (env, body_ty), ast_body = typeof_block ~tyfresh kosu_env body in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       let kosu_env =
         KosuEnv.add_typing_constraint ~cfound:body_ty ~cexpected:TyUnit
           body.kosu_expr kosu_env
       in
-      (kosu_env, TyUnit)
+      let ast =
+        EWhile { condition_expr = ast_condition_expr; body = ast_body }
+      in
+      ((kosu_env, TyUnit), ast)
   | ECases { cases; else_body } ->
       let fresh_type = tyfresh () in
-      let env, ty = typeof_block ~tyfresh kosu_env else_body in
+      let (env, ty), ast_else_block =
+        typeof_block ~tyfresh kosu_env else_body
+      in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       let kosu_env =
         KosuEnv.add_typing_constraint ~cexpected:fresh_type ~cfound:ty
           else_body.kosu_expr kosu_env
       in
-      let kosu_env =
-        List.fold_left
+      let kosu_env, ast_cases =
+        List.fold_left_map
           (fun kosu_env (condition_expr, body) ->
-            let env, ty = typeof ~tyfresh kosu_env condition_expr in
+            let (env, ty), ast_condition_expr =
+              typeof ~tyfresh kosu_env condition_expr
+            in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
             let kosu_env =
               KosuEnv.add_typing_constraint ~cfound:ty ~cexpected:TyBool
                 condition_expr kosu_env
             in
-            let env, body_ty = typeof_block ~tyfresh kosu_env body in
+            let (env, body_ty), ast_body =
+              typeof_block ~tyfresh kosu_env body
+            in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
             let kosu_env =
               KosuEnv.add_typing_constraint ~cfound:body_ty
                 ~cexpected:fresh_type body.kosu_expr kosu_env
             in
-            kosu_env
+            let ast = (ast_condition_expr, ast_body) in
+            (kosu_env, ast)
           )
           kosu_env cases
       in
-      (kosu_env, fresh_type)
+      let ast = ECases { cases = ast_cases; else_body = ast_else_block } in
+      ((kosu_env, fresh_type), ast)
   | EMatch { expression; patterns } ->
-      let env, scrutinee_type = typeof ~tyfresh kosu_env expression in
+      let (env, scrutinee_type), ast_expression =
+        typeof ~tyfresh kosu_env expression
+      in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       let fresh_variable_ty = tyfresh () in
-      let kosu_env =
-        List.fold_left
+      let kosu_env, ast_patterns =
+        List.fold_left_map
           (fun kosu_env (kosu_pattern, kosu_block) ->
-            let bound, (env, pattern_ty) =
+            let (bound, (env, pattern_ty)), ast_pattern =
               typeof_kosu_pattern ~tyfresh scrutinee_type kosu_env kosu_pattern
             in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
@@ -550,7 +614,7 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
                 )
                 kosu_env bound
             in
-            let block_env, block_ty =
+            let (block_env, block_ty), ast_block =
               typeof_block ~tyfresh kosu_block_env kosu_block
             in
             let block_env =
@@ -558,11 +622,14 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
                 ~cfound:block_ty kosu_block.kosu_expr block_env
             in
             let kosu_env = KosuEnv.merge_constraint block_env kosu_env in
-            kosu_env
+            (kosu_env, (ast_pattern, ast_block))
           )
           kosu_env patterns
       in
-      (kosu_env, fresh_variable_ty)
+      let ast =
+        EMatch { expression = ast_expression; patterns = ast_patterns }
+      in
+      ((kosu_env, fresh_variable_ty), ast)
   | EAnonFunction { kind; parameters; body } ->
       let variables, ty_variables =
         List.split
@@ -594,7 +661,10 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
       in
 
       let closure_kosu_env = KosuEnv.rebind_env_variables variables kosu_env in
-      let clo_env, ty_clo_ret = typeof ~tyfresh closure_kosu_env body in
+      let (clo_env, ty_clo_ret), ast_body =
+        typeof ~tyfresh closure_kosu_env body
+      in
+      let ast = EAnonFunction { kind; parameters; body = ast_body } in
 
       let closure_solution = KosuEnv.solve closure_kosu_env in
 
@@ -631,20 +701,26 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
         | KAFunctionPointer ->
             Ty.TyFunctionPtr closure_scheama
       in
-
-      (kosu_env, ty)
+      ((kosu_env, ty), ast)
 
 and typeof_block ~tyfresh kosu_env block =
-  let kosu_env =
-    List.fold_left (typeof_statement ~tyfresh) kosu_env block.kosu_stmts
+  let kosu_env, kosu_stmts =
+    List.fold_left_map (typeof_statement ~tyfresh) kosu_env block.kosu_stmts
   in
-  typeof ~tyfresh kosu_env block.kosu_expr
+  let ret, ast_expr = typeof ~tyfresh kosu_env block.kosu_expr in
+  let block = { kosu_stmts; kosu_expr = ast_expr } in
+  (ret, block)
 
-and typeof_statement ~tyfresh kosu_env
-    (statement : unit KosuAst.kosu_statement location) =
-  match statement.value with
+and typeof_statement ~tyfresh kosu_env statement =
+  let env, stmt = typeof_statement' ~tyfresh kosu_env statement.value in
+  let stmt = Position.map (fun _ -> stmt) statement in
+  (env, stmt)
+
+and typeof_statement' ~tyfresh kosu_env (statement : unit KosuAst.kosu_statement)
+    =
+  match statement with
   | SDeclaration { is_const; pattern; explicit_type; expression } ->
-      let env, ety = typeof ~tyfresh kosu_env expression in
+      let (env, ety), ast_expression = typeof ~tyfresh kosu_env expression in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       let kosu_env =
         match explicit_type with
@@ -655,7 +731,7 @@ and typeof_statement ~tyfresh kosu_env
         | None ->
             kosu_env
       in
-      let bounds, (env, ty) =
+      let (bounds, (env, ty)), ast_pattern =
         typeof_kosu_pattern ~tyfresh ety kosu_env pattern
       in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
@@ -667,7 +743,16 @@ and typeof_statement ~tyfresh kosu_env
           (fun kosu_env (id, ty) -> KosuEnv.add_variable is_const id ty kosu_env)
           kosu_env bounds
       in
-      kosu_env
+      let ast =
+        SDeclaration
+          {
+            is_const;
+            pattern = ast_pattern;
+            explicit_type;
+            expression = ast_expression;
+          }
+      in
+      (kosu_env, ast)
   | SAffection { is_deref; lvalue; expression } ->
       let find_identifier_type declaration_position reassign_position t env =
         match t with
@@ -691,7 +776,8 @@ and typeof_statement ~tyfresh kosu_env
             @@ reassign_no_struct_type_field declaration_position ty
                  reassign_position
       in
-      let env, ty = typeof ~tyfresh kosu_env expression in
+      let (env, ty), ast_expression = typeof ~tyfresh kosu_env expression in
+      let ast = SAffection { is_deref; lvalue; expression = ast_expression } in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
       let (KosuLvalue { variable; fields }) = lvalue in
       let variable_info =
@@ -775,11 +861,13 @@ and typeof_statement ~tyfresh kosu_env
             KosuEnv.add_typing_constraint ~cexpected:ty_field ~cfound:ty
               expression kosu_env
       in
-      kosu_env
+      (kosu_env, ast)
   | SDiscard expression ->
-      let env, _ = typeof ~tyfresh kosu_env expression in
-      KosuEnv.merge_constraint env kosu_env
-  | SOpen { module_resolver } ->
+      let (env, _), ast_expression = typeof ~tyfresh kosu_env expression in
+      let ast = SDiscard ast_expression in
+      let env = KosuEnv.merge_constraint env kosu_env in
+      (env, ast)
+  | SOpen { module_resolver } as self ->
       let kosu_module =
         match KosuEnv.find_module_opt module_resolver kosu_env with
         | Some kosu_module ->
@@ -787,11 +875,20 @@ and typeof_statement ~tyfresh kosu_env
         | None ->
             raise @@ unbound_module module_resolver
       in
-      KosuEnv.add_module kosu_module kosu_env
+      let env = KosuEnv.add_module kosu_module kosu_env in
+      (env, self)
 
 and typeof_kosu_pattern ~tyfresh scrutine_type kosu_env kosu_pattern =
-  typeof_pattern ~tyfresh scrutine_type kosu_env
-  @@ Position.map (fun { kosu_pattern; _ } -> kosu_pattern) kosu_pattern
+  let ((_, (_, ty)) as ret), pattern =
+    typeof_pattern ~tyfresh scrutine_type kosu_env
+    @@ Position.map (fun { kosu_pattern; _ } -> kosu_pattern) kosu_pattern
+  in
+  let kosu_pattern =
+    Position.map
+      (fun _ -> { kosu_pattern = pattern; pattern_associated = ty })
+      kosu_pattern
+  in
+  (ret, kosu_pattern)
 
 (**
     [typeof_pattern scrutinee_type kosu_env pattern] types the pattern [pattern] in the environment [kosu_env]
@@ -802,40 +899,40 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
   (*Dont forget to raise if we try to bind an identifier to an existing variable in the*)
   let open KosuType.Ty in
   match pattern.value with
-  | PEmpty ->
+  | PEmpty as self ->
       let ty = Ty.TyUnit in
-      ([], (kosu_env, ty))
-  | PTrue | PFalse ->
+      (([], (kosu_env, ty)), self)
+  | (PTrue | PFalse) as ast ->
       let ty = Ty.TyBool in
-      ([], (kosu_env, ty))
-  | PCmpLess | PCmpEqual | PCmpGreater ->
+      (([], (kosu_env, ty)), ast)
+  | (PCmpLess | PCmpEqual | PCmpGreater) as ast ->
       let ty = TyOrdered in
-      ([], (kosu_env, ty))
-  | PNullptr ->
+      (([], (kosu_env, ty)), ast)
+  | PNullptr as self ->
       let fresh_ty = tyfresh () in
       let ty = TyPointer { pointer_state = Const; pointee_type = fresh_ty } in
-      ([], (kosu_env, ty))
-  | PWildcard ->
-      ([], (kosu_env, scrutinee_type))
-  | PFloat _ ->
+      (([], (kosu_env, ty)), self)
+  | PWildcard as ast ->
+      (([], (kosu_env, scrutinee_type)), ast)
+  | PFloat _ as ast ->
       let ty = TyFloat None in
-      ([], (kosu_env, ty))
-  | PChar _ ->
+      (([], (kosu_env, ty)), ast)
+  | PChar _ as ast ->
       let ty = TyChar in
-      ([], (kosu_env, ty))
-  | PInteger { value = _ } ->
+      (([], (kosu_env, ty)), ast)
+  | PInteger { value = _ } as ast ->
       let ty = TyInteger None in
-      ([], (kosu_env, ty))
-  | PIdentifier identifier ->
+      (([], (kosu_env, ty)), ast)
+  | PIdentifier identifier as ast ->
       let bound = (identifier, scrutinee_type) in
-      ([ bound ], (kosu_env, scrutinee_type))
+      (([ bound ], (kosu_env, scrutinee_type)), ast)
   | PTuple patterns ->
       let module PIB = PatternIdentifierBound in
       let env, bound_typed =
         List.fold_left_map
           (fun kosu_env pattern ->
             let fresh_ty = tyfresh () in
-            let bound, (env, ty) =
+            let (bound, (env, ty)), ast_pattern =
               typeof_kosu_pattern ~tyfresh fresh_ty kosu_env pattern
             in
             let env =
@@ -843,11 +940,14 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
                 pattern env
             in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
-            (kosu_env, (bound, ty))
+            (kosu_env, ((bound, ty), ast_pattern))
           )
           kosu_env patterns
       in
+      let bound_typed, ast_patterns = List.split bound_typed in
       let bound_variable, tuples_elt_ty = List.split bound_typed in
+
+      let ast = PTuple ast_patterns in
 
       let indentifier_set =
         List.fold_left
@@ -872,7 +972,7 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
       let ty_pattern = TyTuple tuples_elt_ty in
 
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
-      (indentifiers, (kosu_env, ty_pattern))
+      ((indentifiers, (kosu_env, ty_pattern)), ast)
   | PCase { module_resolver; enum_name; variant; assoc_patterns } ->
       let module PIB = PatternIdentifierBound in
       let name = Option.map Position.value enum_name in
@@ -908,7 +1008,7 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
         List.fold_left_map
           (fun kosu_env (enum_type, enum_pattern) ->
             let fresh_ty = tyfresh () in
-            let bound, (env, ty) =
+            let (bound, (env, ty)), ast_pattern =
               typeof_kosu_pattern ~tyfresh fresh_ty kosu_env enum_pattern
             in
             let env =
@@ -920,11 +1020,15 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
                 ~cfound:fresh_ty enum_pattern env
             in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
-            (kosu_env, (bound, ty))
+            (kosu_env, (bound, ast_pattern))
           )
           kosu_env assoc_types_exprs
       in
-      let bound_variable, _ = List.split bound_typed in
+      let bound_variable, ast_patterns = List.split bound_typed in
+      let ast =
+        PCase
+          { module_resolver; enum_name; variant; assoc_patterns = ast_patterns }
+      in
       let indentifier_set =
         List.fold_left
           (fun set t_bounds_ty ->
@@ -944,19 +1048,15 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
       in
       let indentifiers = PIB.elements indentifier_set in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
-      (indentifiers, (kosu_env, enum_ty))
-  | PRecord { module_resolver; struct_name; pfields } ->
+      ((indentifiers, (kosu_env, enum_ty)), ast)
+  | PRecord { module_resolver = re; struct_name; pfields } ->
       let module PIB = PatternIdentifierBound in
       let module_resolver, struct_decl =
-        match
-          KosuEnv.find_struct_declaration
-            (module_resolver, struct_name)
-            kosu_env
-        with
+        match KosuEnv.find_struct_declaration (re, struct_name) kosu_env with
         | Some decl ->
             decl
         | None ->
-            raise @@ unbound_struct module_resolver struct_name
+            raise @@ unbound_struct re struct_name
       in
       let struct_decl, struct_ty =
         KosuUtil.Struct.substitution_fresh ~fresh:tyfresh module_resolver
@@ -971,7 +1071,7 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
             let found = List.length pfields in
             raise @@ struct_wrong_arity struct_name expected found
       in
-      let env, bound_variable =
+      let env, bound_variables =
         List.fold_left_map
           (fun kosu_env
                ((struct_name, struct_type), (pattern_name, pattern_pattern)) ->
@@ -983,7 +1083,7 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
                   raise @@ struct_init_wrong_field struct_name pattern_name
             in
             let fresh_ty = tyfresh () in
-            let bound, (env, ty) =
+            let (bound, (env, ty)), ast_pattern =
               typeof_kosu_pattern ~tyfresh fresh_ty kosu_env pattern_pattern
             in
             let env =
@@ -995,9 +1095,13 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
                 ~cexpected:struct_type pattern_pattern env
             in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
-            (kosu_env, bound)
+            (kosu_env, (bound, (pattern_name, ast_pattern)))
           )
           kosu_env combined_fields
+      in
+      let bound_variables, ast_patterns = List.split bound_variables in
+      let ast =
+        PRecord { module_resolver = re; struct_name; pfields = ast_patterns }
       in
       let indentifier_set =
         List.fold_left
@@ -1019,18 +1123,18 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
             in
             PIB.union comming set
           )
-          PIB.empty bound_variable
+          PIB.empty bound_variables
       in
       let indentifiers = PIB.elements indentifier_set in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
-      (indentifiers, (kosu_env, struct_ty))
+      ((indentifiers, (kosu_env, struct_ty)), ast)
   | POr patterns ->
       let module PIB = PatternIdentifierBound in
       let fresh_ty = tyfresh () in
-      let env, bound_typed =
+      let env, bound_patterned =
         List.fold_left_map
           (fun kosu_env pattern ->
-            let bound, (env, ty) =
+            let (bound, (env, ty)), ast_pattern =
               typeof_kosu_pattern ~tyfresh fresh_ty kosu_env pattern
             in
             let env =
@@ -1038,14 +1142,14 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
                 pattern env
             in
             let kosu_env = KosuEnv.merge_constraint env kosu_env in
-            (kosu_env, (bound, ty))
+            (kosu_env, (bound, ast_pattern))
           )
           kosu_env patterns
       in
-      let bound_variable, _ = List.split bound_typed in
-
+      let bound_variables, ast_patterns = List.split bound_patterned in
+      let ast = POr ast_patterns in
       let x_bounds, xs_bounds =
-        match bound_variable with
+        match bound_variables with
         | [] ->
             failwith "Unreachable: Cannot be empty"
         | x :: xs ->
@@ -1079,11 +1183,12 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
         KosuEnv.add_typing_constraint ~cexpected:scrutinee_type ~cfound:fresh_ty
           pattern kosu_env
       in
-      (indentifiers, (kosu_env, scrutinee_type))
+      ((indentifiers, (kosu_env, scrutinee_type)), ast)
   | PAs { pas_pattern; pas_bound } ->
-      let bound, (env, ty) =
+      let (bound, (env, ty)), ast_pattern =
         typeof_kosu_pattern ~tyfresh scrutinee_type kosu_env pas_pattern
       in
+      let ast = PAs { pas_pattern = ast_pattern; pas_bound } in
       let bound =
         match
           List.exists
@@ -1100,7 +1205,7 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
           pas_pattern env
       in
       let kosu_env = KosuEnv.merge_constraint env kosu_env in
-      (bound, (kosu_env, ty))
+      ((bound, (kosu_env, ty)), ast)
 
 and typeof_builin_functions_args ~tyfresh kosu_env builtin expected args return
     =
@@ -1117,7 +1222,7 @@ and typeof_builin_functions_args ~tyfresh kosu_env builtin expected args return
   let kosu_env, targs =
     List.fold_left_map
       (fun kosu_env (expected, expr) ->
-        let env, ty = typeof ~tyfresh kosu_env expr in
+        let (env, ty), ast_expr = typeof ~tyfresh kosu_env expr in
         let kosu_env = KosuEnv.merge_constraint env kosu_env in
         let cexpected =
           Position.map_use (fun expr -> expected expr.position ty) expr
@@ -1126,14 +1231,14 @@ and typeof_builin_functions_args ~tyfresh kosu_env builtin expected args return
           KosuEnv.add_typing_constraint ~cexpected:cexpected.value ~cfound:ty
             expr kosu_env
         in
-        (kosu_env, cexpected)
+        (kosu_env, (cexpected, ast_expr))
       )
       kosu_env args
   in
-
+  let targs, ast_expr = List.split targs in
   let return_type = return targs in
 
-  (kosu_env, return_type)
+  ((kosu_env, return_type), ast_expr)
 
 and typeof_builin_functions ~tyfresh kosu_env builtin args =
   let farray_solve position = function
@@ -1401,7 +1506,7 @@ and variables_expression ~tyfresh closure_env locals_variables
       List.fold_left
         (fun captured (pattern, block) ->
           let scrutine = tyfresh () in
-          let bound, (_, _) =
+          let (bound, (_, _)), _ =
             typeof_kosu_pattern ~tyfresh scrutine closure_env pattern
           in
           let block_locals = CapturedIdentifier.of_list bound in
@@ -1455,7 +1560,9 @@ and variables_statement ~tyfresh closure_env locals_variables statement =
         @@ Option.map KosuUtil.Ty.of_tyloc' explicit_type
       in
       (* Maybe merge closure_env and scope_env *)
-      let pvariables, _ = typeof_kosu_pattern ~tyfresh ty closure_env pattern in
+      let (pvariables, _), _ =
+        typeof_kosu_pattern ~tyfresh ty closure_env pattern
+      in
       let extend_locals = CapturedIdentifier.of_list pvariables in
       let locals_variables =
         CapturedIdentifier.union locals_variables extend_locals

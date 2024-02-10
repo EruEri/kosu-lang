@@ -303,7 +303,7 @@ module KosuFunction = struct
         (List.map KosuUtil.Ty.of_tyloc_polymorphic kosu_function_decl.poly_vars)
         kosu_env
     in
-    let* env, ty =
+    let* (env, ty), _ =
       match KosuTypechecking.typeof kosu_env kosu_function_decl.body with
       | res ->
           Ok res
@@ -502,7 +502,7 @@ let validate_kosu_node kosu_program current_module = function
   | NConst const_decl ->
       let kosu_env = KosuEnv.create current_module kosu_program in
 
-      let* env, ty =
+      let* (env, ty), _ =
         match KosuTypechecking.typeof kosu_env const_decl.c_value with
         | res ->
             Ok res
