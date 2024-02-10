@@ -119,7 +119,7 @@ and tysu_expression =
   | ETuple of tysu_expression typed list
   | EArray of tysu_expression typed list
   | EBuiltinFunctionCall of {
-      fn_name : string;
+      builtin : Kosu.Ast.kosu_builtin_function;
       parameters : tysu_expression typed list;
     }
   | EFunctionCall of {

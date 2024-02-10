@@ -17,121 +17,174 @@
 
 open KosuTysuBase.Tysu
 
-let rec of_kosu_expression solutions expression = 
-  let Kosu.Ast.{kosu_expression; expression_associated} = expression.Util.Position.value in
-  let tysu_expression = of_expression solutions kosu_expression in
-  let tysu_type = KosuTysuBase.Tysu.of_kosu_type_solved solutions expression.position expression_associated in
-  TysuUtil.Type.typed tysu_expression tysu_type
+let rec of_kosu_expression kosu_env solutions expression =
+  let Kosu.Ast.{ kosu_expression; expression_associated } =
+    expression.Util.Position.value
+  in
+  let tysu_expression = of_expression kosu_env solutions kosu_expression in
+  let tysu_type =
+    KosuTysuBase.Tysu.of_kosu_type_solved solutions expression.position
+      expression_associated
+  in
+  (TysuUtil.Type.typed tysu_expression tysu_type, kosu_env)
 
-and of_expression solutions : Kosu.Type.Ty.kosu_type Kosu.Ast.expression -> TysuAst.tysu_expression = function
-  | EEmpty -> EEmpty
-  | ETrue -> ETrue
-  | EFalse -> EFalse
-  | ECmpLess -> ECmpLess
-  | ECmpEqual -> ECmpEqual
-  | ECmpGreater -> ECmpGreater
-  | ENullptr { is_const  } -> ENullptr {is_const}
-  | EStringl string -> EStringl string
-  | EChar char -> EChar char
-  | EInteger { integer_info = _; ivalue } -> 
-    EInteger ivalue
-  | EFloat  { fsize = _; fvalue } -> EFloat fvalue
-  | ESizeof either -> 
-    let kosu_type, position = match either with
-      | Either.Left kosu_type ->
-          Kosu.Util.Ty.of_tyloc' kosu_type, kosu_type.position
-      | Either.Right rhs ->
-        rhs.value.expression_associated, rhs.position
-    in
-    let tysu_type = KosuTysuBase.Tysu.of_kosu_type_solved solutions position kosu_type in
-    ESizeof tysu_type
-  | EFieldAccess {
-      first_expr;
-      field;
-    } -> 
-      let first_expr = of_kosu_expression solutions first_expr in
+and of_expression kosu_env solutions :
+    Kosu.Type.Ty.kosu_type Kosu.Ast.expression -> TysuAst.tysu_expression =
+  function
+  | EEmpty ->
+      EEmpty
+  | ETrue ->
+      ETrue
+  | EFalse ->
+      EFalse
+  | ECmpLess ->
+      ECmpLess
+  | ECmpEqual ->
+      ECmpEqual
+  | ECmpGreater ->
+      ECmpGreater
+  | ENullptr { is_const } ->
+      ENullptr { is_const }
+  | EStringl string ->
+      EStringl string
+  | EChar char ->
+      EChar char
+  | EInteger { integer_info = _; ivalue } ->
+      EInteger ivalue
+  | EFloat { fsize = _; fvalue } ->
+      EFloat fvalue
+  | ESizeof either ->
+      let kosu_type, position =
+        match either with
+        | Either.Left kosu_type ->
+            (Kosu.Util.Ty.of_tyloc' kosu_type, kosu_type.position)
+        | Either.Right rhs ->
+            (rhs.value.expression_associated, rhs.position)
+      in
+      let tysu_type =
+        KosuTysuBase.Tysu.of_kosu_type_solved solutions position kosu_type
+      in
+      ESizeof tysu_type
+  | EFieldAccess { first_expr; field } ->
+      let first_expr, _ = of_kosu_expression kosu_env solutions first_expr in
       let field = field.value in
-     EFieldAccess {first_expr; field}
-  | EArrayAccess {
-      array_expr ;
-      index_expr;
-    } -> 
-      let array_expr = of_kosu_expression solutions array_expr in
-      let index_expr = of_kosu_expression solutions index_expr in
-      EArrayAccess {array_expr; index_expr}
-  | ETupleAccess {
-      first_expr;
-      index;
-    } -> 
-      let first_expr = of_kosu_expression solutions first_expr in
+      EFieldAccess { first_expr; field }
+  | EArrayAccess { array_expr; index_expr } ->
+      let array_expr, _ = of_kosu_expression kosu_env solutions array_expr in
+      let index_expr, _ = of_kosu_expression kosu_env solutions index_expr in
+      EArrayAccess { array_expr; index_expr }
+  | ETupleAccess { first_expr; index } ->
+      let first_expr, _ = of_kosu_expression kosu_env solutions first_expr in
       let index = index.value in
-      ETupleAccess {first_expr; index}
-
-  | EConstIdentifier {
-      module_resolver;
-      identifier;
-    } -> 
-      let module_resolver = KosuTysuBase.Tysu.of_module_resolver @@ Kosu.Util.ModuleResolver.to_unlocated module_resolver in
+      ETupleAccess { first_expr; index }
+  | EConstIdentifier { module_resolver; identifier } ->
+      let module_resolver =
+        KosuTysuBase.Tysu.of_module_resolver
+        @@ Kosu.Util.ModuleResolver.to_unlocated module_resolver
+      in
       let identifier = identifier.value in
-      EConstIdentifier {module_resolver; identifier}
-  | EIdentifier {
-      module_resolver;
-      id;
-    } -> 
-      let module_resolver = KosuTysuBase.Tysu.of_module_resolver @@ Kosu.Util.ModuleResolver.to_unlocated module_resolver in
+      EConstIdentifier { module_resolver; identifier }
+  | EIdentifier { module_resolver; id } ->
+      let module_resolver =
+        KosuTysuBase.Tysu.of_module_resolver
+        @@ Kosu.Util.ModuleResolver.to_unlocated module_resolver
+      in
       let id = id.value in
-      EIdentifier {module_resolver; id}
-  | EStruct {
-      module_resolver;
-      struct_name;
-      fields;
-    } ->
-    let module_resolver = KosuTysuBase.Tysu.of_module_resolver @@ Kosu.Util.ModuleResolver.to_unlocated module_resolver in
-    let struct_name = struct_name.value in
-    let fields = List.map (fun (name, expr) -> 
-      let tysu_expr = of_kosu_expression solutions expr in
-      name.Util.Position.value, tysu_expr
-    ) fields in
-    EStruct {module_resolver; struct_name; fields}
-  | EEnum {
-      module_resolver;
-      enum_name;
-      variant;
-      assoc_exprs;
-    } -> 
+      EIdentifier { module_resolver; id }
+  | EStruct { module_resolver; struct_name; fields } ->
+      let module_resolver =
+        KosuTysuBase.Tysu.of_module_resolver
+        @@ Kosu.Util.ModuleResolver.to_unlocated module_resolver
+      in
+      let struct_name = struct_name.value in
+      let fields =
+        List.map
+          (fun (name, expr) ->
+            let tysu_expr, _ = of_kosu_expression kosu_env solutions expr in
+            (name.Util.Position.value, tysu_expr)
+          )
+          fields
+      in
+      EStruct { module_resolver; struct_name; fields }
+  | EEnum { module_resolver; enum_name; variant; assoc_exprs } ->
+      let module_resolver, enum_decl =
+        Option.get
+        @@ Kosu.Env.find_enum_declaration module_resolver
+             (Option.map Util.Position.value enum_name)
+             variant kosu_env
+      in
+      let assoc_exprs =
+        List.map
+          (fun expr -> fst @@ of_kosu_expression kosu_env solutions expr)
+          assoc_exprs
+      in
+      let module_resolver =
+        KosuTysuBase.Tysu.of_module_resolver module_resolver
+      in
+      let variant = variant.value in
+      let enum_name = enum_decl.enum_name.value in
+      EEnum { module_resolver; enum_name; variant; assoc_exprs }
+  | EBlock block ->
       failwith ""
-  | EBlock  'a kosu_block -> failwith ""
-  | EDeref 'a kosu_expression location
-  | ETuple 'a kosu_expression location list
-  | EArray  'a kosu_expression location list
-  | EBuiltinFunctionCall of {
-      fn_name : string location;
-      parameters : 'a kosu_expression location list;
-    }
-  | EFunctionCall of {
-      module_resolver : module_resolver_loc;
-      generics_resolver : TyLoc.kosu_loctype location list option;
-      fn_name : string location;
-      parameters : 'a kosu_expression location list;
-    }
-  | EWhile of {
-      condition_expr : 'a kosu_expression location;
-      body : 'a kosu_block;
-    }
+  | EDeref expr ->
+      let expression, _ = of_kosu_expression kosu_env solutions expr in
+      EDeref expression
+  | ETuple exprs ->
+      let ( $ ) = Util.Operator.( $ ) in
+      let exprs =
+        List.map (fst $ of_kosu_expression kosu_env solutions) exprs
+      in
+      ETuple exprs
+  | EArray exprs ->
+      let ( $ ) = Util.Operator.( $ ) in
+      let exprs =
+        List.map (fst $ of_kosu_expression kosu_env solutions) exprs
+      in
+      EArray exprs
+  | EBuiltinFunctionCall { fn_name; parameters } ->
+      let ( $ ) = Util.Operator.( $ ) in
+      let parameters =
+        List.map (fst $ of_kosu_expression kosu_env solutions) parameters
+      in
+      let builtin =
+        Option.get @@ Kosu.Util.Builtin.of_string_opt fn_name.value
+      in
+      EBuiltinFunctionCall { builtin; parameters }
+  | EFunctionCall { module_resolver; generics_resolver; fn_name; parameters } ->
+      let ( $ ) = Util.Operator.( $ ) in
+      let parameters =
+        List.map (fst $ of_kosu_expression kosu_env solutions) parameters
+      in
+      let module_resolver =
+        KosuTysuBase.Tysu.of_module_resolver
+        @@ Kosu.Util.ModuleResolver.to_unlocated module_resolver
+      in
+      let generics_resolver =
+        Option.map
+          (List.map (fun ty ->
+               KosuTysuBase.Tysu.of_kosu_type_solved solutions
+                 ty.Util.Position.position
+               @@ Kosu.Util.Ty.of_tyloc' ty
+           )
+          )
+          generics_resolver
+      in
+      let fn_name = fn_name.value in
+      EFunctionCall { module_resolver; generics_resolver; fn_name; parameters }
+  | EWhile { condition_expr; body } ->
+      let condition_expr, _ =
+        of_kosu_expression kosu_env solutions condition_expr
+      in
+      let body = failwith "TODO_BLOCK" in
+      EWhile { condition_expr; body }
   (* If expression will be a syntaxique sugar of ecases *)
-  | ECases of {
-      cases : ('a kosu_expression location * 'a kosu_block) list;
-      else_body : 'a kosu_block;
-    }
-  | EMatch of {
-      expression : 'a kosu_expression location;
-      patterns : ('a kosu_pattern location * 'a kosu_block) list;
-    }
-  | EAnonFunction of {
-      kind : kosu_anon_function_kind;
-      parameters : kosu_anon_parameters list;
-      body : 'a kosu_expression location;
-    }
+  | ECases { cases; else_body } ->
+      failwith ""
+  | EMatch { expression; patterns } ->
+      let expression, _ = of_kosu_expression kosu_env solutions expression in
+      failwith ""
+  | EAnonFunction { kind; parameters; body } ->
+      failwith ""
 
 (* let of_expression solution kosu_env expr =
    match expr.Util.Position.value with
