@@ -91,7 +91,8 @@ type kosu_error =
   | TupleIndexOutBound of { expect : int; found : int64 Position.location }
   | ConstNonStaticExpression of
       ( unit,
-        KosuType.TyLoc.kosu_loctype Position.location option
+        KosuType.TyLoc.kosu_loctype Position.location option,
+        unit
       )
       KosuAst.kosu_expression
       Position.location

@@ -141,6 +141,7 @@ and tysu_expression =
       kind : tysu_anon_function_kind;
       parameters : tysu_function_parameter list;
       body : tysu_expression typed;
+      captured : (string * tysu_type) list;
     }
 
 and tysu_block = {

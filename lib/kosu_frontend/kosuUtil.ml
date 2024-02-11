@@ -1052,7 +1052,7 @@ module Expression = struct
         in
         let else_body = explicit_module_type_block current_module else_body in
         ECases { cases; else_body }
-    | EAnonFunction { kind; parameters; body } ->
+    | EAnonFunction { kind; parameters; body; captured } ->
         let parameters =
           List.map
             (fun (p : _ KosuAst.kosu_anon_parameters) ->
@@ -1066,7 +1066,7 @@ module Expression = struct
             parameters
         in
         let body = explicit_module_type' current_module body in
-        EAnonFunction { kind; parameters; body }
+        EAnonFunction { kind; parameters; body; captured }
     | EMatch { expression; patterns } ->
         let expression = explicit_module_type' current_module expression in
         let patterns =

@@ -580,7 +580,8 @@ expression:
             EAnonFunction {
                 kind;
                 parameters;
-                body
+                body;
+                captured = ()
             }
     }
     | parenthesis(separated_list(COMMA, located(kosu_expression))) {

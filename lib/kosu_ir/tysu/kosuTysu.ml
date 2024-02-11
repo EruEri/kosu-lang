@@ -29,8 +29,8 @@ let rec of_kosu_expression kosu_env solutions expression =
   (TysuUtil.Type.typed tysu_expression tysu_type, kosu_env)
 
 and of_expression kosu_env solutions :
-    (Kosu.Type.Ty.kosu_type, _) Kosu.Ast.expression -> TysuAst.tysu_expression =
-  function
+    (Kosu.Type.Ty.kosu_type, _, _) Kosu.Ast.expression ->
+    TysuAst.tysu_expression = function
   | EEmpty ->
       EEmpty
   | ETrue ->
@@ -213,7 +213,8 @@ and of_expression kosu_env solutions :
           patterns
       in
       EMatch { expression; patterns }
-  | EAnonFunction { kind; parameters; body } ->
+  | EAnonFunction { kind; parameters; body; captured } ->
+      let module Captured = Kosu.Typechecking.CapturedIdentifier in
       let tysu_function_parameters, kosu_variables =
         List.split
         @@ List.map
@@ -229,8 +230,27 @@ and of_expression kosu_env solutions :
              )
              parameters
       in
-      let closure_env = Kosu.Env.rebind_env_variables kosu_variables kosu_env in
-      failwith ""
+      let captured =
+        List.map (fun (Util.Position.{ value = name; position }, kosu_type) ->
+            (* Attention : Maybe thanks to the implementation of captured variable in *)
+            (* Kosu.Typechecking.variables_expression *)
+            (* Some compilerVariable may have been wasted *)
+            let tysu_type = of_kosu_type_solved solutions position kosu_type in
+            (name, tysu_type)
+        )
+        @@ Captured.elements captured
+      in
+      let closure_kosu_env =
+        Kosu.Env.rebind_env_variables kosu_variables kosu_env
+      in
+      let tysu_body, _ = of_kosu_expression closure_kosu_env solutions body in
+      EAnonFunction
+        {
+          kind;
+          parameters = tysu_function_parameters;
+          captured;
+          body = tysu_body;
+        }
 
 and of_kosu_block kosu_env solutions block =
   let kosu_env, tysu_stmts =
