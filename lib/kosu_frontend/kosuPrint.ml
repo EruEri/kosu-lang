@@ -657,7 +657,7 @@ module Formatted = struct
     | NonArrayAccess _ ->
         sprintf "This expressions is not a array"
     | CannotInferType _ ->
-        sprintf "Cannot infer the type of this expression"
+        sprintf "Cannot fully infer the type of this expression"
     | CannotFindStructDecl kosu_type ->
         sprintf "No struct declaration associated this the type : %s"
         @@ string_of_kosu_type @@ Position.value kosu_type

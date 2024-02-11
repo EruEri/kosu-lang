@@ -615,8 +615,15 @@ let of_module kosu_program kosu_module =
 
 let of_named_module kosu_program kosu_named_module =
   let Kosu.Ast.{ kosu_module; filename } = kosu_named_module in
-  let tysu_module = of_module kosu_program kosu_module in
-  TysuAst.{ tysu_module; filename }
+  try
+    let tysu_module = of_module kosu_program kosu_module in
+    TysuAst.{ tysu_module; filename }
+  with Kosu.Error.KosuRawErr kosu_error ->
+    let () =
+      Kosu.Reporter.emit ~underline:true
+      @@ Kosu.Reporter.file filename kosu_error
+    in
+    exit KosuMisc.ExitCode.validation_error
 
 let of_program kosu_program =
   List.map (of_named_module kosu_program) kosu_program

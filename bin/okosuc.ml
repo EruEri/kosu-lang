@@ -62,9 +62,9 @@ let kosuc_man =
     `P
       "Files ending with .o are treated as object files to be passed to the \
        linker.";
-    `P
-      "If --cc flag is set, files ending with .c, .s, .a or .o are passed as \
-       it is to $(b,cc)(1)";
+    (* `P
+       "If --cc flag is set, files ending with .c, .s, .a or .o are passed as \
+        it is to $(b,cc)(1)"; *)
     `S Manpage.s_environment;
     `I
       ( Printf.sprintf "$(b,%s)" "DUMMY",
