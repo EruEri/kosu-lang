@@ -147,7 +147,7 @@ let parse_to_ast files =
 
 let run cmd =
   let { files; config } = cmd in
-  let _kosu_program =
+  let _cc_fules, kosu_program =
     match () with
     | _ when config ->
         let () = CliCommon.kosu_config_print () in
@@ -157,6 +157,7 @@ let run cmd =
     | () ->
         parse_to_ast files
   in
+  let _tysu_program = Tysu.OfKosu.of_program kosu_program in
   ()
 
 let eval () = run |> kosuc |> Cmd.eval ~catch:false
