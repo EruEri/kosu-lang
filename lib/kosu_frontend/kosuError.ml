@@ -89,7 +89,12 @@ type kosu_error =
   | CannotFindStructDecl of KosuType.Ty.kosu_type Position.location
   | ArraySubscribeNotInteger of Position.position
   | TupleIndexOutBound of { expect : int; found : int64 Position.location }
-  | ConstNonStaticExpression of unit KosuAst.kosu_expression Position.location
+  | ConstNonStaticExpression of
+      ( unit,
+        KosuType.TyLoc.kosu_loctype Position.location option
+      )
+      KosuAst.kosu_expression
+      Position.location
   | ConfictingTypeDeclaration of
       [ `NEnum of KosuAst.kosu_enum_decl
       | `NOpaque of KosuAst.kosu_opaque_decl

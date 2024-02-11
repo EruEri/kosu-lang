@@ -21,3 +21,4 @@ type fsize = Kosu.Base.fsize
 type pointer_state = Kosu.Base.pointer_state
 type module_resolver = ModuleResolver of string list
 type integer_info = Kosu.Base.integer_info
+type tysu_anon_function_kind = Kosu.Ast.kosu_anon_function_kind

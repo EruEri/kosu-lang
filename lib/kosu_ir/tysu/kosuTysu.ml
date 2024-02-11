@@ -29,7 +29,7 @@ let rec of_kosu_expression kosu_env solutions expression =
   (TysuUtil.Type.typed tysu_expression tysu_type, kosu_env)
 
 and of_expression kosu_env solutions :
-    Kosu.Type.Ty.kosu_type Kosu.Ast.expression -> TysuAst.tysu_expression =
+    (Kosu.Type.Ty.kosu_type, _) Kosu.Ast.expression -> TysuAst.tysu_expression =
   function
   | EEmpty ->
       EEmpty
@@ -214,6 +214,22 @@ and of_expression kosu_env solutions :
       in
       EMatch { expression; patterns }
   | EAnonFunction { kind; parameters; body } ->
+      let tysu_function_parameters, kosu_variables =
+        List.split
+        @@ List.map
+             (fun Kosu.Ast.{ ais_var; akosu_type; aname } ->
+               let tysu_type =
+                 of_kosu_type_solved solutions aname.position akosu_type
+               in
+               let kosu_type = KosuTysuBase.Kosu.of_tysu_type tysu_type in
+               let name = aname.value in
+               ( TysuAst.{ is_var = ais_var; name; tysu_type },
+                 (aname, not ais_var, kosu_type)
+               )
+             )
+             parameters
+      in
+      let closure_env = Kosu.Env.rebind_env_variables kosu_variables kosu_env in
       failwith ""
 
 and of_kosu_block kosu_env solutions block =

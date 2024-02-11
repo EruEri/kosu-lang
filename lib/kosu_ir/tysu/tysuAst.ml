@@ -34,7 +34,6 @@ type tysu_function_parameter = {
 (*
   Analoge to kosu_anon_function_kind   
 *)
-type tysu_anon_function_kind = TAClosure | TAFunctionPointer
 
 type tysu_statement =
   | SDeclaration of {

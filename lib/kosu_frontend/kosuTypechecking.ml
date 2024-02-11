@@ -46,7 +46,8 @@ let rec typeof ~tyfresh kosu_env
 
 and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
     (expr : _ KosuAst.expression location) :
-    (KosuEnv.kosu_env * Ty.kosu_type) * Ty.kosu_type KosuAst.expression =
+    (KosuEnv.kosu_env * Ty.kosu_type)
+    * (Ty.kosu_type, Ty.kosu_type) KosuAst.expression =
   match expr.value with
   | EEmpty ->
       ((kosu_env, Ty.TyUnit), EEmpty)
@@ -646,6 +647,13 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
              )
              parameters
       in
+      let ast_parameters =
+        List.map
+          (fun (name, is_const, kosu_type) ->
+            { aname = name; ais_var = not is_const; akosu_type = kosu_type }
+          )
+          variables
+      in
       let closure_env = KosuEnv.rebind_env_variables variables kosu_env in
       let clo_variables =
         variables_expression ~tyfresh closure_env CapturedIdentifier.empty body
@@ -664,7 +672,9 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
       let (clo_env, ty_clo_ret), ast_body =
         typeof ~tyfresh closure_kosu_env body
       in
-      let ast = EAnonFunction { kind; parameters; body = ast_body } in
+      let ast =
+        EAnonFunction { kind; parameters = ast_parameters; body = ast_body }
+      in
 
       let closure_solution = KosuEnv.solve closure_kosu_env in
 
@@ -1589,7 +1599,7 @@ and variables_statement ~tyfresh closure_env locals_variables statement =
       (closure_env, CapturedIdentifier.empty, locals_variables)
 
 let typeof (kosu_env : KosuEnv.kosu_env)
-    (expr : unit KosuAst.kosu_expression location) =
+    (expr : _ KosuAst.kosu_expression location) =
   let counter = ref 0 in
   let fresh () =
     let n = !counter in

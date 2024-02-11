@@ -28,27 +28,28 @@ type kosu_function_parameters = {
   kosu_type : TyLoc.kosu_loctype location;
 }
 
-type kosu_anon_parameters = {
+type 'a kosu_anon_parameters = {
   ais_var : bool;
   aname : string location;
-  akosu_type : TyLoc.kosu_loctype location option;
+  (* TyLoc.kosu_loctype location  *)
+  akosu_type : 'a;
 }
 
 type kosu_anon_function_kind = KAClosure | KAFunctionPointer
 
-type 'a kosu_statement =
+type ('a, 'anon_param) kosu_statement =
   | SDeclaration of {
       is_const : bool;
       pattern : 'a kosu_pattern location;
       explicit_type : TyLoc.kosu_loctype location option;
-      expression : 'a kosu_expression location;
+      expression : ('a, 'anon_param) kosu_expression location;
     }
   | SAffection of {
       is_deref : bool;
       lvalue : kosu_lvalue;
-      expression : 'a kosu_expression location;
+      expression : ('a, 'anon_param) kosu_expression location;
     }
-  | SDiscard of 'a kosu_expression location
+  | SDiscard of ('a, 'anon_param) kosu_expression location
   | SOpen of { module_resolver : module_resolver_loc }
 
 and 'a pattern =
@@ -84,7 +85,7 @@ and 'a pattern =
 
 and 'a kosu_pattern = { kosu_pattern : 'a pattern; pattern_associated : 'a }
 
-and 'a expression =
+and ('a, 'anon_param) expression =
   | EEmpty
   | ETrue
   | EFalse
@@ -97,17 +98,20 @@ and 'a expression =
   | EInteger of { integer_info : integer_info option; ivalue : int64 }
   | EFloat of { fsize : fsize option; fvalue : float }
   | ESizeof of
-      (TyLoc.kosu_loctype location, 'a kosu_expression location) Either.t
+      ( TyLoc.kosu_loctype location,
+        ('a, 'anon_param) kosu_expression location
+      )
+      Either.t
   | EFieldAccess of {
-      first_expr : 'a kosu_expression location;
+      first_expr : ('a, 'anon_param) kosu_expression location;
       field : string location;
     }
   | EArrayAccess of {
-      array_expr : 'a kosu_expression location;
-      index_expr : 'a kosu_expression location;
+      array_expr : ('a, 'anon_param) kosu_expression location;
+      index_expr : ('a, 'anon_param) kosu_expression location;
     }
   | ETupleAccess of {
-      first_expr : 'a kosu_expression location;
+      first_expr : ('a, 'anon_param) kosu_expression location;
       index : int64 location;
     }
   | EConstIdentifier of {
@@ -121,54 +125,59 @@ and 'a expression =
   | EStruct of {
       module_resolver : module_resolver_loc;
       struct_name : string location;
-      fields : (string location * 'a kosu_expression location) list;
+      fields :
+        (string location * ('a, 'anon_param) kosu_expression location) list;
     }
   | EEnum of {
       module_resolver : module_resolver_loc;
       enum_name : string location option;
       variant : string location;
-      assoc_exprs : 'a kosu_expression location list;
+      assoc_exprs : ('a, 'anon_param) kosu_expression location list;
     }
-  | EBlock of 'a kosu_block
-  | EDeref of 'a kosu_expression location
-  | ETuple of 'a kosu_expression location list
-  | EArray of 'a kosu_expression location list
+  | EBlock of ('a, 'anon_param) kosu_block
+  | EDeref of ('a, 'anon_param) kosu_expression location
+  | ETuple of ('a, 'anon_param) kosu_expression location list
+  | EArray of ('a, 'anon_param) kosu_expression location list
   | EBuiltinFunctionCall of {
       fn_name : string location;
-      parameters : 'a kosu_expression location list;
+      parameters : ('a, 'anon_param) kosu_expression location list;
     }
   | EFunctionCall of {
       module_resolver : module_resolver_loc;
       generics_resolver : TyLoc.kosu_loctype location list option;
       fn_name : string location;
-      parameters : 'a kosu_expression location list;
+      parameters : ('a, 'anon_param) kosu_expression location list;
     }
   | EWhile of {
-      condition_expr : 'a kosu_expression location;
-      body : 'a kosu_block;
+      condition_expr : ('a, 'anon_param) kosu_expression location;
+      body : ('a, 'anon_param) kosu_block;
     }
   (* If expression will be a syntaxique sugar of ecases *)
   | ECases of {
-      cases : ('a kosu_expression location * 'a kosu_block) list;
-      else_body : 'a kosu_block;
+      cases :
+        ( ('a, 'anon_param) kosu_expression location
+        * ('a, 'anon_param) kosu_block
+        )
+        list;
+      else_body : ('a, 'anon_param) kosu_block;
     }
   | EMatch of {
-      expression : 'a kosu_expression location;
-      patterns : ('a kosu_pattern location * 'a kosu_block) list;
+      expression : ('a, 'anon_param) kosu_expression location;
+      patterns : ('a kosu_pattern location * ('a, 'anon_param) kosu_block) list;
     }
   | EAnonFunction of {
       kind : kosu_anon_function_kind;
-      parameters : kosu_anon_parameters list;
-      body : 'a kosu_expression location;
+      parameters : 'anon_param kosu_anon_parameters list;
+      body : ('a, 'anon_param) kosu_expression location;
     }
 
-and 'a kosu_block = {
-  kosu_stmts : 'a kosu_statement location list;
-  kosu_expr : 'a kosu_expression location;
+and ('a, 'anon_param) kosu_block = {
+  kosu_stmts : ('a, 'anon_param) kosu_statement location list;
+  kosu_expr : ('a, 'anon_param) kosu_expression location;
 }
 
-and 'a kosu_expression = {
-  kosu_expression : 'a expression;
+and ('a, 'anon_param) kosu_expression = {
+  kosu_expression : ('a, 'anon_param) expression;
   expression_associated : 'a;
 }
 
@@ -212,7 +221,7 @@ type kosu_function_decl = {
   parameters : kosu_function_parameters list;
   return_type : TyLoc.kosu_loctype location;
   (* if block will be transform into EBlock expression in parser *)
-  body : unit kosu_expression location;
+  body : (unit, TyLoc.kosu_loctype location option) kosu_expression location;
 }
 
 type _kosu_syscall_decl = {
@@ -242,7 +251,7 @@ type kosu_builtin_function =
 type kosu_const_decl = {
   const_name : string location;
   explicit_type : TyLoc.kosu_loctype location;
-  c_value : unit kosu_expression location;
+  c_value : (unit, TyLoc.kosu_loctype location option) kosu_expression location;
 }
 
 type kosu_opaque_decl = { name : string location }

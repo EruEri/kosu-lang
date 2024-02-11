@@ -589,6 +589,65 @@ module Ty = struct
         let return_type = of_tyloc' return_type in
         { poly_vars; parameters_type; return_type }
 
+  let rec to_tyloc : Ty.kosu_type -> TyLoc.kosu_loctype = function
+    | Ty.TyIdentifier { parametrics_type; module_resolver; name } ->
+        let name = Position.dummy_located name in
+        let module_resolver = ModuleResolver.dummy_located module_resolver in
+        let parametrics_type = List.map to_tyloc' parametrics_type in
+        TyLocIdentifier { parametrics_type; module_resolver; name }
+    | TyPolymorphic _ ->
+        failwith ""
+    | TyInteger integer_info ->
+        TyLocInteger integer_info
+    | TyFloat float_info ->
+        TyLocFloat float_info
+    | TyFunctionPtr schema ->
+        let schema = to_tyloc_schema schema in
+        TyLocFunctionPtr schema
+    | TyClosure schema ->
+        let schema = to_tyloc_schema schema in
+        TyLocClosure schema
+    | TyPointer { pointee_type; pointer_state } ->
+        let pointee_type = to_tyloc' pointee_type in
+        TyLocPointer { pointee_type; pointer_state }
+    | TyOpaque { module_resolver; name } ->
+        let module_resolver = ModuleResolver.dummy_located module_resolver in
+        let name = Position.dummy_located name in
+        TyLocOpaque { module_resolver; name }
+    | TyArray { ktype; size } ->
+        let ktype = to_tyloc' ktype in
+        let size = Position.dummy_located size in
+        TyLocArray { ktype; size }
+    | TyTuple ttes ->
+        let ttes = List.map to_tyloc' ttes in
+        TyLocTuple ttes
+    | TyOrdered ->
+        TyLocOrdered
+    | TyChar ->
+        TyLocChar
+    | TyStringLit ->
+        TyLocStringLit
+    | TyUnit ->
+        TyLocUnit
+    | TyBool ->
+        TyLocBool
+
+  and to_tyloc' kos = Position.dummy_located @@ to_tyloc kos
+
+  and to_tyloc_schema = function
+    | { poly_vars; parameters_type; return_type } ->
+        let poly_vars = List.map to_tyloc_polymorphic poly_vars in
+        let parameters_type = List.map to_tyloc' parameters_type in
+        let return_type = to_tyloc' return_type in
+        { poly_vars; parameters_type; return_type }
+
+  and to_tyloc_polymorphic = function
+    | Ty.CompilerPolymorphicVar _ ->
+        failwith
+          "Compiler internal: try to convert a compiler kosu type to located"
+    | Ty.PolymorphicVar s ->
+        TyLoc.PolymorphicVarLoc (Position.dummy_located s)
+
   (**
     [tyloc_substitution bound assoc_types ty] replaces the type variable occurences in [ty] 
     by there value associated in [assoc_types] and not in [bound]
@@ -897,8 +956,7 @@ module Expression = struct
     in
     KosuAst.{ kosu_expression; expression_associated }
 
-  and explicit_module_type_expression current_module :
-      'a KosuAst.expression -> 'a KosuAst.expression = function
+  and explicit_module_type_expression current_module = function
     | ( EEmpty
       | ETrue
       | EFalse
@@ -997,7 +1055,7 @@ module Expression = struct
     | EAnonFunction { kind; parameters; body } ->
         let parameters =
           List.map
-            (fun (p : KosuAst.kosu_anon_parameters) ->
+            (fun (p : _ KosuAst.kosu_anon_parameters) ->
               let akosu_type =
                 Option.map
                   (TyLoc.explicit_module_type' current_module)
@@ -1115,8 +1173,8 @@ module Expression = struct
     [is_static_expression expr] determines if an expression can be evaluated a compile time
 *)
   let rec is_static_expression :
-      'a KosuAst.kosu_expression Position.location ->
-      (unit, 'a KosuAst.kosu_expression Position.location) Result.t =
+      _ KosuAst.kosu_expression Position.location ->
+      (unit, _ KosuAst.kosu_expression Position.location) Result.t =
    fun expr ->
     let ( let* ) = Result.bind in
     let ok = Ok () in
