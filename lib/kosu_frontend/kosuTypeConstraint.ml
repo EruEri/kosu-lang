@@ -17,27 +17,7 @@
 
 type t = KosuType.Ty.kosu_type_constraint
 
-(* Temporary fix of the hinley minler algo *)
-(* Number of unknown size **must be** treated at the end *)
-(* Otherwise it's overshadow true constraint *)
-let compare_weighted lhs rhs =
-  match compare lhs rhs with
-  | 0 ->
-      0
-  | n ->
-      if KosuUtil.Ty.is_number_unknwon_size lhs then
-        1
-      else if KosuUtil.Ty.is_number_unknwon_size rhs then
-        -1
-      else
-        n
-
-let compare (lhs : t) (rhs : t) =
-  match compare lhs.cfound rhs.cfound with
-  | 0 ->
-      compare_weighted lhs.cexpected rhs.cexpected
-  | _ ->
-      compare_weighted lhs.cfound rhs.cfound
+let compare (lhs : t) (rhs : t) = Stdlib.compare lhs rhs
 
 module KosuTypingSolution = Map.Make (struct
   type t = KosuType.Ty.kosu_type_polymorphic

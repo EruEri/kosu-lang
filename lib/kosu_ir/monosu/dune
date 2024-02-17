@@ -14,3 +14,7 @@
 ;* If not, see <http://www.gnu.org/licenses/>.                                                *;
 ;*                                                                                            *;
 ;**********************************************************************************************;
+
+(library
+ (name monosu)
+ (libraries kosu tysu))

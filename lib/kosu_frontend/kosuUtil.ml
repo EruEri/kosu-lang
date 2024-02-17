@@ -428,42 +428,6 @@ module Ty = struct
     | TyBool ->
         []
 
-  (**
-      [is_number_unknwon_size ty] returns if the size of the numerical type [integer] or [float]
-      aren't fully infered
-  *)
-  let is_number_unknwon_size = function
-    | Ty.TyFloat _ | Ty.TyInteger _ ->
-        true
-    | Ty.TyIdentifier _
-    | TyPolymorphic _
-    | TyFunctionPtr _
-    | TyClosure _
-    | TyOpaque _
-    | TyOrdered
-    | TyChar
-    | TyStringLit
-    | TyUnit
-    | TyPointer _
-    | TyArray _
-    | TyTuple _
-    | TyBool ->
-        false
-
-  (**
-      [are_number_compatible lhs rhs] compares if number information is compatible.
-        - [are_number_compatible Some None] returns [true]
-        - [are_number_compatible None Some] returns [true]
-        - [are_number_compatible None None] returns [true]
-        - [are_number_compatible (Some l) (Some r)] returns [l = r]
-  *)
-  let are_number_compatible lhs rhs =
-    match (lhs, rhs) with
-    | None, (Some _ | None) | Some _, None ->
-        true
-    | Some lhs, Some rhs ->
-        lhs = rhs
-
   let to_quantified_ty_vars = function
     | Ty.CompilerPolymorphicVar { name; hint = _ } ->
         Ty.PolymorphicVar name
