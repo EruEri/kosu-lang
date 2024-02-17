@@ -44,8 +44,9 @@ let rec typeof ~tyfresh kosu_env
   in
   (ret, kosu_expression)
 
-and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
-    (expr : _ KosuAst.expression location) :
+and typeof_expression
+    ~(tyfresh : ?hint:Ty.kosu_type_polymorphic_hint -> unit -> Ty.kosu_type)
+    (kosu_env : KosuEnv.kosu_env) (expr : _ KosuAst.expression location) :
     (KosuEnv.kosu_env * Ty.kosu_type)
     * (Ty.kosu_type, Ty.kosu_type, CapturedIdentifier.t) KosuAst.expression =
   match expr.value with
@@ -69,32 +70,24 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
   | EChar _ as expr ->
       ((kosu_env, TyChar), expr)
   | EInteger { integer_info; ivalue = _ } as expresion_bound ->
-      let default = Ty.TyInteger integer_info in
-      let tuples =
+      let tuple =
         match integer_info with
-        | Some _ ->
-            (kosu_env, default)
+        | Some i ->
+            let ty = Ty.TyInteger i in
+            (kosu_env, ty)
         | None ->
-            let t = tyfresh () in
-            let kosu_env =
-              KosuEnv.add_typing_constraint ~cexpected:default ~cfound:t expr
-                kosu_env
-            in
+            let t = tyfresh ~hint:Ty.KTyHintInteger () in
             (kosu_env, t)
       in
-      (tuples, expresion_bound)
+      (tuple, expresion_bound)
   | EFloat { fsize; fvalue = _ } as expresion_bound ->
-      let default = Ty.TyFloat fsize in
       let tuple =
         match fsize with
-        | Some _ ->
-            (kosu_env, default)
+        | Some i ->
+            let ty = Ty.TyFloat i in
+            (kosu_env, ty)
         | None ->
-            let t = tyfresh () in
-            let kosu_env =
-              KosuEnv.add_typing_constraint ~cexpected:default ~cfound:t expr
-                kosu_env
-            in
+            let t = tyfresh ~hint:Ty.KTyHintFloat () in
             (kosu_env, t)
       in
       (tuple, expresion_bound)
@@ -185,11 +178,14 @@ and typeof_expression ~tyfresh (kosu_env : KosuEnv.kosu_env)
       let (env, ty), ast_index_expr = typeof ~tyfresh kosu_env index_expr in
       let kosu_env =
         match ty with
-        | TyInteger _ ->
+        | TyInteger _
+        | TyPolymorphic
+            (CompilerPolymorphicVar { hint = Some KTyHintInteger; _ }) ->
             kosu_env
         | TyPolymorphic _ ->
-            KosuEnv.add_typing_constraint ~cfound:ty
-              ~cexpected:(Ty.TyInteger None) index_expr kosu_env
+            let t = tyfresh ~hint:Ty.KTyHintInteger () in
+            KosuEnv.add_typing_constraint ~cfound:ty ~cexpected:t index_expr
+              kosu_env
         | _ ->
             raise @@ array_subscribe_not_integer index_expr.position
       in
@@ -930,13 +926,13 @@ and typeof_pattern ~tyfresh scrutinee_type kosu_env
   | PWildcard as ast ->
       (([], (kosu_env, scrutinee_type)), ast)
   | PFloat _ as ast ->
-      let ty = TyFloat None in
+      let ty = tyfresh ~hint:KTyHintFloat () in
       (([], (kosu_env, ty)), ast)
   | PChar _ as ast ->
       let ty = TyChar in
       (([], (kosu_env, ty)), ast)
   | PInteger { value = _ } as ast ->
-      let ty = TyInteger None in
+      let ty = tyfresh ~hint:KTyHintInteger () in
       (([], (kosu_env, ty)), ast)
   | PIdentifier identifier as ast ->
       let bound = (identifier, scrutinee_type) in
@@ -1607,10 +1603,10 @@ and variables_statement ~tyfresh closure_env locals_variables statement =
 let typeof (kosu_env : KosuEnv.kosu_env)
     (expr : _ KosuAst.kosu_expression location) =
   let counter = ref 0 in
-  let fresh () =
+  let fresh ?hint () =
     let n = !counter in
     let () = incr counter in
-    let s = Printf.sprintf "'t%u" n in
-    Ty.TyPolymorphic (CompilerPolymorphicVar s)
+    let name = Printf.sprintf "'t%u" n in
+    Ty.TyPolymorphic (CompilerPolymorphicVar { name; hint })
   in
   typeof ~tyfresh:fresh kosu_env expr

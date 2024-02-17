@@ -139,8 +139,8 @@ rule token = parse
 }
 | (float_literal as f) (fsize as fsize) {
     let size = match fsize with
-    | "f32" -> KosuUtil.TyLoc.fsize_32
-    | "f64" ->  KosuUtil.TyLoc.fsize_64 
+    | "f32" -> Some KosuUtil.TyLoc.fsize_32
+    | "f64" ->  Some KosuUtil.TyLoc.fsize_64 
     | _ -> failwith "Unreachable code"
     in 
     FloatLitteral (size, float_of_string f)

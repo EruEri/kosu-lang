@@ -109,11 +109,9 @@ let rec string_of_kosu_type : KosuType.Ty.kosu_type -> string = function
         (string_of_pointee_state pointer_state)
         (string_of_kosu_type pointee_type)
   | TyInteger integer ->
-      integer
-      |> Option.map string_of_integer_info
-      |> Option.value ~default:"i(unknow)"
+      string_of_integer_info integer
   | TyFloat float ->
-      float |> Option.map string_of_fsize |> Option.value ~default:"f(unknown)"
+      string_of_fsize float
   | TyFunctionPtr schema ->
       sprintf "fn %s" @@ string_of_schema schema
   | TyClosure schema ->
@@ -139,8 +137,17 @@ let rec string_of_kosu_type : KosuType.Ty.kosu_type -> string = function
 and string_of_polymorphic_var = function
   | PolymorphicVar s ->
       Printf.sprintf "'%s" s
-  | CompilerPolymorphicVar s ->
-      Printf.sprintf "''%s" s
+  | CompilerPolymorphicVar { name; hint } ->
+      let hint =
+        match hint with
+        | Some KTyHintInteger ->
+            "(integer)"
+        | Some KTyHintFloat ->
+            "float"
+        | None ->
+            String.empty
+      in
+      Printf.sprintf "''%s%s" name hint
 
 (* and string_of_closure_type = function
    | ClosureType { id; schema; env } ->

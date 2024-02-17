@@ -61,7 +61,7 @@
 %token EOF
 
 
-%left MINUS_SUP
+%right MINUS_SUP
 %left INFIX_PIPE 
 %left INFIX_AMPERSAND
 %left PIPE

@@ -601,22 +601,21 @@ let rec solve solutions eqs =
   | None ->
       solutions
   | Some equation ->
-      let () =
-        Printf.printf "Try soluting ...\nlhs = %s, rhs = %s\n\n%!"
-          (KosuPrint.string_of_kosu_type equation.cfound)
-          (KosuPrint.string_of_kosu_type equation.cexpected)
-      in
+      (* let () =
+           Printf.printf "Try soluting ...\nlhs = %s, rhs = %s\n\n%!"
+             (KosuPrint.string_of_kosu_type equation.cfound)
+             (KosuPrint.string_of_kosu_type equation.cexpected)
+         in *)
       let eqs = KosuTypeConstraintSet.remove equation eqs in
       let solutions, eqs =
         match KosuTypeConstraint.reduce equation.cexpected equation.cfound with
         | Some (Left (p, ty)) ->
             (* let ty = constraint_solution p ty equation solutions eqs in *)
-            let () =
-              Printf.printf "solution = %s == %s\n\n%!"
-                (KosuPrint.string_of_polymorphic_var p)
-                (KosuPrint.string_of_kosu_type ty)
-            in
-
+            (* let () =
+                 Printf.printf "solution = %s == %s\n\n%!"
+                   (KosuPrint.string_of_polymorphic_var p)
+                   (KosuPrint.string_of_kosu_type ty)
+               in *)
             let solutions =
               KosuTypingSolution.map
                 (KosuUtil.Ty.ty_substitution [] ((p, ty) :: []))
@@ -628,20 +627,20 @@ let rec solve solutions eqs =
             in
             (solutions, eqs)
         | Some (Right new_constrains) ->
-            let () =
-              match new_constrains with
-              | [] ->
-                  Printf.printf "No new constraints\n"
-              | _ :: _ ->
-                  let () = Printf.printf "New constraints\n" in
-                  List.iter
-                    (fun (expect, found) ->
-                      Printf.printf "equation = %s == %s\n\n%!"
-                        (KosuPrint.string_of_kosu_type expect)
-                        (KosuPrint.string_of_kosu_type found)
-                    )
-                    new_constrains
-            in
+            (* let () =
+                 match new_constrains with
+                 | [] ->
+                     Printf.printf "No new constraints\n"
+                 | _ :: _ ->
+                     let () = Printf.printf "New constraints\n" in
+                     List.iter
+                       (fun (expect, found) ->
+                         Printf.printf "equation = %s == %s\n\n%!"
+                           (KosuPrint.string_of_kosu_type expect)
+                           (KosuPrint.string_of_kosu_type found)
+                       )
+                       new_constrains
+               in *)
             let new_constrains_set =
               KosuTypeConstraintSet.of_list
               @@ List.map

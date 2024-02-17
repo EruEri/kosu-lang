@@ -78,8 +78,58 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
   let ( let* ) = Option.bind in
   let return = Option.some in
   match (with_ty, ty) with
-  | TyPolymorphic (PolymorphicVar _ | CompilerPolymorphicVar _), ty
-  | ty, TyPolymorphic (PolymorphicVar _ | CompilerPolymorphicVar _) ->
+  (* Restrict the infered type is an integer *)
+  | ( TyPolymorphic
+        (CompilerPolymorphicVar { name = _; hint = Some KTyHintInteger }),
+      (TyInteger _ as tyinteger) )
+  | ( (TyInteger _ as tyinteger),
+      TyPolymorphic
+        (CompilerPolymorphicVar { name = _; hint = Some KTyHintInteger }) ) ->
+      Some tyinteger
+  | ( ( TyPolymorphic
+          (CompilerPolymorphicVar { name = _; hint = Some KTyHintInteger }) as
+        lhs
+      ),
+      TyPolymorphic
+        (CompilerPolymorphicVar { name = _; hint = Some KTyHintInteger }) ) ->
+      Some lhs
+  | ( TyPolymorphic
+        (CompilerPolymorphicVar { name = _; hint = Some KTyHintInteger }),
+      _ )
+  (* Reject if not an integer *)
+  | ( _,
+      TyPolymorphic
+        (CompilerPolymorphicVar { name = _; hint = Some KTyHintInteger }) ) ->
+      None
+  | ( TyPolymorphic
+        (CompilerPolymorphicVar { name = _; hint = Some KTyHintFloat }),
+      (TyFloat _ as tyinteger) )
+  (* Restrict the infered type is an float *)
+  | ( (TyFloat _ as tyinteger),
+      TyPolymorphic
+        (CompilerPolymorphicVar { name = _; hint = Some KTyHintFloat }) ) ->
+      Some tyinteger
+  | ( ( TyPolymorphic
+          (CompilerPolymorphicVar { name = _; hint = Some KTyHintFloat }) as lhs
+      ),
+      TyPolymorphic
+        (CompilerPolymorphicVar { name = _; hint = Some KTyHintFloat }) ) ->
+      Some lhs
+  (* Reject if not a float *)
+  | ( TyPolymorphic
+        (CompilerPolymorphicVar { name = _; hint = Some KTyHintFloat }),
+      _ )
+  | ( _,
+      TyPolymorphic
+        (CompilerPolymorphicVar { name = _; hint = Some KTyHintFloat }) ) ->
+      None
+  | ( TyPolymorphic
+        (PolymorphicVar _ | CompilerPolymorphicVar { name = _; hint = None }),
+      ty )
+  | ( ty,
+      TyPolymorphic
+        (PolymorphicVar _ | CompilerPolymorphicVar { name = _; hint = None }) )
+    ->
       Some ty
   | ( TyIdentifier
         { module_resolver = lmr; parametrics_type = lpt; name = lname },
@@ -117,35 +167,17 @@ let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
   | TyPointer _, _ ->
       None
   | (TyInteger lhs as tmp), TyInteger rhs ->
-      let res =
-        match (lhs, rhs) with
-        | None, info | info, None ->
-            Option.some @@ TyInteger info
-        | _, _ -> (
-            match KosuUtil.Ty.are_number_compatible lhs rhs with
-            | true ->
-                Some tmp
-            | false ->
-                None
-          )
-      in
-      res
+      if lhs = rhs then
+        Some tmp
+      else
+        None
   | TyInteger _, _ ->
       None
   | (TyFloat lhs as tmp), TyFloat rhs ->
-      let res =
-        match (lhs, rhs) with
-        | None, info | info, None ->
-            Option.some @@ TyFloat info
-        | _, _ -> (
-            match KosuUtil.Ty.are_number_compatible lhs rhs with
-            | true ->
-                Some tmp
-            | false ->
-                None
-          )
-      in
-      res
+      if lhs = rhs then
+        Some tmp
+      else
+        None
   | TyFloat _, _ ->
       None
   | ( TyFunctionPtr { poly_vars = _; parameters_type = lpt; return_type = lrt },
@@ -291,26 +323,12 @@ let reduce lhs rhs =
         some @@ right @@ ((ltype, rtype) :: [])
     | TyPointer _, _ ->
         None
-    | TyInteger linfo, TyInteger rinfo ->
-        let res =
-          match KosuUtil.Ty.are_number_compatible linfo rinfo with
-          | false ->
-              None
-          | true ->
-              rhs |> restrict ~with_ty:lhs |> Option.map @@ fun _ -> right []
-        in
-        res
+    | TyInteger linfo, TyInteger rinfo when linfo = rinfo ->
+        some @@ right []
     | TyInteger _, _ ->
         None
-    | TyFloat linfo, TyFloat rinfo ->
-        let res =
-          match KosuUtil.Ty.are_number_compatible linfo rinfo with
-          | false ->
-              None
-          | true ->
-              rhs |> restrict ~with_ty:lhs |> Option.map @@ fun _ -> right []
-        in
-        res
+    | TyFloat linfo, TyFloat rinfo when linfo = rinfo ->
+        some @@ right []
     | TyFloat _, _ ->
         None
     | ( TyFunctionPtr { poly_vars = _; parameters_type = lpt; return_type = lrt },

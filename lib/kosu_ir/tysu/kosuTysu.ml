@@ -477,10 +477,7 @@ let of_enum_decl _kosu_program _current_module enum_decl =
   let tag_type =
     match raw_tag_type with
     | Kosu.Type.Ty.TyInteger integer ->
-        let default =
-          Kosu.Util.(IntegerInfo.sized @@ TyLoc.(signed, isize_32))
-        in
-        Option.value ~default integer
+        integer
     | _ ->
         raise @@ TysuError.enum_not_integer_tag_size tag_type
   in

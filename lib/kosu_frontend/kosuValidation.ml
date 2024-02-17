@@ -95,13 +95,20 @@ module Duplicated = struct
 end
 
 module Type = struct
+  let make_fresh () ?hint () =
+    let counter = ref 0 in
+    let n = !counter in
+    let () = incr counter in
+    let name = Printf.sprintf "'t%u" n in
+    KosuType.Ty.TyPolymorphic (CompilerPolymorphicVar { name; hint })
+
   let rec is_cyclic_struct current_module kosu_program kosu_struct =
+    let fresh = make_fresh () in
     let module_res =
       KosuUtil.Program.module_resolver_of_module current_module kosu_program
     in
     is_cyclic_raw_struct ~visited:[] current_module kosu_program
-    @@ KosuUtil.Struct.substitution_fresh ~fresh:KosuType.Ty.fresh_variable_type
-         module_res kosu_struct
+    @@ KosuUtil.Struct.substitution_fresh ~fresh module_res kosu_struct
 
   and is_cyclic_raw_struct ~visited current_module kosu_program
       (raw_struct, struct_type) =
@@ -114,12 +121,12 @@ module Type = struct
       raw_struct.fields
 
   and is_cyclic_enum current_module kosu_program kosu_enum =
+    let fresh = make_fresh () in
     let module_res =
       KosuUtil.Program.module_resolver_of_module current_module kosu_program
     in
     is_cyclic_raw_enum ~visited:[] current_module kosu_program
-    @@ KosuUtil.Enum.substitution_fresh ~fresh:KosuType.Ty.fresh_variable_type
-         module_res kosu_enum
+    @@ KosuUtil.Enum.substitution_fresh ~fresh module_res kosu_enum
 
   and is_cyclic_raw_enum ~visited current_module kosu_program
       (raw_enum, struct_type) =
@@ -515,16 +522,7 @@ let validate_kosu_node kosu_program current_module = function
           ~cexpected:(KosuUtil.Ty.of_tyloc' const_decl.explicit_type)
           ~cfound:ty const_decl.explicit_type kosu_env
       in
-      let solutions = KosuEnv.solve kosu_env in
-      let () =
-        KosuEnv.KosuTypingSolution.iter
-          (fun key value ->
-            Printf.printf "-> %s = %s\n"
-              (KosuPrint.string_of_polymorphic_var key)
-              (KosuPrint.string_of_kosu_type value)
-          )
-          solutions
-      in
+      let _solutions = KosuEnv.solve kosu_env in
       let* () =
         Result.map_error KosuError.Raw.const_non_static_expression
         @@ KosuUtil.Expression.is_static_expression const_decl.c_value

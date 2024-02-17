@@ -26,8 +26,8 @@ module Tysu = struct
     function
     | PolymorphicVar s ->
         TysuType.ForAllVar s
-    | CompilerPolymorphicVar s ->
-        raise @@ TysuError.kosu_compiler_variable_found s
+    | CompilerPolymorphicVar { name; hint = _ } ->
+        raise @@ TysuError.kosu_compiler_variable_found name
 
   let rec of_schema :
       Kosu.Type.Ty.kosu_function_schema -> TysuType.tysu_function_schema =
@@ -42,6 +42,12 @@ module Tysu = struct
         let parametrics_type = List.map of_kosu_type parametrics_type in
         let module_resolver = of_module_resolver module_resolver in
         TysuIdentifier { module_resolver; parametrics_type; name }
+    | TyPolymorphic
+        (CompilerPolymorphicVar { name = _; hint = Some KTyHintFloat }) ->
+        TysuType.TysuFloat F32
+    | TyPolymorphic
+        (CompilerPolymorphicVar { name = _; hint = Some KTyHintInteger }) ->
+        TysuType.(TysuInteger (Sized (Signed, I32)))
     | TyPolymorphic variable ->
         let variable = of_polymorphic variable in
         TysuPolymorphic variable
@@ -49,14 +55,8 @@ module Tysu = struct
         let pointee_type = of_kosu_type pointee_type in
         TysuPointer { pointer_state; pointee_type }
     | TyInteger integer ->
-        let default =
-          Kosu.Util.(IntegerInfo.sized @@ TyLoc.(signed, isize_32))
-        in
-        let integer = Option.value ~default integer in
         TysuInteger integer
     | TyFloat float_info ->
-        let default = Kosu.Base.F32 in
-        let float_info = Option.value ~default float_info in
         TysuFloat float_info
     | TyFunctionPtr schema ->
         let schema = of_schema schema in
@@ -93,8 +93,10 @@ module Tysu = struct
     match of_kosu_type kosu_type with
     | t ->
         t
-    | exception TysuError.(TysuError (KosuCompilerVariableFound s)) -> (
-        let compiler_var = Kosu.Type.Ty.CompilerPolymorphicVar s in
+    | exception TysuError.(TysuError (KosuCompilerVariableFound name)) -> (
+        let compiler_var =
+          Kosu.Type.Ty.CompilerPolymorphicVar { name; hint = None }
+        in
         match Kosu.Env.KosuTypingSolution.find_opt compiler_var solutions with
         | Some t ->
             of_kosu_type t
@@ -135,9 +137,9 @@ module Kosu = struct
         let pointee_type = of_tysu_type pointee_type in
         TyPointer { pointer_state; pointee_type }
     | TysuInteger integer ->
-        TyInteger (Some integer)
+        TyInteger integer
     | TysuFloat float_info ->
-        TyFloat (Some float_info)
+        TyFloat float_info
     | TysuFunctionPtr schema ->
         let schema = of_schema schema in
         TyFunctionPtr schema

@@ -82,22 +82,22 @@ module TyLoc = struct
   let isize_16 = KosuAst.I16
   let isize_32 = KosuAst.I32
   let isize_64 = KosuAst.I64
-  let fsize_32 = Some KosuAst.F32
-  let fsize_64 = Some KosuAst.F64
+  let fsize_32 = KosuAst.F32
+  let fsize_64 = KosuAst.F64
   let signed = KosuAst.Signed
   let unsigned = KosuAst.Unsigned
-  let s8 = TyLocInteger (Some (sized @@ (signed, isize_8)))
-  let u8 = TyLocInteger (Some (sized @@ (unsigned, isize_8)))
-  let s16 = TyLocInteger (Some (sized @@ (signed, isize_16)))
-  let u16 = TyLocInteger (Some (sized @@ (unsigned, isize_16)))
-  let s32 = TyLocInteger (Some (sized @@ (signed, isize_32)))
-  let u32 = TyLocInteger (Some (sized @@ (unsigned, isize_32)))
-  let s64 = TyLocInteger (Some (sized @@ (signed, isize_64)))
-  let u64 = TyLocInteger (Some (sized @@ (unsigned, isize_64)))
+  let s8 = TyLocInteger (sized @@ (signed, isize_8))
+  let u8 = TyLocInteger (sized @@ (unsigned, isize_8))
+  let s16 = TyLocInteger (sized @@ (signed, isize_16))
+  let u16 = TyLocInteger (sized @@ (unsigned, isize_16))
+  let s32 = TyLocInteger (sized @@ (signed, isize_32))
+  let u32 = TyLocInteger (sized @@ (unsigned, isize_32))
+  let s64 = TyLocInteger (sized @@ (signed, isize_64))
+  let u64 = TyLocInteger (sized @@ (unsigned, isize_64))
   let f32 = TyLocFloat fsize_32
   let f64 = TyLocFloat fsize_64
-  let usize = TyLocInteger (Some (worded unsigned))
-  let ssize = TyLocInteger (Some (worded signed))
+  let usize = TyLocInteger (worded unsigned)
+  let ssize = TyLocInteger (worded signed)
 
   (**
     [tyloc_substitution bound assoc_types ty] replace the type variable occurences in [ty] 
@@ -167,7 +167,7 @@ module TyLoc = struct
       | TyLocChar
       | TyLocStringLit
       | TyLocOpaque { module_resolver = _; name = _ }
-      | TyLocInteger (None | Some (Worded _ | Sized (_, _))) ) as ty ->
+      | TyLocInteger (Worded _ | Sized (_, _)) ) as ty ->
         ty
 
   and tyloc_substitution_schema bound assoc_type = function
@@ -301,11 +301,11 @@ module Ty = struct
   open Position
   open KosuType
 
-  let s8 = Ty.TyInteger (Some (Sized (Signed, I8)))
-  let u8 = Ty.TyInteger (Some (Sized (Unsigned, I8)))
-  let s32 = Ty.TyInteger (Some (Sized (Signed, I32)))
-  let usize = Ty.TyInteger (Some (Worded Unsigned))
-  let ssize = Ty.TyInteger (Some (Worded Signed))
+  let s8 = Ty.TyInteger (Sized (Signed, I8))
+  let u8 = Ty.TyInteger (Sized (Unsigned, I8))
+  let s32 = Ty.TyInteger (Sized (Signed, I32))
+  let usize = Ty.TyInteger (Worded Unsigned)
+  let ssize = Ty.TyInteger (Worded Signed)
   let stringl = Ty.TyStringLit
   let ptr_const ty = Ty.TyPointer { pointer_state = Const; pointee_type = ty }
   let ptr_mut ty = Ty.TyPointer { pointer_state = Mutable; pointee_type = ty }
@@ -433,12 +433,10 @@ module Ty = struct
       aren't fully infered
   *)
   let is_number_unknwon_size = function
-    | Ty.TyFloat None | Ty.TyInteger None ->
+    | Ty.TyFloat _ | Ty.TyInteger _ ->
         true
     | Ty.TyIdentifier _
     | TyPolymorphic _
-    | TyInteger (Some _)
-    | TyFloat (Some _)
     | TyFunctionPtr _
     | TyClosure _
     | TyOpaque _
@@ -467,8 +465,8 @@ module Ty = struct
         lhs = rhs
 
   let to_quantified_ty_vars = function
-    | Ty.CompilerPolymorphicVar s ->
-        Ty.PolymorphicVar s
+    | Ty.CompilerPolymorphicVar { name; hint = _ } ->
+        Ty.PolymorphicVar name
     | Ty.PolymorphicVar _ as e ->
         e
 
@@ -706,7 +704,7 @@ module Ty = struct
       | TyChar
       | TyStringLit
       | TyOpaque { module_resolver = _; name = _ }
-      | TyInteger (None | Some (Worded _ | Sized (_, _))) ) as ty ->
+      | TyInteger (Worded _ | Sized (_, _)) ) as ty ->
         ty
 
   and ty_substitution_schema assoc_type = function

@@ -38,8 +38,8 @@ module TyLoc = struct
         pointer_state : pointer_state;
         pointee_type : kosu_loctype location;
       }
-    | TyLocInteger of integer_info option
-    | TyLocFloat of fsize option
+    | TyLocInteger of integer_info
+    | TyLocFloat of fsize
     | TyLocFunctionPtr of kosu_locfunction_schema
     (* This closure type is used by the user in function signature*)
     | TyLocClosure of kosu_locfunction_schema
@@ -58,9 +58,14 @@ module TyLoc = struct
 end
 
 module Ty = struct
+  type kosu_type_polymorphic_hint = KTyHintInteger | KTyHintFloat
+
   type kosu_type_polymorphic =
     | PolymorphicVar of string
-    | CompilerPolymorphicVar of string
+    | CompilerPolymorphicVar of {
+        name : string;
+        hint : kosu_type_polymorphic_hint option;
+      }
 
   type kosu_function_schema = {
     poly_vars : kosu_type_polymorphic list;
@@ -76,8 +81,8 @@ module Ty = struct
       }
     | TyPolymorphic of kosu_type_polymorphic
     | TyPointer of { pointer_state : pointer_state; pointee_type : kosu_type }
-    | TyInteger of integer_info option
-    | TyFloat of fsize option
+    | TyInteger of integer_info
+    | TyFloat of fsize
     | TyFunctionPtr of kosu_function_schema
     (* This closure type is used by the user in function signature*)
     | TyClosure of kosu_function_schema
@@ -108,22 +113,22 @@ module Ty = struct
 
   let counter = ref 0
 
-  let fresh_variable reset () =
-    let () = match reset with false -> () | true -> counter := 0 in
-    let n = !counter in
-    let () = incr counter in
-    Printf.sprintf "'t%u" n
+  (* let fresh_variable reset () =
+       let () = match reset with false -> () | true -> counter := 0 in
+       let n = !counter in
+       let () = incr counter in
+       Printf.sprintf "'t%u" n
 
-  let fresh_variable_type_gadt :
-      type a. kind:a kosu_type_kind -> ?reset:bool -> unit -> a =
-   fun ~kind ?(reset = false) () ->
-    let n = fresh_variable reset () in
-    match kind with
-    | KosuTy ->
-        TyPolymorphic (CompilerPolymorphicVar n)
-    | KosuTyLoc ->
-        TyLoc.(TyLocPolymorphic (PolymorphicVarLoc (Position.dummy_located n)))
+     let fresh_variable_type_gadt :
+         type a. kind:a kosu_type_kind -> ?reset:bool -> unit -> a =
+      fun ~kind ?(reset = false) () ->
+       let n = fresh_variable reset () in
+       match kind with
+       | KosuTy ->
+           TyPolymorphic (CompilerPolymorphicVar n)
+       | KosuTyLoc ->
+           TyLoc.(TyLocPolymorphic (PolymorphicVarLoc (Position.dummy_located n)))
 
-  let fresh_variable_type = fresh_variable_type_gadt ~kind:KosuTy
+     let fresh_variable_type = fresh_variable_type_gadt ~kind:KosuTy *)
   (* let fresh_variable_typeloc = fresh_variable_type_gadt ~kind:KosuTyLoc *)
 end
