@@ -44,6 +44,7 @@
 %token <string> PREFIX_TILDE
 %token <string> PREFIX_EXCLA
 %token <string> PREFIX_QUESTIONMARK
+%token AND OR
 %token STAR MINUS PIPE MINUS_SUP INF_MINUS
 %token LPARENT RPARENT LBRACE RBRACE LSQBRACE RSQBRACE WILDCARD
 %token CROISILLION
@@ -62,8 +63,8 @@
 
 
 %right MINUS_SUP
-%left INFIX_PIPE 
-%left INFIX_AMPERSAND
+%left INFIX_PIPE OR
+%left INFIX_AMPERSAND AND
 %left PIPE
 %left INFIX_CARET
 %left INFIX_EQUAL
@@ -432,6 +433,38 @@ expression:
         let _, size = size.value in
         let exprs = List.init (Int64.to_int size) (fun _ -> expr) in
         EArray exprs
+    }
+    | lhs=located(kosu_expression) AND rhs=located(kosu_expression) {
+        let else_body = {
+            kosu_stmts = [];
+            kosu_expr = Position.map (fun kosu_expr -> 
+                { kosu_expr with kosu_expression = EFalse }
+            ) rhs
+        } in
+        let true_body = {
+            kosu_stmts = [];
+            kosu_expr = rhs;
+        } in
+        let cases = [
+            (lhs, true_body)
+        ] in
+        ECases {cases; else_body}
+    }
+    | lhs=located(kosu_expression) OR rhs=located(kosu_expression) {
+        let true_body = {
+            kosu_stmts = [];
+            kosu_expr = Position.map (fun kosu_expr -> 
+                { kosu_expr with kosu_expression = ETrue }
+            ) rhs
+        } in
+        let else_body = {
+            kosu_stmts = [];
+            kosu_expr = rhs;
+        } in
+        let cases = [
+            (lhs, true_body)
+        ] in
+        ECases {cases; else_body}
     }
     | lhs=located(kosu_expression) fn_name=located(infix_operator) rhs=located(kosu_expression) {
         let parameters = lhs::rhs::[] in
