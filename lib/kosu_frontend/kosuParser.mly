@@ -71,6 +71,7 @@
 %left INFIX_PLUS INFIX_MINUS MINUS
 %left STAR INFIX_MULT INFIX_DIV INFIX_PERCENT
 %left INFIX_DOLLAR
+%left DEREF
 %left DOT
 
 %start kosu_module
@@ -398,6 +399,9 @@ expression:
     | CMP_LESS { ECmpLess }
     | CMP_EQUAL { ECmpEqual }
     | CMP_GREATER { ECmpGreater }
+    | STAR located(kosu_expression) %prec DEREF {
+        EDeref $2
+    }
     | StringLitteral { EStringl $1 }
     | CharLitteral { EChar $1 }
     | IntegerLitteral { 
