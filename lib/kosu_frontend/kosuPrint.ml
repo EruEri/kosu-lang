@@ -288,8 +288,12 @@ let string_of_kosu_error : string -> KosuError.kosu_error -> string =
         match module_resolver with
         | ModuleResolverLoc [] ->
             Position.dummy_located "Empty module doesnt exist"
-        | ModuleResolverLoc (_ :: _) as _modules ->
-            failwith ""
+        | ModuleResolverLoc (_ :: _ as modules) ->
+            let message =
+              String.concat "::" @@ List.map Position.value modules
+            in
+            let position = Position.flatten ~default:Position.dummy modules in
+            Position.create position message
       in
       let sloc = string_of_located_error s in
       sfile @@ sloc @@ sprintf "Unbound Module : %s" s.value
@@ -583,8 +587,12 @@ module Formatted = struct
           match module_resolver with
           | ModuleResolverLoc [] ->
               Position.dummy_located "Empty module doesnt exist"
-          | ModuleResolverLoc (_ :: _) as _modules ->
-              failwith ""
+          | ModuleResolverLoc (_ :: _ as modules) ->
+              let message =
+                String.concat "::" @@ List.map Position.value modules
+              in
+              let position = Position.flatten ~default:Position.dummy modules in
+              Position.create position message
         in
         sprintf "Unbound Module : %s" s.value
     | StructInitWrongField { expected; found } ->

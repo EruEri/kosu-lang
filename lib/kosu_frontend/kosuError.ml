@@ -397,6 +397,8 @@ module Function = struct
     | UnboundEnum { enum_name; variant; _ } ->
         let p = Position.position @@ Option.value ~default:variant enum_name in
         [ p ]
+    | UnboundModule (ModuleResolverLoc modules) ->
+        [ Position.flatten ~default:Position.dummy modules ]
     | PatternAlreadyBoundIdentifier patterns
     | PatternIdentifierNotBoundEveryTime patterns ->
         List.map Position.position patterns
@@ -423,6 +425,6 @@ module Function = struct
         [ lhs.position; rhs.position ]
     | CapturedVariableForFunctionPointer variables ->
         List.map Position.position variables
-    | UnboundModule _ | ConfictingTypeDeclaration _ | UnsupportedFile _ ->
+    | ConfictingTypeDeclaration _ | UnsupportedFile _ ->
         []
 end

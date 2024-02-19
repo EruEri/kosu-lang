@@ -36,6 +36,17 @@ let current_position lexbuf =
   let open Lexing in
   { start_position = lexbuf.lex_start_p; end_position = lexbuf.lex_curr_p }
 
+let flatten ~default = function
+  | [] ->
+      default
+  | t :: [] ->
+      t.position
+  | t :: tl ->
+      let start_position = t.position.start_position in
+      let end_position = position @@ List.hd @@ List.rev tl in
+      let end_position = end_position.end_position in
+      { start_position; end_position }
+
 let dummy = Lexing.{ start_position = dummy_pos; end_position = dummy_pos }
 let dummy_located value = { value; position = dummy }
 
