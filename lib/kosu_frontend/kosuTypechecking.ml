@@ -506,7 +506,7 @@ and typeof_expression
                  )
                  kosu_env
       in
-      let schema = KosuUtil.Ty.ty_substitution_schema assoc_poly_fresh schema in
+      let schema = KosuType.Ty.ty_substitution_schema assoc_poly_fresh schema in
 
       let parameters = List.combine schema.parameters_type parameters in
       let kosu_env, ast_exprs =
@@ -685,7 +685,7 @@ and typeof_expression
       let constraints = KosuEnv.equations kosu_env in
 
       let closure_scheama =
-        KosuTypeConstraint.to_schema constraints closure_solution ty_variables
+        KosuUtil.Ty.to_schema constraints closure_solution ty_variables
           ty_clo_ret
       in
 

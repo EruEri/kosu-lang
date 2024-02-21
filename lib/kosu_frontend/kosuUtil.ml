@@ -466,6 +466,26 @@ module Ty = struct
       | TyBool ) as t ->
         t
 
+  (**
+    [try_generalise equations solutions kosu_type]
+  *)
+  let try_generalise equations solutions kosu_type =
+    let module KTS = KosuTypeConstraint.KosuTypingSolution in
+    match kosu_type with
+    | KosuType.Ty.TyPolymorphic p ->
+        let t =
+          match KTS.find_opt p solutions with Some t -> t | None -> kosu_type
+        in
+        let t =
+          if List.exists (KosuTypeConstraint.mem t) equations then
+            t
+          else
+            generalize t
+        in
+        t
+    | t ->
+        t
+
   let rec quantified_ty_vars bound acc ty =
     let open Ty in
     match ty with
@@ -497,6 +517,21 @@ module Ty = struct
     | TyOpaque { module_resolver = _; name = _ }
     | TyInteger _ ->
         acc
+
+  let to_schema equations solutions parameters return_type =
+    let module KTS = KosuTypeConstraint.KosuTypingSolution in
+    let parameters_type =
+      List.map (try_generalise equations solutions) parameters
+    in
+    let return_type = try_generalise equations solutions return_type in
+    let poly_vars =
+      quantified_ty_vars [] KosuTypeVariableSet.empty return_type
+    in
+    let poly_vars =
+      List.fold_left (quantified_ty_vars []) poly_vars parameters_type
+    in
+    let poly_vars = KosuTypeVariableSet.elements poly_vars in
+    KosuType.Ty.{ poly_vars; return_type; parameters_type }
 
   let rec of_tyloc' tyloc = of_tyloc @@ value tyloc
 
@@ -610,80 +645,10 @@ module Ty = struct
     | Ty.PolymorphicVar s ->
         TyLoc.PolymorphicVarLoc (Position.dummy_located s)
 
-  (**
-    [tyloc_substitution bound assoc_types ty] replaces the type variable occurences in [ty] 
-    by there value associated in [assoc_types] and not in [bound]
-
-    [bound] is useful for function signature where type variable can be bound to the function signature
-    (.ie for all 'a . ..)
-  *)
-  let rec ty_substitution bound assoc_types ty =
-    match ty with
-    | Ty.TyPolymorphic variable as t ->
-        let assoc_type =
-          List.find_map
-            (fun (s, ty) ->
-              match s = variable with true -> Some ty | false -> None
-            )
-            assoc_types
-        in
-        Option.value ~default:t assoc_type
-        (* The variable needs to be bound in order to be substitutate *)
-        (* let is_bound = List.exists (( = ) variable) bound in
-           let ty =
-             match (assoc_type, is_bound) with
-             | Some ty, true ->
-                 ty
-             | Some _, false | None, (true | false) ->
-                 t
-           in
-           ty *)
-    | TyIdentifier { module_resolver; parametrics_type; name } ->
-        TyIdentifier
-          {
-            module_resolver;
-            parametrics_type =
-              List.map (ty_substitution bound assoc_types) parametrics_type;
-            name;
-          }
-    | TyFunctionPtr schema ->
-        let schema = ty_substitution_schema assoc_types schema in
-        TyFunctionPtr schema
-    | TyClosure schema ->
-        let schema = ty_substitution_schema assoc_types schema in
-        TyClosure schema
-    | TyPointer { pointer_state; pointee_type } ->
-        let pointee_type = ty_substitution bound assoc_types pointee_type in
-        TyPointer { pointer_state; pointee_type }
-    | TyArray { ktype; size } ->
-        let ktype = ty_substitution bound assoc_types ktype in
-        TyArray { ktype; size }
-    | TyTuple ttes ->
-        let ttes = List.map (ty_substitution bound assoc_types) ttes in
-        TyTuple ttes
-    | ( TyBool
-      | TyUnit
-      | TyFloat _
-      | TyOrdered
-      | TyChar
-      | TyStringLit
-      | TyOpaque { module_resolver = _; name = _ }
-      | TyInteger (Worded _ | Sized (_, _)) ) as ty ->
-        ty
-
-  and ty_substitution_schema assoc_type = function
-    | { poly_vars; parameters_type; return_type } as e ->
-        let bound = poly_vars in
-        let parameters_type =
-          List.map (ty_substitution bound assoc_type) parameters_type
-        in
-        let return_type = ty_substitution bound assoc_type return_type in
-        { e with parameters_type; return_type }
-
   let schema_instanciate ~fresh (schema : Ty.kosu_function_schema) =
     let fresh_variables = List.map (fun _ -> fresh ()) schema.poly_vars in
     let assoc_poly_fresh = List.combine schema.poly_vars fresh_variables in
-    let schema = ty_substitution_schema assoc_poly_fresh schema in
+    let schema = KosuType.Ty.ty_substitution_schema assoc_poly_fresh schema in
     { schema with poly_vars = [] }
 
   (**
@@ -786,7 +751,7 @@ module Enum = struct
         (fun (name, assoc_types) ->
           let assoc_types =
             List.map
-              (Ty.ty_substitution kosu_enum_decl.poly_vars assoc)
+              (KosuType.Ty.ty_substitution kosu_enum_decl.poly_vars assoc)
               assoc_types
           in
           (name, assoc_types)
@@ -860,7 +825,9 @@ module Struct = struct
     let fields =
       List.map
         (fun (name, ty) ->
-          let ty = Ty.ty_substitution kosu_struct_decl.poly_vars assoc ty in
+          let ty =
+            KosuType.Ty.ty_substitution kosu_struct_decl.poly_vars assoc ty
+          in
           (name, ty)
         )
         kosu_struct_decl.fields
@@ -957,7 +924,7 @@ module Expression = struct
     | EIdentifier { module_resolver = _; id = _ } as e ->
         e
     | EStruct { module_resolver; struct_name; fields } ->
-        let module_resolver = explicit_module current_module module_resolver in
+        (* let module_resolver = explicit_module current_module module_resolver in *)
         let fields =
           List.map
             (fun (s, expr) ->
@@ -968,7 +935,7 @@ module Expression = struct
         in
         EStruct { module_resolver; struct_name; fields }
     | EEnum { module_resolver; enum_name; variant; assoc_exprs } ->
-        let module_resolver = explicit_module current_module module_resolver in
+        (* let module_resolver = explicit_module current_module module_resolver in *)
         let assoc_exprs =
           List.map (explicit_module_type' current_module) assoc_exprs
         in
@@ -1087,13 +1054,11 @@ module Expression = struct
         in
         POr patterns
     | PCase { module_resolver; enum_name; variant; assoc_patterns } ->
-        let module_resolver = explicit_module current_module module_resolver in
         let assoc_patterns =
           List.map (explicit_module_type_pattern' current_module) assoc_patterns
         in
         PCase { module_resolver; enum_name; variant; assoc_patterns }
     | PRecord { module_resolver; struct_name; pfields } ->
-        let module_resolver = explicit_module current_module module_resolver in
         let pfields =
           List.map
             (fun (n, pattern) ->

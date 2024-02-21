@@ -48,8 +48,8 @@ let substitute ty_var by (equation : t) =
   {
     equation with
     cexpected =
-      KosuUtil.Ty.ty_substitution [] [ (ty_var, by) ] equation.cexpected;
-    cfound = KosuUtil.Ty.ty_substitution [] [ (ty_var, by) ] equation.cfound;
+      KosuType.Ty.ty_substitution [] [ (ty_var, by) ] equation.cexpected;
+    cfound = KosuType.Ty.ty_substitution [] [ (ty_var, by) ] equation.cfound;
   }
 
 let rec restrict ~(with_ty : KosuType.Ty.kosu_type) (ty : KosuType.Ty.kosu_type)
@@ -357,32 +357,3 @@ let reduce lhs rhs =
     | ((TyStringLit | TyOrdered | TyChar | TyBool | TyUnit) as l), r ->
         let res = match l = r with true -> some @@ right [] | false -> None in
         res
-
-let to_schema equations solutions parameters return_type =
-  let module KTS = KosuTypingSolution in
-  let equations : KosuType.Ty.kosu_type_constraint list = equations in
-  let map_type t =
-    match t with
-    | KosuType.Ty.TyPolymorphic p ->
-        let t = match KTS.find_opt p solutions with Some t -> t | None -> t in
-        let t =
-          if List.exists (mem t) equations then
-            t
-          else
-            KosuUtil.Ty.generalize t
-        in
-        t
-    | t ->
-        t
-  in
-  let parameters_type = List.map map_type parameters in
-  let return_type = map_type return_type in
-  let poly_vars =
-    KosuUtil.Ty.quantified_ty_vars [] KosuUtil.KosuTypeVariableSet.empty
-      return_type
-  in
-  let poly_vars =
-    List.fold_left (KosuUtil.Ty.quantified_ty_vars []) poly_vars parameters_type
-  in
-  let poly_vars = KosuUtil.KosuTypeVariableSet.elements poly_vars in
-  KosuType.Ty.{ poly_vars; return_type; parameters_type }

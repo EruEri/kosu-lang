@@ -97,38 +97,79 @@ module Ty = struct
     | TyBool
     | TyUnit
 
-  and 'a typed = { element : 'a; kosu_type : kosu_type }
-
-  let typed element kosu_type = { element; kosu_type }
-
-  type kosu_type_constraint = {
+  and kosu_type_constraint = {
     cexpected : kosu_type;
     cfound : kosu_type;
     position : Position.position;
   }
 
-  type _ kosu_type_kind =
-    | KosuTy : kosu_type kosu_type_kind
-    | KosuTyLoc : TyLoc.kosu_loctype kosu_type_kind
+  (**
+    [tyloc_substitution bound assoc_types ty] replaces the type variable occurences in [ty] 
+    by there value associated in [assoc_types] and not in [bound]
 
-  let counter = ref 0
+    [bound] is useful for function signature where type variable can be bound to the function signature
+    (.ie for all 'a . ..)
+  *)
+  let rec ty_substitution bound assoc_types ty =
+    match ty with
+    | TyPolymorphic variable as t ->
+        let assoc_type =
+          List.find_map
+            (fun (s, ty) ->
+              match s = variable with true -> Some ty | false -> None
+            )
+            assoc_types
+        in
+        Option.value ~default:t assoc_type
+        (* The variable needs to be bound in order to be substitutate *)
+        (* let is_bound = List.exists (( = ) variable) bound in
+           let ty =
+             match (assoc_type, is_bound) with
+             | Some ty, true ->
+                 ty
+             | Some _, false | None, (true | false) ->
+                 t
+           in
+           ty *)
+    | TyIdentifier { module_resolver; parametrics_type; name } ->
+        TyIdentifier
+          {
+            module_resolver;
+            parametrics_type =
+              List.map (ty_substitution bound assoc_types) parametrics_type;
+            name;
+          }
+    | TyFunctionPtr schema ->
+        let schema = ty_substitution_schema assoc_types schema in
+        TyFunctionPtr schema
+    | TyClosure schema ->
+        let schema = ty_substitution_schema assoc_types schema in
+        TyClosure schema
+    | TyPointer { pointer_state; pointee_type } ->
+        let pointee_type = ty_substitution bound assoc_types pointee_type in
+        TyPointer { pointer_state; pointee_type }
+    | TyArray { ktype; size } ->
+        let ktype = ty_substitution bound assoc_types ktype in
+        TyArray { ktype; size }
+    | TyTuple ttes ->
+        let ttes = List.map (ty_substitution bound assoc_types) ttes in
+        TyTuple ttes
+    | ( TyBool
+      | TyUnit
+      | TyFloat _
+      | TyOrdered
+      | TyChar
+      | TyStringLit
+      | TyOpaque { module_resolver = _; name = _ }
+      | TyInteger (Worded _ | Sized (_, _)) ) as ty ->
+        ty
 
-  (* let fresh_variable reset () =
-       let () = match reset with false -> () | true -> counter := 0 in
-       let n = !counter in
-       let () = incr counter in
-       Printf.sprintf "'t%u" n
-
-     let fresh_variable_type_gadt :
-         type a. kind:a kosu_type_kind -> ?reset:bool -> unit -> a =
-      fun ~kind ?(reset = false) () ->
-       let n = fresh_variable reset () in
-       match kind with
-       | KosuTy ->
-           TyPolymorphic (CompilerPolymorphicVar n)
-       | KosuTyLoc ->
-           TyLoc.(TyLocPolymorphic (PolymorphicVarLoc (Position.dummy_located n)))
-
-     let fresh_variable_type = fresh_variable_type_gadt ~kind:KosuTy *)
-  (* let fresh_variable_typeloc = fresh_variable_type_gadt ~kind:KosuTyLoc *)
+  and ty_substitution_schema assoc_type = function
+    | { poly_vars; parameters_type; return_type } as e ->
+        let bound = poly_vars in
+        let parameters_type =
+          List.map (ty_substitution bound assoc_type) parameters_type
+        in
+        let return_type = ty_substitution bound assoc_type return_type in
+        { e with parameters_type; return_type }
 end

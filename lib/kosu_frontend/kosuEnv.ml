@@ -618,7 +618,7 @@ let rec solve solutions eqs =
                in *)
             let solutions =
               KosuTypingSolution.map
-                (KosuUtil.Ty.ty_substitution [] ((p, ty) :: []))
+                (KosuType.Ty.ty_substitution [] ((p, ty) :: []))
                 solutions
             in
             let solutions = KosuTypingSolution.add p ty solutions in
