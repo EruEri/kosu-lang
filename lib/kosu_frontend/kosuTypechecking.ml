@@ -19,14 +19,7 @@ open KosuAst
 open KosuType
 open KosuError.Exn
 open Position
-
-module PatternIdentifierBound = Set.Make (struct
-  type t = string location * KosuType.Ty.kosu_type
-
-  let compare (lhs : t) (rhs : t) =
-    String.compare (Position.value @@ fst lhs) (Position.value @@ fst rhs)
-end)
-
+module PatternIdentifierBound = KosuType.PatternIdentifierBound
 module CapturedIdentifier = PatternIdentifierBound
 
 let rec typeof ~tyfresh kosu_env
@@ -668,15 +661,6 @@ and typeof_expression
       let (clo_env, ty_clo_ret), ast_body =
         typeof ~tyfresh closure_kosu_env body
       in
-      let ast =
-        EAnonFunction
-          {
-            kind;
-            parameters = ast_parameters;
-            body = ast_body;
-            captured = clo_free_variables;
-          }
-      in
 
       let closure_solution = KosuEnv.solve closure_kosu_env in
 
@@ -687,6 +671,21 @@ and typeof_expression
       let closure_scheama =
         KosuUtil.Ty.to_schema constraints closure_solution ty_variables
           ty_clo_ret
+      in
+
+      let ast =
+        EAnonFunction
+          {
+            kind;
+            parameters = ast_parameters;
+            body = ast_body;
+            captured = clo_free_variables;
+          }
+      in
+
+      let ast =
+        KosuUtil.Expression.generalize_expression constraints closure_solution
+          ast
       in
 
       let () = print_endline "Captured variable [START]" in

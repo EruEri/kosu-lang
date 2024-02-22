@@ -173,3 +173,10 @@ module Ty = struct
         let return_type = ty_substitution bound assoc_type return_type in
         { e with parameters_type; return_type }
 end
+
+module PatternIdentifierBound = Set.Make (struct
+  type t = string location * Ty.kosu_type
+
+  let compare (lhs : t) (rhs : t) =
+    String.compare (Position.value @@ fst lhs) (Position.value @@ fst rhs)
+end)

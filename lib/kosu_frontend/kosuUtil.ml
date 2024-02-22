@@ -1209,6 +1209,255 @@ module Expression = struct
     | EMatch _
     | EAnonFunction _ ->
         expr
+
+  let rec generalize_kosu_expression equations solutions kosu_expression_located
+      =
+    Position.map
+      (generalize_kosu_expression' equations solutions)
+      kosu_expression_located
+
+  and generalize_kosu_expression' equations solutions kosu_expression =
+    let KosuAst.{ kosu_expression; expression_associated } = kosu_expression in
+    let expression_associated =
+      Ty.try_generalise equations solutions expression_associated
+    in
+    let kosu_expression =
+      generalize_expression equations solutions kosu_expression
+    in
+    KosuAst.{ expression_associated; kosu_expression }
+
+  and generalize_expression equations solutions = function
+    | ( KosuAst.EEmpty
+      | ETrue
+      | EFalse
+      | ECmpLess
+      | ECmpEqual
+      | ECmpGreater
+      | ENullptr _
+      | EStringl _
+      | EChar _
+      | EInteger _
+      | EFloat _ ) as e ->
+        e
+    | ESizeof (Either.Left _) as e ->
+        e
+    | ESizeof (Right kosu_expression) ->
+        let kosu_expression =
+          generalize_kosu_expression equations solutions kosu_expression
+        in
+        ESizeof (Right kosu_expression)
+    | EFieldAccess { first_expr; field } ->
+        let first_expr =
+          generalize_kosu_expression equations solutions first_expr
+        in
+        EFieldAccess { first_expr; field }
+    | EArrayAccess { array_expr; index_expr } ->
+        let array_expr =
+          generalize_kosu_expression equations solutions array_expr
+        in
+        let index_expr =
+          generalize_kosu_expression equations solutions index_expr
+        in
+        EArrayAccess { array_expr; index_expr }
+    | ETupleAccess { first_expr; index } ->
+        let first_expr =
+          generalize_kosu_expression equations solutions first_expr
+        in
+        ETupleAccess { first_expr; index }
+    | (EConstIdentifier _ | EIdentifier _) as e ->
+        e
+    | EStruct { module_resolver; struct_name; fields } ->
+        let fields =
+          List.map
+            (fun (field, kosu_expr) ->
+              let kosu_expr =
+                generalize_kosu_expression equations solutions kosu_expr
+              in
+              (field, kosu_expr)
+            )
+            fields
+        in
+        EStruct { module_resolver; struct_name; fields }
+    | EEnum { module_resolver; enum_name; variant; assoc_exprs } ->
+        let assoc_exprs =
+          List.map (generalize_kosu_expression equations solutions) assoc_exprs
+        in
+        EEnum { module_resolver; enum_name; variant; assoc_exprs }
+    | EDeref kosu_expression ->
+        let kosu_expression =
+          generalize_kosu_expression equations solutions kosu_expression
+        in
+        EDeref kosu_expression
+    | ETuple kosu_expressions ->
+        let kosu_expressions =
+          List.map
+            (generalize_kosu_expression equations solutions)
+            kosu_expressions
+        in
+        ETuple kosu_expressions
+    | EArray kosu_expressions ->
+        let kosu_expressions =
+          List.map
+            (generalize_kosu_expression equations solutions)
+            kosu_expressions
+        in
+        EArray kosu_expressions
+    | EBuiltinFunctionCall { fn_name; parameters } ->
+        let parameters =
+          List.map (generalize_kosu_expression equations solutions) parameters
+        in
+        EBuiltinFunctionCall { fn_name; parameters }
+    | EFunctionCall { module_resolver; generics_resolver; fn_name; parameters }
+      ->
+        let parameters =
+          List.map (generalize_kosu_expression equations solutions) parameters
+        in
+        EFunctionCall
+          { module_resolver; generics_resolver; fn_name; parameters }
+    | EWhile { condition_expr; body } ->
+        let condition_expr =
+          generalize_kosu_expression equations solutions condition_expr
+        in
+        EWhile { condition_expr; body }
+    | ECases { cases; else_body } ->
+        let cases =
+          List.map
+            (fun (expr, body) ->
+              let expr = generalize_kosu_expression equations solutions expr in
+              let body = generalize_kosu_block equations solutions body in
+              (expr, body)
+            )
+            cases
+        in
+        let else_body = generalize_kosu_block equations solutions else_body in
+        ECases { cases; else_body }
+    | EBlock block ->
+        EBlock (generalize_kosu_block equations solutions block)
+    | EMatch { expression; patterns } ->
+        let expression =
+          generalize_kosu_expression equations solutions expression
+        in
+        let patterns =
+          List.map
+            (fun (pattern, body) ->
+              let pattern =
+                generalize_kosu_pattern equations solutions pattern
+              in
+              let body = generalize_kosu_block equations solutions body in
+              (pattern, body)
+            )
+            patterns
+        in
+        EMatch { expression; patterns }
+    | EAnonFunction { kind; parameters; body; captured } ->
+        let parameters =
+          List.map
+            (fun KosuAst.{ ais_var; aname; akosu_type } ->
+              let akosu_type =
+                Ty.try_generalise equations solutions akosu_type
+              in
+              KosuAst.{ ais_var; aname; akosu_type }
+            )
+            parameters
+        in
+        let body = generalize_kosu_expression equations solutions body in
+        let captured =
+          KosuType.PatternIdentifierBound.map
+            (fun (name, ty) ->
+              let ty = Ty.try_generalise equations solutions ty in
+              (name, ty)
+            )
+            captured
+        in
+        EAnonFunction { kind; parameters; body; captured }
+
+  and generalize_kosu_statement equations solutions = function
+    | KosuAst.SDeclaration { is_const; pattern; explicit_type; expression } ->
+        let pattern = generalize_kosu_pattern equations solutions pattern in
+        let expression =
+          generalize_kosu_expression equations solutions expression
+        in
+        KosuAst.SDeclaration { is_const; pattern; explicit_type; expression }
+    | SAffection { is_deref; lvalue; expression } ->
+        let expression =
+          generalize_kosu_expression equations solutions expression
+        in
+        KosuAst.SAffection { is_deref; lvalue; expression }
+    | SDiscard expression ->
+        let expression =
+          generalize_kosu_expression equations solutions expression
+        in
+        KosuAst.SDiscard expression
+    | SOpen _ as e ->
+        e
+
+  and generalize_kosu_block equations solutions kosu_block =
+    let KosuAst.{ kosu_stmts; kosu_expr } = kosu_block in
+    let kosu_stmts =
+      List.map
+        (Position.map @@ generalize_kosu_statement equations solutions)
+        kosu_stmts
+    in
+    let kosu_expr = generalize_kosu_expression equations solutions kosu_expr in
+    KosuAst.{ kosu_stmts; kosu_expr }
+
+  and generalize_kosu_pattern equations solutions kosu_pattern =
+    Position.map (generalize_kosu_pattern' equations solutions) kosu_pattern
+
+  and generalize_kosu_pattern' equations solutions kosu_pattern =
+    let KosuAst.{ kosu_pattern; pattern_associated } = kosu_pattern in
+    let pattern_associated =
+      Ty.try_generalise equations solutions pattern_associated
+    in
+    let kosu_pattern = generalize_pattern equations solutions kosu_pattern in
+    KosuAst.{ pattern_associated; kosu_pattern }
+
+  and generalize_pattern equations solutions = function
+    | ( PTrue
+      | PFalse
+      | PEmpty
+      | PCmpLess
+      | PCmpEqual
+      | PCmpGreater
+      | PNullptr
+      | PWildcard
+      | PFloat _
+      | PChar _
+      | PInteger _
+      | PIdentifier _ ) as e ->
+        e
+    | PTuple kosu_patterns ->
+        let patterns =
+          List.map (generalize_kosu_pattern equations solutions) kosu_patterns
+        in
+        PTuple patterns
+    | PCase { module_resolver; enum_name; variant; assoc_patterns } ->
+        let assoc_patterns =
+          List.map (generalize_kosu_pattern equations solutions) assoc_patterns
+        in
+        PCase { module_resolver; enum_name; variant; assoc_patterns }
+    | PRecord { module_resolver; struct_name; pfields } ->
+        let pfields =
+          List.map
+            (fun (field, pattern) ->
+              let pattern =
+                generalize_kosu_pattern equations solutions pattern
+              in
+              (field, pattern)
+            )
+            pfields
+        in
+        PRecord { module_resolver; struct_name; pfields }
+    | POr kosu_patterns ->
+        let patterns =
+          List.map (generalize_kosu_pattern equations solutions) kosu_patterns
+        in
+        POr patterns
+    | PAs { pas_pattern; pas_bound } ->
+        let pas_pattern =
+          generalize_kosu_pattern equations solutions pas_pattern
+        in
+        PAs { pas_pattern; pas_bound }
 end
 
 module Builtin = struct
